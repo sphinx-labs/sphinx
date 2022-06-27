@@ -1,0 +1,39 @@
+{
+  "name": "@chugsplash/plugins",
+  "version": "0.1.0",
+  "description": "ChugSplash plugins",
+  "main": "dist/index",
+  "types": "dist/index",
+  "files": [
+    "dist/*"
+  ],
+  "scripts": {
+    "start": "ts-node ./src/index.ts",
+    "build": "yarn build:ts",
+    "build:ts": "tsc -p ./tsconfig.json",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "lint": "yarn lint:fix && yarn lint:check",
+    "lint:ts:fix": "yarn lint:ts:check --fix",
+    "lint:ts:check": "eslint . --max-warnings=0",
+    "pre-commit": "lint-staged"
+  },
+  "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/plugins#readme",
+  "license": "MIT",
+  "author": "Kelvin Fichter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smartcontracts/chugsplash.git"
+  },
+  "dependencies": {
+    "@chugsplash/contracts": "^0.1.0",
+    "@chugsplash/core": "^0.1.0",
+    "@eth-optimism/core-utils": "^0.9.1",
+    "@pinata/sdk": "^1.1.25",
+    "ethers": "^5.6.9",
+    "node-fetch": "^2.6.7",
+    "semver": "^7.3.7"
+  },
+  "devDependencies": {
+    "hardhat": "^2.10.0"
+  }
+}

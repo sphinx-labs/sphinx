@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig",
+    "juanblanco.solidity",
+    "golang.go",
+  ],
+}
