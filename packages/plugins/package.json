@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/plugins",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
@@ -28,8 +28,8 @@
     "@chugsplash/contracts": "^0.1.0",
     "@chugsplash/core": "^0.1.0",
     "@eth-optimism/core-utils": "^0.9.1",
-    "@pinata/sdk": "^1.1.25",
     "ethers": "^5.6.9",
+    "ipfs-http-client": "56.0.3",
     "node-fetch": "^2.6.7",
     "semver": "^7.3.7"
   },

@@ -9,8 +9,7 @@ import {
   TASK_COMPILE_SOLIDITY_RUN_SOLCJS,
   TASK_COMPILE_SOLIDITY_RUN_SOLC,
 } from 'hardhat/builtin-tasks/task-names'
-// TODO: Get rid of pinata?
-import pinataSDK from '@pinata/sdk'
+import { create } from 'ipfs-http-client'
 import fetch from 'node-fetch'
 import { add0x } from '@eth-optimism/core-utils'
 import {
@@ -23,12 +22,15 @@ import {
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
 
-const TASK_CHUGSPLASH_LOAD = 'chugsplash:load'
-const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash:bundle:local'
-const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash:bundle:remote'
-const TASK_CHUGSPLASH_VERIFY = 'chugsplash:verify'
-const TASK_CHUGSPLASH_COMMIT = 'chugsplash:commit'
-const TASK_CHUGSPLASH_FETCH = 'chugsplash:fetch'
+// internal tasks
+const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
+const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
+const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
+const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
+
+// public tasks
+const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
+const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 subtask(TASK_CHUGSPLASH_LOAD)
   .addParam('deployConfig', undefined, undefined, types.string)
@@ -106,7 +108,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
             fileOutput
           )) {
             artifacts[contractName] = {
-              bytecode: add0x(contractOutput.evm.deployedBytecode.object),
+              bytecode: add0x(contractOutput.evm.bytecode.object),
               storageLayout: contractOutput.storageLayout,
             }
           }
@@ -146,14 +148,12 @@ subtask(TASK_CHUGSPLASH_FETCH)
 task(TASK_CHUGSPLASH_COMMIT)
   .setDescription('Commits a ChugSplash config file with artifacts to IPFS')
   .addParam('deployConfig', 'path to chugsplash deploy config')
-  .addParam('pinataApiKey', 'pinata API key')
-  .addParam('pinataSecretKey', 'pinata secret key')
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(
     async (
       args: {
         deployConfig: string
-        pinataApiKey: string
-        pinataSecretKey: string
+        ipfsUrl: string
       },
       hre
     ) => {
@@ -161,14 +161,9 @@ task(TASK_CHUGSPLASH_COMMIT)
         deployConfig: args.deployConfig,
       })
 
-      // Initialize Pinata
-      const pinata = pinataSDK(args.pinataApiKey, args.pinataSecretKey)
-
-      // Test Pinata connection
-      const auth = await pinata.testAuthentication()
-      if (!auth.authenticated) {
-        throw new Error(`pinata authentication failed: ${auth}`)
-      }
+      const ipfs = create({
+        url: args.ipfsUrl || 'https://ipfs.infura.io:5001/api/v0',
+      })
 
       // We'll need this later
       const buildInfoFolder = path.join(
@@ -196,17 +191,23 @@ task(TASK_CHUGSPLASH_COMMIT)
         })
 
       // Publish config to IPFS
-      const configPublishResult = await pinata.pinJSONToIPFS({
-        ...config,
-        inputs,
-      })
+      const configPublishResult = await ipfs.add(
+        JSON.stringify(
+          {
+            ...config,
+            inputs,
+          },
+          null,
+          2
+        )
+      )
 
       const bundle = await hre.run(TASK_CHUGSPLASH_BUNDLE_LOCAL, {
         deployConfig: args.deployConfig,
       })
 
-      console.log(configPublishResult['IpfsHash'])
-      console.log(bundle.root)
+      console.log(`Config: ipfs://${configPublishResult.path}`)
+      console.log(`Bundle: ${bundle.root}`)
     }
   )
 

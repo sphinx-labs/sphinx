@@ -10,6 +10,7 @@
   "eslint.workingDirectories": [
     {"directory": "packages/contracts", "changeProcessCWD": true },
     {"directory": "packages/core", "changeProcessCWD": true },
+    {"directory": "packages/demo", "changeProcessCWD": true },
     {"directory": "packages/executor", "changeProcessCWD": true },
     {"directory": "packages/plugins", "changeProcessCWD": true },
   ],
