@@ -5,7 +5,6 @@ import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
 import { ChugSplashProxy } from "./ChugSplashProxy.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
-import { EthUtils } from "./libraries/EthUtils.sol";
 
 /**
  * @title ChugSplashManager
@@ -183,7 +182,7 @@ contract ChugSplashManager is Owned {
         // TODO: See if there's a better way to handle this case because it messes with the gas
         // cost of SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
         ChugSplashProxy proxy = getProxyByName(_action.target);
-        if (EthUtils.hasCode(address(proxy)) == false) {
+        if (address(proxy).code.length == 0) {
             bytes32 salt = keccak256(bytes(_action.target));
             ChugSplashProxy created = new ChugSplashProxy{ salt: salt }(address(this));
 

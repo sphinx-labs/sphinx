@@ -2,21 +2,25 @@
 pragma solidity ^0.8.9;
 
 /**
+ * @custom:attribution https://github.com/ethereum-optimism/optimism
  * @title MerkleTree
- * @author River Keefer
+ * @notice Simple Merkle tree implementation, supports up to 2^16 leaves.
  */
 library MerkleTree {
     /**
-     * Calculates a merkle root for a list of 32-byte leaf hashes.  WARNING: If the number
-     * of leaves passed in is not a power of two, it pads out the tree with zero hashes.
-     * If you do not know the original length of elements for the tree you are verifying, then
-     * this may allow empty leaves past _elements.length to pass a verification check down the line.
-     * Note that the _elements argument is modified, therefore it must not be used again afterwards
+     * @notice Calculates a merkle root for a list of 32-byte leaf hashes.
+     *         NOTE: If the number of leaves passed in is not a power of two, it pads out the
+     *         tree with zero hashes. If you do not know the original length of elements for the
+     *         tree you are verifying, then this may allow empty leaves past _elements.length to
+     *         pass a verification check down the line.
+     *         NOTE: The _elements argument is modified, therefore it must not be used again.
+     *
      * @param _elements Array of hashes from which to generate a merkle root.
+     *
      * @return Merkle root of the leaves, with zero hashes for non-powers-of-two (see above).
      */
     function getMerkleRoot(bytes32[] memory _elements) internal pure returns (bytes32) {
-        require(_elements.length > 0, "Lib_MerkleTree: Must provide at least one leaf hash.");
+        require(_elements.length > 0, "MerkleTree: must provide at least one leaf hash");
 
         if (_elements.length == 1) {
             return _elements[0];
@@ -92,15 +96,16 @@ library MerkleTree {
     }
 
     /**
-     * Verifies a merkle branch for the given leaf hash.  Assumes the original length
-     * of leaves generated is a known, correct input, and does not return true for indices
-     * extending past that index (even if _siblings would be otherwise valid.)
-     * @param _root The Merkle root to verify against.
-     * @param _leaf The leaf hash to verify inclusion of.
-     * @param _index The index in the tree of this leaf.
-     * @param _siblings Array of sibline nodes in the inclusion proof, starting from depth 0
-     * (bottom of the tree).
+     * @notice Verifies a merkle branch for the given leaf hash. Assumes the original length of
+     *         leaves generated is a known, correct input, and does not return true for indices
+     *         extending past that index (even if _siblings would be otherwise valid).
+     *
+     * @param _root        The Merkle root to verify against.
+     * @param _leaf        The leaf hash to verify inclusion of.
+     * @param _index       The index in the tree of this leaf.
+     * @param _siblings    Array of sibline nodes in the inclusion proof, starting from depth 0.
      * @param _totalLeaves The total number of leaves originally passed into.
+     *
      * @return Whether or not the merkle branch and leaf passes verification.
      */
     function verify(
@@ -110,17 +115,14 @@ library MerkleTree {
         bytes32[] memory _siblings,
         uint256 _totalLeaves
     ) internal pure returns (bool) {
-        require(_totalLeaves > 0, "Lib_MerkleTree: Total leaves must be greater than zero.");
-
-        require(_index < _totalLeaves, "Lib_MerkleTree: Index out of bounds.");
-
+        require(_totalLeaves > 0, "MerkleTree: total leaves must be greater than zero");
+        require(_index < _totalLeaves, "MerkleTree: index out of bounds");
         require(
             _siblings.length == _ceilLog2(_totalLeaves),
-            "Lib_MerkleTree: Total siblings does not correctly correspond to total leaves."
+            "MerkleTree: total siblings does not correctly correspond to total leaves"
         );
 
         bytes32 computedRoot = _leaf;
-
         for (uint256 i = 0; i < _siblings.length; i++) {
             if ((_index & 1) == 1) {
                 computedRoot = keccak256(abi.encodePacked(_siblings[i], computedRoot));
@@ -134,13 +136,11 @@ library MerkleTree {
         return _root == computedRoot;
     }
 
-    /*********************
-     * Private Functions *
-     *********************/
-
     /**
-     * Calculates the integer ceiling of the log base 2 of an input.
+     * @notice Calculates the integer ceiling of the log base 2 of an input.
+     *
      * @param _in Unsigned input to calculate the log.
+     *
      * @return ceil(log_base_2(_in))
      */
     function _ceilLog2(uint256 _in) private pure returns (uint256) {

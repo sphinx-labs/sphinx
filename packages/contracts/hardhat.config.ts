@@ -1,5 +1,5 @@
 import { HardhatUserConfig } from 'hardhat/types'
-import { getenv, reqenv } from '@eth-optimism/core-utils'
+import { getenv } from '@eth-optimism/core-utils'
 import * as dotenv from 'dotenv'
 
 // Hardhat plugins

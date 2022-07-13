@@ -2,15 +2,17 @@
 pragma solidity ^0.8.9;
 
 /**
- * Simple library for computing CREATE2 addresses.
+ * @title Create2
+ * @notice Simple library for computing CREATE2 addresses.
  */
 library Create2 {
     /**
-     * Computes the CREATE2 address for the given parameters.
+     * @notice Computes the CREATE2 address for the given parameters.
      *
-     * @param _creator Address executing the CREATE2 instruction.
-     * @param _salt 32 byte salt passed to the CREATE2 instruction.
+     * @param _creator  Address executing the CREATE2 instruction.
+     * @param _salt     32 byte salt passed to the CREATE2 instruction.
      * @param _bytecode Initcode for the contract creation.
+     *
      * @return Predicted address of the created contract.
      */
     function compute(
