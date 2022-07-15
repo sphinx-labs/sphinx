@@ -1,50 +1,312 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { ChugSplashManager } from "./ChugSplashManager.sol";
+import { ChugSplashProxy } from "./ChugSplashProxy.sol";
+import { Create2 } from "./libraries/Create2.sol";
+import { MerkleTree } from "./libraries/MerkleTree.sol";
 
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
  * deployments must be first registered with this contract, which allows clients to easily find and
  * index these deployments. Deployment names are unique and are reserved on a first-come,
- * first-served basis.
+ * first-served basis. This contract is also responsible for managing each ChugSplash project
+ * deployment. Each project has a single manager address, which has sole authority to propose and
+ * approve deployments.
  */
 contract ChugSplashRegistry {
     /**
-     * Emitted whenever a new deployment is registered.
+     * Enum representing possible ChugSplash action types.
+     */
+    enum ChugSplashActionType {
+        SET_CODE,
+        SET_STORAGE
+    }
+
+    /**
+     * Enum representing the status of a given ChugSplash action.
+     */
+    enum ChugSplashBundleStatus {
+        EMPTY,
+        PROPOSED,
+        APPROVED,
+        COMPLETED
+    }
+
+    /**
+     * Struct representing a ChugSplash action.
+     */
+    struct ChugSplashAction {
+        ChugSplashActionType actionType;
+        bytes data;
+    }
+
+    /**
+     * Struct representing a ChugSplash project.
+     */
+    struct ChugSplashProject {
+        ChugSplashBundleStatus status;
+        bool[] executions;
+        uint256 total;
+        bytes32 activeBundleHash;
+        address manager;
+    }
+
+    /**
+     * Emitted when a ChugSplash bundle is proposed.
+     */
+    event ChugSplashBundleProposed(
+        string indexed projectName,
+        bytes32 indexed bundleHash,
+        uint256 bundleSize,
+        string configUri
+    );
+
+    /**
+     * Emitted when a ChugSplash action is executed.
+     */
+    event ChugSplashActionExecuted(
+        string indexed projectName,
+        bytes32 indexed bundleHash,
+        address indexed executor,
+        uint256 actionIndex
+    );
+
+    /**
+     * Emitted when a ChugSplash bundle is completed.
+     */
+    event ChugSplashBundleCompleted(
+        string indexed projectName,
+        bytes32 indexed bundleHash,
+        address indexed executor,
+        uint256 total
+    );
+
+    /**
+     * Emitted whenever a new project is registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed name,
+        string indexed projectName,
         address indexed creator,
-        address indexed owner,
         address manager
     );
 
     /**
-     * Registry of ChugSplashManager proxies keyed by name.
+     * Emitted whenever there is a new manager for an existing project.
      */
-    mapping(string => ChugSplashManager) public registry;
+    event ChugSplashManagerUpdated(
+        string indexed projectName,
+        address indexed previousManager,
+        address indexed newManager
+    );
 
     /**
-     * Registers a new project and deploys a corresponding ChugSplashManager contract.
+     * Mapping of project names to ChugSplash projects.
+     */
+    mapping(string => ChugSplashProject) public projects;
+
+    /**
+     * Allows only the manager of a project to call the functions.
+     */
+    modifier onlyManager(string memory _name) {
+        require(msg.sender == projects[_name].manager, "ChugSplashRegistry: caller is not manager");
+        _;
+    }
+
+    /**
+     * Registers a new project.
      *
      * @param _name Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new ChugSplashManager contract.
-     * @return Address of the newly deployed ChugSplashManager contract.
+     * @param _manager Initial manager for the new project.
+     * @return Address of the manager for the new project.
      */
-    function register(string memory _name, address _owner) public returns (address) {
+    function register(string memory _name, address _manager) public returns (address) {
         // TODO: Standardize error reporting system.
         require(
-            address(registry[_name]) == address(0),
+            projects[_name].manager == address(0),
             "ChugSplashRegistry: name already registered"
         );
 
-        // By making the salt be the hash of the name, we can easily predict the address of the
-        // ChugSplashManager contract based on the project's name.
-        bytes32 salt = keccak256(bytes(_name));
-        registry[_name] = new ChugSplashManager{ salt: salt }(_owner);
-        emit ChugSplashProjectRegistered(_name, msg.sender, _owner, address(registry[_name]));
-        return address(registry[_name]);
+        ChugSplashProject storage project = projects[_name];
+        project.manager = _manager;
+        emit ChugSplashProjectRegistered(_name, msg.sender, _manager);
+
+        // TODO: We used to return the ChugSplashManager address here. Should we keep this new
+        // return value or remove it?
+        return _manager;
+    }
+
+    /**
+     * Allows a manager to propose a new ChugSplash bundle to be executed.
+     *
+     * @param _name Name of the ChugSplash project.
+     * @param _bundleHash Hash of the bundle to execute.
+     * @param _bundleSize Total number of actions in the bundle.
+     * @param _configUri URI pointing to the config file for the bundle.
+     */
+    function proposeChugSplashBundle(
+        string memory _name,
+        bytes32 _bundleHash,
+        uint256 _bundleSize,
+        string memory _configUri
+    ) public onlyManager(_name) {
+        ChugSplashProject storage project = projects[_name];
+        require(
+            project.status == ChugSplashBundleStatus.EMPTY,
+            "ChugSplashRegistry: bundle already exists"
+        );
+
+        project.status = ChugSplashBundleStatus.PROPOSED;
+        project.executions = new bool[](_bundleSize);
+
+        emit ChugSplashBundleProposed(_name, _bundleHash, _bundleSize, _configUri);
+    }
+
+    /**
+     * Allows a manager to approve a bundle to be executed. Note that the bundle can be executed
+     * as soon as the bundle is approved.
+     *
+     * @param _name Name of the ChugSplash project.
+     * @param _bundleHash Hash of the bundle to approve.
+     */
+    function approveChugSplashBundle(string memory _name, bytes32 _bundleHash) public onlyManager(_name) {
+        ChugSplashProject storage project = projects[_name];
+        require(
+            project.status == ChugSplashBundleStatus.PROPOSED,
+            "ChugSplashRegistry: bundle either does not exist or has already been approved or completed"
+        );
+
+        require(
+            isUpgrading(_name) == false,
+            "ChugSplashRegistry: another bundle has been approved and not yet completed"
+        );
+
+        project.activeBundleHash = _bundleHash;
+        project.status = ChugSplashBundleStatus.APPROVED;
+    }
+
+    /**
+     * Executes a specific action within the current active bundle for a project. Actions can only be
+     * executed once. If executing this action would complete the bundle, will mark the bundle as
+     * completed and make it possible for a new bundle to be approved.
+     *
+     * @param _name Name of the ChugSplash project.
+     * @param _action Action to execute.
+     * @param _actionIndex Index of the action in the bundle.
+     * @param _proof Merkle proof of the action within the bundle.
+     */
+    function executeChugSplashBundleAction(
+        string memory _name,
+        ChugSplashAction memory _action,
+        uint256 _actionIndex,
+        bytes32[] memory _proof
+    ) public {
+        require(
+            isUpgrading(_name) == true,
+            "ChugSplashRegistry: no bundle has been approved for execution"
+        );
+
+        ChugSplashProject storage project = projects[_name];
+
+        // TODO: Confirm that this will do out-of-bounds checks.
+        require(
+            project.executions[_actionIndex] == false,
+            "ChugSplashRegistry: action has already been executed"
+        );
+
+        require(
+            MerkleTree.verify(
+                project.activeBundleHash,
+                keccak256(abi.encode(_action.actionType, _name, _action.data)),
+                _actionIndex,
+                _proof,
+                project.executions.length
+            ),
+            "ChugSplashRegistry: invalid bundle action proof"
+        );
+
+        // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since we're
+        // deploying via CREATE2, we can always correctly predict what the proxy address *should*
+        // be and can therefore easily check if it's already populated.
+        // TODO: See if there's a better way to handle this case because it messes with the gas
+        // cost of SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
+        ChugSplashProxy proxy = getProxyByName(_name);
+        if (address(proxy).code.length == 0) {
+            bytes32 salt = keccak256(bytes(_name));
+            ChugSplashProxy created = new ChugSplashProxy{ salt: salt }(address(this));
+
+            // Could happen if insufficient gas is supplied to this transaction, should not happen
+            // otherwise. If there's a situation in which this could happen other than a standard
+            // OOG, then this would halt the entire contract.
+            // TODO: Make sure this cannot happen in any case other than OOG.
+            require(
+                address(created) != address(proxy),
+                "ChugSplashRegistry: ChugSplashProxy was not created correctly"
+            );
+        }
+
+        // Actually execute the action.
+        if (_action.actionType == ChugSplashActionType.SET_CODE) {
+            proxy.setCode(_action.data);
+        } else {
+            (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
+            proxy.setStorage(key, val);
+        }
+
+        // Mark the action as executed and update the total number of executed actions.
+        project.total++;
+        project.executions[_actionIndex] = true;
+        emit ChugSplashActionExecuted(_name, project.activeBundleHash, msg.sender, _actionIndex);
+
+        // If all actions have been executed, then we can complete the bundle. Mark the bundle as
+        // completed and reset the active bundle hash so that a new bundle can be executed.
+        if (project.total == project.executions.length) {
+            emit ChugSplashBundleCompleted(_name, project.activeBundleHash, msg.sender, project.total);
+            project.status = ChugSplashBundleStatus.COMPLETED;
+            project.activeBundleHash = bytes32(0);
+        }
+    }
+
+    /**
+     * Sets a new manager for the project.
+     *
+     * @param _name Name of the ChugSplash project.
+     * @param _newManager New manager for the project.
+     */
+    function setManager(string memory _name, address _newManager) public onlyManager(_name) {
+        projects[_name].manager = _newManager;
+
+        emit ChugSplashManagerUpdated(_name, msg.sender, _newManager);
+    }
+
+    /**
+     * Checks if the project is currently upgrading.
+     *
+     * @param _name Name of the ChugSplash project.
+     * @return True if the contract currently has an active bundle.
+     */
+    function isUpgrading(string memory _name) public view returns (bool) {
+        return projects[_name].activeBundleHash != bytes32(0);
+    }
+
+    /**
+     * Computes the address of a ChugSplash proxy that would be created by this contract given the
+     * proxy's name. Uses CREATE2 to guarantee that this address will be correct.
+     *
+     * @param _name Name of the ChugSplash proxy to get the address of.
+     * @return Address of the ChugSplash proxy for the given name.
+     */
+    function getProxyByName(string memory _name) public view returns (ChugSplashProxy) {
+        return (
+            ChugSplashProxy(
+                payable(
+                    Create2.compute(
+                        address(this),
+                        keccak256(bytes(_name)),
+                        type(ChugSplashProxy).creationCode
+                    )
+                )
+            )
+        );
     }
 }
