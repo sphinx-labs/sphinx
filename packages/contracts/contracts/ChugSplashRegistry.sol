@@ -42,12 +42,20 @@ contract ChugSplashRegistry {
     }
 
     /**
-     * Struct representing a ChugSplash project.
+     * Struct representing the state of a ChugSplash bundle.
      */
-    struct ChugSplashProject {
+    struct ChugSplashBundleState {
         ChugSplashBundleStatus status;
         bool[] executions;
         uint256 total;
+    }
+
+    /**
+     * Struct representing a ChugSplash project. A project can have multiple proposed
+     * bundles at once, but only one bundle can be approved and executed at a time.
+     */
+    struct ChugSplashProject {
+        mapping(bytes32 => ChugSplashBundleState) bundles;
         bytes32 activeBundleHash;
         address manager;
     }
@@ -118,9 +126,8 @@ contract ChugSplashRegistry {
      *
      * @param _name Name of the new ChugSplash project.
      * @param _manager Initial manager for the new project.
-     * @return Address of the manager for the new project.
      */
-    function register(string memory _name, address _manager) public returns (address) {
+    function register(string memory _name, address _manager) public {
         // TODO: Standardize error reporting system.
         require(
             projects[_name].manager == address(0),
@@ -130,10 +137,6 @@ contract ChugSplashRegistry {
         ChugSplashProject storage project = projects[_name];
         project.manager = _manager;
         emit ChugSplashProjectRegistered(_name, msg.sender, _manager);
-
-        // TODO: We used to return the ChugSplashManager address here. Should we keep this new
-        // return value or remove it?
-        return _manager;
     }
 
     /**
@@ -150,14 +153,14 @@ contract ChugSplashRegistry {
         uint256 _bundleSize,
         string memory _configUri
     ) public onlyManager(_name) {
-        ChugSplashProject storage project = projects[_name];
+        ChugSplashBundleState storage bundle = projects[_name].bundles[_bundleHash];
         require(
-            project.status == ChugSplashBundleStatus.EMPTY,
+            bundle.status == ChugSplashBundleStatus.EMPTY,
             "ChugSplashRegistry: bundle already exists"
         );
 
-        project.status = ChugSplashBundleStatus.PROPOSED;
-        project.executions = new bool[](_bundleSize);
+        bundle.status = ChugSplashBundleStatus.PROPOSED;
+        bundle.executions = new bool[](_bundleSize);
 
         emit ChugSplashBundleProposed(_name, _bundleHash, _bundleSize, _configUri);
     }
@@ -171,8 +174,9 @@ contract ChugSplashRegistry {
      */
     function approveChugSplashBundle(string memory _name, bytes32 _bundleHash) public onlyManager(_name) {
         ChugSplashProject storage project = projects[_name];
+        ChugSplashBundleState storage bundle = project.bundles[_bundleHash];
         require(
-            project.status == ChugSplashBundleStatus.PROPOSED,
+            bundle.status == ChugSplashBundleStatus.PROPOSED,
             "ChugSplashRegistry: bundle either does not exist or has already been approved or completed"
         );
 
@@ -182,7 +186,7 @@ contract ChugSplashRegistry {
         );
 
         project.activeBundleHash = _bundleHash;
-        project.status = ChugSplashBundleStatus.APPROVED;
+        bundle.status = ChugSplashBundleStatus.APPROVED;
     }
 
     /**
@@ -207,20 +211,21 @@ contract ChugSplashRegistry {
         );
 
         ChugSplashProject storage project = projects[_name];
+        bytes32 activeBundleHash = project.activeBundleHash;
+        ChugSplashBundleState storage bundle = project.bundles[activeBundleHash];
 
-        // TODO: Confirm that this will do out-of-bounds checks.
         require(
-            project.executions[_actionIndex] == false,
+            bundle.executions[_actionIndex] == false,
             "ChugSplashRegistry: action has already been executed"
         );
 
         require(
             MerkleTree.verify(
-                project.activeBundleHash,
+                activeBundleHash,
                 keccak256(abi.encode(_action.actionType, _name, _action.data)),
                 _actionIndex,
                 _proof,
-                project.executions.length
+                bundle.executions.length
             ),
             "ChugSplashRegistry: invalid bundle action proof"
         );
@@ -254,15 +259,15 @@ contract ChugSplashRegistry {
         }
 
         // Mark the action as executed and update the total number of executed actions.
-        project.total++;
-        project.executions[_actionIndex] = true;
-        emit ChugSplashActionExecuted(_name, project.activeBundleHash, msg.sender, _actionIndex);
+        bundle.total++;
+        bundle.executions[_actionIndex] = true;
+        emit ChugSplashActionExecuted(_name, activeBundleHash, msg.sender, _actionIndex);
 
         // If all actions have been executed, then we can complete the bundle. Mark the bundle as
         // completed and reset the active bundle hash so that a new bundle can be executed.
-        if (project.total == project.executions.length) {
-            emit ChugSplashBundleCompleted(_name, project.activeBundleHash, msg.sender, project.total);
-            project.status = ChugSplashBundleStatus.COMPLETED;
+        if (bundle.total == bundle.executions.length) {
+            emit ChugSplashBundleCompleted(_name, activeBundleHash, msg.sender, bundle.total);
+            bundle.status = ChugSplashBundleStatus.COMPLETED;
             project.activeBundleHash = bytes32(0);
         }
     }
