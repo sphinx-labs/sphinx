@@ -31,6 +31,7 @@
     "ethers": "^5.6.9",
     "ipfs-http-client": "56.0.3",
     "node-fetch": "^2.6.7",
+    "ora": "^5.4.1",
     "semver": "^7.3.7"
   },
   "devDependencies": {
