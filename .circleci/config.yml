@@ -1,0 +1,147 @@
+version: 2.1
+
+jobs:
+  yarn-monorepo:
+    docker:
+      - image: ethereumoptimism/ci-builder:latest
+    steps:
+      - restore_cache:
+          keys:
+            - v2-cache-source-{{ .Branch }}-{{ .Revision }}
+            - v2-cache-source-{{ .Branch }}
+      - checkout
+      - save_cache:
+          key: v2-cache-source-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ".git"
+      - restore_cache:
+          keys:
+            - v2-cache-yarn-install-{{ checksum "yarn.lock" }}
+            - v2-cache-yarn-install
+      - run:
+          name: Install dependencies
+          command: yarn --frozen-lockfile
+      - save_cache:
+          key: v2-cache-yarn-install-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
+            - packages/contracts/node_modules
+            - packages/core/node_modules
+            - packages/demo/node_modules
+            - packages/executor/node_modules
+            - packages/plugins/node_modules
+      - run:
+          name: Build monorepo
+          command: yarn build
+      - save_cache:
+          key: v2-cache-yarn-build-{{ .Revision }}
+          paths:
+            - "."
+
+  js-lint-test:
+    parameters:
+      package_name:
+        description: Package name
+        type: string
+      dependencies:
+        description: Regex matching dependent packages
+        type: string
+        default: this-package-does-not-exist
+    docker:
+      - image: ethereumoptimism/ci-builder:latest
+    steps:
+      - restore_cache:
+          keys:
+            - v2-cache-yarn-build-{{ .Revision }}
+      - checkout
+      - run:
+          name: Check if we should run
+          command: |
+            shopt -s inherit_errexit
+            CHANGED=$(check-changed "(packages/<<parameters.package_name>>|packages/<<parameters.dependencies>>)")
+            if [[ "$CHANGED" = "FALSE" ]]; then
+              circleci step halt
+            fi
+      - run:
+          name: Lint
+          command: yarn lint:check
+          working_directory: packages/<<parameters.package_name>>
+      - run:
+          name: Test
+          command: yarn test:coverage
+          working_directory: packages/<<parameters.package_name>>
+
+  depcheck:
+    docker:
+      - image: ethereumoptimism/ci-builder:latest
+    steps:
+      - restore_cache:
+          keys:
+            - v2-cache-yarn-build-{{ .Revision }}
+      - checkout
+      - run:
+          name: Check if we should run
+          command: |
+            shopt -s inherit_errexit
+            CHANGED=$(check-changed "packages/")
+            if [[ "$CHANGED" = "FALSE" ]]; then
+              circleci step halt
+            fi
+      - run:
+          name: Check contracts
+          command: npx depcheck
+          working_directory: packages/contracts
+      - run:
+          name: Check core
+          command: npx depcheck
+          working_directory: packages/core
+      - run:
+          name: Check demo
+          command: npx depcheck
+          working_directory: packages/demo
+      - run:
+          name: Check executor
+          command: npx depcheck
+          working_directory: packages/executor
+      - run:
+          name: Check plugins
+          command: npx depcheck
+          working_directory: packages/plugins
+
+workflows:
+  main:
+    jobs:
+      - yarn-monorepo
+      - js-lint-test:
+          name: contracts-tests
+          package_name: contracts
+          dependencies: "(core)"
+          requires:
+            - yarn-monorepo
+      - js-lint-test:
+          name: core-tests
+          package_name: core
+          requires:
+            - yarn-monorepo
+      - js-lint-test:
+          name: demo-tests
+          package_name: demo
+          dependencies: "(core|contracts|plugins)"
+          requires:
+            - yarn-monorepo
+      - js-lint-test:
+          name: executor-tests
+          package_name: executor
+          dependencies: "(core|contracts)"
+          requires:
+            - yarn-monorepo
+      - js-lint-test:
+          name: plugins-tests
+          package_name: plugins
+          dependencies: "(core|contracts)"
+          requires:
+            - yarn-monorepo
+      # Will enable this soon
+      # - depcheck:
+      #     requires:
+      #       - yarn-monorepo

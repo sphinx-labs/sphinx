@@ -12,7 +12,10 @@
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "test:coverage": "echo 'no tests'",
     "lint": "yarn lint:fix && yarn lint:check",
+    "lint:fix": "yarn lint:ts:fix",
+    "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
     "pre-commit": "lint-staged"
