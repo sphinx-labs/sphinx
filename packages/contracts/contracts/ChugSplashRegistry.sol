@@ -71,6 +71,14 @@ contract ChugSplashRegistry {
     );
 
     /**
+     Emitted when a ChugSplash bundle is approved.
+     */
+    event ChugSplashBundleApproved(
+        string indexed projectName,
+        bytes32 indexed activeBundleHash
+    );
+
+    /**
      * Emitted when a ChugSplash action is executed.
      */
     event ChugSplashActionExecuted(
@@ -90,13 +98,19 @@ contract ChugSplashRegistry {
         uint256 total
     );
 
+    // TODO: Remove `nonIndexedProjectName` after demo.
+    // This parameter is required for now so that the "list all projects" task works.
+    // Without this parameter, we won't be able to recover the unhashed project name
+    // in events, since indexed dynamic types like strings are hashed.
+    // For further explanation: https://github.com/ethers-io/ethers.js/issues/243
     /**
      * Emitted whenever a new project is registered.
      */
     event ChugSplashProjectRegistered(
         string indexed projectName,
         address indexed creator,
-        address manager
+        address indexed manager,
+        string nonIndexedProjectName
     );
 
     /**
@@ -136,7 +150,7 @@ contract ChugSplashRegistry {
 
         ChugSplashProject storage project = projects[_name];
         project.manager = _manager;
-        emit ChugSplashProjectRegistered(_name, msg.sender, _manager);
+        emit ChugSplashProjectRegistered(_name, msg.sender, _manager, _name);
     }
 
     /**
@@ -187,6 +201,8 @@ contract ChugSplashRegistry {
 
         project.activeBundleHash = _bundleHash;
         bundle.status = ChugSplashBundleStatus.APPROVED;
+
+        emit ChugSplashBundleApproved(_name, _bundleHash);
     }
 
     /**
