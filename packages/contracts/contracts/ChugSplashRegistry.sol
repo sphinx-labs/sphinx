@@ -172,12 +172,15 @@ contract ChugSplashRegistry {
      * @param _name Name of the ChugSplash project.
      * @param _bundleHash Hash of the bundle to approve.
      */
-    function approveChugSplashBundle(string memory _name, bytes32 _bundleHash) public onlyManager(_name) {
+    function approveChugSplashBundle(string memory _name, bytes32 _bundleHash)
+        public
+        onlyManager(_name)
+    {
         ChugSplashProject storage project = projects[_name];
         ChugSplashBundleState storage bundle = project.bundles[_bundleHash];
         require(
             bundle.status == ChugSplashBundleStatus.PROPOSED,
-            "ChugSplashRegistry: bundle either does not exist or has already been approved or completed"
+            "ChugSplashRegistry: bundle does not exist or has already been approved or completed"
         );
 
         require(
@@ -190,9 +193,9 @@ contract ChugSplashRegistry {
     }
 
     /**
-     * Executes a specific action within the current active bundle for a project. Actions can only be
-     * executed once. If executing this action would complete the bundle, will mark the bundle as
-     * completed and make it possible for a new bundle to be approved.
+     * Executes a specific action within the current active bundle for a project. Actions can only
+     * be executed once. If executing this action would complete the bundle, will mark the bundle
+     * as completed and make it possible for a new bundle to be approved.
      *
      * @param _name Name of the ChugSplash project.
      * @param _action Action to execute.
