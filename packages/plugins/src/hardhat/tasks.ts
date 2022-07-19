@@ -19,6 +19,7 @@ import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
 } from '@chugsplash/core'
+import ora from 'ora'
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
 
@@ -31,6 +32,8 @@ const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 // public tasks
 const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
 const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
+
+const spinner = ora()
 
 subtask(TASK_CHUGSPLASH_LOAD)
   .addParam('deployConfig', undefined, undefined, types.string)
@@ -157,9 +160,11 @@ task(TASK_CHUGSPLASH_COMMIT)
       },
       hre
     ) => {
+      spinner.start('Compiling deploy config...')
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
         deployConfig: args.deployConfig,
       })
+      spinner.succeed('Compiled deploy config')
 
       const ipfs = create({
         url: args.ipfsUrl || 'https://ipfs.infura.io:5001/api/v0',
@@ -191,6 +196,7 @@ task(TASK_CHUGSPLASH_COMMIT)
         })
 
       // Publish config to IPFS
+      spinner.start('Publishing config to IPFS...')
       const configPublishResult = await ipfs.add(
         JSON.stringify(
           {
@@ -201,13 +207,16 @@ task(TASK_CHUGSPLASH_COMMIT)
           2
         )
       )
+      spinner.succeed('Published config to IPFS')
 
+      spinner.start('Building artifact bundle...')
       const bundle = await hre.run(TASK_CHUGSPLASH_BUNDLE_LOCAL, {
         deployConfig: args.deployConfig,
       })
+      spinner.succeed('Built artifact bundle')
 
-      console.log(`Config: ipfs://${configPublishResult.path}`)
-      console.log(`Bundle: ${bundle.root}`)
+      spinner.succeed(`Config: ipfs://${configPublishResult.path}`)
+      spinner.succeed(`Bundle: ${bundle.root}`)
     }
   )
 
@@ -226,22 +235,30 @@ task(TASK_CHUGSPLASH_VERIFY)
       config: CanonicalChugSplashConfig
       bundle: ChugSplashActionBundle
     }> => {
+      spinner.start('Fetching config, this might take a while...')
       const config: CanonicalChugSplashConfig = await hre.run(
         TASK_CHUGSPLASH_FETCH,
         {
           configUri: args.configUri,
         }
       )
+      spinner.succeed('Fetched config')
 
+      spinner.start('Building artifact bundle...')
       const bundle: ChugSplashActionBundle = await hre.run(
         TASK_CHUGSPLASH_BUNDLE_REMOTE,
         {
           deployConfig: config,
         }
       )
+      spinner.succeed('Built artifact bundle')
 
       if (bundle.root !== args.bundleHash) {
-        throw new Error('bundle hash does not match')
+        spinner.fail(
+          'Bundle hash generated from downloaded config does NOT match given hash'
+        )
+      } else {
+        spinner.succeed('Bundle hash verified')
       }
 
       return {

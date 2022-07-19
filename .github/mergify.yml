@@ -7,7 +7,7 @@ pull_request_rules:
     conditions:
       - and:
         - "#review-threads-unresolved=0"
-        - "#approved-reviews-by>1"
+        - "#approved-reviews-by>=1"
         - "#changes-requested-reviews-by=0"
         - "label!=do-not-merge"
         - "label!=mergify-ignore"
