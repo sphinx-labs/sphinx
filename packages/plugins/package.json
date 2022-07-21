@@ -38,6 +38,7 @@
     "semver": "^7.3.7"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.1.0",
     "hardhat": "^2.10.0"
   }
 }
