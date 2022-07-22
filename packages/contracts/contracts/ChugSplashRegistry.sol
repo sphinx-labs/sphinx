@@ -76,6 +76,18 @@ contract ChugSplashRegistry {
     );
 
     /**
+     * @notice Emitted when a ChugSplash bundle is approved.
+     *
+     * @param projectName      Name of the project that the bundle was proposed for.
+     * @param activeBundleHash Hash of the active bundle.
+     */
+    event ChugSplashBundleApproved(
+        string indexed projectName,
+        bytes32 indexed activeBundleHash
+    );
+
+    /**
+     * Emitted when a ChugSplash action is executed.
      * @notice Emitted when a ChugSplash action is executed.
      *
      * @param projectName Name of the project that the bundle was proposed for.
@@ -108,14 +120,20 @@ contract ChugSplashRegistry {
     /**
      * @notice Emitted whenever a new project is registered.
      *
-     * @param projectName Name of the project that was registered.
-     * @param creator     Address of the creator of the project.
-     * @param manager     Address of the manager of the project.
+     * @param projectNameHash Hash of the project name. Without this parameter, we
+     *                        won't be able to recover the unhashed project name in
+     *                        events, since indexed dynamic types like strings are hashed.
+     *                        For further explanation:
+     *                        https://github.com/ethers-io/ethers.js/issues/243
+     * @param creator         Address of the creator of the project.
+     * @param manager         Address of the manager of the project.
+     * @param projectName     Name of the project that was registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed projectName,
+        string indexed projectNameHash,
         address indexed creator,
-        address manager
+        address indexed manager,
+        string projectName
     );
 
     /**
@@ -161,7 +179,7 @@ contract ChugSplashRegistry {
 
         ChugSplashProject storage project = projects[_name];
         project.manager = _manager;
-        emit ChugSplashProjectRegistered(_name, msg.sender, _manager);
+        emit ChugSplashProjectRegistered(_name, msg.sender, _manager, _name);
     }
 
     /**
@@ -215,6 +233,8 @@ contract ChugSplashRegistry {
 
         project.activeBundleHash = _bundleHash;
         bundle.status = ChugSplashBundleStatus.APPROVED;
+
+        emit ChugSplashBundleApproved(_name, _bundleHash);
     }
 
     /**
