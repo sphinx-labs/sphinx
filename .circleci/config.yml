@@ -55,14 +55,6 @@ jobs:
             - v2-cache-yarn-build-{{ .Revision }}
       - checkout
       - run:
-          name: Check if we should run
-          command: |
-            shopt -s inherit_errexit
-            CHANGED=$(check-changed "(packages/<<parameters.package_name>>|packages/<<parameters.dependencies>>)")
-            if [[ "$CHANGED" = "FALSE" ]]; then
-              circleci step halt
-            fi
-      - run:
           name: Lint
           command: yarn lint:check
           working_directory: packages/<<parameters.package_name>>
@@ -79,14 +71,6 @@ jobs:
           keys:
             - v2-cache-yarn-build-{{ .Revision }}
       - checkout
-      - run:
-          name: Check if we should run
-          command: |
-            shopt -s inherit_errexit
-            CHANGED=$(check-changed "packages/")
-            if [[ "$CHANGED" = "FALSE" ]]; then
-              circleci step halt
-            fi
       - run:
           name: Check contracts
           command: npx depcheck
