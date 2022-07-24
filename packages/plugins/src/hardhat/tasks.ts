@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import '@nomiclabs/hardhat-ethers'
-import { Contract, constants } from 'ethers'
+import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
 import {
@@ -21,7 +21,10 @@ import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
 } from '@chugsplash/core'
-import { ChugSplashRegistryABI } from '@chugsplash/contracts'
+import {
+  ChugSplashRegistryABI,
+  ChugSplashManagerABI,
+} from '@chugsplash/contracts'
 import ora from 'ora'
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
@@ -34,7 +37,7 @@ const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 
 // public tasks
 const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
-const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-all-projects'
+const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
 const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
@@ -43,7 +46,7 @@ const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 
 // This address was generated using Create2. For now, it needs to be changed manually each time
 // the contract is updated.
-const CHUGSPLASH_REGISTRY_ADDRESS = '0xabca85D955e446de437Db0ca7182487Af1A23179'
+const CHUGSPLASH_REGISTRY_ADDRESS = '0x29C464320fD8af9Ec8261DC238EA725FE18E2395'
 
 const spinner = ora()
 
@@ -176,10 +179,10 @@ task(TASK_CHUGSPLASH_REGISTER)
         deployConfig: args.deployConfig,
       })
 
-      const ChugSplashRegistry = new Contract(
+      const ChugSplashRegistry = new ethers.Contract(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryABI,
-        await hre.ethers.provider.getSigner()
+        hre.ethers.provider.getSigner()
       )
 
       await ChugSplashRegistry.register(
@@ -196,10 +199,10 @@ task(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setAction(async (_, hre) => {
     spinner.start('Getting list of all projects...')
 
-    const ChugSplashRegistry = new Contract(
+    const ChugSplashRegistry = new ethers.Contract(
       CHUGSPLASH_REGISTRY_ADDRESS,
       ChugSplashRegistryABI,
-      await hre.ethers.provider.getSigner()
+      hre.ethers.provider.getSigner()
     )
 
     const events = await ChugSplashRegistry.queryFilter(
@@ -207,10 +210,14 @@ task(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
     )
 
     spinner.stop()
-    events.forEach((event) =>
-      console.log(
-        `Project: ${event.args.projectNameHash}\t\tManager: ${event.args.manager}`
-      )
+
+    console.table(
+      events.map((event) => {
+        return {
+          name: event.args.projectName,
+          manager: event.args.manager,
+        }
+      })
     )
   })
 
@@ -227,7 +234,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
       hre
     ) => {
       // First, commit the bundle to IPFS and get the bundle hash that it returns.
-      const { configUri, bundleHash } = await hre.run(TASK_CHUGSPLASH_COMMIT, {
+      const { configUri, bundleId } = await hre.run(TASK_CHUGSPLASH_COMMIT, {
         deployConfig: args.deployConfig,
         ipfsUrl: args.ipfsUrl,
       })
@@ -235,7 +242,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
       // Next, verify that the bundle has been committed to IPFS with the correct bundle hash.
       const { bundle } = await hre.run(TASK_CHUGSPLASH_VERIFY, {
         configUri,
-        bundleHash,
+        bundleId,
       })
 
       spinner.start('Proposing the bundle...')
@@ -244,79 +251,90 @@ task(TASK_CHUGSPLASH_PROPOSE)
         deployConfig: args.deployConfig,
       })
 
-      const ChugSplashRegistry = new Contract(
+      const ChugSplashRegistry = new ethers.Contract(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryABI,
-        await hre.ethers.provider.getSigner()
+        hre.ethers.provider.getSigner()
       )
 
-      await ChugSplashRegistry.proposeChugSplashBundle(
-        config.options.name,
-        bundleHash,
+      const ChugSplashManager = new ethers.Contract(
+        await ChugSplashRegistry.projects(config.options.name),
+        ChugSplashManagerABI,
+        hre.ethers.provider.getSigner()
+      )
+
+      await ChugSplashManager.proposeChugSplashBundle(
+        bundle.root,
         bundle.actions.length,
         configUri
       )
+
       spinner.succeed('Bundle successfully proposed')
     }
   )
 
 task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
-  .addParam('bundleHash', 'hash of the bundle')
   .addParam('projectName', 'name of the chugsplash project')
+  .addParam('bundleId', 'ID of the bundle')
   .setAction(
     async (
       args: {
-        bundleHash: string
         projectName: string
+        bundleId: string
       },
       hre
     ) => {
       spinner.start('Approving the bundle...')
 
-      const ChugSplashRegistry = new Contract(
+      const ChugSplashRegistry = new ethers.Contract(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryABI,
-        await hre.ethers.provider.getSigner()
+        hre.ethers.provider.getSigner()
       )
 
-      await ChugSplashRegistry.approveChugSplashBundle(
-        args.projectName,
-        args.bundleHash
+      const ChugSplashManager = new ethers.Contract(
+        await ChugSplashRegistry.projects(args.projectName),
+        ChugSplashManagerABI,
+        hre.ethers.provider.getSigner()
       )
+
+      await ChugSplashManager.approveChugSplashBundle(args.bundleId)
+
       spinner.succeed('Bundle successfully approved')
     }
   )
 
 task(TASK_CHUGSPLASH_LIST_BUNDLES)
   .setDescription('Lists all bundles for a given project')
-  .addParam('deployConfig', 'path to chugsplash deploy config')
+  .addParam('projectName', 'name of the project')
   .addFlag('includeExecuted', 'include bundles that have been executed')
   .setAction(
     async (
       args: {
-        deployConfig: string
+        projectName: string
         includeExecuted: boolean
       },
       hre
     ) => {
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        deployConfig: args.deployConfig,
-      })
+      spinner.start(`Getting list of all bundles...`)
 
-      const projectName = config.options.name
-      spinner.start(`Getting list of all bundles for ${projectName}...`)
-
-      const ChugSplashRegistry = new Contract(
+      const ChugSplashRegistry = new ethers.Contract(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryABI,
-        await hre.ethers.provider.getSigner()
+        hre.ethers.provider.getSigner()
+      )
+
+      const ChugSplashManager = new ethers.Contract(
+        await ChugSplashRegistry.projects(args.projectName),
+        ChugSplashManagerABI,
+        hre.ethers.provider.getSigner()
       )
 
       // Get events for all bundles that have been proposed. This array includes
       // events that have been approved and executed, which will be filtered out.
-      const proposedEvents = await ChugSplashRegistry.queryFilter(
-        ChugSplashRegistry.filters.ChugSplashBundleProposed(config.options.name)
+      const proposedEvents = await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.ChugSplashBundleProposed()
       )
 
       // Exit early if there are no proposals for the project.
@@ -326,13 +344,13 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
 
       // Filter out the approved bundle event if there is a currently active bundle
-      const activeBundle = (await ChugSplashRegistry.projects(projectName))
-        .activeBundleHash
-      let approvedEvent
-      if (activeBundle !== constants.HashZero) {
+      const activebundleId = await ChugSplashManager.activebundleId()
+
+      let approvedEvent: any
+      if (activebundleId !== ethers.constants.HashZero) {
         for (let i = 0; i < proposedEvents.length; i++) {
-          const bundleHash = proposedEvents[i].args.bundleHash
-          if (bundleHash === activeBundle) {
+          const bundleId = proposedEvents[i].args.bundleId
+          if (bundleId === activebundleId) {
             // Remove the active bundle event in-place and return it.
             approvedEvent = proposedEvents.splice(i, 1)
 
@@ -343,41 +361,40 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
         }
       }
 
-      // Next, filter out the executed bundle events
-      const executedEvents = await ChugSplashRegistry.queryFilter(
-        ChugSplashRegistry.filters.ChugSplashBundleCompleted(
-          config.options.name
-        )
+      const executedEvents = await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.ChugSplashBundleCompleted()
       )
+
       for (const executed of executedEvents) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const proposed = proposedEvents[i]
           // Remove the event if the bundle hashes match
-          if (proposed.args.bundleHash === executed.args.bundleHash) {
+          if (proposed.args.bundleId === executed.args.bundleId) {
             proposedEvents.splice(i, 1)
           }
         }
       }
 
       spinner.stop()
+
       if (proposedEvents.length === 0) {
         // Accounts for the case where there is only one bundle, and it is approved.
         console.log('There are currently no proposed bundles.')
       } else {
         // Display the proposed bundles
-        console.log(`Proposals for ${projectName}:`)
+        console.log(`Proposals for ${args.projectName}:`)
         proposedEvents.forEach((event) =>
           console.log(
-            `Bundle Hash: ${event.args.bundleHash}\t\tConfig URI: ${event.args.configUri}`
+            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
           )
         )
       }
 
       // Display the approved bundle if it exists
-      if (activeBundle !== constants.HashZero) {
+      if (activebundleId !== ethers.constants.HashZero) {
         console.log('Approved:')
         console.log(
-          `Bundle Hash: ${activeBundle}\t\tConfig URI: ${approvedEvent[0].args.bundleHash}`
+          `Bundle ID: ${activebundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
         )
       }
 
@@ -387,7 +404,7 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
         console.log('Executed:')
         executedEvents.forEach((event) =>
           console.log(
-            `Bundle Hash: ${event.args.bundleHash}\t\tConfig URI: ${event.args.configUri}`
+            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
           )
         )
       }
@@ -407,7 +424,7 @@ task(TASK_CHUGSPLASH_COMMIT)
       hre
     ): Promise<{
       configUri: string
-      bundleHash: string
+      bundleId: string
     }> => {
       spinner.start('Compiling deploy config...')
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
@@ -465,23 +482,27 @@ task(TASK_CHUGSPLASH_COMMIT)
       spinner.succeed('Built artifact bundle')
 
       const configUri = `ipfs://${configPublishResult.path}`
-      const bundleHash = bundle.root
-      spinner.succeed(`Config: ${configUri}`)
-      spinner.succeed(`Bundle: ${bundle.root}`)
+      const bundleId = ethers.utils.solidityKeccak256(
+        ['bytes32', 'uint256', 'string'],
+        [bundle.root, bundle.actions.length, configUri]
+      )
 
-      return { configUri, bundleHash }
+      spinner.succeed(`Config: ${configUri}`)
+      spinner.succeed(`Bundle: ${bundleId}`)
+
+      return { configUri, bundleId }
     }
   )
 
 task(TASK_CHUGSPLASH_VERIFY)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
-  .addParam('bundleHash', 'hash of the bundle')
+  .addParam('bundleId', 'hash of the bundle')
   .setAction(
     async (
       args: {
         configUri: string
-        bundleHash: string
+        bundleId: string
       },
       hre
     ): Promise<{
@@ -506,12 +527,17 @@ task(TASK_CHUGSPLASH_VERIFY)
       )
       spinner.succeed('Built artifact bundle')
 
-      if (bundle.root !== args.bundleHash) {
+      const bundleId = ethers.utils.solidityKeccak256(
+        ['bytes32', 'uint256', 'string'],
+        [bundle.root, bundle.actions.length, args.configUri]
+      )
+
+      if (bundleId !== args.bundleId) {
         spinner.fail(
-          'Bundle hash generated from downloaded config does NOT match given hash'
+          'Bundle ID generated from downloaded config does NOT match given hash'
         )
       } else {
-        spinner.succeed('Bundle hash verified')
+        spinner.succeed('Bundle verified')
       }
 
       return {
