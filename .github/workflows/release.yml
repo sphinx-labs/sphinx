@@ -3,7 +3,7 @@ name: Release packages (prod)
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   release-prod:
