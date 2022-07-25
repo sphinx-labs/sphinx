@@ -81,10 +81,7 @@ contract ChugSplashRegistry {
      * @param projectName      Name of the project that the bundle was proposed for.
      * @param activeBundleHash Hash of the active bundle.
      */
-    event ChugSplashBundleApproved(
-        string indexed projectName,
-        bytes32 indexed activeBundleHash
-    );
+    event ChugSplashBundleApproved(string indexed projectName, bytes32 indexed activeBundleHash);
 
     /**
      * Emitted when a ChugSplash action is executed.
