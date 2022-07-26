@@ -44,6 +44,14 @@ contract ChugSplashRegistry {
     event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
 
     /**
+     * @notice Emitted whenever a new proxy type is added.
+     *
+     * @param proxyType Hash representing the proxy type.
+     * @param adapter   Address of the adapter for the proxy.
+     */
+    event ProxyTypeAdded(bytes32 proxyType, address adapter);
+
+    /**
      * @notice Mapping of project names to ChugSplashManager contracts.
      */
     mapping(string => ChugSplashManager) public projects;
@@ -54,10 +62,27 @@ contract ChugSplashRegistry {
     mapping(ChugSplashManager => bool) public managers;
 
     /**
+     * @notice Mapping of proxy types to adapters.
+     */
+    mapping(bytes32 => address) public adapters;
+
+    /**
+     * @notice Address of the ProxyUpdater.
+     */
+    address public immutable proxyUpdater;
+
+    /**
+     * @param _proxyUpdater Address of the ProxyUpdater.
+     */
+    constructor(address _proxyUpdater) {
+        proxyUpdater = _proxyUpdater;
+    }
+
+    /**
      * @notice Registers a new project.
      *
-     * @param _name  Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new project.
+     * @param _name         Name of the new ChugSplash project.
+     * @param _owner        Initial owner for the new project.
      */
     function register(string memory _name, address _owner) public {
         require(
@@ -65,7 +90,12 @@ contract ChugSplashRegistry {
             "ChugSplashRegistry: name already registered"
         );
 
-        ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(this, _name, _owner);
+        ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(
+            this,
+            _name,
+            _owner,
+            proxyUpdater
+        );
         projects[_name] = manager;
         managers[manager] = true;
 
@@ -84,5 +114,22 @@ contract ChugSplashRegistry {
         );
 
         emit EventAnnounced(_event, msg.sender, _event);
+    }
+
+    /**
+     * @notice Adds a new proxy type with a corresponding adapter, which can be used to upgrade a
+     *         custom proxy.
+     *
+     * @param _proxyType Hash representing the proxy type
+     * @param _adapter   Address of the adapter for this proxy type.
+     */
+    function addProxyType(bytes32 _proxyType, address _adapter) external {
+        require(
+            adapters[_proxyType] == address(0),
+            "ChugSplashRegistry: proxy type has an existing adapter"
+        );
+        adapters[_proxyType] = _adapter;
+
+        emit ProxyTypeAdded(_proxyType, _adapter);
     }
 }

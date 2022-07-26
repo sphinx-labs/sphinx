@@ -344,13 +344,13 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
 
       // Filter out the approved bundle event if there is a currently active bundle
-      const activebundleId = await ChugSplashManager.activebundleId()
+      const activeBundleId = await ChugSplashManager.activeBundleId()
 
       let approvedEvent: any
-      if (activebundleId !== ethers.constants.HashZero) {
+      if (activeBundleId !== ethers.constants.HashZero) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const bundleId = proposedEvents[i].args.bundleId
-          if (bundleId === activebundleId) {
+          if (bundleId === activeBundleId) {
             // Remove the active bundle event in-place and return it.
             approvedEvent = proposedEvents.splice(i, 1)
 
@@ -391,10 +391,10 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
 
       // Display the approved bundle if it exists
-      if (activebundleId !== ethers.constants.HashZero) {
+      if (activeBundleId !== ethers.constants.HashZero) {
         console.log('Approved:')
         console.log(
-          `Bundle ID: ${activebundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
+          `Bundle ID: ${activeBundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
         )
       }
 
