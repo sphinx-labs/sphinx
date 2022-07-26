@@ -108,7 +108,7 @@ contract ChugSplashManager is Owned {
     /**
      * @notice ID of the currently active bundle.
      */
-    bytes32 public activebundleId;
+    bytes32 public activeBundleId;
 
     /**
      * @notice Mapping of bundle IDs to bundle state.
@@ -138,7 +138,7 @@ contract ChugSplashManager is Owned {
      *
      * @return Unique ID for the bundle.
      */
-    function computebundleId(
+    function computeBundleId(
         bytes32 _bundleRoot,
         uint256 _bundleSize,
         string memory _configUri
@@ -158,7 +158,7 @@ contract ChugSplashManager is Owned {
         uint256 _bundleSize,
         string memory _configUri
     ) public onlyOwner {
-        bytes32 bundleId = computebundleId(_bundleRoot, _bundleSize, _configUri);
+        bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
         ChugSplashBundleState storage bundle = bundles[bundleId];
 
         require(
@@ -188,11 +188,11 @@ contract ChugSplashManager is Owned {
         );
 
         require(
-            activebundleId == bytes32(0),
+            activeBundleId == bytes32(0),
             "ChugSplashManager: another bundle has been approved and not yet completed"
         );
 
-        activebundleId = _bundleId;
+        activeBundleId = _bundleId;
         bundle.status = ChugSplashBundleStatus.APPROVED;
 
         emit ChugSplashBundleApproved(_bundleId);
@@ -214,11 +214,11 @@ contract ChugSplashManager is Owned {
         bytes32[] memory _proof
     ) public {
         require(
-            activebundleId != bytes32(0),
+            activeBundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
         );
 
-        ChugSplashBundleState storage bundle = bundles[activebundleId];
+        ChugSplashBundleState storage bundle = bundles[activeBundleId];
 
         require(
             bundle.status != ChugSplashBundleStatus.COMPLETED,
@@ -232,7 +232,7 @@ contract ChugSplashManager is Owned {
 
         require(
             MerkleTree.verify(
-                activebundleId,
+                activeBundleId,
                 keccak256(abi.encode(_action.target, _action.actionType, _action.data)),
                 _actionIndex,
                 _proof,
@@ -273,16 +273,16 @@ contract ChugSplashManager is Owned {
         bundle.total++;
         bundle.executions[_actionIndex] = true;
 
-        emit ChugSplashActionExecuted(activebundleId, msg.sender, _actionIndex);
+        emit ChugSplashActionExecuted(activeBundleId, msg.sender, _actionIndex);
         registry.announce("ChugSplashActionExecuted");
 
         // If all actions have been executed, then we can complete the bundle. Mark the bundle as
         // completed and reset the active bundle hash so that a new bundle can be executed.
         if (bundle.total == bundle.executions.length) {
             bundle.status = ChugSplashBundleStatus.COMPLETED;
-            activebundleId = bytes32(0);
+            activeBundleId = bytes32(0);
 
-            emit ChugSplashBundleCompleted(activebundleId, msg.sender, bundle.total);
+            emit ChugSplashBundleCompleted(activeBundleId, msg.sender, bundle.total);
             registry.announce("ChugSplashBundleCompleted");
         }
     }
