@@ -2,19 +2,17 @@
 pragma solidity ^0.8.9;
 
 import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
+import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashProxy } from "./ChugSplashProxy.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 
 /**
  * @title ChugSplashManager
- * @notice The ChugSplashManager contract is responsible for managing a given ChugSplash project
- * deployment. The ChugSplashManager has a single owner address, which can then be implemented to
- * restrict access to specific functions within this contract.
  */
 contract ChugSplashManager is Owned {
     /**
-     * Enum representing possible ChugSplash action types.
+     * @notice Enum representing possible ChugSplash action types.
      */
     enum ChugSplashActionType {
         SET_CODE,
@@ -22,7 +20,7 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * Enum representing the status of a given ChugSplash action.
+     * @notice Enum representing the status of a given ChugSplash action.
      */
     enum ChugSplashBundleStatus {
         EMPTY,
@@ -32,16 +30,16 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * Struct representing a ChugSplash action.
+     * @notice Struct representing a ChugSplash action.
      */
     struct ChugSplashAction {
-        ChugSplashActionType actionType;
         string target;
+        ChugSplashActionType actionType;
         bytes data;
     }
 
     /**
-     * Struct representing the state of a ChugSplash bundle.
+     * @notice Struct representing the state of a ChugSplash bundle.
      */
     struct ChugSplashBundleState {
         ChugSplashBundleStatus status;
@@ -50,116 +48,183 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * Emitted when a ChugSplash bundle is proposed.
+     * @notice Emitted when a ChugSplash bundle is proposed.
+     *
+     * @param bundleId   ID of the bundle being proposed.
+     * @param bundleRoot Root of the proposed bundle's merkle tree.
+     * @param bundleSize Number of steps in the proposed bundle.
+     * @param configUri  URI of the config file that can be used to re-generate the bundle.
      */
     event ChugSplashBundleProposed(
-        bytes32 indexed bundleHash,
+        bytes32 indexed bundleId,
+        bytes32 bundleRoot,
         uint256 bundleSize,
         string configUri
     );
 
     /**
-     * Emitted when a ChugSplash action is executed.
+     * @notice Emitted when a ChugSplash bundle is approved.
+     *
+     * @param bundleId ID of the bundle being approved.
+     */
+    event ChugSplashBundleApproved(bytes32 indexed bundleId);
+
+    /**
+     * @notice Emitted when a ChugSplash action is executed.
+     *
+     * @param bundleId    Unique ID for the bundle.
+     * @param executor    Address of the executor.
+     * @param actionIndex Index within the bundle hash of the action that was executed.
      */
     event ChugSplashActionExecuted(
-        bytes32 indexed bundleHash,
+        bytes32 indexed bundleId,
         address indexed executor,
         uint256 actionIndex
     );
 
     /**
-     * Emitted when a ChugSplash bundle is completed.
+     * @notice Emitted when a ChugSplash bundle is completed.
+     *
+     * @param bundleId Unique ID for the bundle.
+     * @param executor Address of the executor.
+     * @param total    Total number of completed actions.
      */
     event ChugSplashBundleCompleted(
-        bytes32 indexed bundleHash,
+        bytes32 indexed bundleId,
         address indexed executor,
         uint256 total
     );
 
     /**
-     * Mapping of bundle hashes to ChugSplash bundle states.
+     * @notice Address of the ChugSplashRegistry.
+     */
+    ChugSplashRegistry public immutable registry;
+
+    /**
+     * @notice Name of the project this contract is managing.
+     */
+    string public name;
+
+    /**
+     * @notice ID of the currently active bundle.
+     */
+    bytes32 public activebundleId;
+
+    /**
+     * @notice Mapping of bundle IDs to bundle state.
      */
     mapping(bytes32 => ChugSplashBundleState) public bundles;
 
     /**
-     * Current active bundle hash.
+     * @param _registry Address of the ChugSplashRegistry.
+     * @param _name     Name of the project this contract is managing.
+     * @param _owner    Initial owner of this contract.
      */
-    bytes32 public activeBundleHash;
+    constructor(
+        ChugSplashRegistry _registry,
+        string memory _name,
+        address _owner
+    ) Owned(_owner) {
+        registry = _registry;
+        name = _name;
+    }
 
     /**
-     * @param _owner Initial owner for this contract.
-     */
-    constructor(address _owner) Owned(_owner) {}
-
-    /**
-     * Allows a user to propose a new ChugSplash bundle to be executed.
+     * @notice Computes the bundle ID from the bundle parameters.
      *
-     * @param _bundleHash Hash of the bundle to execute.
-     * @param _bundleSize Total number of actions in the bundle.
-     * @param _configUri URI pointing to the config file for the bundle.
+     * @param _bundleRoot Root of the bundle's merkle tree.
+     * @param _bundleSize Number of elements in the bundle's tree.
+     * @param _configUri  URI pointing to the config file for the bundle.
+     *
+     * @return Unique ID for the bundle.
+     */
+    function computebundleId(
+        bytes32 _bundleRoot,
+        uint256 _bundleSize,
+        string memory _configUri
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encode(_bundleRoot, _bundleSize, _configUri));
+    }
+
+    /**
+     * @notice Allows the owner to propose a new ChugSplash bundle to be executed.
+     *
+     * @param _bundleRoot Root of the bundle's merkle tree.
+     * @param _bundleSize Number of elements in the bundle's tree.
+     * @param _configUri  URI pointing to the config file for the bundle.
      */
     function proposeChugSplashBundle(
-        bytes32 _bundleHash,
+        bytes32 _bundleRoot,
         uint256 _bundleSize,
         string memory _configUri
     ) public onlyOwner {
+        bytes32 bundleId = computebundleId(_bundleRoot, _bundleSize, _configUri);
+        ChugSplashBundleState storage bundle = bundles[bundleId];
+
         require(
-            bundles[_bundleHash].status == ChugSplashBundleStatus.EMPTY,
+            bundle.status == ChugSplashBundleStatus.EMPTY,
             "ChugSplashManager: bundle already exists"
         );
 
-        bundles[_bundleHash] = ChugSplashBundleState({
-            status: ChugSplashBundleStatus.PROPOSED,
-            executions: new bool[](_bundleSize),
-            total: 0
-        });
+        bundle.status = ChugSplashBundleStatus.PROPOSED;
+        bundle.executions = new bool[](_bundleSize);
 
-        emit ChugSplashBundleProposed(_bundleHash, _bundleSize, _configUri);
+        emit ChugSplashBundleProposed(bundleId, _bundleRoot, _bundleSize, _configUri);
+        registry.announce("ChugSplashBundleProposed");
     }
 
     /**
-     * Approves a bundle to be executed. Note that the bundle can be executed as oon as the bundle
-     * is approved.
+     * @notice Allows the owner to approve a bundle to be executed. Note that the bundle can be
+     *         executed as soon as the bundle is approved.
      *
-     * @param _bundleHash Hash of the bundle to approve.
+     * @param _bundleId ID of the bundle to approve
      */
-    function approveChugSplashBundle(bytes32 _bundleHash) public onlyOwner {
+    function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
+        ChugSplashBundleState storage bundle = bundles[_bundleId];
+
         require(
-            bundles[_bundleHash].status == ChugSplashBundleStatus.PROPOSED,
-            "ChugSplashManager: bundle either does not exist or has already been approved or completed"
+            bundle.status == ChugSplashBundleStatus.PROPOSED,
+            "ChugSplashManager: bundle does not exist or has already been approved or completed"
         );
 
         require(
-            isUpgrading() == false,
+            activebundleId == bytes32(0),
             "ChugSplashManager: another bundle has been approved and not yet completed"
         );
 
-        activeBundleHash = _bundleHash;
-        bundles[_bundleHash].status = ChugSplashBundleStatus.APPROVED;
+        activebundleId = _bundleId;
+        bundle.status = ChugSplashBundleStatus.APPROVED;
+
+        emit ChugSplashBundleApproved(_bundleId);
+        registry.announce("ChugSplashBundleApproved");
     }
 
     /**
-     * Executes a specific action within the current active bundle. Actions can only be executed
-     * once. If executing this action would complete the bundle, will mark the bundle as completed
-     * and make it possible for a new bundle to be approved.
+     * @notice Executes a specific action within the current active bundle for a project. Actions
+     *         can only be executed once. If executing this action would complete the bundle, will
+     *         mark the bundle as completed and make it possible for a new bundle to be approved.
      *
-     * @param _action Action to execute.
+     * @param _action      Action to execute.
      * @param _actionIndex Index of the action in the bundle.
-     * @param _proof Merkle proof of the action within the bundle.
+     * @param _proof       Merkle proof of the action within the bundle.
      */
-    function executeChugSplashBundleAction(
+    function executeChugSplashBundleActions(
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
     ) public {
         require(
-            isUpgrading() == true,
+            activebundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
         );
 
-        ChugSplashBundleState storage bundle = bundles[activeBundleHash];
+        ChugSplashBundleState storage bundle = bundles[activebundleId];
 
-        // TODO: Confirm that this will do out-of-bounds checks.
+        require(
+            bundle.status != ChugSplashBundleStatus.COMPLETED,
+            "ChugSplashManager: bundle has already been completed"
+        );
+
         require(
             bundle.executions[_actionIndex] == false,
             "ChugSplashManager: action has already been executed"
@@ -167,8 +232,8 @@ contract ChugSplashManager is Owned {
 
         require(
             MerkleTree.verify(
-                activeBundleHash,
-                keccak256(abi.encode(_action.actionType, _action.target, _action.data)),
+                activebundleId,
+                keccak256(abi.encode(_action.target, _action.actionType, _action.data)),
                 _actionIndex,
                 _proof,
                 bundle.executions.length
@@ -207,29 +272,27 @@ contract ChugSplashManager is Owned {
         // Mark the action as executed and update the total number of executed actions.
         bundle.total++;
         bundle.executions[_actionIndex] = true;
-        emit ChugSplashActionExecuted(activeBundleHash, msg.sender, _actionIndex);
+
+        emit ChugSplashActionExecuted(activebundleId, msg.sender, _actionIndex);
+        registry.announce("ChugSplashActionExecuted");
 
         // If all actions have been executed, then we can complete the bundle. Mark the bundle as
         // completed and reset the active bundle hash so that a new bundle can be executed.
         if (bundle.total == bundle.executions.length) {
-            emit ChugSplashBundleCompleted(activeBundleHash, msg.sender, bundle.total);
-            bundles[activeBundleHash].status = ChugSplashBundleStatus.COMPLETED;
-            activeBundleHash = bytes32(0);
+            bundle.status = ChugSplashBundleStatus.COMPLETED;
+            activebundleId = bytes32(0);
+
+            emit ChugSplashBundleCompleted(activebundleId, msg.sender, bundle.total);
+            registry.announce("ChugSplashBundleCompleted");
         }
     }
 
     /**
-     * @return True if the contract currently has an active bundle.
-     */
-    function isUpgrading() public view returns (bool) {
-        return activeBundleHash != bytes32(0);
-    }
-
-    /**
-     * Computes the address of a ChugSplash proxy that would be created by this contract given the
-     * proxy's name. Uses CREATE2 to guarantee that this address will be correct.
+     * @notice Computes the address of a ChugSplash proxy that would be created by this contract
+     *         given the proxy's name. Uses CREATE2 to guarantee that this address will be correct.
      *
      * @param _name Name of the ChugSplash proxy to get the address of.
+     *
      * @return Address of the ChugSplash proxy for the given name.
      */
     function getProxyByName(string memory _name) public view returns (ChugSplashProxy) {

@@ -3,11 +3,26 @@ queue_rules:
     conditions: []
 
 pull_request_rules:
-  - name: Automatic merge on approval
+  - name: Automatic merge on approval (main)
     conditions:
       - and:
+        - "base=main"
         - "#review-threads-unresolved=0"
-        - "#approved-reviews-by>1"
+        - "#approved-reviews-by>=1"
+        - "#changes-requested-reviews-by=0"
+        - "label!=do-not-merge"
+        - "label!=mergify-ignore"
+    actions:
+      queue:
+        name: default
+        method: merge
+
+  - name: Automatic merge on approval (develop)
+    conditions:
+      - and:
+        - "base=develop"
+        - "#review-threads-unresolved=0"
+        - "#approved-reviews-by>=1"
         - "#changes-requested-reviews-by=0"
         - "label!=do-not-merge"
         - "label!=mergify-ignore"

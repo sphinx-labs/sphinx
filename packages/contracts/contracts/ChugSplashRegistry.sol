@@ -6,45 +6,83 @@ import { ChugSplashManager } from "./ChugSplashManager.sol";
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
- * deployments must be first registered with this contract, which allows clients to easily find and
- * index these deployments. Deployment names are unique and are reserved on a first-come,
- * first-served basis.
+ *         deployments must be first registered with this contract, which allows clients to easily
+ *         find and index these deployments. Deployment names are unique and are reserved on a
+ *         first-come, first-served basis.
  */
 contract ChugSplashRegistry {
     /**
-     * Emitted whenever a new deployment is registered.
+     * @notice Emitted whenever a new project is registered.
+     *
+     * @param projectNameHash Hash of the project name. Without this parameter, we
+     *                        won't be able to recover the unhashed project name in
+     *                        events, since indexed dynamic types like strings are hashed.
+     *                        For further explanation:
+     *                        https://github.com/ethers-io/ethers.js/issues/243
+     * @param creator         Address of the creator of the project.
+     * @param manager         Address of the ChugSplashManager for this project.
+     * @param owner           Address of the initial owner of the project.
+     * @param projectName     Name of the project that was registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed name,
+        string indexed projectNameHash,
         address indexed creator,
-        address indexed owner,
-        address manager
+        address indexed manager,
+        address owner,
+        string projectName
     );
 
     /**
-     * Registry of ChugSplashManager proxies keyed by name.
+     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
+     *         registry. We use this to avoid needing a complex indexing system when we're trying
+     *         to find events emitted by the various manager contracts.
+     *
+     * @param eventNameHash Hash of the name of the event being announced.
+     * @param manager       Address of the manager announcing an event.
+     * @param eventName     Name of the event being announced.
      */
-    mapping(string => ChugSplashManager) public registry;
+    event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
 
     /**
-     * Registers a new project and deploys a corresponding ChugSplashManager contract.
-     *
-     * @param _name Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new ChugSplashManager contract.
-     * @return Address of the newly deployed ChugSplashManager contract.
+     * @notice Mapping of project names to ChugSplashManager contracts.
      */
-    function register(string memory _name, address _owner) public returns (address) {
-        // TODO: Standardize error reporting system.
+    mapping(string => ChugSplashManager) public projects;
+
+    /**
+     * @notice Mapping of created manager contracts.
+     */
+    mapping(ChugSplashManager => bool) public managers;
+
+    /**
+     * @notice Registers a new project.
+     *
+     * @param _name  Name of the new ChugSplash project.
+     * @param _owner Initial owner for the new project.
+     */
+    function register(string memory _name, address _owner) public {
         require(
-            address(registry[_name]) == address(0),
+            address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
         );
 
-        // By making the salt be the hash of the name, we can easily predict the address of the
-        // ChugSplashManager contract based on the project's name.
-        bytes32 salt = keccak256(bytes(_name));
-        registry[_name] = new ChugSplashManager{ salt: salt }(_owner);
-        emit ChugSplashProjectRegistered(_name, msg.sender, _owner, address(registry[_name]));
-        return address(registry[_name]);
+        ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(this, _name, _owner);
+        projects[_name] = manager;
+        managers[manager] = true;
+
+        emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
+    }
+
+    /**
+     * @notice Allows ChugSplashManager contracts to announce events.
+     *
+     * @param _event Name of the event to announce.
+     */
+    function announce(string memory _event) public {
+        require(
+            managers[ChugSplashManager(msg.sender)] == true,
+            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+        );
+
+        emit EventAnnounced(_event, msg.sender, _event);
     }
 }

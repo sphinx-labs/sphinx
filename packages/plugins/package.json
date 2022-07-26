@@ -12,7 +12,10 @@
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "test:coverage": "echo 'no tests'",
     "lint": "yarn lint:fix && yarn lint:check",
+    "lint:fix": "yarn lint:ts:fix",
+    "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
     "pre-commit": "lint-staged"
@@ -31,9 +34,11 @@
     "ethers": "^5.6.9",
     "ipfs-http-client": "56.0.3",
     "node-fetch": "^2.6.7",
+    "ora": "^5.4.1",
     "semver": "^7.3.7"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.1.0",
     "hardhat": "^2.10.0"
   }
 }
