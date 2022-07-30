@@ -12,6 +12,16 @@ import { ChugSplashManager } from "./ChugSplashManager.sol";
  */
 contract ChugSplashRegistry {
     /**
+     * @notice Represents types of announcements that Manager contracts are allowed to make.
+     */
+    enum AnnouncementType {
+        BUNDLE_PROPOSED,
+        BUNDLE_APPROVED,
+        BUNDLE_EXECUTED,
+        BUNDLE_FINISHED
+    }
+
+    /**
      * @notice Emitted whenever a new project is registered.
      *
      * @param projectNameHash Hash of the project name. Without this parameter, we
@@ -37,11 +47,10 @@ contract ChugSplashRegistry {
      *         registry. We use this to avoid needing a complex indexing system when we're trying
      *         to find events emitted by the various manager contracts.
      *
-     * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the manager announcing an event.
-     * @param eventName     Name of the event being announced.
+     * @param announcement Type of event being announced
+     * @param manager      Address of the manager announcing an event.
      */
-    event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
+    event EventAnnounced(AnnouncementType indexed announcement, address indexed manager);
 
     /**
      * @notice Mapping of project names to ChugSplashManager contracts.
@@ -52,6 +61,11 @@ contract ChugSplashRegistry {
      * @notice Mapping of created manager contracts.
      */
     mapping(ChugSplashManager => bool) public managers;
+
+    /**
+     * @notice Tracks the block numbers where announcements were made.
+     */
+    uint256[] public announcements;
 
     /**
      * @notice Registers a new project.
@@ -75,14 +89,14 @@ contract ChugSplashRegistry {
     /**
      * @notice Allows ChugSplashManager contracts to announce events.
      *
-     * @param _event Name of the event to announce.
+     * @param _announcement Announcement type to announce.
      */
-    function announce(string memory _event) public {
+    function announce(AnnouncementType _announcement) public {
         require(
             managers[ChugSplashManager(msg.sender)] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
-        emit EventAnnounced(_event, msg.sender, _event);
+        emit EventAnnounced(_announcement, msg.sender);
     }
 }

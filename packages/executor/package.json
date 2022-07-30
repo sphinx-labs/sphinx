@@ -29,5 +29,9 @@
   },
   "devDependencies": {
     "@eth-optimism/common-ts": "^0.6.0"
+  },
+  "dependencies": {
+    "@chugsplash/contracts": "^0.1.1",
+    "ethers": "^5.6.9"
   }
 }

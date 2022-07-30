@@ -89,7 +89,7 @@ contract ChugSplashManager is Owned {
      * @param executor Address of the executor.
      * @param total    Total number of completed actions.
      */
-    event ChugSplashBundleCompleted(
+    event ChugSplashBundleFinished(
         bytes32 indexed bundleId,
         address indexed executor,
         uint256 total
@@ -170,7 +170,7 @@ contract ChugSplashManager is Owned {
         bundle.executions = new bool[](_bundleSize);
 
         emit ChugSplashBundleProposed(bundleId, _bundleRoot, _bundleSize, _configUri);
-        registry.announce("ChugSplashBundleProposed");
+        registry.announce(ChugSplashRegistry.AnnouncementType.BUNDLE_PROPOSED);
     }
 
     /**
@@ -196,7 +196,7 @@ contract ChugSplashManager is Owned {
         bundle.status = ChugSplashBundleStatus.APPROVED;
 
         emit ChugSplashBundleApproved(_bundleId);
-        registry.announce("ChugSplashBundleApproved");
+        registry.announce(ChugSplashRegistry.AnnouncementType.BUNDLE_APPROVED);
     }
 
     /**
@@ -274,7 +274,7 @@ contract ChugSplashManager is Owned {
         bundle.executions[_actionIndex] = true;
 
         emit ChugSplashActionExecuted(activebundleId, msg.sender, _actionIndex);
-        registry.announce("ChugSplashActionExecuted");
+        registry.announce(ChugSplashRegistry.AnnouncementType.BUNDLE_EXECUTED);
 
         // If all actions have been executed, then we can complete the bundle. Mark the bundle as
         // completed and reset the active bundle hash so that a new bundle can be executed.
@@ -282,8 +282,8 @@ contract ChugSplashManager is Owned {
             bundle.status = ChugSplashBundleStatus.COMPLETED;
             activebundleId = bytes32(0);
 
-            emit ChugSplashBundleCompleted(activebundleId, msg.sender, bundle.total);
-            registry.announce("ChugSplashBundleCompleted");
+            emit ChugSplashBundleFinished(activebundleId, msg.sender, bundle.total);
+            registry.announce(ChugSplashRegistry.AnnouncementType.BUNDLE_FINISHED);
         }
     }
 

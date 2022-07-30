@@ -1,10 +1,17 @@
-import { BaseServiceV2 } from '@eth-optimism/common-ts'
+import { ethers } from 'ethers'
+import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
+import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 
-type Options = {}
+type Options = {
+  rpc: ethers.providers.StaticJsonRpcProvider
+  chugSplashRegistryAddress: string
+}
 
 type Metrics = {}
 
-type State = {}
+type State = {
+  registry: ethers.Contract
+}
 
 export class Executor extends BaseServiceV2<Options, Metrics, State> {
   constructor(options?: Partial<Options>) {
@@ -15,12 +22,27 @@ export class Executor extends BaseServiceV2<Options, Metrics, State> {
       loop: true,
       loopIntervalMs: 5000,
       options,
-      optionsSpec: {},
+      optionsSpec: {
+        rpc: {
+          validator: validators.staticJsonRpcProvider,
+          desc: 'URL of the JSON RPC provider for the network we are connecting to',
+        },
+        chugSplashRegistryAddress: {
+          validator: validators.str,
+          desc: 'address of the ChugSplashRegistry contract',
+        },
+      },
       metricsSpec: {},
     })
   }
 
-  async init() {}
+  async init() {
+    this.state.registry = new ethers.Contract(
+      this.options.chugSplashRegistryAddress,
+      ChugSplashRegistryABI,
+      this.options.rpc
+    )
+  }
 
   async main() {
     // 1. Find any available jobs
