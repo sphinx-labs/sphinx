@@ -2,8 +2,10 @@
 pragma solidity ^0.8.9;
 
 import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
-import { ChugSplashProxy } from "./ChugSplashProxy.sol";
+import { ProxyAdmin } from "./ProxyAdmin.sol";
+import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 
@@ -11,6 +13,14 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
  * @title ChugSplashManager
  */
 contract ChugSplashManager is Owned {
+    /**
+     * @notice The storage slot that holds the address of an EIP-1967 implementation. To be used
+     *         as the implementation key for standard proxies.
+     *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+     */
+    bytes32 internal constant EIP1967_IMPLEMENTATION_KEY =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
     /**
      * @notice Enum representing possible ChugSplash action types.
      */
@@ -96,9 +106,34 @@ contract ChugSplashManager is Owned {
     );
 
     /**
+     * @notice Emitted when a non-standard proxy is assigned to a target.
+     *
+     * @param targetNameHash Hash of the target's string name.
+     * @param proxy          Address of the proxy.
+     * @param proxyType      The proxy type.
+     * @param targetName     String name of the target.
+     */
+    event ProxySetToTarget(
+        string indexed targetNameHash,
+        address indexed proxy,
+        bytes32 indexed proxyType,
+        string targetName
+    );
+
+    /**
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
+
+    /**
+     * @notice Address of the ProxyUpdater.
+     */
+    address public immutable proxyUpdater;
+
+    /**
+     * @notice The ProxyAdmin contract.
+     */
+    ProxyAdmin public proxyAdmin;
 
     /**
      * @notice Name of the project this contract is managing.
@@ -116,17 +151,35 @@ contract ChugSplashManager is Owned {
     mapping(bytes32 => ChugSplashBundleState) public bundles;
 
     /**
-     * @param _registry Address of the ChugSplashRegistry.
-     * @param _name     Name of the project this contract is managing.
-     * @param _owner    Initial owner of this contract.
+     * @notice Mapping of target names to proxy addresses. If a target is using the default
+     *         proxy, then its value in this mapping is the zero-address.
+     */
+    mapping(string => address) public proxies;
+
+    /**
+     * @notice Mapping of target names to proxy types. If a target is using the default proxy,
+     *         then its value in this mapping is bytes32(0).
+     */
+    mapping(string => bytes32) proxyTypes;
+
+    /**
+     * @param _registry     Address of the ChugSplashRegistry.
+     * @param _name         Name of the project this contract is managing.
+     * @param _owner        Initial owner of this contract.
+     * @param _proxyUpdater Address of the ProxyUpdater for this project.
+     * @param _proxyAdmin   Address of the ProxyAdmin for this project.
      */
     constructor(
         ChugSplashRegistry _registry,
         string memory _name,
-        address _owner
+        address _owner,
+        address _proxyUpdater,
+        ProxyAdmin _proxyAdmin
     ) Owned(_owner) {
         registry = _registry;
+        proxyUpdater = _proxyUpdater;
         name = _name;
+        proxyAdmin = _proxyAdmin;
     }
 
     /**
@@ -208,7 +261,7 @@ contract ChugSplashManager is Owned {
      * @param _actionIndex Index of the action in the bundle.
      * @param _proof       Merkle proof of the action within the bundle.
      */
-    function executeChugSplashBundleActions(
+    function executeChugSplashBundleAction(
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
@@ -241,32 +294,46 @@ contract ChugSplashManager is Owned {
             "ChugSplashManager: invalid bundle action proof"
         );
 
-        // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since we're
-        // deploying via CREATE2, we can always correctly predict what the proxy address *should*
-        // be and can therefore easily check if it's already populated.
-        // TODO: See if there's a better way to handle this case because it messes with the gas
-        // cost of SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
-        ChugSplashProxy proxy = getProxyByName(_action.target);
-        if (address(proxy).code.length == 0) {
-            bytes32 salt = keccak256(bytes(_action.target));
-            ChugSplashProxy created = new ChugSplashProxy{ salt: salt }(address(this));
+        // Get the proxy type for the proxy that is being used for this target.
+        bytes32 proxyType = proxyTypes[_action.target];
 
-            // Could happen if insufficient gas is supplied to this transaction, should not happen
-            // otherwise. If there's a situation in which this could happen other than a standard
-            // OOG, then this would halt the entire contract.
-            // TODO: Make sure this cannot happen in any case other than OOG.
-            require(
-                address(created) != address(proxy),
-                "ChugSplashManager: ChugSplashProxy was not created correctly"
-            );
+        // Get the proxy to use for this target. The proxy can either be the default proxy used by
+        // ChugSplash or a non-standard proxy that has previously been set by the project owner.
+        address proxy;
+        if (proxyType == bytes32(0)) {
+            // Use a default proxy if this target has no proxy type assigned to it.
+
+            // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since we're
+            // deploying via CREATE2, we can always correctly predict what the proxy address
+            // *should* be and can therefore easily check if it's already populated. TODO: See if
+            // there's a better way to handle this case because it messes with the gas cost of
+            // SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
+            proxy = getProxyByName(_action.target);
+            if (proxy.code.length == 0) {
+                bytes32 salt = keccak256(bytes(_action.target));
+                Proxy created = new Proxy{ salt: salt }(address(proxyAdmin));
+
+                // Could happen if insufficient gas is supplied to this transaction, should not
+                // happen otherwise. If there's a situation in which this could happen other than a
+                // standard OOG, then this would halt the entire contract. TODO: Make sure this
+                // cannot happen in any case other than OOG.
+                require(
+                    address(created) != proxy,
+                    "ChugSplashManager: Proxy was not created correctly"
+                );
+            }
+        } else {
+            // Use the non-standard proxy assigned to this target by the owner.
+            proxy = proxies[_action.target];
         }
 
-        // Actually execute the action.
+        // Next, we execute the ChugSplash action by routing the setCode/setStorage call through a
+        // ProxyAdmin, which owns the proxies for this project.
         if (_action.actionType == ChugSplashActionType.SET_CODE) {
-            proxy.setCode(_action.data);
+            proxyAdmin.setProxyCode(proxy, proxyType, _action.data);
         } else {
             (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
-            proxy.setStorage(key, val);
+            proxyAdmin.setProxyStorage(proxy, proxyType, key, val);
         }
 
         // Mark the action as executed and update the total number of executed actions.
@@ -288,23 +355,38 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * @notice Computes the address of a ChugSplash proxy that would be created by this contract
-     *         given the proxy's name. Uses CREATE2 to guarantee that this address will be correct.
+     * @notice Assigns a non-standard proxy to the specified target to replace the default proxy
+     *         used by ChugSplash. This allows project owners to plug their existing proxies into
+     *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
      *
-     * @param _name Name of the ChugSplash proxy to get the address of.
-     *
-     * @return Address of the ChugSplash proxy for the given name.
+     * @param _name      String name of the target.
+     * @param _proxy     Address of the non-standard proxy.
+     * @param _proxyType The proxy's type.
      */
-    function getProxyByName(string memory _name) public view returns (ChugSplashProxy) {
+    function setProxyToTarget(
+        string memory _name,
+        address _proxy,
+        bytes32 _proxyType
+    ) external onlyOwner {
+        proxies[_name] = _proxy;
+        proxyTypes[_name] = _proxyType;
+
+        emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
+    }
+
+    /**
+     * @notice Computes the address of an ERC-1967 proxy that would be created by this contract
+     *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
+     *         CREATE2 to guarantee that this address will be correct.
+     *
+     * @param _name Name of the target to get the address of.
+     *
+     * @return Address of the proxy for the given name.
+     */
+    function getProxyByName(string memory _name) public view returns (address) {
         return (
-            ChugSplashProxy(
-                payable(
-                    Create2.compute(
-                        address(this),
-                        keccak256(bytes(_name)),
-                        type(ChugSplashProxy).creationCode
-                    )
-                )
+            payable(
+                Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
             )
         );
     }
