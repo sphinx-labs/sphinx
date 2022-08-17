@@ -167,19 +167,17 @@ contract ChugSplashManager is Owned {
      * @param _name         Name of the project this contract is managing.
      * @param _owner        Initial owner of this contract.
      * @param _proxyUpdater Address of the ProxyUpdater for this project.
-     * @param _proxyAdmin   Address of the ProxyAdmin for this project.
      */
     constructor(
         ChugSplashRegistry _registry,
         string memory _name,
         address _owner,
-        address _proxyUpdater,
-        ProxyAdmin _proxyAdmin
+        address _proxyUpdater
     ) Owned(_owner) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
         name = _name;
-        proxyAdmin = _proxyAdmin;
+        proxyAdmin = new ProxyAdmin{ salt: bytes32(0) }();
     }
 
     /**

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.9;
 
 import { ChugSplashManager } from "./ChugSplashManager.sol";
-import { ProxyAdmin } from "./ProxyAdmin.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -24,15 +23,13 @@ contract ChugSplashRegistry {
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
      * @param projectName     Name of the project that was registered.
-     * @param proxyAdmin      Address of the ProxyAdmin for this project.
      */
     event ChugSplashProjectRegistered(
         string indexed projectNameHash,
         address indexed creator,
         address indexed manager,
         address owner,
-        string projectName,
-        address proxyAdmin
+        string projectName
     );
 
     /**
@@ -93,25 +90,16 @@ contract ChugSplashRegistry {
             "ChugSplashRegistry: name already registered"
         );
 
-        ProxyAdmin proxyAdmin = new ProxyAdmin{ salt: bytes32(0) }();
         ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(
             this,
             _name,
             _owner,
-            proxyUpdater,
-            proxyAdmin
+            proxyUpdater
         );
         projects[_name] = manager;
         managers[manager] = true;
 
-        emit ChugSplashProjectRegistered(
-            _name,
-            msg.sender,
-            address(manager),
-            _owner,
-            _name,
-            address(proxyAdmin)
-        );
+        emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
     }
 
     /**
