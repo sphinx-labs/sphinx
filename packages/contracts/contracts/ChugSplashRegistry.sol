@@ -128,6 +128,8 @@ contract ChugSplashRegistry {
             adapters[_proxyType] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
+        // TODO: We might want to add a check here that the adapter supports the correct interface
+        // (e.g. using ERC165Checker) to avoid incorrectly inputted adapter addresses.
         adapters[_proxyType] = _adapter;
 
         emit ProxyTypeAdded(_proxyType, _adapter);

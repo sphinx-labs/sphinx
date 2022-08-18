@@ -14,14 +14,6 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
  */
 contract ChugSplashManager is Owned {
     /**
-     * @notice The storage slot that holds the address of an EIP-1967 implementation. To be used
-     *         as the implementation key for standard proxies.
-     *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-     */
-    bytes32 internal constant EIP1967_IMPLEMENTATION_KEY =
-        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
-    /**
      * @notice Enum representing possible ChugSplash action types.
      */
     enum ChugSplashActionType {
@@ -154,7 +146,7 @@ contract ChugSplashManager is Owned {
      * @notice Mapping of target names to proxy addresses. If a target is using the default
      *         proxy, then its value in this mapping is the zero-address.
      */
-    mapping(string => address) public proxies;
+    mapping(string => address payable) public proxies;
 
     /**
      * @notice Mapping of target names to proxy types. If a target is using the default proxy,
@@ -166,7 +158,7 @@ contract ChugSplashManager is Owned {
      * @param _registry     Address of the ChugSplashRegistry.
      * @param _name         Name of the project this contract is managing.
      * @param _owner        Initial owner of this contract.
-     * @param _proxyUpdater Address of the ProxyUpdater for this project.
+     * @param _proxyUpdater Address of the ProxyUpdater.
      */
     constructor(
         ChugSplashRegistry _registry,
@@ -177,7 +169,7 @@ contract ChugSplashManager is Owned {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
         name = _name;
-        proxyAdmin = new ProxyAdmin{ salt: bytes32(0) }();
+        proxyAdmin = new ProxyAdmin{ salt: bytes32(0) }(_registry, _proxyUpdater);
     }
 
     /**
@@ -297,7 +289,7 @@ contract ChugSplashManager is Owned {
 
         // Get the proxy to use for this target. The proxy can either be the default proxy used by
         // ChugSplash or a non-standard proxy that has previously been set by the project owner.
-        address proxy;
+        address payable proxy;
         if (proxyType == bytes32(0)) {
             // Use a default proxy if this target has no proxy type assigned to it.
 
@@ -363,7 +355,7 @@ contract ChugSplashManager is Owned {
      */
     function setProxyToTarget(
         string memory _name,
-        address _proxy,
+        address payable _proxy,
         bytes32 _proxyType
     ) external onlyOwner {
         proxies[_name] = _proxy;
@@ -381,7 +373,7 @@ contract ChugSplashManager is Owned {
      *
      * @return Address of the proxy for the given name.
      */
-    function getProxyByName(string memory _name) public view returns (address) {
+    function getProxyByName(string memory _name) public view returns (address payable) {
         return (
             payable(
                 Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
