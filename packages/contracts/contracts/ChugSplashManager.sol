@@ -9,47 +9,13 @@ import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 import { IExecutorSelectionStrategy } from "./IExecutorSelectionStrategy.sol";
+import { ChugSplashAction, ChugSplashBundleState } from "./ChugSplashStructs.sol";
+import { ChugSplashActionType, ChugSplashBundleStatus } from "./ChugSplashEnums.sol";
 
 /**
  * @title ChugSplashManager
  */
 contract ChugSplashManager is Owned {
-    /**
-     * @notice Enum representing possible ChugSplash action types.
-     */
-    enum ChugSplashActionType {
-        SET_CODE,
-        SET_STORAGE
-    }
-
-    /**
-     * @notice Enum representing the status of a given ChugSplash action.
-     */
-    enum ChugSplashBundleStatus {
-        EMPTY,
-        PROPOSED,
-        APPROVED,
-        COMPLETED
-    }
-
-    /**
-     * @notice Struct representing a ChugSplash action.
-     */
-    struct ChugSplashAction {
-        string target;
-        ChugSplashActionType actionType;
-        bytes data;
-    }
-
-    /**
-     * @notice Struct representing the state of a ChugSplash bundle.
-     */
-    struct ChugSplashBundleState {
-        ChugSplashBundleStatus status;
-        bool[] executions;
-        uint256 total;
-    }
-
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *

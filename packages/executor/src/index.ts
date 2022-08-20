@@ -148,7 +148,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
             this.state.wallet
           )
 
-          const tx = await strategy.claim(activeBundleId)
+          const tx = await strategy.claim(manager.address, activeBundleId)
           await tx.wait()
         } catch (err) {
           // Unable to claim the lock, so skip this upgrade.
