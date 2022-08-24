@@ -8,6 +8,7 @@ import { ProxyAdmin } from "./ProxyAdmin.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
+import { IExecutorSelectionStrategy } from "./IExecutorSelectionStrategy.sol";
 
 /**
  * @title ChugSplashManager
@@ -136,6 +137,11 @@ contract ChugSplashManager is Owned {
      * @notice ID of the currently active bundle.
      */
     bytes32 public activeBundleId;
+
+    /**
+     * @notice The address of the Executor Selection Strategy for this project.
+     */
+    IExecutorSelectionStrategy public executorSelectionStrategy;
 
     /**
      * @notice Mapping of bundle IDs to bundle state.
@@ -273,6 +279,12 @@ contract ChugSplashManager is Owned {
             "ChugSplashManager: action has already been executed"
         );
 
+        address executor = getSelectedExecutor(activeBundleId);
+        require(
+            executor == msg.sender,
+            "ChugSplashManager: caller is not approved executor for active bundle ID"
+        );
+
         require(
             MerkleTree.verify(
                 activeBundleId,
@@ -362,6 +374,32 @@ contract ChugSplashManager is Owned {
         proxyTypes[_name] = _proxyType;
 
         emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
+    }
+
+    /**
+     * @notice Allows the project owner to set an Executor Selection Strategy, which determines the
+     *         strategy used to select executors for this project. Only callable when there is no
+     *         active bundle.
+     */
+    function setExecutorSelectionStategy(IExecutorSelectionStrategy _executorSelectionStrategy)
+        external
+        onlyOwner
+    {
+        require(
+            activeBundleId == bytes32(0),
+            "ChugSplashManager: a bundle has been approved and not yet completed"
+        );
+        executorSelectionStrategy = _executorSelectionStrategy;
+    }
+
+    /**
+     * @notice Get the address of the executor selected by the Executor Selection Strategy to
+     *         execute a given bundle ID.
+     *
+     * @param _bundleId Bundle ID.
+     */
+    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
+        return executorSelectionStrategy.getSelectedExecutor(address(this), _bundleId);
     }
 
     /**
