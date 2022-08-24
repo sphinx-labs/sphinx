@@ -114,6 +114,24 @@ contract ChugSplashManager is Owned {
     );
 
     /**
+     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
+     *         owner.
+     *
+     * @param targetNameHash Hash of the target's string name.
+     * @param proxy          Address of the proxy that is the subject of the ownership transfer.
+     * @param proxyType      The proxy type.
+     * @param newOwner       Address of the project owner that is receiving ownership of the proxy.
+     * @param targetName     String name of the target.
+     */
+    event ProxyOwnershipClaimed(
+        string indexed targetNameHash,
+        address indexed proxy,
+        bytes32 indexed proxyType,
+        address newOwner,
+        string targetName
+    );
+
+    /**
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
@@ -370,6 +388,13 @@ contract ChugSplashManager is Owned {
         address payable _proxy,
         bytes32 _proxyType
     ) external onlyOwner {
+        require(
+            activeBundleId == bytes32(0),
+            "ChugSplashManager: cannot change proxy while bundle is active"
+        );
+        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
+        require(_proxyType != bytes32(0), "ChugSplashManager: proxy must have a proxy type");
+
         proxies[_name] = _proxy;
         proxyTypes[_name] = _proxyType;
 
@@ -407,7 +432,7 @@ contract ChugSplashManager is Owned {
      *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
      *         CREATE2 to guarantee that this address will be correct.
      *
-     * @param _name Name of the target to get the address of.
+     * @param _name Name of the target to get the corresponding proxy address of.
      *
      * @return Address of the proxy for the given name.
      */

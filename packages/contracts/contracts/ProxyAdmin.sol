@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
@@ -14,7 +15,7 @@ import { IProxyAdapter } from "./IProxyAdapter.sol";
  *         can universally handle all different proxy types as long as the ProxyAdmin is considered
  *         the owning address of each proxy.
  */
-contract ProxyAdmin {
+contract ProxyAdmin is Owned {
     /**
      * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
      *         contract, the appended bytecode will be deployed as given.
@@ -35,7 +36,7 @@ contract ProxyAdmin {
      * @param _registry     Address of the ChugSplashRegistry.
      * @param _proxyUpdater Address of the ProxyUpdater.
      */
-    constructor(ChugSplashRegistry _registry, address _proxyUpdater) {
+    constructor(ChugSplashRegistry _registry, address _proxyUpdater) Owned(msg.sender) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
     }
@@ -98,7 +99,8 @@ contract ProxyAdmin {
     }
 
     /**
-     * @notice Modifies a storage slot within the proxy contract.
+     * @notice Modifies a storage slot within the proxy contract. Can only be called by the
+     *         ChugSplashManager that owns this contract.
      *
      * @param _proxy     Address of the proxy to upgrade.
      * @param _proxyType The proxy's type. This is the zero-address for default proxies.
@@ -110,7 +112,7 @@ contract ProxyAdmin {
         bytes32 _proxyType,
         bytes32 _key,
         bytes32 _value
-    ) public {
+    ) public onlyOwner {
         // Get the adapter that corresponds to this proxy type.
         address adapter = registry.adapters(_proxyType);
         require(adapter != address(0), "ProxyAdmin: proxy type has no adapter");
@@ -154,6 +156,30 @@ contract ProxyAdmin {
             implementation := mload(add(implementationBytes, 32))
         }
         return implementation;
+    }
+
+    /**
+     * @notice Transfers ownership of a proxy from this contract to the project owner.
+     *         Can only be called by the ChugSplashManager that owns this contract.
+     *
+     * @param _proxy     Proxy that is the subject of the ownership transfer.
+     * @param _proxyType The proxy's type.
+     * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
+     */
+    function transferProxyOwnership(
+        address payable _proxy,
+        bytes32 _proxyType,
+        address _newOwner
+    ) public onlyOwner {
+        // Get the adapter that corresponds to this proxy type.
+        address adapter = registry.adapters(_proxyType);
+        require(adapter != address(0), "ProxyAdmin: proxy type has no adapter");
+
+        // Delegatecall the adapter to change ownership of the proxy.
+        (bool success, ) = adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
+        );
+        require(success, "ProxyAdmin: delegatecall to change proxy admin failed");
     }
 
     /**
