@@ -125,9 +125,7 @@ contract ProxyAdmin {
         _upgradeProxyTo(_proxy, adapter, proxyUpdater);
 
         // Call the `setStorage` action on the proxy.
-        (bool success, ) = _proxy.call(
-            abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
-        );
+        (bool success, ) = _proxy.call(abi.encodeCall(ProxyUpdater.setStorage, (_key, _value)));
         require(success, "ProxyAdmin: call to set proxy storage failed");
 
         // Delegatecall the adapter to set the proxy's implementation back to its original
@@ -141,7 +139,10 @@ contract ProxyAdmin {
      * @param _proxy   Address of the proxy.
      * @param _adapter Address of the adapter to use for the proxy.
      */
-    function _getProxyImplementation(address _proxy, address _adapter) internal returns (address) {
+    function _getProxyImplementation(address payable _proxy, address _adapter)
+        internal
+        returns (address)
+    {
         (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
         );
@@ -163,7 +164,7 @@ contract ProxyAdmin {
      * @param _implementation Address to set as the proxy's new implementation contract.
      */
     function _upgradeProxyTo(
-        address _proxy,
+        address payable _proxy,
         address _adapter,
         address _implementation
     ) internal {
