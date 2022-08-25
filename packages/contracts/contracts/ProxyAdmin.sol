@@ -16,6 +16,12 @@ import { IProxyAdapter } from "./IProxyAdapter.sol";
  */
 contract ProxyAdmin {
     /**
+     * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
+     *         contract, the appended bytecode will be deployed as given.
+     */
+    bytes13 internal constant DEPLOY_CODE_PREFIX = 0x600D380380600D6000396000f3;
+
+    /**
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
@@ -35,7 +41,10 @@ contract ProxyAdmin {
     }
 
     /**
-     * @notice Sets new code for the proxy contract's implementation.
+     * @notice Sets new code for the proxy contract's implementation. Note that this scheme is a bit
+     *         different from the standard proxy scheme where one would typically deploy the code
+     *         separately and then set the implementation address. We're doing it this way because
+     *         it gives us a lot more freedom on the client side.
      *
      * @param _proxy     Address of the proxy to upgrade.
      * @param _proxyType The proxy's type. This is the zero-address for default proxies.
@@ -46,20 +55,46 @@ contract ProxyAdmin {
         bytes32 _proxyType,
         bytes memory _code
     ) public {
+        // TODO: Add a re-entrancy guard to this function if we move away from using
+        // `DEPLOY_CODE_PREFIX`. There is currently no risk of re-entrancy because the prefix
+        // guarantees that no sub-calls can be made in the implementation contract's constructor. In
+        // the future, we might want to move away from the prefix to add support for constructors
+        // that can run arbitrary creation bytecode. It will then become become necessary to add a
+        // re-entrancy guard to prevent a constructor from calling another contract which in turn
+        // calls back into setCode or setStorage.
+
         // Get the adapter that corresponds to this proxy type.
         address adapter = registry.adapters(_proxyType);
         require(adapter != address(0), "ProxyAdmin: proxy type has no adapter");
 
-        // Delegatecall the adapter to upgrade the proxy's implementation to be the
-        // ProxyUpdater, which has the `setCode` function.
-        _upgradeUsingAdapter(_proxy, adapter, proxyUpdater);
+        // Get the address of the current implementation for the proxy.
+        address implementation = _getProxyImplementation(_proxy, adapter);
 
-        // Delegatecall the adapter, which in turn will call the proxy to trigger a `setCode`
-        // action.
-        (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setProxyCode, (_proxy, _code))
+        // If the code hash matches the code hash of the new implementation then we return early.
+        if (keccak256(_code) == _getAccountCodeHash(implementation)) {
+            return;
+        }
+
+        // Create the deploycode by prepending the magic prefix.
+        bytes memory deploycode = abi.encodePacked(DEPLOY_CODE_PREFIX, _code);
+
+        // Deploy the code and set the new implementation address.
+        address newImplementation;
+        assembly {
+            newImplementation := create(0x0, add(deploycode, 0x20), mload(deploycode))
+        }
+
+        // Check that the code was actually deployed correctly. It might be impossible to fail this
+        // check. Should only happen if the contract creation from above runs out of gas but this
+        // parent execution thread does NOT run out of gas. Seems like we should be doing this check
+        // anyway though.
+        require(
+            _getAccountCodeHash(newImplementation) == keccak256(_code),
+            "ProxyUpdater: code was not correctly deployed"
         );
-        require(success, "ProxyAdmin: delegatecall to set proxy code failed");
+
+        // Delegatecall the adapter to upgrade the proxy's implementation contract.
+        _upgradeProxyTo(_proxy, adapter, implementation);
     }
 
     /**
@@ -83,31 +118,41 @@ contract ProxyAdmin {
         // Get the address of the current implementation for the proxy. The ProxyAdmin will set
         // the proxy's implementation back to this address after setting it to be the
         // ProxyUpdater and calling `setStorage`.
-        (bool success, bytes memory implementationBytes) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.getProxyImplementation, ())
-        );
-        require(success, "ProxyAdmin: delegatecall to get proxy implementation failed");
+        address implementation = _getProxyImplementation(_proxy, adapter);
 
         // Delegatecall the adapter to upgrade the proxy's implementation to be the
         // ProxyUpdater, which has the `setStorage` function.
-        _upgradeUsingAdapter(_proxy, adapter, proxyUpdater);
+        _upgradeProxyTo(_proxy, adapter, proxyUpdater);
 
-        // Delegatecall the adapter, which in turn will call the proxy to trigger a `setStorage`
-        // action.
-        (bool setStorageSuccess, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setProxyStorage, (_proxy, _key, _value))
+        // Call the `setStorage` action on the proxy.
+        (bool success, ) = _proxy.call(
+            abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
         );
-        require(setStorageSuccess, "ProxyAdmin: delegatecall to set proxy storage failed");
+        require(success, "ProxyAdmin: call to set proxy storage failed");
+
+        // Delegatecall the adapter to set the proxy's implementation back to its original
+        // address.
+        _upgradeProxyTo(_proxy, adapter, implementation);
+    }
+
+    /**
+     * @notice Delegatecalls an adapter to get the address of the proxy's implementation contract.
+     *
+     * @param _proxy   Address of the proxy.
+     * @param _adapter Address of the adapter to use for the proxy.
+     */
+    function _getProxyImplementation(address _proxy, address _adapter) internal returns (address) {
+        (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
+        );
+        require(success, "ProxyAdmin: delegatecall to get proxy implementation failed");
 
         // Convert the implementation's type from bytes to address.
         address implementation;
         assembly {
             implementation := mload(add(implementationBytes, 32))
         }
-
-        // Delegatecall the adapter to set the proxy's implementation back to its original
-        // address.
-        _upgradeUsingAdapter(_proxy, adapter, implementation);
+        return implementation;
     }
 
     /**
@@ -117,7 +162,7 @@ contract ProxyAdmin {
      * @param _adapter        Address of the adapter to use for the proxy.
      * @param _implementation Address to set as the proxy's new implementation contract.
      */
-    function _upgradeUsingAdapter(
+    function _upgradeProxyTo(
         address _proxy,
         address _adapter,
         address _implementation
@@ -126,5 +171,20 @@ contract ProxyAdmin {
             abi.encodeCall(IProxyAdapter.upgradeProxyTo, (_proxy, _implementation))
         );
         require(success, "ProxyAdmin: delegatecall to upgrade proxy failed");
+    }
+
+    /**
+     * @notice Gets the code hash for a given account.
+     *
+     * @param _account Address of the account to get a code hash for.
+     *
+     * @return Code hash for the account.
+     */
+    function _getAccountCodeHash(address _account) internal view returns (bytes32) {
+        bytes32 codeHash;
+        assembly {
+            codeHash := extcodehash(_account)
+        }
+        return codeHash;
     }
 }
