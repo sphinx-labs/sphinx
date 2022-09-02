@@ -2,6 +2,9 @@
 pragma solidity ^0.8.9;
 
 import { ChugSplashManager } from "./ChugSplashManager.sol";
+import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -10,7 +13,7 @@ import { ChugSplashManager } from "./ChugSplashManager.sol";
  *         find and index these deployments. Deployment names are unique and are reserved on a
  *         first-come, first-served basis.
  */
-contract ChugSplashRegistry {
+contract ChugSplashRegistry is Initializable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
@@ -77,13 +80,25 @@ contract ChugSplashRegistry {
     uint256 public immutable ownerBondAmount;
 
     /**
-     * @param _proxyUpdater    Address of the ProxyUpdater.
-     * @param _ownerBondAmount Amount that must be deposited in the ChugSplashManager in order to
-     *                         execute a bundle.
+     * @notice Address of the ChugSplashManager implementation contract.
      */
-    constructor(address _proxyUpdater, uint256 _ownerBondAmount) {
+    // TODO: Remove once this contract is not upgradeable anymore.
+    address public immutable managerImplementation;
+
+    /**
+     * @param _proxyUpdater          Address of the ProxyUpdater.
+     * @param _ownerBondAmount       Amount that must be deposited in the ChugSplashManager in order
+     *                               to execute a bundle.
+     * @param _managerImplementation Address of the ChugSplashManager implementation contract.
+     */
+    constructor(
+        address _proxyUpdater,
+        uint256 _ownerBondAmount,
+        address _managerImplementation
+    ) {
         proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
+        managerImplementation = _managerImplementation;
     }
 
     /**
@@ -92,31 +107,28 @@ contract ChugSplashRegistry {
      * @param _name               Name of the new ChugSplash project.
      * @param _owner              Initial owner for the new project.
      * @param _executorBondAmount Executor bond amount in ETH.
-     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
-     *                            after claiming it.
      */
     function register(
         string memory _name,
         address _owner,
-        uint256 _executorBondAmount,
-        uint256 _executionLockTime
+        uint256 _executorBondAmount
     ) public {
         require(
             address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
         );
 
-        ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(
-            this,
-            _name,
+        // Deploy and initialize the ChugSplashManager using a proxy.
+        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{ salt: bytes32(0) }(
+            this, // This will be the Registry's proxy address since the Registry will be
+            // delegatecalled by the proxy.
+            managerImplementation,
             _owner,
-            proxyUpdater,
-            _executorBondAmount,
-            _executionLockTime,
-            ownerBondAmount
+            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _executorBondAmount))
         );
-        projects[_name] = manager;
-        managers[manager] = true;
+
+        projects[_name] = ChugSplashManager(payable(address(manager)));
+        managers[ChugSplashManager(payable(address(manager)))] = true;
 
         emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
     }

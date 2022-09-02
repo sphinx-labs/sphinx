@@ -50,7 +50,7 @@ const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
 // This address was generated using Create2. For now, it needs to be changed manually each time
 // the contract is updated.
-const CHUGSPLASH_REGISTRY_ADDRESS = '0x29C464320fD8af9Ec8261DC238EA725FE18E2395'
+const CHUGSPLASH_REGISTRY_ADDRESS = '0x4A6EebFc62Ad9b6Bd2980c94B4aCc87D8396F8bb'
 
 const spinner = ora()
 

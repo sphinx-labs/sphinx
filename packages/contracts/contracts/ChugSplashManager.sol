@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IProxyAdapter } from "./IProxyAdapter.sol";
@@ -12,7 +14,7 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is Owned {
+contract ChugSplashManager is OwnableUpgradeable {
     /**
      * @notice Enum representing possible ChugSplash action types.
      */
@@ -265,13 +267,30 @@ contract ChugSplashManager is Owned {
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount
-    ) Owned(_owner) {
+    ) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
-        name = _name;
-        executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
+
+        initialize(_name, _owner, _executorBondAmount);
+    }
+
+    /**
+     * @param _name               Name of the project this contract is managing.
+     * @param _owner              Initial owner of this contract.
+     * @param _executorBondAmount Executor bond amount in ETH.
+     */
+    function initialize(
+        string memory _name,
+        address _owner,
+        uint256 _executorBondAmount
+    ) public initializer {
+        name = _name;
+        executorBondAmount = _executorBondAmount;
+
+        __Ownable_init();
+        _transferOwnership(_owner);
     }
 
     /**
@@ -424,7 +443,7 @@ contract ChugSplashManager is Owned {
                 // standard OOG, then this would halt the entire contract.
                 // TODO: Make sure this cannot happen in any case other than OOG.
                 require(
-                    address(created) != proxy,
+                    address(created) == proxy,
                     "ChugSplashManager: Proxy was not created correctly"
                 );
             }
@@ -625,7 +644,11 @@ contract ChugSplashManager is Owned {
     function getProxyByName(string memory _name) public view returns (address payable) {
         return (
             payable(
-                Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
+                Create2.compute(
+                    address(this),
+                    keccak256(bytes(_name)),
+                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                )
             )
         );
     }
