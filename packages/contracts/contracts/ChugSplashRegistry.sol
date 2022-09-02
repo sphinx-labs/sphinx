@@ -72,10 +72,18 @@ contract ChugSplashRegistry {
     address public immutable proxyUpdater;
 
     /**
-     * @param _proxyUpdater Address of the ProxyUpdater.
+     * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
      */
-    constructor(address _proxyUpdater) {
+    uint256 public immutable ownerBondAmount;
+
+    /**
+     * @param _proxyUpdater    Address of the ProxyUpdater.
+     * @param _ownerBondAmount Amount that must be deposited in the ChugSplashManager in order to
+     *                         execute a bundle.
+     */
+    constructor(address _proxyUpdater, uint256 _ownerBondAmount) {
         proxyUpdater = _proxyUpdater;
+        ownerBondAmount = _ownerBondAmount;
     }
 
     /**
@@ -104,7 +112,8 @@ contract ChugSplashRegistry {
             _owner,
             proxyUpdater,
             _executorBondAmount,
-            _executionLockTime
+            _executionLockTime,
+            ownerBondAmount
         );
         projects[_name] = manager;
         managers[manager] = true;
@@ -119,7 +128,7 @@ contract ChugSplashRegistry {
      */
     function announce(string memory _event) public {
         require(
-            managers[ChugSplashManager(msg.sender)] == true,
+            managers[ChugSplashManager(payable(msg.sender))] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
