@@ -80,6 +80,24 @@ contract ChugSplashManager is Owned {
     );
 
     /**
+     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
+     *         owner.
+     *
+     * @param targetNameHash Hash of the target's string name.
+     * @param proxy          Address of the proxy that is the subject of the ownership transfer.
+     * @param proxyType      The proxy type.
+     * @param newOwner       Address of the project owner that is receiving ownership of the proxy.
+     * @param targetName     String name of the target.
+     */
+    event ProxyOwnershipClaimed(
+        string indexed targetNameHash,
+        address indexed proxy,
+        bytes32 indexed proxyType,
+        address newOwner,
+        string targetName
+    );
+
+    /**
      * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
      *         contract, the appended bytecode will be deployed as given.
      */
@@ -335,6 +353,13 @@ contract ChugSplashManager is Owned {
         address payable _proxy,
         bytes32 _proxyType
     ) external onlyOwner {
+        require(
+            activeBundleId == bytes32(0),
+            "ChugSplashManager: cannot change proxy while bundle is active"
+        );
+        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
+        require(_proxyType != bytes32(0), "ChugSplashManager: proxy must have a proxy type");
+
         proxies[_name] = _proxy;
         proxyTypes[_name] = _proxyType;
 
@@ -358,6 +383,29 @@ contract ChugSplashManager is Owned {
     }
 
     /**
+     * @notice Transfers ownership of a proxy from this contract to the project owner.
+     *
+     * @param _proxy     Proxy that is the subject of the ownership transfer.
+     * @param _proxyType The proxy's type.
+     * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
+     */
+    function transferProxyOwnership(
+        address payable _proxy,
+        bytes32 _proxyType,
+        address _newOwner
+    ) public onlyOwner {
+        // Get the adapter that corresponds to this proxy type.
+        address adapter = registry.adapters(_proxyType);
+        require(adapter != address(0), "ProxyAdmin: proxy type has no adapter");
+
+        // Delegatecall the adapter to change ownership of the proxy.
+        (bool success, ) = adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
+        );
+        require(success, "ProxyAdmin: delegatecall to change proxy admin failed");
+    }
+
+    /**
      * @notice Get the address of the executor selected by the Executor Selection Strategy to
      *         execute a given bundle ID.
      *
@@ -372,7 +420,7 @@ contract ChugSplashManager is Owned {
      *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
      *         CREATE2 to guarantee that this address will be correct.
      *
-     * @param _name Name of the target to get the address of.
+     * @param _name Name of the target to get the corresponding proxy address of.
      *
      * @return Address of the proxy for the given name.
      */
