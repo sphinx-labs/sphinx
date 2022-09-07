@@ -99,21 +99,6 @@ contract ChugSplashManager is Owned {
     );
 
     /**
-     * @notice Emitted when a non-standard proxy is assigned to a target.
-     *
-     * @param targetNameHash Hash of the target's string name.
-     * @param proxy          Address of the proxy.
-     * @param proxyType      The proxy type.
-     * @param targetName     String name of the target.
-     */
-    event ProxySetToTarget(
-        string indexed targetNameHash,
-        address indexed proxy,
-        bytes32 indexed proxyType,
-        string targetName
-    );
-
-    /**
      * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
      *         owner.
      *
@@ -343,8 +328,12 @@ contract ChugSplashManager is Owned {
                 );
             }
         } else {
-            // Use the non-standard proxy assigned to this target by the owner.
-            proxy = proxies[_action.target];
+            // We intend to support alternative proxy types in the future, but doing so requires
+            // including additional checks to guarantee that actions will always executable. We will
+            // re-enable the ability to use different proxy types once we have implemented those
+            // additional checks.
+            revert("ChugSplashManager: invalid proxy type, must be default proxy");
+            // proxy = proxies[_action.target];
         }
 
         // Next, we execute the ChugSplash action by calling setCode/setStorage.
@@ -371,33 +360,6 @@ contract ChugSplashManager is Owned {
             emit ChugSplashBundleCompleted(activeBundleId, msg.sender, bundle.total);
             registry.announce("ChugSplashBundleCompleted");
         }
-    }
-
-    /**
-     * @notice Assigns a non-standard proxy to the specified target to replace the default proxy
-     *         used by ChugSplash. This allows project owners to plug their existing proxies into
-     *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
-     *
-     * @param _name      String name of the target.
-     * @param _proxy     Address of the non-standard proxy.
-     * @param _proxyType The proxy's type.
-     */
-    function setProxyToTarget(
-        string memory _name,
-        address payable _proxy,
-        bytes32 _proxyType
-    ) external onlyOwner {
-        require(
-            activeBundleId == bytes32(0),
-            "ChugSplashManager: cannot change proxy while bundle is active"
-        );
-        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
-        require(_proxyType != bytes32(0), "ChugSplashManager: proxy must have a proxy type");
-
-        proxies[_name] = _proxy;
-        proxyTypes[_name] = _proxyType;
-
-        emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
     }
 
     /**
