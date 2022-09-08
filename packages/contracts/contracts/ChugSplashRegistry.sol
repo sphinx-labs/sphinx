@@ -81,10 +81,18 @@ contract ChugSplashRegistry {
     /**
      * @notice Registers a new project.
      *
-     * @param _name         Name of the new ChugSplash project.
-     * @param _owner        Initial owner for the new project.
+     * @param _name               Name of the new ChugSplash project.
+     * @param _owner              Initial owner for the new project.
+     * @param _executorBondAmount Executor bond amount in ETH.
+     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
+     *                            after claiming it.
      */
-    function register(string memory _name, address _owner) public {
+    function register(
+        string memory _name,
+        address _owner,
+        uint256 _executorBondAmount,
+        uint256 _executionLockTime
+    ) public {
         require(
             address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
@@ -94,7 +102,9 @@ contract ChugSplashRegistry {
             this,
             _name,
             _owner,
-            proxyUpdater
+            proxyUpdater,
+            _executorBondAmount,
+            _executionLockTime
         );
         projects[_name] = manager;
         managers[manager] = true;
