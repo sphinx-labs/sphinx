@@ -8,7 +8,6 @@ import { IProxyAdapter } from "./IProxyAdapter.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
-import { IExecutorSelectionStrategy } from "./IExecutorSelectionStrategy.sol";
 
 /**
  * @title ChugSplashManager
@@ -29,7 +28,8 @@ contract ChugSplashManager is Owned {
         EMPTY,
         PROPOSED,
         APPROVED,
-        COMPLETED
+        COMPLETED,
+        CANCELLED
     }
 
     /**
@@ -48,6 +48,9 @@ contract ChugSplashManager is Owned {
         ChugSplashBundleStatus status;
         bool[] executions;
         uint256 total;
+        uint256 timeClaimed;
+        address selectedExecutor;
+        bool executorBondReturned;
     }
 
     /**
@@ -132,6 +135,30 @@ contract ChugSplashManager is Owned {
     );
 
     /**
+     * @notice Emitted when a bundle is claimed by an executor.
+     *
+     * @param bundleId ID of the bundle that was claimed.
+     * @param executor Address of the executor that claimed the bundle ID for the project.
+     */
+    event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
+
+    /**
+     * @notice Emitted when an executor is refunded the bond that they originally posted to claim a
+     *         bundle.
+     *
+     * @param bundleId ID of the bundle that was claimed.
+     * @param executor Address of the executor that posted the bond.
+     */
+    event ExecutorBondReturned(bytes32 indexed bundleId, address indexed executor);
+
+    /**
+     * @notice Emitted when a new executor bond amount is set.
+     *
+     * @param executorBondAmount New executor bond amount.
+     */
+    event ExecutorBondAmountSet(uint256 executorBondAmount);
+
+    /**
      * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
      *         contract, the appended bytecode will be deployed as given.
      */
@@ -158,9 +185,17 @@ contract ChugSplashManager is Owned {
     bytes32 public activeBundleId;
 
     /**
-     * @notice The address of the Executor Selection Strategy for this project.
+     * @notice Amount in ETH that the executor must send to this contract to claim a bundle for
+     *         `executionLockTime`.
      */
-    IExecutorSelectionStrategy public executorSelectionStrategy;
+    uint256 public executorBondAmount;
+
+    /**
+     * @notice Amount of time for an executor to finish executing a bundle once they have claimed
+     *         it. If the executor fails to completely execute the bundle in this amount of time,
+     *         their bond is forfeited to the ChugSplashManager.
+     */
+    uint256 public immutable executionLockTime;
 
     /**
      * @notice Mapping of bundle IDs to bundle state.
@@ -180,20 +215,27 @@ contract ChugSplashManager is Owned {
     mapping(string => bytes32) proxyTypes;
 
     /**
-     * @param _registry     Address of the ChugSplashRegistry.
-     * @param _name         Name of the project this contract is managing.
-     * @param _owner        Initial owner of this contract.
-     * @param _proxyUpdater Address of the ProxyUpdater.
+     * @param _registry           Address of the ChugSplashRegistry.
+     * @param _name               Name of the project this contract is managing.
+     * @param _owner              Initial owner of this contract.
+     * @param _proxyUpdater       Address of the ProxyUpdater.
+     * @param _executorBondAmount Executor bond amount in ETH.
+     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
+     *                            after claiming it.
      */
     constructor(
         ChugSplashRegistry _registry,
         string memory _name,
         address _owner,
-        address _proxyUpdater
+        address _proxyUpdater,
+        uint256 _executorBondAmount,
+        uint256 _executionLockTime
     ) Owned(_owner) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
         name = _name;
+        executorBondAmount = _executorBondAmount;
+        executionLockTime = _executionLockTime;
     }
 
     /**
@@ -374,6 +416,74 @@ contract ChugSplashManager is Owned {
     }
 
     /**
+     * @notice Allows an executor to post a bond of `executorBondAmount` to claim the sole right to
+     *         execute actions for a bundle over a period of `executionLockTime`. Only the first
+     *         executor to post a bond gains this right. Executors must finish executing the bundle
+     *         within `executionLockTime` or else their bond is forfeited to this contract and
+     *         another executor may claim the bundle. Note that this strategy creates a PGA for the
+     *         transaction to claim the bundle but removes PGAs during the execution process.
+     *
+     * @param _bundleId ID of the bundle being claimed.
+     */
+    function claim(bytes32 _bundleId) external payable {
+        require(
+            executorBondAmount == msg.value,
+            "ChugSplashManager: incorrect executor bond amount"
+        );
+        ChugSplashBundleStatus status = bundles[_bundleId].status;
+        require(
+            status == ChugSplashBundleStatus.APPROVED,
+            "ChugSplashManager: bundle is not active"
+        );
+
+        ChugSplashBundleState storage bundle = bundles[_bundleId];
+
+        require(
+            block.timestamp > bundle.timeClaimed + executionLockTime,
+            "ChugSplashManager: bundle already claimed by an executor"
+        );
+
+        bundle.timeClaimed = block.timestamp;
+        bundle.selectedExecutor = msg.sender;
+
+        emit ChugSplashBundleClaimed(_bundleId, msg.sender);
+        registry.announce("ChugSplashBundleClaimed");
+    }
+
+    /**
+     * @notice Refunds `executorBondAmount` to the executor if they complete the bundle within
+     *        `executionLockTime`, or if the project owner cancels the bundle.
+     *
+     * @param _bundleId ID of the bundle that was completed or cancelled by the project owner.
+     */
+    function returnExecutorBond(bytes32 _bundleId) external {
+        ChugSplashBundleState memory bundle = bundles[_bundleId];
+        require(
+            bundle.status == ChugSplashBundleStatus.COMPLETED ||
+                bundle.status == ChugSplashBundleStatus.CANCELLED,
+            "ChugSplashManager: bundle is not completed or cancelled"
+        );
+        require(
+            bundle.selectedExecutor != address(0),
+            "ChugSplashManager: bundle has not been claimed"
+        );
+        require(
+            !bundle.executorBondReturned,
+            "ChugSplashManager: bond already returned to executor"
+        );
+
+        bundle.executorBondReturned = true;
+
+        (bool success, ) = payable(bundle.selectedExecutor).call{ value: executorBondAmount }(
+            new bytes(0)
+        );
+        require(success, "ChugSplashManager: call to executor failed");
+
+        emit ExecutorBondReturned(_bundleId, bundle.selectedExecutor);
+        registry.announce("ExecutorBondReturned");
+    }
+
+    /**
      * @notice Assigns a non-standard proxy to the specified target to replace the default proxy
      *         used by ChugSplash. This allows project owners to plug their existing proxies into
      *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
@@ -401,19 +511,17 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * @notice Allows the project owner to set an Executor Selection Strategy, which determines the
-     *         strategy used to select executors for this project. Only callable when there is no
-     *         active bundle.
+     * @notice Allows the project owner to change the bond amount that an executor must pay to claim
+     *         a bundle. Can only be called when there is no active bundle.
+     *
+     * @param _executorBondAmount The new executor bond amount.
      */
-    function setExecutorSelectionStategy(IExecutorSelectionStrategy _executorSelectionStrategy)
-        external
-        onlyOwner
-    {
-        require(
-            activeBundleId == bytes32(0),
-            "ChugSplashManager: a bundle has been approved and not yet completed"
-        );
-        executorSelectionStrategy = _executorSelectionStrategy;
+    function setExecutorBondAmount(uint256 _executorBondAmount) external onlyOwner {
+        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
+        executorBondAmount = _executorBondAmount;
+
+        emit ExecutorBondAmountSet(_executorBondAmount);
+        registry.announce("ExecutorBondAmountSet");
     }
 
     /**
@@ -440,13 +548,15 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * @notice Get the address of the executor selected by the Executor Selection Strategy to
-     *         execute a given bundle ID.
+     * @notice Queries the selected executor for a given project/bundle.
      *
-     * @param _bundleId Bundle ID.
+     * @param _bundleId ID of the bundle currently being executed.
+     *
+     * @return Address of the selected executor.
      */
     function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
-        return executorSelectionStrategy.getSelectedExecutor(address(this), _bundleId);
+        ChugSplashBundleState storage bundle = bundles[_bundleId];
+        return bundle.selectedExecutor;
     }
 
     /**
