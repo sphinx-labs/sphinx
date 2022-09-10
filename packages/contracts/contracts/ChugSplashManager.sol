@@ -102,6 +102,15 @@ contract ChugSplashManager is Owned {
     );
 
     /**
+     * @notice Emitted when an active ChugSplash bundle is cancelled.
+     *
+     * @param bundleId Bundle ID that was cancelled.
+     * @param owner    Owner of the ChugSplashManager.
+     * @param total    Total number of completed actions.
+     */
+    event ChugSplashBundleCancelled(bytes32 indexed bundleId, address indexed owner, uint256 total);
+
+    /**
      * @notice Emitted when a non-standard proxy is assigned to a target.
      *
      * @param targetNameHash Hash of the target's string name.
@@ -159,6 +168,20 @@ contract ChugSplashManager is Owned {
     event ExecutorBondAmountSet(uint256 executorBondAmount);
 
     /**
+     * @notice Emitted when ETH is withdrawn from this contract.
+     *
+     * @param from   Address that initiated the withdrawal.
+     * @param to     Address that received the ETH.
+     * @param amount ETH amount withdrawn.
+     */
+    event ETHWithdrawn(address indexed from, address indexed to, uint256 amount);
+
+    /**
+     * @notice Emitted when ETH is deposited in this contract
+     */
+    event ETHDeposited(address indexed from, uint256 indexed amount);
+
+    /**
      * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
      *         contract, the appended bytecode will be deployed as given.
      */
@@ -173,6 +196,15 @@ contract ChugSplashManager is Owned {
      * @notice Address of the ProxyUpdater.
      */
     address public immutable proxyUpdater;
+
+    /**
+     * @notice Amount that must be deposited in this contract in order to execute a bundle. The
+     *         project owner can withdraw this amount whenever a bundle is not active. This bond
+     *         will be forfeited if the project owner cancels a bundle that is in progress, which is
+     *         necessary to prevent owners from trolling executors by immediately cancelling and
+     *         withdrawing funds.
+     */
+    uint256 public immutable ownerBondAmount;
 
     /**
      * @notice Name of the project this contract is managing.
@@ -222,6 +254,8 @@ contract ChugSplashManager is Owned {
      * @param _executorBondAmount Executor bond amount in ETH.
      * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
      *                            after claiming it.
+     * @param _ownerBondAmount    Amount that must be deposited in this contract in order to execute
+     *                            a bundle.
      */
     constructor(
         ChugSplashRegistry _registry,
@@ -229,13 +263,15 @@ contract ChugSplashManager is Owned {
         address _owner,
         address _proxyUpdater,
         uint256 _executorBondAmount,
-        uint256 _executionLockTime
+        uint256 _executionLockTime,
+        uint256 _ownerBondAmount
     ) Owned(_owner) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
         name = _name;
         executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
+        ownerBondAmount = _ownerBondAmount;
     }
 
     /**
@@ -283,12 +319,20 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * @notice Allows the owner to approve a bundle to be executed. Note that the bundle can be
-     *         executed as soon as the bundle is approved.
+     * @notice Allows the owner to approve a bundle to be executed. There must be at least
+     *         `ownerBondAmount` deposited in this contract in order for a bundle to be approved.
+     *         The owner can send the bond to this contract via a call to `depositETH` or `receive`.
+     *         This bond will be forfeited if the project owner cancels an approved bundle. Also
+     *         note that the bundle can be executed as soon as it is approved.
      *
      * @param _bundleId ID of the bundle to approve
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
+        require(
+            address(this).balance >= ownerBondAmount,
+            "ChugSplashManager: insufficient balance in manager"
+        );
+
         ChugSplashBundleState storage bundle = bundles[_bundleId];
 
         require(
@@ -330,8 +374,8 @@ contract ChugSplashManager is Owned {
         ChugSplashBundleState storage bundle = bundles[activeBundleId];
 
         require(
-            bundle.status != ChugSplashBundleStatus.COMPLETED,
-            "ChugSplashManager: bundle has already been completed"
+            bundle.status == ChugSplashBundleStatus.APPROVED,
+            "ChugSplashManager: bundle is not approved"
         );
 
         require(
@@ -367,9 +411,9 @@ contract ChugSplashManager is Owned {
 
             // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since we're
             // deploying via CREATE2, we can always correctly predict what the proxy address
-            // *should* be and can therefore easily check if it's already populated. TODO: See if
-            // there's a better way to handle this case because it messes with the gas cost of
-            // SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
+            // *should* be and can therefore easily check if it's already populated.
+            // TODO: See if there's a better way to handle this case because it messes with the gas
+            // cost of SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
             proxy = getProxyByName(_action.target);
             if (proxy.code.length == 0) {
                 bytes32 salt = keccak256(bytes(_action.target));
@@ -377,8 +421,8 @@ contract ChugSplashManager is Owned {
 
                 // Could happen if insufficient gas is supplied to this transaction, should not
                 // happen otherwise. If there's a situation in which this could happen other than a
-                // standard OOG, then this would halt the entire contract. TODO: Make sure this
-                // cannot happen in any case other than OOG.
+                // standard OOG, then this would halt the entire contract.
+                // TODO: Make sure this cannot happen in any case other than OOG.
                 require(
                     address(created) != proxy,
                     "ChugSplashManager: Proxy was not created correctly"
@@ -408,11 +452,42 @@ contract ChugSplashManager is Owned {
         // completed and reset the active bundle hash so that a new bundle can be executed.
         if (bundle.total == bundle.executions.length) {
             bundle.status = ChugSplashBundleStatus.COMPLETED;
+            bytes32 completedBundleId = activeBundleId;
             activeBundleId = bytes32(0);
 
-            emit ChugSplashBundleCompleted(activeBundleId, msg.sender, bundle.total);
+            emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.total);
             registry.announce("ChugSplashBundleCompleted");
+
+            // Refund the executor's bond
+            _returnExecutorBond(completedBundleId);
         }
+    }
+
+    /**
+     * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
+     *         executed unless in an emergency.
+     *
+     *         Cancels an active ChugSplash bundle. This causes the project owner to forfeit their
+     *         bond to the executor, and also refunds the executor's bond.
+     */
+    function cancelActiveChugSplashBundle() public onlyOwner {
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
+
+        ChugSplashBundleState storage bundle = bundles[activeBundleId];
+
+        bytes32 cancelledBundleId = activeBundleId;
+        activeBundleId = bytes32(0);
+        bundle.status = ChugSplashBundleStatus.CANCELLED;
+
+        emit ChugSplashBundleCancelled(cancelledBundleId, msg.sender, bundle.total);
+        registry.announce("ChugSplashBundleCancelled");
+
+        _returnExecutorBond(cancelledBundleId);
+
+        // Send the project owner's bond to the executor
+        address executor = getSelectedExecutor(activeBundleId);
+        (bool success, ) = payable(executor).call{ value: ownerBondAmount }(new bytes(0));
+        require(success, "ChugSplashManager: failed to send owner's bond to the executor");
     }
 
     /**
@@ -448,39 +523,6 @@ contract ChugSplashManager is Owned {
 
         emit ChugSplashBundleClaimed(_bundleId, msg.sender);
         registry.announce("ChugSplashBundleClaimed");
-    }
-
-    /**
-     * @notice Refunds `executorBondAmount` to the executor if they complete the bundle within
-     *        `executionLockTime`, or if the project owner cancels the bundle.
-     *
-     * @param _bundleId ID of the bundle that was completed or cancelled by the project owner.
-     */
-    function returnExecutorBond(bytes32 _bundleId) external {
-        ChugSplashBundleState memory bundle = bundles[_bundleId];
-        require(
-            bundle.status == ChugSplashBundleStatus.COMPLETED ||
-                bundle.status == ChugSplashBundleStatus.CANCELLED,
-            "ChugSplashManager: bundle is not completed or cancelled"
-        );
-        require(
-            bundle.selectedExecutor != address(0),
-            "ChugSplashManager: bundle has not been claimed"
-        );
-        require(
-            !bundle.executorBondReturned,
-            "ChugSplashManager: bond already returned to executor"
-        );
-
-        bundle.executorBondReturned = true;
-
-        (bool success, ) = payable(bundle.selectedExecutor).call{ value: executorBondAmount }(
-            new bytes(0)
-        );
-        require(success, "ChugSplashManager: call to executor failed");
-
-        emit ExecutorBondReturned(_bundleId, bundle.selectedExecutor);
-        registry.announce("ExecutorBondReturned");
     }
 
     /**
@@ -586,6 +628,71 @@ contract ChugSplashManager is Owned {
                 Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
             )
         );
+    }
+
+    /**
+     * @notice Allows the project owner to withdraw funds to any recipient address. Cannot be called
+     *         when there is an active bundle.
+     *
+     * @param _recipient Address to receive the funds.
+     * @param _amount    Amount to withdraw.
+     */
+    function withdrawETH(address payable _recipient, uint256 _amount) external onlyOwner {
+        require(
+            activeBundleId != bytes32(0),
+            "ChugSplashManager: cannot withdraw funds while bundle is active"
+        );
+        (bool success, ) = _recipient.call{ value: _amount }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw funds failed");
+
+        emit ETHWithdrawn(msg.sender, _recipient, _amount);
+    }
+
+    /**
+     * @notice Allows anyone to send ETH to this contract.
+     */
+    function depositETH() external payable {
+        emit ETHDeposited(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Allows anyone to send ETH to this contract without calling a function.
+     */
+    receive() external payable {
+        emit ETHDeposited(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Refunds `executorBondAmount` to the executor if they complete the bundle within
+     *        `executionLockTime`, or if the project owner cancels the bundle.
+     *
+     * @param _bundleId ID of the bundle that was completed or cancelled by the project owner.
+     */
+    function _returnExecutorBond(bytes32 _bundleId) internal {
+        ChugSplashBundleState memory bundle = bundles[_bundleId];
+        require(
+            bundle.status == ChugSplashBundleStatus.COMPLETED ||
+                bundle.status == ChugSplashBundleStatus.CANCELLED,
+            "ChugSplashManager: bundle is not completed or cancelled"
+        );
+        require(
+            bundle.selectedExecutor != address(0),
+            "ChugSplashManager: bundle has not been claimed"
+        );
+        require(
+            !bundle.executorBondReturned,
+            "ChugSplashManager: bond already returned to executor"
+        );
+
+        bundle.executorBondReturned = true;
+
+        (bool success, ) = payable(bundle.selectedExecutor).call{ value: executorBondAmount }(
+            new bytes(0)
+        );
+        require(success, "ChugSplashManager: call to executor failed");
+
+        emit ExecutorBondReturned(_bundleId, bundle.selectedExecutor);
+        registry.announce("ExecutorBondReturned");
     }
 
     /**
