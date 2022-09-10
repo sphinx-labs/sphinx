@@ -126,8 +126,8 @@ contract ChugSplashManager is Owned {
     );
 
     /**
-     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
-     *         owner.
+     * @notice Emitted when the project owner transfers ownership of a proxy away from the
+     *         ChugSplashManager.
      *
      * @param targetNameHash Hash of the target's string name.
      * @param proxy          Address of the proxy that is the subject of the ownership transfer.
@@ -135,7 +135,7 @@ contract ChugSplashManager is Owned {
      * @param newOwner       Address of the project owner that is receiving ownership of the proxy.
      * @param targetName     String name of the target.
      */
-    event ProxyOwnershipClaimed(
+    event ProxyOwnershipTransferred(
         string indexed targetNameHash,
         address indexed proxy,
         bytes32 indexed proxyType,
@@ -567,26 +567,38 @@ contract ChugSplashManager is Owned {
     }
 
     /**
-     * @notice Transfers ownership of a proxy from this contract to the project owner.
+     * @notice Transfers ownership of a proxy from this contract to an address selected by the
+     *         project owner.
      *
-     * @param _proxy     Proxy that is the subject of the ownership transfer.
-     * @param _proxyType The proxy's type.
-     * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
+     * @param _name     String name of the target that corresponds to the proxy.
+     * @param _newOwner Address of the project owner that is receiving ownership of the proxy.
      */
-    function transferProxyOwnership(
-        address payable _proxy,
-        bytes32 _proxyType,
-        address _newOwner
-    ) public onlyOwner {
+    function transferProxyOwnership(string memory _name, address _newOwner) public onlyOwner {
+        // Get the proxy type that corresponds to this target.
+        bytes32 proxyType = proxyTypes[_name];
+        address payable proxy;
+        if (proxyType == bytes32(0)) {
+            // Use a default proxy if no proxy type has been set by the project owner.
+            proxy = getProxyByName(_name);
+        } else {
+            // We revert here since we currently do not support custom proxy types.
+            revert("ChugSplashManager: invalid proxy type, must be default proxy");
+            // proxy = proxies[_name];
+        }
+
+        require(proxy.code.length != 0, "ChugSplashManager: proxy is not deployed");
+
         // Get the adapter that corresponds to this proxy type.
-        address adapter = registry.adapters(_proxyType);
-        require(adapter != address(0), "ProxyAdmin: proxy type has no adapter");
+        address adapter = registry.adapters(proxyType);
+        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
 
         // Delegatecall the adapter to change ownership of the proxy.
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
+            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (proxy, _newOwner))
         );
-        require(success, "ProxyAdmin: delegatecall to change proxy admin failed");
+        require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
+
+        emit ProxyOwnershipTransferred(_name, proxy, proxyType, _newOwner, _name);
     }
 
     /**
