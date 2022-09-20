@@ -47,6 +47,7 @@ contract ChugSplashManager is Owned {
     struct ChugSplashBundleState {
         ChugSplashBundleStatus status;
         bool[] executions;
+        bytes32 root;
         uint256 total;
         uint256 timeClaimed;
         address selectedExecutor;
@@ -182,8 +183,8 @@ contract ChugSplashManager is Owned {
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     /**
-     * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
-     *         contract, the appended bytecode will be deployed as given.
+     * @notice "Magic" prefix. When prepended to some arbitrary runtime bytecode and used to create
+     *         a contract, the appended bytecode will be deployed as given.
      */
     bytes13 internal constant DEPLOY_CODE_PREFIX = 0x600D380380600D6000396000f3;
 
@@ -249,7 +250,6 @@ contract ChugSplashManager is Owned {
     /**
      * @param _registry           Address of the ChugSplashRegistry.
      * @param _name               Name of the project this contract is managing.
-     * @param _owner              Initial owner of this contract.
      * @param _proxyUpdater       Address of the ProxyUpdater.
      * @param _executorBondAmount Executor bond amount in ETH.
      * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
@@ -260,12 +260,11 @@ contract ChugSplashManager is Owned {
     constructor(
         ChugSplashRegistry _registry,
         string memory _name,
-        address _owner,
         address _proxyUpdater,
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount
-    ) Owned(_owner) {
+    ) Owned(msg.sender) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
         name = _name;
@@ -313,6 +312,7 @@ contract ChugSplashManager is Owned {
 
         bundle.status = ChugSplashBundleStatus.PROPOSED;
         bundle.executions = new bool[](_bundleSize);
+        bundle.root = _bundleRoot;
 
         emit ChugSplashBundleProposed(bundleId, _bundleRoot, _bundleSize, _configUri);
         registry.announce("ChugSplashBundleProposed");
@@ -391,7 +391,7 @@ contract ChugSplashManager is Owned {
 
         require(
             MerkleTree.verify(
-                activeBundleId,
+                bundle.root,
                 keccak256(abi.encode(_action.target, _action.actionType, _action.data)),
                 _actionIndex,
                 _proof,
@@ -424,7 +424,7 @@ contract ChugSplashManager is Owned {
                 // standard OOG, then this would halt the entire contract.
                 // TODO: Make sure this cannot happen in any case other than OOG.
                 require(
-                    address(created) != proxy,
+                    address(created) == proxy,
                     "ChugSplashManager: Proxy was not created correctly"
                 );
             }
@@ -625,7 +625,11 @@ contract ChugSplashManager is Owned {
     function getProxyByName(string memory _name) public view returns (address payable) {
         return (
             payable(
-                Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
+                Create2.compute(
+                    address(this),
+                    keccak256(bytes(_name)),
+                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                )
             )
         );
     }
@@ -703,7 +707,7 @@ contract ChugSplashManager is Owned {
      *
      * @param _proxy     Address of the proxy to upgrade.
      * @param _proxyType The proxy's type. This is the zero-address for default proxies.
-     * @param _code      Creation bytecode to be deployed.
+     * @param _code      Runtime bytecode to be deployed.
      */
     function _setProxyCode(
         address payable _proxy,
@@ -730,7 +734,7 @@ contract ChugSplashManager is Owned {
             return;
         }
 
-        // Create the deploycode by prepending the magic prefix.
+        // Create the deploycode by prepending the magic prefix to the runtime bytecode.
         bytes memory deploycode = abi.encodePacked(DEPLOY_CODE_PREFIX, _code);
 
         // Deploy the code and set the new implementation address.
@@ -745,11 +749,11 @@ contract ChugSplashManager is Owned {
         // anyway though.
         require(
             _getAccountCodeHash(newImplementation) == keccak256(_code),
-            "ProxyUpdater: code was not correctly deployed"
+            "ChugSplashManager: code was not correctly deployed"
         );
 
         // Delegatecall the adapter to upgrade the proxy's implementation contract.
-        _upgradeProxyTo(_proxy, adapter, implementation);
+        _upgradeProxyTo(_proxy, adapter, newImplementation);
     }
 
     /**

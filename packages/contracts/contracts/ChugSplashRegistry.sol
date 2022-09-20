@@ -77,30 +77,43 @@ contract ChugSplashRegistry {
     uint256 public immutable ownerBondAmount;
 
     /**
-     * @param _proxyUpdater    Address of the ProxyUpdater.
-     * @param _ownerBondAmount Amount that must be deposited in the ChugSplashManager in order to
-     *                         execute a bundle.
+     * @notice Amount that an executor must send to the ChugSplashManager to claim a bundle.
      */
-    constructor(address _proxyUpdater, uint256 _ownerBondAmount) {
+    uint256 public immutable executorBondAmount;
+
+    /**
+     * @notice Amount of time for an executor to completely execute a bundle after claiming it.
+     */
+    uint256 public immutable executionLockTime;
+
+    /**
+     * @param _proxyUpdater       Address of the ProxyUpdater.
+     * @param _ownerBondAmount    Amount that must be deposited in the ChugSplashManager in order to
+     *                            execute a bundle.
+     * @param _executorBondAmount Amount that an executor must send to the ChugSplashManager to
+     *                            claim a bundle.
+     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
+     *                            after claiming it.
+     */
+    constructor(
+        address _proxyUpdater,
+        uint256 _ownerBondAmount,
+        uint256 _executorBondAmount,
+        uint256 _executionLockTime
+    ) {
         proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
+        executorBondAmount = _executorBondAmount;
+        executionLockTime = _executionLockTime;
     }
 
     /**
      * @notice Registers a new project.
      *
-     * @param _name               Name of the new ChugSplash project.
-     * @param _owner              Initial owner for the new project.
-     * @param _executorBondAmount Executor bond amount in ETH.
-     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
-     *                            after claiming it.
+     * @param _name  Name of the new ChugSplash project.
+     * @param _owner Initial owner for the new project.
      */
-    function register(
-        string memory _name,
-        address _owner,
-        uint256 _executorBondAmount,
-        uint256 _executionLockTime
-    ) public {
+    function register(string memory _name, address _owner) public {
         require(
             address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
@@ -109,12 +122,17 @@ contract ChugSplashRegistry {
         ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(
             this,
             _name,
-            _owner,
             proxyUpdater,
-            _executorBondAmount,
-            _executionLockTime,
+            executorBondAmount,
+            executionLockTime,
             ownerBondAmount
         );
+
+        // Transfer ownership of the ChugSplashManager to the specified owner. We transfer ownership
+        // outside of the constructor because this makes it easier to deterministically calculate
+        // the ChugSplashManager's address before it's deployed.
+        manager.setOwner(_owner);
+
         projects[_name] = manager;
         managers[manager] = true;
 
