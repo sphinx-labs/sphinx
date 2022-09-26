@@ -51,6 +51,26 @@ Each ESS then implements its own logic for selecting the executor for a given pr
 
 Our first MVP ESS is the `SimpleLockESS`. Executors may post a bond of `executor_bond_amount` to claim the sole right to execute actions for the locked upgrade for a period of `upgrade_lock_time`. Only the first executor to post a bond gains this right. If the selected executor completes the upgrade within the `upgrade_lock_time` or if the upgrade is cancelled, the bond is returned. If the executor fails to complete the upgrade within the `upgrade_lock_time`, a new executor may post a bond instead and the original bond is forfeited and transferred into the wallet of the project’s `ChugSplashManager` contract. We note that this creates a PGA for the transaction that posts the bond and locks the upgrade but removes PGAs during the execution process.
 
+#### ESS #2: List Random
+
+ESS Contract contains a list of allowed executors, and one is selected at random.  May or may not require the entire list to be exhausted before repeats.
+
+#### ESS #3: List Round Robin
+
+ESS Contract contains a list of allowed executors, and they are selected in order.
+
+#### ESS #4: Owns NFT
+
+Executor must possess an NFT to be selected. May be a msg.sender check for ownership, or may be an NFT contract check from owner list.
+
+#### ESS #5: Lowest Bidder
+
+executor_bond_amount auction?
+
+#### ESS #6: Highest Reputation / Minimum Reputation
+
+Public Attestation contract where successfully completed executions are logged.  
+
 ### Executor Payment Strategies
 
 Similar to the model for Executor Selection Strategies, we also introduce the idea of Executor Payment Strategies (EPS). Each project may specify an EPS which determines how executors will be paid. Executors will sort and filter by EPS contracts they believe reward executors fairly, so it’s recommended to use certain default EPS contracts.
