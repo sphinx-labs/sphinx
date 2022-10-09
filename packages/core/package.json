@@ -33,6 +33,7 @@
     "@eth-optimism/core-utils": "^0.9.1",
     "ethers": "^5.6.9",
     "handlebars": "^4.7.7",
+    "hardhat-deploy": "^0.11.18",
     "merkletreejs": "^0.2.18"
   }
 }

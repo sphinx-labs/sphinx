@@ -7,6 +7,7 @@ import {
   getProxyAddress,
   loadChugSplashConfig,
   writeSnapshotId,
+  getChugSplashRegistry,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -16,7 +17,6 @@ import {
 } from '@chugsplash/contracts'
 
 import { getContractArtifact } from './artifacts'
-import { getChugSplashRegistry } from '../helpers'
 
 /**
  * TODO

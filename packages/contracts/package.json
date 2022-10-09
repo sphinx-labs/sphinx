@@ -40,7 +40,6 @@
     "dotenv": "^16.0.1",
     "ethers": "^5.6.9",
     "hardhat": "^2.9.9",
-    "hardhat-deploy": "^0.11.16",
     "solhint": "^3.3.6",
     "solhint-plugin-prettier": "^0.0.5"
   }

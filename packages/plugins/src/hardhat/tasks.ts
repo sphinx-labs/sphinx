@@ -1,6 +1,8 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+Error.stackTraceLimit = Infinity
+
 import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
@@ -27,21 +29,19 @@ import {
   ChugSplashBundleStatus,
   loadChugSplashConfig,
   writeSnapshotId,
-} from '@chugsplash/core'
-import {
-  ChugSplashManagerABI,
   deployChugSplashPredeploys,
-} from '@chugsplash/contracts'
+} from '@chugsplash/core'
+import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
-
-import { getContractArtifact, getStorageLayout } from './artifacts'
 import {
   registerChugSplashProject,
   getProjectOwner,
   getChugSplashRegistry,
-} from '../helpers'
+} from '@chugsplash/core'
+
+import { getContractArtifact, getStorageLayout } from './artifacts'
 import { deployContracts } from './deployments'
 
 // internal tasks
@@ -189,8 +189,7 @@ subtask(TASK_CHUGSPLASH_DEPLOY_LOCAL).setAction(async (hre: any) => {
         throw new Error('Snapshot failed to be reverted.')
       }
     } catch {
-      const { address } = await hre.ethers.getSigner()
-      await deployChugSplashPredeploys(hre, address)
+      await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
       await deployContracts(hre)
     } finally {
       await writeSnapshotId(hre)
@@ -779,7 +778,7 @@ task(TASK_CHUGSPLASH_STATUS)
 task(TASK_NODE).setAction(async (args, hre: any, runSuper) => {
   if ((await hre.getChainId()) === '31337') {
     const deployer = await hre.ethers.getSigner()
-    await deployChugSplashPredeploys(hre, deployer.address)
+    await deployChugSplashPredeploys(hre, deployer)
 
     await deployContracts(hre)
     await writeSnapshotId(hre)
