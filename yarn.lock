@@ -4148,10 +4148,10 @@ hard-rejection@^2.1.0:
   resolved "https://registry.yarnpkg.com/hard-rejection/-/hard-rejection-2.1.0.tgz#1c6eda5c1685c63942766d79bb40ae773cecd883"
   integrity sha512-VIZB+ibDhx7ObhAe7OVtoEbuP4h/MuOTHJ+J8h/eBXotJYl0fBgR72xDFCKgIh22OJZIOVNxBMWuhAr10r8HdA==
 
-hardhat-deploy@^0.11.16:
-  version "0.11.16"
-  resolved "https://registry.yarnpkg.com/hardhat-deploy/-/hardhat-deploy-0.11.16.tgz#856f3ac6d749460aba40ae39a314058f33f16352"
-  integrity sha512-dEpbrp3wewfEkDVroOiOteDvKc2BOMQzbjljHJkk65mb8gQZ0c0GsZBoLXROWSRoNhPCFjEDAhKPqBds5pclqQ==
+hardhat-deploy@^0.11.18:
+  version "0.11.18"
+  resolved "https://registry.yarnpkg.com/hardhat-deploy/-/hardhat-deploy-0.11.18.tgz#076b4f5e7dc78bc144c2807112fb4bc764a7a7d1"
+  integrity sha512-Zs5Gr23/HEcYPjQgcSJLlXkR2/WOp24O9Af+7qA540sCDvHjuQ7WhHG/fB2cjPel0Ajf0TzXx1uVViWtbKLqTg==
   dependencies:
     "@types/qs" "^6.9.7"
     axios "^0.21.1"

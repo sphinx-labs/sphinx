@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IProxyAdapter } from "./IProxyAdapter.sol";
@@ -12,7 +14,7 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is Owned {
+contract ChugSplashManager is OwnableUpgradeable {
     /**
      * @notice Enum representing possible ChugSplash action types.
      */
@@ -162,13 +164,6 @@ contract ChugSplashManager is Owned {
     event ExecutorBondReturned(bytes32 indexed bundleId, address indexed executor);
 
     /**
-     * @notice Emitted when a new executor bond amount is set.
-     *
-     * @param executorBondAmount New executor bond amount.
-     */
-    event ExecutorBondAmountSet(uint256 executorBondAmount);
-
-    /**
      * @notice Emitted when ETH is withdrawn from this contract.
      *
      * @param from   Address that initiated the withdrawal.
@@ -221,7 +216,7 @@ contract ChugSplashManager is Owned {
      * @notice Amount in ETH that the executor must send to this contract to claim a bundle for
      *         `executionLockTime`.
      */
-    uint256 public executorBondAmount;
+    uint256 public immutable executorBondAmount;
 
     /**
      * @notice Amount of time for an executor to finish executing a bundle once they have claimed
@@ -250,6 +245,7 @@ contract ChugSplashManager is Owned {
     /**
      * @param _registry           Address of the ChugSplashRegistry.
      * @param _name               Name of the project this contract is managing.
+     * @param _owner              Address of the project owner.
      * @param _proxyUpdater       Address of the ProxyUpdater.
      * @param _executorBondAmount Executor bond amount in ETH.
      * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
@@ -260,17 +256,30 @@ contract ChugSplashManager is Owned {
     constructor(
         ChugSplashRegistry _registry,
         string memory _name,
+        address _owner,
         address _proxyUpdater,
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount
-    ) Owned(msg.sender) {
+    ) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
-        name = _name;
         executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
+
+        initialize(_name, _owner);
+    }
+
+    /**
+     * @param _name  Name of the project this contract is managing.
+     * @param _owner Initial owner of this contract.
+     */
+    function initialize(string memory _name, address _owner) public initializer {
+        name = _name;
+
+        __Ownable_init();
+        _transferOwnership(_owner);
     }
 
     /**
@@ -550,20 +559,6 @@ contract ChugSplashManager is Owned {
         proxyTypes[_name] = _proxyType;
 
         emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
-    }
-
-    /**
-     * @notice Allows the project owner to change the bond amount that an executor must pay to claim
-     *         a bundle. Can only be called when there is no active bundle.
-     *
-     * @param _executorBondAmount The new executor bond amount.
-     */
-    function setExecutorBondAmount(uint256 _executorBondAmount) external onlyOwner {
-        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
-        executorBondAmount = _executorBondAmount;
-
-        emit ExecutorBondAmountSet(_executorBondAmount);
-        registry.announce("ExecutorBondAmountSet");
     }
 
     /**

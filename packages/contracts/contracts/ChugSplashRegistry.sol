@@ -2,6 +2,9 @@
 pragma solidity ^0.8.9;
 
 import { ChugSplashManager } from "./ChugSplashManager.sol";
+import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -10,7 +13,7 @@ import { ChugSplashManager } from "./ChugSplashManager.sol";
  *         find and index these deployments. Deployment names are unique and are reserved on a
  *         first-come, first-served basis.
  */
-contract ChugSplashRegistry {
+contract ChugSplashRegistry is Initializable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
@@ -87,24 +90,33 @@ contract ChugSplashRegistry {
     uint256 public immutable executionLockTime;
 
     /**
-     * @param _proxyUpdater       Address of the ProxyUpdater.
-     * @param _ownerBondAmount    Amount that must be deposited in the ChugSplashManager in order to
-     *                            execute a bundle.
-     * @param _executorBondAmount Amount that an executor must send to the ChugSplashManager to
-     *                            claim a bundle.
-     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
-     *                            after claiming it.
+     * @notice Address of the ChugSplashManager implementation contract.
+     */
+    // TODO: Remove once this contract is not upgradeable anymore.
+    address public immutable managerImplementation;
+
+    /**
+     * @param _proxyUpdater          Address of the ProxyUpdater.
+     * @param _ownerBondAmount       Amount that must be deposited in the ChugSplashManager in order
+     *                               to execute a bundle.
+     * @param _executorBondAmount    Amount that an executor must send to the ChugSplashManager to
+     *                               claim a bundle.
+     * @param _executionLockTime     Amount of time for an executor to completely execute a bundle
+     *                               after claiming it.
+     * @param _managerImplementation Address of the ChugSplashManager implementation contract.
      */
     constructor(
         address _proxyUpdater,
         uint256 _ownerBondAmount,
         uint256 _executorBondAmount,
-        uint256 _executionLockTime
+        uint256 _executionLockTime,
+        address _managerImplementation
     ) {
         proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
         executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
+        managerImplementation = _managerImplementation;
     }
 
     /**
@@ -119,22 +131,26 @@ contract ChugSplashRegistry {
             "ChugSplashRegistry: name already registered"
         );
 
-        ChugSplashManager manager = new ChugSplashManager{ salt: bytes32(0) }(
-            this,
-            _name,
-            proxyUpdater,
-            executorBondAmount,
-            executionLockTime,
-            ownerBondAmount
+        // Deploy the ChugSplashManager's proxy.
+        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
+            salt: keccak256(bytes(_name))
+        }(
+            this, // This will be the Registry's proxy address since the Registry will be
+            // delegatecalled by the proxy.
+            address(this), // Dummy value that will be changed in the next call
+            address(this),
+            new bytes(0)
+        );
+        // Initialize the proxy. Note that we initialize it in a different call from the deployment
+        // because this makes it easy to calculate the Create2 address off-chain before it is
+        // deployed.
+        manager.upgradeToAndCall(
+            managerImplementation,
+            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
         );
 
-        // Transfer ownership of the ChugSplashManager to the specified owner. We transfer ownership
-        // outside of the constructor because this makes it easier to deterministically calculate
-        // the ChugSplashManager's address before it's deployed.
-        manager.setOwner(_owner);
-
-        projects[_name] = manager;
-        managers[manager] = true;
+        projects[_name] = ChugSplashManager(payable(address(manager)));
+        managers[ChugSplashManager(payable(address(manager)))] = true;
 
         emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
     }

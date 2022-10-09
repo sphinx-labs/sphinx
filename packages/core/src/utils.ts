@@ -1,17 +1,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { utils, constants } from 'ethers'
+import { utils, constants, Signer, Contract, providers } from 'ethers'
 // TODO: import the Proxy bytecode from @eth-optimism/contracts-bedrock when they update the npm
 // package. Also remove @chugsplash/contracts from core/
 import { bytecode as ProxyBytecode } from '@chugsplash/contracts/artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 import {
-  ChugSplashManagerArtifact,
-  CHUGSPLASH_REGISTRY_ADDRESS,
-  PROXY_UPDATER_ADDRESS,
-  EXECUTOR_BOND_AMOUNT,
-  EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT,
+  ChugSplashRegistryABI,
+  ChugSplashManagerABI,
+  ChugSplashManagerProxyArtifact,
+  // CHUGSPLASH_REGISTRY_ADDRESS,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 
 export const computeBundleId = (
@@ -45,7 +44,8 @@ export const getProxyAddress = (
   projectName: string,
   target: string
 ): string => {
-  const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
+  // const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
@@ -60,26 +60,113 @@ export const getProxyAddress = (
   )
 }
 
-export const getChugSplashManagerAddress = (projectName: string) => {
+export const getChugSplashManagerProxyAddress = (projectName: string) => {
   return utils.getCreate2Address(
-    CHUGSPLASH_REGISTRY_ADDRESS,
-    constants.HashZero,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    utils.solidityKeccak256(['string'], [projectName]),
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ChugSplashManagerArtifact.bytecode,
+        ChugSplashManagerProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
-          ['address', 'string', 'address', 'uint256', 'uint256', 'uint256'],
+          ['address', 'address', 'address', 'bytes'],
           [
-            CHUGSPLASH_REGISTRY_ADDRESS,
-            projectName,
-            PROXY_UPDATER_ADDRESS,
-            EXECUTOR_BOND_AMOUNT,
-            EXECUTION_LOCK_TIME,
-            OWNER_BOND_AMOUNT,
+            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+            [],
           ]
         ),
       ]
     )
   )
 }
+
+// export const getChugSplashManagerAddress = (projectName: string) => {
+//   return utils.getCreate2Address(
+//     CHUGSPLASH_REGISTRY_ADDRESS,
+//     constants.HashZero,
+//     utils.solidityKeccak256(
+//       ['bytes', 'bytes'],
+//       [
+//         ChugSplashManagerArtifact.bytecode,
+//         utils.defaultAbiCoder.encode(
+//           ['address', 'string', 'address', 'uint256', 'uint256', 'uint256'],
+//           [
+//             CHUGSPLASH_REGISTRY_ADDRESS,
+//             projectName,
+//             PROXY_UPDATER_ADDRESS,
+//             EXECUTOR_BOND_AMOUNT,
+//             EXECUTION_LOCK_TIME,
+//             OWNER_BOND_AMOUNT,
+//           ]
+//         ),
+//       ]
+//     )
+//   )
+// }
+
+/**
+ * Registers a new ChugSplash project.
+ *
+ * @param projectName Name of the created project.
+ * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
+ * @param signer Signer to execute the transaction.
+ * @returns True if the project was successfully created and false if the project was already registered.
+ */
+export const registerChugSplashProject = async (
+  projectName: string,
+  projectOwner: string,
+  signer: Signer
+): Promise<boolean> => {
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+
+  if (
+    (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
+  ) {
+    try {
+      const tx = await ChugSplashRegistry.register(projectName, projectOwner)
+      await tx.wait()
+    } catch (err) {
+      throw new Error(
+        'Failed to register project. Try again with another project name.'
+      )
+    }
+    return true
+  } else {
+    return false
+  }
+}
+
+export const getProjectOwner = async (
+  projectName: string,
+  signer: Signer
+): Promise<string> => {
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const ChugSplashManager = new Contract(
+    await ChugSplashRegistry.projects(projectName),
+    ChugSplashManagerABI,
+    signer
+  )
+  const projectOwner = await ChugSplashManager.owner()
+  return projectOwner
+}
+
+export const getChugSplashRegistry = (
+  signerOrProvider?: Signer | providers.Provider
+): Contract => {
+  return new Contract(
+    // CHUGSPLASH_REGISTRY_ADDRESS,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    ChugSplashRegistryABI,
+    signerOrProvider
+  )
+}
+
+export const getChugSplashManagerImplementationAddress =
+  async (): Promise<string> => {
+    const ChugSplashRegistryProxy = getChugSplashRegistry()
+    const managerImplementationAddress =
+      await ChugSplashRegistryProxy.managerImplementation()
+    return managerImplementationAddress
+  }
