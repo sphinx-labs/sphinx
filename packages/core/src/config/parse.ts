@@ -143,10 +143,15 @@ export const makeActionBundleFromConfig = async (
   for (const [target, contractConfig] of Object.entries(parsed.contracts)) {
     const artifact = artifacts[contractConfig.source]
 
-    // Add a SET_CODE action for each contract first.
+    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
       target,
       code: artifact.deployedBytecode,
+    })
+
+    // Next, add a SET_IMPLEMENTATION action for each contract.
+    actions.push({
+      target,
     })
 
     // Compute our storage slots.

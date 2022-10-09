@@ -171,7 +171,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // TODO: Handle cancellation cleanly
       for (const action of bundle.actions) {
         // TODO: Handle errors cleanly
-        const tx = await manager.executeChugSplashBundleAction(
+        const tx = await manager.executeChugSplashAction(
           action.action,
           action.proof.actionIndex,
           action.proof.siblings

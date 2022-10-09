@@ -1,10 +1,10 @@
 import { ethers } from 'ethers'
 import 'hardhat-deploy'
-
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
+  EXECUTOR_PAYMENT_PERCENTAGE,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   PROXY_UPDATER_ADDRESS,
   ProxyUpdaterABI,
@@ -63,10 +63,10 @@ export const deployAndInitializeChugSplashBootLoader = async (
       log: true,
     }
   )
-  const { address: bootLoaderAddress } = await deploy()
+  const { address: bootloaderAddress } = await deploy()
 
   const ChugSplashBootLoader = new ethers.Contract(
-    bootLoaderAddress,
+    bootloaderAddress,
     new ethers.utils.Interface(ChugSplashBootLoaderABI),
     deployer
   )
@@ -76,6 +76,7 @@ export const deployAndInitializeChugSplashBootLoader = async (
     EXECUTOR_BOND_AMOUNT,
     EXECUTION_LOCK_TIME,
     OWNER_BOND_AMOUNT,
+    EXECUTOR_PAYMENT_PERCENTAGE,
     managerImplementationAddress
   )
   await tx.wait()
@@ -102,6 +103,7 @@ export const deployChugSplashManagerImplementation = async (
       EXECUTOR_BOND_AMOUNT,
       EXECUTION_LOCK_TIME,
       OWNER_BOND_AMOUNT,
+      EXECUTOR_PAYMENT_PERCENTAGE,
     ],
     log: true,
   })
@@ -144,6 +146,7 @@ export const deployChugSplashRegistry = async (
       OWNER_BOND_AMOUNT,
       EXECUTOR_BOND_AMOUNT,
       EXECUTION_LOCK_TIME,
+      EXECUTOR_PAYMENT_PERCENTAGE,
     ],
     log: true,
   })

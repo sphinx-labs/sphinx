@@ -2,8 +2,9 @@
  * Possible action types.
  */
 export enum ChugSplashActionType {
-  SET_CODE,
   SET_STORAGE,
+  DEPLOY_IMPLEMENTATION,
+  SET_IMPLEMENTATION,
 }
 
 /**
@@ -27,14 +28,6 @@ export interface RawChugSplashAction {
 }
 
 /**
- * SetCode action data.
- */
-export interface SetCodeAction {
-  target: string
-  code: string
-}
-
-/**
  * SetStorage action data.
  */
 export interface SetStorageAction {
@@ -44,9 +37,27 @@ export interface SetStorageAction {
 }
 
 /**
+ * DeployImplementation action data.
+ */
+export interface DeployImplementationAction {
+  target: string
+  code: string
+}
+
+/**
+ * SetImplementation action data.
+ */
+export interface SetImplementationAction {
+  target: string
+}
+
+/**
  * ChugSplash action.
  */
-export type ChugSplashAction = SetCodeAction | SetStorageAction
+export type ChugSplashAction =
+  | SetStorageAction
+  | DeployImplementationAction
+  | SetImplementationAction
 
 /**
  * Bundle of ChugSplash actions.

@@ -1,22 +1,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { utils, constants, Signer, Contract, providers, ethers } from 'ethers'
+import { utils, constants, Signer, Contract, providers } from 'ethers'
 // TODO: import the Proxy bytecode from @eth-optimism/contracts-bedrock when they update the npm
 // package. Also remove @chugsplash/contracts from core/
 import { bytecode as ProxyBytecode } from '@chugsplash/contracts/artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 import {
   ChugSplashRegistryABI,
-  ChugSplashManagerArtifact,
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
   // CHUGSPLASH_REGISTRY_ADDRESS,
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  PROXY_UPDATER_ADDRESS,
-  EXECUTOR_BOND_AMOUNT,
-  EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT,
 } from '@chugsplash/contracts'
 
 export const computeBundleId = (
@@ -75,13 +69,8 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
       [
         ChugSplashManagerProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
-          ['address', 'address', 'address', 'bytes'],
-          [
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            [],
-          ]
+          ['address', 'address'],
+          [CHUGSPLASH_REGISTRY_PROXY_ADDRESS, CHUGSPLASH_REGISTRY_PROXY_ADDRESS]
         ),
       ]
     )

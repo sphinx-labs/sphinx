@@ -1,4 +1,5 @@
 artifacts/
+forge-artifacts
 cache/
 dist/
 .env

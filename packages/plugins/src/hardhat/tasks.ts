@@ -1,8 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-Error.stackTraceLimit = Infinity
-
 import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
@@ -30,16 +28,14 @@ import {
   loadChugSplashConfig,
   writeSnapshotId,
   deployChugSplashPredeploys,
+  registerChugSplashProject,
+  getProjectOwner,
+  getChugSplashRegistry,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
-import {
-  registerChugSplashProject,
-  getProjectOwner,
-  getChugSplashRegistry,
-} from '@chugsplash/core'
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
 import { deployContracts } from './deployments'
