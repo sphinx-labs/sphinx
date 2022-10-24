@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
@@ -34,6 +33,13 @@ contract ChugSplashBootLoader is Initializable {
      * @notice Address of the ChugSplashRegistry's proxy.
      */
     Proxy public registryProxy;
+
+    /**
+     * @notice Address of the ChugSplashManager implementation contract. All ChugSplashManagerProxy
+     *         contracts, including the root contract, will have this address as their
+     *         implementation.
+     */
+    ChugSplashManager public managerImplementation;
 
     /**
      * @notice Address of the root ChugSplashManagerProxy.
