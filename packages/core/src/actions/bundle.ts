@@ -89,8 +89,8 @@ export const fromRawChugSplashAction = (
 export const getActionHash = (action: RawChugSplashAction): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['uint8', 'address', 'bytes'],
-      [action.actionType, action.target, action.data]
+      ['string', 'uint8', 'bytes'],
+      [action.target, action.actionType, action.data]
     )
   )
 }

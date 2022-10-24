@@ -1,4 +1,6 @@
 /* Imports: External */
+import * as path from 'path'
+
 import * as Handlebars from 'handlebars'
 import { ethers } from 'ethers'
 
@@ -12,7 +14,18 @@ import {
   ChugSplashActionBundle,
   makeBundleFromActions,
 } from '../actions'
+import { getProxyAddress } from '../utils'
 import { ChugSplashConfig } from './types'
+
+export const loadChugSplashConfig = (
+  configFileName: string
+): ChugSplashConfig => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  let config = require(path.resolve(configFileName))
+  config = config.default || config
+  validateChugSplashConfig(config)
+  return config
+}
 
 /**
  * Validates a ChugSplash config file.
@@ -70,11 +83,10 @@ export const parseChugSplashConfig = (
   validateChugSplashConfig(config)
 
   const contracts = {}
-  for (const [contractName, contractConfig] of Object.entries(
-    config.contracts
-  )) {
-    contractConfig.address = contractConfig.address || '0x' + '00'.repeat(20)
-    contracts[contractName] = contractConfig.address
+  for (const [target, contractConfig] of Object.entries(config.contracts)) {
+    contractConfig.address =
+      contractConfig.address || getProxyAddress(config.options.name, target)
+    contracts[target] = contractConfig.address
   }
 
   return JSON.parse(
@@ -116,7 +128,7 @@ export const makeActionBundleFromConfig = async (
   config: ChugSplashConfig,
   artifacts: {
     [name: string]: {
-      bytecode: string
+      deployedBytecode: string
       storageLayout: SolidityStorageLayout
     }
   },
@@ -128,13 +140,13 @@ export const makeActionBundleFromConfig = async (
   const parsed = parseChugSplashConfig(config, env)
 
   const actions: ChugSplashAction[] = []
-  for (const [, contractConfig] of Object.entries(parsed.contracts)) {
+  for (const [target, contractConfig] of Object.entries(parsed.contracts)) {
     const artifact = artifacts[contractConfig.source]
 
     // Add a SET_CODE action for each contract first.
     actions.push({
-      target: contractConfig.address,
-      code: artifact.bytecode,
+      target,
+      code: artifact.deployedBytecode,
     })
 
     // Compute our storage slots.
@@ -147,7 +159,7 @@ export const makeActionBundleFromConfig = async (
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {
       actions.push({
-        target: contractConfig.address,
+        target,
         key: slot.key,
         value: slot.val,
       })

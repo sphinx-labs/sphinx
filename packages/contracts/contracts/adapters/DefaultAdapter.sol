@@ -7,12 +7,12 @@ import {
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /**
- * @title TransparentUpgradeableAdapter
+ * @title DefaultAdapter
  * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy. This is the adapter used by
  *         default proxies in the ChugSplash system. To learn more about the transparent proxy
  *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
-contract TransparentUpgradeableAdapter is IProxyAdapter {
+contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
