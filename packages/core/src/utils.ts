@@ -69,13 +69,8 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
       [
         ChugSplashManagerProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
-          ['address', 'address', 'address', 'bytes'],
-          [
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            [],
-          ]
+          ['address', 'address'],
+          [CHUGSPLASH_REGISTRY_PROXY_ADDRESS, CHUGSPLASH_REGISTRY_PROXY_ADDRESS]
         ),
       ]
     )

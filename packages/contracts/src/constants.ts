@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
+import { bytecode as ProxyBytecode } from '@chugsplash/contracts/artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 
-import { bytecode as ProxyBytecode } from '../artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 import {
   DefaultAdapterArtifact,
   ProxyUpdaterArtifact,
@@ -13,6 +13,7 @@ export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =
 export const OWNER_BOND_AMOUNT = ethers.utils.parseUnits('0.1')
 export const EXECUTOR_BOND_AMOUNT = ethers.utils.parseUnits('0.1')
 export const EXECUTION_LOCK_TIME = 15 * 60
+export const EXECUTOR_PAYMENT_PERCENTAGE = 20
 
 export const CHUGSPLASH_BOOTLOADER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -24,7 +25,7 @@ export const CHUGSPLASH_BOOTLOADER_ADDRESS = ethers.utils.getCreate2Address(
 )
 
 export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
   // ethers.utils.solidityKeccak256(['string'], ['ProxyUpdater']),
   ethers.constants.HashZero,
   ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
@@ -57,9 +58,7 @@ export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
 //           ['address', 'address', 'address', 'bytes'],
 //           [
 //             CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-//             PROXY_UPDATER,
-//             CHUGSPLASH_BOOTLOADER_ADDRESS,
-//             [],
+//             CHUGSPLASH_BOOTLOADER_ADDRESS, wrong
 //           ]
 //         ),
 //       ]

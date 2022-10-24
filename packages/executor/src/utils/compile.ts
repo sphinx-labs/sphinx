@@ -16,6 +16,7 @@ import {
  * Compiles a remote ChugSplashBundle from a uri.
  *
  * @param uri URI of the ChugSplashBundle to compile.
+ * @param provider JSON RPC provider.
  * @returns Compiled ChugSplashBundle.
  */
 export const compileRemoteBundle = async (

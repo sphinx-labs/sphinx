@@ -35,13 +35,6 @@ contract ChugSplashBootLoader is Initializable {
     Proxy public registryProxy;
 
     /**
-     * @notice Address of the ChugSplashManager implementation contract. All ChugSplashManagerProxy
-     *         contracts, including the root contract, will have this address as their
-     *         implementation.
-     */
-    ChugSplashManager public managerImplementation;
-
-    /**
      * @notice Address of the root ChugSplashManagerProxy.
      */
     ChugSplashManagerProxy public rootManagerProxy;
@@ -51,19 +44,22 @@ contract ChugSplashBootLoader is Initializable {
      *         the ChugSplashRegistry. Once these contracts are deployed, we can upgrade ChugSplash
      *         using ChugSplash!
      *
-     * @param _owner                 Address of the owner of the ChugSplash contracts.
-     * @param _executorBondAmount    Executor bond amount in ETH.
-     * @param _executionLockTime     Amount of time for an executor to completely execute a bundle
-     *                               after claiming it.
-     * @param _ownerBondAmount       Amount that must be deposited in this contract in order to
-     *                               execute a bundle.
-     * @param _managerImplementation Address of the ChugSplashManager implementation contract.
+     * @param _owner                     Address of the owner of the ChugSplash contracts.
+     * @param _executorBondAmount        Executor bond amount in ETH.
+     * @param _executionLockTime         Amount of time for an executor to completely execute a
+     *                                   bundle after claiming it.
+     * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
+     *                                   execute a bundle.
+     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
+     *                                   denominated as a percentage.
+     * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      */
     function initialize(
         address _owner,
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
+        uint256 _executorPaymentPercentage,
         address _managerImplementation
     ) external initializer {
         // Deploy the ProxyUpdater.
@@ -79,9 +75,7 @@ contract ChugSplashBootLoader is Initializable {
         // Deploy the root ChugSplashManager's proxy.
         rootManagerProxy = new ChugSplashManagerProxy{ salt: bytes32(0) }(
             ChugSplashRegistry(registryProxyAddress),
-            address(proxyUpdater), // Dummy value that will be changed in the next call
-            address(this),
-            new bytes(0)
+            address(this)
         );
         // Initialize the proxy. Note that we initialize it in a different call from the deployment
         // because this makes it easy to calculate the Create2 address off-chain before it is
@@ -99,6 +93,7 @@ contract ChugSplashBootLoader is Initializable {
             _ownerBondAmount,
             _executorBondAmount,
             _executionLockTime,
+            _executorPaymentPercentage,
             _managerImplementation
         );
 
@@ -112,7 +107,7 @@ contract ChugSplashBootLoader is Initializable {
         // Set the proxy's implementation contract.
         registryProxy.upgradeTo(address(registryImplementation));
 
-        // Transfer ownership of the ChugSplashRegistry's proxy to the root ChugSplashManagerProxy.
-        registryProxy.changeAdmin(address(rootManagerProxy));
+        // Transfer ownership of the ChugSplashRegistry's proxy to the owner.
+        registryProxy.changeAdmin(_owner);
     }
 }

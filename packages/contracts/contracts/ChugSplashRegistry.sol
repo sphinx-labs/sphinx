@@ -90,32 +90,41 @@ contract ChugSplashRegistry is Initializable {
     uint256 public immutable executionLockTime;
 
     /**
+     * @notice Amount that executors are paid, denominated as a percentage of the cost of execution.
+     */
+    uint256 public immutable executorPaymentPercentage;
+
+    /**
      * @notice Address of the ChugSplashManager implementation contract.
      */
     // TODO: Remove once this contract is not upgradeable anymore.
     address public immutable managerImplementation;
 
     /**
-     * @param _proxyUpdater          Address of the ProxyUpdater.
-     * @param _ownerBondAmount       Amount that must be deposited in the ChugSplashManager in order
-     *                               to execute a bundle.
-     * @param _executorBondAmount    Amount that an executor must send to the ChugSplashManager to
-     *                               claim a bundle.
-     * @param _executionLockTime     Amount of time for an executor to completely execute a bundle
-     *                               after claiming it.
-     * @param _managerImplementation Address of the ChugSplashManager implementation contract.
+     * @param _proxyUpdater              Address of the ProxyUpdater.
+     * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
+     *                                   order to execute a bundle.
+     * @param _executorBondAmount        Amount that an executor must send to the ChugSplashManager
+     *                                   to claim a bundle.
+     * @param _executionLockTime         Amount of time for an executor to completely execute a
+     *                                   bundle after claiming it.
+     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
+     *                                   denominated as a percentage.
+     * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      */
     constructor(
         address _proxyUpdater,
         uint256 _ownerBondAmount,
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
+        uint256 _executorPaymentPercentage,
         address _managerImplementation
     ) {
         proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
         executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
+        executorPaymentPercentage = _executorPaymentPercentage;
         managerImplementation = _managerImplementation;
     }
 
@@ -131,13 +140,20 @@ contract ChugSplashRegistry is Initializable {
             "ChugSplashRegistry: name already registered"
         );
 
-        // Deploy and initialize the ChugSplashManager using a proxy.
-        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{ salt: bytes32(0) }(
+        // Deploy the ChugSplashManager's proxy.
+        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
+            salt: keccak256(bytes(_name))
+        }(
             this, // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
+            address(this)
+        );
+        // Initialize the proxy. Note that we initialize it in a different call from the deployment
+        // because this makes it easy to calculate the Create2 address off-chain before it is
+        // deployed.
+        manager.upgradeToAndCall(
             managerImplementation,
-            _owner,
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _executorBondAmount))
+            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
         );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
@@ -172,8 +188,6 @@ contract ChugSplashRegistry is Initializable {
             adapters[_proxyType] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
-        // TODO: We might want to add a check here that the adapter supports the correct interface
-        // (e.g. using ERC165Checker) to avoid incorrectly inputted adapter addresses.
         adapters[_proxyType] = _adapter;
 
         emit ProxyTypeAdded(_proxyType, _adapter);

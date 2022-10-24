@@ -8,6 +8,9 @@ import {
   loadChugSplashConfig,
   writeSnapshotId,
   getChugSplashRegistry,
+  isSetImplementationAction,
+  ChugSplashActionBundle,
+  fromRawChugSplashAction,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -50,10 +53,16 @@ export const deployChugSplashConfig = async (hre: any, fileName: string) => {
     deployConfig: configRelativePath,
   })
 
-  const { bundle, bundleId } = await hre.run('chugsplash-propose', {
-    deployConfig: configRelativePath,
-    local: true,
-  })
+  const {
+    bundle,
+    bundleId,
+  }: { bundle: ChugSplashActionBundle; bundleId: string } = await hre.run(
+    'chugsplash-propose',
+    {
+      deployConfig: configRelativePath,
+      local: true,
+    }
+  )
 
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
@@ -91,20 +100,38 @@ export const deployChugSplashConfig = async (hre: any, fileName: string) => {
 
   const bundleState = await ChugSplashManager.bundles(bundleId)
   if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-    const tx = await ChugSplashManager.claim(bundleId, {
+    const tx = await ChugSplashManager.claimBundle({
       value: EXECUTOR_BOND_AMOUNT,
     })
     await tx.wait()
   }
 
+  // Execute the SetCode and DeployImplementation actions. Note that the SetImplementation actions
+  // have already been sorted so that they are at the end of the actions array.
+  let firstSetImplementationIdx: number = 0
   for (const action of bundle.actions) {
-    const tx = await ChugSplashManager.executeChugSplashBundleAction(
-      action.action,
-      action.proof.actionIndex,
-      action.proof.siblings
-    )
-    await tx.wait()
+    if (!isSetImplementationAction(fromRawChugSplashAction(action.action))) {
+      const tx = await ChugSplashManager.executeChugSplashAction(
+        action.action,
+        action.proof.actionIndex,
+        action.proof.siblings
+      )
+      await tx.wait()
+      firstSetImplementationIdx += 1
+    } else {
+      // Break out of the loop if we have reached a SetImplementation action.
+      break
+    }
   }
+
+  // Complete the bundle by executing all the SetImplementation actions in one call.
+  const setImplActions = bundle.actions.slice(firstSetImplementationIdx)
+  const txn = await ChugSplashManager.completeChugSplashBundle(
+    setImplActions.map((action) => action.action),
+    setImplActions.map((action) => action.proof.actionIndex),
+    setImplActions.map((action) => action.proof.siblings)
+  )
+  await txn.wait()
 }
 
 export const getContract = async (
