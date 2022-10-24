@@ -4,8 +4,9 @@
 
 ```typescript
 enum ActionType {
-  SET_CODE,
-  SET_STORAGE
+  SET_STORAGE,
+  DEPLOY_IMPLEMENTATION
+  SET_IMPLEMENTATION,
 }
 ```
 
@@ -93,28 +94,48 @@ const getProxyByName = (
 * There MUST NOT be any active bundle.
 * Approving a bundle MUST put the bundle in the `APPROVED` state.
 * Approving a bundle MUST make the approved bundle the active bundle.
-* The balance of the ChugSplashManager minus the current totalDebt MUST be greater than BUNDLE_EXECUTION_BOND_AMOUNT ETH in its balance.
+* The balance of the ChugSplashManager minus the current `totalDebt` MUST be greater than or equal to OWNER_BOND_AMOUNT ETH in its balance.
 * The ChugSplashManager MUST emit the event ChugSplashBundleApproved with the ID of the bundle as the only parameter. The ChugSplashManager MUST announce this event to the registry.
 
 ## Executing a ChugSplash action
 * There MUST be an `activeBundleId` to execute a ChugSplash action.
-* There MUST be enough reserved ETH in the ChugSplashManager to pay the executor for this action.
 * The `_actionIndex` MUST NOT already have been executed.
 * A ChugSplash action MUST be executed by the `selectedExecutor`.
 * The `_action`, `activeBundleId`, `_actionIndex`, and `_proof` MUST produce a valid Merkle proof.
 * If the proxy corresponding to the `target` has not already been deployed:
   * The proxy MUST be deployed using Create2.
-  * The proxy MUST have the same address as the the address returned by a call to `getProxyByName`.
-* A `SET_CODE` or `SET_ACTION` MUST be executed on the proxy depending on the `ActionType`.
-* Executing an action MUST increment the `actionsExecuted` by one.
-* Executing an action MUST set the current `_actionIndex` to `true`.
-* The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active bundle ID, the executor's address, and the action index. The ChugSplashManager MUST announce this event to the registry.
-* If all actions have been executed for the bundle:
-  * The bundle status MUST be set to `COMPLETED`.
-  * The ChugSplashManager MUST increase the `debt` owed to the current executor by the `executorBondAmount`.
-  * The `activeBundleId` MUST be set to `bytes32(0)`.
-  * The ChugSplashManager MUST emit the event ChugSplashBundleCompleted with the active bundle ID, the executor's address, and the action index. The ChugSplashManager MUST announce this event to the registry.
+  * The proxy MUST have the same address as the the address returned by a call to `getProxyByTargetName`.
+* Otherwise, if the proxy's implementation is not `address(0)`:
+  * The proxy's implementation MUST be set to `address(0)`.
+* The `actionsExecuted` MUST be incremented by one.
+* The current `_actionIndex` MUST be set to `true`.
+* If the current action is `SET_STORAGE`:
+  * A call to `_setProxyStorage` MUST be executed with the `proxy`, `proxyType`, `key`, and `val` as arguments.
+* Otherwise, if the current action is `DEPLOY_IMPLEMENTATION`:
+  * A call to `_deployImplementation` MUST be executed with `proxy`, `proxyType`, and `data` as arguments.
+* Otherwise, the current call MUST revert.
+* The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active bundle ID, the executor's address, and the action index.
+* The ChugSplashManager MUST announce this event to the registry.
 * Executing an action MUST increase the `totalDebt` and the current executor's `debt` by `block.basefee * gasUsed * (100 + executorPaymentPercentage) / 100)`, where `gasUsed` is calculated using `gasleft()` plus the intrinsic gas (21k) plus the calldata usage.
+
+## Completing a ChugSplash bundle
+* There MUST be an `activeBundleId`.
+* The actions MUST be executed by the `selectedExecutor`.
+* For each `_action` in `_actions`:
+  * The `_actionIndex` MUST NOT already have been executed.
+  * The `_action`, `activeBundleId`, `_actionIndex`, and `_proof` MUST produce a valid Merkle proof.
+  * The `actionsExecuted` MUST be incremented by one.
+  * The current `_actionIndex` MUST be set to `true`.
+  * A call to `_upgradeProxyTo` MUST be executed with the corresponding `proxy`, `adapter`, and `implementation` as arguments.
+  * The ChugSplashManager MUST increase the current executor's `debt` and the `totalDebt` by `block.basefee * gasUsed * (100 + executorPaymentPercentage) / 100)`, where `gasUsed` is calculated using `gasleft()` plus the intrinsic gas (21k) plus the calldata usage.
+  * The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active bundle ID, the executor's address, and the action index.
+  * The ChugSplashManager MUST announce this event to the registry.
+* The call MUST revert if all of the actions in the bundle were not executed.
+* The bundle status MUST be set to `COMPLETED`.
+* The `activeBundleId` MUST be set to `bytes32(0)`.
+* The ChugSplashManager MUST increase the `debt` owed to the current executor by the `EXECUTOR_BOND_AMOUNT`.
+* The ChugSplashManager MUST emit the event ChugSplashBundleCompleted with the active bundle ID, the executor's address, and the action index.
+* The ChugSplashManager MUST announce this event to the registry.
 
 ## Cancelling a ChugSplash bundle
 
@@ -122,9 +143,10 @@ const getProxyByName = (
 * Bundles MUST be in the `APPROVED` state before they can be cancelled.
 * Cancelling a bundle MUST put the bundle in the `CANCELLED` state.
 * Cancelling a bundle MUST remove the active bundle.
-* If an executor has been selected within the last `executionLockTime` seconds (i.e. `block.timestamp` <= `timeClaimed + executionLockTime`):
-  * The ChugSplashManager MUST increase the `debt` owed to the current executor by `BUNDLE_EXECUTION_BOND_AMOUNT`.
-  * The ChugSplashManager MUST increase the `totalDebt` by the `BUNDLE_EXECUTION_BOND_AMOUNT`.
+* If an executor has been selected within the last `EXECUTION_LOCK_TIME` seconds (i.e. `block.timestamp` <= `timeClaimed + EXECUTION_LOCK_TIME`):
+  * The ChugSplashManager MUST increase the `debt` owed to the current executor by `OWNER_BOND_AMOUNT + EXECUTOR_BOND_AMOUNT`.
+  * The ChugSplashManager MUST increase the `totalDebt` by the `OWNER_BOND_AMOUNT`.
+* Otherwise, the `totalDebt` must decrease by the `EXECUTOR_BOND_AMOUNT`.
 * The ChugSplashManager MUST emit the event ChugSplashBundleCancelled with the ID of the bundle and the total number of actions executed. The ChugSplashManager MUST announce this event to the registry.
 
 ## Withdrawing ETH
@@ -148,13 +170,13 @@ const getProxyByName = (
 ## Claiming a bundle
 
 * Anyone should be able to claim a bundle.
-* The `msg.value` MUST be greater than or equal to the `executorBondAmount`.
+* The `msg.value` MUST be greater than or equal to the `EXECUTOR_BOND_AMOUNT`.
 * The bundle being claimed MUST have an `APPROVED` status.
-* The current `block.timestamp` MUST be greater than the `timeClaimed` plus the `executionLockTime`.
+* The current `block.timestamp` MUST be greater than the `timeClaimed` plus the `EXECUTION_LOCK_TIME`.
 * Claiming a bundle MUST set the `timeClaimed` to be the `block.timestamp`.
 * Claiming a bundle MUST set the `selectedExecutor` to be the executor that claimed the bundle.
 * If there was no previously selected executor for this bundle:
-  * The ChugSplashManager MUST increase the `totalDebt` by the `executorBondAmount`.
+  * The ChugSplashManager MUST increase the `totalDebt` by the `EXECUTOR_BOND_AMOUNT`.
 * The ChugSplashManager MUST emit the event ChugSplashBundleClaimed with the claimed bundle ID and the address of the executor. The ChugSplashManager MUST announce this event to the registry.
 
 ## Transferring proxy ownership from the ChugSplashManager
