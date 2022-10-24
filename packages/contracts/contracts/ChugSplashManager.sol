@@ -83,23 +83,8 @@ contract ChugSplashManager is OwnableUpgradeable {
     );
 
     /**
-     * @notice Emitted when a non-standard proxy is assigned to a target.
-     *
-     * @param targetHash Hash of the target's string name.
-     * @param proxy      Address of the proxy.
-     * @param proxyType  The proxy type.
-     * @param target     String name of the target.
-     */
-    event ProxySetToTarget(
-        string indexed targetHash,
-        address indexed proxy,
-        bytes32 indexed proxyType,
-        string target
-    );
-
-    /**
-     * @notice Emitted when the project owner transfers ownership of a proxy away from the
-     *         ChugSplashManager.
+     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
+     *         owner.
      *
      * @param targetHash Hash of the target's string name.
      * @param proxy          Address of the proxy that is the subject of the ownership transfer.
@@ -490,8 +475,12 @@ contract ChugSplashManager is OwnableUpgradeable {
                 _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
             }
         } else {
-            // Use the non-standard proxy assigned to this target by the owner.
-            proxy = proxies[_action.target];
+            // We intend to support alternative proxy types in the future, but doing so requires
+            // including additional checks to guarantee that actions will always executable. We will
+            // re-enable the ability to use different proxy types once we have implemented those
+            // additional checks.
+            revert("ChugSplashManager: invalid proxy type, must be default proxy");
+            // proxy = proxies[_action.target];
         }
 
         // Mark the action as executed and update the total number of executed actions.
@@ -713,35 +702,7 @@ contract ChugSplashManager is OwnableUpgradeable {
     }
 
     /**
-     * @notice Assigns a non-standard proxy to the specified target to replace the default proxy
-     *         used by ChugSplash. This allows project owners to plug their existing proxies into
-     *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
-     *
-     * @param _name      String name of the target.
-     * @param _proxy     Address of the non-standard proxy.
-     * @param _proxyType The proxy's type.
-     */
-    function setProxyToTarget(
-        string memory _name,
-        address payable _proxy,
-        bytes32 _proxyType
-    ) external onlyOwner {
-        require(
-            activeBundleId == bytes32(0),
-            "ChugSplashManager: cannot change proxy while bundle is active"
-        );
-        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
-        require(_proxyType != bytes32(0), "ChugSplashManager: proxy must have a proxy type");
-
-        proxies[_name] = _proxy;
-        proxyTypes[_name] = _proxyType;
-
-        emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
-    }
-
-    /**
-     * @notice Transfers ownership of a proxy from this contract to an address selected by the
-     *         project owner.
+     * @notice Transfers ownership of a proxy from this contract to the project owner.
      *
      * @param _target   Target that corresponds to the proxy.
      * @param _newOwner Address of the project owner that is receiving ownership of the proxy.
