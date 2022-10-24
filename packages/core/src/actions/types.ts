@@ -7,6 +7,17 @@ export enum ChugSplashActionType {
 }
 
 /**
+ * The status of a given ChugSplash action.
+ */
+export enum ChugSplashBundleStatus {
+  EMPTY,
+  PROPOSED,
+  APPROVED,
+  COMPLETED,
+  CANCELLED,
+}
+
+/**
  * Raw action data (encoded for use on-chain).
  */
 export interface RawChugSplashAction {
@@ -49,4 +60,13 @@ export interface ChugSplashActionBundle {
       siblings: string[]
     }
   }>
+}
+
+/**
+ * The state of a ChugSplash bundle.
+ */
+export type ChugSplashBundleState = {
+  status: ChugSplashBundleStatus
+  executions: boolean[]
+  total: number
 }

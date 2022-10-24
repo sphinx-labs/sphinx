@@ -20,12 +20,15 @@ import {
   ChugSplashConfig,
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
+  ChugSplashBundleState,
+  ChugSplashBundleStatus,
 } from '@chugsplash/core'
 import {
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
 } from '@chugsplash/contracts'
 import ora from 'ora'
+import { SingleBar, Presets } from 'cli-progress'
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
 
@@ -43,6 +46,7 @@ const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
+const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
 // This address was generated using Create2. For now, it needs to be changed manually each time
 // the contract is updated.
@@ -344,13 +348,13 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
 
       // Filter out the approved bundle event if there is a currently active bundle
-      const activebundleId = await ChugSplashManager.activebundleId()
+      const activeBundleId = await ChugSplashManager.activeBundleId()
 
       let approvedEvent: any
-      if (activebundleId !== ethers.constants.HashZero) {
+      if (activeBundleId !== ethers.constants.HashZero) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const bundleId = proposedEvents[i].args.bundleId
-          if (bundleId === activebundleId) {
+          if (bundleId === activeBundleId) {
             // Remove the active bundle event in-place and return it.
             approvedEvent = proposedEvents.splice(i, 1)
 
@@ -391,10 +395,10 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
 
       // Display the approved bundle if it exists
-      if (activebundleId !== ethers.constants.HashZero) {
+      if (activeBundleId !== ethers.constants.HashZero) {
         console.log('Approved:')
         console.log(
-          `Bundle ID: ${activebundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
+          `Bundle ID: ${activeBundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
         )
       }
 
@@ -544,5 +548,120 @@ task(TASK_CHUGSPLASH_VERIFY)
         config,
         bundle,
       }
+    }
+  )
+
+task(TASK_CHUGSPLASH_STATUS)
+  .setDescription('Displays the status of a ChugSplash bundle')
+  .addParam('projectName', 'name of the chugsplash project')
+  .addParam('bundleId', 'hash of the bundle')
+  .setAction(
+    async (
+      args: {
+        projectName: string
+        bundleId: string
+      },
+      hre
+    ) => {
+      const progressBar = new SingleBar({}, Presets.shades_classic)
+
+      const ChugSplashRegistry = new ethers.Contract(
+        CHUGSPLASH_REGISTRY_ADDRESS,
+        ChugSplashRegistryABI,
+        hre.ethers.provider
+      )
+
+      const ChugSplashManager = new ethers.Contract(
+        await ChugSplashRegistry.projects(args.projectName),
+        ChugSplashManagerABI,
+        hre.ethers.provider
+      )
+
+      // Get the bundle state of the inputted bundle ID.
+      const bundleState: ChugSplashBundleState =
+        await ChugSplashManager.bundles(args.bundleId)
+
+      // Handle cases where the bundle is completed, cancelled, or not yet approved.
+      if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+        // Display a completed status bar then exit.
+        progressBar.start(bundleState.total, bundleState.total)
+        console.log('\n Bundle is already completed.')
+        process.exit()
+      } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+        // Set the progress bar to be the number of executions that had occurred when the bundle was
+        // cancelled.
+        progressBar.start(bundleState.executions.length, bundleState.total)
+        console.log('\n Bundle was cancelled.')
+        process.exit()
+      } else if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
+        console.log('Bundle has not been approved by the project owner yet.')
+        process.exit()
+      }
+
+      // If we make it to this point, we know that the given bundle is active, since its status is
+      // ChugSplashBundleStatus.APPROVED.
+
+      // Define event filters
+      const actionExecutedFilter = {
+        address: ChugSplashManager.address,
+        topics: [
+          ethers.utils.id('ChugSplashActionExecuted(bytes32,address,uint256)'),
+        ],
+      }
+      const cancellationFilter = {
+        address: ChugSplashManager.address,
+        topics: [
+          ethers.utils.id('ChugSplashBundleCancelled(bytes32,address,uint256)'),
+        ],
+      }
+
+      // Set the status bar to display the number of actions executed so far.
+      progressBar.start(bundleState.executions.length, bundleState.total)
+
+      // Declare a listener for the ChugSplashActionExecuted event on the project's
+      // ChugSplashManager contract.
+      hre.ethers.provider.on(actionExecutedFilter, (log) => {
+        // Throw an error if the bundle ID inputted by the user is not active. This shouldn't ever
+        // happen, since we already checked that this bundle ID was active earlier.
+        const emittedBundleId = ChugSplashManagerABI.parseLog(log).args.bundleId
+        if (emittedBundleId !== args.bundleId) {
+          throw new Error(
+            `Bundle ID ${args.bundleId} is inactive. Did you recently cancel this bundle?`
+          )
+        }
+
+        const actionIndex = ChugSplashManagerABI.parseLog(log).args.actionIndex
+
+        // If the bundle is complete, set the progress bar to be 100% and exit.
+        if (actionIndex.eq(bundleState.executions.length)) {
+          progressBar.update(actionIndex)
+          process.exit()
+        }
+        // If the bundle is not complete, update the progress bar.
+        progressBar.update(actionIndex.toNumber())
+      })
+
+      // Also declare an event listener for the ChugSplashBundleCancelled event in case the bundle
+      // is cancelled.
+      hre.ethers.provider.on(cancellationFilter, (log) => {
+        // Throw an error if the emitted bundle ID emitted does not match the bundle ID inputted by
+        // the user. This shouldn't ever happen, since we checked earlier that the inputted bundle
+        // ID is the active bundle ID.
+        const emittedBundleId = ChugSplashManagerABI.parseLog(log).args.bundleId
+        if (emittedBundleId !== args.bundleId) {
+          throw new Error(
+            `Bundle ID ${emittedBundleId} was cancelled, but does not match inputted bundle ID ${args.bundleId}.
+            Something went wrong.`
+          )
+        }
+
+        const actionIndex = ChugSplashManagerABI.parseLog(log).args.actionIndex
+
+        // Set the progress bar to be the number of executions that had occurred when the bundle was
+        // cancelled.
+        progressBar.update(actionIndex.toNumber())
+        console.log('\n Bundle was cancelled :(')
+        process.exit()
+      })
     }
   )
