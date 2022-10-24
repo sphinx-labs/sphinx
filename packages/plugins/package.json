@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@chugsplash/contracts": "link:packages/contracts",
-    "@chugsplash/core": "^0.1.1",
+    "@chugsplash/core": "link:packages/core",
     "@eth-optimism/core-utils": "^0.9.1",
     "@nomiclabs/hardhat-ethers": "^2.1.0",
     "cli-progress": "^3.11.2",
