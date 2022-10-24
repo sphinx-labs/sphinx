@@ -131,22 +131,13 @@ contract ChugSplashRegistry is Initializable {
             "ChugSplashRegistry: name already registered"
         );
 
-        // Deploy the ChugSplashManager's proxy.
-        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
-            salt: keccak256(bytes(_name))
-        }(
+        // Deploy and initialize the ChugSplashManager using a proxy.
+        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{ salt: bytes32(0) }(
             this, // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
-            address(this), // Dummy value that will be changed in the next call
-            address(this),
-            new bytes(0)
-        );
-        // Initialize the proxy. Note that we initialize it in a different call from the deployment
-        // because this makes it easy to calculate the Create2 address off-chain before it is
-        // deployed.
-        manager.upgradeToAndCall(
             managerImplementation,
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
+            _owner,
+            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _executorBondAmount))
         );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
