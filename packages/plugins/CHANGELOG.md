@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.2.1
+
+### Patch Changes
+
+- dc631e7: Test
+
 ## 0.2.0
 
 ### Minor Changes
