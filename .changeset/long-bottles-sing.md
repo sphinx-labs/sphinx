@@ -1,0 +1,5 @@
+---
+'@chugsplash/plugins': patch
+---
+
+Test
