@@ -4,7 +4,6 @@ import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import 'hardhat-deploy'
 
 // Load environment variables from .env
 dotenv.config()
