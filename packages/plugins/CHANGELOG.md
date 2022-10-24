@@ -1,5 +1,31 @@
 # @chugsplash/plugins
 
+## 0.2.0
+
+### Minor Changes
+
+- 04ada98: Adds a hardhat task that shows the live status of an upgrade.
+
+### Patch Changes
+
+- 3a7b19c: Fixes a typo in a variable name (activebundleID => activeBundleID) that was created as a result of an errant find/replace
+- Updated dependencies [5109141]
+- Updated dependencies [e0db3d0]
+- Updated dependencies [efccd1a]
+- Updated dependencies [967b529]
+- Updated dependencies [e7ee72d]
+- Updated dependencies [67c3507]
+- Updated dependencies [d7f930f]
+- Updated dependencies [3450d6f]
+- Updated dependencies [2cc3bc9]
+- Updated dependencies [3a7b19c]
+- Updated dependencies [da53947]
+- Updated dependencies [f92ff76]
+- Updated dependencies [04ada98]
+- Updated dependencies [2cc3bc9]
+  - @chugsplash/contracts@0.2.0
+  - @chugsplash/core@0.1.1
+
 ## 0.1.2
 
 ### Patch Changes
