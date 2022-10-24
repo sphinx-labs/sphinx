@@ -11,9 +11,7 @@ export type BuildInfo = any
  * @param name Name of the artifact.
  * @returns Artifact.
  */
-export const getContractArtifact = async (
-  name: string
-): Promise<ContractArtifact> => {
+export const getContractArtifact = (name: string): ContractArtifact => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const hre = require('hardhat')
   return hre.artifacts.readArtifactSync(name)

@@ -4,7 +4,6 @@ import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import 'hardhat-deploy'
 
 // Load environment variables from .env
 dotenv.config()
@@ -12,6 +11,12 @@ dotenv.config()
 const config: HardhatUserConfig = {
   solidity: {
     version: '0.8.15',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 10_000,
+      },
+    },
   },
   networks: {
     optimism: {

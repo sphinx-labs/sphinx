@@ -11,7 +11,7 @@ const config: ChugSplashConfig = {
       variables: {
         name: 'MyToken',
         symbol: 'MYT',
-        //decimals: 18,
+        // decimals: 18,
         totalSupply: 1000,
         // balanceOf: {
         //   '0x0000000000000000000000000000000000000000': 1000,

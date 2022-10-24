@@ -75,13 +75,18 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   }
 
   async main() {
-    // Put TODOs here
-    // TODO: recover if we crashed and are in the middle of executing an upgrade
+    // TODO: Recover if we crashed and are in the middle of executing an upgrade
 
     // Find all active upgrades that have not yet been started
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
       this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved')
     )
+
+    // TODO: Cache events that we've already seen so we don't do a bunch of work on the same events
+    //       more than once.
+    // TODO: When we spin up, should we look for previous events, or should we only look at new
+    //       events? If we look at previous events, we need to figure out how to quickly filter out
+    //       upgrades that have already been completed.
 
     for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
       const manager = new ethers.Contract(
@@ -137,6 +142,11 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         // TODO: throw an error here or skip
       }
 
+      // TODO: Perform a quick upper-bound estimation of the amount of gas required to execute this
+      //       upgrade. We can do this without simulating anything because ChugSplash upgrades are
+      //       fully deterministic. If account's balance is above the upper-bound estimation, then
+      //       we're ok with claiming the upgrade.
+
       // Try to become the selected executor.
       // TODO: Use an adapter system to make this easier.
       if (ess === ExecutorSelectionStrategy.SIMPLE_LOCK) {
@@ -161,7 +171,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // TODO: Handle cancellation cleanly
       for (const action of bundle.actions) {
         // TODO: Handle errors cleanly
-        const tx = await manager.executeChugSplashBundleAction(
+        const tx = await manager.executeChugSplashAction(
           action.action,
           action.proof.actionIndex,
           action.proof.siblings
@@ -177,6 +187,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       }
 
       // TODO: Check that we got paid appropriately.
+      // TODO: Get our bond back.
     }
   }
 }
