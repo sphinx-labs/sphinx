@@ -11,11 +11,19 @@
       "packages/plugins",
       "packages/executor",
       "packages/demo"
+    ],
+    "nohoist": [
+      "@chugsplash/contracts/forge-std",
+      "@chugsplash/contracts/ds-test",
+      "@chugsplash/contracts/@openzeppelin/contracts",
+      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable",
+      "@chugsplash/contracts/@eth-optimism/contracts-bedrock"
     ]
   },
   "scripts": {
     "build": "yarn workspaces run build",
     "test": "yarn workspaces run test",
+    "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
     "lint:fix": "yarn workspaces run lint:fix"
   },

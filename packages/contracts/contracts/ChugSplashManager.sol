@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { Owned } from "@rari-capital/solmate/src/auth/Owned.sol";
+import {
+    ChugSplashBundleState,
+    ChugSplashAction,
+    ChugSplashActionType,
+    ChugSplashBundleStatus
+} from "./ChugSplashDataTypes.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IProxyAdapter } from "./IProxyAdapter.sol";
@@ -12,47 +20,7 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is Owned {
-    /**
-     * @notice Enum representing possible ChugSplash action types.
-     */
-    enum ChugSplashActionType {
-        SET_CODE,
-        SET_STORAGE
-    }
-
-    /**
-     * @notice Enum representing the status of a given ChugSplash action.
-     */
-    enum ChugSplashBundleStatus {
-        EMPTY,
-        PROPOSED,
-        APPROVED,
-        COMPLETED,
-        CANCELLED
-    }
-
-    /**
-     * @notice Struct representing a ChugSplash action.
-     */
-    struct ChugSplashAction {
-        string target;
-        ChugSplashActionType actionType;
-        bytes data;
-    }
-
-    /**
-     * @notice Struct representing the state of a ChugSplash bundle.
-     */
-    struct ChugSplashBundleState {
-        ChugSplashBundleStatus status;
-        bool[] executions;
-        uint256 total;
-        uint256 timeClaimed;
-        address selectedExecutor;
-        bool executorBondReturned;
-    }
-
+contract ChugSplashManager is OwnableUpgradeable {
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *
@@ -91,56 +59,45 @@ contract ChugSplashManager is Owned {
     /**
      * @notice Emitted when a ChugSplash bundle is completed.
      *
-     * @param bundleId Unique ID for the bundle.
-     * @param executor Address of the executor.
-     * @param total    Total number of completed actions.
+     * @param bundleId        Unique ID for the bundle.
+     * @param executor        Address of the executor.
+     * @param actionsExecuted Total number of completed actions.
      */
     event ChugSplashBundleCompleted(
         bytes32 indexed bundleId,
         address indexed executor,
-        uint256 total
+        uint256 actionsExecuted
     );
 
     /**
      * @notice Emitted when an active ChugSplash bundle is cancelled.
      *
-     * @param bundleId Bundle ID that was cancelled.
-     * @param owner    Owner of the ChugSplashManager.
-     * @param total    Total number of completed actions.
+     * @param bundleId        Bundle ID that was cancelled.
+     * @param owner           Owner of the ChugSplashManager.
+     * @param actionsExecuted Total number of completed actions before cancellation.
      */
-    event ChugSplashBundleCancelled(bytes32 indexed bundleId, address indexed owner, uint256 total);
-
-    /**
-     * @notice Emitted when a non-standard proxy is assigned to a target.
-     *
-     * @param targetNameHash Hash of the target's string name.
-     * @param proxy          Address of the proxy.
-     * @param proxyType      The proxy type.
-     * @param targetName     String name of the target.
-     */
-    event ProxySetToTarget(
-        string indexed targetNameHash,
-        address indexed proxy,
-        bytes32 indexed proxyType,
-        string targetName
+    event ChugSplashBundleCancelled(
+        bytes32 indexed bundleId,
+        address indexed owner,
+        uint256 actionsExecuted
     );
 
     /**
-     * @notice Emitted when the project owner transfers ownership of a proxy away from the
-     *         ChugSplashManager.
+     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
+     *         owner.
      *
-     * @param targetNameHash Hash of the target's string name.
+     * @param targetHash Hash of the target's string name.
      * @param proxy          Address of the proxy that is the subject of the ownership transfer.
      * @param proxyType      The proxy type.
      * @param newOwner       Address of the project owner that is receiving ownership of the proxy.
-     * @param targetName     String name of the target.
+     * @param target     String name of the target.
      */
     event ProxyOwnershipTransferred(
-        string indexed targetNameHash,
+        string indexed targetHash,
         address indexed proxy,
         bytes32 indexed proxyType,
         address newOwner,
-        string targetName
+        string target
     );
 
     /**
@@ -152,29 +109,20 @@ contract ChugSplashManager is Owned {
     event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
 
     /**
-     * @notice Emitted when an executor is refunded the bond that they originally posted to claim a
-     *         bundle.
+     * @notice Emitted when an executor claims a payment.
      *
-     * @param bundleId ID of the bundle that was claimed.
-     * @param executor Address of the executor that posted the bond.
+     * @param executor The executor being paid.
+     * @param amount   The ETH amount sent to the executor.
      */
-    event ExecutorBondReturned(bytes32 indexed bundleId, address indexed executor);
+    event ExecutorPaymentClaimed(address indexed executor, uint256 amount);
 
     /**
-     * @notice Emitted when a new executor bond amount is set.
+     * @notice Emitted when the owner withdraws ETH from this contract.
      *
-     * @param executorBondAmount New executor bond amount.
-     */
-    event ExecutorBondAmountSet(uint256 executorBondAmount);
-
-    /**
-     * @notice Emitted when ETH is withdrawn from this contract.
-     *
-     * @param from   Address that initiated the withdrawal.
-     * @param to     Address that received the ETH.
+     * @param owner  Address that initiated the withdrawal.
      * @param amount ETH amount withdrawn.
      */
-    event ETHWithdrawn(address indexed from, address indexed to, uint256 amount);
+    event OwnerWithdrewETH(address indexed owner, uint256 amount);
 
     /**
      * @notice Emitted when ETH is deposited in this contract
@@ -182,8 +130,15 @@ contract ChugSplashManager is Owned {
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     /**
-     * @notice "Magic" prefix. When prepended to some arbitrary bytecode and used to create a
-     *         contract, the appended bytecode will be deployed as given.
+     * @notice The storage slot that holds the address of an EIP-1967 implementation contract.
+     *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+     */
+    bytes32 internal constant EIP1967_IMPLEMENTATION_KEY =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
+    /**
+     * @notice "Magic" prefix. When prepended to some arbitrary runtime bytecode and used to create
+     *         a contract, the appended bytecode will be deployed as given.
      */
     bytes13 internal constant DEPLOY_CODE_PREFIX = 0x600D380380600D6000396000f3;
 
@@ -207,6 +162,56 @@ contract ChugSplashManager is Owned {
     uint256 public immutable ownerBondAmount;
 
     /**
+     * @notice Amount in ETH that the executor must send to this contract to claim a bundle for
+     *         `executionLockTime`.
+     */
+    uint256 public immutable executorBondAmount;
+
+    /**
+     * @notice Amount of time for an executor to finish executing a bundle once they have claimed
+     *         it. If the executor fails to completely execute the bundle in this amount of time,
+     *         their bond is forfeited to the ChugSplashManager.
+     */
+    uint256 public immutable executionLockTime;
+
+    /**
+     * @notice Amount that executors are paid, denominated as a percentage of the cost of execution.
+     *         For example: if a bundle costs 1 gwei to execute and the executorPaymentPercentage is
+     *         10, then the executor will profit 0.1 gwei.
+     */
+    uint256 public immutable executorPaymentPercentage;
+
+    /**
+     * @notice Mapping of targets to proxy addresses. If a target is using the default
+     *         proxy, then its value in this mapping is the zero-address.
+     */
+    mapping(string => address payable) public proxies;
+
+    /**
+     * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
+     *         owed to them.
+     */
+    mapping(address => uint256) public debt;
+
+    /**
+     * @notice Mapping of targets to proxy types. If a target is using the default proxy,
+     *         then its value in this mapping is bytes32(0).
+     */
+    mapping(string => bytes32) public proxyTypes;
+
+    /**
+     * @notice Mapping of targets to deployed implementation addresses. This mapping is a
+     *         convenient way to store implementation addresses before completing a bundle
+     *         since the implementations are not deployed via Create2.
+     */
+    mapping(string => address) public implementations;
+
+    /**
+     * @notice Mapping of bundle IDs to bundle state.
+     */
+    mapping(bytes32 => ChugSplashBundleState) internal _bundles;
+
+    /**
      * @notice Name of the project this contract is managing.
      */
     string public name;
@@ -217,45 +222,22 @@ contract ChugSplashManager is Owned {
     bytes32 public activeBundleId;
 
     /**
-     * @notice Amount in ETH that the executor must send to this contract to claim a bundle for
-     *         `executionLockTime`.
+     * @notice Total ETH amount that is owed to executors.
      */
-    uint256 public executorBondAmount;
+    uint256 public totalDebt;
 
     /**
-     * @notice Amount of time for an executor to finish executing a bundle once they have claimed
-     *         it. If the executor fails to completely execute the bundle in this amount of time,
-     *         their bond is forfeited to the ChugSplashManager.
-     */
-    uint256 public immutable executionLockTime;
-
-    /**
-     * @notice Mapping of bundle IDs to bundle state.
-     */
-    mapping(bytes32 => ChugSplashBundleState) public bundles;
-
-    /**
-     * @notice Mapping of target names to proxy addresses. If a target is using the default
-     *         proxy, then its value in this mapping is the zero-address.
-     */
-    mapping(string => address payable) public proxies;
-
-    /**
-     * @notice Mapping of target names to proxy types. If a target is using the default proxy,
-     *         then its value in this mapping is bytes32(0).
-     */
-    mapping(string => bytes32) proxyTypes;
-
-    /**
-     * @param _registry           Address of the ChugSplashRegistry.
-     * @param _name               Name of the project this contract is managing.
-     * @param _owner              Initial owner of this contract.
-     * @param _proxyUpdater       Address of the ProxyUpdater.
-     * @param _executorBondAmount Executor bond amount in ETH.
-     * @param _executionLockTime  Amount of time for an executor to completely execute a bundle
-     *                            after claiming it.
-     * @param _ownerBondAmount    Amount that must be deposited in this contract in order to execute
-     *                            a bundle.
+     * @param _registry                  Address of the ChugSplashRegistry.
+     * @param _name                      Name of the project this contract is managing.
+     * @param _owner                     Address of the project owner.
+     * @param _proxyUpdater              Address of the ProxyUpdater.
+     * @param _executorBondAmount        Executor bond amount in ETH.
+     * @param _executionLockTime         Amount of time for an executor to completely execute a
+     *                                   bundle after claiming it.
+     * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
+     *                                   execute a bundle.
+     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
+     *                                   denominated as a percentage.
      */
     constructor(
         ChugSplashRegistry _registry,
@@ -264,14 +246,28 @@ contract ChugSplashManager is Owned {
         address _proxyUpdater,
         uint256 _executorBondAmount,
         uint256 _executionLockTime,
-        uint256 _ownerBondAmount
-    ) Owned(_owner) {
+        uint256 _ownerBondAmount,
+        uint256 _executorPaymentPercentage
+    ) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
-        name = _name;
         executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
+        executorPaymentPercentage = _executorPaymentPercentage;
+
+        initialize(_name, _owner);
+    }
+
+    /**
+     * @param _name  Name of the project this contract is managing.
+     * @param _owner Initial owner of this contract.
+     */
+    function initialize(string memory _name, address _owner) public initializer {
+        name = _name;
+
+        __Ownable_init();
+        _transferOwnership(_owner);
     }
 
     /**
@@ -292,6 +288,52 @@ contract ChugSplashManager is Owned {
     }
 
     /**
+     * @notice Queries the selected executor for a given project/bundle.
+     *
+     * @param _bundleId ID of the bundle currently being executed.
+     *
+     * @return Address of the selected executor.
+     */
+    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
+        ChugSplashBundleState storage bundle = _bundles[_bundleId];
+        return bundle.selectedExecutor;
+    }
+
+    /**
+     * @notice Gets the ChugSplashBundleState struct for a given bundle ID. Note that we explicitly
+     *         define this function because the getter function that is automatically generated by
+     *         the Solidity compiler doesn't return a struct.
+     *
+     * @param _bundleId Bundle ID.
+     *
+     * @return ChugSplashBundleState struct.
+     */
+    function bundles(bytes32 _bundleId) public view returns (ChugSplashBundleState memory) {
+        return _bundles[_bundleId];
+    }
+
+    /**
+     * @notice Computes the address of an ERC-1967 proxy that would be created by this contract
+     *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
+     *         CREATE2 to guarantee that this address will be correct.
+     *
+     * @param _name Name of the target to get the corresponding proxy address of.
+     *
+     * @return Address of the proxy for the given name.
+     */
+    function getProxyByTargetName(string memory _name) public view returns (address payable) {
+        return (
+            payable(
+                Create2.compute(
+                    address(this),
+                    keccak256(bytes(_name)),
+                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                )
+            )
+        );
+    }
+
+    /**
      * @notice Allows the owner to propose a new ChugSplash bundle to be executed.
      *
      * @param _bundleRoot Root of the bundle's merkle tree.
@@ -304,7 +346,7 @@ contract ChugSplashManager is Owned {
         string memory _configUri
     ) public onlyOwner {
         bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
-        ChugSplashBundleState storage bundle = bundles[bundleId];
+        ChugSplashBundleState storage bundle = _bundles[bundleId];
 
         require(
             bundle.status == ChugSplashBundleStatus.EMPTY,
@@ -313,6 +355,7 @@ contract ChugSplashManager is Owned {
 
         bundle.status = ChugSplashBundleStatus.PROPOSED;
         bundle.executions = new bool[](_bundleSize);
+        bundle.merkleRoot = _bundleRoot;
 
         emit ChugSplashBundleProposed(bundleId, _bundleRoot, _bundleSize, _configUri);
         registry.announce("ChugSplashBundleProposed");
@@ -329,11 +372,11 @@ contract ChugSplashManager is Owned {
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
         require(
-            address(this).balance >= ownerBondAmount,
+            address(this).balance - totalDebt >= ownerBondAmount,
             "ChugSplashManager: insufficient balance in manager"
         );
 
-        ChugSplashBundleState storage bundle = bundles[_bundleId];
+        ChugSplashBundleState storage bundle = _bundles[_bundleId];
 
         require(
             bundle.status == ChugSplashBundleStatus.PROPOSED,
@@ -361,22 +404,19 @@ contract ChugSplashManager is Owned {
      * @param _actionIndex Index of the action in the bundle.
      * @param _proof       Merkle proof of the action within the bundle.
      */
-    function executeChugSplashBundleAction(
+    function executeChugSplashAction(
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
     ) public {
+        uint256 initialGasLeft = gasleft();
+
         require(
             activeBundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
         );
 
-        ChugSplashBundleState storage bundle = bundles[activeBundleId];
-
-        require(
-            bundle.status == ChugSplashBundleStatus.APPROVED,
-            "ChugSplashManager: bundle is not approved"
-        );
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
         require(
             bundle.executions[_actionIndex] == false,
@@ -391,7 +431,7 @@ contract ChugSplashManager is Owned {
 
         require(
             MerkleTree.verify(
-                activeBundleId,
+                bundle.merkleRoot,
                 keccak256(abi.encode(_action.target, _action.actionType, _action.data)),
                 _actionIndex,
                 _proof,
@@ -400,8 +440,11 @@ contract ChugSplashManager is Owned {
             "ChugSplashManager: invalid bundle action proof"
         );
 
-        // Get the proxy type for the proxy that is being used for this target.
+        // Get the proxy type and adapter for this target.
         bytes32 proxyType = proxyTypes[_action.target];
+        address adapter = registry.adapters(proxyType);
+
+        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
 
         // Get the proxy to use for this target. The proxy can either be the default proxy used by
         // ChugSplash or a non-standard proxy that has previously been set by the project owner.
@@ -413,8 +456,8 @@ contract ChugSplashManager is Owned {
             // deploying via CREATE2, we can always correctly predict what the proxy address
             // *should* be and can therefore easily check if it's already populated.
             // TODO: See if there's a better way to handle this case because it messes with the gas
-            // cost of SET_CODE/SET_STORAGE operations in a somewhat unpredictable way.
-            proxy = getProxyByName(_action.target);
+            // cost of DEPLOY_IMPLEMENTATION/SET_STORAGE operations in a somewhat unpredictable way.
+            proxy = getProxyByTargetName(_action.target);
             if (proxy.code.length == 0) {
                 bytes32 salt = keccak256(bytes(_action.target));
                 Proxy created = new Proxy{ salt: salt }(address(this));
@@ -424,43 +467,152 @@ contract ChugSplashManager is Owned {
                 // standard OOG, then this would halt the entire contract.
                 // TODO: Make sure this cannot happen in any case other than OOG.
                 require(
-                    address(created) != proxy,
+                    address(created) == proxy,
                     "ChugSplashManager: Proxy was not created correctly"
                 );
+            } else if (_getProxyImplementation(proxy, adapter) != address(0)) {
+                // Set the proxy's implementation to address(0).
+                _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
             }
         } else {
-            // Use the non-standard proxy assigned to this target by the owner.
-            proxy = proxies[_action.target];
-        }
-
-        // Next, we execute the ChugSplash action by calling setCode/setStorage.
-        if (_action.actionType == ChugSplashActionType.SET_CODE) {
-            _setProxyCode(proxy, proxyType, _action.data);
-        } else {
-            (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
-            _setProxyStorage(proxy, proxyType, key, val);
+            // We intend to support alternative proxy types in the future, but doing so requires
+            // including additional checks to guarantee that actions will always executable. We will
+            // re-enable the ability to use different proxy types once we have implemented those
+            // additional checks.
+            revert("ChugSplashManager: invalid proxy type, must be default proxy");
+            // proxy = proxies[_action.target];
         }
 
         // Mark the action as executed and update the total number of executed actions.
-        bundle.total++;
+        bundle.actionsExecuted++;
         bundle.executions[_actionIndex] = true;
+
+        // Next, we execute the ChugSplash action by calling deployImplementation/setStorage.
+        if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
+            _deployImplementation(_action.target, _action.data);
+        } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
+            (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
+            _setProxyStorage(proxy, adapter, key, val);
+        } else {
+            revert("ChugSplashManager: attemped setImplementation action in wrong function");
+        }
 
         emit ChugSplashActionExecuted(activeBundleId, msg.sender, _actionIndex);
         registry.announce("ChugSplashActionExecuted");
 
+        // Estimate the amount of gas used in this call by subtracting the current gas left from the
+        // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
+        // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
+        // executorPayment to the totalDebt and debt. Unfortunately, there is a wide variance in the
+        // gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
+        // might be contributing to the difficulty of getting a good estimate. For now, we err on
+        // the side of safety by adding a larger value.
+        // TODO: Get a better estimate than 152778.
+        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
+
+        // Calculate the executor's payment and add it to the total debt and the current executor's
+        // debt.
+        uint256 executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) /
+            100;
+        totalDebt += executorPayment;
+        debt[msg.sender] += executorPayment;
+    }
+
+    /**
+     * @notice Completes the bundle by executing all SetImplementation actions. This occurs in a
+     *         single transaction to ensure that all contracts are initialized at the same time.
+     *         Note that this function will revert if it is called before all of the SetCode and
+     *         DeployImplementation actions have been executed in `executeChugSplashAction`.
+     *
+     * @param _actions       Array of ChugSplashActions, where each action type must be
+     *                       `SET_IMPLEMENTATION`.
+     * @param _actionIndexes Array of action indexes.
+     * @param _proofs        Array of Merkle proofs.
+     */
+    function completeChugSplashBundle(
+        ChugSplashAction[] memory _actions,
+        uint256[] memory _actionIndexes,
+        bytes32[][] memory _proofs
+    ) public {
+        uint256 initialGasLeft = gasleft();
+
+        require(
+            activeBundleId != bytes32(0),
+            "ChugSplashManager: no bundle has been approved for execution"
+        );
+
+        address executor = getSelectedExecutor(activeBundleId);
+        require(
+            executor == msg.sender,
+            "ChugSplashManager: caller is not approved executor for active bundle ID"
+        );
+
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        for (uint256 i = 0; i < _actions.length; i++) {
+            ChugSplashAction memory action = _actions[i];
+            uint256 actionIndex = _actionIndexes[i];
+            bytes32[] memory proof = _proofs[i];
+
+            require(
+                bundle.executions[actionIndex] == false,
+                "ChugSplashManager: action has already been executed"
+            );
+
+            require(
+                MerkleTree.verify(
+                    bundle.merkleRoot,
+                    keccak256(abi.encode(action.target, action.actionType, action.data)),
+                    actionIndex,
+                    proof,
+                    bundle.executions.length
+                ),
+                "ChugSplashManager: invalid bundle action proof"
+            );
+
+            // Mark the action as executed and update the total number of executed actions.
+            bundle.actionsExecuted++;
+            bundle.executions[actionIndex] = true;
+
+            // Get the implementation address.
+            address implementation = implementations[action.target];
+
+            // Get the proxy and adapter that correspond to this target.
+            address payable proxy = getProxyByTargetName(action.target);
+            bytes32 proxyType = proxyTypes[action.target];
+            address adapter = registry.adapters(proxyType);
+
+            // Upgrade the proxy's implementation contract.
+            _upgradeProxyTo(proxy, adapter, implementation);
+
+            emit ChugSplashActionExecuted(activeBundleId, msg.sender, actionIndex);
+            registry.announce("ChugSplashActionExecuted");
+        }
+
+        require(
+            bundle.actionsExecuted == bundle.executions.length,
+            "ChugSplashManager: bundle was not completed"
+        );
+
         // If all actions have been executed, then we can complete the bundle. Mark the bundle as
         // completed and reset the active bundle hash so that a new bundle can be executed.
-        if (bundle.total == bundle.executions.length) {
-            bundle.status = ChugSplashBundleStatus.COMPLETED;
-            bytes32 completedBundleId = activeBundleId;
-            activeBundleId = bytes32(0);
+        bundle.status = ChugSplashBundleStatus.COMPLETED;
+        bytes32 completedBundleId = activeBundleId;
+        activeBundleId = bytes32(0);
 
-            emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.total);
-            registry.announce("ChugSplashBundleCompleted");
+        emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
+        registry.announce("ChugSplashBundleCompleted");
 
-            // Refund the executor's bond
-            _returnExecutorBond(completedBundleId);
-        }
+        // See the explanation in `executeChugSplashAction`.
+        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
+
+        // Calculate the executor's payment.
+        uint256 executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) /
+            100;
+        // Add the executor's payment to the total debt.
+        totalDebt += executorPayment;
+        // Add the executor's payment and the executor's bond to their debt.
+        debt[msg.sender] += executorPayment + executorBondAmount;
     }
 
     /**
@@ -473,21 +625,26 @@ contract ChugSplashManager is Owned {
     function cancelActiveChugSplashBundle() public onlyOwner {
         require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
 
-        ChugSplashBundleState storage bundle = bundles[activeBundleId];
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
+            // Give the owner's bond to the current executor if the bundle is cancelled within the
+            // `executionLockTime` window. Also return the executor's bond.
+            debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
+            // We don't add the `executorBondAmount` to the `totalDebt` here because we already
+            // did this in `claimBundle`.
+            totalDebt += ownerBondAmount;
+        } else {
+            // Return the bond back to the owner if the `executionLockTime` window has passed.
+            totalDebt -= executorBondAmount;
+        }
 
         bytes32 cancelledBundleId = activeBundleId;
         activeBundleId = bytes32(0);
         bundle.status = ChugSplashBundleStatus.CANCELLED;
 
-        emit ChugSplashBundleCancelled(cancelledBundleId, msg.sender, bundle.total);
+        emit ChugSplashBundleCancelled(cancelledBundleId, msg.sender, bundle.actionsExecuted);
         registry.announce("ChugSplashBundleCancelled");
-
-        _returnExecutorBond(cancelledBundleId);
-
-        // Send the project owner's bond to the executor
-        address executor = getSelectedExecutor(activeBundleId);
-        (bool success, ) = payable(executor).call{ value: ownerBondAmount }(new bytes(0));
-        require(success, "ChugSplashManager: failed to send owner's bond to the executor");
     }
 
     /**
@@ -497,100 +654,76 @@ contract ChugSplashManager is Owned {
      *         within `executionLockTime` or else their bond is forfeited to this contract and
      *         another executor may claim the bundle. Note that this strategy creates a PGA for the
      *         transaction to claim the bundle but removes PGAs during the execution process.
-     *
-     * @param _bundleId ID of the bundle being claimed.
      */
-    function claim(bytes32 _bundleId) external payable {
+    function claimBundle() external payable {
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
         require(
             executorBondAmount == msg.value,
             "ChugSplashManager: incorrect executor bond amount"
         );
-        ChugSplashBundleStatus status = bundles[_bundleId].status;
-        require(
-            status == ChugSplashBundleStatus.APPROVED,
-            "ChugSplashManager: bundle is not active"
-        );
 
-        ChugSplashBundleState storage bundle = bundles[_bundleId];
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
         require(
             block.timestamp > bundle.timeClaimed + executionLockTime,
-            "ChugSplashManager: bundle already claimed by an executor"
+            "ChugSplashManager: bundle is currently claimed by an executor"
         );
 
+        address prevExecutor = bundle.selectedExecutor;
         bundle.timeClaimed = block.timestamp;
         bundle.selectedExecutor = msg.sender;
 
-        emit ChugSplashBundleClaimed(_bundleId, msg.sender);
+        // Add the new executor's bond to the `totalDebt` if there was no previous executor. We skip
+        // this if there was a previous executor because this allows the owner to claim the previous
+        // executor's forfeited bond.
+        if (prevExecutor == address(0)) {
+            totalDebt += executorBondAmount;
+        }
+
+        emit ChugSplashBundleClaimed(activeBundleId, msg.sender);
         registry.announce("ChugSplashBundleClaimed");
     }
 
     /**
-     * @notice Assigns a non-standard proxy to the specified target to replace the default proxy
-     *         used by ChugSplash. This allows project owners to plug their existing proxies into
-     *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
-     *
-     * @param _name      String name of the target.
-     * @param _proxy     Address of the non-standard proxy.
-     * @param _proxyType The proxy's type.
+     * @notice Allows executors to claim their ETH payments and bond. Executors may only withdraw
+     *         ETH that is owed to them by this contract.
      */
-    function setProxyToTarget(
-        string memory _name,
-        address payable _proxy,
-        bytes32 _proxyType
-    ) external onlyOwner {
-        require(
-            activeBundleId == bytes32(0),
-            "ChugSplashManager: cannot change proxy while bundle is active"
-        );
-        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
-        require(_proxyType != bytes32(0), "ChugSplashManager: proxy must have a proxy type");
+    function claimExecutorPayment() external {
+        uint256 amount = debt[msg.sender];
 
-        proxies[_name] = _proxy;
-        proxyTypes[_name] = _proxyType;
+        debt[msg.sender] -= amount;
+        totalDebt -= amount;
 
-        emit ProxySetToTarget(_name, _proxy, _proxyType, _name);
+        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw owner funds failed");
+
+        emit ExecutorPaymentClaimed(msg.sender, amount);
+        registry.announce("ExecutorPaymentClaimed");
     }
 
     /**
-     * @notice Allows the project owner to change the bond amount that an executor must pay to claim
-     *         a bundle. Can only be called when there is no active bundle.
+     * @notice Transfers ownership of a proxy from this contract to the project owner.
      *
-     * @param _executorBondAmount The new executor bond amount.
-     */
-    function setExecutorBondAmount(uint256 _executorBondAmount) external onlyOwner {
-        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
-        executorBondAmount = _executorBondAmount;
-
-        emit ExecutorBondAmountSet(_executorBondAmount);
-        registry.announce("ExecutorBondAmountSet");
-    }
-
-    /**
-     * @notice Transfers ownership of a proxy from this contract to an address selected by the
-     *         project owner.
-     *
-     * @param _name     String name of the target that corresponds to the proxy.
+     * @param _target   Target that corresponds to the proxy.
      * @param _newOwner Address of the project owner that is receiving ownership of the proxy.
      */
-    function transferProxyOwnership(string memory _name, address _newOwner) public onlyOwner {
+    function transferProxyOwnership(string memory _target, address _newOwner) public onlyOwner {
+        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
+
         // Get the proxy type that corresponds to this target.
-        bytes32 proxyType = proxyTypes[_name];
+        bytes32 proxyType = proxyTypes[_target];
         address payable proxy;
         if (proxyType == bytes32(0)) {
             // Use a default proxy if no proxy type has been set by the project owner.
-            proxy = getProxyByName(_name);
+            proxy = getProxyByTargetName(_target);
         } else {
             // We revert here since we currently do not support custom proxy types.
             revert("ChugSplashManager: invalid proxy type, must be default proxy");
             // proxy = proxies[_name];
         }
 
-        require(proxy.code.length != 0, "ChugSplashManager: proxy is not deployed");
-
         // Get the adapter that corresponds to this proxy type.
         address adapter = registry.adapters(proxyType);
-        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
 
         // Delegatecall the adapter to change ownership of the proxy.
         (bool success, ) = adapter.delegatecall(
@@ -598,145 +731,60 @@ contract ChugSplashManager is Owned {
         );
         require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
 
-        emit ProxyOwnershipTransferred(_name, proxy, proxyType, _newOwner, _name);
+        emit ProxyOwnershipTransferred(_target, proxy, proxyType, _newOwner, _target);
+        registry.announce("ProxyOwnershipTransferred");
     }
 
     /**
-     * @notice Queries the selected executor for a given project/bundle.
-     *
-     * @param _bundleId ID of the bundle currently being executed.
-     *
-     * @return Address of the selected executor.
+     * @notice Allows the project owner to withdraw all funds in this contract minus the total debt
+     *         owed to the executors. Cannot be called when there is an active bundle.
      */
-    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
-        ChugSplashBundleState storage bundle = bundles[_bundleId];
-        return bundle.selectedExecutor;
-    }
-
-    /**
-     * @notice Computes the address of an ERC-1967 proxy that would be created by this contract
-     *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
-     *         CREATE2 to guarantee that this address will be correct.
-     *
-     * @param _name Name of the target to get the corresponding proxy address of.
-     *
-     * @return Address of the proxy for the given name.
-     */
-    function getProxyByName(string memory _name) public view returns (address payable) {
-        return (
-            payable(
-                Create2.compute(address(this), keccak256(bytes(_name)), type(Proxy).creationCode)
-            )
-        );
-    }
-
-    /**
-     * @notice Allows the project owner to withdraw funds to any recipient address. Cannot be called
-     *         when there is an active bundle.
-     *
-     * @param _recipient Address to receive the funds.
-     * @param _amount    Amount to withdraw.
-     */
-    function withdrawETH(address payable _recipient, uint256 _amount) external onlyOwner {
+    function withdrawOwnerETH() external onlyOwner {
         require(
-            activeBundleId != bytes32(0),
+            activeBundleId == bytes32(0),
             "ChugSplashManager: cannot withdraw funds while bundle is active"
         );
-        (bool success, ) = _recipient.call{ value: _amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw funds failed");
 
-        emit ETHWithdrawn(msg.sender, _recipient, _amount);
+        uint256 amount = address(this).balance - totalDebt;
+        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw owner funds failed");
+
+        emit OwnerWithdrewETH(msg.sender, amount);
+        registry.announce("OwnerWithdrewETH");
     }
 
     /**
      * @notice Allows anyone to send ETH to this contract.
      */
-    function depositETH() external payable {
-        emit ETHDeposited(msg.sender, msg.value);
-    }
-
-    /**
-     * @notice Allows anyone to send ETH to this contract without calling a function.
-     */
     receive() external payable {
         emit ETHDeposited(msg.sender, msg.value);
+        registry.announce("ETHDeposited");
     }
 
     /**
-     * @notice Refunds `executorBondAmount` to the executor if they complete the bundle within
-     *        `executionLockTime`, or if the project owner cancels the bundle.
+     * @notice Deploys an implementation contract, which will later be set as the proxy's
+     *         implementation address. Note that we wait to set the proxy's implementation address
+     *         until the very last call of the bundle to avoid a situation where end-users are
+     *         interacting with a proxy whose storage has not fully been initialized.
      *
-     * @param _bundleId ID of the bundle that was completed or cancelled by the project owner.
+     * @param _target Target that corresponds to the implementation.
+     * @param _code   Runtime bytecode of the implementation to be deployed.
      */
-    function _returnExecutorBond(bytes32 _bundleId) internal {
-        ChugSplashBundleState memory bundle = bundles[_bundleId];
-        require(
-            bundle.status == ChugSplashBundleStatus.COMPLETED ||
-                bundle.status == ChugSplashBundleStatus.CANCELLED,
-            "ChugSplashManager: bundle is not completed or cancelled"
-        );
-        require(
-            bundle.selectedExecutor != address(0),
-            "ChugSplashManager: bundle has not been claimed"
-        );
-        require(
-            !bundle.executorBondReturned,
-            "ChugSplashManager: bond already returned to executor"
-        );
-
-        bundle.executorBondReturned = true;
-
-        (bool success, ) = payable(bundle.selectedExecutor).call{ value: executorBondAmount }(
-            new bytes(0)
-        );
-        require(success, "ChugSplashManager: call to executor failed");
-
-        emit ExecutorBondReturned(_bundleId, bundle.selectedExecutor);
-        registry.announce("ExecutorBondReturned");
-    }
-
-    /**
-     * @notice Sets new code for the proxy contract's implementation. Note that this scheme is a bit
-     *         different from the standard proxy scheme where one would typically deploy the code
-     *         separately and then set the implementation address. We're doing it this way because
-     *         it gives us a lot more freedom on the client side.
-     *
-     * @param _proxy     Address of the proxy to upgrade.
-     * @param _proxyType The proxy's type. This is the zero-address for default proxies.
-     * @param _code      Creation bytecode to be deployed.
-     */
-    function _setProxyCode(
-        address payable _proxy,
-        bytes32 _proxyType,
-        bytes memory _code
-    ) internal {
+    function _deployImplementation(string memory _target, bytes memory _code) internal {
         // TODO: Add a re-entrancy guard to this function if we move away from using
         // `DEPLOY_CODE_PREFIX`. There is currently no risk of re-entrancy because the prefix
         // guarantees that no sub-calls can be made in the implementation contract's constructor. In
         // the future, we might want to move away from the prefix to add support for constructors
         // that can run arbitrary creation bytecode. It will then become become necessary to add a
         // re-entrancy guard to prevent a constructor from calling another contract which in turn
-        // calls back into setCode or setStorage.
+        // calls back into deployImplementation or setStorage.
 
-        // Get the adapter that corresponds to this proxy type.
-        address adapter = registry.adapters(_proxyType);
-        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
-
-        // Get the address of the current implementation for the proxy.
-        address implementation = _getProxyImplementation(_proxy, adapter);
-
-        // If the code hash matches the code hash of the new implementation then we return early.
-        if (keccak256(_code) == _getAccountCodeHash(implementation)) {
-            return;
-        }
-
-        // Create the deploycode by prepending the magic prefix.
+        // Create the deploycode by prepending the magic prefix to the runtime bytecode.
         bytes memory deploycode = abi.encodePacked(DEPLOY_CODE_PREFIX, _code);
 
-        // Deploy the code and set the new implementation address.
-        address newImplementation;
+        address implementation;
         assembly {
-            newImplementation := create(0x0, add(deploycode, 0x20), mload(deploycode))
+            implementation := create(0x0, add(deploycode, 0x20), mload(deploycode))
         }
 
         // Check that the code was actually deployed correctly. It might be impossible to fail this
@@ -744,47 +792,38 @@ contract ChugSplashManager is Owned {
         // parent execution thread does NOT run out of gas. Seems like we should be doing this check
         // anyway though.
         require(
-            _getAccountCodeHash(newImplementation) == keccak256(_code),
-            "ProxyUpdater: code was not correctly deployed"
+            _getAccountCodeHash(implementation) == keccak256(_code),
+            "ChugSplashManager: code was not correctly deployed"
         );
 
-        // Delegatecall the adapter to upgrade the proxy's implementation contract.
-        _upgradeProxyTo(_proxy, adapter, implementation);
+        // Set the target to its newly deployed implementation.
+        implementations[_target] = implementation;
     }
 
     /**
      * @notice Modifies a storage slot within the proxy contract.
      *
-     * @param _proxy     Address of the proxy to upgrade.
-     * @param _proxyType The proxy's type. This is the zero-address for default proxies.
+     * @param _proxy     Address of the proxy.
+     * @param _adapter   Address of the adapter for this proxy.
      * @param _key       Storage key to modify.
      * @param _value     New value for the storage key.
      */
     function _setProxyStorage(
         address payable _proxy,
-        bytes32 _proxyType,
+        address _adapter,
         bytes32 _key,
         bytes32 _value
     ) internal {
-        // Get the adapter that corresponds to this proxy type.
-        address adapter = registry.adapters(_proxyType);
-        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
-
-        // Get the address of the current implementation for the proxy. The ChugSplashManager will
-        // set the proxy's implementation back to this address after setting it to be the
-        // ProxyUpdater and calling `setStorage`.
-        address implementation = _getProxyImplementation(_proxy, adapter);
-
         // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
         // which has the `setStorage` function.
-        _upgradeProxyTo(_proxy, adapter, proxyUpdater);
+        _upgradeProxyTo(_proxy, _adapter, proxyUpdater);
 
         // Call the `setStorage` action on the proxy.
         (bool success, ) = _proxy.call(abi.encodeCall(ProxyUpdater.setStorage, (_key, _value)));
         require(success, "ChugSplashManager: call to set proxy storage failed");
 
-        // Delegatecall the adapter to set the proxy's implementation back to its original address.
-        _upgradeProxyTo(_proxy, adapter, implementation);
+        // Delegatecall the adapter to set the proxy's implementation back to address(0).
+        _upgradeProxyTo(_proxy, _adapter, address(0));
     }
 
     /**
