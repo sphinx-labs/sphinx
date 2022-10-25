@@ -1,5 +1,12 @@
 # @chugsplash/contracts
 
+## 0.3.1
+
+### Patch Changes
+
+- 557e3bd: Bump versions
+- cd310fe: Export artifacts folder in contracts package
+
 ## 0.3.0
 
 ### Minor Changes
