@@ -1,5 +1,12 @@
 # @chugsplash/core
 
+## 0.2.1
+
+### Patch Changes
+
+- f7a4a24: Bump versions of core and plugins packages
+- f7a4a24: Bump core and plugins packages
+
 ## 0.2.0
 
 ### Minor Changes
