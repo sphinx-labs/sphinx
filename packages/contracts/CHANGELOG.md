@@ -4,6 +4,14 @@
 
 ### Minor Changes
 
+- 416d41b: Add unit and integration tests to the ChugSplash contracts
+- 19cf359: Adds local ChugSplash deployments for testing contracts on the Hardhat network.
+- 53e1514: Adds upgradeability to the Manager and Registry contracts.
+
+## 0.2.0
+
+### Minor Changes
+
 - 5109141: Adds a ProxyUpdater contract, which contains the logic for the setCode/setStorage actions.
 - e7ee72d: Adds the ProxyAdmin, which owns the proxies for a project.
 - d7f930f: Adds executor selection to Manager

@@ -1,5 +1,19 @@
 # @chugsplash/plugins
 
+## 0.3.0
+
+### Minor Changes
+
+- 19cf359: Adds local ChugSplash deployments for testing contracts on the Hardhat network.
+
+### Patch Changes
+
+- Updated dependencies [416d41b]
+- Updated dependencies [19cf359]
+- Updated dependencies [53e1514]
+  - @chugsplash/contracts@0.2.0
+  - @chugsplash/core@0.2.0
+
 ## 0.2.1
 
 ### Patch Changes
