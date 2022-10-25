@@ -43,7 +43,7 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
-    "@chugsplash/core": "^0.1.1",
-    "@chugsplash/plugins": "^0.2.0"
+    "@chugsplash/core": "link:packages/core",
+    "@chugsplash/plugins": "link:packages/plugins"
   }
 }
