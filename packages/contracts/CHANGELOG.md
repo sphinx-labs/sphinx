@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.2.1
+
+### Patch Changes
+
+- eb1d3de: Bump contracts package
+
 ## 0.2.0
 
 ### Minor Changes
