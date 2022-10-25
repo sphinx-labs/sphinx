@@ -2,8 +2,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import { utils, constants, Signer, Contract, providers } from 'ethers'
-// TODO: import the Proxy bytecode from @eth-optimism/contracts-bedrock when they update the npm
-// package. Also remove @chugsplash/contracts from core/
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,

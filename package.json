@@ -8,7 +8,9 @@
     "packages": [
       "packages/contracts",
       "packages/core",
-      "packages/plugins"
+      "packages/plugins",
+      "packages/executor",
+      "packages/demo"
     ],
     "nohoist": [
       "@chugsplash/contracts/forge-std",

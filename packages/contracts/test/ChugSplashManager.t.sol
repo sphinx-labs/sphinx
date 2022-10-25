@@ -8,7 +8,7 @@ import {
     ChugSplashBundleStatus
 } from "../contracts/ChugSplashDataTypes.sol";
 import { Test, stdStorage, StdStorage } from "forge-std/Test.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
+import { Proxy } from "../contracts/libraries/Proxy.sol";
 import { ChugSplashManager } from "../contracts/ChugSplashManager.sol";
 import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { ChugSplashBootLoader } from "../contracts/ChugSplashBootLoader.sol";
