@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/executor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "ChugSplash deployment execution bot",
   "main": "dist/index",
   "types": "dist/index",
