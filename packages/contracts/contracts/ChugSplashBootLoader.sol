@@ -6,7 +6,7 @@ import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
+import { Proxy } from "./libraries/Proxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
