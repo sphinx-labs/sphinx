@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.2
+
+### Patch Changes
+
+- 03d557c: Bump all versions
+
 ## 0.3.1
 
 ### Patch Changes
