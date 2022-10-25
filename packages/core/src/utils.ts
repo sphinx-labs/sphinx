@@ -4,8 +4,8 @@ import * as fs from 'fs'
 import { utils, constants, Signer, Contract, providers } from 'ethers'
 // TODO: import the Proxy bytecode from @eth-optimism/contracts-bedrock when they update the npm
 // package. Also remove @chugsplash/contracts from core/
-import { bytecode as ProxyBytecode } from '@chugsplash/contracts/artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 import {
+  ProxyArtifact,
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
@@ -53,7 +53,7 @@ export const getProxyAddress = (
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ProxyBytecode,
+        ProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(['address'], [chugSplashManagerAddress]),
       ]
     )
