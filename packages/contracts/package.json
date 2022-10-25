@@ -5,7 +5,8 @@
   "main": "dist/index",
   "types": "dist/index",
   "files": [
-    "dist/*"
+    "dist/*",
+    "artifacts/contracts/**/*.json"
   ],
   "scripts": {
     "build": "yarn build:contracts && yarn build:ts",
