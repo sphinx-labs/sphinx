@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
-import { bytecode as ProxyBytecode } from '@chugsplash/contracts/artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json'
 
 import {
+  ProxyArtifact,
   DefaultAdapterArtifact,
   ProxyUpdaterArtifact,
   // ChugSplashRegistryArtifact,
@@ -37,7 +37,7 @@ export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      ProxyBytecode,
+      ProxyArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
         ['address'],
         [CHUGSPLASH_BOOTLOADER_ADDRESS]
