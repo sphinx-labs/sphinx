@@ -414,6 +414,11 @@
   resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.0.tgz#b823ea8a5d3bb699389a0e29c5974b8c1c9c9f1c"
   integrity sha512-zNK8qSScUD8eERJZNiZ/f0Y2u4gqKvW9z7IyenM0Jzxl2atH7Pbluo6YRlxXVtugs18HCFVPWjpVZD48a2TwUg==
 
+"@chugsplash/contracts@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.1.tgz#770c3e09b34ebebd9b14f880d1331529e04c785b"
+  integrity sha512-KGhFz9EFmKZ7bJn5ACZnEdHOemQbzp/0RRcgkaLEaxj0/cgsgppeAV1aa+QFT3gQnZ4fueY6fGb6KGM98FbE7A==
+
 "@chugsplash/core@^0.3.0":
   version "0.3.0"
   resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.3.0.tgz#e2331632caa4db38ac4065f7af1d986a7f7068af"
@@ -426,6 +431,37 @@
     handlebars "^4.7.7"
     hardhat-deploy "^0.11.18"
     merkletreejs "^0.2.18"
+
+"@chugsplash/core@^0.3.1":
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.3.1.tgz#49f0d250185d77202aba9e85ec83ee39b6182bb4"
+  integrity sha512-mfVKQQf60WQMwMR9XPv5OZxgnthAJcKoKDHVOGjGeatytLy5AQkZ+q2umLzTJdurbHbcj16eUsrUcRa69iAocg==
+  dependencies:
+    "@chugsplash/contracts" "^0.3.1"
+    "@eth-optimism/contracts-bedrock" "^0.8.0"
+    "@eth-optimism/core-utils" "^0.9.1"
+    ethers "^5.6.9"
+    handlebars "^4.7.7"
+    hardhat-deploy "^0.11.18"
+    merkletreejs "^0.2.18"
+
+"@chugsplash/plugins@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.4.1.tgz#4f6cd51d316d445940a601468dbf3eb9b5715946"
+  integrity sha512-4fA284qfbcYbbhHeIc1ZxRA0ptaJFq00t9tiGGZsbcvr7Pa+7hBe3xs/7zSI/9+HxZmjme9CVnReSGA/HEFH0g==
+  dependencies:
+    "@chugsplash/contracts" "^0.3.1"
+    "@chugsplash/core" "^0.3.1"
+    "@eth-optimism/core-utils" "^0.9.1"
+    "@nomiclabs/hardhat-ethers" "^2.1.0"
+    cli-progress "^3.11.2"
+    ethers "^5.6.9"
+    hardhat "^2.10.0"
+    ipfs-http-client "56.0.3"
+    ipfs-only-hash "^4.0.0"
+    node-fetch "^2.6.7"
+    ora "^5.4.1"
+    semver "^7.3.7"
 
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
