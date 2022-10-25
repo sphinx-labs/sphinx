@@ -1,5 +1,14 @@
 # @chugsplash/demo
 
+## 0.3.1
+
+### Patch Changes
+
+- 03d557c: Bump all versions
+- Updated dependencies [03d557c]
+  - @chugsplash/core@0.3.2
+  - @chugsplash/plugins@0.4.2
+
 ## 0.3.0
 
 ### Minor Changes
