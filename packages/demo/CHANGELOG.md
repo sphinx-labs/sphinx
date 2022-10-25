@@ -1,5 +1,17 @@
 # @chugsplash/demo
 
+## 0.3.0
+
+### Minor Changes
+
+- 52c7f6c: Bump all packages
+
+### Patch Changes
+
+- Updated dependencies [52c7f6c]
+  - @chugsplash/core@0.3.0
+  - @chugsplash/plugins@0.4.0
+
 ## 0.2.0
 
 ### Minor Changes
