@@ -409,20 +409,23 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/contracts@link:packages/executor/packages/contracts":
-  version "0.0.0"
-  uid ""
+"@chugsplash/contracts@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.0.tgz#b823ea8a5d3bb699389a0e29c5974b8c1c9c9f1c"
+  integrity sha512-zNK8qSScUD8eERJZNiZ/f0Y2u4gqKvW9z7IyenM0Jzxl2atH7Pbluo6YRlxXVtugs18HCFVPWjpVZD48a2TwUg==
 
-"@chugsplash/core@link:packages/demo/packages/core":
-  version "0.0.0"
-
-"@chugsplash/core@link:packages/executor/@chugsplash/core":
-  version "0.0.0"
-  uid ""
-
-"@chugsplash/plugins@link:packages/demo/packages/plugins":
-  version "0.0.0"
-  uid ""
+"@chugsplash/core@^0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.3.0.tgz#e2331632caa4db38ac4065f7af1d986a7f7068af"
+  integrity sha512-ZPZvWEp6vyX1MdA0xAYpcGJYKes468KEWYWLMauSB0VaMNtaYXJ9PUKAJpExOcTzh12h19bOmaD6MW/nEu+dRA==
+  dependencies:
+    "@chugsplash/contracts" "^0.3.0"
+    "@eth-optimism/contracts-bedrock" "^0.8.0"
+    "@eth-optimism/core-utils" "^0.9.1"
+    ethers "^5.6.9"
+    handlebars "^4.7.7"
+    hardhat-deploy "^0.11.18"
+    merkletreejs "^0.2.18"
 
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"

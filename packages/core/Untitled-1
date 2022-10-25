@@ -1,0 +1,4 @@
+yarn workspace @chugsplash/core add @chugsplash/contracts@latest &&
+yarn workspace @chugsplash/demo add --dev @chugsplash/contracts@latest &&
+yarn workspace @chugsplash/plugins add @chugsplash/contracts@latest &&
+yarn workspace @chugsplash/executor add --dev @chugsplash/contracts@latest
