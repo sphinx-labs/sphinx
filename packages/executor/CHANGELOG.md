@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.3.1
+
+### Patch Changes
+
+- 557e3bd: Bump versions
+
 ## 0.3.0
 
 ### Minor Changes

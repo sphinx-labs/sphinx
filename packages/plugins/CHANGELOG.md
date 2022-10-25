@@ -1,5 +1,15 @@
 # @chugsplash/plugins
 
+## 0.4.1
+
+### Patch Changes
+
+- 557e3bd: Bump versions
+- Updated dependencies [557e3bd]
+- Updated dependencies [cd310fe]
+  - @chugsplash/contracts@0.3.1
+  - @chugsplash/core@0.3.1
+
 ## 0.4.0
 
 ### Minor Changes
