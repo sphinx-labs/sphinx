@@ -9,14 +9,14 @@
       "packages/contracts",
       "packages/core",
       "packages/plugins",
-      "packages/executor"
+      "packages/executor",
+      "packages/demo"
     ],
     "nohoist": [
       "@chugsplash/contracts/forge-std",
       "@chugsplash/contracts/ds-test",
       "@chugsplash/contracts/@openzeppelin/contracts",
-      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable",
-      "@chugsplash/contracts/@eth-optimism/contracts-bedrock"
+      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable"
     ]
   },
   "scripts": {
