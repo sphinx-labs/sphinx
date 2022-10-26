@@ -33,6 +33,7 @@
     "@eth-optimism/core-utils": "^0.9.1",
     "@nomiclabs/hardhat-ethers": "^2.1.0",
     "cli-progress": "^3.11.2",
+    "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
     "hardhat": "^2.10.0",
     "ipfs-http-client": "56.0.3",

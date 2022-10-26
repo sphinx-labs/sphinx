@@ -409,60 +409,6 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/contracts@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.0.tgz#b823ea8a5d3bb699389a0e29c5974b8c1c9c9f1c"
-  integrity sha512-zNK8qSScUD8eERJZNiZ/f0Y2u4gqKvW9z7IyenM0Jzxl2atH7Pbluo6YRlxXVtugs18HCFVPWjpVZD48a2TwUg==
-
-"@chugsplash/contracts@^0.3.1":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.1.tgz#770c3e09b34ebebd9b14f880d1331529e04c785b"
-  integrity sha512-KGhFz9EFmKZ7bJn5ACZnEdHOemQbzp/0RRcgkaLEaxj0/cgsgppeAV1aa+QFT3gQnZ4fueY6fGb6KGM98FbE7A==
-
-"@chugsplash/core@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.3.0.tgz#e2331632caa4db38ac4065f7af1d986a7f7068af"
-  integrity sha512-ZPZvWEp6vyX1MdA0xAYpcGJYKes468KEWYWLMauSB0VaMNtaYXJ9PUKAJpExOcTzh12h19bOmaD6MW/nEu+dRA==
-  dependencies:
-    "@chugsplash/contracts" "^0.3.0"
-    "@eth-optimism/contracts-bedrock" "^0.8.0"
-    "@eth-optimism/core-utils" "^0.9.1"
-    ethers "^5.6.9"
-    handlebars "^4.7.7"
-    hardhat-deploy "^0.11.18"
-    merkletreejs "^0.2.18"
-
-"@chugsplash/core@^0.3.1":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@chugsplash/core/-/core-0.3.1.tgz#49f0d250185d77202aba9e85ec83ee39b6182bb4"
-  integrity sha512-mfVKQQf60WQMwMR9XPv5OZxgnthAJcKoKDHVOGjGeatytLy5AQkZ+q2umLzTJdurbHbcj16eUsrUcRa69iAocg==
-  dependencies:
-    "@chugsplash/contracts" "^0.3.1"
-    "@eth-optimism/contracts-bedrock" "^0.8.0"
-    "@eth-optimism/core-utils" "^0.9.1"
-    ethers "^5.6.9"
-    handlebars "^4.7.7"
-    hardhat-deploy "^0.11.18"
-    merkletreejs "^0.2.18"
-
-"@chugsplash/plugins@^0.4.1":
-  version "0.4.1"
-  resolved "https://registry.yarnpkg.com/@chugsplash/plugins/-/plugins-0.4.1.tgz#4f6cd51d316d445940a601468dbf3eb9b5715946"
-  integrity sha512-4fA284qfbcYbbhHeIc1ZxRA0ptaJFq00t9tiGGZsbcvr7Pa+7hBe3xs/7zSI/9+HxZmjme9CVnReSGA/HEFH0g==
-  dependencies:
-    "@chugsplash/contracts" "^0.3.1"
-    "@chugsplash/core" "^0.3.1"
-    "@eth-optimism/core-utils" "^0.9.1"
-    "@nomiclabs/hardhat-ethers" "^2.1.0"
-    cli-progress "^3.11.2"
-    ethers "^5.6.9"
-    hardhat "^2.10.0"
-    ipfs-http-client "56.0.3"
-    ipfs-only-hash "^4.0.0"
-    node-fetch "^2.6.7"
-    ora "^5.4.1"
-    semver "^7.3.7"
-
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
@@ -1633,9 +1579,9 @@
   integrity sha512-ekGvFhFgrc2zYQoX4JeZPmVzZxw6Dtllga7iGHzfbYIYkAMUx/sAFP2GdFpLff+vdHXu5fl7WX9AT+TtqYcsyw==
 
 "@types/node@*", "@types/node@>=13.7.0", "@types/node@^18.0.0":
-  version "18.11.5"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.11.5.tgz#1bc94cf2f9ab5fe33353bc7c79c797dcc5325bef"
-  integrity sha512-3JRwhbjI+cHLAkUorhf8RnqUbFXajvzX4q6fMn5JwkgtuwfYtRQYI3u4V92vI6NJuTsbBQWWh3RZjFsuevyMGQ==
+  version "18.11.7"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.11.7.tgz#8ccef136f240770c1379d50100796a6952f01f94"
+  integrity sha512-LhFTglglr63mNXUSRYD8A+ZAIu5sFqNJ4Y2fPuY7UlrySJH87rRRlhtVmMHplmfk5WkoJGmDjE9oiTfyX94CpQ==
 
 "@types/node@^12.7.1":
   version "12.20.55"
@@ -1677,9 +1623,9 @@
   integrity sha512-KQf+QAMWKMrtBMsB8/24w53tEsxllMj6TuA80TT/5igJalLI/zm0L3oXRbIAl4Ohfc85gyHX/jhMwsVkmhLU4A==
 
 "@types/semver@^7.3.12":
-  version "7.3.12"
-  resolved "https://registry.yarnpkg.com/@types/semver/-/semver-7.3.12.tgz#920447fdd78d76b19de0438b7f60df3c4a80bf1c"
-  integrity sha512-WwA1MW0++RfXmCr12xeYOOC5baSC9mSb0ZqCquFzKhcoF4TvHu5MKOuXsncgZcpVFhB1pXd5hZmM0ryAoCp12A==
+  version "7.3.13"
+  resolved "https://registry.yarnpkg.com/@types/semver/-/semver-7.3.13.tgz#da4bfd73f49bd541d28920ab0e2bf0ee80f71c91"
+  integrity sha512-21cFJr9z3g5dW8B0CVI9g2O9beqaThGQ6ZFBqHfwhzLDKUxaqTIy3vnfah/UPkfOiF2pLq+tGz+W8RyCskuslw==
 
 "@typescript-eslint/eslint-plugin@^5.26.0":
   version "5.41.0"
@@ -2444,7 +2390,7 @@ cborg@^1.5.4, cborg@^1.6.0:
   resolved "https://registry.yarnpkg.com/cborg/-/cborg-1.9.5.tgz#1e3b8a8407b3665566001f8841c9d72d7a80b2d5"
   integrity sha512-fLBv8wmqtlXqy1Yu+pHzevAIkW6k2K0ZtMujNzWphLsA34vzzg9BHn+5GmZqOJkSA9V7EMKsWrf6K976c1QMjQ==
 
-chai@^4.2.0, chai@^4.3.4:
+chai@^4.2.0, chai@^4.3.4, chai@^4.3.6:
   version "4.3.6"
   resolved "https://registry.yarnpkg.com/chai/-/chai-4.3.6.tgz#ffe4ba2d9fa9d6680cc0b370adae709ec9011e9c"
   integrity sha512-bbcp3YfHCUzMOvKqsztczerVgBKSsEijCySNlHHbX3VG1nskvqjz5Rfso1gGwD6w6oOV3eI60pKuMOV5MV7p3Q==
@@ -3020,7 +2966,7 @@ doctrine@^3.0.0:
   dependencies:
     esutils "^2.0.2"
 
-dotenv@^16.0.0, dotenv@^16.0.1:
+dotenv@^16.0.0, dotenv@^16.0.1, dotenv@^16.0.3:
   version "16.0.3"
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.0.3.tgz#115aec42bac5053db3c456db30cc243a5a836a07"
   integrity sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==

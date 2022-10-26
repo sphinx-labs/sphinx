@@ -1,8 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-Error.stackTraceLimit = Infinity
-
 import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
@@ -16,8 +14,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create } from 'ipfs-http-client'
-import fetch from 'node-fetch'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { add0x } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -38,9 +35,13 @@ import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
+import * as dotenv from 'dotenv'
 
 import { getContractArtifact, getStorageLayout } from './artifacts'
 import { deployContracts } from './deployments'
+
+// Load environment variables from .env
+dotenv.config()
 
 // internal tasks
 const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
@@ -151,18 +152,48 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(
-    async (args: { configUri: string }): Promise<CanonicalChugSplashConfig> => {
+    async (args: {
+      configUri: string
+      ipfsUrl: string
+    }): Promise<CanonicalChugSplashConfig> => {
       let config: CanonicalChugSplashConfig
+      let ipfs: IPFSHTTPClient
+      if (args.ipfsUrl) {
+        ipfs = create({
+          url: args.ipfsUrl,
+        })
+      } else if (
+        process.env.IPFS_PROJECT_ID &&
+        process.env.IPFS_API_KEY_SECRET
+      ) {
+        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+        ipfs = create({
+          host: 'ipfs.infura.io',
+          port: 5001,
+          protocol: 'https',
+          headers: {
+            authorization: `Basic ${Buffer.from(projectCredentials).toString(
+              'base64'
+            )}`,
+          },
+        })
+      } else {
+        throw new Error(
+          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+        )
+      }
+
       if (args.configUri.startsWith('ipfs://')) {
-        config = await (
-          await fetch(
-            `https://cloudflare-ipfs.com/ipfs/${args.configUri.replace(
-              'ipfs://',
-              ''
-            )}`
-          )
-        ).json()
+        const decoder = new TextDecoder()
+        let data = ''
+        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+        for await (const chunk of stream) {
+          // Chunks of data are returned as a Uint8Array. Convert it back to a string
+          data += decoder.decode(chunk, { stream: true })
+        }
+        config = JSON.parse(data)
       } else {
         throw new Error('unsupported URI type')
       }
@@ -295,6 +326,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
             bundle.actions.length,
             configUri
           ),
+          ipfsUrl: args.ipfsUrl,
         })
       }
 
@@ -611,11 +643,13 @@ task(TASK_CHUGSPLASH_VERIFY)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(
     async (
       args: {
         configUri: string
         bundleId: string
+        ipfsUrl: string
       },
       hre
     ): Promise<{
@@ -627,6 +661,7 @@ task(TASK_CHUGSPLASH_VERIFY)
         TASK_CHUGSPLASH_FETCH,
         {
           configUri: args.configUri,
+          ipfsUrl: args.ipfsUrl,
         }
       )
       spinner.succeed('Fetched config')
@@ -773,16 +808,20 @@ task(TASK_CHUGSPLASH_STATUS)
   )
 
 // TODO: change 'any' type
-task(TASK_NODE).setAction(async (args, hre: any, runSuper) => {
-  if ((await hre.getChainId()) === '31337') {
-    const deployer = await hre.ethers.getSigner()
-    await deployChugSplashPredeploys(hre, deployer)
+task(TASK_NODE)
+  .addFlag('disable', 'Disable ChugSplash from deploying on startup')
+  .setAction(async (args, hre: any, runSuper) => {
+    if (args.disable === false) {
+      if ((await hre.getChainId()) === '31337') {
+        const deployer = await hre.ethers.getSigner()
+        await deployChugSplashPredeploys(hre, deployer)
 
-    await deployContracts(hre)
-    await writeSnapshotId(hre)
-  }
-  await runSuper(args)
-})
+        await deployContracts(hre)
+        await writeSnapshotId(hre)
+      }
+    }
+    await runSuper(args)
+  })
 
 task(TASK_TEST).setAction(async (args, hre: any, runSuper) => {
   await hre.run(TASK_CHUGSPLASH_DEPLOY_LOCAL, hre)

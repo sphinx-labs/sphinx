@@ -1,4 +1,5 @@
 import { HardhatUserConfig } from 'hardhat/types'
+import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
