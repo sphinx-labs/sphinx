@@ -27,6 +27,12 @@ export const loadChugSplashConfig = (
   return config
 }
 
+export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const config = require(path.resolve(configFileName))
+  return Object.keys(config).length === 0
+}
+
 /**
  * Validates a ChugSplash config file.
  *
