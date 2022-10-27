@@ -1,13 +1,12 @@
 import { HardhatUserConfig } from 'hardhat/types'
-import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import '@chugsplash/plugins/dist/hardhat'
+import '@chugsplash/plugins'
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.13',
+    version: '0.8.15',
     settings: {
       outputSelection: {
         '*': {

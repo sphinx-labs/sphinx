@@ -15,7 +15,7 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getProxyAddress } from '../utils'
-import { ChugSplashConfig } from './types'
+import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
 
 export const loadChugSplashConfig = (
   configFileName: string
@@ -43,23 +43,23 @@ export const validateChugSplashConfig = (config: ChugSplashConfig) => {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
 
-  for (const [contractName, contractConfig] of Object.entries(
+  for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
     // Block people from accidentally using templates in contract names.
-    if (contractName.includes('{') || contractName.includes('}')) {
+    if (referenceName.includes('{') || referenceName.includes('}')) {
       throw new Error(
-        `cannot use template strings in contract names: ${contractName}`
+        `cannot use template strings in reference names: ${referenceName}`
       )
     }
 
-    // Block people from accidentally using templates in contract source names.
+    // Block people from accidentally using templates in contract names.
     if (
-      contractConfig.source.includes('{') ||
-      contractConfig.source.includes('}')
+      contractConfig.contract.includes('{') ||
+      contractConfig.contract.includes('}')
     ) {
       throw new Error(
-        `cannot use template strings in contract source names: ${contractConfig.source}`
+        `cannot use template strings in contract names: ${contractConfig.contract}`
       )
     }
 
@@ -89,10 +89,13 @@ export const parseChugSplashConfig = (
   validateChugSplashConfig(config)
 
   const contracts = {}
-  for (const [target, contractConfig] of Object.entries(config.contracts)) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    config.contracts
+  )) {
     contractConfig.address =
-      contractConfig.address || getProxyAddress(config.options.name, target)
-    contracts[target] = contractConfig.address
+      contractConfig.address ||
+      getProxyAddress(config.options.projectName, referenceName)
+    contracts[referenceName] = contractConfig.address
   }
 
   return JSON.parse(
@@ -146,31 +149,36 @@ export const makeActionBundleFromConfig = async (
   const parsed = parseChugSplashConfig(config, env)
 
   const actions: ChugSplashAction[] = []
-  for (const [target, contractConfig] of Object.entries(parsed.contracts)) {
-    const artifact = artifacts[contractConfig.source]
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsed.contracts
+  )) {
+    const artifact = artifacts[contractConfig.contract]
 
     // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
-      target,
+      target: referenceName,
       code: artifact.deployedBytecode,
     })
 
     // Next, add a SET_IMPLEMENTATION action for each contract.
     actions.push({
-      target,
+      target: referenceName,
     })
+
+    // Replace any contract references with the contract's address.
+    const parsedVariables = parseContractReferences(
+      config.options.projectName,
+      contractConfig.variables
+    )
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(
-      artifact.storageLayout,
-      contractConfig.variables
-    )
+    const slots = computeStorageSlots(artifact.storageLayout, parsedVariables)
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {
       actions.push({
-        target,
+        target: referenceName,
         key: slot.key,
         value: slot.val,
       })
@@ -179,4 +187,26 @@ export const makeActionBundleFromConfig = async (
 
   // Generate a bundle from the list of actions.
   return makeBundleFromActions(actions)
+}
+
+export const parseContractReferences = (
+  projectName: string,
+  variables: ConfigVariable
+): ConfigVariable => {
+  for (const [variableName, variable] of Object.entries(variables)) {
+    if (isContractReference(variable)) {
+      const [referenceName] = Object.values(variable)
+      variables[variableName] = getProxyAddress(
+        projectName,
+        referenceName.trim()
+      )
+    }
+  }
+  return variables
+}
+
+export const isContractReference = (
+  variable: ConfigVariable
+): variable is ContractReference => {
+  return (variable as ContractReference)['!Ref'] !== undefined
 }
