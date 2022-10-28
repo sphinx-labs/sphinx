@@ -1,4 +1,4 @@
-import { ethers } from 'ethers'
+import { ethers, Signer } from 'ethers'
 import 'hardhat-deploy'
 import {
   OWNER_BOND_AMOUNT,
@@ -17,24 +17,33 @@ import {
   DefaultAdapterArtifact,
   ChugSplashBootLoaderABI,
   ChugSplashBootLoaderArtifact,
+  DEFAULT_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 
 export const deployChugSplashPredeploys = async (
   hre,
   deployer: ethers.Signer
-  // deployerAddress: string
 ) => {
-  const owner = ethers.Wallet.createRandom().connect(hre.provider)
+  const chugsplashOwnerAddress = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
 
-  const managerImplementationAddress =
-    await deployChugSplashManagerImplementation(hre, deployer, owner)
-  await deployAndInitializeChugSplashBootLoader(
-    hre,
-    deployer,
-    owner,
-    managerImplementationAddress
-  )
-  await deployDefaultAdapter(hre, await deployer.getAddress())
+  if ((await isBootloaderInitialized(deployer)) === false) {
+    const managerImplementationAddress =
+      await deployChugSplashManagerImplementation(
+        hre,
+        deployer,
+        chugsplashOwnerAddress
+      )
+    await deployAndInitializeChugSplashBootLoader(
+      hre,
+      deployer,
+      chugsplashOwnerAddress,
+      managerImplementationAddress
+    )
+  }
+
+  if ((await isDefaultAdapterDeployed(deployer)) === false) {
+    await deployDefaultAdapter(hre, await deployer.getAddress())
+  }
   // await deployProxyUpdater(hre, deployerAddress)
   // await deployChugSplashRegistry(hre, deployerAddress)
   // await deployDefaultAdapter(hre, deployerAddress)
@@ -43,7 +52,7 @@ export const deployChugSplashPredeploys = async (
 export const deployAndInitializeChugSplashBootLoader = async (
   hre,
   deployer: ethers.Signer,
-  owner: ethers.Wallet,
+  ownerAddress: string,
   managerImplementationAddress: string
 ) => {
   const deployerAddress = await deployer.getAddress()
@@ -72,7 +81,7 @@ export const deployAndInitializeChugSplashBootLoader = async (
   )
 
   const tx = await ChugSplashBootLoader.initialize(
-    owner.address,
+    ownerAddress,
     EXECUTOR_BOND_AMOUNT,
     EXECUTION_LOCK_TIME,
     OWNER_BOND_AMOUNT,
@@ -85,7 +94,7 @@ export const deployAndInitializeChugSplashBootLoader = async (
 export const deployChugSplashManagerImplementation = async (
   hre,
   deployer: ethers.Signer,
-  owner: ethers.Wallet
+  ownerAddress: string
 ): Promise<string> => {
   const deployerAddress = await deployer.getAddress()
   const { deploy } = await hre.deployments.deterministic('ChugSplashManager', {
@@ -98,7 +107,7 @@ export const deployChugSplashManagerImplementation = async (
     args: [
       CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
       'Root Manager',
-      owner.address,
+      ownerAddress,
       PROXY_UPDATER_ADDRESS,
       EXECUTOR_BOND_AMOUNT,
       EXECUTION_LOCK_TIME,
@@ -166,4 +175,25 @@ export const deployDefaultAdapter = async (hre, deployerAddress: string) => {
     log: true,
   })
   await deploy()
+}
+
+export const chugsplashContractsAreDeployed = async (
+  signer: Signer
+): Promise<boolean> => {
+  const deployed: boolean =
+    (await isBootloaderInitialized(signer)) &&
+    (await isDefaultAdapterDeployed(signer))
+  return deployed
+}
+
+export const isBootloaderInitialized = async (signer: Signer) => {
+  const deployedBytecode = await signer.provider.getCode(PROXY_UPDATER_ADDRESS)
+  return deployedBytecode !== '0x'
+}
+
+export const isDefaultAdapterDeployed = async (signer: Signer) => {
+  const deployedBytecode = await signer.provider.getCode(
+    DEFAULT_ADAPTER_ADDRESS
+  )
+  return deployedBytecode !== '0x'
 }

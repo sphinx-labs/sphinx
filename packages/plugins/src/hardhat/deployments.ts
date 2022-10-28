@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import '@nomiclabs/hardhat-ethers'
 import { Contract, ethers } from 'ethers'
 import {
   ChugSplashConfig,
@@ -11,6 +12,8 @@ import {
   isSetImplementationAction,
   ChugSplashActionBundle,
   fromRawChugSplashAction,
+  isEmptyChugSplashConfig,
+  registerChugSplashProject,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -28,7 +31,7 @@ import { getContractArtifact } from './artifacts'
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployContractsLocally = async (
+export const deployContracts = async (
   hre: any,
   verbose: boolean,
   hide: boolean
@@ -50,10 +53,10 @@ export const deployChugSplashConfig = async (
     ext: fileName,
   })
 
-  // TODO: uncomment when core package is bumped
-  // if (isEmptyChugSplashConfig(configRelativePath)) {
-  //   return
-  // }
+  // Skip this config if it's empty.
+  if (isEmptyChugSplashConfig(configRelativePath)) {
+    return
+  }
 
   const signer = hre.ethers.provider.getSigner()
 
@@ -64,10 +67,13 @@ export const deployChugSplashConfig = async (
   const spinner = ora({ isSilent: hide })
   spinner.start(`Deploying: ${config.options.projectName}`)
 
-  await hre.run('chugsplash-register', {
-    deployConfig: configRelativePath,
-    verbose,
-  })
+  // Register the project with the signer as the owner. Once we've completed the deployment, we'll
+  // transfer ownership to the project owner specified in the config.
+  await registerChugSplashProject(
+    config.options.projectName,
+    await signer.getAddress(),
+    signer
+  )
 
   const {
     bundle,
@@ -103,9 +109,9 @@ export const deployChugSplashConfig = async (
   const managerBalance = await hre.ethers.provider.getBalance(
     ChugSplashManager.address
   )
-  if (managerBalance.lt(OWNER_BOND_AMOUNT)) {
+  if (managerBalance.lt(OWNER_BOND_AMOUNT.mul(5))) {
     const tx = await signer.sendTransaction({
-      value: OWNER_BOND_AMOUNT.sub(managerBalance),
+      value: OWNER_BOND_AMOUNT.mul(5), // TODO: get a better cost estimate for deployments
       to: ChugSplashManager.address,
     })
     await tx.wait()
@@ -165,6 +171,33 @@ export const deployChugSplashConfig = async (
         })
     )
     console.table(deployments)
+  }
+
+  // Withdraw all funds from the ChugSplashManager.
+  const withdrawTxn1 = await ChugSplashManager.withdrawOwnerETH()
+  await withdrawTxn1.wait()
+  const withdrawTxn2 = await ChugSplashManager.claimExecutorPayment()
+  await withdrawTxn2.wait()
+
+  // Transfer ownership of the deployments to the project owner.
+  for (const referenceName of Object.keys(config.contracts)) {
+    const transferTx = await ChugSplashManager.transferProxyOwnership(
+      referenceName,
+      config.options.projectOwner
+    )
+    await transferTx.wait()
+  }
+
+  if (config.options.projectOwner !== (await ChugSplashManager.owner())) {
+    if (config.options.projectOwner === ethers.constants.AddressZero) {
+      const ownershipTxn = await ChugSplashManager.renounceOwnership()
+      await ownershipTxn.wait()
+    } else {
+      const ownershipTxn = await ChugSplashManager.transferOwnership(
+        config.options.projectOwner
+      )
+      await ownershipTxn.wait()
+    }
   }
 }
 

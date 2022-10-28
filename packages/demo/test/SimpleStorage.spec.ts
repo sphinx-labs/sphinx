@@ -1,8 +1,9 @@
 import { expect } from 'chai'
+import { Contract } from 'ethers'
 
 describe('SimpleStorage', () => {
-  let FirstSimpleStorage
-  let SecondSimpleStorage
+  let FirstSimpleStorage: Contract
+  let SecondSimpleStorage: Contract
   beforeEach(async () => {
     // You must reset your ChugSplash deployments to their initial state here
     await chugsplash.reset()
