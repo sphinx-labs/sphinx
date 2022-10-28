@@ -1,8 +1,12 @@
 import { HardhatUserConfig } from 'hardhat/types'
+import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@chugsplash/plugins'
+
+// Load environment variables from .env
+dotenv.config()
 
 const config: HardhatUserConfig = {
   solidity: {
