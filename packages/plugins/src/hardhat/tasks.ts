@@ -1,8 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-Error.stackTraceLimit = Infinity
-
 import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
@@ -16,8 +14,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create } from 'ipfs-http-client'
-import fetch from 'node-fetch'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { add0x } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -38,16 +35,24 @@ import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
+import * as dotenv from 'dotenv'
 
-import { getContractArtifact, getStorageLayout } from './artifacts'
-import { deployContracts } from './deployments'
+import {
+  getContractArtifact,
+  // getDeployedBytecode,
+  getStorageLayout,
+} from './artifacts'
+import { deployContractsLocally } from './deployments'
+
+// Load environment variables from .env
+dotenv.config()
 
 // internal tasks
 const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
 const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
 const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
-const TASK_CHUGSPLASH_DEPLOY_LOCAL = 'chugsplash-deploy-local'
+const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 
 // public tasks
 const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
@@ -58,8 +63,6 @@ const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
-
-const spinner = ora()
 
 subtask(TASK_CHUGSPLASH_LOAD)
   .addParam('deployConfig', undefined, undefined, types.string)
@@ -86,10 +89,12 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       })
 
       const artifacts = {}
-      for (const contract of Object.values(config.contracts)) {
-        const artifact = await getContractArtifact(contract.source)
-        const storageLayout = await getStorageLayout(contract.source)
-        artifacts[contract.source] = {
+      for (const contractConfig of Object.values(config.contracts)) {
+        const artifact = await getContractArtifact(contractConfig.contract)
+        const storageLayout = await getStorageLayout(contractConfig.contract)
+        // const deployedBytecode = await getDeployedBytecode(contract.contract)
+        artifacts[contractConfig.contract] = {
+          // deployedBytecode: add0x(deployedBytecode),
           deployedBytecode: artifact.deployedBytecode,
           storageLayout,
         }
@@ -107,24 +112,24 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
       hre
     ): Promise<ChugSplashActionBundle> => {
       const artifacts = {}
-      for (const source of args.deployConfig.inputs) {
+      for (const contract of args.deployConfig.inputs) {
         const solcBuild: SolcBuild = await hre.run(
           TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
           {
             quiet: true,
-            solcVersion: source.solcVersion,
+            solcVersion: contract.solcVersion,
           }
         )
 
         let output: any // TODO: Compiler output
         if (solcBuild.isSolcJs) {
           output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-            input: source.input,
+            input: contract.input,
             solcJsPath: solcBuild.compilerPath,
           })
         } else {
           output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-            input: source.input,
+            input: contract.input,
             solcPath: solcBuild.compilerPath,
           })
         }
@@ -133,8 +138,12 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
           for (const [contractName, contractOutput] of Object.entries(
             fileOutput
           )) {
+            // If contractOutput.evm.deployedBytecode.immutableReferences is empty...
+
             artifacts[contractName] = {
-              bytecode: add0x(contractOutput.evm.bytecode.object),
+              deployedBytecode: add0x(
+                contractOutput.evm.deployedBytecode.object
+              ),
               storageLayout: contractOutput.storageLayout,
             }
           }
@@ -151,18 +160,48 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(
-    async (args: { configUri: string }): Promise<CanonicalChugSplashConfig> => {
+    async (args: {
+      configUri: string
+      ipfsUrl: string
+    }): Promise<CanonicalChugSplashConfig> => {
       let config: CanonicalChugSplashConfig
+      let ipfs: IPFSHTTPClient
+      if (args.ipfsUrl) {
+        ipfs = create({
+          url: args.ipfsUrl,
+        })
+      } else if (
+        process.env.IPFS_PROJECT_ID &&
+        process.env.IPFS_API_KEY_SECRET
+      ) {
+        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+        ipfs = create({
+          host: 'ipfs.infura.io',
+          port: 5001,
+          protocol: 'https',
+          headers: {
+            authorization: `Basic ${Buffer.from(projectCredentials).toString(
+              'base64'
+            )}`,
+          },
+        })
+      } else {
+        throw new Error(
+          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+        )
+      }
+
       if (args.configUri.startsWith('ipfs://')) {
-        config = await (
-          await fetch(
-            `https://cloudflare-ipfs.com/ipfs/${args.configUri.replace(
-              'ipfs://',
-              ''
-            )}`
-          )
-        ).json()
+        const decoder = new TextDecoder()
+        let data = ''
+        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+        for await (const chunk of stream) {
+          // Chunks of data are returned as a Uint8Array. Convert it back to a string
+          data += decoder.decode(chunk, { stream: true })
+        }
+        config = JSON.parse(data)
       } else {
         throw new Error('unsupported URI type')
       }
@@ -171,41 +210,58 @@ subtask(TASK_CHUGSPLASH_FETCH)
     }
   )
 
-subtask(TASK_CHUGSPLASH_DEPLOY_LOCAL).setAction(async (hre: any) => {
-  if ((await hre.getChainId()) === '31337') {
-    try {
-      const snapshotIdPath = path.join(
-        path.basename(hre.config.paths.deployed),
-        '31337',
-        '.snapshotId'
-      )
-      const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-      const snapshotReverted = await hre.network.provider.send('evm_revert', [
-        snapshotId,
-      ])
-      if (!snapshotReverted) {
-        throw new Error('Snapshot failed to be reverted.')
+task(TASK_CHUGSPLASH_DEPLOY)
+  .addFlag('log', "Log all of ChugSplash's output")
+  .addFlag('hide', "Hide all of ChugSplash's output")
+  .setAction(
+    async (
+      args: {
+        log: boolean
+        hide: boolean
+      },
+      hre: any
+    ) => {
+      if ((await hre.getChainId()) === '31337') {
+        try {
+          const snapshotIdPath = path.join(
+            path.basename(hre.config.paths.deployed),
+            '31337',
+            '.snapshotId'
+          )
+          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+          const snapshotReverted = await hre.network.provider.send(
+            'evm_revert',
+            [snapshotId]
+          )
+          if (!snapshotReverted) {
+            throw new Error('Snapshot failed to be reverted.')
+          }
+        } catch {
+          await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+          await deployContractsLocally(hre, args.log, args.hide)
+        } finally {
+          await writeSnapshotId(hre)
+        }
+      } else {
+        throw new Error('Only local deployments are currently supported.')
       }
-    } catch {
-      await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
-      await deployContracts(hre)
-    } finally {
-      await writeSnapshotId(hre)
     }
-  }
-})
+  )
 
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
   .addParam('deployConfig', 'path to chugsplash deploy config')
-  .addFlag('silent', 'run this task without displaying messages')
+  .addFlag('log', 'Log the output for this task')
   .setAction(
     async (
       args: {
         deployConfig: string
+        log: boolean
       },
       hre
     ) => {
+      const spinner = ora({ isSilent: !args.log })
+
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
         deployConfig: args.deployConfig,
       })
@@ -213,15 +269,18 @@ task(TASK_CHUGSPLASH_REGISTER)
       const signer = hre.ethers.provider.getSigner()
 
       const success = await registerChugSplashProject(
-        config.options.name,
-        config.options.owner,
+        config.options.projectName,
+        config.options.projectOwner,
         signer
       )
 
       if (success) {
         spinner.succeed('Project successfully created.')
       } else {
-        const projectOwner = await getProjectOwner(config.options.name, signer)
+        const projectOwner = await getProjectOwner(
+          config.options.projectName,
+          signer
+        )
         if (projectOwner === (await signer.getAddress())) {
           spinner.succeed('You already own this project.')
         } else {
@@ -236,6 +295,8 @@ task(TASK_CHUGSPLASH_REGISTER)
 task(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setDescription('Lists all existing ChugSplash projects')
   .setAction(async (_, hre) => {
+    const spinner = ora()
+
     spinner.start('Getting list of all projects...')
 
     const ChugSplashRegistry = getChugSplashRegistry(
@@ -262,6 +323,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash bundle')
   .addParam('deployConfig', 'path to chugsplash deploy config')
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .addFlag('log', 'Log the output for this task')
   .addFlag(
     'local',
     'Propose the bundle without committing it to IPFS. To be used for local deployments.'
@@ -272,6 +334,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
         deployConfig: string
         ipfsUrl: string
         local: boolean
+        log: boolean
       },
       hre
     ): Promise<{
@@ -279,37 +342,47 @@ task(TASK_CHUGSPLASH_PROPOSE)
       configUri: string
       bundleId: string
     }> => {
+      const spinner = ora({ isSilent: !args.log })
+
       // First, commit the bundle to IPFS and get the bundle hash that it returns.
       const { bundle, configUri, bundleId } = await hre.run(
         TASK_CHUGSPLASH_COMMIT,
-        args
+        {
+          deployConfig: args.deployConfig,
+          ipfsUrl: args.ipfsUrl,
+          local: args.local,
+          log: args.log,
+        }
       )
 
       // Next, verify that the bundle has been committed to IPFS with the correct bundle hash.
       // Skip this step if the deployment is local.
+      let config: ChugSplashConfig
       if (args.local === false) {
-        await hre.run(TASK_CHUGSPLASH_VERIFY, {
+        ;({ config } = await hre.run(TASK_CHUGSPLASH_VERIFY, {
           configUri,
           bundleId: computeBundleId(
             bundle.root,
             bundle.actions.length,
             configUri
           ),
+          ipfsUrl: args.ipfsUrl,
+          spinner,
+        }))
+      } else {
+        config = await hre.run(TASK_CHUGSPLASH_LOAD, {
+          deployConfig: args.deployConfig,
         })
       }
 
       spinner.start('Proposing the bundle...')
-
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        deployConfig: args.deployConfig,
-      })
 
       const ChugSplashRegistry = getChugSplashRegistry(
         hre.ethers.provider.getSigner()
       )
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(config.options.name),
+        await ChugSplashRegistry.projects(config.options.projectName),
         ChugSplashManagerABI,
         hre.ethers.provider.getSigner()
       )
@@ -337,14 +410,18 @@ task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
   .addParam('projectName', 'name of the chugsplash project')
   .addParam('bundleId', 'ID of the bundle')
+  .addFlag('log', 'Log the output for this task')
   .setAction(
     async (
       args: {
         projectName: string
         bundleId: string
+        log: boolean
       },
       hre
     ) => {
+      const spinner = ora({ isSilent: !args.log })
+
       const ChugSplashRegistry = getChugSplashRegistry(
         hre.ethers.provider.getSigner()
       )
@@ -392,6 +469,8 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
       },
       hre
     ) => {
+      const spinner = ora()
+
       spinner.start(`Getting list of all bundles...`)
 
       const ChugSplashRegistry = getChugSplashRegistry(
@@ -484,7 +563,7 @@ task(TASK_CHUGSPLASH_LIST_BUNDLES)
     }
   )
 
-task(TASK_CHUGSPLASH_COMMIT)
+subtask(TASK_CHUGSPLASH_COMMIT)
   .setDescription('Commits a ChugSplash config file with artifacts to IPFS')
   .addParam('deployConfig', 'path to chugsplash deploy config')
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
@@ -492,12 +571,14 @@ task(TASK_CHUGSPLASH_COMMIT)
     'local',
     'Propose the bundle without committing it to IPFS. To be used for local deployments.'
   )
+  .addFlag('log', 'Log the output for this task')
   .setAction(
     async (
       args: {
         deployConfig: string
         ipfsUrl: string
         local: boolean
+        log: boolean
       },
       hre
     ): Promise<{
@@ -505,7 +586,10 @@ task(TASK_CHUGSPLASH_COMMIT)
       configUri: string
       bundleId: string
     }> => {
+      const spinner = ora({ isSilent: !args.log })
+
       spinner.start('Compiling deploy config...')
+
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
         deployConfig: args.deployConfig,
       })
@@ -611,22 +695,29 @@ task(TASK_CHUGSPLASH_VERIFY)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .addFlag('log', 'Log the output for this task')
   .setAction(
     async (
       args: {
         configUri: string
         bundleId: string
+        ipfsUrl: string
+        log: boolean
       },
       hre
     ): Promise<{
       config: CanonicalChugSplashConfig
       bundle: ChugSplashActionBundle
     }> => {
-      spinner.start('Fetching config, this might take a while...')
+      const spinner = ora({ isSilent: !args.log })
+
+      spinner.start('Fetching config from IPFS...')
       const config: CanonicalChugSplashConfig = await hre.run(
         TASK_CHUGSPLASH_FETCH,
         {
           configUri: args.configUri,
+          ipfsUrl: args.ipfsUrl,
         }
       )
       spinner.succeed('Fetched config')
@@ -773,23 +864,44 @@ task(TASK_CHUGSPLASH_STATUS)
   )
 
 // TODO: change 'any' type
-task(TASK_NODE).setAction(async (args, hre: any, runSuper) => {
-  if ((await hre.getChainId()) === '31337') {
-    const deployer = await hre.ethers.getSigner()
-    await deployChugSplashPredeploys(hre, deployer)
+task(TASK_NODE)
+  .addFlag('disableChugsplash', 'Disable ChugSplash from deploying on startup')
+  .addFlag('log', "Log all of ChugSplash's output")
+  .addFlag('hide', "Hide all of ChugSplash's output")
+  .setAction(
+    async (
+      args: { disableChugSplash: boolean; log: boolean; hide: boolean },
+      hre: any,
+      runSuper
+    ) => {
+      if (args.disableChugSplash === false) {
+        if ((await hre.getChainId()) === '31337') {
+          const deployer = await hre.ethers.getSigner()
+          await deployChugSplashPredeploys(hre, deployer)
 
-    await deployContracts(hre)
-    await writeSnapshotId(hre)
-  }
-  await runSuper(args)
-})
+          await deployContractsLocally(hre, args.log, args.hide)
+          await writeSnapshotId(hre)
+        }
+      }
+      await runSuper(args)
+    }
+  )
 
-task(TASK_TEST).setAction(async (args, hre: any, runSuper) => {
-  await hre.run(TASK_CHUGSPLASH_DEPLOY_LOCAL, hre)
-  await runSuper(args)
-})
+task(TASK_TEST)
+  .addFlag('show', 'Show ChugSplash deployment information')
+  .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
+    await hre.run(
+      TASK_CHUGSPLASH_DEPLOY,
+      {
+        log: false,
+        hide: !args.show,
+      },
+      hre
+    )
+    await runSuper(args)
+  })
 
 task(TASK_RUN).setAction(async (args, hre: any, runSuper) => {
-  await hre.run(TASK_CHUGSPLASH_DEPLOY_LOCAL, hre)
+  await hre.run(TASK_CHUGSPLASH_DEPLOY, hre)
   await runSuper(args)
 })

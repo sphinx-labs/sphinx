@@ -18,6 +18,7 @@ import {
   EXECUTOR_BOND_AMOUNT,
   DEFAULT_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
+import ora from 'ora'
 
 import { getContractArtifact } from './artifacts'
 
@@ -27,30 +28,45 @@ import { getContractArtifact } from './artifacts'
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployContracts = async (hre: any) => {
-  const deployPromises = fs
-    .readdirSync(hre.config.paths.chugsplash)
-    .map(async (fileName) => {
-      await deployChugSplashConfig(hre, fileName)
-    })
-
-  await Promise.all(deployPromises)
+export const deployContractsLocally = async (
+  hre: any,
+  verbose: boolean,
+  hide: boolean
+) => {
+  const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
+  for (const fileName of fileNames) {
+    await deployChugSplashConfig(hre, fileName, verbose, hide)
+  }
 }
 
-export const deployChugSplashConfig = async (hre: any, fileName: string) => {
-  const signer = hre.ethers.provider.getSigner()
-
+export const deployChugSplashConfig = async (
+  hre: any,
+  fileName: string,
+  verbose: boolean,
+  hide: boolean
+) => {
   const configRelativePath = path.format({
     dir: path.basename(hre.config.paths.chugsplash),
     ext: fileName,
   })
 
+  // TODO: uncomment when core package is bumped
+  // if (isEmptyChugSplashConfig(configRelativePath)) {
+  //   return
+  // }
+
+  const signer = hre.ethers.provider.getSigner()
+
   const config: ChugSplashConfig = await hre.run('chugsplash-load', {
     deployConfig: configRelativePath,
   })
 
+  const spinner = ora({ isSilent: hide })
+  spinner.start(`Deploying: ${config.options.projectName}`)
+
   await hre.run('chugsplash-register', {
     deployConfig: configRelativePath,
+    verbose,
   })
 
   const {
@@ -61,13 +77,14 @@ export const deployChugSplashConfig = async (hre: any, fileName: string) => {
     {
       deployConfig: configRelativePath,
       local: true,
+      verbose,
     }
   )
 
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   const ChugSplashManager = new Contract(
-    await ChugSplashRegistry.projects(config.options.name),
+    await ChugSplashRegistry.projects(config.options.projectName),
     ChugSplashManagerABI,
     signer
   )
@@ -87,15 +104,17 @@ export const deployChugSplashConfig = async (hre: any, fileName: string) => {
     ChugSplashManager.address
   )
   if (managerBalance.lt(OWNER_BOND_AMOUNT)) {
-    await signer.sendTransaction({
+    const tx = await signer.sendTransaction({
       value: OWNER_BOND_AMOUNT.sub(managerBalance),
       to: ChugSplashManager.address,
     })
+    await tx.wait()
   }
 
   await hre.run('chugsplash-approve', {
-    projectName: config.options.name,
+    projectName: config.options.projectName,
     bundleId,
+    verbose,
   })
 
   const bundleState = await ChugSplashManager.bundles(bundleId)
@@ -132,6 +151,21 @@ export const deployChugSplashConfig = async (hre: any, fileName: string) => {
     setImplActions.map((action) => action.proof.siblings)
   )
   await txn.wait()
+
+  spinner.succeed(`Deployed: ${config.options.projectName}`)
+
+  if (!hide) {
+    const deployments = {}
+    Object.entries(config.contracts).forEach(
+      ([referenceName, contractConfig], i) =>
+        (deployments[i + 1] = {
+          Reference: referenceName,
+          Contract: contractConfig.contract,
+          Address: contractConfig.address,
+        })
+    )
+    console.table(deployments)
+  }
 }
 
 export const getContract = async (
@@ -171,9 +205,9 @@ export const getContract = async (
   const { config: cfg } = configsWithFileNames[0]
 
   const Proxy = new ethers.Contract(
-    getProxyAddress(cfg.options.name, target),
+    getProxyAddress(cfg.options.projectName, target),
     new ethers.utils.Interface(
-      getContractArtifact(cfg.contracts[target].source).abi
+      getContractArtifact(cfg.contracts[target].contract).abi
     ),
     provider.getSigner()
   )
