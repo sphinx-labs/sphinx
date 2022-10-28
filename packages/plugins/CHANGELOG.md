@@ -1,5 +1,17 @@
 # @chugsplash/plugins
 
+## 0.4.3
+
+### Patch Changes
+
+- 2c5b238: Support demo
+- 2285b39: Replace flaky CloudFlare API for retrieving IPFS files
+- Updated dependencies [4ce753b]
+- Updated dependencies [2c5b238]
+- Updated dependencies [2c5b238]
+  - @chugsplash/core@0.3.3
+  - @chugsplash/contracts@0.3.3
+
 ## 0.4.2
 
 ### Patch Changes

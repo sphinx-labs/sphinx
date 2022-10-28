@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.3
+
+### Patch Changes
+
+- 2c5b238: Support demo
+
 ## 0.3.2
 
 ### Patch Changes
