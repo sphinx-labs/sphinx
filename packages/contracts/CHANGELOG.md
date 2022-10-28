@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.5
+
+### Patch Changes
+
+- 123d9c1: Add support for deployments on live networks
+
 ## 0.3.4
 
 ### Patch Changes
