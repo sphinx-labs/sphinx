@@ -1,5 +1,13 @@
 # @chugsplash/demo
 
+## 0.3.3
+
+### Patch Changes
+
+- ded016a: Update demo readme
+- Updated dependencies [ded016a]
+  - @chugsplash/plugins@0.4.4
+
 ## 0.3.2
 
 ### Patch Changes

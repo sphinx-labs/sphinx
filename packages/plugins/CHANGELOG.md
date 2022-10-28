@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.4.4
+
+### Patch Changes
+
+- ded016a: Update demo readme
+
 ## 0.4.3
 
 ### Patch Changes
