@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.4
+
+### Patch Changes
+
+- d0344f7: Remove ownership requirement to propose bundles
+
 ## 0.3.3
 
 ### Patch Changes
