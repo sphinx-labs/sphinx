@@ -40,7 +40,7 @@ export default config
 ```
 
 ## Tutorial
-0. In your existing contracts folder, create a contract called `SimpleStorage.sol`. Copy and paste its contents:
+1. In your existing contracts folder, create a contract called `SimpleStorage.sol`. Copy and paste its contents:
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
@@ -69,19 +69,19 @@ contract SimpleStorage {
 }
 ```
 
-0. Compile your contract:
+2. Compile your contract:
 ```
 npx hardhat compile
 ```
 
-0. Make a `chugsplash/` folder in your project root:
+3. Make a `chugsplash/` folder in your project root:
 ```
 mkdir chugsplash
 ```
 
-0. Create a file called `SimpleStorage.config.ts` in your `chugsplash/` folder. This will be the config file for your first ChugSplash project.
+4. Create a file called `SimpleStorage.config.ts` in your `chugsplash/` folder. This will be the config file for your first ChugSplash project.
 
-0. Copy and paste the following deployment information into `SimpleStorage.config.ts`. You will deploy two instances of the `SimpleStorage` contract.
+5. Copy and paste the following deployment information into `SimpleStorage.config.ts`. You will deploy two instances of the `SimpleStorage` contract.
 ```typescript
 import { ChugSplashConfig } from '@chugsplash/core'
 
@@ -115,13 +115,12 @@ const config: ChugSplashConfig = {
     },
   },
 }
-
 export default config
 ```
 
 Notice that we assign values directly to the state variables in the config file. There is no need for a constructor or initializer function in the contract.
 
-0. Deploy the contracts locally:
+6. Deploy the contracts locally:
 ```
 npx hardhat chugsplash-deploy
 ```
