@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/plugins",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
