@@ -409,6 +409,19 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
+"@chugsplash/contracts@^0.3.4":
+  version "0.3.4"
+  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.3.4.tgz#a1c5eae1f81c6e23993f0f4edf087ad84319fa37"
+  integrity sha512-c+nJzuvUT1f5RLl+ARRD/Ep0TToXgUPuyqC+RSgMxwNsT/kFiQnve5Jniapp5KEmMqpl6p1DiRfMjuDgX8ADLg==
+
+"@chugsplash/core@link:packages/plugins/packages/core":
+  version "0.0.0"
+  uid ""
+
+"@chugsplash/plugins@link:packages/demo/packages/plugins":
+  version "0.0.0"
+  uid ""
+
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
@@ -1385,10 +1398,15 @@
     "@nomicfoundation/solidity-analyzer-win32-ia32-msvc" "0.1.0"
     "@nomicfoundation/solidity-analyzer-win32-x64-msvc" "0.1.0"
 
-"@nomiclabs/hardhat-ethers@^2.0.6", "@nomiclabs/hardhat-ethers@^2.1.0":
+"@nomiclabs/hardhat-ethers@^2.0.6":
   version "2.2.0"
   resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-ethers/-/hardhat-ethers-2.2.0.tgz#f55ace2752d0effcf583e754960e9fa89fbe12cd"
   integrity sha512-kKCW7xawuD/lw69Yr1yqUUrF0IKmnLNGf+pTVbJ/ctHaRcPrwKI0EPkO1RNXBHlOOZkv6v4DK2PPvq0lL2ykig==
+
+"@nomiclabs/hardhat-ethers@^2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@nomiclabs/hardhat-ethers/-/hardhat-ethers-2.2.1.tgz#8057b43566a0e41abeb8142064a3c0d3f23dca86"
+  integrity sha512-RHWYwnxryWR8hzRmU4Jm/q4gzvXpetUOJ4OPlwH2YARcDB+j79+yAYCwO0lN1SUOb4++oOTJEe6AWLEc42LIvg==
 
 "@openzeppelin/contracts-upgradeable@4.7.3", "@openzeppelin/contracts-upgradeable@^4.6.0":
   version "4.7.3"

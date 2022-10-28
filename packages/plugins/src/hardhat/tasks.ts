@@ -28,7 +28,7 @@ import {
   writeSnapshotId,
   deployChugSplashPredeploys,
   registerChugSplashProject,
-  getProjectOwner,
+  chugsplashContractsAreDeployed,
   getChugSplashRegistry,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
@@ -42,7 +42,7 @@ import {
   // getDeployedBytecode,
   getStorageLayout,
 } from './artifacts'
-import { deployContractsLocally } from './deployments'
+import { deployContracts } from './deployments'
 
 // Load environment variables from .env
 dotenv.config()
@@ -52,9 +52,11 @@ const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
 const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
 const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
-const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
+const TASK_CHUGSPLASH_DEPLOY_LOCAL = 'chugsplash-deploy-local'
+const TASK_CHUGSPLASH_DEPLOY_LIVE = 'chugsplash-deploy-live'
 
 // public tasks
+const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
@@ -210,6 +212,58 @@ subtask(TASK_CHUGSPLASH_FETCH)
     }
   )
 
+subtask(TASK_CHUGSPLASH_DEPLOY_LIVE)
+  .addFlag('log', "Log all of ChugSplash's output")
+  .addFlag('hide', "Hide all of ChugSplash's output")
+  .setAction(
+    async (
+      args: {
+        log: boolean
+        hide: boolean
+      },
+      hre: any
+    ) => {
+      const signer = await hre.ethers.getSigner()
+      if ((await chugsplashContractsAreDeployed(signer)) === false) {
+        await deployChugSplashPredeploys(hre, signer)
+      }
+      await deployContracts(hre, args.log, args.hide)
+    }
+  )
+
+subtask(TASK_CHUGSPLASH_DEPLOY_LOCAL)
+  .addFlag('log', "Log all of ChugSplash's output")
+  .addFlag('hide', "Hide all of ChugSplash's output")
+  .setAction(
+    async (
+      args: {
+        log: boolean
+        hide: boolean
+      },
+      hre: any
+    ) => {
+      try {
+        const snapshotIdPath = path.join(
+          path.basename(hre.config.paths.deployed),
+          '31337',
+          '.snapshotId'
+        )
+        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+        const snapshotReverted = await hre.network.provider.send('evm_revert', [
+          snapshotId,
+        ])
+        if (!snapshotReverted) {
+          throw new Error('Snapshot failed to be reverted.')
+        }
+      } catch {
+        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+        await deployContracts(hre, args.log, args.hide)
+      } finally {
+        await writeSnapshotId(hre)
+      }
+    }
+  )
+
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
   .addFlag('hide', "Hide all of ChugSplash's output")
@@ -221,29 +275,11 @@ task(TASK_CHUGSPLASH_DEPLOY)
       },
       hre: any
     ) => {
-      if ((await hre.getChainId()) === '31337') {
-        try {
-          const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployed),
-            '31337',
-            '.snapshotId'
-          )
-          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-          const snapshotReverted = await hre.network.provider.send(
-            'evm_revert',
-            [snapshotId]
-          )
-          if (!snapshotReverted) {
-            throw new Error('Snapshot failed to be reverted.')
-          }
-        } catch {
-          await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
-          await deployContractsLocally(hre, args.log, args.hide)
-        } finally {
-          await writeSnapshotId(hre)
-        }
+      const chainId = await hre.getChainId()
+      if (chainId === '31337') {
+        await hre.run(TASK_CHUGSPLASH_DEPLOY_LOCAL, args, hre)
       } else {
-        throw new Error('Only local deployments are currently supported.')
+        await hre.run(TASK_CHUGSPLASH_DEPLOY_LIVE, args, hre)
       }
     }
   )
@@ -268,27 +304,13 @@ task(TASK_CHUGSPLASH_REGISTER)
 
       const signer = hre.ethers.provider.getSigner()
 
-      const success = await registerChugSplashProject(
+      await registerChugSplashProject(
         config.options.projectName,
         config.options.projectOwner,
         signer
       )
 
-      if (success) {
-        spinner.succeed('Project successfully created.')
-      } else {
-        const projectOwner = await getProjectOwner(
-          config.options.projectName,
-          signer
-        )
-        if (projectOwner === (await signer.getAddress())) {
-          spinner.succeed('You already own this project.')
-        } else {
-          spinner.fail(
-            `Project already registered by: ${projectOwner}. Switch to this address if it is yours, or try again with another project name.`
-          )
-        }
-      }
+      spinner.succeed('Project successfully created.')
     }
   )
 
@@ -879,7 +901,7 @@ task(TASK_NODE)
           const deployer = await hre.ethers.getSigner()
           await deployChugSplashPredeploys(hre, deployer)
 
-          await deployContractsLocally(hre, args.log, args.hide)
+          await deployContracts(hre, args.log, args.hide)
           await writeSnapshotId(hre)
         }
       }

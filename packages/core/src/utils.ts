@@ -111,7 +111,7 @@ export const registerChugSplashProject = async (
   projectName: string,
   projectOwner: string,
   signer: Signer
-): Promise<boolean> => {
+) => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
@@ -125,9 +125,13 @@ export const registerChugSplashProject = async (
         'Failed to register project. Try again with another project name.'
       )
     }
-    return true
   } else {
-    return false
+    const existingProjectOwner = await getProjectOwner(projectName, signer)
+    if (existingProjectOwner === (await signer.getAddress())) {
+      throw new Error('You already registered this project.')
+    } else {
+      throw new Error(`Project already registered by: ${existingProjectOwner}.`)
+    }
   }
 }
 
