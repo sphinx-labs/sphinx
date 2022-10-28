@@ -6,21 +6,26 @@ export type ConfigVariable =
   | string
   | number
   | Array<ConfigVariable>
+  | ContractReference
   | {
       [name: string]: ConfigVariable
     }
+
+export type ContractReference = {
+  '!Ref': string
+}
 
 /**
  * Full config object that can be used to commit a deployment.
  */
 export interface ChugSplashConfig {
   options: {
-    name: string
-    owner: string
+    projectName: string
+    projectOwner: string
   }
   contracts: {
-    [name: string]: {
-      source: string
+    [referenceName: string]: {
+      contract: string
       address?: string
       variables?: {
         [name: string]: ConfigVariable

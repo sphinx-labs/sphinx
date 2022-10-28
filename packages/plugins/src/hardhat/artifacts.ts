@@ -58,3 +58,15 @@ export const getStorageLayout = async (
 
   return (output as any).storageLayout
 }
+
+// export const getDeployedBytecode = async (name: string): Promise<string> => {
+// const { sourceName, contractName } = await getContractArtifact(name)
+// const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+
+// const output = buildInfo.output.contracts[sourceName][contractName]
+// const deployedBytecode = output.evm.deployedBytecode.object
+// const immutableReferences = output.evm.deployedBytecode.immutableReferences
+// const nodes = buildInfo.output.sources[sourceName].ast.nodes
+
+// return '' // TODO
+// }

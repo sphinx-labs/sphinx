@@ -28,9 +28,9 @@ const config: HardhatUserConfig = {
         },
       },
     },
-    'optimism-kovan': {
-      chainId: 69,
-      url: 'https://kovan.optimism.io',
+    'optimism-goerli': {
+      chainId: 420,
+      url: 'https://goerli.optimism.io',
       verify: {
         etherscan: {
           apiKey: getenv('OPTIMISTIC_ETHERSCAN_API_KEY'),

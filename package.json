@@ -16,7 +16,8 @@
       "@chugsplash/contracts/forge-std",
       "@chugsplash/contracts/ds-test",
       "@chugsplash/contracts/@openzeppelin/contracts",
-      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable"
+      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable",
+      "@chugsplash/contracts/@eth-optimism/contracts-bedrock"
     ]
   },
   "scripts": {
