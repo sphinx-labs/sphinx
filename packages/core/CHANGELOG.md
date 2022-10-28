@@ -1,5 +1,15 @@
 # @chugsplash/core
 
+## 0.3.3
+
+### Patch Changes
+
+- 4ce753b: Add function that checks if a ChugSplash config file is empty
+- 2c5b238: Change config file names
+- 2c5b238: Support demo
+- Updated dependencies [2c5b238]
+  - @chugsplash/contracts@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes
