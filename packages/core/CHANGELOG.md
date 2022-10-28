@@ -1,5 +1,13 @@
 # @chugsplash/core
 
+## 0.3.4
+
+### Patch Changes
+
+- 123d9c1: Add support for deployments on live networks
+- Updated dependencies [123d9c1]
+  - @chugsplash/contracts@0.3.5
+
 ## 0.3.3
 
 ### Patch Changes
