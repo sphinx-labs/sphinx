@@ -334,7 +334,7 @@ contract ChugSplashManager is OwnableUpgradeable {
     }
 
     /**
-     * @notice Allows the owner to propose a new ChugSplash bundle to be executed.
+     * @notice Lets anyone propose a new ChugSplash bundle to be approved.
      *
      * @param _bundleRoot Root of the bundle's merkle tree.
      * @param _bundleSize Number of elements in the bundle's tree.
@@ -344,7 +344,7 @@ contract ChugSplashManager is OwnableUpgradeable {
         bytes32 _bundleRoot,
         uint256 _bundleSize,
         string memory _configUri
-    ) public onlyOwner {
+    ) public {
         bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
