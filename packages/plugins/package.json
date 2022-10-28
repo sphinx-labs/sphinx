@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@chugsplash/contracts": "^0.3.5",
-    "@chugsplash/core": "link:packages/core",
+    "@chugsplash/core": "^0.3.4",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
