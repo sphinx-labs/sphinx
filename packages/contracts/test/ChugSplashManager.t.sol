@@ -240,17 +240,8 @@ contract ChugSplashManager_Test is Test {
     }
 
     // proposeChugSplashBundle:
-    // - reverts if not called by owner
-    function test_proposeChugSplashBundle_revert_nonOwner() external {
-        vm.prank(nonOwner);
-        vm.expectRevert('Ownable: caller is not the owner');
-        manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
-    }
-
-    // proposeChugSplashBundle:
     // - reverts if bundle's status is not `EMPTY`
     function test_proposeChugSplashBundle_revert_nonEmpty() external {
-        vm.startPrank(owner);
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
         vm.expectRevert("ChugSplashManager: bundle already exists");
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
@@ -269,7 +260,6 @@ contract ChugSplashManager_Test is Test {
             )
         );
 
-        vm.prank(owner);
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         assertEq(uint8(bundle.status), uint8(ChugSplashBundleStatus.PROPOSED));
