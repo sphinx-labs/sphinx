@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.6
+
+### Patch Changes
+
+- e9c881b: Hardcode basefee on Optimism
+
 ## 0.3.5
 
 ### Patch Changes
