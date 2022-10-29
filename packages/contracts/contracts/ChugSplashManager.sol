@@ -512,8 +512,18 @@ contract ChugSplashManager is OwnableUpgradeable {
 
         // Calculate the executor's payment and add it to the total debt and the current executor's
         // debt.
-        uint256 executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) /
-            100;
+        uint256 executorPayment;
+        if (block.chainid != 10 && block.chainid != 420) {
+            // Use the basefee for any network that isn't Optimism.
+            executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        } else if (block.chainid == 10) {
+            // Optimism mainnet does not have the basefee opcode, so we hardcode its value here.
+            executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        } else {
+            // Optimism goerli does not have the basefee opcode, so we hardcode its value here.
+            executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
+        }
+
         totalDebt += executorPayment;
         debt[msg.sender] += executorPayment;
     }
@@ -607,8 +617,18 @@ contract ChugSplashManager is OwnableUpgradeable {
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
 
         // Calculate the executor's payment.
-        uint256 executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) /
-            100;
+        uint256 executorPayment;
+        if (block.chainid != 10 && block.chainid != 420) {
+            // Use the basefee for any network that isn't Optimism.
+            executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        } else if (block.chainid == 10) {
+            // Optimism mainnet does not have the basefee opcode, so we hardcode its value here.
+            executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        } else {
+            // Optimism goerli does not have the basefee opcode, so we hardcode its value here.
+            executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
+        }
+
         // Add the executor's payment to the total debt.
         totalDebt += executorPayment;
         // Add the executor's payment and the executor's bond to their debt.
