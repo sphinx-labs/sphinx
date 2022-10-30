@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.5.3
+
+### Patch Changes
+
+- 6cb309d: Bump versions
+
 ## 0.5.2
 
 ### Patch Changes
