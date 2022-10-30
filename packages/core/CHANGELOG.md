@@ -1,5 +1,12 @@
 # @chugsplash/core
 
+## 0.3.5
+
+### Patch Changes
+
+- 3b3ae5a: Separate Hardhat in-process network from localhost to improve testing deployments
+- dc88439: Improved error handling in deployment task
+
 ## 0.3.4
 
 ### Patch Changes
