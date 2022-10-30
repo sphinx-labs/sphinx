@@ -28,7 +28,7 @@ import {
   writeSnapshotId,
   deployChugSplashPredeploys,
   registerChugSplashProject,
-  chugsplashContractsAreDeployed,
+  chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
@@ -224,7 +224,9 @@ subtask(TASK_CHUGSPLASH_DEPLOY_LIVE)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      if ((await chugsplashContractsAreDeployed(signer)) === false) {
+      if (
+        (await chugsplashContractsAreDeployedAndInitialized(signer)) === false
+      ) {
         await deployChugSplashPredeploys(hre, signer)
       }
       await deployContracts(hre, args.log, args.hide)
@@ -803,13 +805,19 @@ task(TASK_CHUGSPLASH_STATUS)
       // Handle cases where the bundle is completed, cancelled, or not yet approved.
       if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
         // Display a completed status bar then exit.
-        progressBar.start(bundleState.total, bundleState.total)
+        progressBar.start(
+          bundleState.actionsExecuted,
+          bundleState.actionsExecuted
+        )
         console.log('\n Bundle is already completed.')
         process.exit()
       } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
         // Set the progress bar to be the number of executions that had occurred when the bundle was
         // cancelled.
-        progressBar.start(bundleState.executions.length, bundleState.total)
+        progressBar.start(
+          bundleState.executions.length,
+          bundleState.actionsExecuted
+        )
         console.log('\n Bundle was cancelled.')
         process.exit()
       } else if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
@@ -835,7 +843,10 @@ task(TASK_CHUGSPLASH_STATUS)
       }
 
       // Set the status bar to display the number of actions executed so far.
-      progressBar.start(bundleState.executions.length, bundleState.total)
+      progressBar.start(
+        bundleState.executions.length,
+        bundleState.actionsExecuted
+      )
 
       // Declare a listener for the ChugSplashActionExecuted event on the project's
       // ChugSplashManager contract.
@@ -887,16 +898,16 @@ task(TASK_CHUGSPLASH_STATUS)
 
 // TODO: change 'any' type
 task(TASK_NODE)
-  .addFlag('disableChugsplash', 'Disable ChugSplash from deploying on startup')
+  .addFlag('disable', 'Disable ChugSplash from deploying on startup')
   .addFlag('log', "Log all of ChugSplash's output")
   .addFlag('hide', "Hide all of ChugSplash's output")
   .setAction(
     async (
-      args: { disableChugSplash: boolean; log: boolean; hide: boolean },
+      args: { disable: boolean; log: boolean; hide: boolean },
       hre: any,
       runSuper
     ) => {
-      if (args.disableChugSplash === false) {
+      if (!args.disable) {
         if ((await hre.getChainId()) === '31337') {
           const deployer = await hre.ethers.getSigner()
           await deployChugSplashPredeploys(hre, deployer)

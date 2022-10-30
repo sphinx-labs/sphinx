@@ -1,4 +1,4 @@
-import { ethers, Signer } from 'ethers'
+import { Contract, ethers, Signer } from 'ethers'
 import 'hardhat-deploy'
 import {
   OWNER_BOND_AMOUNT,
@@ -19,6 +19,8 @@ import {
   ChugSplashBootLoaderArtifact,
   DEFAULT_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
+
+import { getChugSplashRegistry } from './utils'
 
 export const deployChugSplashPredeploys = async (
   hre,
@@ -44,6 +46,16 @@ export const deployChugSplashPredeploys = async (
   if ((await isDefaultAdapterDeployed(deployer)) === false) {
     await deployDefaultAdapter(hre, await deployer.getAddress())
   }
+
+  const ChugSplashRegistry = getChugSplashRegistry(deployer)
+  if ((await isRegistryInitialized(ChugSplashRegistry)) === false) {
+    const tx = await ChugSplashRegistry.addProxyType(
+      ethers.constants.HashZero,
+      DEFAULT_ADAPTER_ADDRESS
+    )
+    await tx.wait()
+  }
+
   // await deployProxyUpdater(hre, deployerAddress)
   // await deployChugSplashRegistry(hre, deployerAddress)
   // await deployDefaultAdapter(hre, deployerAddress)
@@ -177,23 +189,39 @@ export const deployDefaultAdapter = async (hre, deployerAddress: string) => {
   await deploy()
 }
 
-export const chugsplashContractsAreDeployed = async (
+export const chugsplashContractsAreDeployedAndInitialized = async (
   signer: Signer
 ): Promise<boolean> => {
-  const deployed: boolean =
-    (await isBootloaderInitialized(signer)) &&
-    (await isDefaultAdapterDeployed(signer))
-  return deployed
+  const bootloaderInitialized = await isBootloaderInitialized(signer)
+  const defaultAdapterDeployed = await isDefaultAdapterDeployed(signer)
+  if (!bootloaderInitialized || !defaultAdapterDeployed) {
+    return false
+  }
+
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const registryInitialized = await isRegistryInitialized(ChugSplashRegistry)
+  return registryInitialized
 }
 
-export const isBootloaderInitialized = async (signer: Signer) => {
+export const isBootloaderInitialized = async (
+  signer: Signer
+): Promise<boolean> => {
   const deployedBytecode = await signer.provider.getCode(PROXY_UPDATER_ADDRESS)
   return deployedBytecode !== '0x'
 }
 
-export const isDefaultAdapterDeployed = async (signer: Signer) => {
+export const isDefaultAdapterDeployed = async (
+  signer: Signer
+): Promise<boolean> => {
   const deployedBytecode = await signer.provider.getCode(
     DEFAULT_ADAPTER_ADDRESS
   )
   return deployedBytecode !== '0x'
+}
+
+export const isRegistryInitialized = async (
+  registry: Contract
+): Promise<boolean> => {
+  const adapter = await registry.adapters(ethers.constants.HashZero)
+  return adapter !== ethers.constants.AddressZero
 }

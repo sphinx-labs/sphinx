@@ -21,7 +21,7 @@ import '@chugsplash/plugins'
 ```
 
 Update the `outputSelection` setting in your `hardhat.config.ts` file:
-```
+```typescript
 const config: HardhatUserConfig = {
     ...
     solidity: {
@@ -180,6 +180,7 @@ ChugSplash uses deterministic proxies to deploy contracts and set their state va
 * References to contracts in other config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
 * You cannot use ChugSplash to upgrade existing contracts.
 * Source code is not automatically verified on Etherscan or Sourcify.
+* Deployment artifacts are not generated.
 * Contract ABIs, source code, and deployment configs are not published to NPM.
 
 All of these features will be supported in the near future. If you need any of these features before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.

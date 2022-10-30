@@ -127,9 +127,7 @@ export const registerChugSplashProject = async (
     }
   } else {
     const existingProjectOwner = await getProjectOwner(projectName, signer)
-    if (existingProjectOwner === (await signer.getAddress())) {
-      throw new Error('You already registered this project.')
-    } else {
+    if (existingProjectOwner !== (await signer.getAddress())) {
       throw new Error(`Project already registered by: ${existingProjectOwner}.`)
     }
   }
