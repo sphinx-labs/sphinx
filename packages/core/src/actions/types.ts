@@ -79,5 +79,8 @@ export interface ChugSplashActionBundle {
 export type ChugSplashBundleState = {
   status: ChugSplashBundleStatus
   executions: boolean[]
-  total: number
+  merkleRoot: string
+  actionsExecuted: number
+  timeClaimed: number
+  selectedExecutor: string
 }

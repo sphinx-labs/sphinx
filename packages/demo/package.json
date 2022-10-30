@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@eth-optimism/contracts": "^0.5.29",
-    "@eth-optimism/core-utils": "^0.9.0",
+    "@eth-optimism/core-utils": "^0.10.1",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
     "@openzeppelin/contracts": "^4.6.0",
     "@openzeppelin/contracts-upgradeable": "^4.6.0",
@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@chugsplash/core": "^0.3.4",
-    "@chugsplash/plugins": "^0.5.1",
+    "@chugsplash/plugins": "link:packages/plugins",
     "@types/node": "^18.0.0"
   }
 }
