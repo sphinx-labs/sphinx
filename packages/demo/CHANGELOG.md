@@ -1,5 +1,13 @@
 # @chugsplash/demo
 
+## 0.3.7
+
+### Patch Changes
+
+- 6cb309d: Bump versions
+- Updated dependencies [6cb309d]
+  - @chugsplash/plugins@0.5.3
+
 ## 0.3.6
 
 ### Patch Changes
