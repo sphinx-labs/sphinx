@@ -52,8 +52,6 @@ const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
 const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
 const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
-const TASK_CHUGSPLASH_DEPLOY_LOCAL = 'chugsplash-deploy-local'
-const TASK_CHUGSPLASH_DEPLOY_LIVE = 'chugsplash-deploy-live'
 
 // public tasks
 const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
@@ -212,7 +210,7 @@ subtask(TASK_CHUGSPLASH_FETCH)
     }
   )
 
-subtask(TASK_CHUGSPLASH_DEPLOY_LIVE)
+task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
   .addFlag('hide', "Hide all of ChugSplash's output")
   .setAction(
@@ -230,59 +228,6 @@ subtask(TASK_CHUGSPLASH_DEPLOY_LIVE)
         await deployChugSplashPredeploys(hre, signer)
       }
       await deployContracts(hre, args.log, args.hide)
-    }
-  )
-
-subtask(TASK_CHUGSPLASH_DEPLOY_LOCAL)
-  .addFlag('log', "Log all of ChugSplash's output")
-  .addFlag('hide', "Hide all of ChugSplash's output")
-  .setAction(
-    async (
-      args: {
-        log: boolean
-        hide: boolean
-      },
-      hre: any
-    ) => {
-      try {
-        const snapshotIdPath = path.join(
-          path.basename(hre.config.paths.deployed),
-          '31337',
-          '.snapshotId'
-        )
-        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-        const snapshotReverted = await hre.network.provider.send('evm_revert', [
-          snapshotId,
-        ])
-        if (!snapshotReverted) {
-          throw new Error('Snapshot failed to be reverted.')
-        }
-      } catch {
-        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
-        await deployContracts(hre, args.log, args.hide)
-      } finally {
-        await writeSnapshotId(hre)
-      }
-    }
-  )
-
-task(TASK_CHUGSPLASH_DEPLOY)
-  .addFlag('log', "Log all of ChugSplash's output")
-  .addFlag('hide', "Hide all of ChugSplash's output")
-  .setAction(
-    async (
-      args: {
-        log: boolean
-        hide: boolean
-      },
-      hre: any
-    ) => {
-      const chainId = await hre.getChainId()
-      if (chainId === '31337') {
-        await hre.run(TASK_CHUGSPLASH_DEPLOY_LOCAL, args, hre)
-      } else {
-        await hre.run(TASK_CHUGSPLASH_DEPLOY_LIVE, args, hre)
-      }
     }
   )
 
@@ -923,14 +868,27 @@ task(TASK_NODE)
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
   .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
-    await hre.run(
-      TASK_CHUGSPLASH_DEPLOY,
-      {
-        log: false,
-        hide: !args.show,
-      },
-      hre
-    )
+    if ((await hre.getChainId()) === '31337') {
+      try {
+        const snapshotIdPath = path.join(
+          path.basename(hre.config.paths.deployed),
+          '31337',
+          '.snapshotId'
+        )
+        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+        const snapshotReverted = await hre.network.provider.send('evm_revert', [
+          snapshotId,
+        ])
+        if (!snapshotReverted) {
+          throw new Error('Snapshot failed to be reverted.')
+        }
+      } catch {
+        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+        await deployContracts(hre, false, !args.show)
+      } finally {
+        await writeSnapshotId(hre)
+      }
+    }
     await runSuper(args)
   })
 

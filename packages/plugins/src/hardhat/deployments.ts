@@ -276,9 +276,11 @@ export const getContract = async (
 }
 
 export const resetChugSplashDeployments = async (hre: any) => {
+  const networkFolderName =
+    hre.network.name === 'localhost' ? '31337-localhost' : '31337-hardhat'
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployed),
-    '31337',
+    networkFolderName,
     '.snapshotId'
   )
   const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')

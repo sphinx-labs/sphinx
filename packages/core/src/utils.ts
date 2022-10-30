@@ -25,16 +25,18 @@ export const computeBundleId = (
 }
 
 export const writeSnapshotId = async (hre: any) => {
-  const hardhatNetworkPath = path.join(
+  const networkFolderName =
+    hre.network.name === 'localhost' ? '31337-localhost' : '31337-hardhat'
+  const networkPath = path.join(
     path.basename(hre.config.paths.deployed),
-    '31337'
+    networkFolderName
   )
-  if (!fs.existsSync(hardhatNetworkPath)) {
-    fs.mkdirSync(hardhatNetworkPath, { recursive: true })
+  if (!fs.existsSync(networkPath)) {
+    fs.mkdirSync(networkPath, { recursive: true })
   }
 
   const snapshotId = await hre.network.provider.send('evm_snapshot', [])
-  const snapshotIdPath = path.join(hardhatNetworkPath, '.snapshotId')
+  const snapshotIdPath = path.join(networkPath, '.snapshotId')
   fs.writeFileSync(snapshotIdPath, snapshotId)
 }
 
