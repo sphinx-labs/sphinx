@@ -1,5 +1,7 @@
 import * as semver from 'semver'
 import { SolidityStorageLayout } from '@chugsplash/core'
+import { add0x, remove0x } from '@eth-optimism/core-utils'
+import { ethers, utils } from 'ethers'
 
 // TODO
 export type ContractArtifact = any
@@ -40,7 +42,7 @@ export const getBuildInfo = async (name: string): Promise<BuildInfo> => {
 export const getStorageLayout = async (
   name: string
 ): Promise<SolidityStorageLayout> => {
-  const { sourceName, contractName } = await getContractArtifact(name)
+  const { sourceName, contractName } = getContractArtifact(name)
   const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
@@ -59,14 +61,117 @@ export const getStorageLayout = async (
   return (output as any).storageLayout
 }
 
-// export const getDeployedBytecode = async (name: string): Promise<string> => {
-// const { sourceName, contractName } = await getContractArtifact(name)
-// const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+export const getDeployedBytecode = async (
+  provider: ethers.providers.JsonRpcProvider,
+  contractConfig
+): Promise<string> => {
+  const { sourceName, contractName, bytecode, abi } = getContractArtifact(
+    contractConfig.contract
+  )
+  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const output = buildInfo.output.contracts[sourceName][contractName]
+  const immutableReferences: {
+    [astId: number]: {
+      length: number
+      start: number
+    }[]
+  } = output.evm.deployedBytecode.immutableReferences
+  const deployedBytecode = output.evm.deployedBytecode.object
 
-// const output = buildInfo.output.contracts[sourceName][contractName]
-// const deployedBytecode = output.evm.deployedBytecode.object
-// const immutableReferences = output.evm.deployedBytecode.immutableReferences
-// const nodes = buildInfo.output.sources[sourceName].ast.nodes
+  if (Object.keys(immutableReferences).length === 0) {
+    return add0x(deployedBytecode)
+  }
 
-// return '' // TODO
-// }
+  // Maps a variable's AST ID to its ABI encoded value
+  const astIdToValue = {}
+
+  // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
+  const constructorArgNamesToVariableNames = {}
+
+  const contractNodes = buildInfo.output.sources[sourceName].ast.nodes
+  for (const contractNode of contractNodes) {
+    if (contractNode.nodeType === 'ContractDefinition') {
+      for (const node of contractNode.nodes) {
+        if (node.mutability === 'immutable') {
+          const constructorArgName = getConstuctorArgNameForChugSplashVariable(
+            contractNode.nodes,
+            node.name
+          )
+          constructorArgNamesToVariableNames[constructorArgName] = node.name
+
+          const abiEncodedValue = utils.defaultAbiCoder.encode(
+            [node.typeDescriptions.typeString],
+            [contractConfig.variables[node.name]]
+          )
+          astIdToValue[node.id] = remove0x(abiEncodedValue)
+        }
+      }
+    }
+  }
+
+  let bytecodeInjectedWithImmutables = deployedBytecode
+  for (const [astId, referenceArray] of Object.entries(immutableReferences)) {
+    for (const { start, length } of referenceArray) {
+      bytecodeInjectedWithImmutables = bytecodeInjectedWithImmutables
+        .substring(0, start * 2)
+        .concat(astIdToValue[astId])
+        .concat(
+          bytecodeInjectedWithImmutables.substring(
+            start * 2 + length * 2,
+            bytecodeInjectedWithImmutables.length
+          )
+        )
+    }
+  }
+
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+  const constructorArgTypes = []
+  const constructorArgValues = []
+  constructorFragment.inputs.forEach((fragment) => {
+    constructorArgTypes.push(fragment.type)
+    constructorArgValues.push(
+      contractConfig.variables[
+        constructorArgNamesToVariableNames[fragment.name]
+      ]
+    )
+  })
+  const creationBytecodeWithConstructorArgs = bytecode.concat(
+    remove0x(
+      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
+    )
+  )
+  const bytecodeDeployedWithConstructorArgs = await provider.call({
+    data: creationBytecodeWithConstructorArgs,
+  })
+
+  if (
+    add0x(bytecodeInjectedWithImmutables) !==
+    bytecodeDeployedWithConstructorArgs
+  ) {
+    throw new Error(
+      `ChugSplash cannot generate the deployed bytecode for ${contractConfig.contract}. Please report this error.`
+    )
+  }
+
+  return bytecodeDeployedWithConstructorArgs
+}
+
+export const getConstuctorArgNameForChugSplashVariable = (
+  nodes: any,
+  variableName: string
+): string => {
+  for (const node of nodes) {
+    if (node.kind === 'constructor') {
+      for (const statement of node.body.statements) {
+        if (statement.expression.leftHandSide.name === variableName) {
+          return statement.expression.rightHandSide.name
+        }
+      }
+    }
+  }
+  throw new Error(
+    `Could not find immutable variable assignment for ${variableName}. Please report this error.`
+  )
+}

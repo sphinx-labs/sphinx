@@ -409,17 +409,6 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/core@link:packages/core":
-  version "0.3.5"
-  dependencies:
-    "@chugsplash/contracts" "^0.3.5"
-    "@eth-optimism/contracts-bedrock" "^0.8.0"
-    "@eth-optimism/core-utils" "^0.9.1"
-    ethers "^5.6.9"
-    handlebars "^4.7.7"
-    hardhat-deploy "^0.11.18"
-    merkletreejs "^0.2.18"
-
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
@@ -6539,6 +6528,10 @@ please-upgrade-node@^3.2.0:
   integrity sha512-gQR3WpIgNIKwBMVLkpMUeR3e1/E1y42bqDQZfql+kDeXd8COYfM8PQA4X6y7a8u9Ua9FHmsrrmirW2vHs45hWg==
   dependencies:
     semver-compare "^1.0.0"
+
+"plugins@link:packages/demo/chugsplash/plugins":
+  version "0.0.0"
+  uid ""
 
 pluralize@^8.0.0:
   version "8.0.0"

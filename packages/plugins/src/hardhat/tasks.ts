@@ -37,11 +37,7 @@ import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
-import {
-  getContractArtifact,
-  // getDeployedBytecode,
-  getStorageLayout,
-} from './artifacts'
+import { getDeployedBytecode, getStorageLayout } from './artifacts'
 import { deployContracts } from './deployments'
 
 // Load environment variables from .env
@@ -90,12 +86,14 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 
       const artifacts = {}
       for (const contractConfig of Object.values(config.contracts)) {
-        const artifact = await getContractArtifact(contractConfig.contract)
+        // const artifact = getContractArtifact(contractConfig.contract)
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        // const deployedBytecode = await getDeployedBytecode(contract.contract)
+        const deployedBytecode = await getDeployedBytecode(
+          hre.ethers.provider,
+          contractConfig
+        )
         artifacts[contractConfig.contract] = {
-          // deployedBytecode: add0x(deployedBytecode),
-          deployedBytecode: artifact.deployedBytecode,
+          deployedBytecode,
           storageLayout,
         }
       }
@@ -138,9 +136,12 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
           for (const [contractName, contractOutput] of Object.entries(
             fileOutput
           )) {
-            // If contractOutput.evm.deployedBytecode.immutableReferences is empty...
-
+            // const deployedBytecode = await getDeployedBytecode(
+            //   hre.ethers.provider,
+            //   contractConfig
+            // )
             artifacts[contractName] = {
+              // deployedBytecode,
               deployedBytecode: add0x(
                 contractOutput.evm.deployedBytecode.object
               ),
