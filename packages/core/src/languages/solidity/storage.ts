@@ -126,6 +126,33 @@ const encodeVariable = (
           ),
         },
       ]
+    } else if (variableType.label.startsWith('int')) {
+      const minValue = BigNumber.from(2)
+        .pow(8 * variableType.numberOfBytes)
+        .div(2)
+        .mul(-1)
+      const maxValue = BigNumber.from(2)
+        .pow(8 * variableType.numberOfBytes)
+        .div(2)
+        .sub(1)
+      if (
+        BigNumber.from(variable).lt(minValue) ||
+        BigNumber.from(variable).gt(maxValue)
+      ) {
+        throw new Error(
+          `provided ${variableType.label} size is too big: ${variable}`
+        )
+      }
+
+      return [
+        {
+          key: slotKey,
+          val: padHexSlotValue(
+            ethers.utils.solidityPack([variableType.label], [variable]),
+            storageObj.offset
+          ),
+        },
+      ]
     } else if (variableType.label.startsWith('struct')) {
       // Structs are encoded recursively, as defined by their `members` field.
       let slots = []
@@ -211,8 +238,7 @@ export const computeStorageSlots = (
       return entry.label === variableName
     })
 
-    // Complain very loudly if attempting to set a variable that doesn't exist within this layout
-    // and is not an immutable variable.
+    // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
         `variable name not found in storage layout: ${variableName}`

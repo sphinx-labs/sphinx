@@ -198,7 +198,7 @@ ChugSplash uses deterministic proxies to deploy contracts and set their state va
 ## Current limitations
 * The only variable types that are currently supported by ChugSplash are:
   * Booleans
-  * Unsigned integers
+  * Integers (signed and unsigned)
   * Addresses
   * Strings that are <= 31 bytes
   * Bytes value types, i.e. bytes1, bytes2, …, bytes32. (Not dynamic bytes)
