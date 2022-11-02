@@ -83,7 +83,7 @@ export const getDeployedBytecode = async (
   }
 
   // Maps a variable's AST ID to its ABI encoded value
-  const astIdToValue = {}
+  const astIdToAbiEncodedValue = {}
 
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToVariableNames = {}
@@ -92,18 +92,29 @@ export const getDeployedBytecode = async (
   for (const contractNode of contractNodes) {
     if (contractNode.nodeType === 'ContractDefinition') {
       for (const node of contractNode.nodes) {
-        if (node.mutability === 'immutable') {
-          const constructorArgName = getConstuctorArgNameForChugSplashVariable(
+        if (
+          node.nodeType === 'VariableDeclaration' &&
+          (node.mutability === 'immutable' || node.mutability === 'mutable')
+        ) {
+          const constructorArgName = getConstructorArgNameForConfigVariable(
             contractNode.nodes,
             node.name
           )
           constructorArgNamesToVariableNames[constructorArgName] = node.name
 
+          let typeString: string
+          if (node.typeDescriptions.typeString.startsWith('contract')) {
+            typeString = 'address'
+          } else if (node.typeDescriptions.typeString.startsWith('enum')) {
+            typeString = 'uint8'
+          } else {
+            typeString = node.typeDescriptions.typeString
+          }
           const abiEncodedValue = utils.defaultAbiCoder.encode(
-            [node.typeDescriptions.typeString],
+            [typeString],
             [contractConfig.variables[node.name]]
           )
-          astIdToValue[node.id] = remove0x(abiEncodedValue)
+          astIdToAbiEncodedValue[node.id] = remove0x(abiEncodedValue)
         }
       }
     }
@@ -114,7 +125,7 @@ export const getDeployedBytecode = async (
     for (const { start, length } of referenceArray) {
       bytecodeInjectedWithImmutables = bytecodeInjectedWithImmutables
         .substring(0, start * 2)
-        .concat(astIdToValue[astId])
+        .concat(astIdToAbiEncodedValue[astId])
         .concat(
           bytecodeInjectedWithImmutables.substring(
             start * 2 + length * 2,
@@ -158,7 +169,7 @@ export const getDeployedBytecode = async (
   return bytecodeDeployedWithConstructorArgs
 }
 
-export const getConstuctorArgNameForChugSplashVariable = (
+export const getConstructorArgNameForConfigVariable = (
   nodes: any,
   variableName: string
 ): string => {
@@ -172,6 +183,39 @@ export const getConstuctorArgNameForChugSplashVariable = (
     }
   }
   throw new Error(
-    `Could not find immutable variable assignment for ${variableName}. Please report this error.`
+    `Could not find immutable variable assignment for ${variableName}. Did you forget to include it in your ChugSplash config file?`
   )
+}
+
+export const getImmutableVariables = async (
+  contractConfig
+): Promise<string[]> => {
+  const { sourceName, contractName } = getContractArtifact(
+    contractConfig.contract
+  )
+  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const output = buildInfo.output.contracts[sourceName][contractName]
+  const immutableReferences: {
+    [astId: number]: {
+      length: number
+      start: number
+    }[]
+  } = output.evm.deployedBytecode.immutableReferences
+
+  if (Object.keys(immutableReferences).length === 0) {
+    return []
+  }
+
+  const immutableVariables: string[] = []
+  const contractNodes = buildInfo.output.sources[sourceName].ast.nodes
+  for (const contractNode of contractNodes) {
+    if (contractNode.nodeType === 'ContractDefinition') {
+      for (const node of contractNode.nodes) {
+        if (node.mutability === 'immutable') {
+          immutableVariables.push(node.name)
+        }
+      }
+    }
+  }
+  return immutableVariables
 }

@@ -139,6 +139,7 @@ export const makeActionBundleFromConfig = async (
     [name: string]: {
       deployedBytecode: string
       storageLayout: SolidityStorageLayout
+      immutableVariables: string[]
     }
   },
   env: {
@@ -173,7 +174,11 @@ export const makeActionBundleFromConfig = async (
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(artifact.storageLayout, parsedVariables)
+    const slots = computeStorageSlots(
+      artifact.storageLayout,
+      parsedVariables,
+      artifact.immutableVariables
+    )
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {

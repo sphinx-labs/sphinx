@@ -37,7 +37,11 @@ import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
-import { getDeployedBytecode, getStorageLayout } from './artifacts'
+import {
+  getDeployedBytecode,
+  getImmutableVariables,
+  getStorageLayout,
+} from './artifacts'
 import { deployContracts } from './deployments'
 
 // Load environment variables from .env
@@ -86,15 +90,16 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 
       const artifacts = {}
       for (const contractConfig of Object.values(config.contracts)) {
-        // const artifact = getContractArtifact(contractConfig.contract)
         const storageLayout = await getStorageLayout(contractConfig.contract)
         const deployedBytecode = await getDeployedBytecode(
           hre.ethers.provider,
           contractConfig
         )
+        const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[contractConfig.contract] = {
           deployedBytecode,
           storageLayout,
+          immutableVariables,
         }
       }
 

@@ -1,6 +1,7 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers } from 'ethers'
 
+import { ConfigVariable } from '../../config'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -191,21 +192,27 @@ const encodeVariable = (
  * were applied to a given contract.
  *
  * @param storageLayout Solidity storage layout to use as a template for determining storage slots.
- * @param variables Variable values to apply against the given storage layout.
+ * @param contractConfig Variable values to apply against the given storage layout.
  * @returns An array of key/value storage slot pairs that would result in the desired state.
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  variables: any = {}
+  contractConfig: ConfigVariable,
+  immutableVariables: string[]
 ): Array<StorageSlotPair> => {
   let slots: StorageSlotPair[] = []
-  for (const [variableName, variableValue] of Object.entries(variables)) {
+  for (const [variableName, variableValue] of Object.entries(contractConfig)) {
+    if (immutableVariables.includes(variableName)) {
+      continue
+    }
+
     // Find the entry in the storage layout that corresponds to this variable name.
     const storageObj = storageLayout.storage.find((entry) => {
       return entry.label === variableName
     })
 
-    // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
+    // Complain very loudly if attempting to set a variable that doesn't exist within this layout
+    // and is not an immutable variable.
     if (!storageObj) {
       throw new Error(
         `variable name not found in storage layout: ${variableName}`
