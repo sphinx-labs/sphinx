@@ -2,10 +2,24 @@
 pragma solidity ^0.8.9;
 
 contract SimpleStorage {
-    uint8 internal number;
-    bool internal stored;
+    // Define immutable variables
+    uint8 internal immutable number;
+    bool internal immutable stored;
+    address internal immutable otherStorage;
+    // Leave `storageName` unchanged since Solidity doesn't support immutable strings
     string internal storageName;
-    address internal otherStorage;
+
+    // We must instantiate the immutable variables in the constructor so that
+    // Solidity doesn't throw an error.
+    constructor(
+        uint8 _number,
+        bool _stored,
+        address _otherStorage
+    ) {
+        number = _number;
+        stored = _stored;
+        otherStorage = _otherStorage;
+    }
 
     function getNumber() external view returns (uint8) {
         return number;

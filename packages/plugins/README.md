@@ -130,11 +130,32 @@ npx hardhat chugsplash-deploy
 ```
 
 ### Immutable variables
-ChugSplash supports all immutable variables except for [user defined value types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types). You can define immutable variables in your ChugSplash config file the exact same way that you
-define regular state variables. However, there is one caveat: you must instantiate the immutable
-variables in your constructor or else the Solidity compiler will throw an error.
+ChugSplash supports all immutable variables except for [user defined value types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types). You can define immutable variables in your ChugSplash config file the exact same way that you define regular state variables. However, there is one caveat: you must instantiate the immutable
+variables in your constructor or else the Solidity compiler will throw an error. If we wanted to change the state variables in our `SimpleStorage` example to be immutable, we can keep the ChugSplash config file unchanged and update `SimpleStorage.sol` to include the following:
+```solidity
+contract SimpleStorage {
+    // Define immutable variables
+    uint8 internal immutable number;
+    bool internal immutable stored;
+    address internal immutable otherStorage;
+    // Leave `storageName` unchanged since Solidity doesn't support immutable strings
+    string internal storageName;
 
+    // We must instantiate the immutable variables in the constructor so that
+    // Solidity doesn't throw an error.
+    constructor(
+      uint8 _number,
+      bool _stored,
+      address _otherStorage
+    ) {
+      number = _number;
+      stored = _stored;
+      otherStorage = _otherStorage;
+    }
 
+    ...
+}
+```
 
 ### Testing your deployments
 
@@ -182,10 +203,9 @@ ChugSplash uses deterministic proxies to deploy contracts and set their state va
   * Strings that are <= 31 bytes
   * Bytes value types, i.e. bytes1, bytes2, …, bytes32. (Not dynamic bytes)
   * Contract references (using `{ "!Ref: ..." }` syntax).
-* Quick, trustless deployments by remote ChugSplash bots are not supported.
+* You cannot use ChugSplash to upgrade contracts.
 * You cannot call contracts inside the constructor of any of your deployed contracts.
 * References to contracts in other config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
-* You cannot use ChugSplash to upgrade contracts.
 * Source code is not automatically verified on Etherscan or Sourcify.
 * Deployment artifacts are not generated.
 * Contract ABIs, source code, and deployment configs are not published to NPM.

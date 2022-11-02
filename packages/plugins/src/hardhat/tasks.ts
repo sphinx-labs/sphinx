@@ -90,7 +90,9 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       })
 
       const artifacts = {}
-      for (const contractConfig of Object.values(config.contracts)) {
+      for (const [referenceName, contractConfig] of Object.entries(
+        config.contracts
+      )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
         const parsedContractConfig = parseContractReferences(
           config.options.projectName,
@@ -101,7 +103,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
           parsedContractConfig
         )
         const immutableVariables = await getImmutableVariables(contractConfig)
-        artifacts[contractConfig.contract] = {
+        artifacts[referenceName] = {
           deployedBytecode,
           storageLayout,
           immutableVariables,

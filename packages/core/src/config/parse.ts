@@ -158,7 +158,7 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsed.contracts
   )) {
-    const artifact = artifacts[contractConfig.contract]
+    const artifact = artifacts[referenceName]
 
     // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
