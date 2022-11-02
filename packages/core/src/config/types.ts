@@ -24,13 +24,15 @@ export interface ChugSplashConfig {
     projectOwner: string
   }
   contracts: {
-    [referenceName: string]: {
-      contract: string
-      address?: string
-      variables?: {
-        [name: string]: ConfigVariable
-      }
-    }
+    [referenceName: string]: ContractConfig
+  }
+}
+
+export type ContractConfig = {
+  contract: string
+  address?: string
+  variables?: {
+    [name: string]: ConfigVariable
   }
 }
 

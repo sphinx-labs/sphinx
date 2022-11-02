@@ -1,5 +1,5 @@
 import * as semver from 'semver'
-import { SolidityStorageLayout } from '@chugsplash/core'
+import { SolidityStorageLayout, ContractConfig } from '@chugsplash/core'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 
@@ -63,7 +63,7 @@ export const getStorageLayout = async (
 
 export const getDeployedBytecode = async (
   provider: ethers.providers.JsonRpcProvider,
-  contractConfig
+  contractConfig: ContractConfig
 ): Promise<string> => {
   const { sourceName, contractName, bytecode, abi } = getContractArtifact(
     contractConfig.contract
@@ -86,7 +86,7 @@ export const getDeployedBytecode = async (
   const astIdToAbiEncodedValue = {}
 
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
-  const constructorArgNamesToVariableNames = {}
+  const constructorArgNamesToImmutableNames = {}
 
   const contractNodes = buildInfo.output.sources[sourceName].ast.nodes
   for (const contractNode of contractNodes) {
@@ -94,13 +94,14 @@ export const getDeployedBytecode = async (
       for (const node of contractNode.nodes) {
         if (
           node.nodeType === 'VariableDeclaration' &&
-          (node.mutability === 'immutable' || node.mutability === 'mutable')
+          node.mutability === 'immutable'
         ) {
-          const constructorArgName = getConstructorArgNameForConfigVariable(
+          const constructorArgName = getConstructorArgNameForImmutableVariable(
+            contractConfig.contract,
             contractNode.nodes,
             node.name
           )
-          constructorArgNamesToVariableNames[constructorArgName] = node.name
+          constructorArgNamesToImmutableNames[constructorArgName] = node.name
 
           let typeString: string
           if (node.typeDescriptions.typeString.startsWith('contract')) {
@@ -142,11 +143,17 @@ export const getDeployedBytecode = async (
   const constructorArgValues = []
   constructorFragment.inputs.forEach((fragment) => {
     constructorArgTypes.push(fragment.type)
-    constructorArgValues.push(
-      contractConfig.variables[
-        constructorArgNamesToVariableNames[fragment.name]
-      ]
-    )
+    if (constructorArgNamesToImmutableNames.hasOwnProperty(fragment.name)) {
+      constructorArgValues.push(
+        contractConfig.variables[
+          constructorArgNamesToImmutableNames[fragment.name]
+        ]
+      )
+    } else {
+      throw new Error(
+        `Detected a non-immutable constructor argument, "${fragment.name}", in ${contractConfig.contract}. Please remove it or make the corresponding variable immutable.`
+      )
+    }
   })
   const creationBytecodeWithConstructorArgs = bytecode.concat(
     remove0x(
@@ -169,7 +176,21 @@ export const getDeployedBytecode = async (
   return bytecodeDeployedWithConstructorArgs
 }
 
-export const getConstructorArgNameForConfigVariable = (
+const getNestedConstructorArg = (variableName: string, args): string => {
+  let remainingArguments = args[0]
+  while (remainingArguments !== undefined) {
+    if (remainingArguments.name !== undefined) {
+      return remainingArguments.name
+    }
+    remainingArguments = remainingArguments.arguments[0]
+  }
+  throw new Error(
+    `Could not find nested constructor argument for the immutable variable ${variableName}. Please report this error.`
+  )
+}
+
+export const getConstructorArgNameForImmutableVariable = (
+  contractName: string,
   nodes: any,
   variableName: string
 ): string => {
@@ -177,7 +198,20 @@ export const getConstructorArgNameForConfigVariable = (
     if (node.kind === 'constructor') {
       for (const statement of node.body.statements) {
         if (statement.expression.leftHandSide.name === variableName) {
-          return statement.expression.rightHandSide.name
+          if (typeof statement.expression.rightHandSide.name === 'string') {
+            return statement.expression.rightHandSide.name
+          } else if (
+            statement.expression.rightHandSide.kind === 'typeConversion'
+          ) {
+            return getNestedConstructorArg(
+              variableName,
+              statement.expression.rightHandSide.arguments
+            )
+          } else {
+            throw new Error(
+              `The immutable variable "${variableName}" must be assigned directly to a constructor argument inside the body of the constructor in ${contractName}.`
+            )
+          }
         }
       }
     }

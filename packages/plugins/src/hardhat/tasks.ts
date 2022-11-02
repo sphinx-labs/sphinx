@@ -30,6 +30,7 @@ import {
   registerChugSplashProject,
   chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
+  parseContractReferences,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -91,9 +92,13 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       const artifacts = {}
       for (const contractConfig of Object.values(config.contracts)) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
+        const parsedContractConfig = parseContractReferences(
+          config.options.projectName,
+          contractConfig
+        )
         const deployedBytecode = await getDeployedBytecode(
           hre.ethers.provider,
-          contractConfig
+          parsedContractConfig
         )
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[contractConfig.contract] = {

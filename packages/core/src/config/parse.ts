@@ -15,7 +15,12 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getProxyAddress } from '../utils'
-import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
+import {
+  ChugSplashConfig,
+  ConfigVariable,
+  ContractConfig,
+  ContractReference,
+} from './types'
 
 export const loadChugSplashConfig = (
   configFileName: string
@@ -167,16 +172,16 @@ export const makeActionBundleFromConfig = async (
     })
 
     // Replace any contract references with the contract's address.
-    const parsedVariables = parseContractReferences(
+    const parsedContractConfig = parseContractReferences(
       config.options.projectName,
-      contractConfig.variables
+      contractConfig
     )
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
     const slots = computeStorageSlots(
       artifact.storageLayout,
-      parsedVariables,
+      parsedContractConfig.variables,
       artifact.immutableVariables
     )
 
@@ -196,18 +201,20 @@ export const makeActionBundleFromConfig = async (
 
 export const parseContractReferences = (
   projectName: string,
-  variables: ConfigVariable
-): ConfigVariable => {
-  for (const [variableName, variable] of Object.entries(variables)) {
+  contractConfig: ContractConfig
+): ContractConfig => {
+  for (const [variableName, variable] of Object.entries(
+    contractConfig.variables
+  )) {
     if (isContractReference(variable)) {
       const [referenceName] = Object.values(variable)
-      variables[variableName] = getProxyAddress(
+      contractConfig.variables[variableName] = getProxyAddress(
         projectName,
         referenceName.trim()
       )
     }
   }
-  return variables
+  return contractConfig
 }
 
 export const isContractReference = (
