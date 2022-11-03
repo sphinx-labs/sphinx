@@ -1,5 +1,21 @@
 # @chugsplash/demo
 
+## 0.3.8
+
+### Patch Changes
+
+- 8de5829: Add support for signed integer state variables
+- 02c7a39: Add support for all immutable types
+- 6f53f35: Fix bundle generation bug
+- 233f960: Handle errors with immutable variables
+- Updated dependencies [8de5829]
+- Updated dependencies [6694fac]
+- Updated dependencies [02c7a39]
+- Updated dependencies [6f53f35]
+- Updated dependencies [233f960]
+  - @chugsplash/core@0.3.6
+  - @chugsplash/plugins@0.5.4
+
 ## 0.3.7
 
 ### Patch Changes
