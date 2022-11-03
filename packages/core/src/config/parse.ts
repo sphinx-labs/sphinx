@@ -15,7 +15,12 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getProxyAddress } from '../utils'
-import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
+import {
+  ChugSplashConfig,
+  ConfigVariable,
+  ContractConfig,
+  ContractReference,
+} from './types'
 
 export const loadChugSplashConfig = (
   configFileName: string
@@ -139,6 +144,7 @@ export const makeActionBundleFromConfig = async (
     [name: string]: {
       deployedBytecode: string
       storageLayout: SolidityStorageLayout
+      immutableVariables: string[]
     }
   },
   env: {
@@ -152,7 +158,7 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsed.contracts
   )) {
-    const artifact = artifacts[contractConfig.contract]
+    const artifact = artifacts[referenceName]
 
     // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
@@ -166,14 +172,18 @@ export const makeActionBundleFromConfig = async (
     })
 
     // Replace any contract references with the contract's address.
-    const parsedVariables = parseContractReferences(
+    const parsedContractConfig = parseContractReferences(
       config.options.projectName,
-      contractConfig.variables
+      contractConfig
     )
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(artifact.storageLayout, parsedVariables)
+    const slots = computeStorageSlots(
+      artifact.storageLayout,
+      parsedContractConfig.variables,
+      artifact.immutableVariables
+    )
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {
@@ -191,18 +201,20 @@ export const makeActionBundleFromConfig = async (
 
 export const parseContractReferences = (
   projectName: string,
-  variables: ConfigVariable
-): ConfigVariable => {
-  for (const [variableName, variable] of Object.entries(variables)) {
+  contractConfig: ContractConfig
+): ContractConfig => {
+  for (const [variableName, variable] of Object.entries(
+    contractConfig.variables
+  )) {
     if (isContractReference(variable)) {
       const [referenceName] = Object.values(variable)
-      variables[variableName] = getProxyAddress(
+      contractConfig.variables[variableName] = getProxyAddress(
         projectName,
         referenceName.trim()
       )
     }
   }
-  return variables
+  return contractConfig
 }
 
 export const isContractReference = (

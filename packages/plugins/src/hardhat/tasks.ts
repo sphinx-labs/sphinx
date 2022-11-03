@@ -30,6 +30,7 @@ import {
   registerChugSplashProject,
   chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
+  parseContractReferences,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -38,8 +39,8 @@ import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
-  getContractArtifact,
-  // getDeployedBytecode,
+  getDeployedBytecode,
+  getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
@@ -89,14 +90,23 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       })
 
       const artifacts = {}
-      for (const contractConfig of Object.values(config.contracts)) {
-        const artifact = await getContractArtifact(contractConfig.contract)
+      for (const [referenceName, contractConfig] of Object.entries(
+        config.contracts
+      )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        // const deployedBytecode = await getDeployedBytecode(contract.contract)
-        artifacts[contractConfig.contract] = {
-          // deployedBytecode: add0x(deployedBytecode),
-          deployedBytecode: artifact.deployedBytecode,
+        const parsedContractConfig = parseContractReferences(
+          config.options.projectName,
+          contractConfig
+        )
+        const deployedBytecode = await getDeployedBytecode(
+          hre.ethers.provider,
+          parsedContractConfig
+        )
+        const immutableVariables = await getImmutableVariables(contractConfig)
+        artifacts[referenceName] = {
+          deployedBytecode,
           storageLayout,
+          immutableVariables,
         }
       }
 
@@ -138,9 +148,12 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
           for (const [contractName, contractOutput] of Object.entries(
             fileOutput
           )) {
-            // If contractOutput.evm.deployedBytecode.immutableReferences is empty...
-
+            // const deployedBytecode = await getDeployedBytecode(
+            //   hre.ethers.provider,
+            //   contractConfig
+            // )
             artifacts[contractName] = {
+              // deployedBytecode,
               deployedBytecode: add0x(
                 contractOutput.evm.deployedBytecode.object
               ),
