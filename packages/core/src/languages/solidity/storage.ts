@@ -1,5 +1,5 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
-import { BigNumber, ethers } from 'ethers'
+import { BigNumber, ethers, utils } from 'ethers'
 
 import { ContractConfig } from '../../config'
 import {
@@ -64,18 +64,18 @@ const encodeVariable = (
   storageTypes: {
     [name: string]: SolidityStorageType
   },
-  nestedSlotOffset = 0
-): Array<StorageSlotPair> => {
-  const variableType = storageTypes[storageObj.type]
-
-  // Slot key will be the same no matter what so we can just compute it here.
-  const slotKey =
-    '0x' +
+  nestedSlotOffset = 0,
+  // Slot key will be the same unless we are storing a mapping.
+  // So default to calculating it here, unless one is passed in.
+  slotKey = '0x' +
     remove0x(
       BigNumber.from(
         parseInt(storageObj.slot as any, 10) + nestedSlotOffset
       ).toHexString()
-    ).padStart(64, '0')
+    ).padStart(64, '0'),
+  mappingType: string | undefined = undefined
+): Array<StorageSlotPair> => {
+  const variableType = storageTypes[mappingType ?? storageObj.type]
 
   if (variableType.encoding === 'inplace') {
     if (storageObj.type.startsWith('t_array')) {
@@ -162,6 +162,7 @@ const encodeVariable = (
       ]
     } else if (
       variableType.label.startsWith('uint') ||
+      variableType.label.startsWith('int') ||
       variableType.label.startsWith('enum')
     ) {
       if (
@@ -221,12 +222,18 @@ const encodeVariable = (
             `incorrect member in ${variableType.label}: ${varName}`
           )
         }
+        // if this struct is within a mapping, then the key must be calculated
+        // using the passed in slotkey
+        const offsetKey = BigNumber.from(slotKey)
+          .add(parseInt(currMember.slot as any, 10))
+          .toHexString()
         slots = slots.concat(
           encodeVariable(
             varVal,
             currMember,
             storageTypes,
-            nestedSlotOffset + parseInt(storageObj.slot as any, 10)
+            nestedSlotOffset + parseInt(storageObj.slot as any, 10),
+            mappingType ? offsetKey : undefined
           )
         )
       }
@@ -266,7 +273,64 @@ const encodeVariable = (
       throw new Error('large strings (>31 bytes) not supported')
     }
   } else if (variableType.encoding === 'mapping') {
-    throw new Error('mapping types not yet supported')
+    let slots = []
+    for (const [key, value] of Object.entries(variable)) {
+      // default pack type for value types
+      let type = variableType.key.split('_')[1]
+      // default key encoding for value types
+      let encodedKey: string | Uint8Array = encodeVariable(
+        key,
+        storageObj,
+        storageTypes,
+        nestedSlotOffset + parseInt(storageObj.slot as any, 10),
+        undefined,
+        variableType.key
+      )[0].val
+
+      if (variableType.key.startsWith('t_uint')) {
+        // all uints must be packed with type uint256
+        type = 'uint256'
+      } else if (variableType.key.startsWith('t_int')) {
+        // all ints must be packed with type int256
+        type = 'int256'
+      } else if (variableType.key.startsWith('t_string')) {
+        // strings do not need to be encoded
+        // pack type can be pulled from input type
+        encodedKey = key
+      } else if (variableType.key.startsWith('t_bytes')) {
+        // bytes do not need to be encoded, but must be converted from the input string
+        // pack type can be pulled straight from input type
+        encodedKey = ethers.utils.toUtf8Bytes(key)
+      }
+
+      // key for nested mappings is computed by packing and hashing the key of the child mapping
+      let concatenated
+      if (mappingType) {
+        concatenated = ethers.utils.solidityPack(
+          [type, 'uint256'],
+          [encodedKey, slotKey]
+        )
+      } else {
+        concatenated = ethers.utils.solidityPack(
+          [type, 'uint256'],
+          [encodedKey, BigNumber.from(storageObj.slot).toHexString()]
+        )
+      }
+
+      const mappingKey = utils.keccak256(concatenated)
+
+      slots = slots.concat(
+        encodeVariable(
+          value,
+          storageObj,
+          storageTypes,
+          0,
+          mappingKey,
+          variableType.value
+        )
+      )
+    }
+    return slots
   } else if (variableType.encoding === 'dynamic_array') {
     throw new Error('array types not yet supported')
   } else {
