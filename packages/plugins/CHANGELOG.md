@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.5.5
+
+### Patch Changes
+
+- 86be8a3: Update versions
+
 ## 0.5.4
 
 ### Patch Changes

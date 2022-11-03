@@ -1,5 +1,13 @@
 # @chugsplash/demo
 
+## 0.3.9
+
+### Patch Changes
+
+- 86be8a3: Update versions
+- Updated dependencies [86be8a3]
+  - @chugsplash/plugins@0.5.5
+
 ## 0.3.8
 
 ### Patch Changes
