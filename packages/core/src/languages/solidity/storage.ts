@@ -1,6 +1,7 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers } from 'ethers'
 
+import { ConfigVariable } from '../../config'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -125,6 +126,33 @@ const encodeVariable = (
           ),
         },
       ]
+    } else if (variableType.label.startsWith('int')) {
+      const minValue = BigNumber.from(2)
+        .pow(8 * variableType.numberOfBytes)
+        .div(2)
+        .mul(-1)
+      const maxValue = BigNumber.from(2)
+        .pow(8 * variableType.numberOfBytes)
+        .div(2)
+        .sub(1)
+      if (
+        BigNumber.from(variable).lt(minValue) ||
+        BigNumber.from(variable).gt(maxValue)
+      ) {
+        throw new Error(
+          `provided ${variableType.label} size is too big: ${variable}`
+        )
+      }
+
+      return [
+        {
+          key: slotKey,
+          val: padHexSlotValue(
+            ethers.utils.solidityPack([variableType.label], [variable]),
+            storageObj.offset
+          ),
+        },
+      ]
     } else if (variableType.label.startsWith('struct')) {
       // Structs are encoded recursively, as defined by their `members` field.
       let slots = []
@@ -191,15 +219,20 @@ const encodeVariable = (
  * were applied to a given contract.
  *
  * @param storageLayout Solidity storage layout to use as a template for determining storage slots.
- * @param variables Variable values to apply against the given storage layout.
+ * @param contractConfig Variable values to apply against the given storage layout.
  * @returns An array of key/value storage slot pairs that would result in the desired state.
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  variables: any = {}
+  contractConfig: ConfigVariable,
+  immutableVariables: string[]
 ): Array<StorageSlotPair> => {
   let slots: StorageSlotPair[] = []
-  for (const [variableName, variableValue] of Object.entries(variables)) {
+  for (const [variableName, variableValue] of Object.entries(contractConfig)) {
+    if (immutableVariables.includes(variableName)) {
+      continue
+    }
+
     // Find the entry in the storage layout that corresponds to this variable name.
     const storageObj = storageLayout.storage.find((entry) => {
       return entry.label === variableName

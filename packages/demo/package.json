@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@chugsplash/core": "^0.3.5",
-    "@chugsplash/plugins": "^0.5.3",
+    "@chugsplash/plugins": "link:packages/plugins",
     "@types/node": "^18.0.0"
   }
 }

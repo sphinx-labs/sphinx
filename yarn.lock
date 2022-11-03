@@ -409,16 +409,28 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/core@link:packages/core":
-  version "0.3.5"
+"@chugsplash/core@link:packages/plugins/packages/core":
+  version "0.0.0"
+  uid ""
+
+"@chugsplash/plugins@link:packages/plugins":
+  version "0.5.3"
   dependencies:
     "@chugsplash/contracts" "^0.3.5"
-    "@eth-optimism/contracts-bedrock" "^0.8.0"
+    "@chugsplash/core" "link:packages/plugins/packages/core"
     "@eth-optimism/core-utils" "^0.9.1"
+    "@ethereumjs/common" "^3.0.1"
+    "@ethereumjs/vm" "^6.2.0"
+    "@nomiclabs/hardhat-ethers" "^2.2.1"
+    cli-progress "^3.11.2"
+    dotenv "^16.0.3"
     ethers "^5.6.9"
-    handlebars "^4.7.7"
-    hardhat-deploy "^0.11.18"
-    merkletreejs "^0.2.18"
+    hardhat "^2.10.0"
+    ipfs-http-client "56.0.3"
+    ipfs-only-hash "^4.0.0"
+    node-fetch "^2.6.7"
+    ora "^5.4.1"
+    semver "^7.3.7"
 
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
