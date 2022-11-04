@@ -26,6 +26,19 @@ const padHexSlotValue = (val: string, offset: number): string => {
   )
 }
 
+const getOffsetPerElement = (varLabel: string): number => {
+  const elementType = varLabel.split('[')[0]
+  if (elementType.startsWith('uint')) {
+    const bits = Number(elementType.substring(4))
+    return bits / 8
+  } else if (elementType.startsWith('int')) {
+    const bits = Number(elementType.substring(3))
+    return bits / 8
+  } else if (elementType.startsWith('string')) {
+    return 32
+  }
+}
+
 /**
  * Encodes a single variable as a series of key/value storage slot pairs using some storage layout
  * as instructions for how to perform this encoding. Works recursively with struct types.
@@ -58,8 +71,36 @@ const encodeVariable = (
     ).padStart(64, '0')
 
   if (variableType.encoding === 'inplace') {
-    if (
-      variableType.label === 'address' ||
+    if (storageObj.type.startsWith('t_array')) {
+      const offsetPerElement = getOffsetPerElement(variableType.label)
+      let { offset } = storageObj
+      let slot = parseInt(storageObj.slot, 10)
+      let slots = []
+      for (const element of variable) {
+        slots = slots.concat(
+          encodeVariable(
+            element,
+            {
+              astId: 0,
+              contract: storageObj.contract,
+              label: storageObj.label,
+              offset,
+              slot: slot.toString(),
+              type: variableType.base,
+            },
+            storageTypes,
+            nestedSlotOffset
+          )
+        )
+        offset += offsetPerElement
+        if (offset + offsetPerElement > 32) {
+          slot += 1
+          offset = 0
+        }
+      }
+      return slots
+    } else if (
+      variableType.label.startsWith('address') ||
       variableType.label.startsWith('contract')
     ) {
       if (!ethers.utils.isAddress(variable)) {
@@ -95,7 +136,9 @@ const encodeVariable = (
       ]
     } else if (variableType.label.startsWith('bytes')) {
       if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
-        throw new Error(`invalid bytesN type`)
+        throw new Error(
+          `invalid bytes${variableType.numberOfBytes} variable: ${variable}`
+        )
       }
 
       return [
@@ -107,7 +150,10 @@ const encodeVariable = (
           ),
         },
       ]
-    } else if (variableType.label.startsWith('uint')) {
+    } else if (
+      variableType.label.startsWith('uint') ||
+      variableType.label.startsWith('enum')
+    ) {
       if (
         remove0x(BigNumber.from(variable).toHexString()).length / 2 >
         variableType.numberOfBytes
@@ -157,12 +203,18 @@ const encodeVariable = (
       // Structs are encoded recursively, as defined by their `members` field.
       let slots = []
       for (const [varName, varVal] of Object.entries(variable)) {
+        const currMember = variableType.members.find((member) => {
+          return member.label === varName
+        })
+        if (currMember === undefined) {
+          throw new Error(
+            `incorrect member in ${variableType.label}: ${varName}`
+          )
+        }
         slots = slots.concat(
           encodeVariable(
             varVal,
-            variableType.members.find((member) => {
-              return member.label === varName
-            }),
+            currMember,
             storageTypes,
             nestedSlotOffset + parseInt(storageObj.slot as any, 10)
           )
@@ -178,7 +230,7 @@ const encodeVariable = (
 
     // `string` types are converted to utf8 bytes, `bytes` are left as-is (assuming 0x prefixed).
     const bytes =
-      storageObj.type === 'string'
+      variableType.label === 'string'
         ? ethers.utils.toUtf8Bytes(variable)
         : fromHexString(variable)
 
