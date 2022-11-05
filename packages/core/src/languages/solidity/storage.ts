@@ -1,7 +1,7 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers } from 'ethers'
 
-import { ConfigVariable } from '../../config'
+import { ContractConfig } from '../../config'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -286,24 +286,38 @@ const encodeVariable = (
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  contractConfig: ConfigVariable,
+  contractConfig: ContractConfig,
   immutableVariables: string[]
 ): Array<StorageSlotPair> => {
+  const storageEntries = []
+  for (const storageObj of Object.values(storageLayout.storage)) {
+    if (contractConfig.variables[storageObj.label] !== undefined) {
+      storageEntries[storageObj.label] = storageObj
+    } else {
+      throw new Error(
+        `Could not find variable "${storageObj.label}" in ${contractConfig.contract}. Did you forget to declare it in your ChugSplash config file?`
+      )
+    }
+  }
+
   let slots: StorageSlotPair[] = []
-  for (const [variableName, variableValue] of Object.entries(contractConfig)) {
+  for (const [variableName, variableValue] of Object.entries(
+    contractConfig.variables
+  )) {
     if (immutableVariables.includes(variableName)) {
       continue
     }
 
     // Find the entry in the storage layout that corresponds to this variable name.
-    const storageObj = storageLayout.storage.find((entry) => {
-      return entry.label === variableName
-    })
+    const storageObj = storageEntries[variableName]
+    // const storageObj = storageLayout.storage.find((entry) => {
+    //   return entry.label === variableName
+    // })
 
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `variable name not found in storage layout: ${variableName}`
+        `variable "${variableName}" was defined in the ChugSplash config for ${contractConfig.contract} but does not exist as a variable in the contract`
       )
     }
 

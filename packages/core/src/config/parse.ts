@@ -174,7 +174,7 @@ export const makeActionBundleFromConfig = async (
     // TODO: One day we'll need to refactor this to support Vyper.
     const slots = computeStorageSlots(
       artifact.storageLayout,
-      contractConfig.variables,
+      contractConfig,
       artifact.immutableVariables
     )
 

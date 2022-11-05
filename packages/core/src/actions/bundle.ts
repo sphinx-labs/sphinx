@@ -1,7 +1,6 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
-import { ChugSplashConfig } from '../config'
 
 import {
   ChugSplashAction,
