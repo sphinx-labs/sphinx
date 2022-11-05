@@ -1,5 +1,5 @@
 import { Contract, ethers, Signer } from 'ethers'
-import 'hardhat-deploy'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
@@ -7,10 +7,6 @@ import {
   EXECUTOR_PAYMENT_PERCENTAGE,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   PROXY_UPDATER_ADDRESS,
-  ProxyUpdaterABI,
-  ProxyUpdaterArtifact,
-  ChugSplashRegistryABI,
-  ChugSplashRegistryArtifact,
   ChugSplashManagerABI,
   ChugSplashManagerArtifact,
   DefaultAdapterABI,
@@ -19,11 +15,10 @@ import {
   ChugSplashBootLoaderArtifact,
   DEFAULT_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
-
-import { getChugSplashRegistry } from './utils'
+import { getChugSplashRegistry } from '@chugsplash/core'
 
 export const deployChugSplashPredeploys = async (
-  hre,
+  hre: HardhatRuntimeEnvironment,
   deployer: ethers.Signer
 ) => {
   const chugsplashOwnerAddress = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
@@ -130,49 +125,6 @@ export const deployChugSplashManagerImplementation = async (
   })
   const { address } = await deploy()
   return address
-}
-
-export const deployProxyUpdater = async (hre, deployerAddress: string) => {
-  const { deploy } = await hre.deployments.deterministic('ProxyUpdater', {
-    salt: hre.ethers.utils.solidityKeccak256(['string'], ['ProxyUpdater']),
-    from: deployerAddress,
-    contract: {
-      abi: ProxyUpdaterABI,
-      bytecode: ProxyUpdaterArtifact.bytecode,
-    },
-    args: [],
-    log: true,
-  })
-  await deploy()
-}
-
-export const deployChugSplashRegistry = async (
-  hre,
-  deployerAddress: string
-) => {
-  const ProxyUpdater = await hre.deployments.get('ProxyUpdater')
-
-  const { deploy } = await hre.deployments.deterministic('ChugSplashRegistry', {
-    salt: hre.ethers.utils.solidityKeccak256(
-      ['string'],
-      ['ChugSplashRegistry']
-    ),
-    from: deployerAddress,
-    contract: {
-      abi: ChugSplashRegistryABI,
-      bytecode: ChugSplashRegistryArtifact.bytecode,
-    },
-    args: [
-      ProxyUpdater.address,
-      OWNER_BOND_AMOUNT,
-      EXECUTOR_BOND_AMOUNT,
-      EXECUTION_LOCK_TIME,
-      EXECUTOR_PAYMENT_PERCENTAGE,
-    ],
-    log: true,
-  })
-
-  await deploy()
 }
 
 export const deployDefaultAdapter = async (hre, deployerAddress: string) => {

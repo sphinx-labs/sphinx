@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
@@ -26,9 +25,7 @@ import {
   ChugSplashBundleStatus,
   loadChugSplashConfig,
   writeSnapshotId,
-  deployChugSplashPredeploys,
   registerChugSplashProject,
-  chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
   parseContractReferences,
 } from '@chugsplash/core'
@@ -44,6 +41,10 @@ import {
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
+import {
+  chugsplashContractsAreDeployedAndInitialized,
+  deployChugSplashPredeploys,
+} from './predeploys'
 
 // Load environment variables from .env
 dotenv.config()
