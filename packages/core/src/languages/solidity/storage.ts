@@ -28,7 +28,14 @@ const padHexSlotValue = (val: string, offset: number): string => {
 
 const getOffsetPerElement = (varLabel: string): number => {
   const elementType = varLabel.split('[')[0]
-  if (elementType.startsWith('uint')) {
+  if (elementType.startsWith('bool')) {
+    return 1
+  } else if (
+    elementType.startsWith('address') ||
+    elementType.startsWith('contract')
+  ) {
+    return 20
+  } else if (elementType.startsWith('uint')) {
     const bits = Number(elementType.substring(4))
     return bits / 8
   } else if (elementType.startsWith('int')) {
@@ -72,6 +79,9 @@ const encodeVariable = (
 
   if (variableType.encoding === 'inplace') {
     if (storageObj.type.startsWith('t_array')) {
+      if (variableType.base.startsWith('t_array')) {
+        throw new Error(`nested arrays are not supported yet`)
+      }
       const offsetPerElement = getOffsetPerElement(variableType.label)
       let { offset } = storageObj
       let slot = parseInt(storageObj.slot, 10)

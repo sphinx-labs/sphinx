@@ -15,16 +15,12 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getProxyAddress } from '../utils'
-import {
-  ChugSplashConfig,
-  ConfigVariable,
-  ContractConfig,
-  ContractReference,
-} from './types'
+import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
 
 export const loadChugSplashConfig = (
   configFileName: string
 ): ChugSplashConfig => {
+  delete require.cache[require.resolve(path.resolve(configFileName))]
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   let config = require(path.resolve(configFileName))
   config = config.default || config
@@ -33,6 +29,7 @@ export const loadChugSplashConfig = (
 }
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
+  delete require.cache[require.resolve(path.resolve(configFileName))]
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const config = require(path.resolve(configFileName))
   return Object.keys(config).length === 0
@@ -103,7 +100,7 @@ export const parseChugSplashConfig = (
     contracts[referenceName] = contractConfig.address
   }
 
-  return JSON.parse(
+  const parsed: ChugSplashConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(config))({
       env: new Proxy(env, {
         get: (target, prop) => {
@@ -129,6 +126,8 @@ export const parseChugSplashConfig = (
       }),
     })
   )
+
+  return parseContractReferences(parsed)
 }
 
 /**
@@ -171,17 +170,11 @@ export const makeActionBundleFromConfig = async (
       target: referenceName,
     })
 
-    // Replace any contract references with the contract's address.
-    const parsedContractConfig = parseContractReferences(
-      config.options.projectName,
-      contractConfig
-    )
-
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
     const slots = computeStorageSlots(
       artifact.storageLayout,
-      parsedContractConfig.variables,
+      contractConfig.variables,
       artifact.immutableVariables
     )
 
@@ -200,21 +193,30 @@ export const makeActionBundleFromConfig = async (
 }
 
 export const parseContractReferences = (
-  projectName: string,
-  contractConfig: ContractConfig
-): ContractConfig => {
-  for (const [variableName, variable] of Object.entries(
-    contractConfig.variables
+  config: ChugSplashConfig
+): ChugSplashConfig => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    config.contracts
   )) {
-    if (isContractReference(variable)) {
-      const [referenceName] = Object.values(variable)
-      contractConfig.variables[variableName] = getProxyAddress(
-        projectName,
-        referenceName.trim()
-      )
+    for (const [variableName, variable] of Object.entries(
+      contractConfig.variables
+    )) {
+      if (isContractReference(variable)) {
+        const [targetReferenceName] = Object.values(variable)
+        if (config.contracts[targetReferenceName] === undefined) {
+          throw new Error(
+            `Could not find a contract definition for ${targetReferenceName} in the config file for ${config.options.projectName}. Please create a contract definition for ${targetReferenceName} or remove the reference to it in the "${variableName}" variable in your contract definition for ${referenceName}.`
+          )
+        }
+        config.contracts[referenceName].variables[variableName] =
+          getProxyAddress(
+            config.options.projectName,
+            targetReferenceName.trim()
+          )
+      }
     }
   }
-  return contractConfig
+  return config
 }
 
 export const isContractReference = (

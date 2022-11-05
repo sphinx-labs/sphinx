@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { utils, constants, Signer, Contract, providers } from 'ethers'
+import { utils, constants, Signer, Contract, providers, ethers } from 'ethers'
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,
@@ -58,6 +58,15 @@ export const getProxyAddress = (
       ]
     )
   )
+}
+
+export const isProxyDeployed = async (
+  provider: ethers.providers.JsonRpcProvider,
+  projectName: string,
+  referenceName: string
+): Promise<boolean> => {
+  const proxyAddress = getProxyAddress(projectName, referenceName)
+  return (await provider.getCode(proxyAddress)) !== '0x'
 }
 
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
