@@ -8,7 +8,7 @@ export interface SolidityStorageObj {
   contract: string
   label: string
   offset: number
-  slot: number
+  slot: string
   type: string
 }
 

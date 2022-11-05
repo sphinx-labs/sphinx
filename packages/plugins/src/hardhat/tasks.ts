@@ -27,7 +27,7 @@ import {
   writeSnapshotId,
   registerChugSplashProject,
   getChugSplashRegistry,
-  parseContractReferences,
+  parseChugSplashConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -56,7 +56,7 @@ const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
+const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
 const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
@@ -86,19 +86,17 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
         deployConfig: args.deployConfig,
       })
+      const parsed = parseChugSplashConfig(config)
 
       const artifacts = {}
       for (const [referenceName, contractConfig] of Object.entries(
-        config.contracts
+        parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const parsedContractConfig = parseContractReferences(
-          config.options.projectName,
-          contractConfig
-        )
         const deployedBytecode = await getDeployedBytecode(
           hre.ethers.provider,
-          parsedContractConfig
+          parsed,
+          referenceName
         )
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[referenceName] = {
@@ -335,7 +333,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
       // Skip this step if the deployment is local.
       let config: ChugSplashConfig
       if (args.local === false) {
-        ;({ config } = await hre.run(TASK_CHUGSPLASH_VERIFY, {
+        ;({ config } = await hre.run(TASK_CHUGSPLASH_CHECK_BUNDLE, {
           configUri,
           bundleId: computeBundleId(
             bundle.root,
@@ -667,7 +665,7 @@ subtask(TASK_CHUGSPLASH_COMMIT)
     }
   )
 
-task(TASK_CHUGSPLASH_VERIFY)
+task(TASK_CHUGSPLASH_CHECK_BUNDLE)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')

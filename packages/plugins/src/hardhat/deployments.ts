@@ -8,14 +8,15 @@ import {
   getProxyAddress,
   loadChugSplashConfig,
   writeSnapshotId,
-  getChugSplashRegistry,
   isSetImplementationAction,
-  ChugSplashActionBundle,
   fromRawChugSplashAction,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
+  isProxyDeployed,
+  getChugSplashManagerProxyAddress,
+  parseChugSplashConfig,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -66,34 +67,27 @@ export const deployChugSplashConfig = async (
   const config: ChugSplashConfig = await hre.run('chugsplash-load', {
     deployConfig: configRelativePath,
   })
+  const parsedConfig = parseChugSplashConfig(config)
 
   const spinner = ora({ isSilent: hide })
-  spinner.start(`Deploying: ${config.options.projectName}`)
+  spinner.start(`Deploying: ${parsedConfig.options.projectName}`)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
   await registerChugSplashProject(
-    config.options.projectName,
+    parsedConfig.options.projectName,
     deployerAddress,
     deployer
   )
 
-  const {
-    bundle,
-    bundleId,
-  }: { bundle: ChugSplashActionBundle; bundleId: string } = await hre.run(
-    'chugsplash-propose',
-    {
-      deployConfig: configRelativePath,
-      local: true,
-      verbose,
-    }
-  )
-
-  const ChugSplashRegistry = getChugSplashRegistry(deployer)
+  const { bundleId } = await hre.run('chugsplash-commit', {
+    deployConfig: configRelativePath,
+    local: true,
+    verbose,
+  })
 
   const ChugSplashManager = new Contract(
-    await ChugSplashRegistry.projects(config.options.projectName),
+    getChugSplashManagerProxyAddress(parsedConfig.options.projectName),
     ChugSplashManagerABI,
     deployer
   )
@@ -103,8 +97,37 @@ export const deployChugSplashConfig = async (
   )
 
   if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(`"${config.options.projectName}" was previously cancelled.`)
-    return
+    throw new Error(
+      `${parsedConfig.options.projectName} was previously cancelled.`
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+    for (const referenceName of Object.keys(parsedConfig.contracts)) {
+      if (
+        await isProxyDeployed(
+          hre.ethers.provider,
+          parsedConfig.options.projectName,
+          referenceName
+        )
+      ) {
+        throw new Error(
+          `The contract ${referenceName} inside ${parsedConfig.options.projectName} has already been deployed.`
+        )
+      }
+    }
+  }
+
+  const { bundle } = await hre.run('chugsplash-propose', {
+    deployConfig: configRelativePath,
+    local: true,
+    verbose,
+  })
+
+  if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
+    throw new Error(
+      `Deployer has insufficient funds. Please add ${ethers.utils.formatEther(
+        OWNER_BOND_AMOUNT.mul(5)
+      )} ETH to its wallet.`
+    )
   }
 
   const managerBalance = await hre.ethers.provider.getBalance(
@@ -119,7 +142,7 @@ export const deployChugSplashConfig = async (
   }
 
   await hre.run('chugsplash-approve', {
-    projectName: config.options.projectName,
+    projectName: parsedConfig.options.projectName,
     bundleId,
     verbose,
   })
@@ -179,11 +202,11 @@ export const deployChugSplashConfig = async (
   }
 
   // Transfer ownership of the deployments to the project owner.
-  for (const referenceName of Object.keys(config.contracts)) {
+  for (const referenceName of Object.keys(parsedConfig.contracts)) {
     // First, check if the Proxy's owner is the ChugSplashManager by getting the latest
     // `AdminChanged` event on the Proxy.
     const Proxy = new ethers.Contract(
-      getProxyAddress(config.options.projectName, referenceName),
+      getProxyAddress(parsedConfig.options.projectName, referenceName),
       new ethers.utils.Interface(ProxyABI),
       deployer
     )
@@ -192,27 +215,29 @@ export const deployChugSplashConfig = async (
       await (
         await ChugSplashManager.transferProxyOwnership(
           referenceName,
-          config.options.projectOwner
+          parsedConfig.options.projectOwner
         )
       ).wait()
     }
   }
 
-  if (config.options.projectOwner !== (await ChugSplashManager.owner())) {
-    if (config.options.projectOwner === ethers.constants.AddressZero) {
+  if (parsedConfig.options.projectOwner !== (await ChugSplashManager.owner())) {
+    if (parsedConfig.options.projectOwner === ethers.constants.AddressZero) {
       await (await ChugSplashManager.renounceOwnership()).wait()
     } else {
       await (
-        await ChugSplashManager.transferOwnership(config.options.projectOwner)
+        await ChugSplashManager.transferOwnership(
+          parsedConfig.options.projectOwner
+        )
       ).wait()
     }
   }
 
-  spinner.succeed(`Deployed: ${config.options.projectName}`)
+  spinner.succeed(`Deployed: ${parsedConfig.options.projectName}`)
 
   if (!hide) {
     const deployments = {}
-    Object.entries(config.contracts).forEach(
+    Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) =>
         (deployments[i + 1] = {
           Reference: referenceName,
@@ -227,7 +252,7 @@ export const deployChugSplashConfig = async (
 export const getContract = async (
   hre: any,
   provider: ethers.providers.JsonRpcProvider,
-  target: string
+  referenceName: string
 ): Promise<ethers.Contract> => {
   if ((await hre.getChainId()) !== '31337') {
     throw new Error('Only the Hardhat Network is currently supported.')
@@ -244,33 +269,39 @@ export const getContract = async (
       return { configFileName, config }
     })
     .filter(({ config }) => {
-      return Object.keys(config.contracts).includes(target)
+      return Object.keys(config.contracts).includes(referenceName)
     })
 
   // TODO: Make function `getContract(projectName, target)` and change this error message.
   if (configsWithFileNames.length > 1) {
     throw new Error(
-      `Multiple config files contain the target: ${target}. Target names must be unique for now. Config files containing ${target}: ${configsWithFileNames.map(
+      `Multiple config files contain the target: ${referenceName}. Target names must be unique for now. Config files containing ${referenceName}: ${configsWithFileNames.map(
         (cfgWithFileName) => cfgWithFileName.configFileName
       )}\n`
     )
   } else if (configsWithFileNames.length === 0) {
-    throw new Error(`Cannot find a config file containing ${target}.`)
+    throw new Error(`Cannot find a config file containing ${referenceName}.`)
   }
 
   const { config: cfg } = configsWithFileNames[0]
 
+  if (
+    (await isProxyDeployed(
+      hre.ethers.provider,
+      cfg.options.projectName,
+      referenceName
+    )) === false
+  ) {
+    throw new Error(`You must first deploy ${referenceName}.`)
+  }
+
   const Proxy = new ethers.Contract(
-    getProxyAddress(cfg.options.projectName, target),
+    getProxyAddress(cfg.options.projectName, referenceName),
     new ethers.utils.Interface(
-      getContractArtifact(cfg.contracts[target].contract).abi
+      getContractArtifact(cfg.contracts[referenceName].contract).abi
     ),
     provider.getSigner()
   )
-
-  if ((await provider.getCode(Proxy.address)) === '0x') {
-    throw new Error(`You must first deploy ${target}.`)
-  }
 
   return Proxy
 }

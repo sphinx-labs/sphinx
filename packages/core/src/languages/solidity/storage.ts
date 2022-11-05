@@ -1,7 +1,7 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers } from 'ethers'
 
-import { ConfigVariable } from '../../config'
+import { ContractConfig } from '../../config'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -24,6 +24,26 @@ const padHexSlotValue = (val: string, offset: number): string => {
       .padEnd(64, '0') // Pad the end (up to 64 bytes) with zero bytes.
       .toLowerCase() // Making this lower case makes assertions more consistent later.
   )
+}
+
+const getOffsetPerElement = (varLabel: string): number => {
+  const elementType = varLabel.split('[')[0]
+  if (elementType.startsWith('bool')) {
+    return 1
+  } else if (
+    elementType.startsWith('address') ||
+    elementType.startsWith('contract')
+  ) {
+    return 20
+  } else if (elementType.startsWith('uint')) {
+    const bits = Number(elementType.substring(4))
+    return bits / 8
+  } else if (elementType.startsWith('int')) {
+    const bits = Number(elementType.substring(3))
+    return bits / 8
+  } else if (elementType.startsWith('string')) {
+    return 32
+  }
 }
 
 /**
@@ -58,8 +78,39 @@ const encodeVariable = (
     ).padStart(64, '0')
 
   if (variableType.encoding === 'inplace') {
-    if (
-      variableType.label === 'address' ||
+    if (storageObj.type.startsWith('t_array')) {
+      if (variableType.base.startsWith('t_array')) {
+        throw new Error(`nested arrays are not supported yet`)
+      }
+      const offsetPerElement = getOffsetPerElement(variableType.label)
+      let { offset } = storageObj
+      let slot = parseInt(storageObj.slot, 10)
+      let slots = []
+      for (const element of variable) {
+        slots = slots.concat(
+          encodeVariable(
+            element,
+            {
+              astId: 0,
+              contract: storageObj.contract,
+              label: storageObj.label,
+              offset,
+              slot: slot.toString(),
+              type: variableType.base,
+            },
+            storageTypes,
+            nestedSlotOffset
+          )
+        )
+        offset += offsetPerElement
+        if (offset + offsetPerElement > 32) {
+          slot += 1
+          offset = 0
+        }
+      }
+      return slots
+    } else if (
+      variableType.label.startsWith('address') ||
       variableType.label.startsWith('contract')
     ) {
       if (!ethers.utils.isAddress(variable)) {
@@ -95,7 +146,9 @@ const encodeVariable = (
       ]
     } else if (variableType.label.startsWith('bytes')) {
       if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
-        throw new Error(`invalid bytesN type`)
+        throw new Error(
+          `invalid bytes${variableType.numberOfBytes} variable: ${variable}`
+        )
       }
 
       return [
@@ -107,7 +160,10 @@ const encodeVariable = (
           ),
         },
       ]
-    } else if (variableType.label.startsWith('uint')) {
+    } else if (
+      variableType.label.startsWith('uint') ||
+      variableType.label.startsWith('enum')
+    ) {
       if (
         remove0x(BigNumber.from(variable).toHexString()).length / 2 >
         variableType.numberOfBytes
@@ -157,12 +213,18 @@ const encodeVariable = (
       // Structs are encoded recursively, as defined by their `members` field.
       let slots = []
       for (const [varName, varVal] of Object.entries(variable)) {
+        const currMember = variableType.members.find((member) => {
+          return member.label === varName
+        })
+        if (currMember === undefined) {
+          throw new Error(
+            `incorrect member in ${variableType.label}: ${varName}`
+          )
+        }
         slots = slots.concat(
           encodeVariable(
             varVal,
-            variableType.members.find((member) => {
-              return member.label === varName
-            }),
+            currMember,
             storageTypes,
             nestedSlotOffset + parseInt(storageObj.slot as any, 10)
           )
@@ -178,7 +240,7 @@ const encodeVariable = (
 
     // `string` types are converted to utf8 bytes, `bytes` are left as-is (assuming 0x prefixed).
     const bytes =
-      storageObj.type === 'string'
+      variableType.label === 'string'
         ? ethers.utils.toUtf8Bytes(variable)
         : fromHexString(variable)
 
@@ -224,24 +286,38 @@ const encodeVariable = (
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  contractConfig: ConfigVariable,
+  contractConfig: ContractConfig,
   immutableVariables: string[]
 ): Array<StorageSlotPair> => {
+  const storageEntries = []
+  for (const storageObj of Object.values(storageLayout.storage)) {
+    if (contractConfig.variables[storageObj.label] !== undefined) {
+      storageEntries[storageObj.label] = storageObj
+    } else {
+      throw new Error(
+        `Could not find variable "${storageObj.label}" in ${contractConfig.contract}. Did you forget to declare it in your ChugSplash config file?`
+      )
+    }
+  }
+
   let slots: StorageSlotPair[] = []
-  for (const [variableName, variableValue] of Object.entries(contractConfig)) {
+  for (const [variableName, variableValue] of Object.entries(
+    contractConfig.variables
+  )) {
     if (immutableVariables.includes(variableName)) {
       continue
     }
 
     // Find the entry in the storage layout that corresponds to this variable name.
-    const storageObj = storageLayout.storage.find((entry) => {
-      return entry.label === variableName
-    })
+    const storageObj = storageEntries[variableName]
+    // const storageObj = storageLayout.storage.find((entry) => {
+    //   return entry.label === variableName
+    // })
 
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `variable name not found in storage layout: ${variableName}`
+        `variable "${variableName}" was defined in the ChugSplash config for ${contractConfig.contract} but does not exist as a variable in the contract`
       )
     }
 
