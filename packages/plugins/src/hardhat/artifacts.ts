@@ -1,5 +1,11 @@
+import path from 'path'
+
 import * as semver from 'semver'
-import { SolidityStorageLayout, ContractConfig } from '@chugsplash/core'
+import {
+  SolidityStorageLayout,
+  ContractConfig,
+  ChugSplashConfig,
+} from '@chugsplash/core'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 
@@ -22,13 +28,38 @@ export const getContractArtifact = (name: string): ContractArtifact => {
 /**
  * Retrieves contract build info by name.
  *
- * @param name Name of the contract.
+ * @param sourceName Source file name.
+ * @param contractName Contract name.
  * @returns Contract build info.
  */
-export const getBuildInfo = async (name: string): Promise<BuildInfo> => {
+export const getBuildInfo = async (
+  sourceName: string,
+  contractName: string
+): Promise<BuildInfo> => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const hre = require('hardhat')
-  return hre.artifacts.getBuildInfo(name)
+
+  let buildInfo: BuildInfo
+  try {
+    buildInfo = await hre.artifacts.getBuildInfo(
+      `${sourceName}:${contractName}`
+    )
+  } catch (err) {
+    try {
+      // Try also loading with the short source name, necessary when using the foundry
+      // hardhat plugin
+      const shortSourceName = path.basename(sourceName)
+      buildInfo = await hre.artifacts.getBuildInfo(
+        `${shortSourceName}:${contractName}`
+      )
+    } catch {
+      // Throwing the original error is probably more helpful here because using the
+      // foundry hardhat plugin is not a common usecase.
+      throw err
+    }
+  }
+
+  return buildInfo
 }
 
 /**
@@ -43,7 +74,7 @@ export const getStorageLayout = async (
   name: string
 ): Promise<SolidityStorageLayout> => {
   const { sourceName, contractName } = getContractArtifact(name)
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
@@ -63,12 +94,14 @@ export const getStorageLayout = async (
 
 export const getDeployedBytecode = async (
   provider: ethers.providers.JsonRpcProvider,
-  contractConfig: ContractConfig
+  parsedConfig: ChugSplashConfig,
+  referenceName: string
 ): Promise<string> => {
+  const contractConfig = parsedConfig.contracts[referenceName]
   const { sourceName, contractName, bytecode, abi } = getContractArtifact(
     contractConfig.contract
   )
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
   const immutableReferences: {
     [astId: number]: {
@@ -88,34 +121,42 @@ export const getDeployedBytecode = async (
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToImmutableNames = {}
 
-  const contractNodes = buildInfo.output.sources[sourceName].ast.nodes
-  for (const contractNode of contractNodes) {
-    if (contractNode.nodeType === 'ContractDefinition') {
-      for (const node of contractNode.nodes) {
-        if (
-          node.nodeType === 'VariableDeclaration' &&
-          node.mutability === 'immutable'
-        ) {
-          const constructorArgName = getConstructorArgNameForImmutableVariable(
-            contractConfig.contract,
-            contractNode.nodes,
-            node.name
-          )
-          constructorArgNamesToImmutableNames[constructorArgName] = node.name
+  for (const source of Object.values(buildInfo.output.sources)) {
+    for (const contractNode of (source as any).ast.nodes) {
+      if (contractNode.nodeType === 'ContractDefinition') {
+        for (const node of contractNode.nodes) {
+          if (
+            node.nodeType === 'VariableDeclaration' &&
+            node.mutability === 'immutable'
+          ) {
+            if (contractConfig.variables[node.name] === undefined) {
+              throw new Error(
+                `Could not find immutable variable "${node.name}" in ${referenceName}. Did you forget to declare it in ${parsedConfig.options.projectName}?`
+              )
+            }
 
-          let typeString: string
-          if (node.typeDescriptions.typeString.startsWith('contract')) {
-            typeString = 'address'
-          } else if (node.typeDescriptions.typeString.startsWith('enum')) {
-            typeString = 'uint8'
-          } else {
-            typeString = node.typeDescriptions.typeString
+            const constructorArgName =
+              getConstructorArgNameForImmutableVariable(
+                contractConfig.contract,
+                contractNode.nodes,
+                node.name
+              )
+            constructorArgNamesToImmutableNames[constructorArgName] = node.name
+
+            let typeString: string
+            if (node.typeDescriptions.typeString.startsWith('contract')) {
+              typeString = 'address'
+            } else if (node.typeDescriptions.typeString.startsWith('enum')) {
+              typeString = 'uint8'
+            } else {
+              typeString = node.typeDescriptions.typeString
+            }
+            const abiEncodedValue = utils.defaultAbiCoder.encode(
+              [typeString],
+              [contractConfig.variables[node.name]]
+            )
+            astIdToAbiEncodedValue[node.id] = remove0x(abiEncodedValue)
           }
-          const abiEncodedValue = utils.defaultAbiCoder.encode(
-            [typeString],
-            [contractConfig.variables[node.name]]
-          )
-          astIdToAbiEncodedValue[node.id] = remove0x(abiEncodedValue)
         }
       }
     }
@@ -176,7 +217,63 @@ export const getDeployedBytecode = async (
   return bytecodeDeployedWithConstructorArgs
 }
 
-const getNestedConstructorArg = (variableName: string, args): string => {
+export const getAbiEncodedConstructorArgs = async (
+  contractConfig: ContractConfig
+): Promise<string> => {
+  const { sourceName, contractName, abi } = getContractArtifact(
+    contractConfig.contract
+  )
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+  if (
+    constructorFragment === undefined ||
+    constructorFragment.inputs.length === 0
+  ) {
+    return ''
+  }
+  const buildInfo = await getBuildInfo(sourceName, contractName)
+
+  // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
+  const constructorArgNamesToImmutableNames = {}
+
+  for (const source of Object.values(buildInfo.output.sources)) {
+    for (const contractNode of (source as any).ast.nodes) {
+      if (contractNode.nodeType === 'ContractDefinition') {
+        for (const node of contractNode.nodes) {
+          if (
+            node.nodeType === 'VariableDeclaration' &&
+            node.mutability === 'immutable'
+          ) {
+            const constructorArgName =
+              getConstructorArgNameForImmutableVariable(
+                contractConfig.contract,
+                contractNode.nodes,
+                node.name
+              )
+            constructorArgNamesToImmutableNames[constructorArgName] = node.name
+          }
+        }
+      }
+    }
+  }
+
+  const constructorArgTypes = []
+  const constructorArgValues = []
+  constructorFragment.inputs.forEach((fragment) => {
+    constructorArgTypes.push(fragment.type)
+    constructorArgValues.push(
+      contractConfig.variables[
+        constructorArgNamesToImmutableNames[fragment.name]
+      ]
+    )
+  })
+  return remove0x(
+    utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
+  )
+}
+
+export const getNestedConstructorArg = (variableName: string, args): string => {
   let remainingArguments = args[0]
   while (remainingArguments !== undefined) {
     if (remainingArguments.name !== undefined) {
@@ -227,7 +324,7 @@ export const getImmutableVariables = async (
   const { sourceName, contractName } = getContractArtifact(
     contractConfig.contract
   )
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
   const immutableReferences: {
     [astId: number]: {
@@ -241,12 +338,13 @@ export const getImmutableVariables = async (
   }
 
   const immutableVariables: string[] = []
-  const contractNodes = buildInfo.output.sources[sourceName].ast.nodes
-  for (const contractNode of contractNodes) {
-    if (contractNode.nodeType === 'ContractDefinition') {
-      for (const node of contractNode.nodes) {
-        if (node.mutability === 'immutable') {
-          immutableVariables.push(node.name)
+  for (const source of Object.values(buildInfo.output.sources)) {
+    for (const contractNode of (source as any).ast.nodes) {
+      if (contractNode.nodeType === 'ContractDefinition') {
+        for (const node of contractNode.nodes) {
+          if (node.mutability === 'immutable') {
+            immutableVariables.push(node.name)
+          }
         }
       }
     }

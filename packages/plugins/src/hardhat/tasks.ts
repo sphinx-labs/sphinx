@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
@@ -26,11 +25,9 @@ import {
   ChugSplashBundleStatus,
   loadChugSplashConfig,
   writeSnapshotId,
-  deployChugSplashPredeploys,
   registerChugSplashProject,
-  chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
-  parseContractReferences,
+  parseChugSplashConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -44,6 +41,7 @@ import {
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
+import { deployLocalChugSplash } from './predeploys'
 
 // Load environment variables from .env
 dotenv.config()
@@ -58,7 +56,7 @@ const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-const TASK_CHUGSPLASH_VERIFY = 'chugsplash-verify'
+const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
 const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
@@ -88,19 +86,17 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
         deployConfig: args.deployConfig,
       })
+      const parsed = parseChugSplashConfig(config)
 
       const artifacts = {}
       for (const [referenceName, contractConfig] of Object.entries(
-        config.contracts
+        parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const parsedContractConfig = parseContractReferences(
-          config.options.projectName,
-          contractConfig
-        )
         const deployedBytecode = await getDeployedBytecode(
           hre.ethers.provider,
-          parsedContractConfig
+          parsed,
+          referenceName
         )
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[referenceName] = {
@@ -235,11 +231,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      if (
-        (await chugsplashContractsAreDeployedAndInitialized(signer)) === false
-      ) {
-        await deployChugSplashPredeploys(hre, signer)
-      }
+      await deployLocalChugSplash(hre, signer)
       await deployContracts(hre, args.log, args.hide)
     }
   )
@@ -341,7 +333,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
       // Skip this step if the deployment is local.
       let config: ChugSplashConfig
       if (args.local === false) {
-        ;({ config } = await hre.run(TASK_CHUGSPLASH_VERIFY, {
+        ;({ config } = await hre.run(TASK_CHUGSPLASH_CHECK_BUNDLE, {
           configUri,
           bundleId: computeBundleId(
             bundle.root,
@@ -673,7 +665,7 @@ subtask(TASK_CHUGSPLASH_COMMIT)
     }
   )
 
-task(TASK_CHUGSPLASH_VERIFY)
+task(TASK_CHUGSPLASH_CHECK_BUNDLE)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')
@@ -868,8 +860,7 @@ task(TASK_NODE)
       if (!args.disable) {
         if ((await hre.getChainId()) === '31337') {
           const deployer = await hre.ethers.getSigner()
-          await deployChugSplashPredeploys(hre, deployer)
-
+          await deployLocalChugSplash(hre, deployer)
           await deployContracts(hre, args.log, args.hide)
           await writeSnapshotId(hre)
         }
@@ -896,7 +887,7 @@ task(TASK_TEST)
           throw new Error('Snapshot failed to be reverted.')
         }
       } catch {
-        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+        await deployLocalChugSplash(hre, await hre.ethers.getSigner())
         await deployContracts(hre, false, !args.show)
       } finally {
         await writeSnapshotId(hre)
