@@ -1,3 +1,5 @@
+import path from 'path'
+
 import * as semver from 'semver'
 import {
   SolidityStorageLayout,
@@ -26,13 +28,38 @@ export const getContractArtifact = (name: string): ContractArtifact => {
 /**
  * Retrieves contract build info by name.
  *
- * @param name Name of the contract.
+ * @param sourceName Source file name.
+ * @param contractName Contract name.
  * @returns Contract build info.
  */
-export const getBuildInfo = async (name: string): Promise<BuildInfo> => {
+export const getBuildInfo = async (
+  sourceName: string,
+  contractName: string
+): Promise<BuildInfo> => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const hre = require('hardhat')
-  return hre.artifacts.getBuildInfo(name)
+
+  let buildInfo: BuildInfo
+  try {
+    buildInfo = await hre.artifacts.getBuildInfo(
+      `${sourceName}:${contractName}`
+    )
+  } catch (err) {
+    try {
+      // Try also loading with the short source name, necessary when using the foundry
+      // hardhat plugin
+      const shortSourceName = path.basename(sourceName)
+      buildInfo = await hre.artifacts.getBuildInfo(
+        `${shortSourceName}:${contractName}`
+      )
+    } catch {
+      // Throwing the original error is probably more helpful here because using the
+      // foundry hardhat plugin is not a common usecase.
+      throw err
+    }
+  }
+
+  return buildInfo
 }
 
 /**
@@ -47,7 +74,7 @@ export const getStorageLayout = async (
   name: string
 ): Promise<SolidityStorageLayout> => {
   const { sourceName, contractName } = getContractArtifact(name)
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
@@ -74,7 +101,7 @@ export const getDeployedBytecode = async (
   const { sourceName, contractName, bytecode, abi } = getContractArtifact(
     contractConfig.contract
   )
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
   const immutableReferences: {
     [astId: number]: {
@@ -297,7 +324,7 @@ export const getImmutableVariables = async (
   const { sourceName, contractName } = getContractArtifact(
     contractConfig.contract
   )
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
   const output = buildInfo.output.contracts[sourceName][contractName]
   const immutableReferences: {
     [astId: number]: {

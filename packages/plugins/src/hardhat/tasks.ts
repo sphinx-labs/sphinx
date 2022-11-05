@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import '@nomiclabs/hardhat-ethers'
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
@@ -26,9 +25,7 @@ import {
   ChugSplashBundleStatus,
   loadChugSplashConfig,
   writeSnapshotId,
-  deployChugSplashPredeploys,
   registerChugSplashProject,
-  chugsplashContractsAreDeployedAndInitialized,
   getChugSplashRegistry,
   parseChugSplashConfig,
 } from '@chugsplash/core'
@@ -44,6 +41,7 @@ import {
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
+import { deployLocalChugSplash } from './predeploys'
 
 // Load environment variables from .env
 dotenv.config()
@@ -233,11 +231,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      if (
-        (await chugsplashContractsAreDeployedAndInitialized(signer)) === false
-      ) {
-        await deployChugSplashPredeploys(hre, signer)
-      }
+      await deployLocalChugSplash(hre, signer)
       await deployContracts(hre, args.log, args.hide)
     }
   )
@@ -866,8 +860,7 @@ task(TASK_NODE)
       if (!args.disable) {
         if ((await hre.getChainId()) === '31337') {
           const deployer = await hre.ethers.getSigner()
-          await deployChugSplashPredeploys(hre, deployer)
-
+          await deployLocalChugSplash(hre, deployer)
           await deployContracts(hre, args.log, args.hide)
           await writeSnapshotId(hre)
         }
@@ -894,7 +887,7 @@ task(TASK_TEST)
           throw new Error('Snapshot failed to be reverted.')
         }
       } catch {
-        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+        await deployLocalChugSplash(hre, await hre.ethers.getSigner())
         await deployContracts(hre, false, !args.show)
       } finally {
         await writeSnapshotId(hre)
