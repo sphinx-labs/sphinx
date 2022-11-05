@@ -33,6 +33,7 @@
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
+    "@ethersproject/abstract-provider": "^5.7.0",
     "cli-progress": "^3.11.2",
     "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
