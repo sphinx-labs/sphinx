@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@chugsplash/contracts": "^0.3.5",
-    "@chugsplash/core": "link:packages/core",
+    "@chugsplash/core": "^0.3.6",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
@@ -48,7 +48,7 @@
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {
-    "hardhat": "^2",
-    "@nomiclabs/hardhat-ethers": "^2"
+    "@nomiclabs/hardhat-ethers": "^2",
+    "hardhat": "^2"
   }
 }

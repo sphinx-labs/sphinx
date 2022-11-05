@@ -409,14 +409,6 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/core@link:packages/plugins/packages/core":
-  version "0.0.0"
-  uid ""
-
-"@chugsplash/plugins@link:packages/demo/packages/plugins":
-  version "0.0.0"
-  uid ""
-
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
