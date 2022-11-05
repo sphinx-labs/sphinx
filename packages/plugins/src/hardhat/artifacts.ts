@@ -232,7 +232,7 @@ export const getAbiEncodedConstructorArgs = async (
   ) {
     return ''
   }
-  const buildInfo = await getBuildInfo(`${sourceName}:${contractName}`)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
 
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToImmutableNames = {}
