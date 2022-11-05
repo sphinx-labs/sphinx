@@ -1,5 +1,19 @@
 # @chugsplash/plugins
 
+## 0.5.6
+
+### Patch Changes
+
+- dea00dd: Improve error handling for immutable and state variables
+- 0d93e7b: Remove reliance on hardhat-deploy for local deployment
+- a7c6d18: Add support for foundry-hardhat style artifacts
+- 1b88270: Moves predeploy deployment from core to plugins
+- Updated dependencies [dea00dd]
+- Updated dependencies [3a64b82]
+- Updated dependencies [bbe3639]
+- Updated dependencies [1b88270]
+  - @chugsplash/core@0.3.7
+
 ## 0.5.5
 
 ### Patch Changes

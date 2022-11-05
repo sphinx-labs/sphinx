@@ -1,5 +1,14 @@
 # @chugsplash/core
 
+## 0.3.7
+
+### Patch Changes
+
+- dea00dd: Improve error handling for immutable and state variables
+- 3a64b82: Add support for arrays of fixed length
+- bbe3639: Error handling in core package
+- 1b88270: Moves predeploy deployment from core to plugins
+
 ## 0.3.6
 
 ### Patch Changes
