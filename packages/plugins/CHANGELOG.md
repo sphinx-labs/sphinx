@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.5.7
+
+### Patch Changes
+
+- 6bc37b3: Bump demo and plugins versions
+
 ## 0.5.6
 
 ### Patch Changes
