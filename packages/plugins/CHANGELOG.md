@@ -1,5 +1,13 @@
 # @chugsplash/plugins
 
+## 0.5.9
+
+### Patch Changes
+
+- 5ad574b: Fixes a bug that would break deterministic deployment on non-hardhat networks
+- Updated dependencies [062a439]
+  - @chugsplash/core@0.3.9
+
 ## 0.5.8
 
 ### Patch Changes
