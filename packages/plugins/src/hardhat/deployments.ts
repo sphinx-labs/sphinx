@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { getChainId } from '@eth-optimism/core-utils'
 import '@nomiclabs/hardhat-ethers'
 import { Contract, ethers } from 'ethers'
 import {
@@ -26,6 +25,7 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 import ora from 'ora'
+import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
 
