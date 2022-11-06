@@ -176,3 +176,9 @@ export const getChugSplashManagerImplementationAddress =
       await ChugSplashRegistryProxy.managerImplementation()
     return managerImplementationAddress
   }
+
+export const log = async (message: string, hide?: boolean) => {
+  if (!hide) {
+    console.log(message)
+  }
+}
