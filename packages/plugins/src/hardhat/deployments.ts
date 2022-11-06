@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import { getChainId } from '@eth-optimism/core-utils'
 import '@nomiclabs/hardhat-ethers'
 import { Contract, ethers } from 'ethers'
 import {
@@ -254,7 +255,7 @@ export const getContract = async (
   provider: ethers.providers.JsonRpcProvider,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if ((await hre.getChainId()) !== '31337') {
+  if ((await getChainId(provider)) !== 31337) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const configsWithFileNames: {
