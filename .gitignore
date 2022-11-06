@@ -1,5 +1,15 @@
+# yarn
 node_modules/
 yarn-error.log
+
+# typescript
 tsconfig.tsbuildinfo
+
+# vscode
 .vscode
+
+# mac
 .DS_Store
+
+# vim
+*.sw*

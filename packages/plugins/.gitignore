@@ -1,2 +1,6 @@
 dist/
 .env
+.deployed
+artifacts
+cache
+deployments

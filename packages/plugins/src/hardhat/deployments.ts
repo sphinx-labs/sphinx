@@ -25,6 +25,7 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 import ora from 'ora'
+import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
 
@@ -254,7 +255,7 @@ export const getContract = async (
   provider: ethers.providers.JsonRpcProvider,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if ((await hre.getChainId()) !== '31337') {
+  if ((await getChainId(provider)) !== 31337) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const configsWithFileNames: {

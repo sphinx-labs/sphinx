@@ -123,11 +123,15 @@ export const getDeployedBytecode = async (
 
   for (const source of Object.values(buildInfo.output.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
-      if (contractNode.nodeType === 'ContractDefinition') {
+      if (
+        contractNode.nodeType === 'ContractDefinition' &&
+        contractNode.nodes !== undefined
+      ) {
         for (const node of contractNode.nodes) {
           if (
             node.nodeType === 'VariableDeclaration' &&
-            node.mutability === 'immutable'
+            node.mutability === 'immutable' &&
+            Object.keys(immutableReferences).includes(node.id.toString(10))
           ) {
             if (contractConfig.variables[node.name] === undefined) {
               throw new Error(
@@ -294,6 +298,11 @@ export const getConstructorArgNameForImmutableVariable = (
   for (const node of nodes) {
     if (node.kind === 'constructor') {
       for (const statement of node.body.statements) {
+        if (statement.expression.nodeType !== 'Assignment') {
+          throw new Error(
+            `disallowed statement constructor for ${contractName}: ${statement.expression.nodeType}`
+          )
+        }
         if (statement.expression.leftHandSide.name === variableName) {
           if (typeof statement.expression.rightHandSide.name === 'string') {
             return statement.expression.rightHandSide.name

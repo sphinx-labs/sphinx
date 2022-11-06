@@ -14,7 +14,7 @@ import {
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
-import { add0x } from '@eth-optimism/core-utils'
+import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
   makeActionBundleFromConfig,
@@ -858,7 +858,7 @@ task(TASK_NODE)
       runSuper
     ) => {
       if (!args.disable) {
-        if ((await hre.getChainId()) === '31337') {
+        if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
           await deployLocalChugSplash(hre, deployer)
           await deployContracts(hre, args.log, args.hide)
@@ -872,7 +872,7 @@ task(TASK_NODE)
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
   .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
-    if ((await hre.getChainId()) === '31337') {
+    if ((await getChainId(hre.ethers.provider)) === 31337) {
       try {
         const snapshotIdPath = path.join(
           path.basename(hre.config.paths.deployed),
