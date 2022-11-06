@@ -1,5 +1,15 @@
 # @chugsplash/plugins
 
+## 0.5.8
+
+### Patch Changes
+
+- c5e2472: Change getChainId call from hardhat-deploy to eth-optimism
+- 5e74723: Add support for mappings
+- 138f0cd: Small bug fixes for immutable handling
+- Updated dependencies [5e74723]
+  - @chugsplash/core@0.3.8
+
 ## 0.5.7
 
 ### Patch Changes
