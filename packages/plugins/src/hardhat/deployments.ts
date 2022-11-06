@@ -17,6 +17,8 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   parseChugSplashConfig,
+  createDeploymentFolderForNetwork,
+  writeDeploymentArtifact,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -27,7 +29,15 @@ import {
 import ora from 'ora'
 import { getChainId } from '@eth-optimism/core-utils'
 
-import { getContractArtifact } from './artifacts'
+import {
+  getConstructorArgValues,
+  getContractArtifact,
+  generateRuntimeBytecode,
+  getDeployedBytecode,
+  getStorageLayout,
+  getBuildInfo,
+} from './artifacts'
+import { writeHardhatSnapshotId } from './utils'
 
 /**
  * TODO
@@ -248,6 +258,49 @@ export const deployChugSplashConfig = async (
     )
     console.table(deployments)
   }
+
+  if ((await getChainId(hre.ethers.provider)) !== 31337) {
+    spinner.start('Generating artifacts...')
+
+    createDeploymentFolderForNetwork(
+      hre.network.name,
+      hre.config.paths.deployed
+    )
+
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      const { sourceName, contractName, bytecode, abi } = getContractArtifact(
+        contractConfig.contract
+      )
+      const buildInfo = await getBuildInfo(sourceName, contractName)
+      const metadata = JSON.parse(
+        buildInfo.output.contracts[sourceName][contractName].metadata
+      )
+      const { devdoc, userdoc } = metadata.output
+      const artifact = {
+        contractName,
+        address: contractConfig.address,
+        abi,
+        args: await getConstructorArgValues(contractConfig),
+        bytecode,
+        deployedBytecode: await hre.ethers.provider.getCode(
+          contractConfig.address
+        ),
+        devdoc,
+        userdoc,
+        storageLayout: await getStorageLayout(contractConfig.contract),
+      }
+      writeDeploymentArtifact(
+        hre.network.name,
+        hre.config.paths.deployed,
+        artifact,
+        referenceName
+      )
+
+      spinner.succeed('Generated artifacts.')
+    }
+  }
 }
 
 export const getContract = async (
@@ -309,7 +362,7 @@ export const getContract = async (
 
 export const resetChugSplashDeployments = async (hre: any) => {
   const networkFolderName =
-    hre.network.name === 'localhost' ? '31337-localhost' : '31337-hardhat'
+    hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployed),
     networkFolderName,
@@ -322,5 +375,5 @@ export const resetChugSplashDeployments = async (hre: any) => {
   if (!snapshotReverted) {
     throw new Error('Snapshot failed to be reverted.')
   }
-  await writeSnapshotId(hre)
+  await writeHardhatSnapshotId(hre)
 }

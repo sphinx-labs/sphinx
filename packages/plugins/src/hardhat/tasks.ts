@@ -24,7 +24,6 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   loadChugSplashConfig,
-  writeSnapshotId,
   registerChugSplashProject,
   getChugSplashRegistry,
   parseChugSplashConfig,
@@ -36,12 +35,13 @@ import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
-  getDeployedBytecode,
+  generateRuntimeBytecode,
   getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
 import { deployLocalChugSplash } from './predeploys'
+import { writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -93,7 +93,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const deployedBytecode = await getDeployedBytecode(
+        const deployedBytecode = await generateRuntimeBytecode(
           hre.ethers.provider,
           parsed,
           referenceName
@@ -144,7 +144,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
           for (const [contractName, contractOutput] of Object.entries(
             fileOutput
           )) {
-            // const deployedBytecode = await getDeployedBytecode(
+            // const deployedBytecode = await generateRuntimeBytecode(
             //   hre.ethers.provider,
             //   contractConfig
             // )
@@ -862,7 +862,7 @@ task(TASK_NODE)
           const deployer = await hre.ethers.getSigner()
           await deployLocalChugSplash(hre, deployer)
           await deployContracts(hre, args.log, args.hide)
-          await writeSnapshotId(hre)
+          await writeHardhatSnapshotId(hre)
         }
       }
       await runSuper(args)
@@ -876,7 +876,7 @@ task(TASK_TEST)
       try {
         const snapshotIdPath = path.join(
           path.basename(hre.config.paths.deployed),
-          '31337',
+          hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
           '.snapshotId'
         )
         const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -890,7 +890,7 @@ task(TASK_TEST)
         await deployLocalChugSplash(hre, await hre.ethers.getSigner())
         await deployContracts(hre, false, !args.show)
       } finally {
-        await writeSnapshotId(hre)
+        await writeHardhatSnapshotId(hre)
       }
     }
     await runSuper(args)
