@@ -92,7 +92,7 @@ export const getStorageLayout = async (
   return (output as any).storageLayout
 }
 
-export const getDeployedBytecode = async (
+export const generateRuntimeBytecode = async (
   provider: ethers.providers.JsonRpcProvider,
   parsedConfig: ChugSplashConfig,
   referenceName: string
@@ -221,9 +221,17 @@ export const getDeployedBytecode = async (
   return bytecodeDeployedWithConstructorArgs
 }
 
-export const getAbiEncodedConstructorArgs = async (
-  contractConfig: ContractConfig
+export const getDeployedBytecode = async (
+  provider: ethers.providers.JsonRpcProvider,
+  address: string
 ): Promise<string> => {
+  const deployedBytecode = await provider.getCode(address)
+  return deployedBytecode
+}
+
+export const getConstructorArgValues = async (
+  contractConfig: ContractConfig
+): Promise<any[]> => {
   const { sourceName, contractName, abi } = getContractArtifact(
     contractConfig.contract
   )
@@ -234,7 +242,7 @@ export const getAbiEncodedConstructorArgs = async (
     constructorFragment === undefined ||
     constructorFragment.inputs.length === 0
   ) {
-    return ''
+    return []
   }
   const buildInfo = await getBuildInfo(sourceName, contractName)
 
@@ -272,9 +280,7 @@ export const getAbiEncodedConstructorArgs = async (
       ]
     )
   })
-  return remove0x(
-    utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
-  )
+  return constructorArgValues
 }
 
 export const getNestedConstructorArg = (variableName: string, args): string => {
