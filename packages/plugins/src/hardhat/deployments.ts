@@ -7,7 +7,6 @@ import {
   ChugSplashConfig,
   getProxyAddress,
   loadChugSplashConfig,
-  writeSnapshotId,
   isSetImplementationAction,
   fromRawChugSplashAction,
   isEmptyChugSplashConfig,
@@ -19,6 +18,7 @@ import {
   parseChugSplashConfig,
   createDeploymentFolderForNetwork,
   writeDeploymentArtifact,
+  log,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -26,14 +26,11 @@ import {
   EXECUTOR_BOND_AMOUNT,
   ProxyABI,
 } from '@chugsplash/contracts'
-import ora from 'ora'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import {
   getConstructorArgValues,
   getContractArtifact,
-  generateRuntimeBytecode,
-  getDeployedBytecode,
   getStorageLayout,
   getBuildInfo,
 } from './artifacts'
@@ -80,8 +77,7 @@ export const deployChugSplashConfig = async (
   })
   const parsedConfig = parseChugSplashConfig(config)
 
-  const spinner = ora({ isSilent: hide })
-  spinner.start(`Deploying: ${parsedConfig.options.projectName}`)
+  log(`Deploying: ${parsedConfig.options.projectName}`, hide)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -244,8 +240,6 @@ export const deployChugSplashConfig = async (
     }
   }
 
-  spinner.succeed(`Deployed: ${parsedConfig.options.projectName}`)
-
   if (!hide) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
@@ -260,8 +254,6 @@ export const deployChugSplashConfig = async (
   }
 
   if ((await getChainId(hre.ethers.provider)) !== 31337) {
-    spinner.start('Generating artifacts...')
-
     createDeploymentFolderForNetwork(
       hre.network.name,
       hre.config.paths.deployed
@@ -297,10 +289,10 @@ export const deployChugSplashConfig = async (
         artifact,
         referenceName
       )
-
-      spinner.succeed('Generated artifacts.')
     }
   }
+
+  log(`Deployed: ${parsedConfig.options.projectName}`, hide)
 }
 
 export const getContract = async (
