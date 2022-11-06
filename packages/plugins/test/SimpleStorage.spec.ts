@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { BigNumber, Contract, ethers } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 
 describe('SimpleStorage', () => {
   let FirstSimpleStorage: Contract
@@ -85,9 +85,7 @@ describe('SimpleStorage', () => {
 
   it('does set bytes mapping to string', async () => {
     expect(
-      await FirstSimpleStorage.getBytesStringTestMappingValue(
-        ethers.utils.toUtf8Bytes('abcd')
-      )
+      await FirstSimpleStorage.getBytesStringTestMappingValue('0xabcd')
     ).to.equal('test')
   })
 

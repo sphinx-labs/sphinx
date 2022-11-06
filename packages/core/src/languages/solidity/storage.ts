@@ -300,7 +300,7 @@ const encodeVariable = (
       } else if (variableType.key.startsWith('t_bytes')) {
         // bytes do not need to be encoded, but must be converted from the input string
         // pack type can be pulled straight from input type
-        encodedKey = ethers.utils.toUtf8Bytes(key)
+        encodedKey = fromHexString(key)
       }
 
       // key for nested mappings is computed by packing and hashing the key of the child mapping

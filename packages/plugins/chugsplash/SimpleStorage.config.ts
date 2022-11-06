@@ -62,7 +62,7 @@ const config: ChugSplashConfig = {
           '0x1111111111111111111111111111111111111111': 'test',
         },
         bytesStrTest: {
-          abcd: 'test',
+          '0xabcd': 'test',
         },
         nestedMappingTest: {
           test: {
