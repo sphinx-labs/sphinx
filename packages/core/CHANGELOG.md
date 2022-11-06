@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.3.9
+
+### Patch Changes
+
+- 062a439: Add log function that is optionally hidden
+
 ## 0.3.8
 
 ### Patch Changes
