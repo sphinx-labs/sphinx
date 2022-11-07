@@ -7,7 +7,6 @@ import {
   ChugSplashConfig,
   getProxyAddress,
   loadChugSplashConfig,
-  writeSnapshotId,
   isSetImplementationAction,
   fromRawChugSplashAction,
   isEmptyChugSplashConfig,
@@ -19,6 +18,7 @@ import {
   parseChugSplashConfig,
   createDeploymentFolderForNetwork,
   writeDeploymentArtifact,
+  log,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -26,14 +26,11 @@ import {
   EXECUTOR_BOND_AMOUNT,
   ProxyABI,
 } from '@chugsplash/contracts'
-import ora from 'ora'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import {
   getConstructorArgValues,
   getContractArtifact,
-  generateRuntimeBytecode,
-  getDeployedBytecode,
   getStorageLayout,
   getBuildInfo,
 } from './artifacts'
@@ -80,8 +77,7 @@ export const deployChugSplashConfig = async (
   })
   const parsedConfig = parseChugSplashConfig(config)
 
-  const spinner = ora({ isSilent: hide })
-  spinner.start(`Deploying: ${parsedConfig.options.projectName}`)
+  log(`Deploying: ${parsedConfig.options.projectName}`, hide)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -187,16 +183,19 @@ export const deployChugSplashConfig = async (
 
   // If the bundle hasn't already been completed in an earlier call, complete the bundle by
   // executing all the SetImplementation actions in a single transaction.
+  let finalDeploymentTxnHash: string
+  let finalDeploymentReceipt: any
   if (bundleState.status !== ChugSplashBundleStatus.COMPLETED) {
     const setImplActions = bundle.actions.slice(
       firstSetImplementationActionIndex
     )
-    const txn = await ChugSplashManager.completeChugSplashBundle(
+    const finalDeploymentTxn = await ChugSplashManager.completeChugSplashBundle(
       setImplActions.map((action) => action.action),
       setImplActions.map((action) => action.proof.actionIndex),
       setImplActions.map((action) => action.proof.siblings)
     )
-    await txn.wait()
+    finalDeploymentReceipt = await finalDeploymentTxn.wait()
+    finalDeploymentTxnHash = finalDeploymentTxn.hash
   }
 
   // Withdraw all available funds from the ChugSplashManager.
@@ -244,8 +243,6 @@ export const deployChugSplashConfig = async (
     }
   }
 
-  spinner.succeed(`Deployed: ${parsedConfig.options.projectName}`)
-
   if (!hide) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
@@ -260,8 +257,6 @@ export const deployChugSplashConfig = async (
   }
 
   if ((await getChainId(hre.ethers.provider)) !== 31337) {
-    spinner.start('Generating artifacts...')
-
     createDeploymentFolderForNetwork(
       hre.network.name,
       hre.config.paths.deployed
@@ -273,15 +268,20 @@ export const deployChugSplashConfig = async (
       const { sourceName, contractName, bytecode, abi } = getContractArtifact(
         contractConfig.contract
       )
+
       const buildInfo = await getBuildInfo(sourceName, contractName)
-      const metadata = JSON.parse(
+      const metadata =
         buildInfo.output.contracts[sourceName][contractName].metadata
-      )
-      const { devdoc, userdoc } = metadata.output
+      const { devdoc, userdoc } = JSON.parse(metadata).output
       const artifact = {
         contractName,
         address: contractConfig.address,
         abi,
+        transactionHash: finalDeploymentTxnHash,
+        solcInputHash: buildInfo.id,
+        receipt: finalDeploymentReceipt,
+        numDeployments: 1,
+        metadata,
         args: await getConstructorArgValues(contractConfig),
         bytecode,
         deployedBytecode: await hre.ethers.provider.getCode(
@@ -291,16 +291,17 @@ export const deployChugSplashConfig = async (
         userdoc,
         storageLayout: await getStorageLayout(contractConfig.contract),
       }
+
       writeDeploymentArtifact(
         hre.network.name,
         hre.config.paths.deployed,
         artifact,
         referenceName
       )
-
-      spinner.succeed('Generated artifacts.')
     }
   }
+
+  log(`Deployed: ${parsedConfig.options.projectName}`, hide)
 }
 
 export const getContract = async (
