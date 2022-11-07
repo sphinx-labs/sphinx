@@ -29,10 +29,10 @@ import {
 import { getChainId } from '@eth-optimism/core-utils'
 
 import {
-  getConstructorArgValues,
   getContractArtifact,
   getStorageLayout,
   getBuildInfo,
+  getConstructorArgs,
 } from './artifacts'
 import { writeHardhatSnapshotId } from './utils'
 
@@ -273,6 +273,10 @@ export const deployChugSplashConfig = async (
       const metadata =
         buildInfo.output.contracts[sourceName][contractName].metadata
       const { devdoc, userdoc } = JSON.parse(metadata).output
+      const { constructorArgValues } = await getConstructorArgs(
+        parsedConfig,
+        referenceName
+      )
       const artifact = {
         contractName,
         address: contractConfig.address,
@@ -282,7 +286,7 @@ export const deployChugSplashConfig = async (
         receipt: finalDeploymentReceipt,
         numDeployments: 1,
         metadata,
-        args: await getConstructorArgValues(contractConfig),
+        args: constructorArgValues,
         bytecode,
         deployedBytecode: await hre.ethers.provider.getCode(
           contractConfig.address

@@ -35,7 +35,7 @@ import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
-  generateRuntimeBytecode,
+  getCreationCode,
   getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
@@ -93,14 +93,10 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const deployedBytecode = await generateRuntimeBytecode(
-          hre.ethers.provider,
-          parsed,
-          referenceName
-        )
+        const creationCode = await getCreationCode(parsed, referenceName)
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[referenceName] = {
-          deployedBytecode,
+          creationCode,
           storageLayout,
           immutableVariables,
         }
