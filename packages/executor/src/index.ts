@@ -6,7 +6,6 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   EXECUTOR_BOND_AMOUNT,
 } from '@chugsplash/contracts'
-import hre from 'hardhat'
 import { ChugSplashBundleState } from '@chugsplash/core'
 
 import {
