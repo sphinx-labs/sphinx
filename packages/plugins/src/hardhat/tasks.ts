@@ -861,7 +861,7 @@ task(TASK_NODE)
         if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
           await deployLocalChugSplash(hre, deployer)
-          await deployContracts(hre, args.log, args.hide)
+          // await deployContracts(hre, args.log, args.hide)
           await writeSnapshotId(hre)
         }
       }
