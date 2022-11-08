@@ -390,14 +390,29 @@ task(TASK_CHUGSPLASH_PROPOSE)
     }
   )
 
-task(TASK_CHUGSPLASH_EXECUTE)
+subtask(TASK_CHUGSPLASH_EXECUTE)
   .setDescription('Executes an approved bundle.')
-  .addParam('chugSplashManager', 'ChugSplashManager Contract')
-  .addParam('bundleState', 'State of the bundle to be executed')
-  .addParam('bundle', 'The bundle to be executed')
+  .addParam(
+    'chugSplashManager',
+    'ChugSplashManager Contract',
+    undefined,
+    types.any
+  )
+  .addParam(
+    'bundleState',
+    'State of the bundle to be executed',
+    undefined,
+    types.any
+  )
+  .addParam('bundle', 'The bundle to be executed', undefined, types.any)
   .addParam('deployerAddress', 'Address of the user deploying the bundle')
-  .addParam('parsedConfig', 'Parsed ChugSplash configuration')
-  .addParam('deployer', 'Deploying signer')
+  .addParam(
+    'parsedConfig',
+    'Parsed ChugSplash configuration',
+    undefined,
+    types.any
+  )
+  .addParam('deployer', 'Deploying signer', undefined, types.any)
   .addFlag('hide', 'Whether to hide logging or not')
   .setAction(
     async (
