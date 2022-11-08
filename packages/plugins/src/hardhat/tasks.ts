@@ -13,7 +13,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { create } from 'ipfs-http-client'
 import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -45,10 +45,10 @@ import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
-  generateRuntimeBytecode,
   getBuildInfo,
-  getConstructorArgValues,
+  getConstructorArgs,
   getContractArtifact,
+  getCreationCode,
   getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
@@ -107,14 +107,10 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const deployedBytecode = await generateRuntimeBytecode(
-          hre.ethers.provider,
-          parsed,
-          referenceName
-        )
+        const creationCode = await getCreationCode(parsed, referenceName)
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[referenceName] = {
-          deployedBytecode,
+          creationCode,
           storageLayout,
           immutableVariables,
         }
@@ -181,57 +177,57 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (args: {
-      configUri: string
-      ipfsUrl: string
-    }): Promise<CanonicalChugSplashConfig> => {
-      let config: CanonicalChugSplashConfig
-      let ipfs: IPFSHTTPClient
-      if (args.ipfsUrl) {
-        ipfs = create({
-          url: args.ipfsUrl,
-        })
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-      } else {
-        throw new Error(
-          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-        )
-      }
+// subtask(TASK_CHUG`SPLASH_FETCH)
+//   .addParam('configUri', undefined, undefined, types.string)
+//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+//   .setAction(
+//     async (args: {
+//       configUri: string
+//       ipfsUrl: string
+//     }): Promise<CanonicalChugSplashConfig> => {
+//       let config: CanonicalChugSplashConfig
+//       let ipfs: IPFSHTTPClient
+//       if (args.ipfsUrl) {
+//         ipfs = create({
+//           url: args.ipfsUrl,
+//         })
+//       } else if (
+//         process.env.IPFS_PROJECT_ID &&
+//         process.env.IPFS_API_KEY_SECRET
+//       ) {
+//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+//         ipfs = create({
+//           host: 'ipfs.infura.io',
+//           port: 5001,
+//           protocol: 'https',
+//           headers: {
+//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
+//               'base64'
+//             )}`,
+//           },
+//         })
+//       } else {
+//         throw new Error(
+//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+//         )
+//       }
 
-      if (args.configUri.startsWith('ipfs://')) {
-        const decoder = new TextDecoder()
-        let data = ''
-        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-        for await (const chunk of stream) {
-          // Chunks of data are returned as a Uint8Array. Convert it back to a string
-          data += decoder.decode(chunk, { stream: true })
-        }
-        config = JSON.parse(data)
-      } else {
-        throw new Error('unsupported URI type')
-      }
+//       if (args.configUri.startsWith('ipfs://')) {
+//         const decoder = new TextDecoder()
+//         let data = ''
+//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+//         for await (const chunk of stream) {
+//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
+//           data += decoder.decode(chunk, { stream: true })
+//         }
+//         config = JSON.parse(data)
+//       } else {
+//         throw new Error('unsupported URI type')
+//       }
 
-      return config
-    }
-  )
+//       return config
+//     }
+//   )`
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
@@ -472,7 +468,7 @@ task(TASK_CHUGSPLASH_EXECUTE)
         finalDeploymentTxnHash = finalDeploymentTxn.hash
       }
 
-      // Withdraw all available funds from the ChugSplashManager.
+      // Withdraw all available funds from the chugSplashManager.
       const totalDebt = await chugSplashManager.totalDebt()
       const chugsplashManagerBalance = await hre.ethers.provider.getBalance(
         chugSplashManager.address
@@ -487,17 +483,17 @@ task(TASK_CHUGSPLASH_EXECUTE)
 
       // Transfer ownership of the deployments to the project owner.
       for (const referenceName of Object.keys(parsedConfig.contracts)) {
-        // First, check if the Proxy's owner is the ChugSplashManager by getting the latest
+        // First, check if the Proxy's owner is the chugSplashManager by getting the latest
         // `AdminChanged` event on the Proxy.
         const Proxy = new ethers.Contract(
           getProxyAddress(parsedConfig.options.projectName, referenceName),
           new ethers.utils.Interface(ProxyABI),
           deployer
         )
-        const { args: queryArgs } = (
+        const { args: eventArgs } = (
           await Proxy.queryFilter('AdminChanged')
         ).at(-1)
-        if (queryArgs.newAdmin === chugSplashManager.address) {
+        if (eventArgs.newAdmin === chugSplashManager.address) {
           await (
             await chugSplashManager.transferProxyOwnership(
               referenceName,
@@ -523,19 +519,6 @@ task(TASK_CHUGSPLASH_EXECUTE)
         }
       }
 
-      if (!hide) {
-        const deployments = {}
-        Object.entries(parsedConfig.contracts).forEach(
-          ([referenceName, contractConfig], i) =>
-            (deployments[i + 1] = {
-              Reference: referenceName,
-              Contract: contractConfig.contract,
-              Address: contractConfig.address,
-            })
-        )
-        console.table(deployments)
-      }
-
       if ((await getChainId(hre.ethers.provider)) !== 31337) {
         createDeploymentFolderForNetwork(
           hre.network.name,
@@ -545,14 +528,29 @@ task(TASK_CHUGSPLASH_EXECUTE)
         for (const [referenceName, contractConfig] of Object.entries(
           parsedConfig.contracts
         )) {
-          const { sourceName, contractName, bytecode, abi } =
-            getContractArtifact(contractConfig.contract)
+          const artifact = getContractArtifact(contractConfig.contract)
+          const { sourceName, contractName, bytecode, abi } = artifact
 
           const buildInfo = await getBuildInfo(sourceName, contractName)
+          const output = buildInfo.output.contracts[sourceName][contractName]
+          const immutableReferences: {
+            [astId: number]: {
+              length: number
+              start: number
+            }[]
+          } = output.evm.deployedBytecode.immutableReferences
+
           const metadata =
             buildInfo.output.contracts[sourceName][contractName].metadata
           const { devdoc, userdoc } = JSON.parse(metadata).output
-          const artifact = {
+          const { constructorArgValues } = await getConstructorArgs(
+            parsedConfig,
+            referenceName,
+            abi,
+            buildInfo.output.sources,
+            immutableReferences
+          )
+          const deploymentArtifact = {
             contractName,
             address: contractConfig.address,
             abi,
@@ -561,7 +559,7 @@ task(TASK_CHUGSPLASH_EXECUTE)
             receipt: finalDeploymentReceipt,
             numDeployments: 1,
             metadata,
-            args: await getConstructorArgValues(contractConfig),
+            args: constructorArgValues,
             bytecode,
             deployedBytecode: await hre.ethers.provider.getCode(
               contractConfig.address
@@ -574,10 +572,23 @@ task(TASK_CHUGSPLASH_EXECUTE)
           writeDeploymentArtifact(
             hre.network.name,
             hre.config.paths.deployed,
-            artifact,
+            deploymentArtifact,
             referenceName
           )
         }
+      }
+
+      if (!hide) {
+        const deployments = {}
+        Object.entries(parsedConfig.contracts).forEach(
+          ([referenceName, contractConfig], i) =>
+            (deployments[i + 1] = {
+              Reference: referenceName,
+              Contract: contractConfig.contract,
+              Address: contractConfig.address,
+            })
+        )
+        console.table(deployments)
       }
 
       ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, hide)

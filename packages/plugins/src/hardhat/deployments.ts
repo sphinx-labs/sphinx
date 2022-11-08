@@ -75,8 +75,8 @@ export const deployChugSplashConfig = async (
 
   const { bundleId } = await hre.run('chugsplash-commit', {
     deployConfig: configRelativePath,
-    local: true,
-    verbose,
+    local: false,
+    log: verbose,
   })
 
   const ChugSplashManager = new Contract(
@@ -112,7 +112,7 @@ export const deployChugSplashConfig = async (
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
     local: true,
-    verbose,
+    log: verbose,
   })
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
@@ -137,7 +137,7 @@ export const deployChugSplashConfig = async (
   await hre.run('chugsplash-approve', {
     projectName: parsedConfig.options.projectName,
     bundleId,
-    verbose,
+    log: verbose,
   })
 
   // todo call chugsplash-execute if deploying locally
