@@ -784,6 +784,12 @@ subtask(TASK_CHUGSPLASH_COMMIT)
       })
       spinner.succeed('Compiled deploy config')
 
+      let configSourceNames = Object.values(config.contracts)
+        .map((contractConfig) => contractConfig.contract)
+        .map((name) => getContractArtifact(name).sourceName)
+      // Get unique source names for the contracts in the ChugSplash config
+      configSourceNames = Array.from(new Set(configSourceNames))
+
       // We'll need this later
       const buildInfoFolder = path.join(
         hre.config.paths.artifacts,
@@ -801,11 +807,22 @@ subtask(TASK_CHUGSPLASH_COMMIT)
             fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
           )
         })
-        .map((content) => {
+        .filter((buildInfo) => {
+          // Get an array of the source names for the current build info file
+          const inputSourceNames = Object.keys(buildInfo.input.sources)
+          // Get the intersection of source names between the current build info file
+          // and the ChugSplash config file
+          const intersection = configSourceNames.filter((name) =>
+            inputSourceNames.includes(name)
+          )
+          // Keep this build info file if the arrays share at least one source name in common
+          return intersection.length > 0
+        })
+        .map((compilerInput) => {
           return {
-            solcVersion: content.solcVersion,
-            solcLongVersion: content.solcLongVersion,
-            input: content.input,
+            solcVersion: compilerInput.solcVersion,
+            solcLongVersion: compilerInput.solcLongVersion,
+            input: compilerInput.input,
           }
         })
 
