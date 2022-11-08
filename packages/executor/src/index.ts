@@ -74,7 +74,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   async main() {
     // Find all active upgrades that have not yet been started
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
-      this.state.registry.filters.ChugSplashBundleApproved()
+      this.state.registry.filters.EventProposed()
     )
 
     for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
