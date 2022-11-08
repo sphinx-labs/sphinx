@@ -3,10 +3,42 @@
 // solution later and put the compilation function in @chugsplash/core.
 
 import { HardhatUserConfig } from 'hardhat/types'
+import * as dotenv from 'dotenv'
+import '@nomiclabs/hardhat-ethers'
+import '@nomiclabs/hardhat-etherscan'
+
+// Load environment variables from .env
+dotenv.config()
+
+const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
 
 const config: HardhatUserConfig = {
   solidity: {
     version: '0.8.15',
+  },
+  networks: {
+    'optimism-goerli': {
+      chainId: 420,
+      url: `https://optimism-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
+  },
+  etherscan: {
+    apiKey: {
+      optimisticGoerli: process.env.OPT_ETHERSCAN_API_KEY
+        ? process.env.OPT_ETHERSCAN_API_KEY
+        : '',
+    },
+    customChains: [
+      {
+        network: 'optimisticGoerli',
+        chainId: 420,
+        urls: {
+          apiURL: 'https://api-goerli-optimism.etherscan.io/api',
+          browserURL: 'https://goerli-optimism.etherscan.io',
+        },
+      },
+    ],
   },
 }
 

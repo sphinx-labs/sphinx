@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { ethers } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
 import {
@@ -13,7 +13,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { create } from 'ipfs-http-client'
 import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -24,24 +24,37 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   loadChugSplashConfig,
-  writeSnapshotId,
   registerChugSplashProject,
   getChugSplashRegistry,
   parseChugSplashConfig,
+  isSetImplementationAction,
+  fromRawChugSplashAction,
+  getProxyAddress,
+  createDeploymentFolderForNetwork,
+  writeDeploymentArtifact,
+  log as ChugSplashLog,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import {
+  ChugSplashManagerABI,
+  EXECUTOR_BOND_AMOUNT,
+  ProxyABI,
+} from '@chugsplash/contracts'
 import ora from 'ora'
 import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
-  getDeployedBytecode,
+  getBuildInfo,
+  getConstructorArgs,
+  getContractArtifact,
+  getCreationCode,
   getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
 import { deployLocalChugSplash } from './predeploys'
+import { writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -60,6 +73,7 @@ const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
 const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
+const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
 const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
@@ -93,14 +107,10 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const deployedBytecode = await getDeployedBytecode(
-          hre.ethers.provider,
-          parsed,
-          referenceName
-        )
+        const creationCode = await getCreationCode(parsed, referenceName)
         const immutableVariables = await getImmutableVariables(contractConfig)
         artifacts[referenceName] = {
-          deployedBytecode,
+          creationCode,
           storageLayout,
           immutableVariables,
         }
@@ -144,7 +154,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
           for (const [contractName, contractOutput] of Object.entries(
             fileOutput
           )) {
-            // const deployedBytecode = await getDeployedBytecode(
+            // const deployedBytecode = await generateRuntimeBytecode(
             //   hre.ethers.provider,
             //   contractConfig
             // )
@@ -167,57 +177,57 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (args: {
-      configUri: string
-      ipfsUrl: string
-    }): Promise<CanonicalChugSplashConfig> => {
-      let config: CanonicalChugSplashConfig
-      let ipfs: IPFSHTTPClient
-      if (args.ipfsUrl) {
-        ipfs = create({
-          url: args.ipfsUrl,
-        })
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-      } else {
-        throw new Error(
-          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-        )
-      }
+// subtask(TASK_CHUG`SPLASH_FETCH)
+//   .addParam('configUri', undefined, undefined, types.string)
+//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+//   .setAction(
+//     async (args: {
+//       configUri: string
+//       ipfsUrl: string
+//     }): Promise<CanonicalChugSplashConfig> => {
+//       let config: CanonicalChugSplashConfig
+//       let ipfs: IPFSHTTPClient
+//       if (args.ipfsUrl) {
+//         ipfs = create({
+//           url: args.ipfsUrl,
+//         })
+//       } else if (
+//         process.env.IPFS_PROJECT_ID &&
+//         process.env.IPFS_API_KEY_SECRET
+//       ) {
+//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+//         ipfs = create({
+//           host: 'ipfs.infura.io',
+//           port: 5001,
+//           protocol: 'https',
+//           headers: {
+//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
+//               'base64'
+//             )}`,
+//           },
+//         })
+//       } else {
+//         throw new Error(
+//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+//         )
+//       }
 
-      if (args.configUri.startsWith('ipfs://')) {
-        const decoder = new TextDecoder()
-        let data = ''
-        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-        for await (const chunk of stream) {
-          // Chunks of data are returned as a Uint8Array. Convert it back to a string
-          data += decoder.decode(chunk, { stream: true })
-        }
-        config = JSON.parse(data)
-      } else {
-        throw new Error('unsupported URI type')
-      }
+//       if (args.configUri.startsWith('ipfs://')) {
+//         const decoder = new TextDecoder()
+//         let data = ''
+//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+//         for await (const chunk of stream) {
+//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
+//           data += decoder.decode(chunk, { stream: true })
+//         }
+//         config = JSON.parse(data)
+//       } else {
+//         throw new Error('unsupported URI type')
+//       }
 
-      return config
-    }
-  )
+//       return config
+//     }
+//   )`
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
@@ -377,6 +387,211 @@ task(TASK_CHUGSPLASH_PROPOSE)
         spinner.fail('Bundle is currently active.')
       }
       return { bundle, configUri, bundleId }
+    }
+  )
+
+task(TASK_CHUGSPLASH_EXECUTE)
+  .setDescription('Executes an approved bundle.')
+  .addParam('chugSplashManager', 'ChugSplashManager Contract')
+  .addParam('bundleState', 'State of the bundle to be executed')
+  .addParam('bundle', 'The bundle to be executed')
+  .addParam('deployerAddress', 'Address of the user deploying the bundle')
+  .addParam('parsedConfig', 'Parsed ChugSplash configuration')
+  .addParam('deployer', 'Deploying signer')
+  .addFlag('hide', 'Whether to hide logging or not')
+  .setAction(
+    async (
+      args: {
+        chugSplashManager: Contract
+        bundleState: ChugSplashBundleState
+        bundle: any // todo - figure out a type for this
+        deployerAddress: any // todo - figure out a type for this
+        parsedConfig: ChugSplashConfig
+        deployer: any // todo - figure out a type for this
+        hide: boolean
+      },
+      hre: any
+    ) => {
+      const {
+        chugSplashManager,
+        bundleState,
+        bundle,
+        deployerAddress,
+        parsedConfig,
+        deployer,
+        hide,
+      } = args
+
+      if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+        const tx = await chugSplashManager.claimBundle({
+          value: EXECUTOR_BOND_AMOUNT,
+        })
+        await tx.wait()
+      }
+
+      // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
+      // the SetImplementation actions have already been sorted so that they are at the end of the
+      // actions array.
+      const firstSetImplementationActionIndex = bundle.actions.findIndex(
+        (action) =>
+          isSetImplementationAction(fromRawChugSplashAction(action.action))
+      )
+      for (
+        let i = bundleState.actionsExecuted;
+        i < firstSetImplementationActionIndex;
+        i++
+      ) {
+        const action = bundle.actions[i]
+        const tx = await chugSplashManager.executeChugSplashAction(
+          action.action,
+          action.proof.actionIndex,
+          action.proof.siblings
+        )
+        await tx.wait()
+      }
+
+      // If the bundle hasn't already been completed in an earlier call, complete the bundle by
+      // executing all the SetImplementation actions in a single transaction.
+      let finalDeploymentTxnHash: string
+      let finalDeploymentReceipt: any
+      if (bundleState.status !== ChugSplashBundleStatus.COMPLETED) {
+        const setImplActions = bundle.actions.slice(
+          firstSetImplementationActionIndex
+        )
+        const finalDeploymentTxn =
+          await chugSplashManager.completeChugSplashBundle(
+            setImplActions.map((action) => action.action),
+            setImplActions.map((action) => action.proof.actionIndex),
+            setImplActions.map((action) => action.proof.siblings)
+          )
+        finalDeploymentReceipt = await finalDeploymentTxn.wait()
+        finalDeploymentTxnHash = finalDeploymentTxn.hash
+      }
+
+      // Withdraw all available funds from the chugSplashManager.
+      const totalDebt = await chugSplashManager.totalDebt()
+      const chugsplashManagerBalance = await hre.ethers.provider.getBalance(
+        chugSplashManager.address
+      )
+      if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
+        await (await chugSplashManager.withdrawOwnerETH()).wait()
+      }
+      const deployerDebt = await chugSplashManager.debt(deployerAddress)
+      if (deployerDebt.gt(0)) {
+        await (await chugSplashManager.claimExecutorPayment()).wait()
+      }
+
+      // Transfer ownership of the deployments to the project owner.
+      for (const referenceName of Object.keys(parsedConfig.contracts)) {
+        // First, check if the Proxy's owner is the chugSplashManager by getting the latest
+        // `AdminChanged` event on the Proxy.
+        const Proxy = new ethers.Contract(
+          getProxyAddress(parsedConfig.options.projectName, referenceName),
+          new ethers.utils.Interface(ProxyABI),
+          deployer
+        )
+        const { args: eventArgs } = (
+          await Proxy.queryFilter('AdminChanged')
+        ).at(-1)
+        if (eventArgs.newAdmin === chugSplashManager.address) {
+          await (
+            await chugSplashManager.transferProxyOwnership(
+              referenceName,
+              parsedConfig.options.projectOwner
+            )
+          ).wait()
+        }
+      }
+
+      if (
+        parsedConfig.options.projectOwner !== (await chugSplashManager.owner())
+      ) {
+        if (
+          parsedConfig.options.projectOwner === ethers.constants.AddressZero
+        ) {
+          await (await chugSplashManager.renounceOwnership()).wait()
+        } else {
+          await (
+            await chugSplashManager.transferOwnership(
+              parsedConfig.options.projectOwner
+            )
+          ).wait()
+        }
+      }
+
+      if ((await getChainId(hre.ethers.provider)) !== 31337) {
+        createDeploymentFolderForNetwork(
+          hre.network.name,
+          hre.config.paths.deployed
+        )
+
+        for (const [referenceName, contractConfig] of Object.entries(
+          parsedConfig.contracts
+        )) {
+          const artifact = getContractArtifact(contractConfig.contract)
+          const { sourceName, contractName, bytecode, abi } = artifact
+
+          const buildInfo = await getBuildInfo(sourceName, contractName)
+          const output = buildInfo.output.contracts[sourceName][contractName]
+          const immutableReferences: {
+            [astId: number]: {
+              length: number
+              start: number
+            }[]
+          } = output.evm.deployedBytecode.immutableReferences
+
+          const metadata =
+            buildInfo.output.contracts[sourceName][contractName].metadata
+          const { devdoc, userdoc } = JSON.parse(metadata).output
+          const { constructorArgValues } = await getConstructorArgs(
+            parsedConfig,
+            referenceName,
+            abi,
+            buildInfo.output.sources,
+            immutableReferences
+          )
+          const deploymentArtifact = {
+            contractName,
+            address: contractConfig.address,
+            abi,
+            transactionHash: finalDeploymentTxnHash,
+            solcInputHash: buildInfo.id,
+            receipt: finalDeploymentReceipt,
+            numDeployments: 1,
+            metadata,
+            args: constructorArgValues,
+            bytecode,
+            deployedBytecode: await hre.ethers.provider.getCode(
+              contractConfig.address
+            ),
+            devdoc,
+            userdoc,
+            storageLayout: await getStorageLayout(contractConfig.contract),
+          }
+
+          writeDeploymentArtifact(
+            hre.network.name,
+            hre.config.paths.deployed,
+            deploymentArtifact,
+            referenceName
+          )
+        }
+      }
+
+      if (!hide) {
+        const deployments = {}
+        Object.entries(parsedConfig.contracts).forEach(
+          ([referenceName, contractConfig], i) =>
+            (deployments[i + 1] = {
+              Reference: referenceName,
+              Contract: contractConfig.contract,
+              Address: contractConfig.address,
+            })
+        )
+        console.table(deployments)
+      }
+
+      ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, hide)
     }
   )
 
@@ -862,7 +1077,7 @@ task(TASK_NODE)
           const deployer = await hre.ethers.getSigner()
           await deployLocalChugSplash(hre, deployer)
           // await deployContracts(hre, args.log, args.hide)
-          await writeSnapshotId(hre)
+          await writeHardhatSnapshotId(hre)
         }
       }
       await runSuper(args)
@@ -876,7 +1091,7 @@ task(TASK_TEST)
       try {
         const snapshotIdPath = path.join(
           path.basename(hre.config.paths.deployed),
-          '31337',
+          hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
           '.snapshotId'
         )
         const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -890,7 +1105,7 @@ task(TASK_TEST)
         await deployLocalChugSplash(hre, await hre.ethers.getSigner())
         await deployContracts(hre, false, !args.show)
       } finally {
-        await writeSnapshotId(hre)
+        await writeHardhatSnapshotId(hre)
       }
     }
     await runSuper(args)

@@ -1,3 +1,4 @@
+import hre from 'hardhat'
 import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
@@ -117,7 +118,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       }
 
       const proposalEvent = proposalEvents[0]
-      const bundle = await compileRemoteBundle(proposalEvent.args.configUri)
+      const bundle = await compileRemoteBundle(
+        hre,
+        proposalEvent.args.configUri
+      )
       if (bundle.root !== proposalEvent.args.bundleRoot) {
         // TODO: throw an error here or skip
       }
