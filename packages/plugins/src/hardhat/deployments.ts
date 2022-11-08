@@ -89,8 +89,8 @@ export const deployChugSplashConfig = async (
 
   const { bundleId } = await hre.run('chugsplash-commit', {
     deployConfig: configRelativePath,
-    local: true,
-    verbose,
+    local: false,
+    log: verbose,
   })
 
   const ChugSplashManager = new Contract(
@@ -126,7 +126,7 @@ export const deployChugSplashConfig = async (
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
     local: true,
-    verbose,
+    log: verbose,
   })
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
@@ -151,7 +151,7 @@ export const deployChugSplashConfig = async (
   await hre.run('chugsplash-approve', {
     projectName: parsedConfig.options.projectName,
     bundleId,
-    verbose,
+    log: verbose,
   })
 
   if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
@@ -243,19 +243,6 @@ export const deployChugSplashConfig = async (
     }
   }
 
-  if (!hide) {
-    const deployments = {}
-    Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) =>
-        (deployments[i + 1] = {
-          Reference: referenceName,
-          Contract: contractConfig.contract,
-          Address: contractConfig.address,
-        })
-    )
-    console.table(deployments)
-  }
-
   if ((await getChainId(hre.ethers.provider)) !== 31337) {
     createDeploymentFolderForNetwork(
       hre.network.name,
@@ -265,19 +252,29 @@ export const deployChugSplashConfig = async (
     for (const [referenceName, contractConfig] of Object.entries(
       parsedConfig.contracts
     )) {
-      const { sourceName, contractName, bytecode, abi } = getContractArtifact(
-        contractConfig.contract
-      )
+      const artifact = getContractArtifact(contractConfig.contract)
+      const { sourceName, contractName, bytecode, abi } = artifact
 
       const buildInfo = await getBuildInfo(sourceName, contractName)
+      const output = buildInfo.output.contracts[sourceName][contractName]
+      const immutableReferences: {
+        [astId: number]: {
+          length: number
+          start: number
+        }[]
+      } = output.evm.deployedBytecode.immutableReferences
+
       const metadata =
         buildInfo.output.contracts[sourceName][contractName].metadata
       const { devdoc, userdoc } = JSON.parse(metadata).output
       const { constructorArgValues } = await getConstructorArgs(
         parsedConfig,
-        referenceName
+        referenceName,
+        abi,
+        buildInfo.output.sources,
+        immutableReferences
       )
-      const artifact = {
+      const deploymentArtifact = {
         contractName,
         address: contractConfig.address,
         abi,
@@ -299,10 +296,23 @@ export const deployChugSplashConfig = async (
       writeDeploymentArtifact(
         hre.network.name,
         hre.config.paths.deployed,
-        artifact,
+        deploymentArtifact,
         referenceName
       )
     }
+  }
+
+  if (!hide) {
+    const deployments = {}
+    Object.entries(parsedConfig.contracts).forEach(
+      ([referenceName, contractConfig], i) =>
+        (deployments[i + 1] = {
+          Reference: referenceName,
+          Contract: contractConfig.contract,
+          Address: contractConfig.address,
+        })
+    )
+    console.table(deployments)
   }
 
   log(`Deployed: ${parsedConfig.options.projectName}`, hide)

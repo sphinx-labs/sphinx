@@ -13,7 +13,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { create } from 'ipfs-http-client'
 import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -163,57 +163,57 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (args: {
-      configUri: string
-      ipfsUrl: string
-    }): Promise<CanonicalChugSplashConfig> => {
-      let config: CanonicalChugSplashConfig
-      let ipfs: IPFSHTTPClient
-      if (args.ipfsUrl) {
-        ipfs = create({
-          url: args.ipfsUrl,
-        })
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-      } else {
-        throw new Error(
-          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-        )
-      }
+// subtask(TASK_CHUG`SPLASH_FETCH)
+//   .addParam('configUri', undefined, undefined, types.string)
+//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+//   .setAction(
+//     async (args: {
+//       configUri: string
+//       ipfsUrl: string
+//     }): Promise<CanonicalChugSplashConfig> => {
+//       let config: CanonicalChugSplashConfig
+//       let ipfs: IPFSHTTPClient
+//       if (args.ipfsUrl) {
+//         ipfs = create({
+//           url: args.ipfsUrl,
+//         })
+//       } else if (
+//         process.env.IPFS_PROJECT_ID &&
+//         process.env.IPFS_API_KEY_SECRET
+//       ) {
+//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+//         ipfs = create({
+//           host: 'ipfs.infura.io',
+//           port: 5001,
+//           protocol: 'https',
+//           headers: {
+//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
+//               'base64'
+//             )}`,
+//           },
+//         })
+//       } else {
+//         throw new Error(
+//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+//         )
+//       }
 
-      if (args.configUri.startsWith('ipfs://')) {
-        const decoder = new TextDecoder()
-        let data = ''
-        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-        for await (const chunk of stream) {
-          // Chunks of data are returned as a Uint8Array. Convert it back to a string
-          data += decoder.decode(chunk, { stream: true })
-        }
-        config = JSON.parse(data)
-      } else {
-        throw new Error('unsupported URI type')
-      }
+//       if (args.configUri.startsWith('ipfs://')) {
+//         const decoder = new TextDecoder()
+//         let data = ''
+//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+//         for await (const chunk of stream) {
+//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
+//           data += decoder.decode(chunk, { stream: true })
+//         }
+//         config = JSON.parse(data)
+//       } else {
+//         throw new Error('unsupported URI type')
+//       }
 
-      return config
-    }
-  )
+//       return config
+//     }
+//   )`
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")

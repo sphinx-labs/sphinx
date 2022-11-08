@@ -1,4 +1,4 @@
-import hre from 'hardhat'
+import * as dotenv from 'dotenv'
 import { SolcBuild } from 'hardhat/types'
 import {
   TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
@@ -11,30 +11,36 @@ import {
   ChugSplashActionBundle,
   makeActionBundleFromConfig,
 } from '@chugsplash/core'
+import { create } from 'ipfs-http-client'
+import { ContractArtifact } from '@chugsplash/plugins'
+
+// Load environment variables from .env
+dotenv.config()
 
 /**
  * Compiles a remote ChugSplashBundle from a uri.
  *
- * @param uri URI of the ChugSplashBundle to compile.
+ * @param configUri URI of the ChugSplashBundle to compile.
  * @param provider JSON RPC provider.
  * @returns Compiled ChugSplashBundle.
  */
 export const compileRemoteBundle = async (
-  uri: string
+  hre: any,
+  configUri: string
 ): Promise<ChugSplashActionBundle> => {
-  let config: CanonicalChugSplashConfig
-  if (uri.startsWith('ipfs://')) {
-    config = await (
-      await fetch(
-        `https://cloudflare-ipfs.com/ipfs/${uri.replace('ipfs://', '')}`
-      )
-    ).json()
-  } else {
-    throw new Error('unsupported URI type')
-  }
+  const canonicalConfig = await fetchChugSplashConfig(configUri)
+  const artifacts = await getArtifactsFromCanonicalConfig(hre, canonicalConfig)
+  return makeActionBundleFromConfig(canonicalConfig, artifacts, {})
+}
 
+export const getArtifactsFromCanonicalConfig = async (
+  hre: any,
+  canonicalConfig: CanonicalChugSplashConfig
+): Promise<{
+  [contractName: string]: ContractArtifact
+}> => {
   const artifacts = {}
-  for (const source of config.inputs) {
+  for (const source of canonicalConfig.inputs) {
     const solcBuild: SolcBuild = await hre.run(
       TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
       {
@@ -56,15 +62,53 @@ export const compileRemoteBundle = async (
       })
     }
 
-    for (const fileOutput of Object.values(output.contracts)) {
+    for (const [sourceName, fileOutput] of Object.entries(output.contracts)) {
       for (const [contractName, contractOutput] of Object.entries(fileOutput)) {
         artifacts[contractName] = {
           bytecode: add0x(contractOutput.evm.bytecode.object),
           storageLayout: contractOutput.storageLayout,
+          contractName,
+          sourceName,
+          abi: contractOutput.abi,
+          sources: output.sources,
+          immutableReferences:
+            output.contracts[sourceName][contractName].evm.deployedBytecode
+              .immutableReferences,
         }
       }
     }
   }
+  return artifacts
+}
 
-  return makeActionBundleFromConfig(config, artifacts, {})
+// TODO: change file name or add another file
+export const fetchChugSplashConfig = async (
+  configUri: string
+): Promise<CanonicalChugSplashConfig> => {
+  const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+  const ipfs = create({
+    host: 'ipfs.infura.io',
+    port: 5001,
+    protocol: 'https',
+    headers: {
+      authorization: `Basic ${Buffer.from(projectCredentials).toString(
+        'base64'
+      )}`,
+    },
+  })
+
+  let config: CanonicalChugSplashConfig
+  if (configUri.startsWith('ipfs://')) {
+    const decoder = new TextDecoder()
+    let data = ''
+    const stream = await ipfs.cat(configUri.replace('ipfs://', ''))
+    for await (const chunk of stream) {
+      // Chunks of data are returned as a Uint8Array. Convert it back to a string
+      data += decoder.decode(chunk, { stream: true })
+    }
+    config = JSON.parse(data)
+  } else {
+    throw new Error('unsupported URI type')
+  }
+  return config
 }
