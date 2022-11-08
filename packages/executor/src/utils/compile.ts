@@ -9,7 +9,6 @@ import { add0x } from '@eth-optimism/core-utils'
 import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
-  makeActionBundleFromConfig,
 } from '@chugsplash/core'
 import { create } from 'ipfs-http-client'
 import { ContractArtifact } from '@chugsplash/plugins'
@@ -27,10 +26,15 @@ dotenv.config()
 export const compileRemoteBundle = async (
   hre: any,
   configUri: string
-): Promise<ChugSplashActionBundle> => {
+): Promise<{
+  bundle: ChugSplashActionBundle
+  canonicalConfig: CanonicalChugSplashConfig
+}> => {
   const canonicalConfig = await fetchChugSplashConfig(configUri)
-  const artifacts = await getArtifactsFromCanonicalConfig(hre, canonicalConfig)
-  return makeActionBundleFromConfig(canonicalConfig, artifacts, {})
+  const bundle = await hre.run('chugsplash-bundle-remote', {
+    deployConfig: canonicalConfig,
+  })
+  return { bundle, canonicalConfig }
 }
 
 export const getArtifactsFromCanonicalConfig = async (
