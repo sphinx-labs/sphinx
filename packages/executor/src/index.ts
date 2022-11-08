@@ -77,8 +77,6 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.state.registry.filters.ChugSplashBundleApproved()
     )
 
-    console.log(approvalAnnouncementEvents)
-
     for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
       const signer = this.state.wallet
       const manager = new ethers.Contract(
@@ -117,13 +115,24 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       }
 
       const proposalEvent = proposalEvents[0]
-      const bundle = await compileRemoteBundle(
+      const { bundle, canonicalConfig } = await compileRemoteBundle(
         hre,
         proposalEvent.args.configUri
       )
       if (bundle.root !== proposalEvent.args.bundleRoot) {
         // TODO: throw an error here or skip
       }
+
+      // todo call chugsplash-execute if deploying locally
+      await hre.run('chugsplash-execute', {
+        chugSplashManager: manager,
+        bundleState,
+        bundle,
+        deployerAddress: signer.getAddress(),
+        parsedConfig: canonicalConfig,
+        deployer: signer,
+        hide: true,
+      })
     }
   }
 }

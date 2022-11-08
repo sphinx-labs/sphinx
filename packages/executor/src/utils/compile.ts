@@ -27,10 +27,18 @@ dotenv.config()
 export const compileRemoteBundle = async (
   hre: any,
   configUri: string
-): Promise<ChugSplashActionBundle> => {
+): Promise<{
+  bundle: ChugSplashActionBundle
+  canonicalConfig: CanonicalChugSplashConfig
+}> => {
   const canonicalConfig = await fetchChugSplashConfig(configUri)
   const artifacts = await getArtifactsFromCanonicalConfig(hre, canonicalConfig)
-  return makeActionBundleFromConfig(canonicalConfig, artifacts, {})
+  const bundle = await makeActionBundleFromConfig(
+    canonicalConfig,
+    artifacts,
+    {}
+  )
+  return { bundle, canonicalConfig }
 }
 
 export const getArtifactsFromCanonicalConfig = async (
