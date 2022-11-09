@@ -35,11 +35,11 @@ export const deployContracts = async (
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployChugSplashConfig(hre, fileName, verbose, hide)
+    await deployConfig(hre, fileName, verbose, hide)
   }
 }
 
-export const deployChugSplashConfig = async (
+export const deployConfig = async (
   hre: any,
   fileName: string,
   verbose: boolean,
@@ -111,7 +111,7 @@ export const deployChugSplashConfig = async (
 
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
-    local: true,
+    local: false,
     log: verbose,
   })
 

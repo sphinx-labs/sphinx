@@ -22,11 +22,19 @@ const config: HardhatUserConfig = {
       url: `https://optimism-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
+    goerli: {
+      chainId: 5,
+      url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
   },
   etherscan: {
     apiKey: {
       optimisticGoerli: process.env.OPT_ETHERSCAN_API_KEY
         ? process.env.OPT_ETHERSCAN_API_KEY
+        : '',
+      goerli: process.env.ETH_ETHERSCAN_API_KEY
+        ? process.env.ETH_ETHERSCAN_API_KEY
         : '',
     },
     customChains: [

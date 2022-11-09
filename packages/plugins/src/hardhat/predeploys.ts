@@ -9,8 +9,6 @@ import {
   EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  PROXY_UPDATER_ADDRESS,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   ChugSplashManagerABI,
@@ -20,15 +18,16 @@ import {
   ChugSplashBootLoaderABI,
   ChugSplashBootLoaderArtifact,
   DEFAULT_ADAPTER_ADDRESS,
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/contracts'
 
-export const deployLocalChugSplash = async (
+export const deployChugSplashContracts = async (
   hre: HardhatRuntimeEnvironment,
   deployer: ethers.Signer
 ): Promise<void> => {
   const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
 
-  // Deploy the ChugSplashManager.
+  // Deploy the root ChugSplashManager.
   const ChugSplashManager = await doDeterministicDeploy(hre, {
     signer: deployer,
     contract: {
@@ -36,16 +35,7 @@ export const deployLocalChugSplash = async (
       bytecode: ChugSplashManagerArtifact.bytecode,
     },
     salt: ethers.constants.HashZero,
-    args: [
-      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-      'Root Manager',
-      owner,
-      PROXY_UPDATER_ADDRESS,
-      EXECUTOR_BOND_AMOUNT,
-      EXECUTION_LOCK_TIME,
-      OWNER_BOND_AMOUNT,
-      EXECUTOR_PAYMENT_PERCENTAGE,
-    ],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ChugSplashManagerArtifact.sourceName],
   })
 
   // Deploy the ChugSplashBootLoader.

@@ -13,7 +13,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create } from 'ipfs-http-client'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -53,7 +53,7 @@ import {
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
-import { deployLocalChugSplash } from './predeploys'
+import { deployChugSplashContracts } from './predeploys'
 import { writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
@@ -177,57 +177,57 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-// subtask(TASK_CHUG`SPLASH_FETCH)
-//   .addParam('configUri', undefined, undefined, types.string)
-//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-//   .setAction(
-//     async (args: {
-//       configUri: string
-//       ipfsUrl: string
-//     }): Promise<CanonicalChugSplashConfig> => {
-//       let config: CanonicalChugSplashConfig
-//       let ipfs: IPFSHTTPClient
-//       if (args.ipfsUrl) {
-//         ipfs = create({
-//           url: args.ipfsUrl,
-//         })
-//       } else if (
-//         process.env.IPFS_PROJECT_ID &&
-//         process.env.IPFS_API_KEY_SECRET
-//       ) {
-//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-//         ipfs = create({
-//           host: 'ipfs.infura.io',
-//           port: 5001,
-//           protocol: 'https',
-//           headers: {
-//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
-//               'base64'
-//             )}`,
-//           },
-//         })
-//       } else {
-//         throw new Error(
-//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-//         )
-//       }
+subtask(TASK_CHUGSPLASH_FETCH)
+  .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(
+    async (args: {
+      configUri: string
+      ipfsUrl: string
+    }): Promise<CanonicalChugSplashConfig> => {
+      let config: CanonicalChugSplashConfig
+      let ipfs: IPFSHTTPClient
+      if (args.ipfsUrl) {
+        ipfs = create({
+          url: args.ipfsUrl,
+        })
+      } else if (
+        process.env.IPFS_PROJECT_ID &&
+        process.env.IPFS_API_KEY_SECRET
+      ) {
+        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+        ipfs = create({
+          host: 'ipfs.infura.io',
+          port: 5001,
+          protocol: 'https',
+          headers: {
+            authorization: `Basic ${Buffer.from(projectCredentials).toString(
+              'base64'
+            )}`,
+          },
+        })
+      } else {
+        throw new Error(
+          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+        )
+      }
 
-//       if (args.configUri.startsWith('ipfs://')) {
-//         const decoder = new TextDecoder()
-//         let data = ''
-//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-//         for await (const chunk of stream) {
-//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
-//           data += decoder.decode(chunk, { stream: true })
-//         }
-//         config = JSON.parse(data)
-//       } else {
-//         throw new Error('unsupported URI type')
-//       }
+      if (args.configUri.startsWith('ipfs://')) {
+        const decoder = new TextDecoder()
+        let data = ''
+        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+        for await (const chunk of stream) {
+          // Chunks of data are returned as a Uint8Array. Convert it back to a string
+          data += decoder.decode(chunk, { stream: true })
+        }
+        config = JSON.parse(data)
+      } else {
+        throw new Error('unsupported URI type')
+      }
 
-//       return config
-//     }
-//   )`
+      return config
+    }
+  )
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
@@ -241,7 +241,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      await deployLocalChugSplash(hre, signer)
+      await deployChugSplashContracts(hre, signer)
       await deployContracts(hre, args.log, args.hide)
     }
   )
@@ -1107,7 +1107,7 @@ task(TASK_NODE)
       if (!args.disable) {
         if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
-          await deployLocalChugSplash(hre, deployer)
+          await deployChugSplashContracts(hre, deployer)
           await deployContracts(hre, args.log, args.hide)
           await writeHardhatSnapshotId(hre)
         }
@@ -1134,7 +1134,7 @@ task(TASK_TEST)
           throw new Error('Snapshot failed to be reverted.')
         }
       } catch {
-        await deployLocalChugSplash(hre, await hre.ethers.getSigner())
+        await deployChugSplashContracts(hre, await hre.ethers.getSigner())
         await deployContracts(hre, false, !args.show)
       } finally {
         await writeHardhatSnapshotId(hre)
