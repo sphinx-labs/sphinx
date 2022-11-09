@@ -3,6 +3,7 @@ import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
   ChugSplashManagerABI,
+  ChugSplashRegistryABI,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   EXECUTOR_BOND_AMOUNT,
 } from '@chugsplash/contracts'
@@ -15,7 +16,7 @@ import {
 
 type Options = {
   // registry: string
-  rpc: string
+  network: string
   // key: string
 }
 
@@ -44,8 +45,8 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         //   desc: 'address of the ChugSplashRegistry contract',
         //   validator: validators.str,
         // },
-        rpc: {
-          desc: 'rpc for the chain to run the executor on',
+        network: {
+          desc: 'network for the chain to run the executor on',
           validator: validators.str,
           default: 'http://localhost:8545',
         },
@@ -60,21 +61,21 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
   async init() {
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    const provider = ethers.getDefaultProvider(this.options.rpc)
+    console.log(reg)
+    const provider = ethers.getDefaultProvider(this.options.network)
     this.state.registry = new ethers.Contract(
       reg,
-      ChugSplashManagerABI,
+      ChugSplashRegistryABI,
       provider
     )
-    // this.state.wallet = new ethers.Wallet(this.options.key, provider)
-    const runtime = hre as any
-    this.state.wallet = runtime.ethers.provider.getSigner()
+
+    this.state.wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider)
   }
 
   async main() {
     // Find all active upgrades that have not yet been started
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
-      this.state.registry.filters.EventAnnounced()
+      this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved')
     )
 
     for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
@@ -86,17 +87,30 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       )
 
       const activeBundleId = await manager.activeBundleId()
+      if (
+        activeBundleId ===
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
+      ) {
+        console.log('no active bundle')
+        continue
+      }
+      console.log(activeBundleId)
 
       const bundleState: ChugSplashBundleState = await manager.bundles(
         activeBundleId
       )
 
+      console.log(bundleState)
+
       // TODO: Add this to the ChugSplashManager contract
       const selectedExecutor = await manager.getSelectedExecutor(activeBundleId)
+      console.log(selectedExecutor)
       if (selectedExecutor !== ethers.constants.AddressZero) {
         // Someone else has been selected to execute the upgrade, so we can skip it.
         continue
       }
+
+      console.log('claiming')
 
       // claim bundle
       if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
@@ -106,14 +120,18 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         await tx.wait()
       }
 
+      console.log('getting proposal events')
+
       const proposalEvents = await manager.queryFilter(
         manager.filters.ChugSplashBundleProposed(activeBundleId)
       )
 
+      console.log(proposalEvents)
       if (proposalEvents.length !== 1) {
         // TODO: throw an error here or skip
       }
 
+      console.log('getting bundle')
       const proposalEvent = proposalEvents[0]
       const { bundle, canonicalConfig } = await compileRemoteBundle(
         hre,
@@ -123,6 +141,9 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         // TODO: throw an error here or skip
       }
 
+      console.log(bundle)
+
+      console.log('executing')
       // todo call chugsplash-execute if deploying locally
       await hre.run('chugsplash-execute', {
         chugSplashManager: manager,

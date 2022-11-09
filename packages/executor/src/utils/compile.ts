@@ -12,7 +12,7 @@ import {
   makeActionBundleFromConfig,
 } from '@chugsplash/core'
 import { create } from 'ipfs-http-client'
-import { ContractArtifact } from '@chugsplash/plugins'
+import { ContractArtifact, getCreationCode } from '@chugsplash/plugins'
 
 // Load environment variables from .env
 dotenv.config()
@@ -33,6 +33,9 @@ export const compileRemoteBundle = async (
 }> => {
   const canonicalConfig = await fetchChugSplashConfig(configUri)
   const artifacts = await getArtifactsFromCanonicalConfig(hre, canonicalConfig)
+  console.log('config')
+  console.log(canonicalConfig)
+  console.log(artifacts)
   const bundle = await makeActionBundleFromConfig(
     canonicalConfig,
     artifacts,
@@ -72,8 +75,12 @@ export const getArtifactsFromCanonicalConfig = async (
 
     for (const [sourceName, fileOutput] of Object.entries(output.contracts)) {
       for (const [contractName, contractOutput] of Object.entries(fileOutput)) {
+        console.log(sourceName)
+        console.log(canonicalConfig)
+        // const creationCode = await getCreationCode(canonicalConfig, sourceName)
         artifacts[contractName] = {
           bytecode: add0x(contractOutput.evm.bytecode.object),
+          // creationCode,
           storageLayout: contractOutput.storageLayout,
           contractName,
           sourceName,

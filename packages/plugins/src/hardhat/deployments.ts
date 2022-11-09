@@ -141,15 +141,15 @@ export const deployChugSplashConfig = async (
   })
 
   // todo call chugsplash-execute if deploying locally
-  await hre.run('chugsplash-execute', {
-    chugSplashManager: ChugSplashManager,
-    bundleState,
-    bundle,
-    deployerAddress,
-    parsedConfig,
-    deployer,
-    hide,
-  })
+  // await hre.run('chugsplash-execute', {
+  //   chugSplashManager: ChugSplashManager,
+  //   bundleState,
+  //   bundle,
+  //   deployerAddress,
+  //   parsedConfig,
+  //   deployer,
+  //   hide,
+  // })
 }
 
 export const getContract = async (

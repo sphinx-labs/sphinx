@@ -840,9 +840,10 @@ subtask(TASK_CHUGSPLASH_COMMIT)
       }
 
       let ipfsHash
-      if (args.local) {
-        ipfsHash = await Hash.of(ipfsData)
-      } else if (args.ipfsUrl) {
+      // if (args.local) {
+      //   ipfsHash = await Hash.of(ipfsData)
+      // } else
+      if (args.ipfsUrl) {
         const ipfs = create({
           url: args.ipfsUrl,
         })
