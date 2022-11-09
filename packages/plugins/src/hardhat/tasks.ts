@@ -13,7 +13,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create } from 'ipfs-http-client'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { add0x, getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -128,42 +128,45 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
       hre
     ): Promise<ChugSplashActionBundle> => {
       const artifacts = {}
-      for (const contract of args.deployConfig.inputs) {
-        const solcBuild: SolcBuild = await hre.run(
-          TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-          {
-            quiet: true,
-            solcVersion: contract.solcVersion,
+      for (const [referenceName, contractConfig] of Object.entries(
+        args.deployConfig.contracts
+      )) {
+        for (const contract of args.deployConfig.inputs) {
+          const solcBuild: SolcBuild = await hre.run(
+            TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+            {
+              quiet: true,
+              solcVersion: contract.solcVersion,
+            }
+          )
+
+          let output: any // TODO: Compiler output
+          if (solcBuild.isSolcJs) {
+            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
+              input: contract.input,
+              solcJsPath: solcBuild.compilerPath,
+            })
+          } else {
+            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
+              input: contract.input,
+              solcPath: solcBuild.compilerPath,
+            })
           }
-        )
 
-        let output: any // TODO: Compiler output
-        if (solcBuild.isSolcJs) {
-          output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-            input: contract.input,
-            solcJsPath: solcBuild.compilerPath,
-          })
-        } else {
-          output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-            input: contract.input,
-            solcPath: solcBuild.compilerPath,
-          })
-        }
-
-        for (const fileOutput of Object.values(output.contracts)) {
-          for (const [contractName, contractOutput] of Object.entries(
-            fileOutput
-          )) {
-            // const deployedBytecode = await generateRuntimeBytecode(
-            //   hre.ethers.provider,
-            //   contractConfig
-            // )
-            artifacts[contractName] = {
-              // deployedBytecode,
-              deployedBytecode: add0x(
-                contractOutput.evm.deployedBytecode.object
-              ),
-              storageLayout: contractOutput.storageLayout,
+          for (const fileOutput of Object.values(output.contracts)) {
+            for (const contractOutput of Object.values(fileOutput)) {
+              const creationCode = await getCreationCode(
+                args.deployConfig,
+                referenceName
+              )
+              const immutableVariables = await getImmutableVariables(
+                contractConfig
+              )
+              artifacts[referenceName] = {
+                storageLayout: contractOutput.storageLayout,
+                creationCode,
+                immutableVariables,
+              }
             }
           }
         }
@@ -177,57 +180,57 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-// subtask(TASK_CHUG`SPLASH_FETCH)
-//   .addParam('configUri', undefined, undefined, types.string)
-//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-//   .setAction(
-//     async (args: {
-//       configUri: string
-//       ipfsUrl: string
-//     }): Promise<CanonicalChugSplashConfig> => {
-//       let config: CanonicalChugSplashConfig
-//       let ipfs: IPFSHTTPClient
-//       if (args.ipfsUrl) {
-//         ipfs = create({
-//           url: args.ipfsUrl,
-//         })
-//       } else if (
-//         process.env.IPFS_PROJECT_ID &&
-//         process.env.IPFS_API_KEY_SECRET
-//       ) {
-//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-//         ipfs = create({
-//           host: 'ipfs.infura.io',
-//           port: 5001,
-//           protocol: 'https',
-//           headers: {
-//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
-//               'base64'
-//             )}`,
-//           },
-//         })
-//       } else {
-//         throw new Error(
-//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-//         )
-//       }
+subtask(TASK_CHUGSPLASH_FETCH)
+  .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(
+    async (args: {
+      configUri: string
+      ipfsUrl: string
+    }): Promise<CanonicalChugSplashConfig> => {
+      let config: CanonicalChugSplashConfig
+      let ipfs: IPFSHTTPClient
+      if (args.ipfsUrl) {
+        ipfs = create({
+          url: args.ipfsUrl,
+        })
+      } else if (
+        process.env.IPFS_PROJECT_ID &&
+        process.env.IPFS_API_KEY_SECRET
+      ) {
+        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+        ipfs = create({
+          host: 'ipfs.infura.io',
+          port: 5001,
+          protocol: 'https',
+          headers: {
+            authorization: `Basic ${Buffer.from(projectCredentials).toString(
+              'base64'
+            )}`,
+          },
+        })
+      } else {
+        throw new Error(
+          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+        )
+      }
 
-//       if (args.configUri.startsWith('ipfs://')) {
-//         const decoder = new TextDecoder()
-//         let data = ''
-//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-//         for await (const chunk of stream) {
-//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
-//           data += decoder.decode(chunk, { stream: true })
-//         }
-//         config = JSON.parse(data)
-//       } else {
-//         throw new Error('unsupported URI type')
-//       }
+      if (args.configUri.startsWith('ipfs://')) {
+        const decoder = new TextDecoder()
+        let data = ''
+        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+        for await (const chunk of stream) {
+          // Chunks of data are returned as a Uint8Array. Convert it back to a string
+          data += decoder.decode(chunk, { stream: true })
+        }
+        config = JSON.parse(data)
+      } else {
+        throw new Error('unsupported URI type')
+      }
 
-//       return config
-//     }
-//   )`
+      return config
+    }
+  )
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
@@ -840,10 +843,9 @@ subtask(TASK_CHUGSPLASH_COMMIT)
       }
 
       let ipfsHash
-      // if (args.local) {
-      //   ipfsHash = await Hash.of(ipfsData)
-      // } else
-      if (args.ipfsUrl) {
+      if (args.local) {
+        ipfsHash = await Hash.of(ipfsData)
+      } else if (args.ipfsUrl) {
         const ipfs = create({
           url: args.ipfsUrl,
         })
