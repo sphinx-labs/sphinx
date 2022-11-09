@@ -830,10 +830,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _proxy   Address of the proxy.
      * @param _adapter Address of the adapter to use for the proxy.
      */
-    function _getProxyImplementation(address payable _proxy, address _adapter)
-        internal
-        returns (address)
-    {
+    function _getProxyImplementation(
+        address payable _proxy,
+        address _adapter
+    ) internal returns (address) {
         (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
         );

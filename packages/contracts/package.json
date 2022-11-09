@@ -12,7 +12,7 @@
   "scripts": {
     "build": "yarn build:contracts && yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "hardhat compile",
+    "build:contracts": "hardhat clean && hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
     "lint": "yarn lint:fix && yarn lint:check",
