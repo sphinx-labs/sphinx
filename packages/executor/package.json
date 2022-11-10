@@ -30,9 +30,15 @@
   "devDependencies": {
     "@chugsplash/contracts": "^0.3.2",
     "@chugsplash/core": "^0.3.2",
+    "@chugsplash/plugins": "^0.5.9",
     "@eth-optimism/common-ts": "^0.6.0",
     "@eth-optimism/core-utils": "^0.9.3",
+    "@nomiclabs/hardhat-ethers": "^2.2.1",
+    "@nomiclabs/hardhat-etherscan": "^3.1.2",
+    "dotenv": "^16.0.3",
     "ethers": "^5.6.8",
-    "hardhat": "^2.10.0"
+    "hardhat": "^2.10.0",
+    "ipfs-http-client": "56.0.3",
+    "undici": "^5.12.0"
   }
 }

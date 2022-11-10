@@ -141,7 +141,7 @@ export const makeActionBundleFromConfig = async (
   config: ChugSplashConfig,
   artifacts: {
     [name: string]: {
-      deployedBytecode: string
+      creationCode: string
       storageLayout: SolidityStorageLayout
       immutableVariables: string[]
     }
@@ -162,7 +162,7 @@ export const makeActionBundleFromConfig = async (
     // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
       target: referenceName,
-      code: artifact.deployedBytecode,
+      code: artifact.creationCode,
     })
 
     // Next, add a SET_IMPLEMENTATION action for each contract.

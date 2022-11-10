@@ -7,9 +7,6 @@ import {
   ChugSplashConfig,
   getProxyAddress,
   loadChugSplashConfig,
-  writeSnapshotId,
-  isSetImplementationAction,
-  fromRawChugSplashAction,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
   ChugSplashBundleState,
@@ -17,17 +14,13 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   parseChugSplashConfig,
+  log,
 } from '@chugsplash/core'
-import {
-  ChugSplashManagerABI,
-  OWNER_BOND_AMOUNT,
-  EXECUTOR_BOND_AMOUNT,
-  ProxyABI,
-} from '@chugsplash/contracts'
-import ora from 'ora'
+import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
+import { writeHardhatSnapshotId } from './utils'
 
 /**
  * TODO
@@ -38,11 +31,12 @@ import { getContractArtifact } from './artifacts'
 export const deployContracts = async (
   hre: any,
   verbose: boolean,
-  hide: boolean
+  hide: boolean,
+  local: boolean
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployChugSplashConfig(hre, fileName, verbose, hide)
+    await deployChugSplashConfig(hre, fileName, verbose, hide, local)
   }
 }
 
@@ -50,7 +44,8 @@ export const deployChugSplashConfig = async (
   hre: any,
   fileName: string,
   verbose: boolean,
-  hide: boolean
+  hide: boolean,
+  local: boolean
 ) => {
   const configRelativePath = path.format({
     dir: path.basename(hre.config.paths.chugsplash),
@@ -70,8 +65,7 @@ export const deployChugSplashConfig = async (
   })
   const parsedConfig = parseChugSplashConfig(config)
 
-  const spinner = ora({ isSilent: hide })
-  spinner.start(`Deploying: ${parsedConfig.options.projectName}`)
+  log(`Deploying: ${parsedConfig.options.projectName}`, hide)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -83,8 +77,8 @@ export const deployChugSplashConfig = async (
 
   const { bundleId } = await hre.run('chugsplash-commit', {
     deployConfig: configRelativePath,
-    local: true,
-    verbose,
+    local: false,
+    log: verbose,
   })
 
   const ChugSplashManager = new Contract(
@@ -119,8 +113,8 @@ export const deployChugSplashConfig = async (
 
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
-    local: true,
-    verbose,
+    local: false,
+    log: verbose,
   })
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
@@ -145,108 +139,20 @@ export const deployChugSplashConfig = async (
   await hre.run('chugsplash-approve', {
     projectName: parsedConfig.options.projectName,
     bundleId,
-    verbose,
+    log: verbose,
   })
 
-  if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-    const tx = await ChugSplashManager.claimBundle({
-      value: EXECUTOR_BOND_AMOUNT,
+  // todo call chugsplash-execute if deploying locally
+  if (local) {
+    await hre.run('chugsplash-execute', {
+      chugSplashManager: ChugSplashManager,
+      bundleState,
+      bundle,
+      deployerAddress,
+      parsedConfig,
+      deployer,
+      hide,
     })
-    await tx.wait()
-  }
-
-  // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
-  // the SetImplementation actions have already been sorted so that they are at the end of the
-  // actions array.
-  const firstSetImplementationActionIndex = bundle.actions.findIndex((action) =>
-    isSetImplementationAction(fromRawChugSplashAction(action.action))
-  )
-  for (
-    let i = bundleState.actionsExecuted;
-    i < firstSetImplementationActionIndex;
-    i++
-  ) {
-    const action = bundle.actions[i]
-    const tx = await ChugSplashManager.executeChugSplashAction(
-      action.action,
-      action.proof.actionIndex,
-      action.proof.siblings
-    )
-    await tx.wait()
-  }
-
-  // If the bundle hasn't already been completed in an earlier call, complete the bundle by
-  // executing all the SetImplementation actions in a single transaction.
-  if (bundleState.status !== ChugSplashBundleStatus.COMPLETED) {
-    const setImplActions = bundle.actions.slice(
-      firstSetImplementationActionIndex
-    )
-    const txn = await ChugSplashManager.completeChugSplashBundle(
-      setImplActions.map((action) => action.action),
-      setImplActions.map((action) => action.proof.actionIndex),
-      setImplActions.map((action) => action.proof.siblings)
-    )
-    await txn.wait()
-  }
-
-  // Withdraw all available funds from the ChugSplashManager.
-  const totalDebt = await ChugSplashManager.totalDebt()
-  const chugsplashManagerBalance = await hre.ethers.provider.getBalance(
-    ChugSplashManager.address
-  )
-  if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
-    await (await ChugSplashManager.withdrawOwnerETH()).wait()
-  }
-  const deployerDebt = await ChugSplashManager.debt(deployerAddress)
-  if (deployerDebt.gt(0)) {
-    await (await ChugSplashManager.claimExecutorPayment()).wait()
-  }
-
-  // Transfer ownership of the deployments to the project owner.
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    // First, check if the Proxy's owner is the ChugSplashManager by getting the latest
-    // `AdminChanged` event on the Proxy.
-    const Proxy = new ethers.Contract(
-      getProxyAddress(parsedConfig.options.projectName, referenceName),
-      new ethers.utils.Interface(ProxyABI),
-      deployer
-    )
-    const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
-    if (args.newAdmin === ChugSplashManager.address) {
-      await (
-        await ChugSplashManager.transferProxyOwnership(
-          referenceName,
-          parsedConfig.options.projectOwner
-        )
-      ).wait()
-    }
-  }
-
-  if (parsedConfig.options.projectOwner !== (await ChugSplashManager.owner())) {
-    if (parsedConfig.options.projectOwner === ethers.constants.AddressZero) {
-      await (await ChugSplashManager.renounceOwnership()).wait()
-    } else {
-      await (
-        await ChugSplashManager.transferOwnership(
-          parsedConfig.options.projectOwner
-        )
-      ).wait()
-    }
-  }
-
-  spinner.succeed(`Deployed: ${parsedConfig.options.projectName}`)
-
-  if (!hide) {
-    const deployments = {}
-    Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) =>
-        (deployments[i + 1] = {
-          Reference: referenceName,
-          Contract: contractConfig.contract,
-          Address: contractConfig.address,
-        })
-    )
-    console.table(deployments)
   }
 }
 
@@ -309,7 +215,7 @@ export const getContract = async (
 
 export const resetChugSplashDeployments = async (hre: any) => {
   const networkFolderName =
-    hre.network.name === 'localhost' ? '31337-localhost' : '31337-hardhat'
+    hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployed),
     networkFolderName,
@@ -322,5 +228,5 @@ export const resetChugSplashDeployments = async (hre: any) => {
   if (!snapshotReverted) {
     throw new Error('Snapshot failed to be reverted.')
   }
-  await writeSnapshotId(hre)
+  await writeHardhatSnapshotId(hre)
 }

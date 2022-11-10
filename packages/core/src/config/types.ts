@@ -44,6 +44,21 @@ export interface CanonicalChugSplashConfig extends ChugSplashConfig {
   inputs: Array<{
     solcVersion: string
     solcLongVersion: string
-    input: any[] // TODO: Properly type this
+    input: CompilerInput
   }>
+}
+
+export interface CompilerInput {
+  language: string
+  sources: { [sourceName: string]: { content: string } }
+  settings: {
+    optimizer?: { runs?: number; enabled?: boolean }
+    metadata?: { useLiteralContent: boolean }
+    outputSelection: {
+      [sourceName: string]: {
+        [contractName: string]: string[]
+      }
+    }
+    evmVersion?: string
+  }
 }

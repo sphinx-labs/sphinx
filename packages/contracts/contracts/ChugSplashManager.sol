@@ -16,11 +16,14 @@ import { IProxyAdapter } from "./IProxyAdapter.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is OwnableUpgradeable {
+contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *
@@ -135,12 +138,6 @@ contract ChugSplashManager is OwnableUpgradeable {
      */
     bytes32 internal constant EIP1967_IMPLEMENTATION_KEY =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
-    /**
-     * @notice "Magic" prefix. When prepended to some arbitrary runtime bytecode and used to create
-     *         a contract, the appended bytecode will be deployed as given.
-     */
-    bytes13 internal constant DEPLOY_CODE_PREFIX = 0x600D380380600D6000396000f3;
 
     /**
      * @notice Address of the ChugSplashRegistry.
@@ -397,8 +394,9 @@ contract ChugSplashManager is OwnableUpgradeable {
 
     /**
      * @notice Executes a specific action within the current active bundle for a project. Actions
-     *         can only be executed once. If executing this action would complete the bundle, will
-     *         mark the bundle as completed and make it possible for a new bundle to be approved.
+     *         can only be executed once. A re-entrancy guard is added to prevent an implementation
+     *         contract's constructor from calling another contract which in turn calls back into
+     *         this function.
      *
      * @param _action      Action to execute.
      * @param _actionIndex Index of the action in the bundle.
@@ -408,7 +406,7 @@ contract ChugSplashManager is OwnableUpgradeable {
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
-    ) public {
+    ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
         require(
@@ -788,33 +786,13 @@ contract ChugSplashManager is OwnableUpgradeable {
      *         interacting with a proxy whose storage has not fully been initialized.
      *
      * @param _target Target that corresponds to the implementation.
-     * @param _code   Runtime bytecode of the implementation to be deployed.
+     * @param _code   Creation bytecode of the implementation contract.
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
-        // TODO: Add a re-entrancy guard to this function if we move away from using
-        // `DEPLOY_CODE_PREFIX`. There is currently no risk of re-entrancy because the prefix
-        // guarantees that no sub-calls can be made in the implementation contract's constructor. In
-        // the future, we might want to move away from the prefix to add support for constructors
-        // that can run arbitrary creation bytecode. It will then become become necessary to add a
-        // re-entrancy guard to prevent a constructor from calling another contract which in turn
-        // calls back into deployImplementation or setStorage.
-
-        // Create the deploycode by prepending the magic prefix to the runtime bytecode.
-        bytes memory deploycode = abi.encodePacked(DEPLOY_CODE_PREFIX, _code);
-
         address implementation;
         assembly {
-            implementation := create(0x0, add(deploycode, 0x20), mload(deploycode))
+            implementation := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
         }
-
-        // Check that the code was actually deployed correctly. It might be impossible to fail this
-        // check. Should only happen if the contract creation from above runs out of gas but this
-        // parent execution thread does NOT run out of gas. Seems like we should be doing this check
-        // anyway though.
-        require(
-            _getAccountCodeHash(implementation) == keccak256(_code),
-            "ChugSplashManager: code was not correctly deployed"
-        );
 
         // Set the target to its newly deployed implementation.
         implementations[_target] = implementation;
@@ -852,10 +830,10 @@ contract ChugSplashManager is OwnableUpgradeable {
      * @param _proxy   Address of the proxy.
      * @param _adapter Address of the adapter to use for the proxy.
      */
-    function _getProxyImplementation(address payable _proxy, address _adapter)
-        internal
-        returns (address)
-    {
+    function _getProxyImplementation(
+        address payable _proxy,
+        address _adapter
+    ) internal returns (address) {
         (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
         );

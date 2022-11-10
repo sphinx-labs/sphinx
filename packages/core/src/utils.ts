@@ -24,20 +24,47 @@ export const computeBundleId = (
   )
 }
 
-export const writeSnapshotId = async (hre: any) => {
-  const networkFolderName =
-    hre.network.name === 'localhost' ? '31337-localhost' : '31337-hardhat'
+export const writeSnapshotId = async (
+  networkName: string,
+  deploymentFolderPath: string,
+  snapshotId: string
+) => {
   const networkPath = path.join(
-    path.basename(hre.config.paths.deployed),
-    networkFolderName
+    path.basename(deploymentFolderPath),
+    networkName
   )
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
-
-  const snapshotId = await hre.network.provider.send('evm_snapshot', [])
   const snapshotIdPath = path.join(networkPath, '.snapshotId')
   fs.writeFileSync(snapshotIdPath, snapshotId)
+}
+
+export const createDeploymentFolderForNetwork = (
+  networkName: string,
+  deploymentFolderPath: string
+) => {
+  const networkPath = path.join(
+    path.basename(deploymentFolderPath),
+    networkName
+  )
+  if (!fs.existsSync(networkPath)) {
+    fs.mkdirSync(networkPath, { recursive: true })
+  }
+}
+
+export const writeDeploymentArtifact = (
+  networkName: string,
+  deploymentFolderPath: string,
+  artifact: any,
+  referenceName: string
+) => {
+  const artifactPath = path.join(
+    path.basename(deploymentFolderPath),
+    networkName,
+    `${referenceName}.json`
+  )
+  fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
 }
 
 export const getProxyAddress = (
