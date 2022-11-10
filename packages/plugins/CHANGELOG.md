@@ -1,5 +1,28 @@
 # @chugsplash/plugins
 
+## 0.5.10
+
+### Patch Changes
+
+- c84eb6c: Update deployment artifacts to be hardhat-deploy compatible
+- a50e15b: Filter unnecessary artifacts that were being committed to IPFS
+- 5ce19b6: Replace spinner in chugsplash-deploy task due to clash with Hardhat's logs
+- 071d867: Implemented minimal standalone executor
+- c6485b2: Resolve type issues with chugsplash-execute command
+- df9950a: Refactor execution into separate CLI command
+- afe99ad: Verify ChugSpash predeploy contracts
+- 21df9d7: Add Etherscan verification in executor
+- 273d4c3: Use creation bytecode instead of the `DEPLOY_CODE_PREFIX` to deploy implementation contracts for Etherscan compatibility
+- 6daea1a: Add artifact generation for deployments
+- Updated dependencies [a536675]
+- Updated dependencies [21df9d7]
+- Updated dependencies [273d4c3]
+- Updated dependencies [6daea1a]
+- Updated dependencies [c08a950]
+- Updated dependencies [78acb9a]
+  - @chugsplash/contracts@0.3.7
+  - @chugsplash/core@0.3.10
+
 ## 0.5.9
 
 ### Patch Changes
