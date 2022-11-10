@@ -16,8 +16,8 @@ import {
   CHUGSPLASH_MANAGER_ADDRESS,
   CHUGSPLASH_REGISTRY_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
+  buildInfo,
 } from '@chugsplash/contracts'
-import * as BuildInfo from '@chugsplash/contracts/artifacts/build-info/e734239b34165c4a7085766ba5e2cde1.json'
 
 import {
   linkProxyWithImplementation,
@@ -32,7 +32,6 @@ export const initializeChugSplashContracts = async (
   await deployChugSplashContracts(hre, deployer)
 
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
-  const buildInfo = (BuildInfo as any).default
 
   const contracts = [
     {
