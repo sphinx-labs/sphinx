@@ -74,10 +74,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       )
 
       const activeBundleId = await manager.activeBundleId()
-      if (
-        activeBundleId ===
-        '0x0000000000000000000000000000000000000000000000000000000000000000'
-      ) {
+      if (activeBundleId === ethers.constants.HashZero) {
         console.log('no active bundle')
         continue
       }
