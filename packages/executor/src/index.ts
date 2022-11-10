@@ -2,22 +2,16 @@ import hre from 'hardhat'
 import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
-  ChugSplashRegistryABI,
   ChugSplashManagerABI,
+  ChugSplashRegistryABI,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
+import { ChugSplashBundleState } from '@chugsplash/core'
 
-import {
-  parseStrategyString,
-  ExecutorSelectionStrategy,
-  compileRemoteBundle,
-} from './utils'
+import { compileRemoteBundle } from './utils'
 
 type Options = {
-  registry: string
-  rpc: ethers.providers.StaticJsonRpcProvider
-  key: string
-  ess: string
-  eps: string
+  network: string
 }
 
 type Metrics = {}
@@ -39,89 +33,55 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       loopIntervalMs: 1000,
       options,
       optionsSpec: {
-        registry: {
-          desc: 'address of the ChugSplashRegistry contract',
+        network: {
+          desc: 'network for the chain to run the executor on',
           validator: validators.str,
+          default: 'http://localhost:8545',
         },
-        rpc: {
-          desc: 'rpc for the chain to run the executor on',
-          validator: validators.staticJsonRpcProvider,
-        },
-        key: {
-          desc: 'private key to use for signing transactions',
-          validator: validators.str,
-        },
-        ess: {
-          desc: 'comma separated list of ESS contracts to accept',
-          validator: validators.str,
-        },
-        eps: {
-          desc: 'comma separated list of EPS contracts to accept',
-          validator: validators.str,
-        },
+        // key: {
+        //   desc: 'private key to use for signing transactions',
+        //   validator: validators.str,
+        // },
       },
       metricsSpec: {},
     })
   }
 
   async init() {
+    const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
+    const provider = ethers.getDefaultProvider(this.options.network)
     this.state.registry = new ethers.Contract(
-      this.options.registry,
+      reg,
       ChugSplashRegistryABI,
-      this.options.rpc
+      provider
     )
-    this.state.wallet = new ethers.Wallet(this.options.key, this.options.rpc)
-    this.state.ess = parseStrategyString(this.options.ess)
-    this.state.eps = parseStrategyString(this.options.eps)
+
+    this.state.wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider)
   }
 
   async main() {
-    // TODO: Recover if we crashed and are in the middle of executing an upgrade
-
     // Find all active upgrades that have not yet been started
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
       this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved')
     )
 
-    // TODO: Cache events that we've already seen so we don't do a bunch of work on the same events
-    //       more than once.
-    // TODO: When we spin up, should we look for previous events, or should we only look at new
-    //       events? If we look at previous events, we need to figure out how to quickly filter out
-    //       upgrades that have already been completed.
-
     for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
+      const signer = this.state.wallet
       const manager = new ethers.Contract(
         approvalAnnouncementEvent.args.manager,
         ChugSplashManagerABI,
-        this.state.wallet
-      )
-
-      // TODO: Add this to the ChugSplashManager contract
-      const ess = await manager.getExecutorSelectionStrategy()
-      if (!this.state.ess.includes(ess)) {
-        // We don't like this strategy, skip the upgrade.
-        continue
-      }
-
-      // TODO: Add this to the ChugSplashManager contract
-      const eps = await manager.getExecutorPaymentStrategy()
-      if (!this.state.eps.includes(eps)) {
-        // We don't like this strategy, skip the upgrade.
-        continue
-      }
-
-      const receipt = await approvalAnnouncementEvent.getTransactionReceipt()
-      const approvalEvent = manager.parseLog(
-        receipt.logs.find((log) => {
-          return log.logIndex === approvalAnnouncementEvent.logIndex - 1
-        })
+        signer
       )
 
       const activeBundleId = await manager.activeBundleId()
-      if (activeBundleId !== approvalEvent.args.bundleId) {
-        // This is not the active bundle, so we can skip it.
+      if (activeBundleId === ethers.constants.HashZero) {
+        console.log('no active bundle')
         continue
       }
+
+      const bundleState: ChugSplashBundleState = await manager.bundles(
+        activeBundleId
+      )
 
       // TODO: Add this to the ChugSplashManager contract
       const selectedExecutor = await manager.getSelectedExecutor(activeBundleId)
@@ -131,14 +91,15 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       }
 
       const proposalEvents = await manager.queryFilter(
-        manager.filters.EventProposed(activeBundleId)
+        manager.filters.ChugSplashBundleProposed(activeBundleId)
       )
+
       if (proposalEvents.length !== 1) {
         // TODO: throw an error here or skip
       }
 
       const proposalEvent = proposalEvents[0]
-      const bundle = await compileRemoteBundle(
+      const { bundle, canonicalConfig } = await compileRemoteBundle(
         hre,
         proposalEvent.args.configUri
       )
@@ -146,52 +107,19 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         // TODO: throw an error here or skip
       }
 
-      // TODO: Perform a quick upper-bound estimation of the amount of gas required to execute this
-      //       upgrade. We can do this without simulating anything because ChugSplash upgrades are
-      //       fully deterministic. If account's balance is above the upper-bound estimation, then
-      //       we're ok with claiming the upgrade.
-
-      // Try to become the selected executor.
-      // TODO: Use an adapter system to make this easier.
-      if (ess === ExecutorSelectionStrategy.SIMPLE_LOCK) {
-        try {
-          const strategy = new ethers.Contract(
-            ess,
-            // TODO: Use the right ABI here
-            ChugSplashManagerABI,
-            this.state.wallet
-          )
-
-          const tx = await strategy.claim(activeBundleId)
-          await tx.wait()
-        } catch (err) {
-          // Unable to claim the lock, so skip this upgrade.
-          continue
-        }
-      } else {
-        throw new Error(`unsupported strategy: ${ess}`)
-      }
-
-      // TODO: Handle cancellation cleanly
-      for (const action of bundle.actions) {
-        // TODO: Handle errors cleanly
-        const tx = await manager.executeChugSplashAction(
-          action.action,
-          action.proof.actionIndex,
-          action.proof.siblings
-        )
-        await tx.wait()
-      }
-
-      const completedEvents = await manager.queryFilter(
-        manager.filters.ChugSplashBundleCompleted(activeBundleId)
-      )
-      if (completedEvents.length !== 1) {
-        // TODO: throw an error here
-      }
-
-      // TODO: Check that we got paid appropriately.
-      // TODO: Get our bond back.
+      // todo call chugsplash-execute if deploying locally
+      await hre.run('chugsplash-execute', {
+        chugSplashManager: manager,
+        bundleState,
+        bundle,
+        deployerAddress: await signer.getAddress(),
+        parsedConfig: canonicalConfig,
+        deployer: signer,
+        hide: false,
+      })
     }
   }
 }
+
+const executor = new ChugSplashExecutor()
+executor.run()

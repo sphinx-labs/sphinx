@@ -31,19 +31,21 @@ import { writeHardhatSnapshotId } from './utils'
 export const deployContracts = async (
   hre: any,
   verbose: boolean,
-  hide: boolean
+  hide: boolean,
+  local: boolean
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployConfig(hre, fileName, verbose, hide)
+    await deployChugSplashConfig(hre, fileName, verbose, hide, local)
   }
 }
 
-export const deployConfig = async (
+export const deployChugSplashConfig = async (
   hre: any,
   fileName: string,
   verbose: boolean,
-  hide: boolean
+  hide: boolean,
+  local: boolean
 ) => {
   const configRelativePath = path.format({
     dir: path.basename(hre.config.paths.chugsplash),
@@ -141,15 +143,17 @@ export const deployConfig = async (
   })
 
   // todo call chugsplash-execute if deploying locally
-  await hre.run('chugsplash-execute', {
-    chugSplashManager: ChugSplashManager,
-    bundleState,
-    bundle,
-    deployerAddress,
-    parsedConfig,
-    deployer,
-    hide,
-  })
+  if (local) {
+    await hre.run('chugsplash-execute', {
+      chugSplashManager: ChugSplashManager,
+      bundleState,
+      bundle,
+      deployerAddress,
+      parsedConfig,
+      deployer,
+      hide,
+    })
+  }
 }
 
 export const getContract = async (
