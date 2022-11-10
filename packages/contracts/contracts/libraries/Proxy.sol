@@ -95,12 +95,10 @@ contract Proxy {
      * @param _implementation Address of the implementation contract.
      * @param _data           Calldata to delegatecall the new implementation with.
      */
-    function upgradeToAndCall(address _implementation, bytes calldata _data)
-        external
-        payable
-        proxyCallIfNotAdmin
-        returns (bytes memory)
-    {
+    function upgradeToAndCall(
+        address _implementation,
+        bytes calldata _data
+    ) external payable proxyCallIfNotAdmin returns (bytes memory) {
         _setImplementation(_implementation);
         (bool success, bytes memory returndata) = _implementation.delegatecall(_data);
         require(success, "Proxy: delegatecall to new implementation contract failed");

@@ -53,7 +53,7 @@ import {
   getStorageLayout,
 } from './artifacts'
 import { deployContracts } from './deployments'
-import { deployLocalChugSplash } from './predeploys'
+import { deployChugSplashContracts } from './predeploys'
 import { writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
@@ -289,7 +289,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      await deployLocalChugSplash(hre, signer)
+      await deployChugSplashContracts(hre, signer)
       await deployContracts(hre, args.log, args.hide, args.local)
     }
   )
@@ -1166,7 +1166,7 @@ task(TASK_NODE)
       if (!args.disable) {
         if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
-          await deployLocalChugSplash(hre, deployer)
+          await deployChugSplashContracts(hre, deployer)
           await deployContracts(hre, args.log, args.hide, args.local)
           await writeHardhatSnapshotId(hre)
         }
@@ -1201,7 +1201,7 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await deployLocalChugSplash(hre, await hre.ethers.getSigner())
+          await deployChugSplashContracts(hre, await hre.ethers.getSigner())
           await deployContracts(hre, false, !args.show, args.local)
         } finally {
           await writeHardhatSnapshotId(hre)
