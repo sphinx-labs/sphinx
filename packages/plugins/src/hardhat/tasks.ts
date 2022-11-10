@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { Contract, ethers } from 'ethers'
+import { Contract, ethers, utils } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import { SolcBuild } from 'hardhat/types'
 import {
@@ -13,8 +13,8 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create } from 'ipfs-http-client'
-import { add0x, getChainId } from '@eth-optimism/core-utils'
+import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { add0x, getChainId, remove0x } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
   makeActionBundleFromConfig,
@@ -128,42 +128,83 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
       hre
     ): Promise<ChugSplashActionBundle> => {
       const artifacts = {}
-      for (const contract of args.deployConfig.inputs) {
-        const solcBuild: SolcBuild = await hre.run(
-          TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-          {
-            quiet: true,
-            solcVersion: contract.solcVersion,
+      for (const [referenceName] of Object.entries(
+        args.deployConfig.contracts
+      )) {
+        for (const contract of args.deployConfig.inputs) {
+          const solcBuild: SolcBuild = await hre.run(
+            TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+            {
+              quiet: true,
+              solcVersion: contract.solcVersion,
+            }
+          )
+
+          let output: any // TODO: Compiler output
+          if (solcBuild.isSolcJs) {
+            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
+              input: contract.input,
+              solcJsPath: solcBuild.compilerPath,
+            })
+          } else {
+            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
+              input: contract.input,
+              solcPath: solcBuild.compilerPath,
+            })
           }
-        )
 
-        let output: any // TODO: Compiler output
-        if (solcBuild.isSolcJs) {
-          output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-            input: contract.input,
-            solcJsPath: solcBuild.compilerPath,
-          })
-        } else {
-          output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-            input: contract.input,
-            solcPath: solcBuild.compilerPath,
-          })
-        }
-
-        for (const fileOutput of Object.values(output.contracts)) {
-          for (const [contractName, contractOutput] of Object.entries(
-            fileOutput
+          for (const [sourceName, fileOutput] of Object.entries(
+            output.contracts
           )) {
-            // const deployedBytecode = await generateRuntimeBytecode(
-            //   hre.ethers.provider,
-            //   contractConfig
-            // )
-            artifacts[contractName] = {
-              // deployedBytecode,
-              deployedBytecode: add0x(
-                contractOutput.evm.deployedBytecode.object
-              ),
-              storageLayout: contractOutput.storageLayout,
+            for (const [contractName, contractOutput] of Object.entries(
+              fileOutput
+            )) {
+              const bytecode = add0x(contractOutput.evm.bytecode.object)
+              const { constructorArgTypes, constructorArgValues } =
+                await getConstructorArgs(
+                  args.deployConfig,
+                  referenceName,
+                  contractOutput.abi,
+                  output.sources,
+                  output.contracts[sourceName][contractName].evm
+                    .deployedBytecode.immutableReferences
+                )
+
+              const creationCode = bytecode.concat(
+                remove0x(
+                  utils.defaultAbiCoder.encode(
+                    constructorArgTypes,
+                    constructorArgValues
+                  )
+                )
+              )
+
+              const immutableVariables: string[] = []
+              for (const source of Object.values(output.sources)) {
+                for (const contractNode of (source as any).ast.nodes) {
+                  if (contractNode.nodeType === 'ContractDefinition') {
+                    for (const node of contractNode.nodes) {
+                      if (node.mutability === 'immutable') {
+                        immutableVariables.push(node.name)
+                      }
+                    }
+                  }
+                }
+              }
+
+              artifacts[referenceName] = {
+                bytecode: add0x(contractOutput.evm.bytecode.object),
+                creationCode,
+                storageLayout: contractOutput.storageLayout,
+                contractName,
+                sourceName,
+                abi: contractOutput.abi,
+                sources: output.sources,
+                immutableVariables,
+                immutableReferences:
+                  output.contracts[sourceName][contractName].evm
+                    .deployedBytecode.immutableReferences,
+              }
             }
           }
         }
@@ -177,72 +218,79 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
     }
   )
 
-// subtask(TASK_CHUG`SPLASH_FETCH)
-//   .addParam('configUri', undefined, undefined, types.string)
-//   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-//   .setAction(
-//     async (args: {
-//       configUri: string
-//       ipfsUrl: string
-//     }): Promise<CanonicalChugSplashConfig> => {
-//       let config: CanonicalChugSplashConfig
-//       let ipfs: IPFSHTTPClient
-//       if (args.ipfsUrl) {
-//         ipfs = create({
-//           url: args.ipfsUrl,
-//         })
-//       } else if (
-//         process.env.IPFS_PROJECT_ID &&
-//         process.env.IPFS_API_KEY_SECRET
-//       ) {
-//         const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-//         ipfs = create({
-//           host: 'ipfs.infura.io',
-//           port: 5001,
-//           protocol: 'https',
-//           headers: {
-//             authorization: `Basic ${Buffer.from(projectCredentials).toString(
-//               'base64'
-//             )}`,
-//           },
-//         })
-//       } else {
-//         throw new Error(
-//           'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-//         )
-//       }
+subtask(TASK_CHUGSPLASH_FETCH)
+  .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(
+    async (args: {
+      configUri: string
+      ipfsUrl: string
+    }): Promise<CanonicalChugSplashConfig> => {
+      let config: CanonicalChugSplashConfig
+      let ipfs: IPFSHTTPClient
+      if (args.ipfsUrl) {
+        ipfs = create({
+          url: args.ipfsUrl,
+        })
+      } else if (
+        process.env.IPFS_PROJECT_ID &&
+        process.env.IPFS_API_KEY_SECRET
+      ) {
+        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+        ipfs = create({
+          host: 'ipfs.infura.io',
+          port: 5001,
+          protocol: 'https',
+          headers: {
+            authorization: `Basic ${Buffer.from(projectCredentials).toString(
+              'base64'
+            )}`,
+          },
+        })
+      } else {
+        throw new Error(
+          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+        )
+      }
 
-//       if (args.configUri.startsWith('ipfs://')) {
-//         const decoder = new TextDecoder()
-//         let data = ''
-//         const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-//         for await (const chunk of stream) {
-//           // Chunks of data are returned as a Uint8Array. Convert it back to a string
-//           data += decoder.decode(chunk, { stream: true })
-//         }
-//         config = JSON.parse(data)
-//       } else {
-//         throw new Error('unsupported URI type')
-//       }
+      if (args.configUri.startsWith('ipfs://')) {
+        const decoder = new TextDecoder()
+        let data = ''
+        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+        for await (const chunk of stream) {
+          // Chunks of data are returned as a Uint8Array. Convert it back to a string
+          data += decoder.decode(chunk, { stream: true })
+        }
+        config = JSON.parse(data)
+      } else {
+        throw new Error('unsupported URI type')
+      }
 
-//       return config
-//     }
-//   )`
+      return config
+    }
+  )
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
   .addFlag('hide', "Hide all of ChugSplash's output")
+  .addOptionalParam<boolean>(
+    'local',
+    'Enable local execution within the CLI',
+    true,
+    types.boolean
+  )
   .setAction(
     async (
       args: {
         log: boolean
         hide: boolean
+        local: boolean
       },
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
       await deployLocalChugSplash(hre, signer)
-      await deployContracts(hre, args.log, args.hide)
+      await deployContracts(hre, args.log, args.hide, args.local)
     }
   )
 
@@ -1098,9 +1146,20 @@ task(TASK_NODE)
   .addFlag('disable', 'Disable ChugSplash from deploying on startup')
   .addFlag('log', "Log all of ChugSplash's output")
   .addFlag('hide', "Hide all of ChugSplash's output")
+  .addOptionalParam<boolean>(
+    'local',
+    'Enable local execution within the CLI',
+    true,
+    types.boolean
+  )
   .setAction(
     async (
-      args: { disable: boolean; log: boolean; hide: boolean },
+      args: {
+        disable: boolean
+        log: boolean
+        hide: boolean
+        local: boolean
+      },
       hre: any,
       runSuper
     ) => {
@@ -1108,7 +1167,7 @@ task(TASK_NODE)
         if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
           await deployLocalChugSplash(hre, deployer)
-          await deployContracts(hre, args.log, args.hide)
+          await deployContracts(hre, args.log, args.hide, args.local)
           await writeHardhatSnapshotId(hre)
         }
       }
@@ -1118,30 +1177,39 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
-  .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
-    if ((await getChainId(hre.ethers.provider)) === 31337) {
-      try {
-        const snapshotIdPath = path.join(
-          path.basename(hre.config.paths.deployed),
-          hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
-          '.snapshotId'
-        )
-        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-        const snapshotReverted = await hre.network.provider.send('evm_revert', [
-          snapshotId,
-        ])
-        if (!snapshotReverted) {
-          throw new Error('Snapshot failed to be reverted.')
+  .addOptionalParam<boolean>(
+    'local',
+    'Enable local execution within the CLI',
+    true,
+    types.boolean
+  )
+  .setAction(
+    async (args: { show: boolean; local: boolean }, hre: any, runSuper) => {
+      if ((await getChainId(hre.ethers.provider)) === 31337) {
+        try {
+          const snapshotIdPath = path.join(
+            path.basename(hre.config.paths.deployed),
+            hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
+            '.snapshotId'
+          )
+          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+          const snapshotReverted = await hre.network.provider.send(
+            'evm_revert',
+            [snapshotId]
+          )
+          if (!snapshotReverted) {
+            throw new Error('Snapshot failed to be reverted.')
+          }
+        } catch {
+          await deployLocalChugSplash(hre, await hre.ethers.getSigner())
+          await deployContracts(hre, false, !args.show, args.local)
+        } finally {
+          await writeHardhatSnapshotId(hre)
         }
-      } catch {
-        await deployLocalChugSplash(hre, await hre.ethers.getSigner())
-        await deployContracts(hre, false, !args.show)
-      } finally {
-        await writeHardhatSnapshotId(hre)
       }
+      await runSuper(args)
     }
-    await runSuper(args)
-  })
+  )
 
 task(TASK_RUN).setAction(async (args, hre: any, runSuper) => {
   await hre.run(TASK_CHUGSPLASH_DEPLOY, hre)
