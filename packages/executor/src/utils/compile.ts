@@ -32,7 +32,7 @@ export const compileRemoteBundle = async (
 }> => {
   const canonicalConfig = await fetchChugSplashConfig(configUri)
   const bundle = await hre.run('chugsplash-bundle-remote', {
-    deployConfig: canonicalConfig,
+    canonicalConfig,
   })
   return { bundle, canonicalConfig }
 }

@@ -77,7 +77,7 @@ export const deployChugSplashConfig = async (
 
   const { bundleId } = await hre.run('chugsplash-commit', {
     deployConfig: configRelativePath,
-    local: false,
+    local,
     log: verbose,
   })
 
@@ -113,7 +113,7 @@ export const deployChugSplashConfig = async (
 
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
-    local: false,
+    local,
     log: verbose,
   })
 
@@ -148,7 +148,6 @@ export const deployChugSplashConfig = async (
       chugSplashManager: ChugSplashManager,
       bundleState,
       bundle,
-      deployerAddress,
       parsedConfig,
       deployer,
       hide,

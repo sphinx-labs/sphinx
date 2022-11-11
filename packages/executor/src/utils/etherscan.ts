@@ -57,14 +57,14 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
     canonicalConfig.contracts
   )) {
     const artifact = artifacts[contractConfig.contract]
-    const { abi, contractName, sourceName, sources, immutableReferences } =
-      artifact
-    const { constructorArgValues } = await getConstructorArgs(
+    const { abi, contractName, sourceName, fileOutput } = artifact
+    const { constructorArgValues } = getConstructorArgs(
       canonicalConfig,
       referenceName,
       abi,
-      sources,
-      immutableReferences
+      fileOutput,
+      sourceName,
+      contractName
     )
 
     const contractAddress = await ChugSplashManager.implementations(

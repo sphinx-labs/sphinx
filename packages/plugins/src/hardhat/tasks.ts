@@ -107,8 +107,28 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         parsed.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
-        const creationCode = await getCreationCode(parsed, referenceName)
-        const immutableVariables = await getImmutableVariables(contractConfig)
+
+        const { abi, sourceName, contractName, bytecode } = getContractArtifact(
+          contractConfig.contract
+        )
+        const { output: compilerOutput } = await getBuildInfo(
+          sourceName,
+          contractName
+        )
+        const creationCode = getCreationCode(
+          bytecode,
+          parsed,
+          referenceName,
+          abi,
+          compilerOutput,
+          sourceName,
+          contractName
+        )
+        const immutableVariables = getImmutableVariables(
+          compilerOutput,
+          sourceName,
+          contractName
+        )
         artifacts[referenceName] = {
           creationCode,
           storageLayout,
@@ -121,97 +141,90 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
   )
 
 subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
-  .addParam('deployConfig', undefined, undefined, types.any)
+  .addParam('canonicalConfig', undefined, undefined, types.any)
   .setAction(
     async (
-      args: { deployConfig: CanonicalChugSplashConfig },
+      args: { canonicalConfig: CanonicalChugSplashConfig },
       hre
     ): Promise<ChugSplashActionBundle> => {
-      const artifacts = {}
-      for (const [referenceName] of Object.entries(
-        args.deployConfig.contracts
-      )) {
-        for (const contract of args.deployConfig.inputs) {
-          const solcBuild: SolcBuild = await hre.run(
-            TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-            {
-              quiet: true,
-              solcVersion: contract.solcVersion,
-            }
-          )
+      const parsedCanonicalConfig = parseChugSplashConfig(
+        args.canonicalConfig
+      ) as CanonicalChugSplashConfig
 
-          let output: any // TODO: Compiler output
-          if (solcBuild.isSolcJs) {
-            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-              input: contract.input,
-              solcJsPath: solcBuild.compilerPath,
-            })
-          } else {
-            output = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-              input: contract.input,
-              solcPath: solcBuild.compilerPath,
-            })
+      const compilerOutputs: any[] = []
+      // Get the compiler output for each compiler input.
+      for (const compilerInput of parsedCanonicalConfig.inputs) {
+        const solcBuild: SolcBuild = await hre.run(
+          TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+          {
+            quiet: true,
+            solcVersion: compilerInput.solcVersion,
           }
+        )
 
-          for (const [sourceName, fileOutput] of Object.entries(
-            output.contracts
+        let compilerOutput: any // TODO: Compiler output type
+        if (solcBuild.isSolcJs) {
+          compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
+            input: compilerInput.input,
+            solcJsPath: solcBuild.compilerPath,
+          })
+        } else {
+          compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
+            input: compilerInput.input,
+            solcPath: solcBuild.compilerPath,
+          })
+        }
+        compilerOutputs.push(compilerOutput)
+      }
+
+      const artifacts = {}
+      // Generate an artifact for each contract in the ChugSplash config.
+      for (const [referenceName, contractConfig] of Object.entries(
+        parsedCanonicalConfig.contracts
+      )) {
+        let compilerOutputIndex = 0
+        while (artifacts[referenceName] === undefined) {
+          // Iterate through the sources in the current compiler output to find the one that
+          // contains this contract.
+          const compilerOutput = compilerOutputs[compilerOutputIndex]
+          for (const [sourceName, sourceOutput] of Object.entries(
+            compilerOutput.contracts
           )) {
-            for (const [contractName, contractOutput] of Object.entries(
-              fileOutput
-            )) {
-              const bytecode = add0x(contractOutput.evm.bytecode.object)
-              const { constructorArgTypes, constructorArgValues } =
-                await getConstructorArgs(
-                  args.deployConfig,
-                  referenceName,
-                  contractOutput.abi,
-                  output.sources,
-                  output.contracts[sourceName][contractName].evm
-                    .deployedBytecode.immutableReferences
-                )
+            // Check if the current source contains the contract.
+            if (sourceOutput.hasOwnProperty(contractConfig.contract)) {
+              const contractOutput = sourceOutput[contractConfig.contract]
 
-              const creationCode = bytecode.concat(
-                remove0x(
-                  utils.defaultAbiCoder.encode(
-                    constructorArgTypes,
-                    constructorArgValues
-                  )
-                )
+              const creationCode = getCreationCode(
+                add0x(contractOutput.evm.bytecode.object),
+                parsedCanonicalConfig,
+                referenceName,
+                contractOutput.abi,
+                compilerOutput,
+                sourceName,
+                contractConfig.contract
+              )
+              const immutableVariables = getImmutableVariables(
+                compilerOutput,
+                sourceName,
+                contractConfig.contract
               )
 
-              const immutableVariables: string[] = []
-              for (const source of Object.values(output.sources)) {
-                for (const contractNode of (source as any).ast.nodes) {
-                  if (contractNode.nodeType === 'ContractDefinition') {
-                    for (const node of contractNode.nodes) {
-                      if (node.mutability === 'immutable') {
-                        immutableVariables.push(node.name)
-                      }
-                    }
-                  }
-                }
-              }
-
               artifacts[referenceName] = {
-                bytecode: add0x(contractOutput.evm.bytecode.object),
                 creationCode,
                 storageLayout: contractOutput.storageLayout,
-                contractName,
-                sourceName,
-                abi: contractOutput.abi,
-                sources: output.sources,
                 immutableVariables,
-                immutableReferences:
-                  output.contracts[sourceName][contractName].evm
-                    .deployedBytecode.immutableReferences,
               }
+              // We can exit the loop at this point since each contract only has a single artifact
+              // associated with it.
+              break
             }
           }
+          compilerOutputIndex += 1
         }
       }
 
       return makeActionBundleFromConfig(
-        args.deployConfig,
+        parsedCanonicalConfig,
         artifacts,
         process.env
       )
@@ -453,7 +466,6 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
     types.any
   )
   .addParam('bundle', 'The bundle to be executed', undefined, types.any)
-  .addParam('deployerAddress', 'Address of the user deploying the bundle')
   .addParam(
     'parsedConfig',
     'Parsed ChugSplash configuration',
@@ -468,7 +480,6 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         chugSplashManager: Contract
         bundleState: ChugSplashBundleState
         bundle: any // todo - figure out a type for this
-        deployerAddress: any // todo - figure out a type for this
         parsedConfig: ChugSplashConfig
         deployer: any // todo - figure out a type for this
         hide: boolean
@@ -479,7 +490,6 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         chugSplashManager,
         bundleState,
         bundle,
-        deployerAddress,
         parsedConfig,
         deployer,
         hide,
@@ -515,8 +525,6 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
 
       // If the bundle hasn't already been completed in an earlier call, complete the bundle by
       // executing all the SetImplementation actions in a single transaction.
-      let finalDeploymentTxnHash: string
-      let finalDeploymentReceipt: any
       if (bundleState.status !== ChugSplashBundleStatus.COMPLETED) {
         const setImplActions = bundle.actions.slice(
           firstSetImplementationActionIndex
@@ -527,8 +535,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
             setImplActions.map((action) => action.proof.actionIndex),
             setImplActions.map((action) => action.proof.siblings)
           )
-        finalDeploymentReceipt = await finalDeploymentTxn.wait()
-        finalDeploymentTxnHash = finalDeploymentTxn.hash
+        await finalDeploymentTxn.wait()
       }
 
       // Withdraw all available funds from the chugSplashManager.
@@ -539,7 +546,9 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
       if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
         await (await chugSplashManager.withdrawOwnerETH()).wait()
       }
-      const deployerDebt = await chugSplashManager.debt(deployerAddress)
+      const deployerDebt = await chugSplashManager.debt(
+        await deployer.getAddress()
+      )
       if (deployerDebt.gt(0)) {
         await (await chugSplashManager.claimExecutorPayment()).wait()
       }
@@ -582,64 +591,64 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         }
       }
 
-      if ((await getChainId(hre.ethers.provider)) !== 31337) {
-        createDeploymentFolderForNetwork(
-          hre.network.name,
-          hre.config.paths.deployed
-        )
+      //   if ((await getChainId(hre.ethers.provider)) !== 31337) {
+      //     createDeploymentFolderForNetwork(
+      //       hre.network.name,
+      //       hre.config.paths.deployed
+      //     )
 
-        for (const [referenceName, contractConfig] of Object.entries(
-          parsedConfig.contracts
-        )) {
-          const artifact = getContractArtifact(contractConfig.contract)
-          const { sourceName, contractName, bytecode, abi } = artifact
+      //     for (const [referenceName, contractConfig] of Object.entries(
+      //       parsedConfig.contracts
+      //     )) {
+      //       const artifact = getContractArtifact(contractConfig.contract)
+      //       const { sourceName, contractName, bytecode, abi } = artifact
 
-          const buildInfo = await getBuildInfo(sourceName, contractName)
-          const output = buildInfo.output.contracts[sourceName][contractName]
-          const immutableReferences: {
-            [astId: number]: {
-              length: number
-              start: number
-            }[]
-          } = output.evm.deployedBytecode.immutableReferences
+      //       const buildInfo = await getBuildInfo(sourceName, contractName)
+      //       const output = buildInfo.output.contracts[sourceName][contractName]
+      //       const immutableReferences: {
+      //         [astId: number]: {
+      //           length: number
+      //           start: number
+      //         }[]
+      //       } = output.evm.deployedBytecode.immutableReferences
 
-          const metadata =
-            buildInfo.output.contracts[sourceName][contractName].metadata
-          const { devdoc, userdoc } = JSON.parse(metadata).output
-          const { constructorArgValues } = await getConstructorArgs(
-            parsedConfig,
-            referenceName,
-            abi,
-            buildInfo.output.sources,
-            immutableReferences
-          )
-          const deploymentArtifact = {
-            contractName,
-            address: contractConfig.address,
-            abi,
-            transactionHash: finalDeploymentTxnHash,
-            solcInputHash: buildInfo.id,
-            receipt: finalDeploymentReceipt,
-            numDeployments: 1,
-            metadata,
-            args: constructorArgValues,
-            bytecode,
-            deployedBytecode: await hre.ethers.provider.getCode(
-              contractConfig.address
-            ),
-            devdoc,
-            userdoc,
-            storageLayout: await getStorageLayout(contractConfig.contract),
-          }
+      //       const metadata =
+      //         buildInfo.output.contracts[sourceName][contractName].metadata
+      //       const { devdoc, userdoc } = JSON.parse(metadata).output
+      //       const { constructorArgValues } = getConstructorArgs(
+      //         parsedConfig,outdated
+      //         referenceName,
+      //         abi,
+      //         buildInfo.output.sources,
+      //         immutableReferences
+      //       )
+      //       const deploymentArtifact = {
+      //         contractName,
+      //         address: contractConfig.address,
+      //         abi,
+      //         transactionHash: finalDeploymentTxnHash,
+      //         solcInputHash: buildInfo.id,
+      //         receipt: finalDeploymentReceipt,
+      //         numDeployments: 1,
+      //         metadata,
+      //         args: constructorArgValues,
+      //         bytecode,
+      //         deployedBytecode: await hre.ethers.provider.getCode(
+      //           contractConfig.address
+      //         ),
+      //         devdoc,
+      //         userdoc,
+      //         storageLayout: await getStorageLayout(contractConfig.contract),
+      //       }
 
-          writeDeploymentArtifact(
-            hre.network.name,
-            hre.config.paths.deployed,
-            deploymentArtifact,
-            referenceName
-          )
-        }
-      }
+      //       writeDeploymentArtifact(
+      //         hre.network.name,
+      //         hre.config.paths.deployed,
+      //         deploymentArtifact,
+      //         referenceName
+      //       )
+      //     }
+      // }
 
       if (!hide) {
         const deployments = {}
@@ -995,7 +1004,7 @@ task(TASK_CHUGSPLASH_CHECK_BUNDLE)
       const bundle: ChugSplashActionBundle = await hre.run(
         TASK_CHUGSPLASH_BUNDLE_REMOTE,
         {
-          deployConfig: config,
+          canonicalConfig: config,
         }
       )
       spinner.succeed('Built artifact bundle')

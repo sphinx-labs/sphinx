@@ -112,7 +112,6 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         chugSplashManager: manager,
         bundleState,
         bundle,
-        deployerAddress: await signer.getAddress(),
         parsedConfig: canonicalConfig,
         deployer: signer,
         hide: false,

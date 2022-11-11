@@ -88,32 +88,23 @@ export const getStorageLayout = async (
   return (output as any).storageLayout
 }
 
-export const getCreationCode = async (
+export const getCreationCode = (
+  bytecode: string,
   parsedConfig: ChugSplashConfig,
-  referenceName: string
-): Promise<string> => {
-  const contractConfig = parsedConfig.contracts[referenceName]
-
-  const { abi, sourceName, contractName, bytecode } = getContractArtifact(
-    contractConfig.contract
+  referenceName: string,
+  abi: any,
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): string => {
+  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
+    parsedConfig,
+    referenceName,
+    abi,
+    compilerOutput,
+    sourceName,
+    contractName
   )
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
-  const immutableReferences: {
-    [astId: number]: {
-      length: number
-      start: number
-    }[]
-  } = output.evm.deployedBytecode.immutableReferences
-
-  const { constructorArgTypes, constructorArgValues } =
-    await getConstructorArgs(
-      parsedConfig,
-      referenceName,
-      abi,
-      buildInfo.output.sources,
-      immutableReferences
-    )
 
   const creationCodeWithConstructorArgs = bytecode.concat(
     remove0x(
@@ -126,18 +117,18 @@ export const getCreationCode = async (
 
 // TODO: I think this should go in /core now that we don't rely on hardhat as a dependency.
 // We could potentially move other contracts in here to core too.
-export const getConstructorArgs = async (
+export const getConstructorArgs = (
   parsedConfig: ChugSplashConfig,
   referenceName: string,
   abi: any,
-  sources: any,
-  immutableReferences: {
-    [astId: number]: {
-      length: number
-      start: number
-    }[]
-  }
-): Promise<{ constructorArgTypes: any[]; constructorArgValues: any[] }> => {
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): { constructorArgTypes: any[]; constructorArgValues: any[] } => {
+  const immutableReferences =
+    compilerOutput.contracts[sourceName][contractName].evm.deployedBytecode
+      .immutableReferences
+
   const contractConfig = parsedConfig.contracts[referenceName]
 
   const constructorFragment = abi.find(
@@ -152,7 +143,7 @@ export const getConstructorArgs = async (
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToImmutableNames = {}
 
-  for (const source of Object.values(sources)) {
+  for (const source of Object.values(compilerOutput.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
       if (
         contractNode.nodeType === 'ContractDefinition' &&
@@ -265,20 +256,19 @@ export const getConstructorArgNameForImmutableVariable = (
   )
 }
 
-export const getImmutableVariables = async (
-  contractConfig
-): Promise<string[]> => {
-  const { sourceName, contractName } = getContractArtifact(
-    contractConfig.contract
-  )
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
+export const getImmutableVariables = (
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): string[] => {
   const immutableReferences: {
     [astId: number]: {
       length: number
       start: number
     }[]
-  } = output.evm.deployedBytecode.immutableReferences
+  } =
+    compilerOutput.contracts[sourceName][contractName].evm.deployedBytecode
+      .immutableReferences
 
   if (
     immutableReferences === undefined ||
@@ -288,7 +278,7 @@ export const getImmutableVariables = async (
   }
 
   const immutableVariables: string[] = []
-  for (const source of Object.values(buildInfo.output.sources)) {
+  for (const source of Object.values(compilerOutput.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
       if (contractNode.nodeType === 'ContractDefinition') {
         for (const node of contractNode.nodes) {
