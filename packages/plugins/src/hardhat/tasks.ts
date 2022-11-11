@@ -26,7 +26,7 @@ import {
   isSetImplementationAction,
   fromRawChugSplashAction,
   getProxyAddress,
-  log as ChugSplashLog,
+  ChugSplashLog,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -58,17 +58,17 @@ export const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
 export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
+export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
+export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
+export const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
+export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
+export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
 
 // public tasks
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
-export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-export const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
-export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
-export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
-export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
 subtask(TASK_CHUGSPLASH_LOAD)
@@ -212,7 +212,7 @@ subtask(TASK_CHUGSPLASH_FETCH)
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('log', "Log all of ChugSplash's output")
-  .addFlag('hide', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's output")
   .addOptionalParam<boolean>(
     'local',
     'Enable local execution within the CLI',
@@ -223,79 +223,68 @@ task(TASK_CHUGSPLASH_DEPLOY)
     async (
       args: {
         log: boolean
-        hide: boolean
+        silent: boolean
         local: boolean
       },
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
       await deployChugSplashPredeploys(hre, signer)
-      await deployConfigs(hre, args.log, args.hide, args.local)
+      await deployConfigs(hre, args.log, args.silent, args.local)
     }
   )
 
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
-  .addParam('deployConfig', 'path to chugsplash deploy config')
-  .addFlag('log', 'Log the output for this task')
+  .addVariadicPositionalParam(
+    'configPaths',
+    'Paths to ChugSplash config files',
+    []
+  )
+  .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(
     async (
       args: {
-        deployConfig: string
-        log: boolean
+        configPaths: string[]
+        silent: boolean
       },
       hre
     ) => {
-      const spinner = ora({ isSilent: !args.log })
-
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        deployConfig: args.deployConfig,
-      })
+      if (args.configPaths.length === 0) {
+        throw new Error('You must specify a path to a ChugSplash config file.')
+      }
 
       const signer = hre.ethers.provider.getSigner()
 
-      await registerChugSplashProject(
-        config.options.projectName,
-        config.options.projectOwner,
-        signer
-      )
+      await deployChugSplashPredeploys(hre, signer)
 
-      spinner.succeed('Project successfully created.')
+      const spinner = ora({ isSilent: args.silent })
+
+      for (const configPath of args.configPaths) {
+        const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
+          deployConfig: configPath,
+        })
+
+        spinner.start(`Registering ${config.options.projectName}...`)
+
+        const firstTimeRegistered = await registerChugSplashProject(
+          config.options.projectName,
+          config.options.projectOwner,
+          signer
+        )
+
+        firstTimeRegistered
+          ? spinner.succeed('Project successfully registered.')
+          : spinner.succeed('Project was already registered by the caller.')
+      }
     }
   )
-
-task(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
-  .setDescription('Lists all existing ChugSplash projects')
-  .setAction(async (_, hre) => {
-    const spinner = ora()
-
-    spinner.start('Getting list of all projects...')
-
-    const ChugSplashRegistry = getChugSplashRegistry(
-      hre.ethers.provider.getSigner()
-    )
-
-    const events = await ChugSplashRegistry.queryFilter(
-      ChugSplashRegistry.filters.ChugSplashProjectRegistered()
-    )
-
-    spinner.stop()
-
-    console.table(
-      events.map((event) => {
-        return {
-          name: event.args.projectName,
-          manager: event.args.manager,
-        }
-      })
-    )
-  })
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash bundle')
   .addParam('deployConfig', 'path to chugsplash deploy config')
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .addFlag('log', 'Log the output for this task')
+  .addFlag('log', "Log ChugSplash's output")
   .addFlag(
     'local',
     'Propose the bundle without committing it to IPFS. To be used for local deployments.'
@@ -400,7 +389,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
     types.any
   )
   .addParam('deployer', 'Deploying signer', undefined, types.any)
-  .addFlag('hide', 'Whether to hide logging or not')
+  .addFlag('silent', "Hide ChugSplash's output")
   .setAction(
     async (
       args: {
@@ -409,7 +398,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         bundle: any // todo - figure out a type for this
         parsedConfig: ChugSplashConfig
         deployer: any // todo - figure out a type for this
-        hide: boolean
+        silent: boolean
       },
       hre: any
     ) => {
@@ -419,7 +408,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         bundle,
         parsedConfig,
         deployer,
-        hide,
+        silent,
       } = args
 
       if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
@@ -577,7 +566,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
       //     }
       // }
 
-      if (!hide) {
+      if (!silent) {
         const deployments = {}
         Object.entries(parsedConfig.contracts).forEach(
           ([referenceName, contractConfig], i) =>
@@ -590,7 +579,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         console.table(deployments)
       }
 
-      ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, hide)
+      ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, silent)
     }
   )
 
@@ -598,7 +587,7 @@ task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
   .addParam('projectName', 'name of the chugsplash project')
   .addParam('bundleId', 'ID of the bundle')
-  .addFlag('log', 'Log the output for this task')
+  .addFlag('log', "Log ChugSplash's output")
   .setAction(
     async (
       args: {
@@ -645,111 +634,32 @@ task(TASK_CHUGSPLASH_APPROVE)
     }
   )
 
-task(TASK_CHUGSPLASH_LIST_BUNDLES)
-  .setDescription('Lists all bundles for a given project')
-  .addParam('projectName', 'name of the project')
-  .addFlag('includeExecuted', 'include bundles that have been executed')
-  .setAction(
-    async (
-      args: {
-        projectName: string
-        includeExecuted: boolean
-      },
-      hre
-    ) => {
-      const spinner = ora()
+subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
+  .setDescription('Lists all existing ChugSplash projects')
+  .setAction(async (_, hre) => {
+    const spinner = ora()
 
-      spinner.start(`Getting list of all bundles...`)
+    spinner.start('Getting list of all projects...')
 
-      const ChugSplashRegistry = getChugSplashRegistry(
-        hre.ethers.provider.getSigner()
-      )
+    const ChugSplashRegistry = getChugSplashRegistry(
+      hre.ethers.provider.getSigner()
+    )
 
-      const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.projectName),
-        ChugSplashManagerABI,
-        hre.ethers.provider.getSigner()
-      )
+    const events = await ChugSplashRegistry.queryFilter(
+      ChugSplashRegistry.filters.ChugSplashProjectRegistered()
+    )
 
-      // Get events for all bundles that have been proposed. This array includes
-      // events that have been approved and executed, which will be filtered out.
-      const proposedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashBundleProposed()
-      )
+    spinner.stop()
 
-      // Exit early if there are no proposals for the project.
-      if (proposedEvents.length === 0) {
-        console.log('There are no bundles for this project.')
-        process.exit()
-      }
-
-      // Filter out the approved bundle event if there is a currently active bundle
-      const activeBundleId = await ChugSplashManager.activeBundleId()
-
-      let approvedEvent: any
-      if (activeBundleId !== ethers.constants.HashZero) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const bundleId = proposedEvents[i].args.bundleId
-          if (bundleId === activeBundleId) {
-            // Remove the active bundle event in-place and return it.
-            approvedEvent = proposedEvents.splice(i, 1)
-
-            // It's fine to break out of the loop here since there is only one
-            // active bundle at a time.
-            break
-          }
+    console.table(
+      events.map((event) => {
+        return {
+          name: event.args.projectName,
+          manager: event.args.manager,
         }
-      }
-
-      const executedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashBundleCompleted()
-      )
-
-      for (const executed of executedEvents) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const proposed = proposedEvents[i]
-          // Remove the event if the bundle hashes match
-          if (proposed.args.bundleId === executed.args.bundleId) {
-            proposedEvents.splice(i, 1)
-          }
-        }
-      }
-
-      spinner.stop()
-
-      if (proposedEvents.length === 0) {
-        // Accounts for the case where there is only one bundle, and it is approved.
-        console.log('There are currently no proposed bundles.')
-      } else {
-        // Display the proposed bundles
-        console.log(`Proposals for ${args.projectName}:`)
-        proposedEvents.forEach((event) =>
-          console.log(
-            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        )
-      }
-
-      // Display the approved bundle if it exists
-      if (activeBundleId !== ethers.constants.HashZero) {
-        console.log('Approved:')
-        console.log(
-          `Bundle ID: ${activeBundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
-        )
-      }
-
-      // Display the executed bundles if the user has specified to do so
-      if (args.includeExecuted) {
-        console.log('\n')
-        console.log('Executed:')
-        executedEvents.forEach((event) =>
-          console.log(
-            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        )
-      }
-    }
-  )
+      })
+    )
+  })
 
 subtask(TASK_CHUGSPLASH_COMMIT)
   .setDescription('Commits a ChugSplash config file with artifacts to IPFS')
@@ -759,7 +669,7 @@ subtask(TASK_CHUGSPLASH_COMMIT)
     'local',
     'Propose the bundle without committing it to IPFS. To be used for local deployments.'
   )
-  .addFlag('log', 'Log the output for this task')
+  .addFlag('log', "Log ChugSplash's output")
   .setAction(
     async (
       args: {
@@ -896,12 +806,118 @@ subtask(TASK_CHUGSPLASH_COMMIT)
     }
   )
 
-task(TASK_CHUGSPLASH_CHECK_BUNDLE)
+subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
+  .setDescription('Lists all bundles for a given project')
+  .addParam('projectName', 'name of the project')
+  .addFlag('includeExecuted', 'include bundles that have been executed')
+  .setAction(
+    async (
+      args: {
+        projectName: string
+        includeExecuted: boolean
+      },
+      hre
+    ) => {
+      const spinner = ora()
+
+      spinner.start(`Getting list of all bundles...`)
+
+      const ChugSplashRegistry = getChugSplashRegistry(
+        hre.ethers.provider.getSigner()
+      )
+
+      const ChugSplashManager = new ethers.Contract(
+        await ChugSplashRegistry.projects(args.projectName),
+        ChugSplashManagerABI,
+        hre.ethers.provider.getSigner()
+      )
+
+      // Get events for all bundles that have been proposed. This array includes
+      // events that have been approved and executed, which will be filtered out.
+      const proposedEvents = await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.ChugSplashBundleProposed()
+      )
+
+      // Exit early if there are no proposals for the project.
+      if (proposedEvents.length === 0) {
+        console.log('There are no bundles for this project.')
+        process.exit()
+      }
+
+      // Filter out the approved bundle event if there is a currently active bundle
+      const activeBundleId = await ChugSplashManager.activeBundleId()
+
+      let approvedEvent: any
+      if (activeBundleId !== ethers.constants.HashZero) {
+        for (let i = 0; i < proposedEvents.length; i++) {
+          const bundleId = proposedEvents[i].args.bundleId
+          if (bundleId === activeBundleId) {
+            // Remove the active bundle event in-place and return it.
+            approvedEvent = proposedEvents.splice(i, 1)
+
+            // It's fine to break out of the loop here since there is only one
+            // active bundle at a time.
+            break
+          }
+        }
+      }
+
+      const executedEvents = await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.ChugSplashBundleCompleted()
+      )
+
+      for (const executed of executedEvents) {
+        for (let i = 0; i < proposedEvents.length; i++) {
+          const proposed = proposedEvents[i]
+          // Remove the event if the bundle hashes match
+          if (proposed.args.bundleId === executed.args.bundleId) {
+            proposedEvents.splice(i, 1)
+          }
+        }
+      }
+
+      spinner.stop()
+
+      if (proposedEvents.length === 0) {
+        // Accounts for the case where there is only one bundle, and it is approved.
+        console.log('There are currently no proposed bundles.')
+      } else {
+        // Display the proposed bundles
+        console.log(`Proposals for ${args.projectName}:`)
+        proposedEvents.forEach((event) =>
+          console.log(
+            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
+          )
+        )
+      }
+
+      // Display the approved bundle if it exists
+      if (activeBundleId !== ethers.constants.HashZero) {
+        console.log('Approved:')
+        console.log(
+          `Bundle ID: ${activeBundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
+        )
+      }
+
+      // Display the executed bundles if the user has specified to do so
+      if (args.includeExecuted) {
+        console.log('\n')
+        console.log('Executed:')
+        executedEvents.forEach((event) =>
+          console.log(
+            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
+          )
+        )
+      }
+    }
+  )
+
+subtask(TASK_CHUGSPLASH_CHECK_BUNDLE)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .addFlag('log', 'Log the output for this task')
+  .addFlag('log', "Log ChugSplash's output")
   .setAction(
     async (
       args: {
@@ -1079,9 +1095,16 @@ task(TASK_CHUGSPLASH_STATUS)
 
 // TODO: change 'any' type
 task(TASK_NODE)
-  .addFlag('disable', 'Disable ChugSplash from deploying on startup')
+  .addFlag(
+    'setupInternals',
+    'Setup the internal ChugSplash contracts. Skip executing all contracts defined in ChugSplash config files.'
+  )
+  .addFlag(
+    'disableChugsplash',
+    "Completely disable all of ChugSplash's activity."
+  )
   .addFlag('log', "Log all of ChugSplash's output")
-  .addFlag('hide', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's output")
   .addOptionalParam<boolean>(
     'local',
     'Enable local execution within the CLI',
@@ -1091,21 +1114,22 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        disable: boolean
+        setupInternals: boolean
+        disableChugsplash: boolean
         log: boolean
-        hide: boolean
+        silent: boolean
         local: boolean
       },
       hre: any,
       runSuper
     ) => {
-      if (!args.disable) {
-        if ((await getChainId(hre.ethers.provider)) === 31337) {
-          const deployer = await hre.ethers.getSigner()
-          await deployChugSplashPredeploys(hre, deployer)
-          await deployConfigs(hre, args.log, args.hide, args.local)
-          await writeHardhatSnapshotId(hre)
+      if (!args.disableChugsplash) {
+        const deployer = await hre.ethers.getSigner()
+        await deployChugSplashPredeploys(hre, deployer)
+        if (!args.setupInternals) {
+          await deployConfigs(hre, args.log, args.silent, args.local)
         }
+        await writeHardhatSnapshotId(hre)
       }
       await runSuper(args)
     }
@@ -1113,6 +1137,7 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
+  .addFlag('logAll', "Log all of ChugSplash's internal output")
   .addOptionalParam<boolean>(
     'local',
     'Enable local execution within the CLI',
@@ -1120,7 +1145,11 @@ task(TASK_TEST)
     types.boolean
   )
   .setAction(
-    async (args: { show: boolean; local: boolean }, hre: any, runSuper) => {
+    async (
+      args: { show: boolean; logAll: boolean; local: boolean },
+      hre: any,
+      runSuper
+    ) => {
       if ((await getChainId(hre.ethers.provider)) === 31337) {
         try {
           const snapshotIdPath = path.join(
@@ -1138,7 +1167,7 @@ task(TASK_TEST)
           }
         } catch {
           await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
-          await deployConfigs(hre, false, !args.show, args.local)
+          await deployConfigs(hre, args.logAll, !args.show, args.local)
         } finally {
           await writeHardhatSnapshotId(hre)
         }

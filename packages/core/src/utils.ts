@@ -142,30 +142,27 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
  * @param projectName Name of the created project.
  * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
  * @param signer Signer to execute the transaction.
- * @returns True if the project was successfully created and false if the project was already registered.
+ * @returns True if the project was registered for the first time in this call, and false if the
+ * project was already registered by the caller.
  */
 export const registerChugSplashProject = async (
   projectName: string,
   projectOwner: string,
   signer: Signer
-) => {
+): Promise<boolean> => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
     (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
   ) {
-    try {
-      const tx = await ChugSplashRegistry.register(projectName, projectOwner)
-      await tx.wait()
-    } catch (err) {
-      throw new Error(
-        'Failed to register project. Try again with another project name.'
-      )
-    }
+    await (await ChugSplashRegistry.register(projectName, projectOwner)).wait()
+    return true
   } else {
     const existingProjectOwner = await getProjectOwner(projectName, signer)
     if (existingProjectOwner !== (await signer.getAddress())) {
       throw new Error(`Project already registered by: ${existingProjectOwner}.`)
+    } else {
+      return false
     }
   }
 }
@@ -203,7 +200,7 @@ export const getChugSplashManagerImplementationAddress =
     return managerImplementationAddress
   }
 
-export const log = async (message: string, hide?: boolean) => {
+export const ChugSplashLog = async (message: string, hide?: boolean) => {
   if (!hide) {
     console.log(message)
   }
