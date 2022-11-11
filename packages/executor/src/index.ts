@@ -7,8 +7,9 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { ChugSplashBundleState } from '@chugsplash/core'
+import { getChainId } from '@eth-optimism/core-utils'
 
-import { compileRemoteBundle } from './utils'
+import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
 
 type Options = {
   network: string
@@ -116,6 +117,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         deployer: signer,
         hide: false,
       })
+
+      if ((await getChainId(this.state.wallet.provider)) !== 31337) {
+        await verifyChugSplashConfig(hre, proposalEvent.args.configUri)
+      }
     }
   }
 }

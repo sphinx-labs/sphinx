@@ -1,20 +1,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { Contract, ethers, utils } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
-import { SolcBuild } from 'hardhat/types'
 import {
   TASK_NODE,
   TASK_COMPILE,
-  TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-  TASK_COMPILE_SOLIDITY_RUN_SOLCJS,
-  TASK_COMPILE_SOLIDITY_RUN_SOLC,
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
-import { add0x, getChainId, remove0x } from '@eth-optimism/core-utils'
+import { getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
   makeActionBundleFromConfig,
@@ -30,8 +26,6 @@ import {
   isSetImplementationAction,
   fromRawChugSplashAction,
   getProxyAddress,
-  createDeploymentFolderForNetwork,
-  writeDeploymentArtifact,
   log as ChugSplashLog,
 } from '@chugsplash/core'
 import {
@@ -45,37 +39,37 @@ import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 
 import {
+  getArtifactsFromParsedCanonicalConfig,
   getBuildInfo,
-  getConstructorArgs,
   getContractArtifact,
   getCreationCode,
   getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
-import { deployContracts } from './deployments'
-import { deployChugSplashContracts } from './predeploys'
+import { deployConfigs } from './deployments'
+import { deployChugSplashPredeploys } from './predeploys'
 import { writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
 
 // internal tasks
-const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
-const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
-const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
+export const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
+export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
+export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
+export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 
 // public tasks
-const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
-const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
-const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
-const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
-const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
-const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
-const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
-const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
-const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
+export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
+export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
+export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
+export const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
+export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
+export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
+export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
+export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
+export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
+export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
 subtask(TASK_CHUGSPLASH_LOAD)
   .addParam('deployConfig', undefined, undefined, types.string)
@@ -151,77 +145,10 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
         args.canonicalConfig
       ) as CanonicalChugSplashConfig
 
-      const compilerOutputs: any[] = []
-      // Get the compiler output for each compiler input.
-      for (const compilerInput of parsedCanonicalConfig.inputs) {
-        const solcBuild: SolcBuild = await hre.run(
-          TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-          {
-            quiet: true,
-            solcVersion: compilerInput.solcVersion,
-          }
-        )
-
-        let compilerOutput: any // TODO: Compiler output type
-        if (solcBuild.isSolcJs) {
-          compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-            input: compilerInput.input,
-            solcJsPath: solcBuild.compilerPath,
-          })
-        } else {
-          compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-            input: compilerInput.input,
-            solcPath: solcBuild.compilerPath,
-          })
-        }
-        compilerOutputs.push(compilerOutput)
-      }
-
-      const artifacts = {}
-      // Generate an artifact for each contract in the ChugSplash config.
-      for (const [referenceName, contractConfig] of Object.entries(
-        parsedCanonicalConfig.contracts
-      )) {
-        let compilerOutputIndex = 0
-        while (artifacts[referenceName] === undefined) {
-          // Iterate through the sources in the current compiler output to find the one that
-          // contains this contract.
-          const compilerOutput = compilerOutputs[compilerOutputIndex]
-          for (const [sourceName, sourceOutput] of Object.entries(
-            compilerOutput.contracts
-          )) {
-            // Check if the current source contains the contract.
-            if (sourceOutput.hasOwnProperty(contractConfig.contract)) {
-              const contractOutput = sourceOutput[contractConfig.contract]
-
-              const creationCode = getCreationCode(
-                add0x(contractOutput.evm.bytecode.object),
-                parsedCanonicalConfig,
-                referenceName,
-                contractOutput.abi,
-                compilerOutput,
-                sourceName,
-                contractConfig.contract
-              )
-              const immutableVariables = getImmutableVariables(
-                compilerOutput,
-                sourceName,
-                contractConfig.contract
-              )
-
-              artifacts[referenceName] = {
-                creationCode,
-                storageLayout: contractOutput.storageLayout,
-                immutableVariables,
-              }
-              // We can exit the loop at this point since each contract only has a single artifact
-              // associated with it.
-              break
-            }
-          }
-          compilerOutputIndex += 1
-        }
-      }
+      const artifacts = await getArtifactsFromParsedCanonicalConfig(
+        hre,
+        parsedCanonicalConfig
+      )
 
       return makeActionBundleFromConfig(
         parsedCanonicalConfig,
@@ -302,8 +229,8 @@ task(TASK_CHUGSPLASH_DEPLOY)
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
-      await deployChugSplashContracts(hre, signer)
-      await deployContracts(hre, args.log, args.hide, args.local)
+      await deployChugSplashPredeploys(hre, signer)
+      await deployConfigs(hre, args.log, args.hide, args.local)
     }
   )
 
@@ -1175,8 +1102,8 @@ task(TASK_NODE)
       if (!args.disable) {
         if ((await getChainId(hre.ethers.provider)) === 31337) {
           const deployer = await hre.ethers.getSigner()
-          await deployChugSplashContracts(hre, deployer)
-          await deployContracts(hre, args.log, args.hide, args.local)
+          await deployChugSplashPredeploys(hre, deployer)
+          await deployConfigs(hre, args.log, args.hide, args.local)
           await writeHardhatSnapshotId(hre)
         }
       }
@@ -1210,8 +1137,8 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await deployChugSplashContracts(hre, await hre.ethers.getSigner())
-          await deployContracts(hre, false, !args.show, args.local)
+          await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+          await deployConfigs(hre, false, !args.show, args.local)
         } finally {
           await writeHardhatSnapshotId(hre)
         }

@@ -7,7 +7,6 @@ import {
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
-  // CHUGSPLASH_REGISTRY_ADDRESS,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 
@@ -69,14 +68,14 @@ export const writeDeploymentArtifact = (
 
 export const getProxyAddress = (
   projectName: string,
-  target: string
+  referenceName: string
 ): string => {
   // const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(target)),
+    utils.keccak256(utils.toUtf8Bytes(referenceName)),
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [

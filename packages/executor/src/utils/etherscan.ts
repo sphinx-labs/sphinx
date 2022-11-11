@@ -2,10 +2,17 @@ import assert from 'assert'
 
 import { Contract } from 'ethers'
 import {
+  CanonicalChugSplashConfig,
   CompilerInput,
   getChugSplashManagerProxyAddress,
+  getProxyAddress,
+  parseChugSplashConfig,
 } from '@chugsplash/core'
-import { getConstructorArgs } from '@chugsplash/plugins'
+import {
+  getConstructorArgs,
+  TASK_CHUGSPLASH_FETCH,
+  getArtifactsFromParsedCanonicalConfig,
+} from '@chugsplash/plugins'
 import { TASK_VERIFY_GET_ETHERSCAN_ENDPOINT } from '@nomiclabs/hardhat-etherscan/dist/src/constants'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -28,11 +35,6 @@ import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { EthereumProvider } from 'hardhat/types'
 import { request } from 'undici'
 
-import {
-  fetchChugSplashConfig,
-  getArtifactsFromCanonicalConfig,
-} from './compile'
-
 export interface EtherscanResponseBody {
   status: string
   message: string
@@ -44,30 +46,32 @@ export const RESPONSE_OK = '1'
 export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
 
-  const canonicalConfig = await fetchChugSplashConfig(configUri)
-  const artifacts = await getArtifactsFromCanonicalConfig(hre, canonicalConfig)
-
+  const canonicalConfig = await hre.run(TASK_CHUGSPLASH_FETCH, {
+    configUri,
+  })
+  const artifacts = await getArtifactsFromParsedCanonicalConfig(
+    hre,
+    parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
+  )
   const ChugSplashManager = new Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
     hre.ethers.provider
   )
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    canonicalConfig.contracts
-  )) {
-    const artifact = artifacts[contractConfig.contract]
-    const { abi, contractName, sourceName, fileOutput } = artifact
+  for (const referenceName of Object.keys(canonicalConfig.contracts)) {
+    const artifact = artifacts[referenceName]
+    const { abi, contractName, sourceName, compilerOutput } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig,
       referenceName,
       abi,
-      fileOutput,
+      compilerOutput,
       sourceName,
       contractName
     )
 
-    const contractAddress = await ChugSplashManager.implementations(
+    const implementationAddress = await ChugSplashManager.implementations(
       referenceName
     )
 
@@ -79,7 +83,7 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
       hre.network.name,
       hre.network.provider,
       etherscanApiEndpoints,
-      contractAddress,
+      implementationAddress,
       sourceName,
       contractName,
       abi,
@@ -87,6 +91,14 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
       compilerInput.input,
       compilerInput.solcVersion,
       constructorArgValues
+    )
+
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints,
+      etherscanApiKey,
+      getProxyAddress(canonicalConfig.options.projectName, referenceName),
+      implementationAddress,
+      contractName
     )
   }
 }
