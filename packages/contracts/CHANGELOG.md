@@ -1,5 +1,14 @@
 # @chugsplash/contracts
 
+## 0.3.7
+
+### Patch Changes
+
+- a536675: Export constructor arguments for all ChugSplash contracts
+- 273d4c3: Use creation bytecode instead of the `DEPLOY_CODE_PREFIX` to deploy implementation contracts for Etherscan compatibility
+- c08a950: Export ChugSplash predeploy contracts
+- 78acb9a: Fix build info export bug
+
 ## 0.3.6
 
 ### Patch Changes

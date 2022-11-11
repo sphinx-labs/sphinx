@@ -1,5 +1,18 @@
 # @chugsplash/core
 
+## 0.3.10
+
+### Patch Changes
+
+- 21df9d7: Add Etherscan verification in executor
+- 273d4c3: Use creation bytecode instead of the `DEPLOY_CODE_PREFIX` to deploy implementation contracts for Etherscan compatibility
+- 6daea1a: Add artifact generation for deployments
+- Updated dependencies [a536675]
+- Updated dependencies [273d4c3]
+- Updated dependencies [c08a950]
+- Updated dependencies [78acb9a]
+  - @chugsplash/contracts@0.3.7
+
 ## 0.3.9
 
 ### Patch Changes
