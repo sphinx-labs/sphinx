@@ -1,9 +1,19 @@
 import path from 'path'
 
 import * as semver from 'semver'
-import { SolidityStorageLayout, ChugSplashConfig } from '@chugsplash/core'
-import { remove0x } from '@eth-optimism/core-utils'
+import {
+  SolidityStorageLayout,
+  ChugSplashConfig,
+  CanonicalChugSplashConfig,
+} from '@chugsplash/core'
+import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
+import {
+  TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+  TASK_COMPILE_SOLIDITY_RUN_SOLC,
+  TASK_COMPILE_SOLIDITY_RUN_SOLCJS,
+} from 'hardhat/builtin-tasks/task-names'
+import { SolcBuild } from 'hardhat/types'
 
 // TODO
 export type ContractArtifact = any
@@ -88,32 +98,23 @@ export const getStorageLayout = async (
   return (output as any).storageLayout
 }
 
-export const getCreationCode = async (
+export const getCreationCode = (
+  bytecode: string,
   parsedConfig: ChugSplashConfig,
-  referenceName: string
-): Promise<string> => {
-  const contractConfig = parsedConfig.contracts[referenceName]
-
-  const { abi, sourceName, contractName, bytecode } = getContractArtifact(
-    contractConfig.contract
+  referenceName: string,
+  abi: any,
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): string => {
+  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
+    parsedConfig,
+    referenceName,
+    abi,
+    compilerOutput,
+    sourceName,
+    contractName
   )
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
-  const immutableReferences: {
-    [astId: number]: {
-      length: number
-      start: number
-    }[]
-  } = output.evm.deployedBytecode.immutableReferences
-
-  const { constructorArgTypes, constructorArgValues } =
-    await getConstructorArgs(
-      parsedConfig,
-      referenceName,
-      abi,
-      buildInfo.output.sources,
-      immutableReferences
-    )
 
   const creationCodeWithConstructorArgs = bytecode.concat(
     remove0x(
@@ -126,18 +127,18 @@ export const getCreationCode = async (
 
 // TODO: I think this should go in /core now that we don't rely on hardhat as a dependency.
 // We could potentially move other contracts in here to core too.
-export const getConstructorArgs = async (
+export const getConstructorArgs = (
   parsedConfig: ChugSplashConfig,
   referenceName: string,
   abi: any,
-  sources: any,
-  immutableReferences: {
-    [astId: number]: {
-      length: number
-      start: number
-    }[]
-  }
-): Promise<{ constructorArgTypes: any[]; constructorArgValues: any[] }> => {
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): { constructorArgTypes: any[]; constructorArgValues: any[] } => {
+  const immutableReferences =
+    compilerOutput.contracts[sourceName][contractName].evm.deployedBytecode
+      .immutableReferences
+
   const contractConfig = parsedConfig.contracts[referenceName]
 
   const constructorFragment = abi.find(
@@ -152,7 +153,7 @@ export const getConstructorArgs = async (
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToImmutableNames = {}
 
-  for (const source of Object.values(sources)) {
+  for (const source of Object.values(compilerOutput.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
       if (
         contractNode.nodeType === 'ContractDefinition' &&
@@ -265,20 +266,19 @@ export const getConstructorArgNameForImmutableVariable = (
   )
 }
 
-export const getImmutableVariables = async (
-  contractConfig
-): Promise<string[]> => {
-  const { sourceName, contractName } = getContractArtifact(
-    contractConfig.contract
-  )
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
+export const getImmutableVariables = (
+  compilerOutput: any,
+  sourceName: string,
+  contractName: string
+): string[] => {
   const immutableReferences: {
     [astId: number]: {
       length: number
       start: number
     }[]
-  } = output.evm.deployedBytecode.immutableReferences
+  } =
+    compilerOutput.contracts[sourceName][contractName].evm.deployedBytecode
+      .immutableReferences
 
   if (
     immutableReferences === undefined ||
@@ -288,7 +288,7 @@ export const getImmutableVariables = async (
   }
 
   const immutableVariables: string[] = []
-  for (const source of Object.values(buildInfo.output.sources)) {
+  for (const source of Object.values(compilerOutput.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
       if (contractNode.nodeType === 'ContractDefinition') {
         for (const node of contractNode.nodes) {
@@ -300,4 +300,86 @@ export const getImmutableVariables = async (
     }
   }
   return immutableVariables
+}
+
+export const getArtifactsFromParsedCanonicalConfig = async (
+  hre: any,
+  parsedCanonicalConfig: CanonicalChugSplashConfig
+): Promise<{ [referenceName: string]: any }> => {
+  const compilerOutputs: any[] = []
+  // Get the compiler output for each compiler input.
+  for (const compilerInput of parsedCanonicalConfig.inputs) {
+    const solcBuild: SolcBuild = await hre.run(
+      TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+      {
+        quiet: true,
+        solcVersion: compilerInput.solcVersion,
+      }
+    )
+
+    let compilerOutput: any // TODO: Compiler output type
+    if (solcBuild.isSolcJs) {
+      compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
+        input: compilerInput.input,
+        solcJsPath: solcBuild.compilerPath,
+      })
+    } else {
+      compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
+        input: compilerInput.input,
+        solcPath: solcBuild.compilerPath,
+      })
+    }
+    compilerOutputs.push(compilerOutput)
+  }
+
+  const artifacts = {}
+  // Generate an artifact for each contract in the ChugSplash config.
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedCanonicalConfig.contracts
+  )) {
+    let compilerOutputIndex = 0
+    while (artifacts[referenceName] === undefined) {
+      // Iterate through the sources in the current compiler output to find the one that
+      // contains this contract.
+      const compilerOutput = compilerOutputs[compilerOutputIndex]
+      for (const [sourceName, sourceOutput] of Object.entries(
+        compilerOutput.contracts
+      )) {
+        // Check if the current source contains the contract.
+        if (sourceOutput.hasOwnProperty(contractConfig.contract)) {
+          const contractOutput = sourceOutput[contractConfig.contract]
+
+          const creationCode = getCreationCode(
+            add0x(contractOutput.evm.bytecode.object),
+            parsedCanonicalConfig,
+            referenceName,
+            contractOutput.abi,
+            compilerOutput,
+            sourceName,
+            contractConfig.contract
+          )
+          const immutableVariables = getImmutableVariables(
+            compilerOutput,
+            sourceName,
+            contractConfig.contract
+          )
+
+          artifacts[referenceName] = {
+            creationCode,
+            storageLayout: contractOutput.storageLayout,
+            immutableVariables,
+            abi: contractOutput.abi,
+            compilerOutput,
+            sourceName,
+            contractName: contractConfig.contract,
+          }
+          // We can exit the loop at this point since each contract only has a single artifact
+          // associated with it.
+          break
+        }
+      }
+      compilerOutputIndex += 1
+    }
+  }
+  return artifacts
 }

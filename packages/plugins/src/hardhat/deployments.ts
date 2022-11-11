@@ -28,7 +28,7 @@ import { writeHardhatSnapshotId } from './utils'
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployContracts = async (
+export const deployConfigs = async (
   hre: any,
   verbose: boolean,
   hide: boolean,
@@ -36,11 +36,11 @@ export const deployContracts = async (
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployChugSplashConfig(hre, fileName, verbose, hide, local)
+    await deployConfig(hre, fileName, verbose, hide, local)
   }
 }
 
-export const deployChugSplashConfig = async (
+export const deployConfig = async (
   hre: any,
   fileName: string,
   verbose: boolean,
@@ -77,7 +77,7 @@ export const deployChugSplashConfig = async (
 
   const { bundleId } = await hre.run('chugsplash-commit', {
     deployConfig: configRelativePath,
-    local: false,
+    local,
     log: verbose,
   })
 
@@ -113,7 +113,7 @@ export const deployChugSplashConfig = async (
 
   const { bundle } = await hre.run('chugsplash-propose', {
     deployConfig: configRelativePath,
-    local: false,
+    local,
     log: verbose,
   })
 
@@ -148,7 +148,6 @@ export const deployChugSplashConfig = async (
       chugSplashManager: ChugSplashManager,
       bundleState,
       bundle,
-      deployerAddress,
       parsedConfig,
       deployer,
       hide,

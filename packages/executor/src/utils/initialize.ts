@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { deployChugSplashContracts } from '@chugsplash/plugins'
+import { deployChugSplashPredeploys } from '@chugsplash/plugins'
 import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   ChugSplashBootLoaderArtifact,
@@ -29,7 +29,7 @@ export const initializeChugSplashContracts = async (
   hre: any,
   deployer: ethers.Signer
 ) => {
-  await deployChugSplashContracts(hre, deployer)
+  await deployChugSplashPredeploys(hre, deployer)
 
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
 
