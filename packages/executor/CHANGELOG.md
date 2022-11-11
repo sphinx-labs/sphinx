@@ -1,5 +1,16 @@
 # @chugsplash/executor
 
+## 0.4.0
+
+### Minor Changes
+
+- 21df9d7: Add Etherscan verification in executor
+
+### Patch Changes
+
+- 071d867: Implemented minimal standalone executor
+- afe99ad: Verify ChugSpash predeploy contracts
+
 ## 0.3.2
 
 ### Patch Changes
