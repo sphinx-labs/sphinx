@@ -3,4 +3,5 @@ dist/
 .deployed
 artifacts
 cache
-deployments
+deployments/
+deployed/
