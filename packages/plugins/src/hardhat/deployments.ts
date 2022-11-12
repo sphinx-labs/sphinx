@@ -14,7 +14,8 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   parseChugSplashConfig,
-  log,
+  ChugSplashLog,
+  ChugSplashActionBundle,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -28,23 +29,21 @@ import { writeHardhatSnapshotId } from './utils'
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployContracts = async (
+export const deployConfigs = async (
   hre: any,
-  verbose: boolean,
-  hide: boolean,
+  silent: boolean,
   local: boolean
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployChugSplashConfig(hre, fileName, verbose, hide, local)
+    await deployConfig(hre, fileName, silent, local)
   }
 }
 
-export const deployChugSplashConfig = async (
+export const deployConfig = async (
   hre: any,
   fileName: string,
-  verbose: boolean,
-  hide: boolean,
+  silent: boolean,
   local: boolean
 ) => {
   const configRelativePath = path.format({
@@ -61,11 +60,11 @@ export const deployChugSplashConfig = async (
   const deployerAddress = await deployer.getAddress()
 
   const config: ChugSplashConfig = await hre.run('chugsplash-load', {
-    deployConfig: configRelativePath,
+    configPath: configRelativePath,
   })
   const parsedConfig = parseChugSplashConfig(config)
 
-  log(`Deploying: ${parsedConfig.options.projectName}`, hide)
+  ChugSplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -76,9 +75,8 @@ export const deployChugSplashConfig = async (
   )
 
   const { bundleId } = await hre.run('chugsplash-commit', {
-    deployConfig: configRelativePath,
-    local: false,
-    log: verbose,
+    configPath: configRelativePath,
+    local,
   })
 
   const ChugSplashManager = new Contract(
@@ -111,10 +109,9 @@ export const deployChugSplashConfig = async (
     }
   }
 
-  const { bundle } = await hre.run('chugsplash-propose', {
-    deployConfig: configRelativePath,
-    local: false,
-    log: verbose,
+  const bundle: ChugSplashActionBundle = await hre.run('chugsplash-propose', {
+    configPath: configRelativePath,
+    local,
   })
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
@@ -139,7 +136,6 @@ export const deployChugSplashConfig = async (
   await hre.run('chugsplash-approve', {
     projectName: parsedConfig.options.projectName,
     bundleId,
-    log: verbose,
   })
 
   // todo call chugsplash-execute if deploying locally
@@ -148,10 +144,9 @@ export const deployChugSplashConfig = async (
       chugSplashManager: ChugSplashManager,
       bundleState,
       bundle,
-      deployerAddress,
       parsedConfig,
       deployer,
-      hide,
+      silent,
     })
   }
 }

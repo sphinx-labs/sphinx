@@ -7,7 +7,6 @@ import {
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
-  // CHUGSPLASH_REGISTRY_ADDRESS,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 
@@ -69,14 +68,14 @@ export const writeDeploymentArtifact = (
 
 export const getProxyAddress = (
   projectName: string,
-  target: string
+  referenceName: string
 ): string => {
   // const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(target)),
+    utils.keccak256(utils.toUtf8Bytes(referenceName)),
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -143,30 +142,27 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
  * @param projectName Name of the created project.
  * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
  * @param signer Signer to execute the transaction.
- * @returns True if the project was successfully created and false if the project was already registered.
+ * @returns True if the project was registered for the first time in this call, and false if the
+ * project was already registered by the caller.
  */
 export const registerChugSplashProject = async (
   projectName: string,
   projectOwner: string,
   signer: Signer
-) => {
+): Promise<boolean> => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
     (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
   ) {
-    try {
-      const tx = await ChugSplashRegistry.register(projectName, projectOwner)
-      await tx.wait()
-    } catch (err) {
-      throw new Error(
-        'Failed to register project. Try again with another project name.'
-      )
-    }
+    await (await ChugSplashRegistry.register(projectName, projectOwner)).wait()
+    return true
   } else {
     const existingProjectOwner = await getProjectOwner(projectName, signer)
     if (existingProjectOwner !== (await signer.getAddress())) {
       throw new Error(`Project already registered by: ${existingProjectOwner}.`)
+    } else {
+      return false
     }
   }
 }
@@ -204,8 +200,8 @@ export const getChugSplashManagerImplementationAddress =
     return managerImplementationAddress
   }
 
-export const log = async (message: string, hide?: boolean) => {
+export const ChugSplashLog = async (text: string, hide?: boolean) => {
   if (!hide) {
-    console.log(message)
+    console.log(text)
   }
 }

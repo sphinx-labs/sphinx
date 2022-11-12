@@ -21,7 +21,7 @@ import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/contracts'
 
-export const deployChugSplashContracts = async (
+export const deployChugSplashPredeploys = async (
   hre: HardhatRuntimeEnvironment,
   deployer: ethers.Signer
 ): Promise<void> => {
