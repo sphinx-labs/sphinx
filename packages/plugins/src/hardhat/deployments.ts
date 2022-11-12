@@ -14,7 +14,7 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   parseChugSplashConfig,
-  log,
+  ChugSplashLog,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -31,12 +31,12 @@ import { writeHardhatSnapshotId } from './utils'
 export const deployConfigs = async (
   hre: any,
   verbose: boolean,
-  hide: boolean,
+  silent: boolean,
   local: boolean
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployConfig(hre, fileName, verbose, hide, local)
+    await deployConfig(hre, fileName, verbose, silent, local)
   }
 }
 
@@ -44,7 +44,7 @@ export const deployConfig = async (
   hre: any,
   fileName: string,
   verbose: boolean,
-  hide: boolean,
+  silent: boolean,
   local: boolean
 ) => {
   const configRelativePath = path.format({
@@ -65,7 +65,7 @@ export const deployConfig = async (
   })
   const parsedConfig = parseChugSplashConfig(config)
 
-  log(`Deploying: ${parsedConfig.options.projectName}`, hide)
+  ChugSplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -150,7 +150,7 @@ export const deployConfig = async (
       bundle,
       parsedConfig,
       deployer,
-      hide,
+      silent,
     })
   }
 }
