@@ -1,5 +1,18 @@
 # @chugsplash/plugins
 
+## 0.5.11
+
+### Patch Changes
+
+- 3c939bd: Refactor remote bundling logic
+- 7b33791: Integrate etherscan verification into executor
+- 6941e89: Remove spinner from subtasks. Also update chugsplash-propose task to be more descriptive and robust.
+- 9d38797: Update chugsplash-register task to work locally
+- Updated dependencies [6a6f0c0]
+- Updated dependencies [9d38797]
+  - @chugsplash/contracts@0.3.8
+  - @chugsplash/core@0.3.11
+
 ## 0.5.10
 
 ### Patch Changes
