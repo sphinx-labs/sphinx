@@ -11,11 +11,7 @@ contract SimpleStorage {
 
     // We must instantiate the immutable variables in the constructor so that
     // Solidity doesn't throw an error.
-    constructor(
-        uint8 _number,
-        bool _stored,
-        address _otherStorage
-    ) {
+    constructor(uint8 _number, bool _stored, address _otherStorage) {
         number = _number;
         stored = _stored;
         otherStorage = _otherStorage;

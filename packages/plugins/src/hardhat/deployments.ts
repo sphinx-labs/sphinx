@@ -15,6 +15,7 @@ import {
   getChugSplashManagerProxyAddress,
   parseChugSplashConfig,
   ChugSplashLog,
+  ChugSplashActionBundle,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -30,20 +31,18 @@ import { writeHardhatSnapshotId } from './utils'
  */
 export const deployConfigs = async (
   hre: any,
-  verbose: boolean,
   silent: boolean,
   local: boolean
 ) => {
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployConfig(hre, fileName, verbose, silent, local)
+    await deployConfig(hre, fileName, silent, local)
   }
 }
 
 export const deployConfig = async (
   hre: any,
   fileName: string,
-  verbose: boolean,
   silent: boolean,
   local: boolean
 ) => {
@@ -61,7 +60,7 @@ export const deployConfig = async (
   const deployerAddress = await deployer.getAddress()
 
   const config: ChugSplashConfig = await hre.run('chugsplash-load', {
-    deployConfig: configRelativePath,
+    configPath: configRelativePath,
   })
   const parsedConfig = parseChugSplashConfig(config)
 
@@ -76,9 +75,8 @@ export const deployConfig = async (
   )
 
   const { bundleId } = await hre.run('chugsplash-commit', {
-    deployConfig: configRelativePath,
+    configPath: configRelativePath,
     local,
-    log: verbose,
   })
 
   const ChugSplashManager = new Contract(
@@ -111,10 +109,9 @@ export const deployConfig = async (
     }
   }
 
-  const { bundle } = await hre.run('chugsplash-propose', {
-    deployConfig: configRelativePath,
+  const bundle: ChugSplashActionBundle = await hre.run('chugsplash-propose', {
+    configPath: configRelativePath,
     local,
-    log: verbose,
   })
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
@@ -139,7 +136,6 @@ export const deployConfig = async (
   await hre.run('chugsplash-approve', {
     projectName: parsedConfig.options.projectName,
     bundleId,
-    log: verbose,
   })
 
   // todo call chugsplash-execute if deploying locally

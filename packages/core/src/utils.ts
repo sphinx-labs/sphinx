@@ -200,8 +200,8 @@ export const getChugSplashManagerImplementationAddress =
     return managerImplementationAddress
   }
 
-export const ChugSplashLog = async (message: string, hide?: boolean) => {
+export const ChugSplashLog = async (text: string, hide?: boolean) => {
   if (!hide) {
-    console.log(message)
+    console.log(text)
   }
 }
