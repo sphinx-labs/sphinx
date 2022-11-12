@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.8
+
+### Patch Changes
+
+- 6a6f0c0: Hard-code build info file as a temporary fix
+
 ## 0.3.7
 
 ### Patch Changes

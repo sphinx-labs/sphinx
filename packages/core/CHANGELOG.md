@@ -1,5 +1,13 @@
 # @chugsplash/core
 
+## 0.3.11
+
+### Patch Changes
+
+- 9d38797: Update chugsplash-register task to work locally
+- Updated dependencies [6a6f0c0]
+  - @chugsplash/contracts@0.3.8
+
 ## 0.3.10
 
 ### Patch Changes
