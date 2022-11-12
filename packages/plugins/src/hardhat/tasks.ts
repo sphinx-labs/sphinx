@@ -5,7 +5,6 @@ import { Contract, ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
-  TASK_COMPILE,
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
@@ -19,7 +18,6 @@ import {
   ChugSplashActionBundle,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  loadChugSplashConfig,
   registerChugSplashProject,
   getChugSplashRegistry,
   parseChugSplashConfig,
@@ -48,19 +46,18 @@ import {
 } from './artifacts'
 import { deployConfigs } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
-import { writeHardhatSnapshotId } from './utils'
+import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
 
 // internal tasks
-export const TASK_CHUGSPLASH_LOAD = 'chugsplash-load'
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
 export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
-export const TASK_CHUGSPLASH_CHECK_BUNDLE = 'chugsplash-check-bundle'
+export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
 
@@ -71,19 +68,6 @@ export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 
-subtask(TASK_CHUGSPLASH_LOAD)
-  .addParam('configPath', undefined, undefined, types.string)
-  .setAction(
-    async (args: { configPath: string }, hre): Promise<ChugSplashConfig> => {
-      // Make sure we have the latest compiled code.
-      await hre.run(TASK_COMPILE, {
-        quiet: true,
-      })
-      const config = loadChugSplashConfig(args.configPath)
-      return config
-    }
-  )
-
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
   .addParam('configPath', undefined, undefined, types.string)
   .setAction(
@@ -91,14 +75,14 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
       args: { configPath: string },
       hre
     ): Promise<ChugSplashActionBundle> => {
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        configPath: args.configPath,
-      })
-      const parsed = parseChugSplashConfig(config)
+      const parsedConfig = await loadParsedChugSplashConfig(
+        hre,
+        args.configPath
+      )
 
       const artifacts = {}
       for (const [referenceName, contractConfig] of Object.entries(
-        parsed.contracts
+        parsedConfig.contracts
       )) {
         const storageLayout = await getStorageLayout(contractConfig.contract)
 
@@ -111,7 +95,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         )
         const creationCode = getCreationCode(
           bytecode,
-          parsed,
+          parsedConfig,
           referenceName,
           abi,
           compilerOutput,
@@ -130,7 +114,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
         }
       }
 
-      return makeActionBundleFromConfig(config, artifacts, process.env)
+      return makeActionBundleFromConfig(parsedConfig, artifacts, process.env)
     }
   )
 
@@ -259,19 +243,17 @@ task(TASK_CHUGSPLASH_REGISTER)
       const spinner = ora({ isSilent: args.silent })
 
       for (const configPath of args.configPaths) {
-        const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-          configPath,
-        })
+        const parsedConfig = await loadParsedChugSplashConfig(hre, configPath)
 
-        spinner.start(`Registering ${config.options.projectName}...`)
+        spinner.start(`Registering ${parsedConfig.options.projectName}...`)
 
-        const firstTimeRegistered = await registerChugSplashProject(
-          config.options.projectName,
-          config.options.projectOwner,
+        const isFirstTimeRegistered = await registerChugSplashProject(
+          parsedConfig.options.projectName,
+          parsedConfig.options.projectOwner,
           signer
         )
 
-        firstTimeRegistered
+        isFirstTimeRegistered
           ? spinner.succeed('Project successfully registered.')
           : spinner.fail('Project has already been registered by the caller.')
       }
@@ -303,13 +285,11 @@ task(TASK_CHUGSPLASH_PROPOSE)
       const signer = hre.ethers.provider.getSigner()
       await deployChugSplashPredeploys(hre, signer)
 
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        configPath,
-      })
+      const parsedConfig = await loadParsedChugSplashConfig(hre, configPath)
 
       const ChugSplashRegistry = getChugSplashRegistry(signer)
       const chugsplashManagerAddress = await ChugSplashRegistry.projects(
-        config.options.projectName
+        parsedConfig.options.projectName
       )
       if (chugsplashManagerAddress === ethers.constants.AddressZero) {
         if ((await getChainId(hre.ethers.provider)) === 31337) {
@@ -330,43 +310,55 @@ task(TASK_CHUGSPLASH_PROPOSE)
         }
       }
 
-      const spinner = ora({ isSilent: silent })
-      spinner.start(`Proposing the project on ${hre.network.name}...`)
-
-      // Commit the bundle to IPFS (for live networks) or locally (for the Hardhat network).
-      const { bundle, configUri, bundleId } = await hre.run(
-        TASK_CHUGSPLASH_COMMIT,
-        {
-          configPath,
-          ipfsUrl,
-          silent,
-          spinner,
-        }
-      )
-
-      if ((await getChainId(hre.ethers.provider)) !== 31337) {
-        // For live networks, verify that the bundle has been committed to IPFS with the correct
-        // bundle hash.
-        await hre.run(TASK_CHUGSPLASH_CHECK_BUNDLE, {
-          configUri,
-          bundleId: computeBundleId(
-            bundle.root,
-            bundle.actions.length,
-            configUri
-          ),
-          ipfsUrl,
-        })
-      }
-
       const ChugSplashManager = new ethers.Contract(
         chugsplashManagerAddress,
         ChugSplashManagerABI,
         signer
       )
 
+      // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
+      // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
+      // it to IPFS.
+      const { bundle, configUri, bundleId } = await chugsplashCommitSubtask(
+        {
+          configPath,
+          ipfsUrl,
+          isLiveNetwork: false,
+        },
+        hre
+      )
+
       const bundleState: ChugSplashBundleState =
         await ChugSplashManager.bundles(bundleId)
+
+      const spinner = ora({ isSilent: silent })
       if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+        spinner.start(`Proposing the project on ${hre.network.name}...`)
+
+        if ((await getChainId(hre.ethers.provider)) !== 31337) {
+          // Commit the bundle to IPFS if the network is live (i.e. not the local Hardhat network).
+          await chugsplashCommitSubtask(
+            {
+              configPath,
+              ipfsUrl,
+              isLiveNetwork: true,
+            },
+            hre
+          )
+
+          // Verify that the bundle has been committed to IPFS with the correct bundle hash.
+          await hre.run(TASK_CHUGSPLASH_VERIFY_BUNDLE, {
+            configUri,
+            bundleId: computeBundleId(
+              bundle.root,
+              bundle.actions.length,
+              configUri
+            ),
+            ipfsUrl,
+          })
+        }
+
+        // Propose the bundle.
         await (
           await ChugSplashManager.proposeChugSplashBundle(
             bundle.root,
@@ -381,8 +373,10 @@ task(TASK_CHUGSPLASH_PROPOSE)
         )
       } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
         spinner.fail(
-          `Project was already proposed and is currently being executed on: ${hre.network.name}.`
+          `Project was already proposed and is currently being executed on ${hre.network.name}.`
         )
+      } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+        spinner.fail(`Project was already completed on ${hre.network.name}.`)
       }
       return bundle
     }
@@ -606,33 +600,49 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
 
 task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
-  .addParam('projectName', 'name of the chugsplash project')
-  .addParam('bundleId', 'ID of the bundle')
+  .addPositionalParam(
+    'configPath',
+    'Path to the ChugSplash config file to propose'
+  )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(
     async (
       args: {
-        projectName: string
-        bundleId: string
+        configPath: string
         silent: boolean
       },
       hre
     ) => {
-      const spinner = ora({ isSilent: args.silent })
+      const { configPath, silent } = args
+
+      const spinner = ora({ isSilent: silent })
+
+      const parsedConfig = await loadParsedChugSplashConfig(hre, configPath)
 
       const ChugSplashRegistry = getChugSplashRegistry(
         hre.ethers.provider.getSigner()
       )
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.projectName),
+        await ChugSplashRegistry.projects(parsedConfig.options.projectName),
         ChugSplashManagerABI,
         hre.ethers.provider.getSigner()
       )
 
+      // Call the commit subtask locally to get the bundle ID without publishing
+      // anything to IPFS.
+      const { bundleId } = await chugsplashCommitSubtask(
+        {
+          configPath,
+          ipfsUrl: '',
+          isLiveNetwork: false,
+        },
+        hre
+      )
+
       // Get the bundle state of the inputted bundle ID.
       const bundleState: ChugSplashBundleState =
-        await ChugSplashManager.bundles(args.bundleId)
+        await ChugSplashManager.bundles(bundleId)
       if (bundleState.status !== ChugSplashBundleStatus.PROPOSED) {
         spinner.fail('Bundle must first be proposed.')
         return
@@ -642,12 +652,10 @@ task(TASK_CHUGSPLASH_APPROVE)
 
       const activeBundleId = await ChugSplashManager.activeBundleId()
       if (activeBundleId === ethers.constants.HashZero) {
-        const tx = await ChugSplashManager.approveChugSplashBundle(
-          args.bundleId
-        )
+        const tx = await ChugSplashManager.approveChugSplashBundle(bundleId)
         await tx.wait()
         spinner.succeed('Bundle successfully approved.')
-      } else if (activeBundleId === args.bundleId) {
+      } else if (activeBundleId === bundleId) {
         spinner.fail('Bundle is already approved.')
       } else {
         spinner.fail('A different bundle is currently approved.')
@@ -676,131 +684,124 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
     )
   })
 
+export const chugsplashCommitSubtask = async (
+  args: {
+    configPath: string
+    ipfsUrl: string
+    isLiveNetwork: boolean
+  },
+  hre
+): Promise<{
+  bundle: ChugSplashActionBundle
+  configUri: string
+  bundleId: string
+}> => {
+  const { configPath, ipfsUrl, isLiveNetwork } = args
+
+  if (isLiveNetwork && (await getChainId(hre.ethers.provider)) === 31337) {
+    throw new Error('Attempted to commit to IPFS on the Hardhat network.')
+  }
+
+  const parsedConfig = await loadParsedChugSplashConfig(hre, configPath)
+
+  let configSourceNames = Object.values(parsedConfig.contracts)
+    .map((contractConfig) => contractConfig.contract)
+    .map((name) => getContractArtifact(name).sourceName)
+  // Get unique source names for the contracts in the ChugSplash config
+  configSourceNames = Array.from(new Set(configSourceNames))
+
+  // We'll need this later
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+
+  // Extract compiler inputs
+  const inputs = fs
+    .readdirSync(buildInfoFolder)
+    .filter((file) => {
+      return file.endsWith('.json')
+    })
+    .map((file) => {
+      return JSON.parse(
+        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
+      )
+    })
+    .filter((buildInfo) => {
+      // Get an array of the source names for the current build info file
+      const inputSourceNames = Object.keys(buildInfo.input.sources)
+      // Get the intersection of source names between the current build info file
+      // and the ChugSplash config file
+      const intersection = configSourceNames.filter((name) =>
+        inputSourceNames.includes(name)
+      )
+      // Keep this build info file if the arrays share at least one source name in common
+      return intersection.length > 0
+    })
+    .map((compilerInput) => {
+      return {
+        solcVersion: compilerInput.solcVersion,
+        solcLongVersion: compilerInput.solcLongVersion,
+        input: compilerInput.input,
+      }
+    })
+
+  const ipfsData = JSON.stringify(
+    {
+      ...parsedConfig,
+      inputs,
+    },
+    null,
+    2
+  )
+
+  let ipfsHash
+  if (isLiveNetwork) {
+    ipfsHash = await Hash.of(ipfsData)
+  } else if (ipfsUrl) {
+    const ipfs = create({
+      url: ipfsUrl,
+    })
+    ipfsHash = (await ipfs.add(ipfsData)).path
+  } else if (process.env.IPFS_PROJECT_ID && process.env.IPFS_API_KEY_SECRET) {
+    const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+    const ipfs = create({
+      host: 'ipfs.infura.io',
+      port: 5001,
+      protocol: 'https',
+      headers: {
+        authorization: `Basic ${Buffer.from(projectCredentials).toString(
+          'base64'
+        )}`,
+      },
+    })
+    ipfsHash = (await ipfs.add(ipfsData)).path
+  } else {
+    throw new Error(
+      `To deploy on ${hre.network.name}, you must first setup an IPFS project with Infura: https://app.infura.io/. Once you've done this, copy and paste the following variables into your .env file:
+
+IPFS_PROJECT_ID: ...
+IPFS_API_KEY_SECRET: ...
+        `
+    )
+  }
+
+  const bundle = await hre.run(TASK_CHUGSPLASH_BUNDLE_LOCAL, {
+    configPath,
+  })
+
+  const configUri = `ipfs://${ipfsHash}`
+  const bundleId = computeBundleId(
+    bundle.root,
+    bundle.actions.length,
+    configUri
+  )
+
+  return { bundle, configUri, bundleId }
+}
+
 subtask(TASK_CHUGSPLASH_COMMIT)
   .setDescription('Commits a ChugSplash config file with artifacts to IPFS')
   .addParam('configPath', 'path to chugsplash deploy config')
-  .addFlag('silent', "Hide all of ChugSplash's output")
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (
-      args: {
-        configPath: string
-        ipfsUrl: string
-      },
-      hre
-    ): Promise<{
-      bundle: ChugSplashActionBundle
-      configUri: string
-      bundleId: string
-    }> => {
-      const { configPath, ipfsUrl } = args
-
-      const isHardhatNetwork =
-        (await getChainId(hre.ethers.provider)) === 31337 ? true : false
-
-      const config: ChugSplashConfig = await hre.run(TASK_CHUGSPLASH_LOAD, {
-        configPath,
-      })
-
-      let configSourceNames = Object.values(config.contracts)
-        .map((contractConfig) => contractConfig.contract)
-        .map((name) => getContractArtifact(name).sourceName)
-      // Get unique source names for the contracts in the ChugSplash config
-      configSourceNames = Array.from(new Set(configSourceNames))
-
-      // We'll need this later
-      const buildInfoFolder = path.join(
-        hre.config.paths.artifacts,
-        'build-info'
-      )
-
-      // Extract compiler inputs
-      const inputs = fs
-        .readdirSync(buildInfoFolder)
-        .filter((file) => {
-          return file.endsWith('.json')
-        })
-        .map((file) => {
-          return JSON.parse(
-            fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
-          )
-        })
-        .filter((buildInfo) => {
-          // Get an array of the source names for the current build info file
-          const inputSourceNames = Object.keys(buildInfo.input.sources)
-          // Get the intersection of source names between the current build info file
-          // and the ChugSplash config file
-          const intersection = configSourceNames.filter((name) =>
-            inputSourceNames.includes(name)
-          )
-          // Keep this build info file if the arrays share at least one source name in common
-          return intersection.length > 0
-        })
-        .map((compilerInput) => {
-          return {
-            solcVersion: compilerInput.solcVersion,
-            solcLongVersion: compilerInput.solcLongVersion,
-            input: compilerInput.input,
-          }
-        })
-
-      const ipfsData = JSON.stringify(
-        {
-          ...config,
-          inputs,
-        },
-        null,
-        2
-      )
-
-      let ipfsHash
-      if (isHardhatNetwork) {
-        ipfsHash = await Hash.of(ipfsData)
-      } else if (ipfsUrl) {
-        const ipfs = create({
-          url: ipfsUrl,
-        })
-        ipfsHash = (await ipfs.add(ipfsData)).path
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        const ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-        ipfsHash = (await ipfs.add(ipfsData)).path
-      } else {
-        throw new Error(
-          `To deploy on ${hre.network.name}, you must first setup an IPFS project with Infura: https://app.infura.io/. Once you've done this, copy and paste the following variables into your .env file:
-
-  IPFS_PROJECT_ID: ...
-  IPFS_API_KEY_SECRET: ...
-          `
-        )
-      }
-
-      const bundle = await hre.run(TASK_CHUGSPLASH_BUNDLE_LOCAL, {
-        configPath,
-      })
-
-      const configUri = `ipfs://${ipfsHash}`
-      const bundleId = computeBundleId(
-        bundle.root,
-        bundle.actions.length,
-        configUri
-      )
-
-      return { bundle, configUri, bundleId }
-    }
-  )
+  .setAction(chugsplashCommitSubtask)
 
 subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
   .setDescription('Lists all bundles for a given project')
@@ -902,7 +903,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
     }
   )
 
-subtask(TASK_CHUGSPLASH_CHECK_BUNDLE)
+subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
   .setDescription('Checks if a deployment config matches a bundle hash')
   .addParam('configUri', 'location of the config file')
   .addParam('bundleId', 'hash of the bundle')
@@ -943,7 +944,7 @@ subtask(TASK_CHUGSPLASH_CHECK_BUNDLE)
 
       if (bundleId !== args.bundleId) {
         throw new Error(
-          'Bundle ID generated from downloaded config does NOT match given hash'
+          'Bundle ID generated from downloaded config does NOT match given hash. Please report this error.'
         )
       }
 

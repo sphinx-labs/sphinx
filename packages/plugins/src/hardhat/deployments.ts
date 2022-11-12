@@ -6,14 +6,12 @@ import { Contract, ethers } from 'ethers'
 import {
   ChugSplashConfig,
   getProxyAddress,
-  loadChugSplashConfig,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
-  parseChugSplashConfig,
   ChugSplashLog,
   ChugSplashActionBundle,
 } from '@chugsplash/core'
@@ -21,7 +19,11 @@ import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
-import { writeHardhatSnapshotId } from './utils'
+import {
+  loadParsedChugSplashConfig,
+  loadParsedChugSplashConfigSync,
+  writeHardhatSnapshotId,
+} from './utils'
 
 /**
  * TODO
@@ -59,10 +61,7 @@ export const deployConfig = async (
   const deployer = hre.ethers.provider.getSigner()
   const deployerAddress = await deployer.getAddress()
 
-  const config: ChugSplashConfig = await hre.run('chugsplash-load', {
-    configPath: configRelativePath,
-  })
-  const parsedConfig = parseChugSplashConfig(config)
+  const parsedConfig = await loadParsedChugSplashConfig(configRelativePath, hre)
 
   ChugSplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
 
@@ -165,7 +164,7 @@ export const getContract = async (
   }[] = fs
     .readdirSync(hre.config.paths.chugsplash)
     .map((configFileName) => {
-      const config = loadChugSplashConfig(
+      const config = loadParsedChugSplashConfigSync(
         path.join('chugsplash', configFileName)
       )
       return { configFileName, config }
