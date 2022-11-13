@@ -18,7 +18,9 @@
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "build-container": "docker build --tag chugsplash-executor .",
+    "run-container": "docker run --env-file ./.env chugsplash-executor"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/executor#readme",
   "license": "MIT",
@@ -40,5 +42,9 @@
     "hardhat": "^2.10.0",
     "ipfs-http-client": "56.0.3",
     "undici": "^5.12.0"
+  },
+  "dependencies": {
+    "@amplitude/node": "^1.10.2",
+    "ts-node": "^10.9.1"
   }
 }
