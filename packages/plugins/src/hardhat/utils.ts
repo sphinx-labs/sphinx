@@ -16,12 +16,12 @@ export const writeHardhatSnapshotId = async (hre: any) => {
   )
 }
 
-export const loadParsedChugSplashConfig = async (
-  hre: any,
-  configFileName: string
-): Promise<ChugSplashConfig> => {
-  delete require.cache[require.resolve(path.resolve(configFileName))]
-
+/**
+ * Clean the artifacts directory and re-compile it to ensure that we have the latest artifacts.
+ *
+ * @param hre Hardhat runtime environment
+ */
+export const cleanAndCompile = async (hre: any) => {
   // Clean the artifacts to ensure that we're working with the latest build info.
   await hre.run(TASK_CLEAN, {
     quiet: true,
@@ -30,27 +30,20 @@ export const loadParsedChugSplashConfig = async (
   await hre.run(TASK_COMPILE, {
     quiet: true,
   })
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configFileName))
-  config = config.default || config
-  return parseChugSplashConfig(config, process.env)
 }
 
 /**
- * Loads a ChugSplash config synchronously, skipping the compilation step that occurs in
- * `loadParsedChugSplashConfig`. You should use `loadParsedChugSplashConfig` unless you
- * have a good reason to skip compilation.
+ * Loads a ChugSplash config file synchronously.
  *
- * @param configFileName Path to the ChugSplash config file.
+ * @param configPath Path to the ChugSplash config file.
  */
-export const loadParsedChugSplashConfigSync = (
-  configFileName: string
+export const loadParsedChugSplashConfig = (
+  configPath: string
 ): ChugSplashConfig => {
-  delete require.cache[require.resolve(path.resolve(configFileName))]
+  delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configFileName))
+  let config = require(path.resolve(configPath))
   config = config.default || config
   return parseChugSplashConfig(config, process.env)
 }
