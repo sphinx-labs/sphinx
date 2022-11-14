@@ -196,23 +196,16 @@ subtask(TASK_CHUGSPLASH_FETCH)
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addOptionalParam<boolean>(
-    'local',
-    'Enable local execution within the CLI',
-    true,
-    types.boolean
-  )
   .setAction(
     async (
       args: {
         silent: boolean
-        local: boolean
       },
       hre: any
     ) => {
       const signer = await hre.ethers.getSigner()
       await deployChugSplashPredeploys(hre, signer)
-      await deployConfigs(hre, args.silent, args.local)
+      await deployConfigs(hre, args.silent)
     }
   )
 
@@ -1086,19 +1079,12 @@ task(TASK_NODE)
     "Completely disable all of ChugSplash's activity."
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addOptionalParam<boolean>(
-    'local',
-    'Enable local execution within the CLI',
-    true,
-    types.boolean
-  )
   .setAction(
     async (
       args: {
         setupInternals: boolean
         disableChugsplash: boolean
         silent: boolean
-        local: boolean
       },
       hre: any,
       runSuper
@@ -1107,7 +1093,7 @@ task(TASK_NODE)
         const deployer = await hre.ethers.getSigner()
         await deployChugSplashPredeploys(hre, deployer)
         if (!args.setupInternals) {
-          await deployConfigs(hre, args.silent, args.local)
+          await deployConfigs(hre, args.silent)
         }
         await writeHardhatSnapshotId(hre)
       }
@@ -1117,39 +1103,30 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
-  .addOptionalParam<boolean>(
-    'local',
-    'Enable local execution within the CLI',
-    true,
-    types.boolean
-  )
-  .setAction(
-    async (args: { show: boolean; local: boolean }, hre: any, runSuper) => {
-      if ((await getChainId(hre.ethers.provider)) === 31337) {
-        try {
-          const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployed),
-            hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
-            '.snapshotId'
-          )
-          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-          const snapshotReverted = await hre.network.provider.send(
-            'evm_revert',
-            [snapshotId]
-          )
-          if (!snapshotReverted) {
-            throw new Error('Snapshot failed to be reverted.')
-          }
-        } catch {
-          await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
-          await deployConfigs(hre, !args.show, args.local)
-        } finally {
-          await writeHardhatSnapshotId(hre)
+  .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
+    if ((await getChainId(hre.ethers.provider)) === 31337) {
+      try {
+        const snapshotIdPath = path.join(
+          path.basename(hre.config.paths.deployed),
+          hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
+          '.snapshotId'
+        )
+        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+        const snapshotReverted = await hre.network.provider.send('evm_revert', [
+          snapshotId,
+        ])
+        if (!snapshotReverted) {
+          throw new Error('Snapshot failed to be reverted.')
         }
+      } catch {
+        await deployChugSplashPredeploys(hre, await hre.ethers.getSigner())
+        await deployConfigs(hre, !args.show)
+      } finally {
+        await writeHardhatSnapshotId(hre)
       }
-      await runSuper(args)
     }
-  )
+    await runSuper(args)
+  })
 
 task(TASK_RUN).setAction(async (args, hre: any, runSuper) => {
   await hre.run(TASK_CHUGSPLASH_DEPLOY, hre)

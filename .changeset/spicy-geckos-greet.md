@@ -3,4 +3,4 @@
 '@chugsplash/plugins': patch
 ---
 
-Integrate etherscan verification into executor
+Add Docker configuration for executor

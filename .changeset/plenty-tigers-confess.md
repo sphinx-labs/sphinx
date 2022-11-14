@@ -2,4 +2,4 @@
 '@chugsplash/plugins': patch
 ---
 
-Refactor remote bundling logic
+Remove local flag

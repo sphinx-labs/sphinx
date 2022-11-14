@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.4.1
+
+### Patch Changes
+
+- 7b33791: Integrate etherscan verification into executor
+
 ## 0.4.0
 
 ### Minor Changes

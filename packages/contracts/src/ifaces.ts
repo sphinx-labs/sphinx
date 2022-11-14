@@ -10,16 +10,7 @@ export const ProxyUpdaterArtifact = require('../artifacts/contracts/ProxyUpdater
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')
 export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol/Proxy.json')
 
-const buildInfoFolderPath = path.join(
-  '..',
-  'contracts',
-  'artifacts',
-  'build-info'
-)
-const buildInfoFilePath = fs
-  .readdirSync(buildInfoFolderPath)
-  .map((file) => path.join(buildInfoFolderPath, file))[0]
-export const buildInfo = JSON.parse(fs.readFileSync(buildInfoFilePath, 'utf8'))
+export const buildInfo = require('../artifacts/build-info/b00e1a42c4580623826aa11edd72371a.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi

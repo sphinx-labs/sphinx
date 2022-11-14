@@ -31,11 +31,8 @@ import {
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployConfigs = async (
-  hre: any,
-  silent: boolean,
-  local: boolean
-) => {
+export const deployConfigs = async (hre: any, silent: boolean) => {
+  const local = (await getChainId(hre.ethers.provider)) === 31337 ? true : false
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
     await deployConfig(hre, fileName, silent, local)
