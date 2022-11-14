@@ -1,6 +1,3 @@
-import * as path from 'path'
-import * as fs from 'fs'
-
 /* eslint-disable @typescript-eslint/no-var-requires */
 export const ChugSplashRegistryArtifact = require('../artifacts/contracts/ChugSplashRegistry.sol/ChugSplashRegistry.json')
 export const ChugSplashBootLoaderArtifact = require('../artifacts/contracts/ChugSplashBootLoader.sol/ChugSplashBootLoader.json')
