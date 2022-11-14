@@ -57,7 +57,7 @@ const deployConfigForceCommit = async (fileName: string, silent: boolean) => {
   const { bundleId } = await hre.run('chugsplash-commit', {
     configPath,
     ipfsUrl: '',
-    commitToIpfs: false,
+    commitToIpfs: true,
   })
 
   const ChugSplashManager = new Contract(
