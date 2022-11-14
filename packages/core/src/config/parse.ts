@@ -17,17 +17,6 @@ import {
 import { getProxyAddress } from '../utils'
 import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
 
-export const loadChugSplashConfig = (
-  configFileName: string
-): ChugSplashConfig => {
-  delete require.cache[require.resolve(path.resolve(configFileName))]
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configFileName))
-  config = config.default || config
-  validateChugSplashConfig(config)
-  return config
-}
-
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
   // eslint-disable-next-line @typescript-eslint/no-var-requires
