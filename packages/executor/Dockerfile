@@ -6,4 +6,4 @@ RUN npm install
 
 COPY . .
 
-CMD [ "yarn", "start" ]
+CMD [ "yarn", "start", "--network", "TODO"]
