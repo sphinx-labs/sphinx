@@ -1,6 +1,6 @@
 # ChugSplash Hardhat plugin
 
-ChugSplash is a modern smart contract deployment system that lets you to define your deployments inside of a configuration file instead of writing scripts.
+ChugSplash is a modern smart contract deployment system that lets you to define your deployments inside of a configuration file instead of writing scripts. ChugSplash automatically verifies your source code on Etherscan and generates deployment artifacts in the same format as hardhat-deploy.
 
 ## Installation
 Install the ChugSplash packages.
@@ -130,8 +130,7 @@ npx hardhat chugsplash-deploy
 ```
 
 ### Immutable variables
-ChugSplash supports all immutable variables except for [user defined value types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types). You can define immutable variables in your ChugSplash config file the exact same way that you define regular state variables. However, there is one caveat: you must instantiate the immutable
-variables in your constructor or else the Solidity compiler will throw an error. If we wanted to change the state variables in our `SimpleStorage` example to be immutable, we can keep the ChugSplash config file unchanged and update `SimpleStorage.sol` to include the following:
+ChugSplash supports all immutable variables except for [user defined value types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types). You can define immutable variables in your ChugSplash config file the exact same way that you define regular state variables. However, there is one caveat: you must instantiate the immutable variables in your constructor or else the Solidity compiler will throw an error. If we wanted to change the state variables in our `SimpleStorage` example to be immutable, we can keep the ChugSplash config file unchanged and update `SimpleStorage.sol` to include the following:
 ```solidity
 contract SimpleStorage {
     // Define immutable variables
@@ -195,19 +194,27 @@ npx hardhat test test/SimpleStorage.spec.ts
 
 ChugSplash uses deterministic proxies to deploy contracts and set their state variables. An important point to mention is that the values of state variables are set in the proxy, **not** in the implementation contract. For example, the `number` variable from the `FirstSimpleStorage` contract is set to `1` **only** in the proxy contract. If you call `getNumber` on the implementation contract, it would return the default value, `0`. This is standard behavior for proxies, but it can be surprising if you haven't used proxies before. If you want the proxy to be non-upgradeable, you can set the `projectOwner` parameter in the ChugSplash config file to the zero-address. If this is confusing or problematic for your use case, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram.
 
+## Supported variable types
+* Booleans
+* Integers (signed and unsigned)
+* Addresses
+* Contract types
+* Structs
+* Enums
+* Mappings
+* Arrays of fixed length
+* Bytes value types, i.e. bytes1, bytes2, …, bytes32
+* Dynamic bytes that are <= 31 bytes
+* Strings that are <= 31 characters
+
 ## Current limitations
-* The only variable types that are currently supported by ChugSplash are:
-  * Booleans
-  * Integers (signed and unsigned)
-  * Addresses
-  * Strings that are <= 31 bytes
-  * Bytes value types, i.e. bytes1, bytes2, …, bytes32. (Not dynamic bytes)
-  * Contract references (using `{ "!Ref: ..." }` syntax).
-* You cannot use ChugSplash to upgrade contracts.
+* ChugSplash does not currently support the following variable types:
+  * Strings that are > 31 characters
+  * Nested arrays
+  * Dynamic arrays
+* You cannot use ChugSplash to upgrade existing contracts.
 * You cannot call contracts inside the constructor of any of your deployed contracts.
-* References to contracts in other config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
-* Source code is not automatically verified on Etherscan or Sourcify.
-* Deployment artifacts are not generated.
+* References to contracts in other ChugSplash config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
 * Contract ABIs, source code, and deployment configs are not published to NPM.
 
 All of these features will be supported in the near future. If you need any of these features before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
