@@ -22,8 +22,18 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      mining: {
+        auto: false,
+        interval: 1000,
+      },
+    },
     localhost: {
       url: 'http://localhost:8545',
+      mining: {
+        auto: false,
+        interval: 1000,
+      },
     },
     goerli: {
       chainId: 5,
