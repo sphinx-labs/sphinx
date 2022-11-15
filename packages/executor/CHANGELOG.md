@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.4.4
+
+### Patch Changes
+
+- 15ebe78: Hardhat task bug fixes and improvements
+
 ## 0.4.3
 
 ### Patch Changes
