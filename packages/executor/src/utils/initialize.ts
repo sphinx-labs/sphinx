@@ -18,6 +18,7 @@ import {
   DEFAULT_ADAPTER_ADDRESS,
   buildInfo,
 } from '@chugsplash/contracts'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import {
   linkProxyWithImplementation,
@@ -26,7 +27,7 @@ import {
 } from './etherscan'
 
 export const initializeChugSplashContracts = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   deployer: ethers.Signer
 ) => {
   await deployChugSplashPredeploys(hre, deployer)
@@ -59,7 +60,7 @@ export const initializeChugSplashContracts = async (
     const { sourceName, contractName, abi } = artifact
 
     await attemptVerification(
-      hre.ethers.provider,
+      hre.network.provider,
       hre.network.name,
       etherscanApiEndpoints,
       address,
