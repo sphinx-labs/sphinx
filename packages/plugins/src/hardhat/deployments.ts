@@ -6,22 +6,20 @@ import { Contract, ethers } from 'ethers'
 import {
   ChugSplashConfig,
   getProxyAddress,
-  loadChugSplashConfig,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
-  parseChugSplashConfig,
   ChugSplashLog,
-  ChugSplashActionBundle,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
-import { writeHardhatSnapshotId } from './utils'
+import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
+import { chugsplashCommitSubtask } from './tasks'
 
 /**
  * TODO
@@ -32,11 +30,12 @@ import { writeHardhatSnapshotId } from './utils'
 export const deployConfigs = async (
   hre: any,
   silent: boolean,
-  local: boolean
+  ipfsUrl: string
 ) => {
+  const local = (await getChainId(hre.ethers.provider)) === 31337 ? true : false
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployConfig(hre, fileName, silent, local)
+    await deployConfig(hre, fileName, silent, local, ipfsUrl)
   }
 }
 
@@ -44,25 +43,23 @@ export const deployConfig = async (
   hre: any,
   fileName: string,
   silent: boolean,
-  local: boolean
+  local: boolean,
+  ipfsUrl: string
 ) => {
-  const configRelativePath = path.format({
+  const configPath = path.format({
     dir: path.basename(hre.config.paths.chugsplash),
     ext: fileName,
   })
 
   // Skip this config if it's empty.
-  if (isEmptyChugSplashConfig(configRelativePath)) {
+  if (isEmptyChugSplashConfig(configPath)) {
     return
   }
 
   const deployer = hre.ethers.provider.getSigner()
   const deployerAddress = await deployer.getAddress()
 
-  const config: ChugSplashConfig = await hre.run('chugsplash-load', {
-    configPath: configRelativePath,
-  })
-  const parsedConfig = parseChugSplashConfig(config)
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
 
   ChugSplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
 
@@ -74,10 +71,15 @@ export const deployConfig = async (
     deployer
   )
 
-  const { bundleId } = await hre.run('chugsplash-commit', {
-    configPath: configRelativePath,
-    local,
-  })
+  // Get the bundle ID without publishing anything to IPFS.
+  const { bundleId, bundle } = await chugsplashCommitSubtask(
+    {
+      configPath,
+      ipfsUrl,
+      commitToIpfs: false,
+    },
+    hre
+  )
 
   const ChugSplashManager = new Contract(
     getChugSplashManagerProxyAddress(parsedConfig.options.projectName),
@@ -109,8 +111,10 @@ export const deployConfig = async (
     }
   }
 
-  const bundle: ChugSplashActionBundle = await hre.run('chugsplash-propose', {
-    configPath: configRelativePath,
+  await hre.run('chugsplash-propose', {
+    configPath,
+    ipfsUrl,
+    silent,
     local,
   })
 
@@ -134,11 +138,9 @@ export const deployConfig = async (
   }
 
   await hre.run('chugsplash-approve', {
-    projectName: parsedConfig.options.projectName,
-    bundleId,
+    configPath,
   })
 
-  // todo call chugsplash-execute if deploying locally
   if (local) {
     await hre.run('chugsplash-execute', {
       chugSplashManager: ChugSplashManager,
@@ -165,7 +167,7 @@ export const getContract = async (
   }[] = fs
     .readdirSync(hre.config.paths.chugsplash)
     .map((configFileName) => {
-      const config = loadChugSplashConfig(
+      const config = loadParsedChugSplashConfig(
         path.join('chugsplash', configFileName)
       )
       return { configFileName, config }

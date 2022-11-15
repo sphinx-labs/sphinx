@@ -31,8 +31,12 @@ import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
-import { EthereumProvider } from 'hardhat/types'
+import {
+  buildInfo as proxyBuildInfo,
+  ChugSplashManagerABI,
+  ProxyArtifact,
+} from '@chugsplash/contracts'
+import { EthereumProvider, HardhatRuntimeEnvironment } from 'hardhat/types'
 import { request } from 'undici'
 
 export interface EtherscanResponseBody {
@@ -43,7 +47,10 @@ export interface EtherscanResponseBody {
 
 export const RESPONSE_OK = '1'
 
-export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
+export const verifyChugSplashConfig = async (
+  hre: HardhatRuntimeEnvironment,
+  configUri: string
+) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
 
   const canonicalConfig = await hre.run(TASK_CHUGSPLASH_FETCH, {
@@ -79,9 +86,34 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
       Object.keys(compilerInputs.input.sources).includes(sourceName)
     )
 
+    // Verify the proxy
+    const proxyAddress = getProxyAddress(
+      canonicalConfig.options.projectName,
+      referenceName
+    )
+    const {
+      sourceName: proxySourceName,
+      contractName: proxyContractName,
+      abi: proxyAbi,
+    } = ProxyArtifact
     await attemptVerification(
-      hre.network.name,
       hre.network.provider,
+      hre.network.name,
+      etherscanApiEndpoints,
+      proxyAddress,
+      proxySourceName,
+      proxyContractName,
+      proxyAbi,
+      etherscanApiKey,
+      proxyBuildInfo.input,
+      proxyBuildInfo.solcVersion,
+      [getChugSplashManagerProxyAddress(canonicalConfig.options.projectName)]
+    )
+
+    // Verify the implementation
+    await attemptVerification(
+      hre.network.provider,
+      hre.network.name,
       etherscanApiEndpoints,
       implementationAddress,
       sourceName,
@@ -96,7 +128,7 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
     await linkProxyWithImplementation(
       etherscanApiEndpoints,
       etherscanApiKey,
-      getProxyAddress(canonicalConfig.options.projectName, referenceName),
+      proxyAddress,
       implementationAddress,
       contractName
     )
@@ -105,7 +137,7 @@ export const verifyChugSplashConfig = async (hre: any, configUri: string) => {
 
 export const attemptVerification = async (
   provider: EthereumProvider,
-  networkName,
+  networkName: string,
   etherscanApiEndpoints: EtherscanURLs,
   contractAddress: string,
   sourceName: string,

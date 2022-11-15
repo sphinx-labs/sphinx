@@ -17,6 +17,12 @@ const config: HardhatUserConfig = {
     version: '0.8.15',
   },
   networks: {
+    hardhat: {
+      mining: {
+        auto: false,
+        interval: 1000,
+      },
+    },
     'optimism-goerli': {
       chainId: 420,
       url: `https://optimism-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
