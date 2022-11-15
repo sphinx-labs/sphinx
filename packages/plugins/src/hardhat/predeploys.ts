@@ -96,7 +96,9 @@ export const deployChugSplashPredeploys = async (
   )
 
   // Optionally initialize registry.
-  const ChugSplashRegistry = getChugSplashRegistry(deployer)
+  const ChugSplashRegistry = getChugSplashRegistry(
+    hre.ethers.provider.getSigner()
+  )
   const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
   if (adapter === ethers.constants.AddressZero) {
     await (

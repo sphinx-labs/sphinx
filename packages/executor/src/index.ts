@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv'
+dotenv.config()
 import hre from 'hardhat'
 import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'

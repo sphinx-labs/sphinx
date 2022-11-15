@@ -139,17 +139,18 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
 /**
  * Registers a new ChugSplash project.
  *
+ * @param Provider Provider corresponding to the signer that will execute the transaction.
  * @param projectName Name of the created project.
  * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
- * @param signer Signer to execute the transaction.
  * @returns True if the project was registered for the first time in this call, and false if the
  * project was already registered by the caller.
  */
 export const registerChugSplashProject = async (
+  provider: providers.JsonRpcProvider,
   projectName: string,
-  projectOwner: string,
-  signer: Signer
+  projectOwner: string
 ): Promise<boolean> => {
+  const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
@@ -158,7 +159,10 @@ export const registerChugSplashProject = async (
     await (await ChugSplashRegistry.register(projectName, projectOwner)).wait()
     return true
   } else {
-    const existingProjectOwner = await getProjectOwner(projectName, signer)
+    const existingProjectOwner = await getProjectOwnerAddress(
+      provider,
+      projectName
+    )
     if (existingProjectOwner !== (await signer.getAddress())) {
       throw new Error(`Project already registered by: ${existingProjectOwner}.`)
     } else {
@@ -167,10 +171,11 @@ export const registerChugSplashProject = async (
   }
 }
 
-export const getProjectOwner = async (
-  projectName: string,
-  signer: Signer
+export const getProjectOwnerAddress = async (
+  provider: providers.JsonRpcProvider,
+  projectName: string
 ): Promise<string> => {
+  const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
   const ChugSplashManager = new Contract(
     await ChugSplashRegistry.projects(projectName),
@@ -181,24 +186,23 @@ export const getProjectOwner = async (
   return projectOwner
 }
 
-export const getChugSplashRegistry = (
-  signerOrProvider?: Signer | providers.Provider
-): Contract => {
+export const getChugSplashRegistry = (signer: Signer): Contract => {
   return new Contract(
     // CHUGSPLASH_REGISTRY_ADDRESS,
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ChugSplashRegistryABI,
-    signerOrProvider
+    signer
   )
 }
 
-export const getChugSplashManagerImplementationAddress =
-  async (): Promise<string> => {
-    const ChugSplashRegistryProxy = getChugSplashRegistry()
-    const managerImplementationAddress =
-      await ChugSplashRegistryProxy.managerImplementation()
-    return managerImplementationAddress
-  }
+export const getChugSplashManagerImplementationAddress = async (
+  signer: Signer
+): Promise<string> => {
+  const ChugSplashRegistryProxy = getChugSplashRegistry(signer)
+  const managerImplementationAddress =
+    await ChugSplashRegistryProxy.managerImplementation()
+  return managerImplementationAddress
+}
 
 export const ChugSplashLog = async (text: string, hide?: boolean) => {
   if (!hide) {
