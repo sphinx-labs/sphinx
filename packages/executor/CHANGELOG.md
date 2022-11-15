@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.4.3
+
+### Patch Changes
+
+- b653177: Remove parallel deployments due to bug on live networks
+
 ## 0.4.2
 
 ### Patch Changes
