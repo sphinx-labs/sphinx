@@ -1,5 +1,19 @@
 # @chugsplash/demo
 
+## 0.3.11
+
+### Patch Changes
+
+- 12a7f34: Improve execution speed with parallelization
+- Updated dependencies [ecafe45]
+- Updated dependencies [d0a9f15]
+- Updated dependencies [34078c6]
+- Updated dependencies [e862925]
+- Updated dependencies [a43e0e3]
+- Updated dependencies [12a7f34]
+  - @chugsplash/core@0.3.12
+  - @chugsplash/plugins@0.5.12
+
 ## 0.3.10
 
 ### Patch Changes
