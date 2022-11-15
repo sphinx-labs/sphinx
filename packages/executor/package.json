@@ -8,7 +8,7 @@
     "dist/*"
   ],
   "scripts": {
-    "start": "hardhat run ./src/index.ts",
+    "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
