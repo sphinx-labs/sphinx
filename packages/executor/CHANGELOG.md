@@ -1,5 +1,15 @@
 # @chugsplash/executor
 
+## 0.4.2
+
+### Patch Changes
+
+- 61f8ca1: Use environment variable `HARDHAT_NETWORK` to determine executor's network
+- f199dff: Verify proxy as part of ChugSplash config verification
+- a43e0e3: Add Docker configuration for executor
+- 12a7f34: Improve execution speed with parallelization
+- 07a32f6: Run the executor using the HRE executable
+
 ## 0.4.1
 
 ### Patch Changes

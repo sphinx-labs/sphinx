@@ -1,5 +1,18 @@
 # @chugsplash/plugins
 
+## 0.5.12
+
+### Patch Changes
+
+- ecafe45: Refactor chugsplash-commit and chugsplash-load subtasks
+- d0a9f15: Update plugins README
+- 34078c6: Add a script that publishes local deployments to IPFS
+- e862925: Remove local flag
+- a43e0e3: Add Docker configuration for executor
+- 12a7f34: Improve execution speed with parallelization
+- Updated dependencies [ecafe45]
+  - @chugsplash/core@0.3.12
+
 ## 0.5.11
 
 ### Patch Changes
