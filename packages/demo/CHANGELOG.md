@@ -1,5 +1,13 @@
 # @chugsplash/demo
 
+## 0.3.12
+
+### Patch Changes
+
+- b653177: Remove parallel deployments due to bug on live networks
+- Updated dependencies [b653177]
+  - @chugsplash/plugins@0.5.13
+
 ## 0.3.11
 
 ### Patch Changes
