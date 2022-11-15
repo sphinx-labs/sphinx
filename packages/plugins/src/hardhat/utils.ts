@@ -6,6 +6,7 @@ import {
   writeSnapshotId,
 } from '@chugsplash/core'
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
+import { constants } from 'ethers'
 
 export const writeHardhatSnapshotId = async (hre: any) => {
   const networkName = hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
@@ -17,11 +18,11 @@ export const writeHardhatSnapshotId = async (hre: any) => {
 }
 
 /**
- * Clean the artifacts directory and re-compile it to ensure that we have the latest artifacts.
+ * Clean the artifacts directory then compile it to ensure that we have the latest artifacts.
  *
  * @param hre Hardhat runtime environment
  */
-export const cleanAndCompile = async (hre: any) => {
+export const cleanThenCompile = async (hre: any) => {
   // Clean the artifacts to ensure that we're working with the latest build info.
   await hre.run(TASK_CLEAN, {
     quiet: true,
@@ -46,4 +47,8 @@ export const loadParsedChugSplashConfig = (
   let config = require(path.resolve(configPath))
   config = config.default || config
   return parseChugSplashConfig(config, process.env)
+}
+
+export const isProjectRegistered = async (chugsplashManagerAddress: string) => {
+  return chugsplashManagerAddress === constants.AddressZero
 }

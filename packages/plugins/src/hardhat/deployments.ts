@@ -19,7 +19,7 @@ import { getChainId } from '@eth-optimism/core-utils'
 
 import { getContractArtifact } from './artifacts'
 import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
-import { chugsplashCommitSubtask } from './tasks'
+import { chugsplashCommitSubtask, chugsplashProposeSubtask } from './tasks'
 
 /**
  * TODO
@@ -27,36 +27,39 @@ import { chugsplashCommitSubtask } from './tasks'
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployConfigs = async (
+export const deployAllChugSplashConfigs = async (
   hre: any,
   silent: boolean,
   ipfsUrl: string
 ) => {
-  const local = (await getChainId(hre.ethers.provider)) === 31337 ? true : false
+  const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
-    await deployConfig(hre, fileName, silent, local, ipfsUrl)
+    const configPath = path.join(hre.config.paths.chugsplash, fileName)
+    await deployChugSplashConfig(
+      hre,
+      configPath,
+      silent,
+      remoteExecution,
+      ipfsUrl
+    )
   }
 }
 
-export const deployConfig = async (
+export const deployChugSplashConfig = async (
   hre: any,
-  fileName: string,
+  configPath: string,
   silent: boolean,
-  local: boolean,
+  remoteExecution: boolean,
   ipfsUrl: string
 ) => {
-  const configPath = path.format({
-    dir: path.basename(hre.config.paths.chugsplash),
-    ext: fileName,
-  })
-
   // Skip this config if it's empty.
   if (isEmptyChugSplashConfig(configPath)) {
     return
   }
 
-  const deployer = hre.ethers.provider.getSigner()
+  const provider = hre.ethers.provider
+  const deployer = provider.getSigner()
   const deployerAddress = await deployer.getAddress()
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
@@ -66,9 +69,9 @@ export const deployConfig = async (
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
   await registerChugSplashProject(
+    provider,
     parsedConfig.options.projectName,
-    deployerAddress,
-    deployer
+    deployerAddress
   )
 
   // Get the bundle ID without publishing anything to IPFS.
@@ -77,6 +80,7 @@ export const deployConfig = async (
       configPath,
       ipfsUrl,
       commitToIpfs: false,
+      compile: true,
     },
     hre
   )
@@ -111,12 +115,16 @@ export const deployConfig = async (
     }
   }
 
-  await hre.run('chugsplash-propose', {
-    configPath,
-    ipfsUrl,
-    silent,
-    local,
-  })
+  await chugsplashProposeSubtask(
+    {
+      configPath,
+      ipfsUrl,
+      silent: true,
+      noCompile: true,
+      remoteExecution,
+    },
+    hre
+  )
 
   if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
     throw new Error(
@@ -139,9 +147,10 @@ export const deployConfig = async (
 
   await hre.run('chugsplash-approve', {
     configPath,
+    silent: true,
   })
 
-  if (local) {
+  if (!remoteExecution) {
     await hre.run('chugsplash-execute', {
       chugSplashManager: ChugSplashManager,
       bundleState,
@@ -151,6 +160,8 @@ export const deployConfig = async (
       silent,
     })
   }
+
+  ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, silent)
 }
 
 export const getContract = async (
