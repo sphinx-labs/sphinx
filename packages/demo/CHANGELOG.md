@@ -1,5 +1,14 @@
 # @chugsplash/demo
 
+## 0.3.13
+
+### Patch Changes
+
+- 15ebe78: Hardhat task bug fixes and improvements
+- Updated dependencies [15ebe78]
+  - @chugsplash/core@0.3.13
+  - @chugsplash/plugins@0.5.14
+
 ## 0.3.12
 
 ### Patch Changes
