@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.3.13
+
+### Patch Changes
+
+- 15ebe78: Hardhat task bug fixes and improvements
+
 ## 0.3.12
 
 ### Patch Changes
