@@ -439,49 +439,20 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
           isSetImplementationAction(fromRawChugSplashAction(action.action))
       )
 
-      // Execute in parallel if and only if not on automining hardhat network
-      if (
-        (await getChainId(hre.ethers.provider)) === 31337 &&
-        (await hre.network.provider.request({
-          method: 'hardhat_getAutomine',
-          params: [],
-        }))
+      // execute actions in series
+      for (
+        let i = bundleState.actionsExecuted;
+        i < firstSetImplementationActionIndex;
+        i++
       ) {
-        // execute actions in series
-        for (
-          let i = bundleState.actionsExecuted;
-          i < firstSetImplementationActionIndex;
-          i++
-        ) {
-          const action = bundle.actions[i]
-          const tx = await chugSplashManager.executeChugSplashAction(
+        const action = bundle.actions[i]
+        await (
+          await chugSplashManager.executeChugSplashAction(
             action.action,
             action.proof.actionIndex,
             action.proof.siblings
           )
-          await tx.wait()
-        }
-      } else {
-        // execute in parallel
-        let nonce = await chugSplashManager.signer.getTransactionCount()
-        const actions = bundle.actions.slice(
-          bundleState.actionsExecuted,
-          firstSetImplementationActionIndex
-        )
-        await Promise.all(
-          actions.map((action) => {
-            const tx = chugSplashManager.executeChugSplashAction(
-              action.action,
-              action.proof.actionIndex,
-              action.proof.siblings,
-              {
-                nonce,
-              }
-            )
-            nonce += 1
-            return tx
-          })
-        )
+        ).wait()
       }
 
       // If the bundle hasn't already been completed in an earlier call, complete the bundle by
