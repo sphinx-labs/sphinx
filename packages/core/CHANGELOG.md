@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.3.12
+
+### Patch Changes
+
+- ecafe45: Refactor chugsplash-commit and chugsplash-load subtasks
+
 ## 0.3.11
 
 ### Patch Changes

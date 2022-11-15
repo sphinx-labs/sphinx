@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/executor",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "ChugSplash deployment execution bot",
   "main": "dist/index",
   "types": "dist/index",
@@ -31,8 +31,8 @@
   },
   "devDependencies": {
     "@chugsplash/contracts": "^0.3.8",
-    "@chugsplash/core": "^0.3.11",
-    "@chugsplash/plugins": "^0.5.11",
+    "@chugsplash/core": "^0.3.12",
+    "@chugsplash/plugins": "^0.5.12",
     "@eth-optimism/common-ts": "^0.6.0",
     "@eth-optimism/core-utils": "^0.9.3",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
