@@ -29,7 +29,7 @@ export const successfulProposalMessage = (
 
   npx hardhat fund --network ${networkName} --amount ${amount} ${configPath}`
   } else {
-    return `Project successfully proposed on ${networkName}. Next, approve the deployment using the command:
+    return `Project successfully proposed and funded on ${networkName}. Approve the deployment using the command:
 
   npx hardhat chugsplash-approve --network ${networkName} ${configPath}`
   }
@@ -45,7 +45,7 @@ export const alreadyProposedMessage = (
 
   npx hardhat fund --network ${networkName} --amount ${amount} ${configPath}`
   } else {
-    return `Project has already been proposed on ${networkName}. Next, you must approve the deployment using the command:
+    return `Project has already been proposed and funded on ${networkName}. Approve the deployment using the command:
 
   npx hardhat chugsplash-approve --network ${networkName} ${configPath}`
   }

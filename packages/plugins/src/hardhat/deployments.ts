@@ -13,15 +13,17 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   chugsplashLog,
-  displayDeploymentTable,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 
-import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
+import { getContractArtifact } from './artifacts'
 import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
-import { chugsplashCommitSubtask, chugsplashProposeSubtask } from './tasks'
-import { monitorRemoteExecution } from './execution'
+import {
+  chugsplashApproveSubtask,
+  chugsplashCommitSubtask,
+  chugsplashProposeSubtask,
+} from './tasks'
 
 /**
  * TODO
@@ -147,31 +149,26 @@ export const deployChugSplashConfig = async (
     await tx.wait()
   }
 
-  await hre.run('chugsplash-approve', {
-    configPath,
-    silent: true,
-  })
+  await chugsplashApproveSubtask(
+    {
+      configPath,
+      silent: true,
+      remoteExecution,
+    },
+    hre
+  )
 
-  if (remoteExecution) {
-    const finalDeploymentTxnHash = await monitorRemoteExecution(
-      hre,
-      parsedConfig,
-      bundleId,
-      silent
-    )
-    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-    displayDeploymentTable(parsedConfig, silent)
-    chugsplashLog(`Deployed ${parsedConfig.options.projectName}.`, silent)
-  } else {
+  if (!remoteExecution) {
     await hre.run('chugsplash-execute', {
       chugSplashManager: ChugSplashManager,
       bundleState,
       bundle,
       parsedConfig,
       deployer,
-      silent,
+      silent: true,
     })
   }
+  chugsplashLog(`Deployed ${parsedConfig.options.projectName}.`, silent)
 }
 
 export const getContract = async (
