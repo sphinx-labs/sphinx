@@ -23,8 +23,6 @@ import {
   parseChugSplashConfig,
   isSetImplementationAction,
   fromRawChugSplashAction,
-  getProxyAddress,
-  getProjectOwnerAddress,
   chugsplashLog,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
@@ -33,7 +31,6 @@ import {
 import {
   ChugSplashManagerABI,
   EXECUTOR_BOND_AMOUNT,
-  ProxyABI,
 } from '@chugsplash/contracts'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
@@ -52,7 +49,6 @@ import {
 import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
-  checkValidDeployment,
   proposeChugSplashBundle,
 } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
@@ -68,7 +64,7 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import { getExecutionAmountPlusBuffer } from './fund'
-import { monitorRemoteExecution } from './execution'
+import { monitorRemoteExecution, postExecutionActions } from './execution'
 
 // Load environment variables from .env
 dotenv.config()
@@ -419,10 +415,10 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
     types.any
   )
   .addParam(
-    'bundleState',
-    'State of the bundle to be executed',
+    'bundleId',
+    'ID of the bundle to be executed',
     undefined,
-    types.any
+    types.string
   )
   .addParam('bundle', 'The bundle to be executed', undefined, types.any)
   .addParam(
@@ -431,130 +427,107 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
     undefined,
     types.any
   )
-  .addParam('deployer', 'Deploying signer', undefined, types.any)
+  .addParam('executor', 'Wallet of the executor', undefined, types.any)
   .addFlag('silent', "Hide ChugSplash's output")
   .setAction(
     async (
       args: {
         chugSplashManager: Contract
-        bundleState: ChugSplashBundleState
-        bundle: any // todo - figure out a type for this
+        bundleId: string
+        bundle: ChugSplashActionBundle
         parsedConfig: ChugSplashConfig
-        deployer: any // todo - figure out a type for this
+        executor: ethers.Signer
         silent: boolean
       },
-      hre: any
+      hre: HardhatRuntimeEnvironment
     ) => {
       const {
         chugSplashManager,
-        bundleState,
+        bundleId,
         bundle,
         parsedConfig,
-        deployer,
+        executor,
         silent,
       } = args
 
-      if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-        const tx = await chugSplashManager.claimBundle({
-          value: EXECUTOR_BOND_AMOUNT,
-        })
-        await tx.wait()
-      }
+      const bundleState: ChugSplashBundleState =
+        await chugSplashManager.bundles(bundleId)
+      const executorAddress = await executor.getAddress()
 
-      // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
-      // the SetImplementation actions have already been sorted so that they are at the end of the
-      // actions array.
-      const firstSetImplementationActionIndex = bundle.actions.findIndex(
-        (action) =>
-          isSetImplementationAction(fromRawChugSplashAction(action.action))
-      )
-
-      // execute actions in series
-      for (
-        let i = bundleState.actionsExecuted.toNumber();
-        i < firstSetImplementationActionIndex;
-        i++
+      if (
+        bundleState.status !== ChugSplashBundleStatus.APPROVED &&
+        bundleState.status !== ChugSplashBundleStatus.COMPLETED
       ) {
-        const action = bundle.actions[i]
-        await (
-          await chugSplashManager.executeChugSplashAction(
-            action.action,
-            action.proof.actionIndex,
-            action.proof.siblings
-          )
-        ).wait()
+        throw new Error(`Bundle is not approved or completed.`)
       }
 
-      // If the bundle hasn't already been completed in an earlier call, complete the bundle by
-      // executing all the SetImplementation actions in a single transaction.
-      if (bundleState.status !== ChugSplashBundleStatus.COMPLETED) {
+      if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+        if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+          await (
+            await chugSplashManager.claimBundle({
+              value: EXECUTOR_BOND_AMOUNT,
+            })
+          ).wait()
+        } else if (bundleState.selectedExecutor !== executorAddress) {
+          throw new Error(`Another executor has already claimed the bundle.`)
+        }
+
+        // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
+        // the SetImplementation actions have already been sorted so that they are at the end of the
+        // actions array.
+        const firstSetImplementationActionIndex = bundle.actions.findIndex(
+          (action) =>
+            isSetImplementationAction(fromRawChugSplashAction(action.action))
+        )
+
+        // execute actions in series
+        for (
+          let i = bundleState.actionsExecuted.toNumber();
+          i < firstSetImplementationActionIndex;
+          i++
+        ) {
+          const action = bundle.actions[i]
+          await (
+            await chugSplashManager.executeChugSplashAction(
+              action.action,
+              action.proof.actionIndex,
+              action.proof.siblings
+            )
+          ).wait()
+        }
+
+        // Complete the bundle by executing all the SetImplementation actions in a single
+        // transaction.
         const setImplActions = bundle.actions.slice(
           firstSetImplementationActionIndex
         )
-        const finalDeploymentTxn =
+        await (
           await chugSplashManager.completeChugSplashBundle(
             setImplActions.map((action) => action.action),
             setImplActions.map((action) => action.proof.actionIndex),
             setImplActions.map((action) => action.proof.siblings)
           )
-        await finalDeploymentTxn.wait()
+        ).wait()
       }
 
-      // Withdraw all available funds from the chugSplashManager.
-      const totalDebt = await chugSplashManager.totalDebt()
-      const chugsplashManagerBalance = await hre.ethers.provider.getBalance(
-        chugSplashManager.address
-      )
-      if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
-        await (await chugSplashManager.withdrawOwnerETH()).wait()
-      }
-      const deployerDebt = await chugSplashManager.debt(
-        await deployer.getAddress()
-      )
-      if (deployerDebt.gt(0)) {
+      // At this point, the bundle has been completed.
+
+      // Withdraw any debt owed to the executor.
+      const executorDebt = await chugSplashManager.debt(executorAddress)
+      if (executorDebt.gt(0)) {
         await (await chugSplashManager.claimExecutorPayment()).wait()
       }
 
-      // Transfer ownership of the deployments to the project owner.
-      for (const referenceName of Object.keys(parsedConfig.contracts)) {
-        // First, check if the Proxy's owner is the chugSplashManager by getting the latest
-        // `AdminChanged` event on the Proxy.
-        const Proxy = new ethers.Contract(
-          getProxyAddress(parsedConfig.options.projectName, referenceName),
-          new ethers.utils.Interface(ProxyABI),
-          deployer
-        )
-        const { args: eventArgs } = (
-          await Proxy.queryFilter('AdminChanged')
-        ).at(-1)
-        if (eventArgs.newAdmin === chugSplashManager.address) {
-          await (
-            await chugSplashManager.transferProxyOwnership(
-              referenceName,
-              parsedConfig.options.projectOwner
-            )
-          ).wait()
-        }
-      }
-
-      if (
-        parsedConfig.options.projectOwner !== (await chugSplashManager.owner())
-      ) {
-        if (
-          parsedConfig.options.projectOwner === ethers.constants.AddressZero
-        ) {
-          await (await chugSplashManager.renounceOwnership()).wait()
-        } else {
-          await (
-            await chugSplashManager.transferOwnership(
-              parsedConfig.options.projectOwner
-            )
-          ).wait()
-        }
-      }
-
       displayDeploymentTable(parsedConfig, silent)
-      chugsplashLog(`Deployed: ${parsedConfig.options.projectName}`, silent)
+      bundleState.status === ChugSplashBundleStatus.APPROVED
+        ? chugsplashLog(
+            `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
+            silent
+          )
+        : chugsplashLog(
+            `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
+            silent
+          )
     }
   )
 
@@ -642,6 +615,7 @@ export const chugsplashApproveTask = async (
         bundleId,
         silent
       )
+      await postExecutionActions(provider, parsedConfig)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
       spinner.succeed(
@@ -971,7 +945,8 @@ export const statusTask = async (
 
   const spinner = ora()
 
-  const signer = hre.ethers.provider.getSigner()
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
   const parsedConfig = loadParsedChugSplashConfig(configPath)
   const ChugSplashManager = getChugSplashManager(
     signer,
@@ -983,7 +958,7 @@ export const statusTask = async (
     false
   ) {
     errorProjectNotRegistered(
-      await getChainId(hre.ethers.provider),
+      await getChainId(provider),
       hre.network.name,
       configPath
     )
@@ -1023,7 +998,7 @@ export const statusTask = async (
       bundleId,
       false
     )
-
+    await postExecutionActions(provider, parsedConfig)
     await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
     displayDeploymentTable(parsedConfig, false)
 
