@@ -25,6 +25,8 @@ import {
   fromRawChugSplashAction,
   getProxyAddress,
   getProjectOwnerAddress,
+  chugsplashLog,
+  displayDeploymentTable,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -228,7 +230,7 @@ export const chugsplashDeploySubtask = async (
 task(TASK_CHUGSPLASH_DEPLOY)
   .addPositionalParam(
     'configPath',
-    'Path to the ChugSplash config file to propose'
+    'Path to the ChugSplash config file to deploy'
   )
   .addOptionalParam(
     'ipfsUrl',
@@ -488,7 +490,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
 
       // execute actions in series
       for (
-        let i = bundleState.actionsExecuted;
+        let i = bundleState.actionsExecuted.toNumber();
         i < firstSetImplementationActionIndex;
         i++
       ) {
@@ -570,77 +572,8 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
         }
       }
 
-      //   if ((await getChainId(hre.ethers.provider)) !== 31337) {
-      //     createDeploymentFolderForNetwork(
-      //       hre.network.name,
-      //       hre.config.paths.deployed
-      //     )
-
-      //     for (const [referenceName, contractConfig] of Object.entries(
-      //       parsedConfig.contracts
-      //     )) {
-      //       const artifact = getContractArtifact(contractConfig.contract)
-      //       const { sourceName, contractName, bytecode, abi } = artifact
-
-      //       const buildInfo = await getBuildInfo(sourceName, contractName)
-      //       const output = buildInfo.output.contracts[sourceName][contractName]
-      //       const immutableReferences: {
-      //         [astId: number]: {
-      //           length: number
-      //           start: number
-      //         }[]
-      //       } = output.evm.deployedBytecode.immutableReferences
-
-      //       const metadata =
-      //         buildInfo.output.contracts[sourceName][contractName].metadata
-      //       const { devdoc, userdoc } = JSON.parse(metadata).output
-      //       const { constructorArgValues } = getConstructorArgs(
-      //         parsedConfig,outdated
-      //         referenceName,
-      //         abi,
-      //         buildInfo.output.sources,
-      //         immutableReferences
-      //       )
-      //       const deploymentArtifact = {
-      //         contractName,
-      //         address: contractConfig.address,
-      //         abi,
-      //         transactionHash: finalDeploymentTxnHash,
-      //         solcInputHash: buildInfo.id,
-      //         receipt: finalDeploymentReceipt,
-      //         numDeployments: 1,
-      //         metadata,
-      //         args: constructorArgValues,
-      //         bytecode,
-      //         deployedBytecode: await hre.ethers.provider.getCode(
-      //           contractConfig.address
-      //         ),
-      //         devdoc,
-      //         userdoc,
-      //         storageLayout: await getStorageLayout(contractConfig.contract),
-      //       }
-
-      //       writeDeploymentArtifact(
-      //         hre.network.name,
-      //         hre.config.paths.deployed,
-      //         deploymentArtifact,
-      //         referenceName
-      //       )
-      //     }
-      // }
-
-      if (!silent) {
-        const deployments = {}
-        Object.entries(parsedConfig.contracts).forEach(
-          ([referenceName, contractConfig], i) =>
-            (deployments[i + 1] = {
-              Reference: referenceName,
-              Contract: contractConfig.contract,
-              Address: contractConfig.address,
-            })
-        )
-        console.table(deployments)
-      }
+      displayDeploymentTable(parsedConfig, silent)
+      chugsplashLog(`Deployed: ${parsedConfig.options.projectName}`, silent)
     }
   )
 
@@ -648,7 +581,7 @@ task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
   .addPositionalParam(
     'configPath',
-    'Path to the ChugSplash config file to propose'
+    'Path to the ChugSplash config file to approve'
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(
@@ -716,6 +649,8 @@ task(TASK_CHUGSPLASH_APPROVE)
 
   npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}
         `)
+      } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+        spinner.succeed('Bundle already completed.')
       } else if (activeBundleId === ethers.constants.HashZero) {
         spinner.start('Approving the bundle...')
         await (await ChugSplashManager.approveChugSplashBundle(bundleId)).wait()
@@ -1023,31 +958,48 @@ subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
 
 task(TASK_CHUGSPLASH_STATUS)
   .setDescription('Displays the status of a ChugSplash bundle')
-  .addParam('projectName', 'name of the chugsplash project')
-  .addParam('bundleId', 'hash of the bundle')
+  .addPositionalParam(
+    'configPath',
+    'Path to the ChugSplash config file to monitor'
+  )
   .setAction(
     async (
       args: {
-        projectName: string
-        bundleId: string
+        configPath: string
       },
       hre
     ) => {
+      const { configPath } = args
+
       const progressBar = new SingleBar({}, Presets.shades_classic)
+
+      const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+      // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
+      // bundle to IPFS).
+      const { bundleId } = await chugsplashCommitSubtask(
+        {
+          configPath,
+          ipfsUrl: '',
+          commitToIpfs: false,
+          compile: false,
+        },
+        hre
+      )
 
       const ChugSplashRegistry = getChugSplashRegistry(
         hre.ethers.provider.getSigner()
       )
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.projectName),
+        await ChugSplashRegistry.projects(parsedConfig.options.projectName),
         ChugSplashManagerABI,
         hre.ethers.provider
       )
 
       // Get the bundle state of the inputted bundle ID.
       const bundleState: ChugSplashBundleState =
-        await ChugSplashManager.bundles(args.bundleId)
+        await ChugSplashManager.bundles(bundleId)
 
       // Handle cases where the bundle is completed, cancelled, or not yet approved.
       if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
@@ -1100,10 +1052,10 @@ task(TASK_CHUGSPLASH_STATUS)
       hre.ethers.provider.on(actionExecutedFilter, (log) => {
         // Throw an error if the bundle ID inputted by the user is not active. This shouldn't ever
         // happen, since we already checked that this bundle ID was active earlier.
-        const emittedBundleId = ChugSplashManagerABI.parseLog(log).args.bundleId
-        if (emittedBundleId !== args.bundleId) {
+        const emittedBundleId = ChugSplashManagerABI.parseLog(log).bundleId
+        if (emittedBundleId !== bundleId) {
           throw new Error(
-            `Bundle ID ${args.bundleId} is inactive. Did you recently cancel this bundle?`
+            `Bundle ID ${bundleId} is inactive. Did you recently cancel this bundle?`
           )
         }
 
@@ -1124,10 +1076,10 @@ task(TASK_CHUGSPLASH_STATUS)
         // Throw an error if the emitted bundle ID emitted does not match the bundle ID inputted by
         // the user. This shouldn't ever happen, since we checked earlier that the inputted bundle
         // ID is the active bundle ID.
-        const emittedBundleId = ChugSplashManagerABI.parseLog(log).args.bundleId
-        if (emittedBundleId !== args.bundleId) {
+        const emittedBundleId = ChugSplashManagerABI.parseLog(log).bundleId
+        if (emittedBundleId !== bundleId) {
           throw new Error(
-            `Bundle ID ${emittedBundleId} was cancelled, but does not match inputted bundle ID ${args.bundleId}.
+            `Bundle ID ${emittedBundleId} was cancelled, but does not match inputted bundle ID ${bundleId}.
             Something went wrong.`
           )
         }
@@ -1149,7 +1101,7 @@ task(TASK_CHUGSPLASH_STATUS)
 //   .addFlag('silent', "Hide all of ChugSplash's output")
 //   .addPositionalParam(
 //     'configPath',
-//     'Path to the ChugSplash config file to propose'
+//     'Path to the ChugSplash config file'
 //   )
 //   .setAction(
 //     async (
@@ -1209,7 +1161,7 @@ task(TASK_TEST_REMOTE_EXECUTION)
   )
   .addPositionalParam(
     'configPath',
-    'Path to the ChugSplash config file to propose'
+    'Path to the ChugSplash config file to deploy'
   )
   .setAction(
     async (
