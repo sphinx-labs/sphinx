@@ -5,6 +5,8 @@ import {
   SolidityStorageLayout,
   ChugSplashConfig,
   CanonicalChugSplashConfig,
+  createDeploymentFolderForNetwork,
+  writeDeploymentArtifact,
 } from '@chugsplash/core'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
@@ -382,4 +384,60 @@ export const getArtifactsFromParsedCanonicalConfig = async (
     }
   }
   return artifacts
+}
+
+export const createDeploymentArtifacts = async (
+  hre: any,
+  parsedConfig: ChugSplashConfig,
+  finalDeploymentTxnHash: string
+) => {
+  createDeploymentFolderForNetwork(hre.network.name, hre.config.paths.deployed)
+
+  const provider = hre.ethers.provider
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const artifact = getContractArtifact(contractConfig.contract)
+    const { sourceName, contractName, bytecode, abi } = artifact
+
+    const buildInfo = await getBuildInfo(sourceName, contractName)
+
+    const { constructorArgValues } = getConstructorArgs(
+      parsedConfig,
+      referenceName,
+      abi,
+      buildInfo.output,
+      sourceName,
+      contractName
+    )
+
+    const metadata =
+      buildInfo.output.contracts[sourceName][contractName].metadata
+    const { devdoc, userdoc } = JSON.parse(metadata).output
+
+    const deploymentArtifact = {
+      contractName,
+      address: contractConfig.address,
+      abi,
+      transactionHash: finalDeploymentTxnHash,
+      solcInputHash: buildInfo.id,
+      receipt: await provider.getTransactionReceipt(finalDeploymentTxnHash),
+      numDeployments: 1,
+      metadata,
+      args: constructorArgValues,
+      bytecode,
+      deployedBytecode: await provider.getCode(contractConfig.address),
+      devdoc,
+      userdoc,
+      storageLayout: await getStorageLayout(contractConfig.contract),
+    }
+
+    writeDeploymentArtifact(
+      hre.network.name,
+      hre.config.paths.deployed,
+      deploymentArtifact,
+      referenceName
+    )
+  }
 }
