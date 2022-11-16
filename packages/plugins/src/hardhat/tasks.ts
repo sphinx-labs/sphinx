@@ -35,7 +35,6 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 import ora from 'ora'
-import { SingleBar, Presets } from 'cli-progress'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -312,7 +311,7 @@ export const chugsplashProposeSubtask = async (
     parsedConfig.options.projectName
   )
 
-  if (!isProjectRegistered(chugsplashManagerAddress)) {
+  if ((await isProjectRegistered(signer, chugsplashManagerAddress)) === false) {
     errorProjectNotRegistered(
       await getChainId(hre.ethers.provider),
       hre.network.name,
@@ -601,7 +600,7 @@ export const chugsplashApproveSubtask = async (
     parsedConfig.options.projectName
   )
 
-  if (!isProjectRegistered(chugsplashManagerAddress)) {
+  if ((await isProjectRegistered(signer, chugsplashManagerAddress)) === false) {
     errorProjectNotRegistered(
       await getChainId(provider),
       hre.network.name,
@@ -672,8 +671,8 @@ export const chugsplashApproveSubtask = async (
       )
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
-      spinner.start(
-        `Project ${parsedConfig.options.projectName} successfully executed.`
+      spinner.succeed(
+        `${parsedConfig.options.projectName} successfully executed.`
       )
     }
   }
@@ -996,12 +995,35 @@ task(TASK_CHUGSPLASH_STATUS)
     ) => {
       const { configPath } = args
 
-      const progressBar = new SingleBar({}, Presets.shades_classic)
+      if (hre.network.name === 'hardhat') {
+        throw new Error(
+          `Cannot check status of deployments on the in-process Hardhat network. Did you forget the --network flag?`
+        )
+      }
 
+      const spinner = ora()
+
+      const signer = hre.ethers.provider.getSigner()
       const parsedConfig = loadParsedChugSplashConfig(configPath)
+      const chugsplashManagerAddress = getChugSplashManagerProxyAddress(
+        parsedConfig.options.projectName
+      )
+      const ChugSplashManager = new ethers.Contract(
+        chugsplashManagerAddress,
+        ChugSplashManagerABI,
+        signer
+      )
 
-      // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
-      // bundle to IPFS).
+      if (
+        (await isProjectRegistered(signer, chugsplashManagerAddress)) === false
+      ) {
+        errorProjectNotRegistered(
+          await getChainId(hre.ethers.provider),
+          hre.network.name,
+          configPath
+        )
+      }
+
       const { bundleId } = await chugsplashCommitSubtask(
         {
           configPath,
@@ -1011,112 +1033,45 @@ task(TASK_CHUGSPLASH_STATUS)
         },
         hre
       )
-
-      const ChugSplashRegistry = getChugSplashRegistry(
-        hre.ethers.provider.getSigner()
-      )
-
-      const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(parsedConfig.options.projectName),
-        ChugSplashManagerABI,
-        hre.ethers.provider
-      )
-
-      // Get the bundle state of the inputted bundle ID.
       const bundleState: ChugSplashBundleState =
         await ChugSplashManager.bundles(bundleId)
 
-      // Handle cases where the bundle is completed, cancelled, or not yet approved.
-      if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-        // Display a completed status bar then exit.
-        progressBar.start(
-          bundleState.actionsExecuted,
-          bundleState.actionsExecuted
+      if (
+        bundleState.status === ChugSplashBundleStatus.EMPTY ||
+        bundleState.status === ChugSplashBundleStatus.PROPOSED
+      ) {
+        throw new Error(
+          `${parsedConfig.options.projectName} has not been approved for execution yet on ${hre.network.name}.`
         )
-        console.log('\n Bundle is already completed.')
-        process.exit()
       } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-        // Set the progress bar to be the number of executions that had occurred when the bundle was
-        // cancelled.
-        progressBar.start(
-          bundleState.executions.length,
-          bundleState.actionsExecuted
+        throw new Error(
+          `Project was already cancelled on ${hre.network.name}. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
         )
-        console.log('\n Bundle was cancelled.')
-        process.exit()
-      } else if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
-        console.log('Bundle has not been approved by the project owner yet.')
-        process.exit()
-      }
+      } else {
+        // The project is either in the `APPROVED` or `COMPLETED` state.
 
-      // If we make it to this point, we know that the given bundle is active, since its status is
-      // ChugSplashBundleStatus.APPROVED.
-
-      // Define event filters
-      const actionExecutedFilter = {
-        address: ChugSplashManager.address,
-        topics: [
-          ethers.utils.id('ChugSplashActionExecuted(bytes32,address,uint256)'),
-        ],
-      }
-      const cancellationFilter = {
-        address: ChugSplashManager.address,
-        topics: [
-          ethers.utils.id('ChugSplashBundleCancelled(bytes32,address,uint256)'),
-        ],
-      }
-
-      // Set the status bar to display the number of actions executed so far.
-      progressBar.start(
-        bundleState.executions.length,
-        bundleState.actionsExecuted
-      )
-
-      // Declare a listener for the ChugSplashActionExecuted event on the project's
-      // ChugSplashManager contract.
-      hre.ethers.provider.on(actionExecutedFilter, (log) => {
-        // Throw an error if the bundle ID inputted by the user is not active. This shouldn't ever
-        // happen, since we already checked that this bundle ID was active earlier.
-        const emittedBundleId = ChugSplashManagerABI.parseLog(log).bundleId
-        if (emittedBundleId !== bundleId) {
-          throw new Error(
-            `Bundle ID ${bundleId} is inactive. Did you recently cancel this bundle?`
+        let finalDeploymentTxnHash: string
+        if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+          finalDeploymentTxnHash = await monitorRemoteExecution(
+            hre,
+            parsedConfig,
+            bundleId,
+            false
           )
         }
 
-        const actionIndex = ChugSplashManagerABI.parseLog(log).args.actionIndex
+        // The project is now completed.
+        await createDeploymentArtifacts(
+          hre,
+          parsedConfig,
+          finalDeploymentTxnHash
+        )
+        displayDeploymentTable(parsedConfig, false)
 
-        // If the bundle is complete, set the progress bar to be 100% and exit.
-        if (actionIndex.eq(bundleState.executions.length)) {
-          progressBar.update(actionIndex)
-          process.exit()
-        }
-        // If the bundle is not complete, update the progress bar.
-        progressBar.update(actionIndex.toNumber())
-      })
-
-      // Also declare an event listener for the ChugSplashBundleCancelled event in case the bundle
-      // is cancelled.
-      hre.ethers.provider.on(cancellationFilter, (log) => {
-        // Throw an error if the emitted bundle ID emitted does not match the bundle ID inputted by
-        // the user. This shouldn't ever happen, since we checked earlier that the inputted bundle
-        // ID is the active bundle ID.
-        const emittedBundleId = ChugSplashManagerABI.parseLog(log).bundleId
-        if (emittedBundleId !== bundleId) {
-          throw new Error(
-            `Bundle ID ${emittedBundleId} was cancelled, but does not match inputted bundle ID ${bundleId}.
-            Something went wrong.`
-          )
-        }
-
-        const actionIndex = ChugSplashManagerABI.parseLog(log).args.actionIndex
-
-        // Set the progress bar to be the number of executions that had occurred when the bundle was
-        // cancelled.
-        progressBar.update(actionIndex.toNumber())
-        console.log('\n Bundle was cancelled :(')
-        process.exit()
-      })
+        spinner.succeed(
+          `${parsedConfig.options.projectName} successfully executed.`
+        )
+      }
     }
   )
 

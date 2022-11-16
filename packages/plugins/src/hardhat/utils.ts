@@ -2,11 +2,12 @@ import path from 'path'
 
 import {
   ChugSplashConfig,
+  getChugSplashRegistry,
   parseChugSplashConfig,
   writeSnapshotId,
 } from '@chugsplash/core'
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
-import { constants } from 'ethers'
+import { Signer } from 'ethers'
 
 export const writeHardhatSnapshotId = async (hre: any) => {
   const networkName = hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
@@ -49,6 +50,13 @@ export const loadParsedChugSplashConfig = (
   return parseChugSplashConfig(config, process.env)
 }
 
-export const isProjectRegistered = async (chugsplashManagerAddress: string) => {
-  return chugsplashManagerAddress === constants.AddressZero
+export const isProjectRegistered = async (
+  signer: Signer,
+  chugsplashManagerAddress: string
+) => {
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const isRegistered: boolean = await ChugSplashRegistry.managers(
+    chugsplashManagerAddress
+  )
+  return isRegistered
 }
