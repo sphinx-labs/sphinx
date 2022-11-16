@@ -7,11 +7,12 @@ import {
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { SingleBar, Presets } from 'cli-progress'
-import { ethers } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
 import { getExecutionAmountInChugSplashManager } from './fund'
+import { getFinalDeploymentTxnHash } from './deployments'
 
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
@@ -36,11 +37,8 @@ export const monitorRemoteExecution = async (
     bundleId
   )
 
-  // Handle cases where the bundle is completed, cancelled, or not yet approved.
-  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    chugsplashLog(`${projectName} has already been completed.`, silent)
-    return
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+  // Handle cases where the bundle is not approved.
+  if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     // Set the progress bar to be the number of executions that had occurred when the bundle was
     // cancelled.
     progressBar.start(
@@ -48,11 +46,24 @@ export const monitorRemoteExecution = async (
       bundleState.actionsExecuted
     )
     throw new Error(`${projectName} was cancelled.`)
-  } else if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
-    throw new Error(`${projectName} has not been approved for execution yet.`)
+  } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+    throw new Error(
+      `${parsedConfig.options.projectName} has not been proposed or approved for execution on ${hre.network.name}.`
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+    throw new Error(
+      `${parsedConfig.options.projectName} has not been proposed but not yet approved for execution on ${hre.network.name}.`
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+    // Get the `completeChugSplashBundle` transaction.
+    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+      ChugSplashManager,
+      bundleId
+    )
+    return finalDeploymentTxnHash
   }
 
-  // If we make it to this point, we know that the given bundle is active.
+  // If we make it to this point, we know that the bundle is approved.
 
   // Set the status bar to display the number of actions executed so far.
   progressBar.start(
@@ -95,10 +106,10 @@ export const monitorRemoteExecution = async (
     chugsplashLog('\n', silent)
 
     // Get the `completeChugSplashBundle` transaction.
-    const [finalDeploymentEvent] = await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+      ChugSplashManager,
+      bundleId
     )
-    const finalDeploymentTxnHash = finalDeploymentEvent.transactionHash
     return finalDeploymentTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(`${projectName} was cancelled.`)

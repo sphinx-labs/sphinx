@@ -142,7 +142,7 @@ export const registerChugSplashProject = async (
       projectName
     )
     if (existingProjectOwner !== (await signer.getAddress())) {
-      throw new Error(`Project already registered by: ${existingProjectOwner}.`)
+      throw new Error(`Project already owned by: ${existingProjectOwner}.`)
     } else {
       return false
     }
@@ -169,6 +169,14 @@ export const getChugSplashRegistry = (signer: Signer): Contract => {
     // CHUGSPLASH_REGISTRY_ADDRESS,
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ChugSplashRegistryABI,
+    signer
+  )
+}
+
+export const getChugSplashManager = (signer: Signer, projectName: string) => {
+  return new Contract(
+    getChugSplashManagerProxyAddress(projectName),
+    ChugSplashManagerABI,
     signer
   )
 }
