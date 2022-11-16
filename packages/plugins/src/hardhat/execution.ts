@@ -11,6 +11,8 @@ import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
+import { getExecutionAmountInChugSplashManager } from './fund'
+
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ChugSplashConfig,
@@ -19,14 +21,14 @@ export const monitorRemoteExecution = async (
 ): Promise<string> => {
   const progressBar = new SingleBar({}, Presets.shades_classic)
 
+  const provider = hre.ethers.provider
+
   const projectName = parsedConfig.options.projectName
-  const ChugSplashRegistry = getChugSplashRegistry(
-    hre.ethers.provider.getSigner()
-  )
+  const ChugSplashRegistry = getChugSplashRegistry(provider.getSigner())
   const ChugSplashManager = new ethers.Contract(
     await ChugSplashRegistry.projects(projectName),
     ChugSplashManagerABI,
-    hre.ethers.provider
+    provider
   )
 
   // Get the bundle state of the bundle ID.
@@ -59,6 +61,25 @@ export const monitorRemoteExecution = async (
   )
 
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    // Check if the available execution amount in the ChugSplashManager is too low to finish the
+    // deployment. We do this by estimating the cost of a large transaction, which is calculated by
+    // taking the current gas price and multiplying it by eight million. For reference, it costs
+    // ~5.5 million gas to deploy Seaport. This estimated cost is compared to the available
+    // execution amount in the ChugSplashManager.
+    const gasPrice = await provider.getGasPrice()
+    const availableExecutionAmount =
+      await getExecutionAmountInChugSplashManager(provider, projectName)
+    if (gasPrice.mul(8_000_000).gt(availableExecutionAmount)) {
+      // If the available execution amount is less than the estimated value, throw an error.
+      const estCost = gasPrice.mul(ethers.utils.parseEther('0.1'))
+      throw new Error(
+        `${projectName} ran out of funds. Please report this error. Run the following command to add funds to your deployment so it can be completed:
+
+  npx hardhat fund --network ${hre.network.name} --amount ${estCost} <configPath>
+        `
+      )
+    }
+
     // Get the current bundle state.
     bundleState = await ChugSplashManager.bundles(bundleId)
 

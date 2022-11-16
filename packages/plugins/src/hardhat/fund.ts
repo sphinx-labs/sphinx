@@ -31,11 +31,11 @@ export const getExecutionAmount = async (
   parsedConfig: ChugSplashConfig
 ): Promise<ethers.BigNumber> => {
   const totalExecutionAmount = await simulateExecution(hre, parsedConfig)
-  const executionAmountInManager = await getExecutionAmountInChugSplashManager(
+  const availableExecutionAmount = await getExecutionAmountInChugSplashManager(
     hre.ethers.provider,
     parsedConfig.options.projectName
   )
-  return totalExecutionAmount.sub(executionAmountInManager)
+  return totalExecutionAmount.sub(availableExecutionAmount)
 }
 
 export const simulateExecution = async (
@@ -46,7 +46,7 @@ export const simulateExecution = async (
   parsedConfig
 
   // TODO
-  return ethers.utils.parseEther('0.1')
+  return ethers.utils.parseEther('0.25')
 }
 
 export const getExecutionAmountPlusBuffer = async (
