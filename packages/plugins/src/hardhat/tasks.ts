@@ -27,6 +27,7 @@ import {
   getProjectOwnerAddress,
   chugsplashLog,
   displayDeploymentTable,
+  getChugSplashManagerProxyAddress,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -1119,65 +1120,56 @@ task(TASK_CHUGSPLASH_STATUS)
     }
   )
 
-// task(TASK_FUND)
-//   .setDescription('Fund a ChugSplash deployment')
-//   .addParam('amount', 'Amount to send in wei')
-//   .addFlag('silent', "Hide all of ChugSplash's output")
-//   .addPositionalParam(
-//     'configPath',
-//     'Path to the ChugSplash config file'
-//   )
-//   .setAction(
-//     async (
-//       args: {
-//         amount: number
-//         silent: boolean
-//         configPath: string
-//       },
-//       hre: HardhatRuntimeEnvironment
-//     ) => {
-//       const { amount, silent, configPath } = args
+task(TASK_FUND)
+  .setDescription('Fund a ChugSplash deployment')
+  .addParam('amount', 'Amount to send in wei')
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .setAction(
+    async (
+      args: {
+        amount: number
+        silent: boolean
+        configPath: string
+      },
+      hre: HardhatRuntimeEnvironment
+    ) => {
+      const { amount, silent, configPath } = args
 
-//       const signer = hre.ethers.provider.getSigner()
+      const spinner = ora({ isSilent: silent })
 
-//       const parsedConfig = loadParsedChugSplashConfig(configPath)
+      const signer = hre.ethers.provider.getSigner()
+      const parsedConfig = loadParsedChugSplashConfig(configPath)
+      const projectName = parsedConfig.options.projectName
+      const chugsplashManagerAddress =
+        getChugSplashManagerProxyAddress(projectName)
+      const signerBalance = await signer.getBalance()
 
-//       const expectedAmountPlusBuffer = await getExecutionAmountPlusBuffer(
-//         hre,
-//         parsedConfig
-//       )
+      if (signerBalance.lt(amount)) {
+        throw new Error(`Signer's balance is less than the specified amount.
 
-//       const currSignerBalance = await signer.getBalance()
-//       if (currSignerBalance.lt(expectedAmountPlusBuffer)) {
-//         throw new Error(
-//           `Signer has insufficient funds. Please send at least ${ethers.utils.formatEther(
-//             amountPlusBuffer
-//           )} ETH to the signer's wallet: ${await signer.getAddress()}`
-//         )
-//       }
+  Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
+  Amount: ${ethers.utils.formatEther(amount)} ETH`)
+      }
 
-//       const spinner = ora({ isSilent: silent })
-//       if (expectedAmount.gt(amount)) {
-//         throw new Error(`Insufficient amount supplied. The funds have not been sent.
-
-//   Expected amount: ${amountPlusBuffer} wei.
-//   Actual amount: ${amount} wei.
-
-//   Please attempt to deposit the funds again with the following command:
-//   npx hardhat fund --network ${hre.network.name} --amount ${amountPlusBuffer} ${configPath}`)
-//       } else if (expectedAmount.lte(0)) {
-//         spinner.fail(
-//           `Sufficient funds were previously deposited. No additional funds have been sent. You can proceed by approving the project to be executed:
-
-//   npx hardhat chugsplash-approve --network ${hre.network.name} ${configPath}`
-//         )
-//       } else {
-//         spinner.start(`Depositing ${ethers.utils.formatEther(amount)} ETH...`)
-//         // TODO: send tx
-//         spinner.succeed(`Deposited ${ethers.utils.formatEther(amount)} ETH.`)
-//       }
-//     }
-//   )
+      spinner.start(
+        `Depositing ${ethers.utils.formatEther(
+          amount
+        )} ETH for the project: ${projectName}...`
+      )
+      await (
+        await signer.sendTransaction({
+          value: amount,
+          to: chugsplashManagerAddress,
+        })
+      ).wait()
+      spinner.succeed(
+        `Deposited ${ethers.utils.formatEther(
+          amount
+        )} ETH for the project: ${projectName}.`
+      )
+    }
+  )
 
 task(TASK_TEST_REMOTE_EXECUTION)
   .setDescription(
