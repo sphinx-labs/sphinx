@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.3.14
+
+### Patch Changes
+
+- 8323afb: Add deployment artifact generation on the user's side
+
 ## 0.3.13
 
 ### Patch Changes
