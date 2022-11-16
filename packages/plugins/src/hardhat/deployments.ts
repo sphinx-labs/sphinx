@@ -12,14 +12,16 @@ import {
   ChugSplashBundleStatus,
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
-  ChugSplashLog,
+  chugsplashLog,
+  displayDeploymentTable,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 
-import { getContractArtifact } from './artifacts'
+import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
 import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
 import { chugsplashCommitSubtask, chugsplashProposeSubtask } from './tasks'
+import { monitorRemoteExecution } from './execution'
 
 /**
  * TODO
@@ -64,7 +66,7 @@ export const deployChugSplashConfig = async (
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
-  ChugSplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
+  chugsplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -150,7 +152,17 @@ export const deployChugSplashConfig = async (
     silent: true,
   })
 
-  if (!remoteExecution) {
+  if (remoteExecution) {
+    const finalDeploymentTxnHash = await monitorRemoteExecution(
+      hre,
+      parsedConfig,
+      bundleId,
+      silent
+    )
+    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+    displayDeploymentTable(parsedConfig, silent)
+    chugsplashLog(`Deployed ${parsedConfig.options.projectName}.`, silent)
+  } else {
     await hre.run('chugsplash-execute', {
       chugSplashManager: ChugSplashManager,
       bundleState,
@@ -160,8 +172,6 @@ export const deployChugSplashConfig = async (
       silent,
     })
   }
-
-  ChugSplashLog(`Deployed: ${parsedConfig.options.projectName}`, silent)
 }
 
 export const getContract = async (

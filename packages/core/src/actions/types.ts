@@ -1,3 +1,5 @@
+import { BigNumber } from 'ethers'
+
 /**
  * Possible action types.
  */
@@ -80,7 +82,7 @@ export type ChugSplashBundleState = {
   status: ChugSplashBundleStatus
   executions: boolean[]
   merkleRoot: string
-  actionsExecuted: number
-  timeClaimed: number
+  actionsExecuted: BigNumber
+  timeClaimed: BigNumber
   selectedExecutor: string
 }

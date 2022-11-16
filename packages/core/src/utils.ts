@@ -10,6 +10,8 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 
+import { ChugSplashConfig } from './config'
+
 export const computeBundleId = (
   bundleRoot: string,
   bundleSize: number,
@@ -204,8 +206,26 @@ export const getChugSplashManagerImplementationAddress = async (
   return managerImplementationAddress
 }
 
-export const ChugSplashLog = async (text: string, hide?: boolean) => {
-  if (!hide) {
+export const chugsplashLog = (text: string, silent: boolean) => {
+  if (!silent) {
     console.log(text)
+  }
+}
+
+export const displayDeploymentTable = (
+  parsedConfig: ChugSplashConfig,
+  silent: boolean
+) => {
+  if (!silent) {
+    const deployments = {}
+    Object.entries(parsedConfig.contracts).forEach(
+      ([referenceName, contractConfig], i) =>
+        (deployments[i + 1] = {
+          Reference: referenceName,
+          Contract: contractConfig.contract,
+          Address: contractConfig.address,
+        })
+    )
+    console.table(deployments)
   }
 }
