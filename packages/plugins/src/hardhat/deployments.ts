@@ -13,6 +13,7 @@ import {
   isProxyDeployed,
   getChugSplashManagerProxyAddress,
   chugsplashLog,
+  displayDeploymentTable,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -167,6 +168,7 @@ export const deployChugSplashConfig = async (
       deployer,
       silent: true,
     })
+    displayDeploymentTable(parsedConfig, false)
   }
   chugsplashLog(`Deployed ${parsedConfig.options.projectName}.`, silent)
 }
