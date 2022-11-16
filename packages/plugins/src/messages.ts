@@ -25,9 +25,9 @@ export const successfulProposalMessage = (
   networkName: string
 ): string => {
   if (amount.gt(0)) {
-    return `Project successfully proposed on ${networkName}. Next, fund the deployment using the command:
+    return `Project successfully proposed on ${networkName}. Fund and approve the deployment using the command:
 
-  npx hardhat fund --network ${networkName} --amount ${amount} ${configPath}`
+  npx hardhat chugsplash-approve --network ${networkName} --amount ${amount} ${configPath}`
   } else {
     return `Project successfully proposed and funded on ${networkName}. Approve the deployment using the command:
 
@@ -41,9 +41,9 @@ export const alreadyProposedMessage = (
   networkName: string
 ): string => {
   if (amount.gt(0)) {
-    return `Project has already been proposed on ${networkName}. You must fund the deployment using the command:
+    return `Project has already been proposed on ${networkName}. Fund and approve the deployment using the command:
 
-  npx hardhat fund --network ${networkName} --amount ${amount} ${configPath}`
+  npx hardhat chugsplash-approve --network ${networkName} --amount ${amount} ${configPath}`
   } else {
     return `Project has already been proposed and funded on ${networkName}. Approve the deployment using the command:
 

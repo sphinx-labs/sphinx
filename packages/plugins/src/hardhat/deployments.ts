@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import '@nomiclabs/hardhat-ethers'
-import { Contract, ethers } from 'ethers'
+import { Contract, ethers, Signer } from 'ethers'
 import {
   ChugSplashConfig,
   getProxyAddress,
@@ -14,17 +14,26 @@ import {
   getChugSplashManagerProxyAddress,
   chugsplashLog,
   displayDeploymentTable,
+  ChugSplashActionBundle,
+  computeBundleId,
+  getChugSplashManager,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getContractArtifact } from './artifacts'
+import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
 import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
 import {
-  chugsplashApproveSubtask,
+  chugsplashApproveTask,
   chugsplashCommitSubtask,
-  chugsplashProposeSubtask,
+  chugsplashProposeTask,
+  fundTask,
+  statusTask,
+  TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
+import { deployChugSplashPredeploys } from './predeploys'
+import { getExecutionAmountPlusBuffer } from './fund'
 
 /**
  * TODO
@@ -41,6 +50,11 @@ export const deployAllChugSplashConfigs = async (
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
   for (const fileName of fileNames) {
     const configPath = path.join(hre.config.paths.chugsplash, fileName)
+    // Skip this config if it's empty.
+    if (isEmptyChugSplashConfig(configPath)) {
+      return
+    }
+
     await deployChugSplashConfig(
       hre,
       configPath,
@@ -58,18 +72,14 @@ export const deployChugSplashConfig = async (
   remoteExecution: boolean,
   ipfsUrl: string
 ) => {
-  // Skip this config if it's empty.
-  if (isEmptyChugSplashConfig(configPath)) {
-    return
-  }
-
   const provider = hre.ethers.provider
+  const signer = provider.getSigner()
   const deployer = provider.getSigner()
   const deployerAddress = await deployer.getAddress()
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
-  chugsplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
+  await deployChugSplashPredeploys(hre, signer)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
@@ -80,9 +90,9 @@ export const deployChugSplashConfig = async (
   )
 
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle } = await chugsplashCommitSubtask(
+  const { bundleId, bundle, configUri } = await chugsplashCommitSubtask(
     {
-      configPath,
+      parsedConfig,
       ipfsUrl,
       commitToIpfs: false,
       compile: true,
@@ -90,74 +100,76 @@ export const deployChugSplashConfig = async (
     hre
   )
 
-  const ChugSplashManager = new Contract(
-    getChugSplashManagerProxyAddress(parsedConfig.options.projectName),
-    ChugSplashManagerABI,
-    deployer
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
   )
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
+  let currBundleStatus = bundleState.status
 
-  if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    throw new Error(
-      `${parsedConfig.options.projectName} was previously cancelled.`
+  if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
+    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+      ChugSplashManager,
+      bundleId
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
-    for (const referenceName of Object.keys(parsedConfig.contracts)) {
-      if (
-        await isProxyDeployed(
-          hre.ethers.provider,
-          parsedConfig.options.projectName,
-          referenceName
-        )
-      ) {
-        throw new Error(
-          `The contract ${referenceName} inside ${parsedConfig.options.projectName} has already been deployed.`
-        )
-      }
-    }
-  }
-
-  await chugsplashProposeSubtask(
-    {
-      configPath,
-      ipfsUrl,
-      silent: true,
-      noCompile: true,
-      remoteExecution,
-    },
-    hre
-  )
-
-  if ((await deployer.getBalance()).lt(OWNER_BOND_AMOUNT.mul(5))) {
+    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+    displayDeploymentTable(parsedConfig, silent)
+    chugsplashLog(
+      `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
+      silent
+    )
+    return
+  } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
-      `Deployer has insufficient funds. Please add ${ethers.utils.formatEther(
-        OWNER_BOND_AMOUNT.mul(5)
-      )} ETH to its wallet.`
+      `${parsedConfig.options.projectName} was previously cancelled on ${hre.network.name}.`
     )
   }
 
-  const managerBalance = await hre.ethers.provider.getBalance(
-    ChugSplashManager.address
-  )
-  if (managerBalance.lt(OWNER_BOND_AMOUNT.mul(5))) {
-    const tx = await deployer.sendTransaction({
-      value: OWNER_BOND_AMOUNT.mul(5), // TODO: get a better cost estimate for deployments
-      to: ChugSplashManager.address,
-    })
-    await tx.wait()
+  chugsplashLog(`Deploying: ${parsedConfig.options.projectName}`, silent)
+
+  if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
+    await proposeChugSplashBundle(
+      hre,
+      parsedConfig,
+      bundle,
+      configUri,
+      remoteExecution,
+      ipfsUrl
+    )
+    currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
 
-  await chugsplashApproveSubtask(
-    {
-      configPath,
-      silent: true,
-      remoteExecution,
-    },
-    hre
-  )
+  if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
+    // Fund the deployment.
+    const executionAmountPlusBuffer = await getExecutionAmountPlusBuffer(
+      hre,
+      parsedConfig
+    )
+    // Approve the deployment. If `remoteExecution is `true`, this also monitors the deployment
+    // until it is completed and generates the deployment artifacts.
+    await chugsplashApproveTask(
+      {
+        configPath,
+        silent: true,
+        remoteExecution,
+        amount: executionAmountPlusBuffer,
+      },
+      hre
+    )
+  } else if (
+    remoteExecution &&
+    currBundleStatus === ChugSplashBundleStatus.APPROVED
+  ) {
+    await statusTask(
+      {
+        configPath,
+      },
+      hre
+    )
+  }
 
   if (!remoteExecution) {
     await hre.run('chugsplash-execute', {
@@ -168,9 +180,13 @@ export const deployChugSplashConfig = async (
       deployer,
       silent: true,
     })
-    displayDeploymentTable(parsedConfig, false)
   }
-  chugsplashLog(`Deployed ${parsedConfig.options.projectName}.`, silent)
+
+  displayDeploymentTable(parsedConfig, silent)
+  chugsplashLog(
+    `${parsedConfig.options.projectName} successfully deployed on ${hre.network.name}.`,
+    silent
+  )
 }
 
 export const getContract = async (
@@ -246,4 +262,79 @@ export const resetChugSplashDeployments = async (hre: any) => {
     throw new Error('Snapshot failed to be reverted.')
   }
   await writeHardhatSnapshotId(hre)
+}
+
+export const checkValidDeployment = async (
+  hre: HardhatRuntimeEnvironment,
+  parsedConfig: ChugSplashConfig
+) => {
+  for (const referenceName of Object.keys(parsedConfig.contracts)) {
+    if (
+      await isProxyDeployed(
+        hre.ethers.provider,
+        parsedConfig.options.projectName,
+        referenceName
+      )
+    ) {
+      throw new Error(
+        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used in a previous deployment. You must change this reference name to something other than ${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
+      )
+    }
+  }
+}
+
+export const getFinalDeploymentTxnHash = async (
+  ChugSplashManager: Contract,
+  bundleId: string
+): Promise<string> => {
+  const [finalDeploymentEvent] = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+  )
+  return finalDeploymentEvent.transactionHash
+}
+
+export const proposeChugSplashBundle = async (
+  hre: HardhatRuntimeEnvironment,
+  parsedConfig: ChugSplashConfig,
+  bundle: ChugSplashActionBundle,
+  configUri: string,
+  remoteExecution: boolean,
+  ipfsUrl: string
+) => {
+  await checkValidDeployment(hre, parsedConfig)
+
+  const ChugSplashManager = getChugSplashManager(
+    hre.ethers.provider.getSigner(),
+    parsedConfig.options.projectName
+  )
+
+  const chainId = await getChainId(hre.ethers.provider)
+
+  if (remoteExecution || chainId !== 31337) {
+    // Commit the bundle to IPFS if the network is live (i.e. not the local Hardhat network) or
+    // if we explicitly specify remote execution.
+    await chugsplashCommitSubtask(
+      {
+        parsedConfig,
+        ipfsUrl,
+        commitToIpfs: true,
+        compile: false,
+      },
+      hre
+    )
+    // Verify that the bundle has been committed to IPFS with the correct bundle hash.
+    await hre.run(TASK_CHUGSPLASH_VERIFY_BUNDLE, {
+      configUri,
+      bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
+      ipfsUrl,
+    })
+  }
+  // Propose the bundle.
+  await (
+    await ChugSplashManager.proposeChugSplashBundle(
+      bundle.root,
+      bundle.actions.length,
+      configUri
+    )
+  ).wait()
 }

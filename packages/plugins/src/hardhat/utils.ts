@@ -2,6 +2,7 @@ import path from 'path'
 
 import {
   ChugSplashConfig,
+  getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
   parseChugSplashConfig,
   writeSnapshotId,
@@ -52,9 +53,10 @@ export const loadParsedChugSplashConfig = (
 
 export const isProjectRegistered = async (
   signer: Signer,
-  chugsplashManagerAddress: string
+  projectName: string
 ) => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
   const isRegistered: boolean = await ChugSplashRegistry.managers(
     chugsplashManagerAddress
   )
