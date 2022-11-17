@@ -790,11 +790,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
         // Get the expected address of the implementation contract.
-        address expectedImplementation = Create2.compute(
-            address(this),
-            bytes32(0),
-            _code
-        );
+        address expectedImplementation = Create2.compute(address(this), bytes32(0), _code);
 
         address implementation;
         assembly {
