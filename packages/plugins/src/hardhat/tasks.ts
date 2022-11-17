@@ -214,6 +214,7 @@ export const chugsplashDeployTask = async (
     configPath: string
     ipfsUrl: string
     silent: boolean
+    noCompile: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
@@ -225,7 +226,8 @@ export const chugsplashDeployTask = async (
     args.configPath,
     args.silent,
     remoteExecution,
-    args.ipfsUrl
+    args.ipfsUrl,
+    args.noCompile
   )
 }
 
@@ -239,6 +241,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashDeployTask)
 
 task(TASK_CHUGSPLASH_REGISTER)
@@ -305,6 +308,8 @@ export const chugsplashProposeTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
+  chugsplashLog(`Proposing the project on ${hre.network.name}...`, silent)
+
   await deployChugSplashPredeploys(hre, signer)
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
@@ -333,7 +338,7 @@ export const chugsplashProposeTask = async (
       parsedConfig,
       ipfsUrl,
       commitToIpfs: false,
-      compile: !noCompile,
+      noCompile,
     },
     hre
   )
@@ -342,14 +347,16 @@ export const chugsplashProposeTask = async (
     bundleId
   )
 
-  const spinner = ora({ isSilent: silent })
-  spinner.start(`Proposing the project on ${hre.network.name}...`)
   if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    spinner.succeed(
-      `Project was already proposed and is currently being executed on ${hre.network.name}.`
+    chugsplashLog(
+      `Project was already proposed and is currently being executed on ${hre.network.name}.`,
+      silent
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.succeed(`Project was already completed on ${hre.network.name}.`)
+    chugsplashLog(
+      `Project was already completed on ${hre.network.name}.`,
+      silent
+    )
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
       `Project was already cancelled on ${hre.network.name}. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
@@ -373,21 +380,23 @@ export const chugsplashProposeTask = async (
         remoteExecution,
         ipfsUrl
       )
-      spinner.succeed(
+      chugsplashLog(
         successfulProposalMessage(
           executionAmountPlusBuffer,
           configPath,
           hre.network.name
-        )
+        ),
+        silent
       )
     } else {
       // Bundle was already in the `PROPOSED` state before the call to this task.
-      spinner.succeed(
+      chugsplashLog(
         alreadyProposedMessage(
           executionAmountPlusBuffer,
           configPath,
           hre.network.name
-        )
+        ),
+        silent
       )
     }
   }
@@ -404,6 +413,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
     'ipfsUrl',
     'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
   )
+  .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
 subtask(TASK_CHUGSPLASH_EXECUTE)
@@ -564,7 +574,7 @@ export const chugsplashApproveTask = async (
       parsedConfig,
       ipfsUrl: '',
       commitToIpfs: false,
-      compile: false,
+      noCompile: true,
     },
     hre
   )
@@ -664,7 +674,7 @@ export const chugsplashCommitSubtask = async (
     parsedConfig: ChugSplashConfig
     ipfsUrl: string
     commitToIpfs: boolean
-    compile: boolean
+    noCompile: boolean
   },
   hre
 ): Promise<{
@@ -672,9 +682,9 @@ export const chugsplashCommitSubtask = async (
   configUri: string
   bundleId: string
 }> => {
-  const { parsedConfig, ipfsUrl, commitToIpfs, compile } = args
+  const { parsedConfig, ipfsUrl, commitToIpfs, noCompile } = args
 
-  if (compile) {
+  if (!noCompile) {
     await cleanThenCompile(hre)
   }
 
@@ -969,7 +979,7 @@ export const statusTask = async (
       parsedConfig,
       ipfsUrl: '',
       commitToIpfs: false,
-      compile: false,
+      noCompile: true,
     },
     hre
   )
@@ -1078,13 +1088,17 @@ task(TASK_TEST_REMOTE_EXECUTION)
     'configPath',
     'Path to the ChugSplash config file to deploy'
   )
+  .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         configPath: string
+        noCompile: boolean
       },
       hre: HardhatRuntimeEnvironment
     ) => {
+      const { configPath, noCompile } = args
+
       if (hre.network.name !== 'localhost') {
         throw new Error(
           `You can only test remote execution on localhost. Got network: ${hre.network.name}`
@@ -1093,7 +1107,7 @@ task(TASK_TEST_REMOTE_EXECUTION)
 
       const signer = hre.ethers.provider.getSigner()
       await deployChugSplashPredeploys(hre, signer)
-      await deployChugSplashConfig(hre, args.configPath, false, true, '')
+      await deployChugSplashConfig(hre, configPath, false, true, '', noCompile)
     }
   )
 
@@ -1108,21 +1122,24 @@ task(TASK_NODE)
     "Completely disable all of ChugSplash's activity."
   )
   .addFlag('hide', "Hide all of ChugSplash's output")
+  .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         setupInternals: boolean
         disableChugsplash: boolean
         hide: boolean
+        noCompile: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      if (!args.disableChugsplash) {
+      const { setupInternals, disableChugsplash, hide, noCompile } = args
+      if (!disableChugsplash) {
         const deployer = hre.ethers.provider.getSigner()
         await deployChugSplashPredeploys(hre, deployer)
-        if (!args.setupInternals) {
-          await deployAllChugSplashConfigs(hre, args.hide, '')
+        if (!setupInternals) {
+          await deployAllChugSplashConfigs(hre, hide, '', noCompile)
         }
         await writeHardhatSnapshotId(hre)
       }
@@ -1132,31 +1149,35 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
-  .setAction(async (args: { show: boolean }, hre: any, runSuper) => {
-    const chainId = await getChainId(hre.ethers.provider)
-    if (chainId === 31337) {
-      try {
-        const snapshotIdPath = path.join(
-          path.basename(hre.config.paths.deployed),
-          hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
-          '.snapshotId'
-        )
-        const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-        const snapshotReverted = await hre.network.provider.send('evm_revert', [
-          snapshotId,
-        ])
-        if (!snapshotReverted) {
-          throw new Error('Snapshot failed to be reverted.')
+  .setAction(
+    async (args: { show: boolean; noCompile: boolean }, hre: any, runSuper) => {
+      const { show, noCompile } = args
+      const chainId = await getChainId(hre.ethers.provider)
+      if (chainId === 31337) {
+        try {
+          const snapshotIdPath = path.join(
+            path.basename(hre.config.paths.deployed),
+            hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
+            '.snapshotId'
+          )
+          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+          const snapshotReverted = await hre.network.provider.send(
+            'evm_revert',
+            [snapshotId]
+          )
+          if (!snapshotReverted) {
+            throw new Error('Snapshot failed to be reverted.')
+          }
+        } catch {
+          await deployChugSplashPredeploys(hre, hre.ethers.provider.getSigner())
+          await deployAllChugSplashConfigs(hre, !show, '', noCompile)
+        } finally {
+          await writeHardhatSnapshotId(hre)
         }
-      } catch {
-        await deployChugSplashPredeploys(hre, hre.ethers.provider.getSigner())
-        await deployAllChugSplashConfigs(hre, !args.show, '')
-      } finally {
-        await writeHardhatSnapshotId(hre)
       }
+      await runSuper(args)
     }
-    await runSuper(args)
-  })
+  )
 
 task(TASK_RUN)
   .addFlag(
@@ -1167,14 +1188,16 @@ task(TASK_RUN)
     async (
       args: {
         disableChugsplash: boolean
+        noCompile: boolean
       },
       hre: any,
       runSuper
     ) => {
-      if (!args.disableChugsplash) {
+      const { disableChugsplash, noCompile } = args
+      if (!disableChugsplash) {
         const signer = hre.ethers.provider.getSigner()
         await deployChugSplashPredeploys(hre, signer)
-        await deployAllChugSplashConfigs(hre, true, '')
+        await deployAllChugSplashConfigs(hre, true, '', noCompile)
       }
       await runSuper(args)
     }

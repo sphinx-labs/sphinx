@@ -41,7 +41,8 @@ import { postExecutionActions } from './execution'
 export const deployAllChugSplashConfigs = async (
   hre: any,
   silent: boolean,
-  ipfsUrl: string
+  ipfsUrl: string,
+  noCompile: boolean
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
@@ -57,7 +58,8 @@ export const deployAllChugSplashConfigs = async (
       configPath,
       silent,
       remoteExecution,
-      ipfsUrl
+      ipfsUrl,
+      noCompile
     )
   }
 }
@@ -67,7 +69,8 @@ export const deployChugSplashConfig = async (
   configPath: string,
   silent: boolean,
   remoteExecution: boolean,
-  ipfsUrl: string
+  ipfsUrl: string,
+  noCompile: boolean
 ) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -91,7 +94,7 @@ export const deployChugSplashConfig = async (
       parsedConfig,
       ipfsUrl,
       commitToIpfs: false,
-      compile: true,
+      noCompile,
     },
     hre
   )
@@ -315,7 +318,7 @@ export const proposeChugSplashBundle = async (
         parsedConfig,
         ipfsUrl,
         commitToIpfs: true,
-        compile: false,
+        noCompile: true,
       },
       hre
     )
