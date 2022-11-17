@@ -27,6 +27,7 @@ import {
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
+  getProjectOwnerAddress,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -87,6 +88,7 @@ export const TASK_TEST_REMOTE_EXECUTION = 'test-remote-execution'
 export const TASK_FUND = 'fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
+export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 
 export const bundleLocalSubtask = async (args: {
   parsedConfig: ChugSplashConfig
@@ -1202,3 +1204,88 @@ task(TASK_RUN)
       await runSuper(args)
     }
   )
+
+export const chugsplashCancelTask = async (
+  args: {
+    configPath: string
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, silent } = args
+
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(`Cancelliing ${projectName} on ${hre.network.name}.`)
+
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      await getChainId(provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider,
+    projectName
+  )
+  if (projectOwnerAddress !== (await signer.getAddress())) {
+    throw new Error(`Project is owned by: ${projectOwnerAddress}.
+  You attempted to cancel the project using the address: ${await signer.getAddress()}`)
+  }
+
+  // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to
+  // IPFS).
+  const { bundleId } = await chugsplashCommitSubtask(
+    {
+      parsedConfig,
+      ipfsUrl: '',
+      commitToIpfs: false,
+      noCompile: true,
+    },
+    hre
+  )
+
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
+    bundleId
+  )
+
+  if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
+    throw new Error(
+      `Project is not active. Current project state: ${
+        ChugSplashBundleStatus[bundleState.status]
+      }`
+    )
+  }
+
+  await (await ChugSplashManager.cancelActiveChugSplashBundle()).wait()
+
+  spinner.succeed(`Cancelled ${projectName} on ${hre.network.name}.`)
+  spinner.start(`Refunding the project owner...`)
+
+  const prevOwnerBalance = await signer.getBalance()
+  await (await ChugSplashManager.withdrawOwnerETH()).wait()
+  const refund = (await signer.getBalance()).sub(prevOwnerBalance)
+
+  spinner.succeed(
+    `Refunded ${ethers.utils.formatEther(
+      refund
+    )} ETH to the project owner, ${await signer.getAddress()}.`
+  )
+}
+
+task(TASK_CHUGSPLASH_CANCEL)
+  .setDescription('Cancel an active ChugSplash project.')
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addPositionalParam(
+    'configPath',
+    'Path to the ChugSplash config file to cancel'
+  )
+  .setAction(chugsplashCancelTask)
