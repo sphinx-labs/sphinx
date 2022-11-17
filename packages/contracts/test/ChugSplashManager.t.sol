@@ -590,7 +590,7 @@ contract ChugSplashManager_Test is Test {
     }
 
     // cancelActiveChugSplashBundle:
-    // - if bundle is NOT cancelled within the `executionLockTime` window:
+    // - if bundle is NOT cancelled within the `executionLockTime` window and there is an executor:
     //   - decreases the `totalDebt` by `executorBondAmount`
     // - removes active bundle id
     // - sets bundle status to `CANCELLED`
@@ -619,6 +619,36 @@ contract ChugSplashManager_Test is Test {
 
         assertEq(manager.debt(executor1), initialExecutorDebt);
         assertEq(manager.totalDebt(), initialTotalDebt - executorBondAmount);
+        assertEq(manager.activeBundleId(), bytes32(0));
+        assertEq(uint8(manager.bundles(bundleId).status), uint8(ChugSplashBundleStatus.CANCELLED));
+    }
+
+    // cancelActiveChugSplashBundle:
+    // - if an executor has not claimed the bundle:
+    //   - no debt is incremented
+    // - removes active bundle id
+    // - sets bundle status to `CANCELLED`
+    // - emits ChugSplashBundleCancelled
+    // - calls registry.announce with ChugSplashBundleCancelled
+    function test_cancelActiveChugSplashBundle_success_noExecutor() external {
+        helper_proposeThenApproveThenFundBundle();
+        uint256 initialTotalDebt = manager.totalDebt();
+
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ChugSplashBundleCancelled")
+            )
+        );
+        vm.expectEmit(true, true, true, true);
+        emit ChugSplashBundleCancelled(bundleId, owner, 0);
+        vm.startPrank(owner);
+        manager.cancelActiveChugSplashBundle();
+        manager.withdrawOwnerETH();
+
+        assertEq(manager.totalDebt(), initialTotalDebt);
+        assertEq(manager.debt(address(0)), 0);
         assertEq(manager.activeBundleId(), bytes32(0));
         assertEq(uint8(manager.bundles(bundleId).status), uint8(ChugSplashBundleStatus.CANCELLED));
     }
@@ -866,9 +896,13 @@ contract ChugSplashManager_Test is Test {
         manager.executeChugSplashAction(secondAction, actionIndexes[1], proofs[1]);
     }
 
-    function helper_proposeThenApproveThenFundThenClaimBundle() internal {
+    function helper_proposeThenApproveThenFundBundle() internal {
         helper_proposeThenApproveBundle();
         helper_fundChugSplashManager(bundleExecutionCost);
+    }
+
+    function helper_proposeThenApproveThenFundThenClaimBundle() internal {
+        helper_proposeThenApproveThenFundBundle();
         helper_claimBundle(executor1);
     }
 
