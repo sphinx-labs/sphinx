@@ -789,10 +789,26 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _code   Creation bytecode of the implementation contract.
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
+        // Get the expected address of the implementation contract.
+        address expectedImplementation = Create2.compute(
+            address(this),
+            bytes32(0),
+            _code
+        );
+
         address implementation;
         assembly {
             implementation := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
         }
+
+        // Could happen if insufficient gas is supplied to this transaction, should not
+        // happen otherwise. If there's a situation in which this could happen other than a
+        // standard OOG, then this would halt the entire contract.
+        // TODO: Make sure this cannot happen in any case other than OOG.
+        require(
+            expectedImplementation == implementation,
+            "ChugSplashManager: implementation was not deployed correctly"
+        );
 
         // Set the target to its newly deployed implementation.
         implementations[_target] = implementation;

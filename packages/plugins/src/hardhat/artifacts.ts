@@ -414,7 +414,11 @@ export const createDeploymentArtifacts = async (
 
     const metadata =
       buildInfo.output.contracts[sourceName][contractName].metadata
-    const { devdoc, userdoc } = JSON.parse(metadata).output
+
+    const { devdoc, userdoc } =
+      typeof metadata === 'string'
+        ? JSON.parse(metadata).output
+        : metadata.output
 
     const deploymentArtifact = {
       contractName,
