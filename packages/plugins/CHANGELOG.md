@@ -1,5 +1,23 @@
 # @chugsplash/plugins
 
+## 0.7.0
+
+### Minor Changes
+
+- 3d1ca28: Add Hardhat task to explicitly fund deployments
+- cf7751d: Add chugsplash-status Hardhat task to monitor remote deployments
+
+### Patch Changes
+
+- ac04198: Improve error handling in chugsplash-approve task
+- 162cfb7: Fix bug parsing build info metadata
+- 7c367b4: Updates the chugsplash-execute task
+- 457b19a: Improve chugsplash-deploy hardhat task
+- Updated dependencies [ed7babc]
+- Updated dependencies [457b19a]
+  - @chugsplash/contracts@0.3.9
+  - @chugsplash/core@0.3.15
+
 ## 0.6.0
 
 ### Minor Changes

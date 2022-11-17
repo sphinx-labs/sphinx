@@ -1,5 +1,13 @@
 # @chugsplash/core
 
+## 0.3.15
+
+### Patch Changes
+
+- 457b19a: Improve chugsplash-deploy hardhat task
+- Updated dependencies [ed7babc]
+  - @chugsplash/contracts@0.3.9
+
 ## 0.3.14
 
 ### Patch Changes
