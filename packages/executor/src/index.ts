@@ -8,7 +8,6 @@ import {
   ChugSplashRegistryABI,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
-import { ChugSplashBundleState } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
 
@@ -112,11 +111,6 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         continue
       }
 
-      // fetch bundle state
-      const bundleState: ChugSplashBundleState = await manager.bundles(
-        activeBundleId
-      )
-
       // get proposal event and compile
       const proposalEvents = await manager.queryFilter(
         manager.filters.ChugSplashBundleProposed(activeBundleId)
@@ -141,10 +135,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       try {
         await hre.run('chugsplash-execute', {
           chugSplashManager: manager,
-          bundleState,
+          bundleId: activeBundleId,
           bundle,
           parsedConfig: canonicalConfig,
-          deployer: signer,
+          executor: signer,
           hide: false,
         })
         this.logger.info('Successfully executed')

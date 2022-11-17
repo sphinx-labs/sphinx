@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import '@nomiclabs/hardhat-ethers'
-import { Contract, ethers, Signer } from 'ethers'
+import { ethers } from 'ethers'
 import {
   ChugSplashConfig,
   getProxyAddress,
@@ -11,14 +11,12 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   isProxyDeployed,
-  getChugSplashManagerProxyAddress,
   chugsplashLog,
   displayDeploymentTable,
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI, OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -27,13 +25,12 @@ import { loadParsedChugSplashConfig, writeHardhatSnapshotId } from './utils'
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
-  chugsplashProposeTask,
-  fundTask,
   statusTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { deployChugSplashPredeploys } from './predeploys'
 import { getExecutionAmountPlusBuffer } from './fund'
+import { postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -74,8 +71,7 @@ export const deployChugSplashConfig = async (
 ) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const deployer = provider.getSigner()
-  const deployerAddress = await deployer.getAddress()
+  const signerAddress = await signer.getAddress()
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
@@ -86,7 +82,7 @@ export const deployChugSplashConfig = async (
   await registerChugSplashProject(
     provider,
     parsedConfig.options.projectName,
-    deployerAddress
+    signerAddress
   )
 
   // Get the bundle ID without publishing anything to IPFS.
@@ -174,12 +170,13 @@ export const deployChugSplashConfig = async (
   if (!remoteExecution) {
     await hre.run('chugsplash-execute', {
       chugSplashManager: ChugSplashManager,
-      bundleState,
+      bundleId,
       bundle,
       parsedConfig,
-      deployer,
+      executor: signer,
       silent: true,
     })
+    await postExecutionActions(provider, parsedConfig)
   }
 
   displayDeploymentTable(parsedConfig, silent)
@@ -284,7 +281,7 @@ export const checkValidDeployment = async (
 }
 
 export const getFinalDeploymentTxnHash = async (
-  ChugSplashManager: Contract,
+  ChugSplashManager: ethers.Contract,
   bundleId: string
 ): Promise<string> => {
   const [finalDeploymentEvent] = await ChugSplashManager.queryFilter(

@@ -4,10 +4,11 @@ import {
   ChugSplashConfig,
   chugsplashLog,
   getChugSplashRegistry,
+  getChugSplashManager,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { SingleBar, Presets } from 'cli-progress'
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
@@ -113,5 +114,52 @@ export const monitorRemoteExecution = async (
     return finalDeploymentTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(`${projectName} was cancelled.`)
+  }
+}
+
+/**
+ * Performs actions on behalf of the project owner after the successful execution of a bundle.
+ *
+ * @param provider JSON RPC provider corresponding to the current project owner.
+ * @param parsedConfig Parsed ChugSplashConfig.
+ */
+export const postExecutionActions = async (
+  provider: ethers.providers.JsonRpcProvider,
+  parsedConfig: ChugSplashConfig
+) => {
+  const signer = provider.getSigner()
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+  const currChugSplashManagerOwner = await ChugSplashManager.owner()
+
+  // Exit early if the calling address is not the current owner of the ChugSplashManager.
+  if (signer.getAddress() !== currChugSplashManagerOwner) {
+    return
+  }
+
+  // Withdraw any of the current project owner's funds in the ChugSplashManager.
+  const totalDebt = await ChugSplashManager.totalDebt()
+  const chugsplashManagerBalance = await provider.getBalance(
+    ChugSplashManager.address
+  )
+  if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
+    await (await ChugSplashManager.withdrawOwnerETH()).wait()
+  }
+
+  // Transfer ownership of the ChugSplashManager to the project owner specified in the
+  // ChugSplashConfig if their address isn't already the owner.
+  if (parsedConfig.options.projectOwner !== currChugSplashManagerOwner) {
+    if (parsedConfig.options.projectOwner === ethers.constants.AddressZero) {
+      // We must call a separate function if ownership is being transferred to address(0).
+      await (await ChugSplashManager.renounceOwnership()).wait()
+    } else {
+      await (
+        await ChugSplashManager.transferOwnership(
+          parsedConfig.options.projectOwner
+        )
+      ).wait()
+    }
   }
 }
