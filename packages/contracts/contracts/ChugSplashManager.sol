@@ -637,24 +637,30 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
      *
-     *         Cancels an active ChugSplash bundle. This causes the project owner to forfeit their
-     *         bond to the executor, and also refunds the executor's bond.
+     *         Cancels an active ChugSplash bundle. If an executor has not claimed the bundle,
+     *         the owner is simply allowed to withdraw their bond via a subsequent call to
+     *         `withdrawOwnerETH`. Otherwise, cancelling a bundle will cause the project owner to
+     *         forfeit their bond to the executor, and will also allow the executor to refund their
+     *         own bond.
      */
     function cancelActiveChugSplashBundle() public onlyOwner {
         require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
-            // Give the owner's bond to the current executor if the bundle is cancelled within the
-            // `executionLockTime` window. Also return the executor's bond.
-            debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
-            // We don't add the `executorBondAmount` to the `totalDebt` here because we already
-            // did this in `claimBundle`.
-            totalDebt += ownerBondAmount;
-        } else {
-            // Return the bond back to the owner if the `executionLockTime` window has passed.
-            totalDebt -= executorBondAmount;
+        if (bundle.selectedExecutor != address(0)) {
+            if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
+                // Give the owner's bond to the current executor if the bundle is cancelled within
+                // the `executionLockTime` window. Also return the executor's bond.
+                debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
+                // We don't add the `executorBondAmount` to the `totalDebt` here because we already
+                // did this in `claimBundle`.
+                totalDebt += ownerBondAmount;
+            } else {
+                // Give the executor's bond to the owner if the `executionLockTime` window has
+                // passed.
+                totalDebt -= executorBondAmount;
+            }
         }
 
         bytes32 cancelledBundleId = activeBundleId;
