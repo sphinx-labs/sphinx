@@ -144,7 +144,7 @@ export const deployChugSplashConfig = async (
       hre,
       parsedConfig
     )
-    // Approve the deployment. If `remoteExecution is `true`, this also monitors the deployment
+    // Approve the deployment. If `remoteExecution` is `true`, this also monitors the deployment
     // until it is completed and generates the deployment artifacts.
     await chugsplashApproveTask(
       {
