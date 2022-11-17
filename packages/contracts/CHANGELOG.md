@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.9
+
+### Patch Changes
+
+- ed7babc: Fix bug where implementation contract deployments were failing due to out-of-gas
+
 ## 0.3.8
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.4.6
+
+### Patch Changes
+
+- 7c367b4: Updates the chugsplash-execute task
+
 ## 0.4.5
 
 ### Patch Changes
