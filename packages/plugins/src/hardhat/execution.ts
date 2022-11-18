@@ -49,11 +49,13 @@ export const monitorRemoteExecution = async (
     throw new Error(`${projectName} was cancelled.`)
   } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed or approved for
+execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed but not yet
+approved for execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     // Get the `completeChugSplashBundle` transaction.
@@ -87,7 +89,8 @@ export const monitorRemoteExecution = async (
       // If the available execution amount is less than the estimated value, throw an error.
       const estCost = gasPrice.mul(ethers.utils.parseEther('0.1'))
       throw new Error(
-        `${projectName} ran out of funds. Please report this error. Run the following command to add funds to your deployment so it can be completed:
+        `${projectName} ran out of funds. Please report this error.
+Run the following command to add funds to your deployment so it can be completed:
 
 npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
         `

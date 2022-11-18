@@ -6,12 +6,14 @@ export const errorProjectNotRegistered = (
   configPath: string
 ) => {
   if (chainId !== 31337) {
-    throw new Error(`This project has not been registered on ${networkName}. To register the project on this network, run the following command:
+    throw new Error(`This project has not been registered on ${networkName}.
+To register the project on this network, run the following command:
 
 npx hardhat chugsplash-register --network ${networkName} ${configPath}
   `)
   } else {
-    throw new Error(`This project has not been registered on the local Hardhat network. You can register the project locally with the following commands:
+    throw new Error(`This project has not been registered on the local Hardhat network.
+You can register the project locally with the following commands:
 
 npx hardhat node --setup-internals
 npx hardhat chugsplash-register --network localhost ${configPath}
