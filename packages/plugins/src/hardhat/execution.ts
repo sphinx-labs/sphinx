@@ -89,7 +89,7 @@ export const monitorRemoteExecution = async (
       throw new Error(
         `${projectName} ran out of funds. Please report this error. Run the following command to add funds to your deployment so it can be completed:
 
-  npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
+npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
         `
       )
     }
