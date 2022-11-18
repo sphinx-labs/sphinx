@@ -93,6 +93,7 @@ export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
+export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
 
 export const bundleLocalSubtask = async (args: {
   parsedConfig: ChugSplashConfig
@@ -1425,3 +1426,74 @@ task(TASK_CHUGSPLASH_WITHDRAW)
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addPositionalParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashWithdrawTask)
+
+export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+  const signerAddress = await signer.getAddress()
+
+  const spinner = ora()
+  spinner.start(
+    `Getting projects on ${hre.network.name} owned by: ${signerAddress}`
+  )
+
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+
+  const projectRegisteredEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.ChugSplashProjectRegistered()
+  )
+
+  const projects = {}
+  let numProjectsOwned = 0
+  for (const event of projectRegisteredEvents) {
+    const ChugSplashManager = getChugSplashManager(
+      signer,
+      event.args.projectName
+    )
+    const projectOwnerAddress = await getProjectOwnerAddress(
+      provider,
+      event.args.projectName
+    )
+    if (projectOwnerAddress === signerAddress) {
+      numProjectsOwned += 1
+      const hasActiveBundle =
+        (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+      const totalEthBalance = await provider.getBalance(
+        ChugSplashManager.address
+      )
+      const ownerBalance = await getOwnerBalanceInChugSplashManager(
+        provider,
+        event.args.projectName
+      )
+
+      const formattedTotalEthBalance = totalEthBalance.gt(0)
+        ? parseFloat(ethers.utils.formatEther(totalEthBalance)).toFixed(4)
+        : 0
+      const formattedOwnerBalance = ownerBalance.gt(0)
+        ? parseFloat(ethers.utils.formatEther(ownerBalance)).toFixed(4)
+        : 0
+
+      projects[numProjectsOwned] = {
+        'Project Name': event.args.projectName,
+        'Is Active': hasActiveBundle ? 'Yes' : 'No',
+        "Project Owner's ETH": formattedOwnerBalance,
+        'Total ETH': formattedTotalEthBalance,
+      }
+    }
+  }
+
+  if (numProjectsOwned > 0) {
+    spinner.succeed(
+      `Got all projects on ${hre.network.name} owned by: ${signerAddress}`
+    )
+    console.table(projects)
+  } else {
+    spinner.fail(
+      `No projects on ${hre.network.name} owned by: ${signerAddress}`
+    )
+  }
+}
+
+task(TASK_CHUGSPLASH_LIST_PROJECTS)
+  .setDescription('Lists all projects that are owned by the caller.')
+  .setAction(listProjectsTask)
