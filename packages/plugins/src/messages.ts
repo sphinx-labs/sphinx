@@ -5,7 +5,7 @@ export const errorProjectNotRegistered = (
   networkName: string,
   configPath: string
 ) => {
-  if (chainId === 31337) {
+  if (chainId !== 31337) {
     throw new Error(`This project has not been registered on ${networkName}. To register the project on this network, run the following command:
 
   npx hardhat chugsplash-register --network ${networkName} ${configPath}

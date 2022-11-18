@@ -11,7 +11,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
  * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment.
  * This equals the ChugSplashManager's balance minus the total debt owed to executors.
  */
-export const getExecutionAmountInChugSplashManager = async (
+export const getOwnerBalanceInChugSplashManager = async (
   provider: Provider,
   projectName: string
 ): Promise<ethers.BigNumber> => {
@@ -31,11 +31,12 @@ export const getExecutionAmount = async (
   parsedConfig: ChugSplashConfig
 ): Promise<ethers.BigNumber> => {
   const totalExecutionAmount = await simulateExecution(hre, parsedConfig)
-  const availableExecutionAmount = await getExecutionAmountInChugSplashManager(
+  const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
     hre.ethers.provider,
     parsedConfig.options.projectName
   )
-  return totalExecutionAmount.sub(availableExecutionAmount)
+  const executionAmount = totalExecutionAmount.sub(availableExecutionAmount)
+  return executionAmount.gt(0) ? executionAmount : ethers.BigNumber.from(0)
 }
 
 export const simulateExecution = async (

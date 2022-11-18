@@ -85,10 +85,11 @@ export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_TEST_REMOTE_EXECUTION = 'test-remote-execution'
-export const TASK_FUND = 'fund'
+export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
+export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 
 export const bundleLocalSubtask = async (args: {
   parsedConfig: ChugSplashConfig
@@ -220,16 +221,24 @@ export const chugsplashDeployTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const signer = hre.ethers.provider.getSigner()
-  await deployChugSplashPredeploys(hre, signer)
+  const { configPath, ipfsUrl, silent, noCompile } = args
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Booting up ChugSplash...')
+
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
+  await deployChugSplashPredeploys(hre, hre.ethers.provider.getSigner())
+
+  spinner.succeed('ChugSplash is ready to go.')
+
   await deployChugSplashConfig(
     hre,
-    args.configPath,
-    args.silent,
+    configPath,
+    silent,
     remoteExecution,
-    args.ipfsUrl,
-    args.noCompile
+    ipfsUrl,
+    noCompile,
+    spinner
   )
 }
 
@@ -286,9 +295,9 @@ task(TASK_CHUGSPLASH_REGISTER)
 
         isFirstTimeRegistered
           ? spinner.succeed(
-              `Project successfully registered on ${hre.network.name}.`
+              `Project successfully registered on ${hre.network.name}. Owner: ${parsedConfig.options.projectOwner}`
             )
-          : spinner.succeed(
+          : spinner.fail(
               `Project was already registered by the caller on ${hre.network.name}.`
             )
       }
@@ -310,11 +319,14 @@ export const chugsplashProposeTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  chugsplashLog(`Proposing the project on ${hre.network.name}...`, silent)
+  const spinner = ora({ isSilent: silent })
+
+  spinner.start('Booting up ChugSplash...')
 
   await deployChugSplashPredeploys(hre, signer)
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -332,6 +344,14 @@ export const chugsplashProposeTask = async (
     parsedConfig.options.projectName
   )
 
+  spinner.succeed('ChugSplash is ready to go.')
+
+  // The spinner interferes with Hardhat's compilation logs, so we only display this message if
+  // compilation is being skipped.
+  if (noCompile) {
+    spinner.start(`Committing ${projectName}... on ${hre.network.name}.`)
+  }
+
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
   // it to IPFS.
@@ -345,20 +365,22 @@ export const chugsplashProposeTask = async (
     hre
   )
 
+  if (noCompile) {
+    spinner.succeed(`Committed ${projectName} on ${hre.network.name}.`)
+  }
+
+  spinner.start('Proposing the project...')
+
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
 
   if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    chugsplashLog(
-      `Project was already proposed and is currently being executed on ${hre.network.name}.`,
-      silent
+    spinner.fail(
+      `Project was already proposed and is currently being executed on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    chugsplashLog(
-      `Project was already completed on ${hre.network.name}.`,
-      silent
-    )
+    spinner.fail(`Project was already completed on ${hre.network.name}.`)
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
       `Project was already cancelled on ${hre.network.name}. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
@@ -382,23 +404,21 @@ export const chugsplashProposeTask = async (
         remoteExecution,
         ipfsUrl
       )
-      chugsplashLog(
+      spinner.succeed(
         successfulProposalMessage(
           executionAmountPlusBuffer,
           configPath,
           hre.network.name
-        ),
-        silent
+        )
       )
     } else {
       // Bundle was already in the `PROPOSED` state before the call to this task.
-      chugsplashLog(
+      spinner.fail(
         alreadyProposedMessage(
           executionAmountPlusBuffer,
           configPath,
           hre.network.name
-        ),
-        silent
+        )
       )
     }
   }
@@ -549,13 +569,17 @@ export const chugsplashApproveTask = async (
     silent: boolean
     remoteExecution: boolean
     amount: ethers.BigNumber
+    monitorStatus: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, remoteExecution, amount } = args
+  const { configPath, silent, remoteExecution, amount, monitorStatus } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Approving the bundle...')
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
@@ -580,8 +604,7 @@ export const chugsplashApproveTask = async (
     },
     hre
   )
-  const spinner = ora({ isSilent: silent })
-  spinner.start('Approving the bundle...')
+
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
@@ -600,18 +623,18 @@ export const chugsplashApproveTask = async (
     )
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
-      `Project was already cancelled on ${hre.network.name}. No funds were sent. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
+      `Project was already cancelled on ${hre.network.name}. No funds were sent.`
     )
   } else if (activeBundleId !== ethers.constants.HashZero) {
     throw new Error(
       `Another project is currently being executed. No funds were sent. Please wait a couple minutes then try again.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
-    await fundTask(
+    await chugsplashFundTask(
       {
         configPath,
         amount,
-        silent,
+        silent: true,
       },
       hre
     )
@@ -619,14 +642,14 @@ export const chugsplashApproveTask = async (
     await (await ChugSplashManager.approveChugSplashBundle(bundleId)).wait()
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
-    if (remoteExecution) {
-      spinner.start(`Monitoring deployment...`)
+    if (remoteExecution && monitorStatus) {
       const finalDeploymentTxnHash = await monitorRemoteExecution(
         hre,
         parsedConfig,
         bundleId,
         silent
       )
+      spinner.start('Getting deployment info...')
       await postExecutionActions(provider, parsedConfig)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
@@ -944,10 +967,11 @@ subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
 export const statusTask = async (
   args: {
     configPath: string
+    silent: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath } = args
+  const { configPath, silent } = args
 
   if (hre.network.name === 'hardhat') {
     throw new Error(
@@ -955,7 +979,8 @@ export const statusTask = async (
     )
   }
 
-  const spinner = ora()
+  const spinner = ora({ isSilent: silent })
+  spinner.start(`Loading project information...`)
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -988,6 +1013,8 @@ export const statusTask = async (
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
+
+  spinner.succeed(`Loaded project information.`)
 
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
@@ -1032,7 +1059,7 @@ task(TASK_CHUGSPLASH_STATUS)
   )
   .setAction(statusTask)
 
-export const fundTask = async (
+export const chugsplashFundTask = async (
   args: {
     configPath: string
     amount: ethers.BigNumber
@@ -1051,10 +1078,14 @@ export const fundTask = async (
   const signerBalance = await signer.getBalance()
 
   if (signerBalance.lt(amount)) {
-    throw new Error(`Signer's balance is less than the specified amount.
+    throw new Error(`Signer's balance is less than the amount required to fund your project.
 
 Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
-Amount: ${ethers.utils.formatEther(amount)} ETH`)
+Amount: ${ethers.utils.formatEther(amount)} ETH
+
+Please send more ETH to ${await signer.getAddress()} on ${
+      hre.network.name
+    } then try again.`)
   }
 
   spinner.start(
@@ -1075,12 +1106,12 @@ Amount: ${ethers.utils.formatEther(amount)} ETH`)
   )
 }
 
-task(TASK_FUND)
+task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
   .addParam('amount', 'Amount to send in wei')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addPositionalParam('configPath', 'Path to the ChugSplash config file')
-  .setAction(fundTask)
+  .setAction(chugsplashFundTask)
 
 task(TASK_TEST_REMOTE_EXECUTION)
   .setDescription(
@@ -1220,7 +1251,7 @@ export const chugsplashCancelTask = async (
   const projectName = parsedConfig.options.projectName
 
   const spinner = ora({ isSilent: silent })
-  spinner.start(`Cancelliing ${projectName} on ${hre.network.name}.`)
+  spinner.start(`Cancelling ${projectName} on ${hre.network.name}.`)
 
   if (!(await isProjectRegistered(signer, projectName))) {
     errorProjectNotRegistered(
@@ -1275,9 +1306,9 @@ export const chugsplashCancelTask = async (
   const refund = (await signer.getBalance()).sub(prevOwnerBalance)
 
   spinner.succeed(
-    `Refunded ${ethers.utils.formatEther(
-      refund
-    )} ETH to the project owner, ${await signer.getAddress()}.`
+    `Refunded ${ethers.utils.formatEther(refund)} ETH on ${
+      hre.network.name
+    } to the project owner: ${await signer.getAddress()}.`
   )
 }
 
