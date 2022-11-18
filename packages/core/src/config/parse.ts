@@ -194,7 +194,10 @@ export const parseContractReferences = (
         const [targetReferenceName] = Object.values(variable)
         if (config.contracts[targetReferenceName] === undefined) {
           throw new Error(
-            `Could not find a contract definition for ${targetReferenceName} in the config file for ${config.options.projectName}. Please create a contract definition for ${targetReferenceName} or remove the reference to it in the "${variableName}" variable in your contract definition for ${referenceName}.`
+            `Could not find a contract definition for ${targetReferenceName} in the config file for
+${config.options.projectName}. Please create a contract definition for ${targetReferenceName} or
+remove the reference to it in the "${variableName}" variable in your contract definition for
+${referenceName}.`
           )
         }
         config.contracts[referenceName].variables[variableName] =

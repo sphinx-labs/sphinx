@@ -386,7 +386,8 @@ export const chugsplashProposeTask = async (
     spinner.fail(`Project was already completed on ${hre.network.name}.`)
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
-      `Project was already cancelled on ${hre.network.name}. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
+      `Project was already cancelled on ${hre.network.name}. Please propose a new project
+with a name other than ${parsedConfig.options.projectName}`
     )
   } else {
     // Bundle is either in the `EMPTY` or `PROPOSED` state.
@@ -572,11 +573,12 @@ export const chugsplashApproveTask = async (
     silent: boolean
     remoteExecution: boolean
     amount: ethers.BigNumber
-    monitorStatus: boolean
+    skipMonitorStatus: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, remoteExecution, amount, monitorStatus } = args
+  const { configPath, silent, remoteExecution, amount, skipMonitorStatus } =
+    args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -613,11 +615,13 @@ export const chugsplashApproveTask = async (
   )
   const activeBundleId = await ChugSplashManager.activeBundleId()
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
-    throw new Error(`You must first propose the project before it can be approved. No funds were sent. To propose the project, run the command:
+    throw new Error(`You must first propose the project before it can be approved.
+No funds were sent. To propose the project, run the command:
 
 npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    spinner.succeed(`Project has already been approved. It should be executed shortly. No funds were sent. Run the following command to monitor its status:
+    spinner.succeed(`Project has already been approved. It should be executed shortly.
+No funds were sent. Run the following command to monitor its status:
 
 npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
@@ -630,7 +634,8 @@ npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
     )
   } else if (activeBundleId !== ethers.constants.HashZero) {
     throw new Error(
-      `Another project is currently being executed. No funds were sent. Please wait a couple minutes then try again.`
+      `Another project is currently being executed. No funds were sent.
+Please wait a couple minutes then try again.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     await chugsplashFundTask(
@@ -645,7 +650,7 @@ npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
     await (await ChugSplashManager.approveChugSplashBundle(bundleId)).wait()
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
-    if (remoteExecution && monitorStatus) {
+    if (remoteExecution && !skipMonitorStatus) {
       const finalDeploymentTxnHash = await monitorRemoteExecution(
         hre,
         parsedConfig,
@@ -788,7 +793,9 @@ export const chugsplashCommitSubtask = async (
     ipfsHash = (await ipfs.add(ipfsData)).path
   } else {
     throw new Error(
-      `To deploy on ${hre.network.name}, you must first setup an IPFS project with Infura: https://app.infura.io/. Once you've done this, copy and paste the following variables into your .env file:
+      `To deploy on ${hre.network.name}, you must first setup an IPFS project with
+Infura: https://app.infura.io/. Once you've done this, copy and paste the following
+variables into your .env file:
 
 IPFS_PROJECT_ID: ...
 IPFS_API_KEY_SECRET: ...
@@ -978,7 +985,8 @@ export const statusTask = async (
 
   if (hre.network.name === 'hardhat') {
     throw new Error(
-      `Cannot check the status of deployments on the in-process Hardhat network. Did you forget the --network flag?`
+      `Cannot check the status of deployments on the in-process Hardhat network.
+Did you forget the --network flag?`
     )
   }
 
@@ -1021,15 +1029,18 @@ export const statusTask = async (
 
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed or approved for
+execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed but not yet
+approved for execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
-      `Project was already cancelled on ${hre.network.name}. Please propose a new project with a name other than ${parsedConfig.options.projectName}`
+      `Project was already cancelled on ${hre.network.name}. Please propose a new
+project with a name other than ${parsedConfig.options.projectName}`
     )
   } else {
     // The project is either in the `APPROVED` or `COMPLETED` state.
@@ -1042,7 +1053,7 @@ export const statusTask = async (
     )
     await postExecutionActions(provider, parsedConfig)
     await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-    displayDeploymentTable(parsedConfig, false)
+    displayDeploymentTable(parsedConfig, silent)
 
     bundleState.status === ChugSplashBundleStatus.APPROVED
       ? spinner.succeed(
@@ -1270,7 +1281,7 @@ export const chugsplashCancelTask = async (
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
-  You attempted to cancel the project using the address: ${await signer.getAddress()}`)
+You attempted to cancel the project using the address: ${await signer.getAddress()}`)
   }
 
   // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to
@@ -1357,7 +1368,7 @@ export const chugsplashWithdrawTask = async (
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
-  Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
+Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
   }
 
   // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to

@@ -15,6 +15,7 @@ import {
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
+  chugsplashLog,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -184,15 +185,14 @@ export const deployChugSplashConfig = async (
       hre,
       parsedConfig
     )
-    // Approve and fund the deployment. If `remoteExecution` is `true`, this also monitors the
-    // deployment until it is completed and generates the deployment artifacts.
+    // Approve and fund the deployment. This also generates the deployment artifacts.
     await chugsplashApproveTask(
       {
         configPath,
         silent: true,
         remoteExecution,
         amount: executionAmountPlusBuffer,
-        monitorStatus: false,
+        skipMonitorStatus: true,
       },
       hre
     )
@@ -225,6 +225,7 @@ export const deployChugSplashConfig = async (
   }
 
   displayDeploymentTable(parsedConfig, silent)
+  chugsplashLog(`${parsedConfig.options.projectName} deployed!`, silent)
 }
 
 export const getContract = async (
@@ -253,9 +254,11 @@ export const getContract = async (
   // TODO: Make function `getContract(projectName, target)` and change this error message.
   if (configsWithFileNames.length > 1) {
     throw new Error(
-      `Multiple config files contain the target: ${referenceName}. Target names must be unique for now. Config files containing ${referenceName}: ${configsWithFileNames.map(
-        (cfgWithFileName) => cfgWithFileName.configFileName
-      )}\n`
+      `Multiple config files contain the reference name: ${referenceName}. Reference names
+must be unique for now. Config files containing ${referenceName}:
+${configsWithFileNames.map(
+  (cfgWithFileName) => cfgWithFileName.configFileName
+)}\n`
     )
   } else if (configsWithFileNames.length === 0) {
     throw new Error(`Cannot find a config file containing ${referenceName}.`)
@@ -315,7 +318,9 @@ export const checkValidDeployment = async (
       )
     ) {
       throw new Error(
-        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used in a previous deployment. You must change this reference name to something other than ${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
+        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used
+in a previous deployment for this project. You must change this reference name to something other than
+${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
       )
     }
   }
