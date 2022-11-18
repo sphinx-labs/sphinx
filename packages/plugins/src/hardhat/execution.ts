@@ -140,7 +140,7 @@ export const postExecutionActions = async (
   const currChugSplashManagerOwner = await ChugSplashManager.owner()
 
   // Exit early if the calling address is not the current owner of the ChugSplashManager.
-  if (signer.getAddress() !== currChugSplashManagerOwner) {
+  if ((await signer.getAddress()) !== currChugSplashManagerOwner) {
     return
   }
 
