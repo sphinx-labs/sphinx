@@ -10,12 +10,13 @@ import {
 } from '@chugsplash/core'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
-import {
-  TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-  TASK_COMPILE_SOLIDITY_RUN_SOLC,
-  TASK_COMPILE_SOLIDITY_RUN_SOLCJS,
-} from 'hardhat/builtin-tasks/task-names'
 import { SolcBuild } from 'hardhat/types'
+import { getCompilersDir } from 'hardhat/internal/util/global-dir'
+import {
+  CompilerDownloader,
+  CompilerPlatform,
+} from 'hardhat/internal/solidity/compiler/downloader'
+import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 // TODO
 export type ContractArtifact = any
@@ -304,6 +305,50 @@ export const getImmutableVariables = (
   return immutableVariables
 }
 
+// Credit: NomicFoundation
+// https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
+export const getSolcBuild = async (solcVersion: string) => {
+  const compilersCache = await getCompilersDir()
+
+  const compilerPlatform = CompilerDownloader.getCompilerPlatform()
+  const downloader = CompilerDownloader.getConcurrencySafeDownloader(
+    compilerPlatform,
+    compilersCache
+  )
+
+  const isCompilerDownloaded = await downloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isCompilerDownloaded) {
+    console.log(`Downloading compiler version ${solcVersion}`)
+    await downloader.downloadCompiler(solcVersion)
+  }
+
+  const compiler = await downloader.getCompiler(solcVersion)
+
+  if (compiler !== undefined) {
+    return compiler
+  }
+
+  const wasmDownloader = CompilerDownloader.getConcurrencySafeDownloader(
+    CompilerPlatform.WASM,
+    compilersCache
+  )
+
+  const isWasmCompilerDownloader = await wasmDownloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isWasmCompilerDownloader) {
+    console.log(`Downloading compiler version ${solcVersion}`)
+    await wasmDownloader.downloadCompiler(solcVersion)
+  }
+
+  const wasmCompiler = await wasmDownloader.getCompiler(solcVersion)
+  return wasmCompiler
+}
+
 export const getArtifactsFromParsedCanonicalConfig = async (
   hre: any,
   parsedCanonicalConfig: CanonicalChugSplashConfig
@@ -311,25 +356,15 @@ export const getArtifactsFromParsedCanonicalConfig = async (
   const compilerOutputs: any[] = []
   // Get the compiler output for each compiler input.
   for (const compilerInput of parsedCanonicalConfig.inputs) {
-    const solcBuild: SolcBuild = await hre.run(
-      TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
-      {
-        quiet: true,
-        solcVersion: compilerInput.solcVersion,
-      }
-    )
+    const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
 
     let compilerOutput: any // TODO: Compiler output type
     if (solcBuild.isSolcJs) {
-      compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLCJS, {
-        input: compilerInput.input,
-        solcJsPath: solcBuild.compilerPath,
-      })
+      const compiler = new Compiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(compilerInput.input)
     } else {
-      compilerOutput = await hre.run(TASK_COMPILE_SOLIDITY_RUN_SOLC, {
-        input: compilerInput.input,
-        solcPath: solcBuild.compilerPath,
-      })
+      const compiler = new NativeCompiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(compilerInput.input)
     }
     compilerOutputs.push(compilerOutput)
   }
