@@ -64,7 +64,10 @@ import {
   errorProjectNotRegistered,
   successfulProposalMessage,
 } from '../messages'
-import { getExecutionAmountPlusBuffer } from './fund'
+import {
+  getExecutionAmountPlusBuffer,
+  getOwnerBalanceInChugSplashManager,
+} from './fund'
 import { monitorRemoteExecution, postExecutionActions } from './execution'
 
 // Load environment variables from .env
@@ -612,11 +615,11 @@ export const chugsplashApproveTask = async (
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(`You must first propose the project before it can be approved. No funds were sent. To propose the project, run the command:
 
-  npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.succeed(`Project has already been approved. It should be executed shortly. No funds were sent. Run the following command to monitor its status:
 
-  npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(
       `Project was already completed on ${hre.network.name}. No funds were sent.`
@@ -1320,3 +1323,94 @@ task(TASK_CHUGSPLASH_CANCEL)
     'Path to the ChugSplash config file to cancel'
   )
   .setAction(chugsplashCancelTask)
+
+export const chugsplashWithdrawTask = async (
+  args: {
+    configPath: string
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, silent } = args
+
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(
+    `Withdrawing ETH in the project ${projectName} on ${hre.network.name}.`
+  )
+
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      await getChainId(provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider,
+    projectName
+  )
+  if (projectOwnerAddress !== (await signer.getAddress())) {
+    throw new Error(`Project is owned by: ${projectOwnerAddress}.
+  Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
+  }
+
+  // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to
+  // IPFS).
+  const { bundleId } = await chugsplashCommitSubtask(
+    {
+      parsedConfig,
+      ipfsUrl: '',
+      commitToIpfs: false,
+      noCompile: true,
+    },
+    hre
+  )
+
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
+    bundleId
+  )
+
+  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    throw new Error(
+      `Project is currently active. You must cancel the project in order to withdraw funds:
+
+npx hardhat chugsplash-cancel --network ${hre.network.name} ${configPath}
+        `
+    )
+  }
+
+  const amountToWithdraw = await getOwnerBalanceInChugSplashManager(
+    provider,
+    projectName
+  )
+
+  if (amountToWithdraw.gt(0)) {
+    await (await ChugSplashManager.withdrawOwnerETH()).wait()
+
+    spinner.succeed(
+      `Withdrew ${ethers.utils.formatEther(amountToWithdraw)} ETH on ${
+        hre.network.name
+      } to the project owner: ${await signer.getAddress()}.`
+    )
+  } else {
+    spinner.fail(
+      `No funds available to withdraw on ${hre.network.name} for the project: ${projectName}.`
+    )
+  }
+}
+
+task(TASK_CHUGSPLASH_WITHDRAW)
+  .setDescription(
+    'Withdraw funds in a ChugSplash project belonging to the project owner.'
+  )
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .setAction(chugsplashWithdrawTask)
