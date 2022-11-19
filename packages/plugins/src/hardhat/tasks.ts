@@ -1285,20 +1285,20 @@ task(TASK_TEST)
 
 task(TASK_RUN)
   .addFlag(
-    'disableChugsplash',
-    "Completely disable all of ChugSplash's activity."
+    'enableChugsplash',
+    'Deploy all ChugSplash configs before executing your script.'
   )
   .setAction(
     async (
       args: {
-        disableChugsplash: boolean
+        enableChugsplash: boolean
         noCompile: boolean
       },
       hre: any,
       runSuper
     ) => {
-      const { disableChugsplash, noCompile } = args
-      if (!disableChugsplash) {
+      const { enableChugsplash, noCompile } = args
+      if (enableChugsplash) {
         const signer = hre.ethers.provider.getSigner()
         await deployChugSplashPredeploys(hre, signer)
         await deployAllChugSplashConfigs(hre, true, '', noCompile)
