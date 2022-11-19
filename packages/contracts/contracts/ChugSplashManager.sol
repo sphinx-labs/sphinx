@@ -393,6 +393,27 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
+     * @notice Executes multiple ChugSplash actions at once. This speeds up execution time since the
+     *         executor doesn't need to send as many transactions to execute a bundle. Note that
+     *         this function only accepts SetStorage and DeployImplementation actions.
+     *         SetImplementation actions must be sent separately to `completeChugSplashBundle` after
+     *         the SetStorage and DeployImplementation actions have been executed.
+     *
+     * @param _actions       Array of SetStorage/DeployImplementation actions to execute.
+     * @param _actionIndexes Array of action indexes.
+     * @param _proofs        Array of Merkle proofs for each action.
+     */
+    function executeMultipleActions(
+        ChugSplashAction[] memory _actions,
+        uint256[] memory _actionIndexes,
+        bytes32[][] memory _proofs
+    ) public {
+        for (uint256 i = 0; i < _actions.length; i++) {
+            executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
+        }
+    }
+
+    /**
      * @notice Executes a specific action within the current active bundle for a project. Actions
      *         can only be executed once. A re-entrancy guard is added to prevent an implementation
      *         contract's constructor from calling another contract which in turn calls back into
