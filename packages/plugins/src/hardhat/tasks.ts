@@ -28,6 +28,7 @@ import {
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
   getProjectOwnerAddress,
+  isDeployImplementationAction,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -509,20 +510,51 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
           throw new Error(`Another executor has already claimed the bundle.`)
         }
 
-        // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
-        // the SetImplementation actions have already been sorted so that they are at the end of the
-        // actions array.
-        const firstSetImplementationActionIndex = bundle.actions.findIndex(
-          (action) =>
-            isSetImplementationAction(fromRawChugSplashAction(action.action))
+        // Execute actions that have not been executed yet.
+        let currActionsExecuted = bundleState.actionsExecuted.toNumber()
+
+        // The actions have already been sorted in the order: SetStorage,
+        // DeployImplementation, SetImplementation. Here, we get the indexes
+        // of the first DeployImplementation and SetImplementation action.
+        const firstDeployImplIndex = bundle.actions.findIndex((action) =>
+          isDeployImplementationAction(fromRawChugSplashAction(action.action))
+        )
+        const firstSetImplIndex = bundle.actions.findIndex((action) =>
+          isSetImplementationAction(fromRawChugSplashAction(action.action))
         )
 
-        // execute actions in series
+        // We execute the SetStorage actions in batches, which have a size based on the maximum
+        // block gas limit. This speeds up execution considerably. To get the batch size, we divide
+        // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
+        // action. We then divide this quantity by 2 to ensure that we're not approaching the block
+        // gas limit. For example, a network with a 30 million block gas limit would result in a
+        // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
+        const { gasLimit: blockGasLimit } = await hre.ethers.provider.getBlock(
+          'latest'
+        )
+        const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
+
+        // Execute SetStorage actions in batches.
+        const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
         for (
-          let i = bundleState.actionsExecuted.toNumber();
-          i < firstSetImplementationActionIndex;
-          i++
+          let i = currActionsExecuted;
+          i < firstDeployImplIndex;
+          i += batchSize
         ) {
+          const setStorageBatch = setStorageActions.slice(i, i + batchSize)
+          await (
+            await chugSplashManager.executeMultipleActions(
+              setStorageBatch.map((action) => action.action),
+              setStorageBatch.map((action) => action.proof.actionIndex),
+              setStorageBatch.map((action) => action.proof.siblings)
+            )
+          ).wait()
+          currActionsExecuted += setStorageBatch.length
+        }
+
+        // Execute DeployImplementation actions in series. We execute them one by one since each one
+        // costs significantly more gas than a setStorage action (usually in the millions).
+        for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
           const action = bundle.actions[i]
           await (
             await chugSplashManager.executeChugSplashAction(
@@ -531,20 +563,21 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
               action.proof.siblings
             )
           ).wait()
+          currActionsExecuted += 1
         }
 
-        // Complete the bundle by executing all the SetImplementation actions in a single
-        // transaction.
-        const setImplActions = bundle.actions.slice(
-          firstSetImplementationActionIndex
-        )
-        await (
-          await chugSplashManager.completeChugSplashBundle(
-            setImplActions.map((action) => action.action),
-            setImplActions.map((action) => action.proof.actionIndex),
-            setImplActions.map((action) => action.proof.siblings)
-          )
-        ).wait()
+        if (currActionsExecuted === firstSetImplIndex) {
+          // Complete the bundle by executing all the SetImplementation actions in a single
+          // transaction.
+          const setImplActions = bundle.actions.slice(firstSetImplIndex)
+          await (
+            await chugSplashManager.completeChugSplashBundle(
+              setImplActions.map((action) => action.action),
+              setImplActions.map((action) => action.proof.actionIndex),
+              setImplActions.map((action) => action.proof.siblings)
+            )
+          ).wait()
+        }
       }
 
       // At this point, the bundle has been completed.
