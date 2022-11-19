@@ -1,6 +1,11 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
+import {
+  BaseServiceV2,
+  Logger,
+  LogLevel,
+  validators,
+} from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
   ChugSplashManagerABI,
@@ -20,6 +25,7 @@ type Options = {
   network: string
   privateKey: string
   amplitudeKey: string
+  logLevel: LogLevel
 }
 
 type Metrics = {}
@@ -65,18 +71,30 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           validator: validators.str,
           default: 'disabled',
         },
+        logLevel: {
+          desc: 'Logging level for executor',
+          validator: validators.str,
+          default: 'error',
+        },
       },
       metricsSpec: {},
     })
   }
 
   async init() {
-    if (this.options.amplitudeKey !== 'disabled') {
+    this.setup(this.options)
+  }
+
+  async setup(
+    options: Partial<Options>,
+    provider?: ethers.providers.BaseProvider
+  ) {
+    if (options.amplitudeKey !== 'disabled') {
       this.state.amplitudeClient = Amplitude.init(this.options.amplitudeKey)
     }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    this.state.provider = ethers.getDefaultProvider(this.options.url)
+    this.state.provider = provider ?? ethers.getDefaultProvider(options.url)
     this.state.registry = new ethers.Contract(
       reg,
       ChugSplashRegistryABI,
@@ -84,20 +102,29 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     )
     this.state.lastBlockNumber = -1
     this.state.wallet = new ethers.Wallet(
-      this.options.privateKey,
+      options.privateKey,
       this.state.provider
     )
+
+    this.logger = new Logger({
+      name: 'Logger',
+      level: options.logLevel,
+    })
   }
 
-  async main() {
-    console.log('looping')
+  async main(
+    options?: Partial<Options>,
+    provider?: ethers.providers.BaseProvider
+  ) {
+    if (options) {
+      this.setup(options, provider)
+    }
+
     // Find all active upgrades that have not yet been executed in blocks after the stored hash
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
       this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
       this.state.lastBlockNumber + 1
     )
-
-    console.log(approvalAnnouncementEvents)
 
     // If none found, return
     if (approvalAnnouncementEvents.length === 0) {
@@ -154,7 +181,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           bundle,
           parsedConfig: canonicalConfig,
           executor: signer,
-          silent: false,
+          silent: true,
           networkName: this.options.network,
         })
         this.logger.info('Successfully executed')

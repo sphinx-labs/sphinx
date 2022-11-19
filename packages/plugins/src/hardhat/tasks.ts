@@ -183,7 +183,6 @@ export const chugsplashDeployTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
 
-  const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   await deployChugSplashPredeploys(hre, hre.ethers.provider.getSigner())
 
   spinner.succeed('ChugSplash is ready to go.')
@@ -192,7 +191,7 @@ export const chugsplashDeployTask = async (
     hre,
     configPath,
     silent,
-    remoteExecution,
+    true,
     ipfsUrl,
     noCompile,
     spinner

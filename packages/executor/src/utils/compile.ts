@@ -89,7 +89,6 @@ export const getArtifactsFromParsedCanonicalConfig = async (
   // Get the compiler output for each compiler input.
   for (const compilerInput of parsedCanonicalConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
-
     let compilerOutput: any // TODO: Compiler output type
     if (solcBuild.isSolcJs) {
       const compiler = new Compiler(solcBuild.compilerPath)

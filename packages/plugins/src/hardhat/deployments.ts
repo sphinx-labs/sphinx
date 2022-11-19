@@ -202,7 +202,15 @@ export const deployChugSplashConfig = async (
   }
 
   const executor = new ChugSplashExecutor()
-  executor.run()
+  executor.init()
+  executor.main(
+    {
+      privateKey: process.env.PRIVATE_KEY,
+      network: 'hardhat',
+      logLevel: silent ? 'error' : 'info',
+    },
+    provider
+  )
 
   await statusTask(
     {
