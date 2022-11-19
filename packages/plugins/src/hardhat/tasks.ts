@@ -52,6 +52,7 @@ import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
+  getFinalDeploymentTxnHash,
 } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
 import {
@@ -91,7 +92,7 @@ export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_TEST_REMOTE_EXECUTION = 'test-remote-execution'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
-export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
+export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
@@ -444,6 +445,151 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
+export const executeTask = async (
+  args: {
+    chugSplashManager: Contract
+    bundleId: string
+    bundle: ChugSplashActionBundle
+    parsedConfig: ChugSplashConfig
+    executor: ethers.Signer
+    silent: boolean
+    isLocalExecution: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const {
+    chugSplashManager,
+    bundleId,
+    bundle,
+    parsedConfig,
+    executor,
+    silent,
+    isLocalExecution,
+  } = args
+
+  const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
+    bundleId
+  )
+  const executorAddress = await executor.getAddress()
+
+  if (
+    bundleState.status !== ChugSplashBundleStatus.APPROVED &&
+    bundleState.status !== ChugSplashBundleStatus.COMPLETED
+  ) {
+    throw new Error(`Bundle is not approved or completed.`)
+  }
+
+  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+      await (
+        await chugSplashManager.claimBundle({
+          value: EXECUTOR_BOND_AMOUNT,
+        })
+      ).wait()
+    } else if (bundleState.selectedExecutor !== executorAddress) {
+      throw new Error(`Another executor has already claimed the bundle.`)
+    }
+
+    // Execute actions that have not been executed yet.
+    let currActionsExecuted = bundleState.actionsExecuted.toNumber()
+
+    // The actions have already been sorted in the order: SetStorage,
+    // DeployImplementation, SetImplementation. Here, we get the indexes
+    // of the first DeployImplementation and SetImplementation action.
+    const firstDeployImplIndex = bundle.actions.findIndex((action) =>
+      isDeployImplementationAction(fromRawChugSplashAction(action.action))
+    )
+    const firstSetImplIndex = bundle.actions.findIndex((action) =>
+      isSetImplementationAction(fromRawChugSplashAction(action.action))
+    )
+
+    // We execute the SetStorage actions in batches, which have a size based on the maximum
+    // block gas limit. This speeds up execution considerably. To get the batch size, we divide
+    // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
+    // action. We then divide this quantity by 2 to ensure that we're not approaching the block
+    // gas limit. For example, a network with a 30 million block gas limit would result in a
+    // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
+    const { gasLimit: blockGasLimit } = await hre.ethers.provider.getBlock(
+      'latest'
+    )
+    const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
+
+    // Execute SetStorage actions in batches.
+    const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
+    for (
+      let i = currActionsExecuted;
+      i < firstDeployImplIndex;
+      i += batchSize
+    ) {
+      const setStorageBatch = setStorageActions.slice(i, i + batchSize)
+      await (
+        await chugSplashManager.executeMultipleActions(
+          setStorageBatch.map((action) => action.action),
+          setStorageBatch.map((action) => action.proof.actionIndex),
+          setStorageBatch.map((action) => action.proof.siblings)
+        )
+      ).wait()
+      currActionsExecuted += setStorageBatch.length
+    }
+
+    // Execute DeployImplementation actions in series. We execute them one by one since each one
+    // costs significantly more gas than a setStorage action (usually in the millions).
+    for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
+      const action = bundle.actions[i]
+      await (
+        await chugSplashManager.executeChugSplashAction(
+          action.action,
+          action.proof.actionIndex,
+          action.proof.siblings
+        )
+      ).wait()
+      currActionsExecuted += 1
+    }
+
+    if (currActionsExecuted === firstSetImplIndex) {
+      // Complete the bundle by executing all the SetImplementation actions in a single
+      // transaction.
+      const setImplActions = bundle.actions.slice(firstSetImplIndex)
+      await (
+        await chugSplashManager.completeChugSplashBundle(
+          setImplActions.map((action) => action.action),
+          setImplActions.map((action) => action.proof.actionIndex),
+          setImplActions.map((action) => action.proof.siblings)
+        )
+      ).wait()
+    }
+  }
+
+  // At this point, the bundle has been completed.
+
+  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    chugSplashManager,
+    bundleId
+  )
+
+  // Withdraw any debt owed to the executor.
+  const executorDebt = await chugSplashManager.debt(executorAddress)
+  if (executorDebt.gt(0)) {
+    await (await chugSplashManager.claimExecutorPayment()).wait()
+  }
+
+  if (isLocalExecution) {
+    await postExecutionActions(hre.ethers.provider, parsedConfig)
+    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+  }
+
+  displayDeploymentTable(parsedConfig, silent)
+  bundleState.status === ChugSplashBundleStatus.APPROVED
+    ? chugsplashLog(
+        `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
+        silent
+      )
+    : chugsplashLog(
+        `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
+        silent
+      )
+}
+
 subtask(TASK_CHUGSPLASH_EXECUTE)
   .setDescription('Executes an approved bundle.')
   .addParam(
@@ -467,139 +613,11 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
   )
   .addParam('executor', 'Wallet of the executor', undefined, types.any)
   .addFlag('silent', "Hide ChugSplash's output")
-  .setAction(
-    async (
-      args: {
-        chugSplashManager: Contract
-        bundleId: string
-        bundle: ChugSplashActionBundle
-        parsedConfig: ChugSplashConfig
-        executor: ethers.Signer
-        silent: boolean
-      },
-      hre: HardhatRuntimeEnvironment
-    ) => {
-      const {
-        chugSplashManager,
-        bundleId,
-        bundle,
-        parsedConfig,
-        executor,
-        silent,
-      } = args
-
-      const bundleState: ChugSplashBundleState =
-        await chugSplashManager.bundles(bundleId)
-      const executorAddress = await executor.getAddress()
-
-      if (
-        bundleState.status !== ChugSplashBundleStatus.APPROVED &&
-        bundleState.status !== ChugSplashBundleStatus.COMPLETED
-      ) {
-        throw new Error(`Bundle is not approved or completed.`)
-      }
-
-      if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-        if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-          await (
-            await chugSplashManager.claimBundle({
-              value: EXECUTOR_BOND_AMOUNT,
-            })
-          ).wait()
-        } else if (bundleState.selectedExecutor !== executorAddress) {
-          throw new Error(`Another executor has already claimed the bundle.`)
-        }
-
-        // Execute actions that have not been executed yet.
-        let currActionsExecuted = bundleState.actionsExecuted.toNumber()
-
-        // The actions have already been sorted in the order: SetStorage,
-        // DeployImplementation, SetImplementation. Here, we get the indexes
-        // of the first DeployImplementation and SetImplementation action.
-        const firstDeployImplIndex = bundle.actions.findIndex((action) =>
-          isDeployImplementationAction(fromRawChugSplashAction(action.action))
-        )
-        const firstSetImplIndex = bundle.actions.findIndex((action) =>
-          isSetImplementationAction(fromRawChugSplashAction(action.action))
-        )
-
-        // We execute the SetStorage actions in batches, which have a size based on the maximum
-        // block gas limit. This speeds up execution considerably. To get the batch size, we divide
-        // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
-        // action. We then divide this quantity by 2 to ensure that we're not approaching the block
-        // gas limit. For example, a network with a 30 million block gas limit would result in a
-        // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
-        const { gasLimit: blockGasLimit } = await hre.ethers.provider.getBlock(
-          'latest'
-        )
-        const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
-
-        // Execute SetStorage actions in batches.
-        const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
-        for (
-          let i = currActionsExecuted;
-          i < firstDeployImplIndex;
-          i += batchSize
-        ) {
-          const setStorageBatch = setStorageActions.slice(i, i + batchSize)
-          await (
-            await chugSplashManager.executeMultipleActions(
-              setStorageBatch.map((action) => action.action),
-              setStorageBatch.map((action) => action.proof.actionIndex),
-              setStorageBatch.map((action) => action.proof.siblings)
-            )
-          ).wait()
-          currActionsExecuted += setStorageBatch.length
-        }
-
-        // Execute DeployImplementation actions in series. We execute them one by one since each one
-        // costs significantly more gas than a setStorage action (usually in the millions).
-        for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
-          const action = bundle.actions[i]
-          await (
-            await chugSplashManager.executeChugSplashAction(
-              action.action,
-              action.proof.actionIndex,
-              action.proof.siblings
-            )
-          ).wait()
-          currActionsExecuted += 1
-        }
-
-        if (currActionsExecuted === firstSetImplIndex) {
-          // Complete the bundle by executing all the SetImplementation actions in a single
-          // transaction.
-          const setImplActions = bundle.actions.slice(firstSetImplIndex)
-          await (
-            await chugSplashManager.completeChugSplashBundle(
-              setImplActions.map((action) => action.action),
-              setImplActions.map((action) => action.proof.actionIndex),
-              setImplActions.map((action) => action.proof.siblings)
-            )
-          ).wait()
-        }
-      }
-
-      // At this point, the bundle has been completed.
-
-      // Withdraw any debt owed to the executor.
-      const executorDebt = await chugSplashManager.debt(executorAddress)
-      if (executorDebt.gt(0)) {
-        await (await chugSplashManager.claimExecutorPayment()).wait()
-      }
-
-      displayDeploymentTable(parsedConfig, silent)
-      bundleState.status === ChugSplashBundleStatus.APPROVED
-        ? chugsplashLog(
-            `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
-            silent
-          )
-        : chugsplashLog(
-            `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
-            silent
-          )
-    }
+  .addFlag(
+    'isLocalExecution',
+    "True if execution is occurring on the user's local machine"
   )
+  .setAction(executeTask)
 
 export const chugsplashApproveTask = async (
   args: {
@@ -657,7 +675,7 @@ npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
     spinner.succeed(`Project has already been approved. It should be executed shortly.
 No funds were sent. Run the following command to monitor its status:
 
-npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-monitor --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(
       `Project was already completed on ${hre.network.name}. No funds were sent.`
@@ -685,13 +703,12 @@ Please wait a couple minutes then try again.`
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
     if (remoteExecution && !skipMonitorStatus) {
+      spinner.start('The deployment is being executed. This may take a moment.')
       const finalDeploymentTxnHash = await monitorRemoteExecution(
         hre,
         parsedConfig,
-        bundleId,
-        silent
+        bundleId
       )
-      spinner.start('Getting deployment info...')
       await postExecutionActions(provider, parsedConfig)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
@@ -1008,7 +1025,7 @@ subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
     }
   )
 
-export const statusTask = async (
+export const monitorTask = async (
   args: {
     configPath: string
     silent: boolean
@@ -1076,18 +1093,22 @@ approved for execution on ${hre.network.name}.`
       `Project was already cancelled on ${hre.network.name}. Please propose a new
 project with a name other than ${parsedConfig.options.projectName}`
     )
-  } else {
-    // The project is either in the `APPROVED` or `COMPLETED` state.
+  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+    spinner.start(
+      'The deployment was already executed. Performing cleanup functions...'
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    spinner.start(
+      'The deployment is currently being executed. This may take a moment.'
+    )
 
     const finalDeploymentTxnHash = await monitorRemoteExecution(
       hre,
       parsedConfig,
-      bundleId,
-      false
+      bundleId
     )
     await postExecutionActions(provider, parsedConfig)
     await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-    displayDeploymentTable(parsedConfig, silent)
 
     bundleState.status === ChugSplashBundleStatus.APPROVED
       ? spinner.succeed(
@@ -1096,16 +1117,18 @@ project with a name other than ${parsedConfig.options.projectName}`
       : spinner.succeed(
           `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
         )
+
+    displayDeploymentTable(parsedConfig, silent)
   }
 }
 
-task(TASK_CHUGSPLASH_STATUS)
+task(TASK_CHUGSPLASH_MONITOR)
   .setDescription('Displays the status of a ChugSplash bundle')
   .addPositionalParam(
     'configPath',
     'Path to the ChugSplash config file to monitor'
   )
-  .setAction(statusTask)
+  .setAction(monitorTask)
 
 export const chugsplashFundTask = async (
   args: {

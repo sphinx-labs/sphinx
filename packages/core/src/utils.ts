@@ -207,7 +207,7 @@ export const displayDeploymentTable = (
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) =>
         (deployments[i + 1] = {
-          Reference: referenceName,
+          'Reference Name': referenceName,
           Contract: contractConfig.contract,
           Address: contractConfig.address,
         })
