@@ -2,27 +2,22 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   ChugSplashConfig,
-  chugsplashLog,
   getChugSplashRegistry,
   getChugSplashManager,
+  getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { SingleBar, Presets } from 'cli-progress'
 import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
-import { getOwnerBalanceInChugSplashManager } from './fund'
 import { getFinalDeploymentTxnHash } from './deployments'
 
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ChugSplashConfig,
-  bundleId: string,
-  silent: boolean
+  bundleId: string
 ): Promise<string> => {
-  const progressBar = new SingleBar({}, Presets.shades_classic)
-
   const provider = hre.ethers.provider
 
   const projectName = parsedConfig.options.projectName
@@ -40,12 +35,6 @@ export const monitorRemoteExecution = async (
 
   // Handle cases where the bundle is not approved.
   if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    // Set the progress bar to be the number of executions that had occurred when the bundle was
-    // cancelled.
-    progressBar.start(
-      bundleState.executions.length,
-      bundleState.actionsExecuted
-    )
     throw new Error(`${projectName} was cancelled.`)
   } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
@@ -67,12 +56,6 @@ approved for execution on ${hre.network.name}.`
   }
 
   // If we make it to this point, we know that the bundle is approved.
-
-  // Set the status bar to display the number of actions executed so far.
-  progressBar.start(
-    bundleState.executions.length,
-    bundleState.actionsExecuted.toNumber()
-  )
 
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     // Check if the available execution amount in the ChugSplashManager is too low to finish the
@@ -100,17 +83,11 @@ npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <c
     // Get the current bundle state.
     bundleState = await ChugSplashManager.bundles(bundleId)
 
-    // Update the progress bar.
-    progressBar.update(bundleState.actionsExecuted.toNumber())
-
     // Wait for one second.
     await sleep(1000)
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    progressBar.update(bundleState.executions.length)
-    chugsplashLog('\n', silent)
-
     // Get the `completeChugSplashBundle` transaction.
     const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
       ChugSplashManager,
