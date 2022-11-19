@@ -30,6 +30,7 @@
   "dependencies": {
     "@chugsplash/contracts": "^0.3.9",
     "@chugsplash/core": "^0.3.15",
+    "@chugsplash/executor": "^0.4.6",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
@@ -46,8 +47,8 @@
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.1",
-    "hardhat": "^2.10.0",
-    "chai": "^4.3.6"
+    "chai": "^4.3.6",
+    "hardhat": "^2.10.0"
   },
   "peerDependencies": {
     "@nomiclabs/hardhat-ethers": "^2",

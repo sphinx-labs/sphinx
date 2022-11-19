@@ -7,12 +7,9 @@ import {
   getChugSplashManagerProxyAddress,
   getProxyAddress,
   parseChugSplashConfig,
-} from '@chugsplash/core'
-import {
   getConstructorArgs,
-  getArtifactsFromParsedCanonicalConfig,
   chugsplashFetchSubtask,
-} from '@chugsplash/plugins'
+} from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
@@ -40,6 +37,8 @@ import {
 } from '@chugsplash/contracts'
 import { EthereumProvider } from 'hardhat/types'
 import { request } from 'undici'
+
+import { getArtifactsFromParsedCanonicalConfig } from './compile'
 
 const customChains = [
   {

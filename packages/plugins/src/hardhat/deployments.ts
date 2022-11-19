@@ -20,6 +20,7 @@ import {
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
+import { ChugSplashExecutor } from '@chugsplash/executor'
 
 import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
 import {
@@ -78,6 +79,9 @@ export const deployChugSplashConfig = async (
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const provider = hre.ethers.provider
+
+  console.log(provider.network)
+
   const signer = provider.getSigner()
   const signerAddress = await signer.getAddress()
 
@@ -200,6 +204,9 @@ export const deployChugSplashConfig = async (
     spinner.succeed('Funded the deployment.')
   }
 
+  const executor = new ChugSplashExecutor()
+  executor.run()
+
   if (remoteExecution) {
     await statusTask(
       {
@@ -210,14 +217,15 @@ export const deployChugSplashConfig = async (
     )
   } else {
     spinner.start('Executing the deployment...')
-    await hre.run('chugsplash-execute', {
-      chugSplashManager: ChugSplashManager,
-      bundleId,
-      bundle,
-      parsedConfig,
-      executor: signer,
-      silent: true,
-    })
+    // await hre.run('chugsplash-execute', {
+    //   chugSplashManager: ChugSplashManager,
+    //   bundleId,
+    //   bundle,
+    //   parsedConfig,
+    //   executor: signer,
+    //   silent: true,
+    // })
+
     spinner.succeed('Executed the deployment.')
     spinner.start('Wrapping up the deployment...')
     await postExecutionActions(provider, parsedConfig)

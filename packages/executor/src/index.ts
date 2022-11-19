@@ -13,6 +13,8 @@ import { chugSplashExecuteTask } from '@chugsplash/plugins'
 
 import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
 
+export * from './utils'
+
 type Options = {
   network: string
   privateKey: string
@@ -142,8 +144,8 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           bundle,
           parsedConfig: canonicalConfig,
           executor: signer,
-          network: this.options.network,
           silent: false,
+          networkName: this.options.network,
         })
         this.logger.info('Successfully executed')
       } catch (e) {
@@ -182,6 +184,3 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     }
   }
 }
-
-const executor = new ChugSplashExecutor()
-executor.run()

@@ -28,11 +28,15 @@ import {
 
 export const initializeChugSplashContracts = async (
   hre: HardhatRuntimeEnvironment,
-  deployer: ethers.Signer
+  deployer: ethers.Signer,
+  networkName: string
 ) => {
   await deployChugSplashPredeploys(hre, deployer)
 
-  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    deployer.provider as any, // TODO - figure out how to get the types for this to work correctly
+    networkName
+  )
 
   const contracts = [
     {

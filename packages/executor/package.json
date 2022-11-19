@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@amplitude/node": "^1.10.2",
+    "@chugsplash/core": "^0.3.15",
     "ts-node": "^10.9.1"
   }
 }

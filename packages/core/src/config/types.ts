@@ -52,7 +52,7 @@ export interface CompilerInput {
   language: string
   sources: { [sourceName: string]: { content: string } }
   settings: {
-    optimizer?: { runs?: number; enabled?: boolean }
+    optimizer: { runs?: number; enabled?: boolean }
     metadata?: { useLiteralContent: boolean }
     outputSelection: {
       [sourceName: string]: {

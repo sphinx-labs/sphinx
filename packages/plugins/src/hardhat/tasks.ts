@@ -8,7 +8,7 @@ import {
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { create } from 'ipfs-http-client'
 import { getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -29,6 +29,9 @@ import {
   getChugSplashManager,
   getProjectOwnerAddress,
   isDeployImplementationAction,
+  getCreationCode,
+  getImmutableVariables,
+  chugsplashFetchSubtask,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -38,14 +41,12 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { getArtifactsFromParsedCanonicalConfig } from '@chugsplash/executor'
 
 import {
   createDeploymentArtifacts,
-  getArtifactsFromParsedCanonicalConfig,
   getBuildInfo,
   getContractArtifact,
-  getCreationCode,
-  getImmutableVariables,
   getStorageLayout,
 } from './artifacts'
 import {
@@ -95,50 +96,6 @@ export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
-
-export const chugsplashFetchSubtask = async (args: {
-  configUri: string
-  ipfsUrl?: string
-}): Promise<CanonicalChugSplashConfig> => {
-  let config: CanonicalChugSplashConfig
-  let ipfs: IPFSHTTPClient
-  if (args.ipfsUrl) {
-    ipfs = create({
-      url: args.ipfsUrl,
-    })
-  } else if (process.env.IPFS_PROJECT_ID && process.env.IPFS_API_KEY_SECRET) {
-    const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-    ipfs = create({
-      host: 'ipfs.infura.io',
-      port: 5001,
-      protocol: 'https',
-      headers: {
-        authorization: `Basic ${Buffer.from(projectCredentials).toString(
-          'base64'
-        )}`,
-      },
-    })
-  } else {
-    throw new Error(
-      'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-    )
-  }
-
-  if (args.configUri.startsWith('ipfs://')) {
-    const decoder = new TextDecoder()
-    let data = ''
-    const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-    for await (const chunk of stream) {
-      // Chunks of data are returned as a Uint8Array. Convert it back to a string
-      data += decoder.decode(chunk, { stream: true })
-    }
-    config = JSON.parse(data)
-  } else {
-    throw new Error('unsupported URI type')
-  }
-
-  return config
-}
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -447,8 +404,9 @@ export const chugSplashExecuteTask = async (
     parsedConfig: ChugSplashConfig
     executor: ethers.Signer
     silent: boolean
+    networkName?: string
   },
-  hre: HardhatRuntimeEnvironment
+  hre?: HardhatRuntimeEnvironment
 ) => {
   const {
     chugSplashManager,
@@ -560,14 +518,15 @@ export const chugSplashExecuteTask = async (
     await (await chugSplashManager.claimExecutorPayment()).wait()
   }
 
+  const network = hre ? hre.network.name : args.networkName
   displayDeploymentTable(parsedConfig, silent)
   bundleState.status === ChugSplashBundleStatus.APPROVED
     ? chugsplashLog(
-        `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
+        `Deployed: ${parsedConfig.options.projectName} on ${network}.`,
         silent
       )
     : chugsplashLog(
-        `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
+        `${parsedConfig.options.projectName} was already deployed on ${network}.`,
         silent
       )
 }
@@ -1013,12 +972,12 @@ export const statusTask = async (
 ) => {
   const { configPath, silent } = args
 
-  if (hre.network.name === 'hardhat') {
-    throw new Error(
-      `Cannot check the status of deployments on the in-process Hardhat network.
-Did you forget the --network flag?`
-    )
-  }
+  //   if (hre.network.name === 'hardhat') {
+  //     throw new Error(
+  //       `Cannot check the status of deployments on the in-process Hardhat network.
+  // Did you forget the --network flag?`
+  //     )
+  //   }
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
@@ -1175,12 +1134,6 @@ task(TASK_TEST_REMOTE_EXECUTION)
       hre: HardhatRuntimeEnvironment
     ) => {
       const { configPath, noCompile } = args
-
-      if (hre.network.name !== 'localhost') {
-        throw new Error(
-          `You can only test remote execution on localhost. Got network: ${hre.network.name}`
-        )
-      }
 
       const signer = hre.ethers.provider.getSigner()
       await deployChugSplashPredeploys(hre, signer)
