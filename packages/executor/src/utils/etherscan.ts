@@ -32,9 +32,8 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import {
-  buildInfo as proxyBuildInfo,
   ChugSplashManagerABI,
-  ProxyArtifact,
+  CHUGSPLASH_MANAGER_ADDRESS,
 } from '@chugsplash/contracts'
 import { EthereumProvider, HardhatRuntimeEnvironment } from 'hardhat/types'
 import { request } from 'undici'
@@ -66,6 +65,22 @@ export const verifyChugSplashConfig = async (
     hre.ethers.provider
   )
 
+  // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
+  const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
+    canonicalConfig.options.projectName
+  )
+  try {
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints,
+      etherscanApiKey,
+      chugsplashManagerProxyAddress,
+      CHUGSPLASH_MANAGER_ADDRESS,
+      'ChugSplashManager'
+    )
+  } catch (err) {
+    console.error(err)
+  }
+
   for (const referenceName of Object.keys(canonicalConfig.contracts)) {
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName, compilerOutput } = artifact
@@ -81,57 +96,45 @@ export const verifyChugSplashConfig = async (
     const implementationAddress = await ChugSplashManager.implementations(
       referenceName
     )
+    const proxyAddress = getProxyAddress(
+      canonicalConfig.options.projectName,
+      referenceName
+    )
 
     const compilerInput = canonicalConfig.inputs.find((compilerInputs) =>
       Object.keys(compilerInputs.input.sources).includes(sourceName)
     )
 
-    // Verify the proxy
-    const proxyAddress = getProxyAddress(
-      canonicalConfig.options.projectName,
-      referenceName
-    )
-    const {
-      sourceName: proxySourceName,
-      contractName: proxyContractName,
-      abi: proxyAbi,
-    } = ProxyArtifact
-    await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
-      etherscanApiEndpoints,
-      proxyAddress,
-      proxySourceName,
-      proxyContractName,
-      proxyAbi,
-      etherscanApiKey,
-      proxyBuildInfo.input,
-      proxyBuildInfo.solcVersion,
-      [getChugSplashManagerProxyAddress(canonicalConfig.options.projectName)]
-    )
-
     // Verify the implementation
-    await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
-      etherscanApiEndpoints,
-      implementationAddress,
-      sourceName,
-      contractName,
-      abi,
-      etherscanApiKey,
-      compilerInput.input,
-      compilerInput.solcVersion,
-      constructorArgValues
-    )
+    try {
+      await attemptVerification(
+        hre.network.provider,
+        hre.network.name,
+        etherscanApiEndpoints,
+        implementationAddress,
+        sourceName,
+        contractName,
+        abi,
+        etherscanApiKey,
+        compilerInput.input,
+        compilerInput.solcVersion,
+        constructorArgValues
+      )
+    } catch (err) {
+      console.error(err)
+    }
 
-    await linkProxyWithImplementation(
-      etherscanApiEndpoints,
-      etherscanApiKey,
-      proxyAddress,
-      implementationAddress,
-      contractName
-    )
+    try {
+      await linkProxyWithImplementation(
+        etherscanApiEndpoints,
+        etherscanApiKey,
+        proxyAddress,
+        implementationAddress,
+        contractName
+      )
+    } catch (err) {
+      console.error(err)
+    }
   }
 }
 
@@ -269,7 +272,7 @@ export const linkProxyWithImplementation = async (
   etherscanApiKey: string,
   proxyAddress: string,
   implAddress: string,
-  contractName: string
+  implContractName: string
 ) => {
   const params = {
     module: 'contract',
@@ -304,10 +307,13 @@ export const linkProxyWithImplementation = async (
   }
 
   if (responseBody.status === RESPONSE_OK) {
-    console.log(`Successfully linked ${contractName} proxy to implementation.`)
+    console.log(
+      `Successfully linked ${implContractName} proxy to implementation.`
+    )
   } else {
     throw new Error(
-      `Failed to link ${contractName} proxy with its implementation. Reason: ${responseBody.result}`
+      `Failed to link ${implContractName} proxy with its implementation.
+Reason: ${responseBody.result}`
     )
   }
 }
@@ -331,7 +337,8 @@ export const callEtherscanApi = async (
   if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
     const responseBodyText = await response.body.text()
     throw new Error(
-      `Etherscan API call failed with status ${response.statusCode}. Response: ${responseBodyText}`
+      `Etherscan API call failed with status ${response.statusCode}.
+Response: ${responseBodyText}`
     )
   }
 

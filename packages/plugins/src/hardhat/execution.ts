@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
-import { getExecutionAmountInChugSplashManager } from './fund'
+import { getOwnerBalanceInChugSplashManager } from './fund'
 import { getFinalDeploymentTxnHash } from './deployments'
 
 export const monitorRemoteExecution = async (
@@ -49,11 +49,13 @@ export const monitorRemoteExecution = async (
     throw new Error(`${projectName} was cancelled.`)
   } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed or approved for
+execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed but not yet
+approved for execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     // Get the `completeChugSplashBundle` transaction.
@@ -79,15 +81,18 @@ export const monitorRemoteExecution = async (
     // ~5.5 million gas to deploy Seaport. This estimated cost is compared to the available
     // execution amount in the ChugSplashManager.
     const gasPrice = await provider.getGasPrice()
-    const availableExecutionAmount =
-      await getExecutionAmountInChugSplashManager(provider, projectName)
+    const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
+      provider,
+      projectName
+    )
     if (gasPrice.mul(8_000_000).gt(availableExecutionAmount)) {
       // If the available execution amount is less than the estimated value, throw an error.
       const estCost = gasPrice.mul(ethers.utils.parseEther('0.1'))
       throw new Error(
-        `${projectName} ran out of funds. Please report this error. Run the following command to add funds to your deployment so it can be completed:
+        `${projectName} ran out of funds. Please report this error.
+Run the following command to add funds to your deployment so it can be completed:
 
-  npx hardhat fund --network ${hre.network.name} --amount ${estCost} <configPath>
+npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
         `
       )
     }
@@ -135,16 +140,16 @@ export const postExecutionActions = async (
   const currChugSplashManagerOwner = await ChugSplashManager.owner()
 
   // Exit early if the calling address is not the current owner of the ChugSplashManager.
-  if (signer.getAddress() !== currChugSplashManagerOwner) {
+  if ((await signer.getAddress()) !== currChugSplashManagerOwner) {
     return
   }
 
   // Withdraw any of the current project owner's funds in the ChugSplashManager.
-  const totalDebt = await ChugSplashManager.totalDebt()
-  const chugsplashManagerBalance = await provider.getBalance(
-    ChugSplashManager.address
+  const ownerFunds = await getOwnerBalanceInChugSplashManager(
+    provider,
+    parsedConfig.options.projectName
   )
-  if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
+  if (ownerFunds.gt(0)) {
     await (await ChugSplashManager.withdrawOwnerETH()).wait()
   }
 

@@ -134,25 +134,27 @@ export const getActionHash = (action: RawChugSplashAction): string => {
 
 /**
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
- * provided to the ChugSplashManager contract.
+ * provided to the ChugSplashManager contract. This function also sorts the actions so that the
+ * SetStorage actions are first, the DeployImplementation actions are second, and the
+ * SetImplementation actions are last.
  *
- * @param actions Series of SetImplementation, DeployImplementation, or SetStorage actions to bundle.
+ * @param actions Series of SetImplementation, DeployImplementation, or SetStorage actions to
+ * bundle.
  * @return Bundled actions.
  */
 export const makeBundleFromActions = (
   actions: ChugSplashAction[]
 ): ChugSplashActionBundle => {
-  // Sort the actions so that the SetImplementation actions are last.
+  // Sort the actions to be in the order: SetStorage, DeployImplementation,
+  // SetImplementation.
   const sortedActions = actions.sort((a1, a2) => {
-    if (isSetImplementationAction(a2)) {
-      // Put the first action before the second if the second action is SetImplementation.
+    if (isSetStorageAction(a1) || isSetImplementationAction(a2)) {
+      // Keep the order of the actions if the first action is SetStorage or if the second action is
+      // SetImplementation.
       return -1
-    } else if (
-      isSetImplementationAction(a1) &&
-      !isSetImplementationAction(a2)
-    ) {
-      // Swap the order of the actions if the first action is a SetImplementation and the second
-      // action is not.
+    } else if (isSetImplementationAction(a1) || isSetStorageAction(a2)) {
+      // Swap the order of the actions if the first action is SetImplementation or the second
+      // action is SetStorage.
       return 1
     }
     // Keep the same order otherwise.
