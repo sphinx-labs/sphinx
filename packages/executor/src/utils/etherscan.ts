@@ -69,13 +69,17 @@ export const verifyChugSplashConfig = async (
   const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
     canonicalConfig.options.projectName
   )
-  await linkProxyWithImplementation(
-    etherscanApiEndpoints,
-    etherscanApiKey,
-    chugsplashManagerProxyAddress,
-    CHUGSPLASH_MANAGER_ADDRESS,
-    'ChugSplashManager'
-  )
+  try {
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints,
+      etherscanApiKey,
+      chugsplashManagerProxyAddress,
+      CHUGSPLASH_MANAGER_ADDRESS,
+      'ChugSplashManager'
+    )
+  } catch (err) {
+    console.error(err)
+  }
 
   for (const referenceName of Object.keys(canonicalConfig.contracts)) {
     const artifact = artifacts[referenceName]
@@ -102,27 +106,35 @@ export const verifyChugSplashConfig = async (
     )
 
     // Verify the implementation
-    await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
-      etherscanApiEndpoints,
-      implementationAddress,
-      sourceName,
-      contractName,
-      abi,
-      etherscanApiKey,
-      compilerInput.input,
-      compilerInput.solcVersion,
-      constructorArgValues
-    )
+    try {
+      await attemptVerification(
+        hre.network.provider,
+        hre.network.name,
+        etherscanApiEndpoints,
+        implementationAddress,
+        sourceName,
+        contractName,
+        abi,
+        etherscanApiKey,
+        compilerInput.input,
+        compilerInput.solcVersion,
+        constructorArgValues
+      )
+    } catch (err) {
+      console.error(err)
+    }
 
-    await linkProxyWithImplementation(
-      etherscanApiEndpoints,
-      etherscanApiKey,
-      proxyAddress,
-      implementationAddress,
-      contractName
-    )
+    try {
+      await linkProxyWithImplementation(
+        etherscanApiEndpoints,
+        etherscanApiKey,
+        proxyAddress,
+        implementationAddress,
+        contractName
+      )
+    } catch (err) {
+      console.error(err)
+    }
   }
 }
 
