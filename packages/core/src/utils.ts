@@ -215,3 +215,13 @@ export const displayDeploymentTable = (
     console.table(deployments)
   }
 }
+
+export const claimExecutorPayment = async (
+  executor: Signer,
+  ChugSplashManager: Contract
+) => {
+  const executorDebt = await ChugSplashManager.debt(await executor.getAddress())
+  if (executorDebt.gt(0)) {
+    await (await ChugSplashManager.claimExecutorPayment()).wait()
+  }
+}

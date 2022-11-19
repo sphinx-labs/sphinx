@@ -4,13 +4,13 @@ import {
   ChugSplashConfig,
   getChugSplashRegistry,
   getChugSplashManager,
+  getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { sleep } from '@eth-optimism/core-utils'
 
-import { getOwnerBalanceInChugSplashManager } from './fund'
 import { getFinalDeploymentTxnHash } from './deployments'
 
 export const monitorRemoteExecution = async (
