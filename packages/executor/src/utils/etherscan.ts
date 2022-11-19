@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { Contract } from 'ethers'
+import { Contract, ethers, Signer } from 'ethers'
 import {
   CanonicalChugSplashConfig,
   CompilerInput,
@@ -10,8 +10,8 @@ import {
 } from '@chugsplash/core'
 import {
   getConstructorArgs,
-  TASK_CHUGSPLASH_FETCH,
   getArtifactsFromParsedCanonicalConfig,
+  chugsplashFetchSubtask,
 } from '@chugsplash/plugins'
 import { TASK_VERIFY_GET_ETHERSCAN_ENDPOINT } from '@nomiclabs/hardhat-etherscan/dist/src/constants'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
@@ -36,7 +36,7 @@ import {
   ChugSplashManagerABI,
   ProxyArtifact,
 } from '@chugsplash/contracts'
-import { EthereumProvider, HardhatRuntimeEnvironment } from 'hardhat/types'
+import { EthereumProvider } from 'hardhat/types'
 import { request } from 'undici'
 
 export interface EtherscanResponseBody {
@@ -48,22 +48,20 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
-  hre: HardhatRuntimeEnvironment,
-  configUri: string
+  configUri: string,
+  provider: Signer | ethers.providers.Provider,
+  network: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
 
-  const canonicalConfig = await hre.run(TASK_CHUGSPLASH_FETCH, {
-    configUri,
-  })
+  const canonicalConfig = await await chugsplashFetchSubtask({ configUri })
   const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    hre,
     parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
   )
   const ChugSplashManager = new Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
-    hre.ethers.provider
+    provider
   )
 
   for (const referenceName of Object.keys(canonicalConfig.contracts)) {
@@ -97,7 +95,7 @@ export const verifyChugSplashConfig = async (
       abi: proxyAbi,
     } = ProxyArtifact
     await attemptVerification(
-      hre.network.provider,
+      provider,
       hre.network.name,
       etherscanApiEndpoints,
       proxyAddress,
@@ -112,8 +110,8 @@ export const verifyChugSplashConfig = async (
 
     // Verify the implementation
     await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
+      provider,
+      network,
       etherscanApiEndpoints,
       implementationAddress,
       sourceName,

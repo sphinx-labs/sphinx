@@ -350,7 +350,6 @@ export const getSolcBuild = async (solcVersion: string) => {
 }
 
 export const getArtifactsFromParsedCanonicalConfig = async (
-  hre: any,
   parsedCanonicalConfig: CanonicalChugSplashConfig
 ): Promise<{ [referenceName: string]: any }> => {
   const compilerOutputs: any[] = []

@@ -90,6 +90,77 @@ export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 
+export const chugsplashFetchSubtask = async (args: {
+  configUri: string
+  ipfsUrl?: string
+}): Promise<CanonicalChugSplashConfig> => {
+  let config: CanonicalChugSplashConfig
+  let ipfs: IPFSHTTPClient
+  if (args.ipfsUrl) {
+    ipfs = create({
+      url: args.ipfsUrl,
+    })
+  } else if (process.env.IPFS_PROJECT_ID && process.env.IPFS_API_KEY_SECRET) {
+    const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
+    ipfs = create({
+      host: 'ipfs.infura.io',
+      port: 5001,
+      protocol: 'https',
+      headers: {
+        authorization: `Basic ${Buffer.from(projectCredentials).toString(
+          'base64'
+        )}`,
+      },
+    })
+  } else {
+    throw new Error(
+      'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
+    )
+  }
+
+  if (args.configUri.startsWith('ipfs://')) {
+    const decoder = new TextDecoder()
+    let data = ''
+    const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
+    for await (const chunk of stream) {
+      // Chunks of data are returned as a Uint8Array. Convert it back to a string
+      data += decoder.decode(chunk, { stream: true })
+    }
+    config = JSON.parse(data)
+  } else {
+    throw new Error('unsupported URI type')
+  }
+
+  return config
+}
+
+subtask(TASK_CHUGSPLASH_FETCH)
+  .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(chugsplashFetchSubtask)
+
+export const bundleRemoteSubtask = async (args: {
+  canonicalConfig: CanonicalChugSplashConfig
+}): Promise<ChugSplashActionBundle> => {
+  const parsedCanonicalConfig = parseChugSplashConfig(
+    args.canonicalConfig
+  ) as CanonicalChugSplashConfig
+
+  const artifacts = await getArtifactsFromParsedCanonicalConfig(
+    parsedCanonicalConfig
+  )
+
+  return makeActionBundleFromConfig(
+    parsedCanonicalConfig,
+    artifacts,
+    process.env
+  )
+}
+
+subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
+  .addParam('canonicalConfig', undefined, undefined, types.any)
+  .setAction(bundleRemoteSubtask)
+
 export const bundleLocalSubtask = async (args: {
   parsedConfig: ChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
@@ -134,82 +205,6 @@ export const bundleLocalSubtask = async (args: {
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
   .addParam('parsedConfig', undefined, undefined)
   .setAction(bundleLocalSubtask)
-
-subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
-  .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(
-    async (
-      args: { canonicalConfig: CanonicalChugSplashConfig },
-      hre
-    ): Promise<ChugSplashActionBundle> => {
-      const parsedCanonicalConfig = parseChugSplashConfig(
-        args.canonicalConfig
-      ) as CanonicalChugSplashConfig
-
-      const artifacts = await getArtifactsFromParsedCanonicalConfig(
-        hre,
-        parsedCanonicalConfig
-      )
-
-      return makeActionBundleFromConfig(
-        parsedCanonicalConfig,
-        artifacts,
-        process.env
-      )
-    }
-  )
-
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (args: {
-      configUri: string
-      ipfsUrl: string
-    }): Promise<CanonicalChugSplashConfig> => {
-      let config: CanonicalChugSplashConfig
-      let ipfs: IPFSHTTPClient
-      if (args.ipfsUrl) {
-        ipfs = create({
-          url: args.ipfsUrl,
-        })
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-      } else {
-        throw new Error(
-          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-        )
-      }
-
-      if (args.configUri.startsWith('ipfs://')) {
-        const decoder = new TextDecoder()
-        let data = ''
-        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-        for await (const chunk of stream) {
-          // Chunks of data are returned as a Uint8Array. Convert it back to a string
-          data += decoder.decode(chunk, { stream: true })
-        }
-        config = JSON.parse(data)
-      } else {
-        throw new Error('unsupported URI type')
-      }
-
-      return config
-    }
-  )
 
 export const chugsplashDeployTask = async (
   args: {
@@ -418,6 +413,109 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
+export const chugSplashExecuteTask = async (
+  args: {
+    chugSplashManager: Contract
+    bundleId: string
+    bundle: ChugSplashActionBundle
+    parsedConfig: ChugSplashConfig
+    executor: ethers.Signer
+    silent: boolean
+    network?: string
+  },
+  hre?: HardhatRuntimeEnvironment
+) => {
+  const {
+    chugSplashManager,
+    bundleId,
+    bundle,
+    parsedConfig,
+    executor,
+    silent,
+  } = args
+
+  const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
+    bundleId
+  )
+  const executorAddress = await executor.getAddress()
+
+  if (
+    bundleState.status !== ChugSplashBundleStatus.APPROVED &&
+    bundleState.status !== ChugSplashBundleStatus.COMPLETED
+  ) {
+    throw new Error(`Bundle is not approved or completed.`)
+  }
+
+  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+      await (
+        await chugSplashManager.claimBundle({
+          value: EXECUTOR_BOND_AMOUNT,
+        })
+      ).wait()
+    } else if (bundleState.selectedExecutor !== executorAddress) {
+      throw new Error(`Another executor has already claimed the bundle.`)
+    }
+
+    // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
+    // the SetImplementation actions have already been sorted so that they are at the end of the
+    // actions array.
+    const firstSetImplementationActionIndex = bundle.actions.findIndex(
+      (action) =>
+        isSetImplementationAction(fromRawChugSplashAction(action.action))
+    )
+
+    // execute actions in series
+    for (
+      let i = bundleState.actionsExecuted.toNumber();
+      i < firstSetImplementationActionIndex;
+      i++
+    ) {
+      const action = bundle.actions[i]
+      await (
+        await chugSplashManager.executeChugSplashAction(
+          action.action,
+          action.proof.actionIndex,
+          action.proof.siblings
+        )
+      ).wait()
+    }
+
+    // Complete the bundle by executing all the SetImplementation actions in a single
+    // transaction.
+    const setImplActions = bundle.actions.slice(
+      firstSetImplementationActionIndex
+    )
+    await (
+      await chugSplashManager.completeChugSplashBundle(
+        setImplActions.map((action) => action.action),
+        setImplActions.map((action) => action.proof.actionIndex),
+        setImplActions.map((action) => action.proof.siblings)
+      )
+    ).wait()
+  }
+
+  // At this point, the bundle has been completed.
+
+  // Withdraw any debt owed to the executor.
+  const executorDebt = await chugSplashManager.debt(executorAddress)
+  if (executorDebt.gt(0)) {
+    await (await chugSplashManager.claimExecutorPayment()).wait()
+  }
+
+  const networkName = hre ? hre?.network.name : args.network
+  displayDeploymentTable(parsedConfig, silent)
+  bundleState.status === ChugSplashBundleStatus.APPROVED
+    ? chugsplashLog(
+        `Deployed: ${parsedConfig.options.projectName} on ${networkName}.`,
+        silent
+      )
+    : chugsplashLog(
+        `${parsedConfig.options.projectName} was already deployed on ${networkName}.`,
+        silent
+      )
+}
+
 subtask(TASK_CHUGSPLASH_EXECUTE)
   .setDescription('Executes an approved bundle.')
   .addParam(
@@ -441,107 +539,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
   )
   .addParam('executor', 'Wallet of the executor', undefined, types.any)
   .addFlag('silent', "Hide ChugSplash's output")
-  .setAction(
-    async (
-      args: {
-        chugSplashManager: Contract
-        bundleId: string
-        bundle: ChugSplashActionBundle
-        parsedConfig: ChugSplashConfig
-        executor: ethers.Signer
-        silent: boolean
-      },
-      hre: HardhatRuntimeEnvironment
-    ) => {
-      const {
-        chugSplashManager,
-        bundleId,
-        bundle,
-        parsedConfig,
-        executor,
-        silent,
-      } = args
-
-      const bundleState: ChugSplashBundleState =
-        await chugSplashManager.bundles(bundleId)
-      const executorAddress = await executor.getAddress()
-
-      if (
-        bundleState.status !== ChugSplashBundleStatus.APPROVED &&
-        bundleState.status !== ChugSplashBundleStatus.COMPLETED
-      ) {
-        throw new Error(`Bundle is not approved or completed.`)
-      }
-
-      if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-        if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-          await (
-            await chugSplashManager.claimBundle({
-              value: EXECUTOR_BOND_AMOUNT,
-            })
-          ).wait()
-        } else if (bundleState.selectedExecutor !== executorAddress) {
-          throw new Error(`Another executor has already claimed the bundle.`)
-        }
-
-        // Execute the SetCode and DeployImplementation actions that have not been executed yet. Note that
-        // the SetImplementation actions have already been sorted so that they are at the end of the
-        // actions array.
-        const firstSetImplementationActionIndex = bundle.actions.findIndex(
-          (action) =>
-            isSetImplementationAction(fromRawChugSplashAction(action.action))
-        )
-
-        // execute actions in series
-        for (
-          let i = bundleState.actionsExecuted.toNumber();
-          i < firstSetImplementationActionIndex;
-          i++
-        ) {
-          const action = bundle.actions[i]
-          await (
-            await chugSplashManager.executeChugSplashAction(
-              action.action,
-              action.proof.actionIndex,
-              action.proof.siblings
-            )
-          ).wait()
-        }
-
-        // Complete the bundle by executing all the SetImplementation actions in a single
-        // transaction.
-        const setImplActions = bundle.actions.slice(
-          firstSetImplementationActionIndex
-        )
-        await (
-          await chugSplashManager.completeChugSplashBundle(
-            setImplActions.map((action) => action.action),
-            setImplActions.map((action) => action.proof.actionIndex),
-            setImplActions.map((action) => action.proof.siblings)
-          )
-        ).wait()
-      }
-
-      // At this point, the bundle has been completed.
-
-      // Withdraw any debt owed to the executor.
-      const executorDebt = await chugSplashManager.debt(executorAddress)
-      if (executorDebt.gt(0)) {
-        await (await chugSplashManager.claimExecutorPayment()).wait()
-      }
-
-      displayDeploymentTable(parsedConfig, silent)
-      bundleState.status === ChugSplashBundleStatus.APPROVED
-        ? chugsplashLog(
-            `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
-            silent
-          )
-        : chugsplashLog(
-            `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
-            silent
-          )
-    }
-  )
+  .setAction(chugSplashExecuteTask)
 
 export const chugsplashApproveTask = async (
   args: {

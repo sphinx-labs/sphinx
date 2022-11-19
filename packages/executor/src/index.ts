@@ -1,6 +1,5 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import hre from 'hardhat'
 import { BaseServiceV2, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
@@ -10,6 +9,7 @@ import {
 } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
+import { chugSplashExecuteTask } from '@chugsplash/plugins'
 
 import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
 
@@ -117,7 +117,6 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       )
       const proposalEvent = proposalEvents[0]
       const { bundle, canonicalConfig } = await compileRemoteBundle(
-        hre,
         proposalEvent.args.configUri
       )
 
@@ -133,13 +132,14 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
       // execute bundle
       try {
-        await hre.run('chugsplash-execute', {
+        await chugSplashExecuteTask({
           chugSplashManager: manager,
           bundleId: activeBundleId,
           bundle,
           parsedConfig: canonicalConfig,
           executor: signer,
-          hide: false,
+          network: this.options.network,
+          silent: false,
         })
         this.logger.info('Successfully executed')
       } catch (e) {
@@ -151,7 +151,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // verify on etherscan
       try {
         if ((await getChainId(this.state.wallet.provider)) !== 31337) {
-          await verifyChugSplashConfig(hre, proposalEvent.args.configUri)
+          await verifyChugSplashConfig(proposalEvent.args.configUri)
           this.logger.info('Successfully verified')
         }
       } catch (e) {
