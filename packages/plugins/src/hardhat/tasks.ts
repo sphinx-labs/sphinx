@@ -29,6 +29,8 @@ import {
   getChugSplashManager,
   getProjectOwnerAddress,
   isDeployImplementationAction,
+  getExecutionAmountToSendPlusBuffer,
+  getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -66,10 +68,6 @@ import {
   errorProjectNotRegistered,
   successfulProposalMessage,
 } from '../messages'
-import {
-  getExecutionAmountPlusBuffer,
-  getOwnerBalanceInChugSplashManager,
-} from './fund'
 import { monitorRemoteExecution, postExecutionActions } from './execution'
 
 // Load environment variables from .env
@@ -397,8 +395,8 @@ with a name other than ${parsedConfig.options.projectName}`
 
     // Get the amount that the user must send in order to execute the bundle including a buffer in
     // case the gas price increases during execution.
-    const executionAmountPlusBuffer = await getExecutionAmountPlusBuffer(
-      hre,
+    const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
+      hre.ethers.provider,
       parsedConfig
     )
 
@@ -566,12 +564,6 @@ export const executeTask = async (
     chugSplashManager,
     bundleId
   )
-
-  // Withdraw any debt owed to the executor.
-  const executorDebt = await chugSplashManager.debt(executorAddress)
-  if (executorDebt.gt(0)) {
-    await (await chugSplashManager.claimExecutorPayment()).wait()
-  }
 
   if (isLocalExecution) {
     await postExecutionActions(hre.ethers.provider, parsedConfig)
@@ -1192,16 +1184,18 @@ task(TASK_TEST_REMOTE_EXECUTION)
     'configPath',
     'Path to the ChugSplash config file to deploy'
   )
+  .addFlag('silent', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         configPath: string
         noCompile: boolean
+        silent: boolean
       },
       hre: HardhatRuntimeEnvironment
     ) => {
-      const { configPath, noCompile } = args
+      const { configPath, noCompile, silent } = args
 
       if (hre.network.name !== 'localhost') {
         throw new Error(
@@ -1209,9 +1203,19 @@ task(TASK_TEST_REMOTE_EXECUTION)
         )
       }
 
+      const spinner = ora({ isSilent: silent })
+
       const signer = hre.ethers.provider.getSigner()
       await deployChugSplashPredeploys(hre, signer)
-      await deployChugSplashConfig(hre, configPath, false, true, '', noCompile)
+      await deployChugSplashConfig(
+        hre,
+        configPath,
+        false,
+        true,
+        '',
+        noCompile,
+        spinner
+      )
     }
   )
 

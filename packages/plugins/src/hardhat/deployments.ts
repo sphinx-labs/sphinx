@@ -15,6 +15,8 @@ import {
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
+  claimExecutorPayment,
+  getExecutionAmountToSendPlusBuffer
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -33,7 +35,6 @@ import {
   monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
-import { getExecutionAmountPlusBuffer } from './fund'
 
 /**
  * TODO
@@ -178,8 +179,8 @@ export const deployChugSplashConfig = async (
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
     spinner.start('Funding the deployment...')
     // Get the amount necessary to fund the deployment.
-    const executionAmountPlusBuffer = await getExecutionAmountPlusBuffer(
-      hre,
+    const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
+      hre.ethers.provider,
       parsedConfig
     )
     // Approve and fund the deployment.
@@ -220,6 +221,7 @@ export const deployChugSplashConfig = async (
       },
       hre
     )
+    await claimExecutorPayment(signer, ChugSplashManager)
   }
 
   spinner.succeed(`${parsedConfig.options.projectName} deployed!`)

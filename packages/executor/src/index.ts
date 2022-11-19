@@ -8,6 +8,10 @@ import {
   ChugSplashRegistryABI,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
+import {
+  claimExecutorPayment,
+  hasSufficientFundsForExecution,
+} from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
 
@@ -22,8 +26,9 @@ type Options = {
 type Metrics = {}
 
 type State = {
+  events: ethers.Event[]
   registry: ethers.Contract
-  wallet: ethers.Wallet
+  provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
   amplitudeClient: Amplitude.NodeClient
 }
@@ -66,111 +71,153 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    const provider = ethers.getDefaultProvider(this.options.network)
+    this.state.provider = new ethers.providers.JsonRpcProvider(
+      this.options.network
+    )
     this.state.registry = new ethers.Contract(
       reg,
       ChugSplashRegistryABI,
-      provider
+      this.state.provider
     )
     this.state.lastBlockNumber = -1
-    this.state.wallet = new ethers.Wallet(this.options.privateKey, provider)
+    this.state.events = []
   }
 
   async main() {
-    // Find all active upgrades that have not yet been executed in blocks after the stored hash
-    const approvalAnnouncementEvents = await this.state.registry.queryFilter(
-      this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
-      this.state.lastBlockNumber + 1
+    const wallet = new ethers.Wallet(
+      this.options.privateKey,
+      this.state.provider
     )
 
+    const latestBlockNumber = await this.state.provider.getBlockNumber()
+
+    // Get approval events in blocks after the stored block number
+    const newApprovalEvents = await this.state.registry.queryFilter(
+      this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
+      this.state.lastBlockNumber + 1,
+      latestBlockNumber
+    )
+
+    // Concatenate the new approval events to the array
+    this.state.events = this.state.events.concat(newApprovalEvents)
+
+    // store last block number
+    this.state.lastBlockNumber = latestBlockNumber
+
     // If none found, return
-    if (approvalAnnouncementEvents.length === 0) {
+    if (this.state.events.length === 0) {
       this.logger.info('no events found')
       return
     }
 
-    this.logger.info(`${approvalAnnouncementEvents.length} events found`)
+    this.logger.info(
+      `total number of events: ${this.state.events.length}. new events: ${newApprovalEvents.length}`
+    )
 
-    // store last block number
-    this.state.lastBlockNumber = approvalAnnouncementEvents.at(-1).blockNumber
+    const eventsCopy = this.state.events.slice()
 
     // execute all approved bundles
-    for (const approvalAnnouncementEvent of approvalAnnouncementEvents) {
+    for (const approvalAnnouncementEvent of eventsCopy) {
+      // Remove the current event from the front of the events array and put it at the end
+      this.state.events.shift()
+      this.state.events.push(approvalAnnouncementEvent)
+
       // fetch manager for relevant project
-      const signer = this.state.wallet
       const manager = new ethers.Contract(
         approvalAnnouncementEvent.args.manager,
         ChugSplashManagerABI,
-        signer
+        wallet
       )
 
       // get active bundle id for this project
       const activeBundleId = await manager.activeBundleId()
-      if (activeBundleId === ethers.constants.HashZero) {
-        this.logger.error(`Error: No active bundle id found in manager`)
-        continue
-      }
-
-      // get proposal event and compile
-      const proposalEvents = await manager.queryFilter(
-        manager.filters.ChugSplashBundleProposed(activeBundleId)
-      )
-      const proposalEvent = proposalEvents[0]
-      const { bundle, canonicalConfig } = await compileRemoteBundle(
-        hre,
-        proposalEvent.args.configUri
-      )
-
-      // ensure compiled bundle matches proposed bundle
-      if (bundle.root !== proposalEvent.args.bundleRoot) {
-        // log error and continue
-        this.logger.error(
-          'Error: Compiled bundle root does not match proposal event bundle root',
-          canonicalConfig.options
+      if (activeBundleId !== ethers.constants.HashZero) {
+        // Retrieve the corresponding proposal event to get the config URI.
+        const [proposalEvent] = await manager.queryFilter(
+          manager.filters.ChugSplashBundleProposed(activeBundleId)
         )
-        continue
-      }
 
-      // execute bundle
-      try {
-        await hre.run('chugsplash-execute', {
-          chugSplashManager: manager,
-          bundleId: activeBundleId,
-          bundle,
-          parsedConfig: canonicalConfig,
-          executor: signer,
-          hide: false,
-        })
-        this.logger.info('Successfully executed')
-      } catch (e) {
-        // log error and continue
-        this.logger.error('Error: execution error', e, canonicalConfig.options)
-        continue
-      }
+        // Compile the bundle using the config URI.
+        const { bundle, canonicalConfig } = await compileRemoteBundle(
+          hre,
+          proposalEvent.args.configUri
+        )
 
-      // verify on etherscan
-      try {
-        if ((await getChainId(this.state.wallet.provider)) !== 31337) {
-          await verifyChugSplashConfig(hre, proposalEvent.args.configUri)
-          this.logger.info('Successfully verified')
+        // ensure compiled bundle matches proposed bundle
+        if (bundle.root !== proposalEvent.args.bundleRoot) {
+          // We cannot execute this bundle, so we remove it from the events array.
+          this.state.events.pop()
+
+          // log error and continue
+          this.logger.error(
+            'Error: Compiled bundle root does not match proposal event bundle root',
+            canonicalConfig.options
+          )
+          continue
         }
-      } catch (e) {
-        this.logger.error(
-          'Error: verification error',
-          e,
-          canonicalConfig.options
-        )
+
+        if (
+          await hasSufficientFundsForExecution(
+            this.state.provider,
+            canonicalConfig
+          )
+        ) {
+          // execute bundle
+          try {
+            await hre.run('chugsplash-execute', {
+              chugSplashManager: manager,
+              bundleId: activeBundleId,
+              bundle,
+              parsedConfig: canonicalConfig,
+              executor: wallet,
+              hide: false,
+            })
+            this.logger.info('Successfully executed')
+          } catch (e) {
+            // log error and continue
+            this.logger.error(
+              'Error: execution error',
+              e,
+              canonicalConfig.options
+            )
+            continue
+          }
+
+          // verify on etherscan
+          try {
+            if ((await getChainId(this.state.provider)) !== 31337) {
+              await verifyChugSplashConfig(hre, proposalEvent.args.configUri)
+              this.logger.info('Successfully verified')
+            }
+          } catch (e) {
+            this.logger.error(
+              'Error: verification error',
+              e,
+              canonicalConfig.options
+            )
+          }
+
+          if (this.options.amplitudeKey !== 'disabled') {
+            this.state.amplitudeClient.logEvent({
+              event_type: 'ChugSplash Executed',
+              user_id: canonicalConfig.options.projectOwner,
+              event_properties: {
+                projectName: canonicalConfig.options.projectName,
+              },
+            })
+          }
+        } else {
+          // Continue to the next bundle if there is an insufficient amount of funds in the
+          // ChugSplashManager.
+          continue
+        }
       }
 
-      if (this.options.amplitudeKey !== 'disabled') {
-        this.state.amplitudeClient.logEvent({
-          event_type: 'ChugSplash Executed',
-          user_id: canonicalConfig.options.projectOwner,
-          event_properties: {
-            projectName: canonicalConfig.options.projectName,
-          },
-        })
-      }
+      // Withdraw any debt owed to the executor.
+      await claimExecutorPayment(wallet, manager)
+
+      // Remove the current event from the events array.
+      this.state.events.pop()
     }
   }
 }
