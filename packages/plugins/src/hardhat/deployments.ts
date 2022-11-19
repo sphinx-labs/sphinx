@@ -15,7 +15,6 @@ import {
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
-  chugsplashLog,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -30,11 +29,11 @@ import {
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
-  statusTask,
+  executeTask,
+  monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { getExecutionAmountPlusBuffer } from './fund'
-import { postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -162,9 +161,7 @@ export const deployChugSplashConfig = async (
     spinner.succeed(
       `${parsedConfig.options.projectName} is a fresh deployment.`
     )
-    spinner.start(
-      `Committing ${parsedConfig.options.projectName}. This may take a moment.`
-    )
+    spinner.start(`Committing ${parsedConfig.options.projectName}.`)
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -185,7 +182,7 @@ export const deployChugSplashConfig = async (
       hre,
       parsedConfig
     )
-    // Approve and fund the deployment. This also generates the deployment artifacts.
+    // Approve and fund the deployment.
     await chugsplashApproveTask(
       {
         configPath,
@@ -200,8 +197,10 @@ export const deployChugSplashConfig = async (
     spinner.succeed('Funded the deployment.')
   }
 
+  spinner.start('The deployment is being executed. This may take a moment.')
+
   if (remoteExecution) {
-    await statusTask(
+    await monitorTask(
       {
         configPath,
         silent: true,
@@ -209,23 +208,22 @@ export const deployChugSplashConfig = async (
       hre
     )
   } else {
-    spinner.start('Executing the deployment...')
-    await hre.run('chugsplash-execute', {
-      chugSplashManager: ChugSplashManager,
-      bundleId,
-      bundle,
-      parsedConfig,
-      executor: signer,
-      silent: true,
-    })
-    spinner.succeed('Executed the deployment.')
-    spinner.start('Wrapping up the deployment...')
-    await postExecutionActions(provider, parsedConfig)
-    spinner.succeed('Deployment finished!')
+    await executeTask(
+      {
+        chugSplashManager: ChugSplashManager,
+        bundleId,
+        bundle,
+        parsedConfig,
+        executor: signer,
+        silent: true,
+        isLocalExecution: true,
+      },
+      hre
+    )
   }
 
+  spinner.succeed(`${parsedConfig.options.projectName} deployed!`)
   displayDeploymentTable(parsedConfig, silent)
-  chugsplashLog(`${parsedConfig.options.projectName} deployed!`, silent)
 }
 
 export const getContract = async (
