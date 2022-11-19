@@ -359,7 +359,8 @@ export const computeStorageSlots = (
       storageEntries[storageObj.label] = storageObj
     } else {
       throw new Error(
-        `Could not find variable "${storageObj.label}" in ${contractConfig.contract}. Did you forget to declare it in your ChugSplash config file?`
+        `Could not find variable "${storageObj.label}" in ${contractConfig.contract}.
+Did you forget to declare it in your ChugSplash config file?`
       )
     }
   }
@@ -381,7 +382,8 @@ export const computeStorageSlots = (
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `variable "${variableName}" was defined in the ChugSplash config for ${contractConfig.contract} but does not exist as a variable in the contract`
+        `variable "${variableName}" was defined in the ChugSplash config for ${contractConfig.contract}
+but does not exist as a variable in the contract`
       )
     }
 

@@ -26,6 +26,7 @@ type State = {
   wallet: ethers.Wallet
   lastBlockNumber: number
   amplitudeClient: Amplitude.NodeClient
+  provider: ethers.providers.BaseProvider
 }
 
 // TODO:
@@ -66,14 +67,17 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    const provider = ethers.getDefaultProvider(this.options.network)
+    this.state.provider = ethers.getDefaultProvider(this.options.network)
     this.state.registry = new ethers.Contract(
       reg,
       ChugSplashRegistryABI,
-      provider
+      this.state.provider
     )
     this.state.lastBlockNumber = -1
-    this.state.wallet = new ethers.Wallet(this.options.privateKey, provider)
+    this.state.wallet = new ethers.Wallet(
+      this.options.privateKey,
+      this.state.provider
+    )
   }
 
   async main() {
@@ -151,7 +155,11 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // verify on etherscan
       try {
         if ((await getChainId(this.state.wallet.provider)) !== 31337) {
-          await verifyChugSplashConfig(proposalEvent.args.configUri)
+          await verifyChugSplashConfig(
+            proposalEvent.args.configUri,
+            this.state.provider,
+            this.options.network
+          )
           this.logger.info('Successfully verified')
         }
       } catch (e) {

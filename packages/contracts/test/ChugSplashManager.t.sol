@@ -66,7 +66,7 @@ contract ChugSplashManager_Test is Test {
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     ChugSplashAction[] actions;
-    uint256[3] actionIndexes = [0, 1, 2];
+    uint256[] actionIndexes = [0, 1, 2];
     bytes32[][] proofs = [
         [
             bytes32(0x9ef420ca34e65ccc237ad848489a9cbd981fafa6149ff4ab1a580f6fee74cc8d),
@@ -499,7 +499,7 @@ contract ChugSplashManager_Test is Test {
 
     function test_completeChugSplashBundle_success() external {
         helper_proposeThenApproveThenFundThenClaimBundle();
-        helper_executeActions();
+        helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
         address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
         uint256 initialTotalDebt = manager.totalDebt();
@@ -785,7 +785,7 @@ contract ChugSplashManager_Test is Test {
     // - calls registry.announce with ProxyOwnershipTransferred
     function test_transferProxyOwnership_success() external {
         helper_proposeThenApproveThenFundThenClaimBundle();
-        helper_executeActions();
+        helper_executeMultipleActions();
         helper_completeBundle(executor1);
         address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
         vm.prank(address(manager));
@@ -879,11 +879,10 @@ contract ChugSplashManager_Test is Test {
         vm.stopPrank();
     }
 
-    function helper_executeActions() internal {
-        for (uint256 i = 0; i < actions.length; i++) {
-            hoax(executor1);
-            manager.executeChugSplashAction(actions[i], actionIndexes[i], proofs[i]);
-        }
+    function helper_executeMultipleActions() internal {
+        startHoax(executor1);
+        manager.executeMultipleActions(actions, actionIndexes, proofs);
+        vm.stopPrank();
     }
 
     function helper_completeBundle(address _executor) internal {

@@ -154,13 +154,15 @@ export const getProjectOwnerAddress = async (
   projectName: string
 ): Promise<string> => {
   const signer = provider.getSigner()
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
-  const ChugSplashManager = new Contract(
-    await ChugSplashRegistry.projects(projectName),
-    ChugSplashManagerABI,
-    signer
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.OwnershipTransferred()
   )
-  const projectOwner = await ChugSplashManager.owner()
+
+  // Get the most recent owner from the list of events
+  const projectOwner = ownershipTransferredEvents.at(-1).args.newOwner
+
   return projectOwner
 }
 

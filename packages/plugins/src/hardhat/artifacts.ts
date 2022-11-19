@@ -94,7 +94,9 @@ export const getStorageLayout = async (
 
   if (!('storageLayout' in output)) {
     throw new Error(
-      `Storage layout for ${name} not found. Did you forget to set the storage layout compiler option in your hardhat config? Read more: https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+      `Storage layout for ${name} not found. Did you forget to set the storage layout
+compiler option in your hardhat config? Read more:
+https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
     )
   }
 
@@ -171,7 +173,7 @@ export const getConstructorArgs = (
             if (contractConfig.variables[node.name] === undefined) {
               throw new Error(
                 `Could not find immutable variable "${node.name}" in ${referenceName}.
-                Did you forget to declare it in ${parsedConfig.options.projectName}?`
+Did you forget to declare it in ${parsedConfig.options.projectName}?`
               )
             }
 
@@ -199,7 +201,7 @@ export const getConstructorArgs = (
     } else {
       throw new Error(
         `Detected a non-immutable constructor argument, "${input.name}", in ${contractConfig.contract}.
-        Please remove it or make the corresponding variable immutable.`
+Please remove it or make the corresponding variable immutable.`
       )
     }
   })
@@ -224,7 +226,8 @@ export const getNestedConstructorArg = (variableName: string, args): string => {
     remainingArguments = remainingArguments.arguments[0]
   }
   throw new Error(
-    `Could not find nested constructor argument for the immutable variable ${variableName}. Please report this error.`
+    `Could not find nested constructor argument for the immutable variable ${variableName}.
+Please report this error.`
   )
 }
 
@@ -257,7 +260,8 @@ export const getConstructorArgNameForImmutableVariable = (
             )
           } else {
             throw new Error(
-              `The immutable variable "${variableName}" must be assigned directly to a constructor argument inside the body of the constructor in ${contractName}.`
+              `The immutable variable "${variableName}" must be assigned directly to a
+constructor argument inside the body of the constructor in ${contractName}.`
             )
           }
         }
@@ -265,7 +269,8 @@ export const getConstructorArgNameForImmutableVariable = (
     }
   }
   throw new Error(
-    `Could not find immutable variable assignment for ${variableName}. Did you forget to include it in your ChugSplash config file?`
+    `Could not find immutable variable assignment for ${variableName}.
+Did you forget to include it in your ChugSplash config file?`
   )
 }
 
