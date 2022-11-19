@@ -79,9 +79,6 @@ export const deployChugSplashConfig = async (
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const provider = hre.ethers.provider
-
-  console.log(provider.network)
-
   const signer = provider.getSigner()
   const signerAddress = await signer.getAddress()
 
@@ -207,30 +204,39 @@ export const deployChugSplashConfig = async (
   const executor = new ChugSplashExecutor()
   executor.run()
 
-  if (remoteExecution) {
-    await statusTask(
-      {
-        configPath,
-        silent: true,
-      },
-      hre
-    )
-  } else {
-    spinner.start('Executing the deployment...')
-    // await hre.run('chugsplash-execute', {
-    //   chugSplashManager: ChugSplashManager,
-    //   bundleId,
-    //   bundle,
-    //   parsedConfig,
-    //   executor: signer,
-    //   silent: true,
-    // })
+  await statusTask(
+    {
+      configPath,
+      silent: true,
+    },
+    hre
+  )
 
-    spinner.succeed('Executed the deployment.')
-    spinner.start('Wrapping up the deployment...')
-    await postExecutionActions(provider, parsedConfig)
-    spinner.succeed('Deployment finished!')
-  }
+  // if (remoteExecution) {
+  //   await statusTask(
+  //     {
+  //       configPath,
+  //       silent: true,
+  //     },
+  //     hre
+  //   )
+  // } else {
+  //   spinner.start('Executing the deployment...')
+  //   await hre.run('chugsplash-execute', {
+  //     chugSplashManager: ChugSplashManager,
+  //     bundleId,
+  //     bundle,
+  //     parsedConfig,
+  //     executor: signer,
+  //     silent: true,
+  //   })
+  //   spinner.succeed('Executed the deployment.')
+  //   spinner.start('Wrapping up the deployment...')
+  //   await postExecutionActions(provider, parsedConfig)
+  //   spinner.succeed('Deployment finished!')
+  // }
+
+  console.log('finishing...')
 
   displayDeploymentTable(parsedConfig, silent)
   chugsplashLog(`${parsedConfig.options.projectName} deployed!`, silent)

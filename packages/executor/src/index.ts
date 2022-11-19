@@ -16,6 +16,7 @@ import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
 export * from './utils'
 
 type Options = {
+  url: string
   network: string
   privateKey: string
   amplitudeKey: string
@@ -28,7 +29,7 @@ type State = {
   wallet: ethers.Wallet
   lastBlockNumber: number
   amplitudeClient: Amplitude.NodeClient
-  provider: ethers.providers.BaseProvider
+  provider: ethers.providers.Provider
 }
 
 // TODO:
@@ -45,9 +46,15 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       loopIntervalMs: 1000,
       options,
       optionsSpec: {
+        url: {
+          desc: 'network for the chain to run the executor on',
+          validator: validators.str,
+          default: 'http://localhost:8545',
+        },
         network: {
           desc: 'network for the chain to run the executor on',
           validator: validators.str,
+          default: 'localhost',
         },
         privateKey: {
           desc: 'private key used for deployments',
@@ -69,7 +76,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    this.state.provider = ethers.getDefaultProvider(this.options.network)
+    this.state.provider = ethers.getDefaultProvider(this.options.url)
     this.state.registry = new ethers.Contract(
       reg,
       ChugSplashRegistryABI,
@@ -83,11 +90,14 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   }
 
   async main() {
+    console.log('looping')
     // Find all active upgrades that have not yet been executed in blocks after the stored hash
     const approvalAnnouncementEvents = await this.state.registry.queryFilter(
       this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
       this.state.lastBlockNumber + 1
     )
+
+    console.log(approvalAnnouncementEvents)
 
     // If none found, return
     if (approvalAnnouncementEvents.length === 0) {
@@ -149,6 +159,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         })
         this.logger.info('Successfully executed')
       } catch (e) {
+        console.error(e)
         // log error and continue
         this.logger.error('Error: execution error', e, canonicalConfig.options)
         continue

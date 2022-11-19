@@ -459,7 +459,7 @@ export const chugSplashExecuteTask = async (
     // action. We then divide this quantity by 2 to ensure that we're not approaching the block
     // gas limit. For example, a network with a 30 million block gas limit would result in a
     // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
-    const { gasLimit: blockGasLimit } = await hre.ethers.provider.getBlock(
+    const { gasLimit: blockGasLimit } = await executor.provider.getBlock(
       'latest'
     )
     const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
@@ -971,7 +971,6 @@ export const statusTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, silent } = args
-
   //   if (hre.network.name === 'hardhat') {
   //     throw new Error(
   //       `Cannot check the status of deployments on the in-process Hardhat network.
