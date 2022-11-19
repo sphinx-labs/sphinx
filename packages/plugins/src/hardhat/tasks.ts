@@ -32,6 +32,8 @@ import {
   getCreationCode,
   getImmutableVariables,
   chugsplashFetchSubtask,
+  getExecutionAmountToSendPlusBuffer,
+  getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
 import {
   ChugSplashManagerABI,
@@ -53,6 +55,7 @@ import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
+  getFinalDeploymentTxnHash,
 } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
 import {
@@ -66,10 +69,6 @@ import {
   errorProjectNotRegistered,
   successfulProposalMessage,
 } from '../messages'
-import {
-  getExecutionAmountPlusBuffer,
-  getOwnerBalanceInChugSplashManager,
-} from './fund'
 import { monitorRemoteExecution, postExecutionActions } from './execution'
 
 // Load environment variables from .env
@@ -92,7 +91,7 @@ export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_TEST_REMOTE_EXECUTION = 'test-remote-execution'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
-export const TASK_CHUGSPLASH_STATUS = 'chugsplash-status'
+export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
@@ -347,8 +346,8 @@ with a name other than ${parsedConfig.options.projectName}`
 
     // Get the amount that the user must send in order to execute the bundle including a buffer in
     // case the gas price increases during execution.
-    const executionAmountPlusBuffer = await getExecutionAmountPlusBuffer(
-      hre,
+    const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
+      hre.ethers.provider,
       parsedConfig
     )
 
@@ -395,7 +394,7 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
-export const chugSplashExecuteTask = async (
+export const executeTask = async (
   args: {
     chugSplashManager: Contract
     bundleId: string
@@ -403,6 +402,7 @@ export const chugSplashExecuteTask = async (
     parsedConfig: ChugSplashConfig
     executor: ethers.Signer
     silent: boolean
+    isLocalExecution: boolean
     networkName?: string
   },
   hre?: HardhatRuntimeEnvironment
@@ -414,6 +414,8 @@ export const chugSplashExecuteTask = async (
     parsedConfig,
     executor,
     silent,
+    isLocalExecution,
+    networkName,
   } = args
 
   const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
@@ -511,13 +513,17 @@ export const chugSplashExecuteTask = async (
 
   // At this point, the bundle has been completed.
 
-  // Withdraw any debt owed to the executor.
-  const executorDebt = await chugSplashManager.debt(executorAddress)
-  if (executorDebt.gt(0)) {
-    await (await chugSplashManager.claimExecutorPayment()).wait()
+  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    chugSplashManager,
+    bundleId
+  )
+
+  if (isLocalExecution) {
+    await postExecutionActions(hre.ethers.provider, parsedConfig)
+    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
   }
 
-  const network = hre ? hre.network.name : args.networkName
+  const network = hre ? hre.network.name : networkName
   displayDeploymentTable(parsedConfig, silent)
   bundleState.status === ChugSplashBundleStatus.APPROVED
     ? chugsplashLog(
@@ -553,7 +559,11 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
   )
   .addParam('executor', 'Wallet of the executor', undefined, types.any)
   .addFlag('silent', "Hide ChugSplash's output")
-  .setAction(chugSplashExecuteTask)
+  .addFlag(
+    'isLocalExecution',
+    "True if execution is occurring on the user's local machine"
+  )
+  .setAction(executeTask)
 
 export const chugsplashApproveTask = async (
   args: {
@@ -611,7 +621,7 @@ npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
     spinner.succeed(`Project has already been approved. It should be executed shortly.
 No funds were sent. Run the following command to monitor its status:
 
-npx hardhat chugsplash-status --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-monitor --network ${hre.network.name} ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(
       `Project was already completed on ${hre.network.name}. No funds were sent.`
@@ -639,13 +649,12 @@ Please wait a couple minutes then try again.`
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
     if (remoteExecution && !skipMonitorStatus) {
+      spinner.start('The deployment is being executed. This may take a moment.')
       const finalDeploymentTxnHash = await monitorRemoteExecution(
         hre,
         parsedConfig,
-        bundleId,
-        silent
+        bundleId
       )
-      spinner.start('Getting deployment info...')
       await postExecutionActions(provider, parsedConfig)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
@@ -962,7 +971,7 @@ subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
     }
   )
 
-export const statusTask = async (
+export const monitorTask = async (
   args: {
     configPath: string
     silent: boolean
@@ -1029,18 +1038,22 @@ approved for execution on ${hre.network.name}.`
       `Project was already cancelled on ${hre.network.name}. Please propose a new
 project with a name other than ${parsedConfig.options.projectName}`
     )
-  } else {
-    // The project is either in the `APPROVED` or `COMPLETED` state.
+  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+    spinner.start(
+      'The deployment was already executed. Performing cleanup functions...'
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    spinner.start(
+      'The deployment is currently being executed. This may take a moment.'
+    )
 
     const finalDeploymentTxnHash = await monitorRemoteExecution(
       hre,
       parsedConfig,
-      bundleId,
-      false
+      bundleId
     )
     await postExecutionActions(provider, parsedConfig)
     await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-    displayDeploymentTable(parsedConfig, silent)
 
     bundleState.status === ChugSplashBundleStatus.APPROVED
       ? spinner.succeed(
@@ -1049,16 +1062,18 @@ project with a name other than ${parsedConfig.options.projectName}`
       : spinner.succeed(
           `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
         )
+
+    displayDeploymentTable(parsedConfig, silent)
   }
 }
 
-task(TASK_CHUGSPLASH_STATUS)
+task(TASK_CHUGSPLASH_MONITOR)
   .setDescription('Displays the status of a ChugSplash bundle')
   .addPositionalParam(
     'configPath',
     'Path to the ChugSplash config file to monitor'
   )
-  .setAction(statusTask)
+  .setAction(monitorTask)
 
 export const chugsplashFundTask = async (
   args: {
@@ -1122,20 +1137,38 @@ task(TASK_TEST_REMOTE_EXECUTION)
     'configPath',
     'Path to the ChugSplash config file to deploy'
   )
+  .addFlag('silent', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         configPath: string
         noCompile: boolean
+        silent: boolean
       },
       hre: HardhatRuntimeEnvironment
     ) => {
-      const { configPath, noCompile } = args
+      const { configPath, noCompile, silent } = args
+
+      if (hre.network.name !== 'localhost') {
+        throw new Error(
+          `You can only test remote execution on localhost. Got network: ${hre.network.name}`
+        )
+      }
+
+      const spinner = ora({ isSilent: silent })
 
       const signer = hre.ethers.provider.getSigner()
       await deployChugSplashPredeploys(hre, signer)
-      await deployChugSplashConfig(hre, configPath, false, true, '', noCompile)
+      await deployChugSplashConfig(
+        hre,
+        configPath,
+        false,
+        true,
+        '',
+        noCompile,
+        spinner
+      )
     }
   )
 
@@ -1209,20 +1242,20 @@ task(TASK_TEST)
 
 task(TASK_RUN)
   .addFlag(
-    'disableChugsplash',
-    "Completely disable all of ChugSplash's activity."
+    'enableChugsplash',
+    'Deploy all ChugSplash configs before executing your script.'
   )
   .setAction(
     async (
       args: {
-        disableChugsplash: boolean
+        enableChugsplash: boolean
         noCompile: boolean
       },
       hre: any,
       runSuper
     ) => {
-      const { disableChugsplash, noCompile } = args
-      if (!disableChugsplash) {
+      const { enableChugsplash, noCompile } = args
+      if (enableChugsplash) {
         const signer = hre.ethers.provider.getSigner()
         await deployChugSplashPredeploys(hre, signer)
         await deployAllChugSplashConfigs(hre, true, '', noCompile)

@@ -207,11 +207,21 @@ export const displayDeploymentTable = (
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) =>
         (deployments[i + 1] = {
-          Reference: referenceName,
+          'Reference Name': referenceName,
           Contract: contractConfig.contract,
           Address: contractConfig.address,
         })
     )
     console.table(deployments)
+  }
+}
+
+export const claimExecutorPayment = async (
+  executor: Signer,
+  ChugSplashManager: Contract
+) => {
+  const executorDebt = await ChugSplashManager.debt(await executor.getAddress())
+  if (executorDebt.gt(0)) {
+    await (await ChugSplashManager.claimExecutorPayment()).wait()
   }
 }
