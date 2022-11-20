@@ -75,7 +75,6 @@ export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
-export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
 
 // public tasks
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
