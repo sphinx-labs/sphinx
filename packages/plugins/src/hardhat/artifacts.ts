@@ -7,6 +7,9 @@ import {
   createDeploymentFolderForNetwork,
   writeDeploymentArtifact,
   getConstructorArgs,
+  ChugSplashInputs,
+  CompilerInput,
+  getMinimumCompilerInput,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
@@ -101,6 +104,55 @@ export const getDeployedBytecode = async (
 ): Promise<string> => {
   const deployedBytecode = await provider.getCode(address)
   return deployedBytecode
+}
+
+/**
+ * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
+ * config.
+ *
+ * @param chugsplashInputs ChugSplash input array.
+ * @param parsedConfig Parsed ChugSplash config.
+ * @returns Filtered ChugSplash input array.
+ */
+export const filterChugSplashInputs = async (
+  chugsplashInputs: ChugSplashInputs,
+  parsedConfig: ChugSplashConfig
+): Promise<ChugSplashInputs> => {
+  const filteredChugSplashInputs: ChugSplashInputs = []
+  for (const chugsplashInput of chugsplashInputs) {
+    let filteredSources: CompilerInput['sources'] = {}
+    for (const contractConfig of Object.values(parsedConfig.contracts)) {
+      const { sourceName, contractName } = getContractArtifact(
+        contractConfig.contract
+      )
+      const { solcVersion, output: compilerOutput } = await getBuildInfo(
+        sourceName,
+        contractName
+      )
+      if (solcVersion === chugsplashInput.solcVersion) {
+        const { sources: newSources } = getMinimumCompilerInput(
+          chugsplashInput.input,
+          compilerOutput.sources,
+          sourceName
+        )
+        // Merge the existing sources with the new sources, which are required to compile the
+        // current `sourceName`.
+        filteredSources = { ...filteredSources, ...newSources }
+      }
+    }
+    const filteredCompilerInput: CompilerInput = {
+      language: chugsplashInput.input.language,
+      settings: chugsplashInput.input.settings,
+      sources: filteredSources,
+    }
+    filteredChugSplashInputs.push({
+      solcVersion: chugsplashInput.solcVersion,
+      solcLongVersion: chugsplashInput.solcLongVersion,
+      input: filteredCompilerInput,
+    })
+  }
+
+  return filteredChugSplashInputs
 }
 
 export const createDeploymentArtifacts = async (

@@ -94,7 +94,7 @@ export const mapContractAstIdsToSourceNames = (
   const contractAstIdsToSourceNames: { [astId: number]: string } = {}
   for (const [sourceName, { ast }] of Object.entries(outputSources) as any) {
     for (const node of ast.nodes) {
-      if (node.canonicalName !== undefined) {
+      if (node.name !== undefined) {
         contractAstIdsToSourceNames[node.id] = sourceName
       }
     }

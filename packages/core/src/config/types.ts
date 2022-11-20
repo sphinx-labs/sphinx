@@ -43,9 +43,13 @@ export type ContractConfig = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalChugSplashConfig extends ChugSplashConfig {
-  inputs: Array<{
-    solcVersion: string
-    solcLongVersion: string
-    input: CompilerInput
-  }>
+  inputs: ChugSplashInputs
+}
+
+export type ChugSplashInputs = Array<ChugSplashInput>
+
+export type ChugSplashInput = {
+  solcVersion: string
+  solcLongVersion: string
+  input: CompilerInput
 }
