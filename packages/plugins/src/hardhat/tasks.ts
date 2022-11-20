@@ -800,12 +800,6 @@ export const monitorTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, silent } = args
-  //   if (hre.network.name === 'hardhat') {
-  //     throw new Error(
-  //       `Cannot check the status of deployments on the in-process Hardhat network.
-  // Did you forget the --network flag?`
-  //     )
-  //   }
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
