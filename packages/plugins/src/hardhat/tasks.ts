@@ -49,6 +49,7 @@ import {
   getCreationCode,
   getImmutableVariables,
   getStorageLayout,
+  filterChugSplashInputs,
 } from './artifacts'
 import {
   deployChugSplashConfig,
@@ -773,7 +774,8 @@ export const chugsplashCommitSubtask = async (
   // We'll need this later
   const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
 
-  // Extract compiler inputs
+  // Get the inputs from the build info folder. This also filters out build info
+  // files that aren't used in this deployment.
   const inputs = fs
     .readdirSync(buildInfoFolder)
     .filter((file) => {
@@ -803,10 +805,13 @@ export const chugsplashCommitSubtask = async (
       }
     })
 
+  // Filter out any sources in the ChugSplash inputs that aren't needed in this deployment.
+  const filteredInputs = await filterChugSplashInputs(inputs, parsedConfig)
+
   const ipfsData = JSON.stringify(
     {
       ...parsedConfig,
-      inputs,
+      inputs: filteredInputs,
     },
     null,
     2
