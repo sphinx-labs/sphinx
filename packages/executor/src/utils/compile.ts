@@ -160,12 +160,17 @@ export const getArtifactsFromParsedCanonicalConfig = async (
  * @returns Compiled ChugSplashBundle.
  */
 export const compileRemoteBundle = async (
-  configUri: string
+  configUri: string,
+  canonicalConfig?: CanonicalChugSplashConfig
 ): Promise<{
   bundle: ChugSplashActionBundle
   canonicalConfig: CanonicalChugSplashConfig
 }> => {
-  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  // canonicalConfig is passed in when executing a local deployment
+  if (!canonicalConfig) {
+    canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  }
+
   const bundle = await bundleRemoteSubtask({ canonicalConfig })
   return { bundle, canonicalConfig }
 }

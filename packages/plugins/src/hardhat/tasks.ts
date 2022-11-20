@@ -174,6 +174,7 @@ export const chugsplashDeployTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
 
+  const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   await deployChugSplashPredeploys(hre, hre.ethers.provider.getSigner())
 
   spinner.succeed('ChugSplash is ready to go.')
@@ -182,7 +183,7 @@ export const chugsplashDeployTask = async (
     hre,
     configPath,
     silent,
-    true,
+    remoteExecution,
     ipfsUrl,
     noCompile,
     spinner
@@ -532,6 +533,7 @@ export const chugsplashCommitSubtask = async (
   bundle: ChugSplashActionBundle
   configUri: string
   bundleId: string
+  canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const { parsedConfig, ipfsUrl, commitToIpfs, noCompile } = args
 
@@ -578,14 +580,12 @@ export const chugsplashCommitSubtask = async (
       }
     })
 
-  const ipfsData = JSON.stringify(
-    {
-      ...parsedConfig,
-      inputs,
-    },
-    null,
-    2
-  )
+  const canonicalConfig: CanonicalChugSplashConfig = {
+    ...parsedConfig,
+    inputs,
+  }
+
+  const ipfsData = JSON.stringify(canonicalConfig, null, 2)
 
   let ipfsHash
   if (!commitToIpfs) {
@@ -632,7 +632,7 @@ IPFS_API_KEY_SECRET: ...
     configUri
   )
 
-  return { bundle, configUri, bundleId }
+  return { bundle, configUri, bundleId, canonicalConfig }
 }
 
 subtask(TASK_CHUGSPLASH_COMMIT)

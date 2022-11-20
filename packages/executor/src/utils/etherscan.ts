@@ -69,7 +69,6 @@ export const verifyChugSplashConfig = async (
     ChugSplashManagerABI,
     provider
   )
-
   // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
   const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
     canonicalConfig.options.projectName
@@ -97,7 +96,6 @@ export const verifyChugSplashConfig = async (
       sourceName,
       contractName
     )
-
     const implementationAddress = await ChugSplashManager.implementations(
       referenceName
     )

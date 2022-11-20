@@ -112,15 +112,16 @@ export const deployChugSplashConfig = async (
   }
 
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri } = await chugsplashCommitSubtask(
-    {
-      parsedConfig,
-      ipfsUrl,
-      commitToIpfs: false,
-      noCompile,
-    },
-    hre
-  )
+  const { bundleId, bundle, configUri, canonicalConfig } =
+    await chugsplashCommitSubtask(
+      {
+        parsedConfig,
+        ipfsUrl,
+        commitToIpfs: false,
+        noCompile,
+      },
+      hre
+    )
 
   if (noCompile) {
     spinner.succeed('Loaded the deployment info.')
@@ -200,7 +201,7 @@ export const deployChugSplashConfig = async (
 
   spinner.start('The deployment is being executed. This may take a moment.')
 
-  // If executing locally, then startup executor with HRE provider
+  // If executing locally, then startup executor with HRE provider and pass in canonical config
   if (!remoteExecution) {
     const executor = new ChugSplashExecutor()
     executor.init()
@@ -208,10 +209,11 @@ export const deployChugSplashConfig = async (
       {
         privateKey: process.env.PRIVATE_KEY,
         network: 'hardhat',
-        logLevel: 'info',
+        logLevel: silent ? 'info' : 'error',
         local: true,
       },
-      provider
+      provider,
+      canonicalConfig
     )
   }
 

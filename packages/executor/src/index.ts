@@ -16,6 +16,7 @@ import {
   claimExecutorPayment,
   hasSufficientFundsForExecution,
   executeTask,
+  CanonicalChugSplashConfig,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
@@ -30,7 +31,6 @@ type Options = {
   privateKey: string
   amplitudeKey: string
   logLevel: LogLevel
-  local: boolean
 }
 
 type Metrics = {}
@@ -42,7 +42,6 @@ type State = {
   lastBlockNumber: number
   amplitudeClient: Amplitude.NodeClient
   wallet: ethers.Wallet
-  local: boolean
 }
 
 // TODO: Add logging agent for docker container and connect to a managed sink such as logz.io
@@ -59,43 +58,41 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       options,
       optionsSpec: {
         url: {
-          desc: 'network for the chain to run the executor on',
+          desc: 'Target deployment network access url',
           validator: validators.str,
           default: 'http://localhost:8545',
         },
         network: {
-          desc: 'network for the chain to run the executor on',
+          desc: 'Target deployment network name',
           validator: validators.str,
           default: 'localhost',
         },
         privateKey: {
-          desc: 'private key used for deployments',
+          desc: 'Private key for signing deployment transactions',
           validator: validators.str,
         },
         amplitudeKey: {
-          desc: 'API key to send data to Amplitude',
+          desc: 'Amplitude API key for analytics',
           validator: validators.str,
           default: 'disabled',
         },
         logLevel: {
-          desc: 'Logging level for executor',
+          desc: 'Executor log level',
           validator: validators.str,
           default: 'error',
-        },
-        local: {
-          desc: 'is running locally',
-          validator: validators.bool,
-          default: false,
         },
       },
       metricsSpec: {},
     })
   }
 
-  async init() {
-    this.setup(this.options)
-  }
-
+  /**
+   * Passing options into BaseServiceV2 when running programmatically does not work as expected.
+   *
+   * So this setup function is shared between the init() and main() functions and allows the user
+   * to pass options into the main() function, or run the executor as a service and pass in options using
+   * environment variables.
+   **/
   async setup(
     options: Partial<Options>,
     provider?: ethers.providers.JsonRpcProvider
@@ -126,14 +123,19 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       name: 'Logger',
       level: options.logLevel,
     })
+  }
 
-    this.state.local = options.local
+  async init() {
+    this.setup(this.options)
   }
 
   async main(
     options?: Partial<Options>,
-    provider?: ethers.providers.JsonRpcProvider
+    provider?: ethers.providers.JsonRpcProvider,
+    localCanonicalConfig?: CanonicalChugSplashConfig
   ) {
+    // Setup state if options were provided.
+    // Necessary to allow the user to pass in options when running the executor programmatically.
     if (options) {
       this.setup(options, provider)
     }
@@ -191,9 +193,11 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           manager.filters.ChugSplashBundleProposed(activeBundleId)
         )
 
-        // Compile the bundle using the config URI.
+        // Compile the bundle using either the provided localCanonicalConfig (when running the executor from within the ChugSplash plugin),
+        // or using the Config URI
         const { bundle, canonicalConfig } = await compileRemoteBundle(
-          proposalEvent.args.configUri
+          proposalEvent.args.configUri,
+          localCanonicalConfig
         )
 
         // ensure compiled bundle matches proposed bundle
