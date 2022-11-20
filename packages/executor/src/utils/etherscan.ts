@@ -7,6 +7,7 @@ import {
   getChugSplashManagerProxyAddress,
   getProxyAddress,
   parseChugSplashConfig,
+  getMinimumCompilerInput,
 } from '@chugsplash/core'
 import {
   getConstructorArgs,
@@ -101,8 +102,15 @@ export const verifyChugSplashConfig = async (
       referenceName
     )
 
-    const compilerInput = canonicalConfig.inputs.find((compilerInputs) =>
-      Object.keys(compilerInputs.input.sources).includes(sourceName)
+    const { input, solcVersion } = canonicalConfig.inputs.find(
+      (compilerInput) =>
+        Object.keys(compilerInput.input.sources).includes(sourceName)
+    )
+
+    const minimumCompilerInput = getMinimumCompilerInput(
+      input,
+      artifact.compilerOutput.sources,
+      sourceName
     )
 
     // Verify the implementation
@@ -116,8 +124,8 @@ export const verifyChugSplashConfig = async (
         contractName,
         abi,
         etherscanApiKey,
-        compilerInput.input,
-        compilerInput.solcVersion,
+        minimumCompilerInput,
+        solcVersion,
         constructorArgValues
       )
     } catch (err) {
