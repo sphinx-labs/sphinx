@@ -15,7 +15,6 @@ import {
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
-  claimExecutorPayment,
   getExecutionAmountToSendPlusBuffer,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -32,10 +31,10 @@ import {
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
-  executeTask,
   monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
+import { postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -201,18 +200,22 @@ export const deployChugSplashConfig = async (
 
   spinner.start('The deployment is being executed. This may take a moment.')
 
-  const executor = new ChugSplashExecutor()
-  executor.init()
-  executor.main(
-    {
-      privateKey: process.env.PRIVATE_KEY,
-      network: 'hardhat',
-      logLevel: silent ? 'error' : 'info',
-      local: true,
-    },
-    provider
-  )
+  // If executing locally, then startup executor with HRE provider
+  if (!remoteExecution) {
+    const executor = new ChugSplashExecutor()
+    executor.init()
+    executor.main(
+      {
+        privateKey: process.env.PRIVATE_KEY,
+        network: 'hardhat',
+        logLevel: 'info',
+        local: true,
+      },
+      provider
+    )
+  }
 
+  // Monitor the deployment regardless
   await monitorTask(
     {
       configPath,
@@ -221,30 +224,17 @@ export const deployChugSplashConfig = async (
     hre
   )
 
-  // if (remoteExecution) {
-  //   await monitorTask(
-  //     {
-  //       configPath,
-  //       silent: true,
-  //     },
-  //     hre
-  //   )
-  // } else {
-  //   await executeTask(
-  //     {
-  //       chugSplashManager: ChugSplashManager,
-  //       bundleId,
-  //       bundle,
-  //       parsedConfig,
-  //       executor: signer,
-  //       silent: true,
-  //       isLocalExecution: true,
-  //     },
-  //     hre
-  //   )
-  //   await claimExecutorPayment(signer, ChugSplashManager)
-  // }
+  // If executing locally, complete post execution actions
+  if (!remoteExecution) {
+    const finalTxnHash = await getFinalDeploymentTxnHash(
+      ChugSplashManager,
+      bundleId
+    )
+    await postExecutionActions(provider, parsedConfig)
+    await createDeploymentArtifacts(hre, parsedConfig, finalTxnHash)
+  }
 
+  // At this point, the bundle has been completed.
   spinner.succeed(`${parsedConfig.options.projectName} deployed!`)
   displayDeploymentTable(parsedConfig, silent)
 }

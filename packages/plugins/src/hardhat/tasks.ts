@@ -23,7 +23,6 @@ import {
   parseChugSplashConfig,
   isSetImplementationAction,
   fromRawChugSplashAction,
-  chugsplashLog,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
@@ -55,7 +54,6 @@ import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
-  getFinalDeploymentTxnHash,
 } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
 import {
@@ -394,29 +392,13 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
-export const executeTask = async (
-  args: {
-    chugSplashManager: Contract
-    bundleId: string
-    bundle: ChugSplashActionBundle
-    parsedConfig: ChugSplashConfig
-    executor: ethers.Signer
-    silent: boolean
-    isLocalExecution: boolean
-    networkName?: string
-  },
-  hre?: HardhatRuntimeEnvironment
-) => {
-  const {
-    chugSplashManager,
-    bundleId,
-    bundle,
-    parsedConfig,
-    executor,
-    silent,
-    isLocalExecution,
-    networkName,
-  } = args
+export const executeTask = async (args: {
+  chugSplashManager: Contract
+  bundleId: string
+  bundle: ChugSplashActionBundle
+  executor: ethers.Signer
+}) => {
+  const { chugSplashManager, bundleId, bundle, executor } = args
 
   const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
     bundleId
@@ -510,30 +492,6 @@ export const executeTask = async (
       ).wait()
     }
   }
-
-  // At this point, the bundle has been completed.
-
-  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
-    chugSplashManager,
-    bundleId
-  )
-
-  if (isLocalExecution) {
-    await postExecutionActions(hre.ethers.provider, parsedConfig)
-    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-  }
-
-  const network = hre ? hre.network.name : networkName
-  displayDeploymentTable(parsedConfig, silent)
-  bundleState.status === ChugSplashBundleStatus.APPROVED
-    ? chugsplashLog(
-        `Deployed: ${parsedConfig.options.projectName} on ${network}.`,
-        silent
-      )
-    : chugsplashLog(
-        `${parsedConfig.options.projectName} was already deployed on ${network}.`,
-        silent
-      )
 }
 
 subtask(TASK_CHUGSPLASH_EXECUTE)
@@ -551,18 +509,7 @@ subtask(TASK_CHUGSPLASH_EXECUTE)
     types.string
   )
   .addParam('bundle', 'The bundle to be executed', undefined, types.any)
-  .addParam(
-    'parsedConfig',
-    'Parsed ChugSplash configuration',
-    undefined,
-    types.any
-  )
   .addParam('executor', 'Wallet of the executor', undefined, types.any)
-  .addFlag('silent', "Hide ChugSplash's output")
-  .addFlag(
-    'isLocalExecution',
-    "True if execution is occurring on the user's local machine"
-  )
   .setAction(executeTask)
 
 export const chugsplashApproveTask = async (

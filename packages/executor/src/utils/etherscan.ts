@@ -39,26 +39,7 @@ import { EthereumProvider } from 'hardhat/types'
 import { request } from 'undici'
 
 import { getArtifactsFromParsedCanonicalConfig } from './compile'
-
-const customChains = [
-  {
-    network: 'optimisticGoerli',
-    chainId: 420,
-    urls: {
-      apiURL: 'https://api-goerli-optimism.etherscan.io/api',
-      browserURL: 'https://goerli-optimism.etherscan.io',
-    },
-  },
-]
-
-const apiKey = {
-  optimisticGoerli: process.env.OPT_ETHERSCAN_API_KEY
-    ? process.env.OPT_ETHERSCAN_API_KEY
-    : '',
-  goerli: process.env.ETH_ETHERSCAN_API_KEY
-    ? process.env.ETH_ETHERSCAN_API_KEY
-    : '',
-}
+import { etherscanApiKey as apiKey, customChains } from './constants'
 
 export interface EtherscanResponseBody {
   status: string

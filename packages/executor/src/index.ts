@@ -222,11 +222,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               chugSplashManager: manager,
               bundleId: activeBundleId,
               bundle,
-              parsedConfig: canonicalConfig,
               executor: this.state.wallet,
-              silent: true,
-              isLocalExecution: this.state.local,
-              networkName: this.options.network,
             })
             this.logger.info('Successfully executed')
           } catch (e) {
