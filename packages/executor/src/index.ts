@@ -15,10 +15,10 @@ import {
 import {
   claimExecutorPayment,
   hasSufficientFundsForExecution,
+  executeTask,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
-import { executeTask } from '@chugsplash/plugins'
 
 import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
 
@@ -281,4 +281,9 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.state.eventsQueue.pop()
     }
   }
+}
+
+if (require.main === module) {
+  const service = new ChugSplashExecutor()
+  service.run()
 }

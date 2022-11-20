@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
@@ -21,23 +21,17 @@ import {
   registerChugSplashProject,
   getChugSplashRegistry,
   parseChugSplashConfig,
-  isSetImplementationAction,
-  fromRawChugSplashAction,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
   getProjectOwnerAddress,
-  isDeployImplementationAction,
   getCreationCode,
   getImmutableVariables,
   chugsplashFetchSubtask,
   getExecutionAmountToSendPlusBuffer,
   getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
-import {
-  ChugSplashManagerABI,
-  EXECUTOR_BOND_AMOUNT,
-} from '@chugsplash/contracts'
+import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
@@ -391,126 +385,6 @@ task(TASK_CHUGSPLASH_PROPOSE)
   )
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
-
-export const executeTask = async (args: {
-  chugSplashManager: Contract
-  bundleId: string
-  bundle: ChugSplashActionBundle
-  executor: ethers.Signer
-}) => {
-  const { chugSplashManager, bundleId, bundle, executor } = args
-
-  const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
-    bundleId
-  )
-  const executorAddress = await executor.getAddress()
-
-  if (
-    bundleState.status !== ChugSplashBundleStatus.APPROVED &&
-    bundleState.status !== ChugSplashBundleStatus.COMPLETED
-  ) {
-    throw new Error(`Bundle is not approved or completed.`)
-  }
-
-  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      await (
-        await chugSplashManager.claimBundle({
-          value: EXECUTOR_BOND_AMOUNT,
-        })
-      ).wait()
-    } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`Another executor has already claimed the bundle.`)
-    }
-
-    // Execute actions that have not been executed yet.
-    let currActionsExecuted = bundleState.actionsExecuted.toNumber()
-
-    // The actions have already been sorted in the order: SetStorage,
-    // DeployImplementation, SetImplementation. Here, we get the indexes
-    // of the first DeployImplementation and SetImplementation action.
-    const firstDeployImplIndex = bundle.actions.findIndex((action) =>
-      isDeployImplementationAction(fromRawChugSplashAction(action.action))
-    )
-    const firstSetImplIndex = bundle.actions.findIndex((action) =>
-      isSetImplementationAction(fromRawChugSplashAction(action.action))
-    )
-
-    // We execute the SetStorage actions in batches, which have a size based on the maximum
-    // block gas limit. This speeds up execution considerably. To get the batch size, we divide
-    // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
-    // action. We then divide this quantity by 2 to ensure that we're not approaching the block
-    // gas limit. For example, a network with a 30 million block gas limit would result in a
-    // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
-    const { gasLimit: blockGasLimit } = await executor.provider.getBlock(
-      'latest'
-    )
-    const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
-
-    // Execute SetStorage actions in batches.
-    const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
-    for (
-      let i = currActionsExecuted;
-      i < firstDeployImplIndex;
-      i += batchSize
-    ) {
-      const setStorageBatch = setStorageActions.slice(i, i + batchSize)
-      await (
-        await chugSplashManager.executeMultipleActions(
-          setStorageBatch.map((action) => action.action),
-          setStorageBatch.map((action) => action.proof.actionIndex),
-          setStorageBatch.map((action) => action.proof.siblings)
-        )
-      ).wait()
-      currActionsExecuted += setStorageBatch.length
-    }
-
-    // Execute DeployImplementation actions in series. We execute them one by one since each one
-    // costs significantly more gas than a setStorage action (usually in the millions).
-    for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
-      const action = bundle.actions[i]
-      await (
-        await chugSplashManager.executeChugSplashAction(
-          action.action,
-          action.proof.actionIndex,
-          action.proof.siblings
-        )
-      ).wait()
-      currActionsExecuted += 1
-    }
-
-    if (currActionsExecuted === firstSetImplIndex) {
-      // Complete the bundle by executing all the SetImplementation actions in a single
-      // transaction.
-      const setImplActions = bundle.actions.slice(firstSetImplIndex)
-      await (
-        await chugSplashManager.completeChugSplashBundle(
-          setImplActions.map((action) => action.action),
-          setImplActions.map((action) => action.proof.actionIndex),
-          setImplActions.map((action) => action.proof.siblings)
-        )
-      ).wait()
-    }
-  }
-}
-
-subtask(TASK_CHUGSPLASH_EXECUTE)
-  .setDescription('Executes an approved bundle.')
-  .addParam(
-    'chugSplashManager',
-    'ChugSplashManager Contract',
-    undefined,
-    types.any
-  )
-  .addParam(
-    'bundleId',
-    'ID of the bundle to be executed',
-    undefined,
-    types.string
-  )
-  .addParam('bundle', 'The bundle to be executed', undefined, types.any)
-  .addParam('executor', 'Wallet of the executor', undefined, types.any)
-  .setAction(executeTask)
 
 export const chugsplashApproveTask = async (
   args: {
