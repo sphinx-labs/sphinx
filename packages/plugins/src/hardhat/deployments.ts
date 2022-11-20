@@ -210,7 +210,6 @@ export const deployChugSplashConfig = async (
         privateKey: process.env.PRIVATE_KEY,
         network: 'hardhat',
         logLevel: silent ? 'info' : 'error',
-        local: true,
       },
       provider,
       canonicalConfig
