@@ -1,3 +1,5 @@
+import { CompilerInput } from '../languages'
+
 /**
  * Allowable types for variables.
  */
@@ -46,19 +48,4 @@ export interface CanonicalChugSplashConfig extends ChugSplashConfig {
     solcLongVersion: string
     input: CompilerInput
   }>
-}
-
-export interface CompilerInput {
-  language: string
-  sources: { [sourceName: string]: { content: string } }
-  settings: {
-    optimizer: { runs?: number; enabled?: boolean }
-    metadata?: { useLiteralContent: boolean }
-    outputSelection: {
-      [sourceName: string]: {
-        [contractName: string]: string[]
-      }
-    }
-    evmVersion?: string
-  }
 }
