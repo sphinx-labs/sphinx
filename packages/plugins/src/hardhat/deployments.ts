@@ -207,7 +207,7 @@ export const deployChugSplashConfig = async (
     executor.init()
     executor.main(
       {
-        privateKey: process.env.PRIVATE_KEY,
+        privateKey: hre.network.config.accounts[0],
         network: 'hardhat',
         logLevel: silent ? 'info' : 'error',
       },
