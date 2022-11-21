@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import {
   CanonicalChugSplashConfig,
   CompilerInput,
@@ -36,7 +36,6 @@ import {
   ChugSplashManagerABI,
   CHUGSPLASH_MANAGER_ADDRESS,
 } from '@chugsplash/contracts'
-import { EthereumProvider } from 'hardhat/types'
 import { request } from 'undici'
 
 import { getArtifactsFromParsedCanonicalConfig } from './compile'
@@ -52,19 +51,19 @@ export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
   configUri: string,
-  provider: ethers.providers.Provider,
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
-    provider as any, // TODO - figure out how to get the types for this to work correctly
+    provider,
     networkName
   )
 
-  const canonicalConfig = await await chugsplashFetchSubtask({ configUri })
+  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
   const artifacts = await getArtifactsFromParsedCanonicalConfig(
     parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
   )
-  const ChugSplashManager = new Contract(
+  const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
     provider
@@ -118,7 +117,7 @@ export const verifyChugSplashConfig = async (
     // Verify the implementation
     try {
       await attemptVerification(
-        provider as any, // TODO - figure out how to get the types for this to work correctly
+        provider,
         networkName,
         etherscanApiEndpoints,
         implementationAddress,
@@ -149,7 +148,7 @@ export const verifyChugSplashConfig = async (
 }
 
 export const attemptVerification = async (
-  provider: EthereumProvider,
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string,
   etherscanApiEndpoints: EtherscanURLs,
   contractAddress: string,
@@ -163,7 +162,8 @@ export const attemptVerification = async (
 ): Promise<EtherscanResponse> => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
-    provider,
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
     networkName
   )
   const deployedBytecode = new Bytecode(deployedBytecodeHex)
@@ -259,7 +259,7 @@ export const attemptVerification = async (
 }
 
 export const getEtherscanInfo = async (
-  provider: EthereumProvider,
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string
 ): Promise<{
   etherscanApiKey: string
@@ -267,7 +267,8 @@ export const getEtherscanInfo = async (
 }> => {
   const { network: verificationNetwork, urls: etherscanApiEndpoints } =
     await getEtherscanEndpoints(
-      provider,
+      // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+      provider as any,
       networkName,
       chainConfig,
       customChains
