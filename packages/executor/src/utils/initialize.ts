@@ -1,101 +1,96 @@
-// Commented this code out because the function is not currently used and creates a circular dependency
-// Plugins imports executor which imports plugins
+import { ethers } from 'ethers'
+import { deployChugSplashPredeploys } from '@chugsplash/core'
+import {
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
+  ChugSplashBootLoaderArtifact,
+  ProxyUpdaterArtifact,
+  ProxyArtifact,
+  ChugSplashManagerProxyArtifact,
+  ChugSplashManagerArtifact,
+  ChugSplashRegistryArtifact,
+  DefaultAdapterArtifact,
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  PROXY_UPDATER_ADDRESS,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+  CHUGSPLASH_MANAGER_ADDRESS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  DEFAULT_ADAPTER_ADDRESS,
+  buildInfo,
+} from '@chugsplash/contracts'
 
-// import { ethers } from 'ethers'
-// import { deployChugSplashPredeploys } from '@chugsplash/plugins'
-// import {
-//   CHUGSPLASH_CONSTRUCTOR_ARGS,
-//   ChugSplashBootLoaderArtifact,
-//   ProxyUpdaterArtifact,
-//   ProxyArtifact,
-//   ChugSplashManagerProxyArtifact,
-//   ChugSplashManagerArtifact,
-//   ChugSplashRegistryArtifact,
-//   DefaultAdapterArtifact,
-//   CHUGSPLASH_BOOTLOADER_ADDRESS,
-//   PROXY_UPDATER_ADDRESS,
-//   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-//   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-//   CHUGSPLASH_MANAGER_ADDRESS,
-//   CHUGSPLASH_REGISTRY_ADDRESS,
-//   DEFAULT_ADAPTER_ADDRESS,
-//   buildInfo,
-// } from '@chugsplash/contracts'
-// import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  linkProxyWithImplementation,
+  attemptVerification,
+  getEtherscanInfo,
+} from './etherscan'
 
-// import {
-//   linkProxyWithImplementation,
-//   attemptVerification,
-//   getEtherscanInfo,
-// } from './etherscan'
+export const initializeChugSplashPredeploys = async (
+  provider: ethers.providers.JsonRpcProvider,
+  networkName: string
+) => {
+  await deployChugSplashPredeploys(provider)
 
-// export const initializeChugSplashContracts = async (
-//   hre: HardhatRuntimeEnvironment,
-//   deployer: ethers.Signer,
-//   networkName: string
-// ) => {
-//   await deployChugSplashPredeploys(hre, deployer)
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    provider,
+    networkName
+  )
 
-//   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
-//     deployer.provider as any, // TODO - figure out how to get the types for this to work correctly
-//     networkName
-//   )
+  const contracts = [
+    {
+      artifact: ChugSplashManagerArtifact,
+      address: CHUGSPLASH_MANAGER_ADDRESS,
+    },
+    {
+      artifact: ChugSplashBootLoaderArtifact,
+      address: CHUGSPLASH_BOOTLOADER_ADDRESS,
+    },
+    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
+    {
+      artifact: ChugSplashManagerProxyArtifact,
+      address: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    },
+    {
+      artifact: ChugSplashRegistryArtifact,
+      address: CHUGSPLASH_REGISTRY_ADDRESS,
+    },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+  ]
 
-//   const contracts = [
-//     {
-//       artifact: ChugSplashManagerArtifact,
-//       address: CHUGSPLASH_MANAGER_ADDRESS,
-//     },
-//     {
-//       artifact: ChugSplashBootLoaderArtifact,
-//       address: CHUGSPLASH_BOOTLOADER_ADDRESS,
-//     },
-//     { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
-//     { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
-//     {
-//       artifact: ChugSplashManagerProxyArtifact,
-//       address: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-//     },
-//     {
-//       artifact: ChugSplashRegistryArtifact,
-//       address: CHUGSPLASH_REGISTRY_ADDRESS,
-//     },
-//     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
-//   ]
+  for (const { artifact, address } of contracts) {
+    const { sourceName, contractName, abi } = artifact
 
-//   for (const { artifact, address } of contracts) {
-//     const { sourceName, contractName, abi } = artifact
+    await attemptVerification(
+      provider,
+      networkName,
+      etherscanApiEndpoints,
+      address,
+      sourceName,
+      contractName,
+      abi,
+      etherscanApiKey,
+      buildInfo.input,
+      buildInfo.solcVersion,
+      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
+    )
+  }
 
-//     await attemptVerification(
-//       hre.network.provider,
-//       hre.network.name,
-//       etherscanApiEndpoints,
-//       address,
-//       sourceName,
-//       contractName,
-//       abi,
-//       etherscanApiKey,
-//       buildInfo.input,
-//       buildInfo.solcVersion,
-//       CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
-//     )
-//   }
+  // Link the ChugSplashRegistry's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    'ChugSplashRegistry'
+  )
 
-//   // Link the ChugSplashRegistry's implementation with its proxy
-//   await linkProxyWithImplementation(
-//     etherscanApiEndpoints,
-//     etherscanApiKey,
-//     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-//     CHUGSPLASH_REGISTRY_ADDRESS,
-//     'ChugSplashRegistry'
-//   )
-
-//   // Link the root ChugSplashManager's implementation with its proxy
-//   await linkProxyWithImplementation(
-//     etherscanApiEndpoints,
-//     etherscanApiKey,
-//     ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-//     CHUGSPLASH_MANAGER_ADDRESS,
-//     'ChugSplashManager'
-//   )
-// }
+  // Link the root ChugSplashManager's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    CHUGSPLASH_MANAGER_ADDRESS,
+    'ChugSplashManager'
+  )
+}
