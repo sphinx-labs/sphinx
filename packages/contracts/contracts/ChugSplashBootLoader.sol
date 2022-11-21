@@ -53,6 +53,7 @@ contract ChugSplashBootLoader is Initializable {
      * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
      *                                   denominated as a percentage.
      * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
+     * @param _registryProxy             Address of the ChugSplashRegistry's proxy.
      */
     function initialize(
         address _owner,
@@ -60,21 +61,15 @@ contract ChugSplashBootLoader is Initializable {
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
-        address _managerImplementation
+        address _managerImplementation,
+        address _registryProxy
     ) external initializer {
         // Deploy the ProxyUpdater.
         proxyUpdater = new ProxyUpdater{ salt: bytes32(0) }();
 
-        // Get the address of the ChugSplashRegistry's proxy that *will* be deployed.
-        address registryProxyAddress = Create2.compute(
-            address(this),
-            bytes32(0),
-            abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
-        );
-
         // Deploy the root ChugSplashManager's proxy.
         rootManagerProxy = new ChugSplashManagerProxy{ salt: bytes32(0) }(
-            ChugSplashRegistry(registryProxyAddress),
+            ChugSplashRegistry(_registryProxy),
             address(this)
         );
         // Initialize the proxy. Note that we initialize it in a different call from the deployment
@@ -96,18 +91,5 @@ contract ChugSplashBootLoader is Initializable {
             _executorPaymentPercentage,
             _managerImplementation
         );
-
-        // Deploy the ChugSplashRegistry's proxy.
-        registryProxy = new Proxy{ salt: bytes32(0) }(
-            // The owner must initially be this contract so that we can set the proxy's
-            // implementation contract.
-            address(this)
-        );
-
-        // Set the proxy's implementation contract.
-        registryProxy.upgradeTo(address(registryImplementation));
-
-        // Transfer ownership of the ChugSplashRegistry's proxy to the owner.
-        registryProxy.changeAdmin(_owner);
     }
 }
