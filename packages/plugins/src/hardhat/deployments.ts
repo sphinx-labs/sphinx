@@ -225,16 +225,6 @@ export const deployChugSplashConfig = async (
     hre
   )
 
-  // If executing locally, complete post execution actions
-  if (!remoteExecution) {
-    const finalTxnHash = await getFinalDeploymentTxnHash(
-      ChugSplashManager,
-      bundleId
-    )
-    await postExecutionActions(provider, parsedConfig)
-    await createDeploymentArtifacts(hre, parsedConfig, finalTxnHash)
-  }
-
   // At this point, the bundle has been completed.
   spinner.succeed(`${parsedConfig.options.projectName} deployed!`)
   displayDeploymentTable(parsedConfig, silent)

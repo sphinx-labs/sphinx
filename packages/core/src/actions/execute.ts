@@ -1,5 +1,5 @@
 import { EXECUTOR_BOND_AMOUNT } from '@chugsplash/contracts'
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 import {
   fromRawChugSplashAction,
@@ -13,7 +13,7 @@ import {
 } from './types'
 
 export const executeTask = async (args: {
-  chugSplashManager: Contract
+  chugSplashManager: ethers.Contract
   bundleId: string
   bundle: ChugSplashActionBundle
   executor: ethers.Signer
