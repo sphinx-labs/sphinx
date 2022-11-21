@@ -31,6 +31,7 @@
     "@chugsplash/contracts": "^0.3.9",
     "@eth-optimism/contracts-bedrock": "^0.8.0",
     "@eth-optimism/core-utils": "^0.9.1",
+    "@ethersproject/abstract-provider": "^5.7.0",
     "ethers": "^5.6.9",
     "handlebars": "^4.7.7",
     "hardhat-deploy": "^0.11.18",
