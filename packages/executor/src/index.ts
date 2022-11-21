@@ -70,6 +70,8 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         privateKey: {
           desc: 'Private key for signing deployment transactions',
           validator: validators.str,
+          default:
+            '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
         },
         amplitudeKey: {
           desc: 'Amplitude API key for analytics',
