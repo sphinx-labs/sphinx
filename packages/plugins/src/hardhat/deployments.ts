@@ -50,6 +50,15 @@ export const deployAllChugSplashConfigs = async (
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
+
+  let executor: ChugSplashExecutor
+  if (!remoteExecution) {
+    // We must remove the command line arguments that begin with '--' from the process.argv array,
+    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
+    removeFlagsFromCommandLineArgs()
+    executor = new ChugSplashExecutor()
+  }
+
   for (const fileName of fileNames) {
     const configPath = path.join(hre.config.paths.chugsplash, fileName)
     // Skip this config if it's empty.
@@ -63,7 +72,8 @@ export const deployAllChugSplashConfigs = async (
       silent,
       remoteExecution,
       ipfsUrl,
-      noCompile
+      noCompile,
+      executor
     )
   }
 }
@@ -75,8 +85,15 @@ export const deployChugSplashConfig = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   noCompile: boolean,
+  executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
+  if (executor === undefined && !remoteExecution) {
+    throw new Error(
+      'You must pass in a ChugSplashExecutor if executing locally'
+    )
+  }
+
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
   const signerAddress = await signer.getAddress()
@@ -207,11 +224,6 @@ export const deployChugSplashConfig = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: ethers.utils.parseEther('1'),
     })
-
-    // We must remove the command line arguments that begin with '--' from the process.argv array,
-    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
-    removeFlagsFromCommandLineArgs()
-    const executor = new ChugSplashExecutor()
     await executor.main(
       {
         privateKey:

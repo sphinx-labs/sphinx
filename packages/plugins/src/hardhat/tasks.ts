@@ -37,7 +37,10 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { getArtifactsFromParsedCanonicalConfig } from '@chugsplash/executor'
+import {
+  ChugSplashExecutor,
+  getArtifactsFromParsedCanonicalConfig,
+} from '@chugsplash/executor'
 
 import {
   createDeploymentArtifacts,
@@ -63,6 +66,7 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import { monitorRemoteExecution, postExecutionActions } from './execution'
+import { removeFlagsFromCommandLineArgs } from '../env'
 
 // Load environment variables from .env
 dotenv.config()
@@ -177,6 +181,14 @@ export const chugsplashDeployTask = async (
   const remoteExecution = (await getChainId(provider)) !== 31337
   await deployChugSplashPredeploys(provider, provider.getSigner())
 
+  let executor: ChugSplashExecutor
+  if (!remoteExecution) {
+    // We must remove the command line arguments that begin with '--' from the process.argv array,
+    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
+    removeFlagsFromCommandLineArgs()
+    executor = new ChugSplashExecutor()
+  }
+
   spinner.succeed('ChugSplash is ready to go.')
 
   await deployChugSplashConfig(
@@ -186,6 +198,7 @@ export const chugsplashDeployTask = async (
     remoteExecution,
     ipfsUrl,
     noCompile,
+    executor,
     spinner
   )
 }
