@@ -938,6 +938,14 @@ Please send more ETH to ${await signer.getAddress()} on ${
     } then try again.`)
   }
 
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
   spinner.start(
     `Depositing ${ethers.utils.formatEther(
       amount

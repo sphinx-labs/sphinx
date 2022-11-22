@@ -15,7 +15,7 @@ npx hardhat chugsplash-register --network ${networkName} ${configPath}
     throw new Error(`This project has not been registered on the local Hardhat network.
 You can register the project locally with the following commands:
 
-npx hardhat node --setup-internals
+npx hardhat node
 npx hardhat chugsplash-register --network localhost ${configPath}
   `)
   }
