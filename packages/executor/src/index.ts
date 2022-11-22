@@ -17,11 +17,16 @@ import {
   hasSufficientFundsForExecution,
   executeTask,
   CanonicalChugSplashConfig,
+  deployChugSplashPredeploys,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
 
-import { compileRemoteBundle, verifyChugSplashConfig } from './utils'
+import {
+  compileRemoteBundle,
+  verifyChugSplashPredeploys,
+  verifyChugSplashConfig,
+} from './utils'
 
 export * from './utils'
 
@@ -121,6 +126,17 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.state.provider
     )
 
+    // Deploy the ChugSplash predeploys.
+    await deployChugSplashPredeploys(this.state.provider, this.state.wallet)
+
+    // Verify the ChugSplash predeploys if the current network is live.
+    if ((await getChainId(this.state.provider)) !== 31337) {
+      await verifyChugSplashPredeploys(
+        this.state.provider,
+        this.options.network
+      )
+    }
+
     this.logger = new Logger({
       name: 'Logger',
       level: options.logLevel,
@@ -128,7 +144,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   }
 
   async init() {
-    this.setup(this.options)
+    await this.setup(this.options)
   }
 
   async main(
@@ -139,7 +155,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     // Setup state if options were provided.
     // Necessary to allow the user to pass in options when running the executor programmatically.
     if (options) {
-      this.setup(options, provider)
+      await this.setup(options, provider)
     }
 
     const latestBlockNumber = await this.state.provider.getBlockNumber()

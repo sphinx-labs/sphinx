@@ -35,6 +35,23 @@ import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
   ChugSplashManagerABI,
   CHUGSPLASH_MANAGER_ADDRESS,
+  ChugSplashManagerArtifact,
+  ChugSplashBootLoaderArtifact,
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  ProxyUpdaterArtifact,
+  PROXY_UPDATER_ADDRESS,
+  ProxyArtifact,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ChugSplashManagerProxyArtifact,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+  ChugSplashRegistryArtifact,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  DefaultAdapterArtifact,
+  DEFAULT_ADAPTER_ADDRESS,
+  DeterministicProxyOwnerArtifact,
+  DETERMINISTIC_PROXY_OWNER_ADDRESS,
+  buildInfo,
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
@@ -51,7 +68,7 @@ export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
   configUri: string,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.providers.Provider,
   networkName: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
@@ -147,8 +164,86 @@ export const verifyChugSplashConfig = async (
   }
 }
 
+export const verifyChugSplashPredeploys = async (
+  provider: ethers.providers.Provider,
+  networkName: string
+) => {
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    provider,
+    networkName
+  )
+
+  const contracts = [
+    {
+      artifact: ChugSplashManagerArtifact,
+      address: CHUGSPLASH_MANAGER_ADDRESS,
+    },
+    {
+      artifact: ChugSplashBootLoaderArtifact,
+      address: CHUGSPLASH_BOOTLOADER_ADDRESS,
+    },
+    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
+    {
+      artifact: ChugSplashManagerProxyArtifact,
+      address: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    },
+    {
+      artifact: ChugSplashRegistryArtifact,
+      address: CHUGSPLASH_REGISTRY_ADDRESS,
+    },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    {
+      artifact: DeterministicProxyOwnerArtifact,
+      address: DETERMINISTIC_PROXY_OWNER_ADDRESS,
+    },
+  ]
+
+  for (const { artifact, address } of contracts) {
+    const { sourceName, contractName, abi } = artifact
+
+    const minimumCompilerInput = getMinimumCompilerInput(
+      buildInfo.input,
+      buildInfo.output.sources,
+      sourceName
+    )
+
+    await attemptVerification(
+      provider,
+      networkName,
+      etherscanApiEndpoints,
+      address,
+      sourceName,
+      contractName,
+      abi,
+      etherscanApiKey,
+      minimumCompilerInput,
+      buildInfo.solcVersion,
+      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
+    )
+  }
+
+  // Link the ChugSplashRegistry's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    'ChugSplashRegistry'
+  )
+
+  // Link the root ChugSplashManager's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    CHUGSPLASH_MANAGER_ADDRESS,
+    'ChugSplashManager'
+  )
+}
+
 export const attemptVerification = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.providers.Provider,
   networkName: string,
   etherscanApiEndpoints: EtherscanURLs,
   contractAddress: string,
@@ -259,7 +354,7 @@ export const attemptVerification = async (
 }
 
 export const getEtherscanInfo = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.providers.Provider,
   networkName: string
 ): Promise<{
   etherscanApiKey: string
