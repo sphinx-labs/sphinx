@@ -34,7 +34,7 @@ import {
   monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
-import { removeFlagsFromCommandLineArgs } from '../env'
+import { instantiateExecutor } from '../executor'
 
 /**
  * TODO
@@ -46,17 +46,15 @@ export const deployAllChugSplashConfigs = async (
   hre: any,
   silent: boolean,
   ipfsUrl: string,
-  noCompile: boolean
+  noCompile: boolean,
+  spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
 
   let executor: ChugSplashExecutor
   if (!remoteExecution) {
-    // We must remove the command line arguments that begin with '--' from the process.argv array,
-    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
-    removeFlagsFromCommandLineArgs()
-    executor = new ChugSplashExecutor()
+    executor = instantiateExecutor()
   }
 
   for (const fileName of fileNames) {
@@ -73,7 +71,8 @@ export const deployAllChugSplashConfigs = async (
       remoteExecution,
       ipfsUrl,
       noCompile,
-      executor
+      executor,
+      spinner
     )
   }
 }
@@ -106,7 +105,7 @@ export const deployChugSplashConfig = async (
     parsedConfig.options.projectName
   )
 
-  spinner.succeed('Parsed ChugSplash config file.')
+  spinner.succeed(`Parsed ${parsedConfig.options.projectName}.`)
 
   if (projectPreviouslyRegistered === false) {
     spinner.start(`Registering ${parsedConfig.options.projectName}...`)
@@ -228,7 +227,7 @@ export const deployChugSplashConfig = async (
       {
         privateKey:
           '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-        logLevel: silent ? 'info' : 'error',
+        logLevel: 'error',
       },
       provider,
       canonicalConfig

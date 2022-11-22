@@ -66,7 +66,7 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import { monitorRemoteExecution, postExecutionActions } from './execution'
-import { removeFlagsFromCommandLineArgs } from '../env'
+import { instantiateExecutor } from '../executor'
 
 // Load environment variables from .env
 dotenv.config()
@@ -183,10 +183,7 @@ export const chugsplashDeployTask = async (
 
   let executor: ChugSplashExecutor
   if (!remoteExecution) {
-    // We must remove the command line arguments that begin with '--' from the process.argv array,
-    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
-    removeFlagsFromCommandLineArgs()
-    executor = new ChugSplashExecutor()
+    executor = instantiateExecutor()
   }
 
   spinner.succeed('ChugSplash is ready to go.')
@@ -280,7 +277,6 @@ export const chugsplashProposeTask = async (
   const signer = provider.getSigner()
 
   const spinner = ora({ isSilent: silent })
-
   spinner.start('Booting up ChugSplash...')
 
   await deployChugSplashPredeploys(provider, provider.getSigner())
@@ -960,12 +956,8 @@ task(TASK_CHUGSPLASH_FUND)
   .addPositionalParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashFundTask)
 
-// TODO: change 'any' type
 task(TASK_NODE)
-  .addFlag(
-    'setupInternals',
-    'Setup the internal ChugSplash contracts. Skip executing all contracts defined in ChugSplash config files.'
-  )
+  .addFlag('deployAll', 'Deploy all ChugSplash config files on startup')
   .addFlag(
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
@@ -975,7 +967,7 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        setupInternals: boolean
+        deployAll: boolean
         disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
@@ -983,14 +975,24 @@ task(TASK_NODE)
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { setupInternals, disableChugsplash, hide, noCompile } = args
+      const { deployAll, disableChugsplash, hide, noCompile } = args
+
       if (!disableChugsplash) {
+        const spinner = ora({ isSilent: hide })
+        spinner.start('Booting up ChugSplash...')
+
         await deployChugSplashPredeploys(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
         )
-        if (!setupInternals) {
-          await deployAllChugSplashConfigs(hre, hide, '', noCompile)
+
+        spinner.succeed('ChugSplash has been initialized.')
+
+        if (deployAll) {
+          if (!noCompile) {
+            await cleanThenCompile(hre)
+          }
+          await deployAllChugSplashConfigs(hre, hide, '', true, spinner)
         }
         await writeHardhatSnapshotId(hre)
       }
@@ -1024,7 +1026,10 @@ task(TASK_TEST)
             hre.ethers.provider,
             hre.ethers.provider.getSigner()
           )
-          await deployAllChugSplashConfigs(hre, !show, '', noCompile)
+          if (!noCompile) {
+            await cleanThenCompile(hre)
+          }
+          await deployAllChugSplashConfigs(hre, !show, '', true)
         } finally {
           await writeHardhatSnapshotId(hre)
         }
@@ -1035,25 +1040,28 @@ task(TASK_TEST)
 
 task(TASK_RUN)
   .addFlag(
-    'enableChugsplash',
+    'deployAll',
     'Deploy all ChugSplash configs before executing your script.'
   )
   .setAction(
     async (
       args: {
-        enableChugsplash: boolean
+        deployAll: boolean
         noCompile: boolean
       },
       hre: any,
       runSuper
     ) => {
-      const { enableChugsplash, noCompile } = args
-      if (enableChugsplash) {
+      const { deployAll, noCompile } = args
+      if (deployAll) {
         await deployChugSplashPredeploys(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
         )
-        await deployAllChugSplashConfigs(hre, true, '', noCompile)
+        if (!noCompile) {
+          await cleanThenCompile(hre)
+        }
+        await deployAllChugSplashConfigs(hre, true, '', true)
       }
       await runSuper(args)
     }
