@@ -68,7 +68,7 @@ export const deployAllChugSplashConfigs = async (
 }
 
 export const deployChugSplashConfig = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   configPath: string,
   silent: boolean,
   remoteExecution: boolean,
@@ -202,8 +202,12 @@ export const deployChugSplashConfig = async (
 
   // If executing locally, then startup executor with HRE provider and pass in canonical config
   if (!remoteExecution) {
+    signer.sendTransaction({
+      to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      value: ethers.utils.parseEther('10'),
+    })
+
     const executor = new ChugSplashExecutor()
-    executor.init()
     executor.main(
       {
         privateKey:
