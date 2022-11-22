@@ -282,7 +282,6 @@ export const chugsplashProposeTask = async (
   await deployChugSplashPredeploys(provider, provider.getSigner())
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
-  const projectName = parsedConfig.options.projectName
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -302,12 +301,6 @@ export const chugsplashProposeTask = async (
 
   spinner.succeed('ChugSplash is ready to go.')
 
-  // The spinner interferes with Hardhat's compilation logs, so we only display this message if
-  // compilation is being skipped.
-  if (noCompile) {
-    spinner.start(`Committing ${projectName}... on ${hre.network.name}.`)
-  }
-
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
   // it to IPFS.
@@ -317,13 +310,10 @@ export const chugsplashProposeTask = async (
       ipfsUrl,
       commitToIpfs: false,
       noCompile,
+      spinner,
     },
     hre
   )
-
-  if (noCompile) {
-    spinner.succeed(`Committed ${projectName} on ${hre.network.name}.`)
-  }
 
   spinner.start('Proposing the project...')
 
@@ -535,6 +525,7 @@ export const chugsplashCommitSubtask = async (
     ipfsUrl: string
     commitToIpfs: boolean
     noCompile: boolean
+    spinner?: ora.Ora
   },
   hre
 ): Promise<{
@@ -543,10 +534,18 @@ export const chugsplashCommitSubtask = async (
   bundleId: string
   canonicalConfig: CanonicalChugSplashConfig
 }> => {
-  const { parsedConfig, ipfsUrl, commitToIpfs, noCompile } = args
+  const { parsedConfig, ipfsUrl, commitToIpfs, noCompile, spinner } = args
 
   if (!noCompile) {
     await cleanThenCompile(hre)
+  }
+
+  if (spinner) {
+    commitToIpfs
+      ? spinner.start(
+          `Committing ${parsedConfig.options.projectName} on ${hre.network.name}.`
+        )
+      : spinner.start('Loading the deployment info...')
   }
 
   let configSourceNames = Object.values(parsedConfig.contracts)
@@ -643,6 +642,14 @@ IPFS_API_KEY_SECRET: ...
     bundle.actions.length,
     configUri
   )
+
+  if (spinner) {
+    commitToIpfs
+      ? spinner.succeed(
+          `Committed ${parsedConfig.options.projectName} on ${hre.network.name}.`
+        )
+      : spinner.succeed('Loaded the deployment info.')
+  }
 
   return { bundle, configUri, bundleId, canonicalConfig }
 }
