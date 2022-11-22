@@ -17,9 +17,16 @@ import {
   ChugSplashBootLoaderArtifact,
   DEFAULT_ADAPTER_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ProxyArtifact,
+  ProxyABI,
+  DeterministicProxyOwnerABI,
+  DeterministicProxyOwnerArtifact,
+  DETERMINISTIC_PROXY_OWNER_ADDRESS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
 } from '@chugsplash/contracts'
 
-import { getChugSplashRegistry } from '../../utils'
+import { getChugSplashRegistry, getProxyOwner } from '../../utils'
 
 export const deployChugSplashPredeploys = async (
   provider: ethers.providers.JsonRpcProvider
@@ -63,7 +70,8 @@ export const deployChugSplashPredeploys = async (
         EXECUTION_LOCK_TIME,
         OWNER_BOND_AMOUNT,
         EXECUTOR_PAYMENT_PERCENTAGE,
-        ChugSplashManager.address
+        ChugSplashManager.address,
+        CHUGSPLASH_REGISTRY_PROXY_ADDRESS
       )
     ).wait()
   } catch (err) {
@@ -74,6 +82,66 @@ export const deployChugSplashPredeploys = async (
     } else {
       throw err
     }
+  }
+
+  // Deploy the ChugSplashRegistry's proxy.
+  const ChugSplashRegistryProxy = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ProxyABI,
+      bytecode: ProxyArtifact.bytecode,
+    },
+    salt: ethers.constants.HashZero,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyArtifact.sourceName],
+  })
+
+  // Make sure the addresses match, just in case.
+  assert(
+    ChugSplashRegistryProxy.address === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    'ChugSplashRegistry proxy address mismatch'
+  )
+
+  // Deploy the DeterministicProxyOwner, which temporarily owns the ChugSplashRegistry proxy.
+  const DeterministicProxyOwner = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: DeterministicProxyOwnerABI,
+      bytecode: DeterministicProxyOwnerArtifact.bytecode,
+    },
+    salt: ethers.constants.HashZero,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[
+      DeterministicProxyOwnerArtifact.sourceName
+    ],
+  })
+
+  // Make sure the addresses match, just in case.
+  assert(
+    DeterministicProxyOwner.address === DETERMINISTIC_PROXY_OWNER_ADDRESS,
+    'DeterministicProxyOwner address mismatch'
+  )
+
+  // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
+  // when the ChugSplashRegistry's proxy is initially deployed.
+  if (
+    (await getProxyOwner(ChugSplashRegistryProxy)) ===
+    DETERMINISTIC_PROXY_OWNER_ADDRESS
+  ) {
+    // Initialize the ChugSplashRegistry's proxy through the DeterministicProxyOwner. This
+    // transaction sets the ChugSplasRegistry proxy's implementation and transfers ownership of the
+    // proxy to the specified owner.
+    await (
+      await DeterministicProxyOwner.initializeProxy(
+        ChugSplashRegistryProxy.address,
+        CHUGSPLASH_REGISTRY_ADDRESS,
+        owner
+      )
+    ).wait()
+
+    // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
+    assert(
+      (await getProxyOwner(ChugSplashRegistryProxy)) === owner,
+      'ChugSplashRegistry proxy has incorrect owner'
+    )
   }
 
   // Deploy the DefaultAdapter.

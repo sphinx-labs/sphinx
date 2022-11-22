@@ -225,3 +225,9 @@ export const claimExecutorPayment = async (
     await (await ChugSplashManager.claimExecutorPayment()).wait()
   }
 }
+
+export const getProxyOwner = async (Proxy: Contract) => {
+  // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
+  const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
+  return args.newAdmin
+}
