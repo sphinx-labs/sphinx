@@ -34,6 +34,7 @@ import {
   monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
+import { removeFlagsFromCommandLineArgs } from '../env'
 
 /**
  * TODO
@@ -207,6 +208,9 @@ export const deployChugSplashConfig = async (
       value: ethers.utils.parseEther('1'),
     })
 
+    // We must remove the command line arguments that begin with '--' from the process.argv array,
+    // or else the BaseServiceV2 (inherited by the executor) will throw an error.
+    removeFlagsFromCommandLineArgs()
     const executor = new ChugSplashExecutor()
     await executor.main(
       {
