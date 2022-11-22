@@ -1,20 +1,16 @@
 import assert from 'assert'
 
-import { Contract } from 'ethers'
+import { ethers } from 'ethers'
 import {
   CanonicalChugSplashConfig,
   CompilerInput,
   getChugSplashManagerProxyAddress,
   getProxyAddress,
   parseChugSplashConfig,
+  getConstructorArgs,
+  chugsplashFetchSubtask,
   getMinimumCompilerInput,
 } from '@chugsplash/core'
-import {
-  getConstructorArgs,
-  TASK_CHUGSPLASH_FETCH,
-  getArtifactsFromParsedCanonicalConfig,
-} from '@chugsplash/plugins'
-import { TASK_VERIFY_GET_ETHERSCAN_ENDPOINT } from '@nomiclabs/hardhat-etherscan/dist/src/constants'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
@@ -27,17 +23,23 @@ import {
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
 import { resolveEtherscanApiKey } from '@nomiclabs/hardhat-etherscan/dist/src/resolveEtherscanApiKey'
-import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import {
+  retrieveContractBytecode,
+  getEtherscanEndpoints,
+} from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
+import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
   ChugSplashManagerABI,
   CHUGSPLASH_MANAGER_ADDRESS,
 } from '@chugsplash/contracts'
-import { EthereumProvider, HardhatRuntimeEnvironment } from 'hardhat/types'
 import { request } from 'undici'
+
+import { getArtifactsFromParsedCanonicalConfig } from './compile'
+import { etherscanApiKey as apiKey, customChains } from './constants'
 
 export interface EtherscanResponseBody {
   status: string
@@ -48,24 +50,24 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
-  hre: HardhatRuntimeEnvironment,
-  configUri: string
+  configUri: string,
+  provider: ethers.providers.JsonRpcProvider,
+  networkName: string
 ) => {
-  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    provider,
+    networkName
+  )
 
-  const canonicalConfig = await hre.run(TASK_CHUGSPLASH_FETCH, {
-    configUri,
-  })
+  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
   const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    hre,
     parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
   )
-  const ChugSplashManager = new Contract(
+  const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
-    hre.ethers.provider
+    provider
   )
-
   // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
   const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
     canonicalConfig.options.projectName
@@ -93,7 +95,6 @@ export const verifyChugSplashConfig = async (
       sourceName,
       contractName
     )
-
     const implementationAddress = await ChugSplashManager.implementations(
       referenceName
     )
@@ -116,8 +117,8 @@ export const verifyChugSplashConfig = async (
     // Verify the implementation
     try {
       await attemptVerification(
-        hre.network.provider,
-        hre.network.name,
+        provider,
+        networkName,
         etherscanApiEndpoints,
         implementationAddress,
         sourceName,
@@ -147,7 +148,7 @@ export const verifyChugSplashConfig = async (
 }
 
 export const attemptVerification = async (
-  provider: EthereumProvider,
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string,
   etherscanApiEndpoints: EtherscanURLs,
   contractAddress: string,
@@ -161,7 +162,8 @@ export const attemptVerification = async (
 ): Promise<EtherscanResponse> => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
-    provider,
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
     networkName
   )
   const deployedBytecode = new Bytecode(deployedBytecodeHex)
@@ -257,20 +259,22 @@ export const attemptVerification = async (
 }
 
 export const getEtherscanInfo = async (
-  hre: any
+  provider: ethers.providers.JsonRpcProvider,
+  networkName: string
 ): Promise<{
   etherscanApiKey: string
   etherscanApiEndpoints: EtherscanURLs
 }> => {
-  const { etherscan } = hre.config
-
   const { network: verificationNetwork, urls: etherscanApiEndpoints } =
-    await hre.run(TASK_VERIFY_GET_ETHERSCAN_ENDPOINT)
+    await getEtherscanEndpoints(
+      // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+      provider as any,
+      networkName,
+      chainConfig,
+      customChains
+    )
 
-  const etherscanApiKey = resolveEtherscanApiKey(
-    etherscan.apiKey,
-    verificationNetwork
-  )
+  const etherscanApiKey = resolveEtherscanApiKey(apiKey, verificationNetwork)
 
   return { etherscanApiKey, etherscanApiEndpoints }
 }

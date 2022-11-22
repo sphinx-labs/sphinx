@@ -15,12 +15,12 @@ import {
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
-  claimExecutorPayment,
   getExecutionAmountToSendPlusBuffer,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
+import { ChugSplashExecutor } from '@chugsplash/executor'
 
 import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
 import {
@@ -31,7 +31,6 @@ import {
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
-  executeTask,
   monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
@@ -69,7 +68,7 @@ export const deployAllChugSplashConfigs = async (
 }
 
 export const deployChugSplashConfig = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   configPath: string,
   silent: boolean,
   remoteExecution: boolean,
@@ -112,15 +111,16 @@ export const deployChugSplashConfig = async (
   }
 
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri } = await chugsplashCommitSubtask(
-    {
-      parsedConfig,
-      ipfsUrl,
-      commitToIpfs: false,
-      noCompile,
-    },
-    hre
-  )
+  const { bundleId, bundle, configUri, canonicalConfig } =
+    await chugsplashCommitSubtask(
+      {
+        parsedConfig,
+        ipfsUrl,
+        commitToIpfs: false,
+        noCompile,
+      },
+      hre
+    )
 
   if (noCompile) {
     spinner.succeed('Loaded the deployment info.')
@@ -200,30 +200,35 @@ export const deployChugSplashConfig = async (
 
   spinner.start('The deployment is being executed. This may take a moment.')
 
-  if (remoteExecution) {
-    await monitorTask(
+  // If executing locally, then startup executor with HRE provider and pass in canonical config
+  if (!remoteExecution) {
+    signer.sendTransaction({
+      to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      value: ethers.utils.parseEther('10'),
+    })
+
+    const executor = new ChugSplashExecutor()
+    executor.main(
       {
-        configPath,
-        silent: true,
+        privateKey:
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        logLevel: silent ? 'info' : 'error',
       },
-      hre
+      provider,
+      canonicalConfig
     )
-  } else {
-    await executeTask(
-      {
-        chugSplashManager: ChugSplashManager,
-        bundleId,
-        bundle,
-        parsedConfig,
-        executor: signer,
-        silent: true,
-        isLocalExecution: true,
-      },
-      hre
-    )
-    await claimExecutorPayment(signer, ChugSplashManager)
   }
 
+  // Monitor the deployment regardless
+  await monitorTask(
+    {
+      configPath,
+      silent: true,
+    },
+    hre
+  )
+
+  // At this point, the bundle has been completed.
   spinner.succeed(`${parsedConfig.options.projectName} deployed!`)
   displayDeploymentTable(parsedConfig, silent)
 }

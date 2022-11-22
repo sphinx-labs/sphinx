@@ -1,14 +1,14 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
   TASK_TEST,
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
-import { create, IPFSHTTPClient } from 'ipfs-http-client'
+import { create } from 'ipfs-http-client'
 import { getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
@@ -21,33 +21,27 @@ import {
   registerChugSplashProject,
   getChugSplashRegistry,
   parseChugSplashConfig,
-  isSetImplementationAction,
-  fromRawChugSplashAction,
-  chugsplashLog,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
   getProjectOwnerAddress,
-  isDeployImplementationAction,
+  getCreationCode,
+  getImmutableVariables,
+  chugsplashFetchSubtask,
   getExecutionAmountToSendPlusBuffer,
   getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
-import {
-  ChugSplashManagerABI,
-  EXECUTOR_BOND_AMOUNT,
-} from '@chugsplash/contracts'
+import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { getArtifactsFromParsedCanonicalConfig } from '@chugsplash/executor'
 
 import {
   createDeploymentArtifacts,
-  getArtifactsFromParsedCanonicalConfig,
   getBuildInfo,
   getContractArtifact,
-  getCreationCode,
-  getImmutableVariables,
   getStorageLayout,
   filterChugSplashInputs,
 } from './artifacts'
@@ -55,7 +49,6 @@ import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
-  getFinalDeploymentTxnHash,
 } from './deployments'
 import { deployChugSplashPredeploys } from './predeploys'
 import {
@@ -82,7 +75,6 @@ export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
 export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
-export const TASK_CHUGSPLASH_EXECUTE = 'chugsplash-execute'
 
 // public tasks
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
@@ -95,6 +87,33 @@ export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
+
+subtask(TASK_CHUGSPLASH_FETCH)
+  .addParam('configUri', undefined, undefined, types.string)
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(chugsplashFetchSubtask)
+
+export const bundleRemoteSubtask = async (args: {
+  canonicalConfig: CanonicalChugSplashConfig
+}): Promise<ChugSplashActionBundle> => {
+  const parsedCanonicalConfig = parseChugSplashConfig(
+    args.canonicalConfig
+  ) as CanonicalChugSplashConfig
+
+  const artifacts = await getArtifactsFromParsedCanonicalConfig(
+    parsedCanonicalConfig
+  )
+
+  return makeActionBundleFromConfig(
+    parsedCanonicalConfig,
+    artifacts,
+    process.env
+  )
+}
+
+subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
+  .addParam('canonicalConfig', undefined, undefined, types.any)
+  .setAction(bundleRemoteSubtask)
 
 export const bundleLocalSubtask = async (args: {
   parsedConfig: ChugSplashConfig
@@ -140,82 +159,6 @@ export const bundleLocalSubtask = async (args: {
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
   .addParam('parsedConfig', undefined, undefined)
   .setAction(bundleLocalSubtask)
-
-subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
-  .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(
-    async (
-      args: { canonicalConfig: CanonicalChugSplashConfig },
-      hre
-    ): Promise<ChugSplashActionBundle> => {
-      const parsedCanonicalConfig = parseChugSplashConfig(
-        args.canonicalConfig
-      ) as CanonicalChugSplashConfig
-
-      const artifacts = await getArtifactsFromParsedCanonicalConfig(
-        hre,
-        parsedCanonicalConfig
-      )
-
-      return makeActionBundleFromConfig(
-        parsedCanonicalConfig,
-        artifacts,
-        process.env
-      )
-    }
-  )
-
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(
-    async (args: {
-      configUri: string
-      ipfsUrl: string
-    }): Promise<CanonicalChugSplashConfig> => {
-      let config: CanonicalChugSplashConfig
-      let ipfs: IPFSHTTPClient
-      if (args.ipfsUrl) {
-        ipfs = create({
-          url: args.ipfsUrl,
-        })
-      } else if (
-        process.env.IPFS_PROJECT_ID &&
-        process.env.IPFS_API_KEY_SECRET
-      ) {
-        const projectCredentials = `${process.env.IPFS_PROJECT_ID}:${process.env.IPFS_API_KEY_SECRET}`
-        ipfs = create({
-          host: 'ipfs.infura.io',
-          port: 5001,
-          protocol: 'https',
-          headers: {
-            authorization: `Basic ${Buffer.from(projectCredentials).toString(
-              'base64'
-            )}`,
-          },
-        })
-      } else {
-        throw new Error(
-          'You must either set your IPFS credentials in an environment file or call this task with an IPFS url.'
-        )
-      }
-
-      if (args.configUri.startsWith('ipfs://')) {
-        const decoder = new TextDecoder()
-        let data = ''
-        const stream = await ipfs.cat(args.configUri.replace('ipfs://', ''))
-        for await (const chunk of stream) {
-          // Chunks of data are returned as a Uint8Array. Convert it back to a string
-          data += decoder.decode(chunk, { stream: true })
-        }
-        config = JSON.parse(data)
-      } else {
-        throw new Error('unsupported URI type')
-      }
-
-      return config
-    }
-  )
 
 export const chugsplashDeployTask = async (
   args: {
@@ -444,174 +387,6 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashProposeTask)
 
-export const executeTask = async (
-  args: {
-    chugSplashManager: Contract
-    bundleId: string
-    bundle: ChugSplashActionBundle
-    parsedConfig: ChugSplashConfig
-    executor: ethers.Signer
-    silent: boolean
-    isLocalExecution: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const {
-    chugSplashManager,
-    bundleId,
-    bundle,
-    parsedConfig,
-    executor,
-    silent,
-    isLocalExecution,
-  } = args
-
-  const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
-    bundleId
-  )
-  const executorAddress = await executor.getAddress()
-
-  if (
-    bundleState.status !== ChugSplashBundleStatus.APPROVED &&
-    bundleState.status !== ChugSplashBundleStatus.COMPLETED
-  ) {
-    throw new Error(`Bundle is not approved or completed.`)
-  }
-
-  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      await (
-        await chugSplashManager.claimBundle({
-          value: EXECUTOR_BOND_AMOUNT,
-        })
-      ).wait()
-    } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`Another executor has already claimed the bundle.`)
-    }
-
-    // Execute actions that have not been executed yet.
-    let currActionsExecuted = bundleState.actionsExecuted.toNumber()
-
-    // The actions have already been sorted in the order: SetStorage,
-    // DeployImplementation, SetImplementation. Here, we get the indexes
-    // of the first DeployImplementation and SetImplementation action.
-    const firstDeployImplIndex = bundle.actions.findIndex((action) =>
-      isDeployImplementationAction(fromRawChugSplashAction(action.action))
-    )
-    const firstSetImplIndex = bundle.actions.findIndex((action) =>
-      isSetImplementationAction(fromRawChugSplashAction(action.action))
-    )
-
-    // We execute the SetStorage actions in batches, which have a size based on the maximum
-    // block gas limit. This speeds up execution considerably. To get the batch size, we divide
-    // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
-    // action. We then divide this quantity by 2 to ensure that we're not approaching the block
-    // gas limit. For example, a network with a 30 million block gas limit would result in a
-    // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
-    const { gasLimit: blockGasLimit } = await hre.ethers.provider.getBlock(
-      'latest'
-    )
-    const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
-
-    // Execute SetStorage actions in batches.
-    const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
-    for (
-      let i = currActionsExecuted;
-      i < firstDeployImplIndex;
-      i += batchSize
-    ) {
-      const setStorageBatch = setStorageActions.slice(i, i + batchSize)
-      await (
-        await chugSplashManager.executeMultipleActions(
-          setStorageBatch.map((action) => action.action),
-          setStorageBatch.map((action) => action.proof.actionIndex),
-          setStorageBatch.map((action) => action.proof.siblings)
-        )
-      ).wait()
-      currActionsExecuted += setStorageBatch.length
-    }
-
-    // Execute DeployImplementation actions in series. We execute them one by one since each one
-    // costs significantly more gas than a setStorage action (usually in the millions).
-    for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
-      const action = bundle.actions[i]
-      await (
-        await chugSplashManager.executeChugSplashAction(
-          action.action,
-          action.proof.actionIndex,
-          action.proof.siblings
-        )
-      ).wait()
-      currActionsExecuted += 1
-    }
-
-    if (currActionsExecuted === firstSetImplIndex) {
-      // Complete the bundle by executing all the SetImplementation actions in a single
-      // transaction.
-      const setImplActions = bundle.actions.slice(firstSetImplIndex)
-      await (
-        await chugSplashManager.completeChugSplashBundle(
-          setImplActions.map((action) => action.action),
-          setImplActions.map((action) => action.proof.actionIndex),
-          setImplActions.map((action) => action.proof.siblings)
-        )
-      ).wait()
-    }
-  }
-
-  // At this point, the bundle has been completed.
-
-  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
-    chugSplashManager,
-    bundleId
-  )
-
-  if (isLocalExecution) {
-    await postExecutionActions(hre.ethers.provider, parsedConfig)
-    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-  }
-
-  displayDeploymentTable(parsedConfig, silent)
-  bundleState.status === ChugSplashBundleStatus.APPROVED
-    ? chugsplashLog(
-        `Deployed: ${parsedConfig.options.projectName} on ${hre.network.name}.`,
-        silent
-      )
-    : chugsplashLog(
-        `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`,
-        silent
-      )
-}
-
-subtask(TASK_CHUGSPLASH_EXECUTE)
-  .setDescription('Executes an approved bundle.')
-  .addParam(
-    'chugSplashManager',
-    'ChugSplashManager Contract',
-    undefined,
-    types.any
-  )
-  .addParam(
-    'bundleId',
-    'ID of the bundle to be executed',
-    undefined,
-    types.string
-  )
-  .addParam('bundle', 'The bundle to be executed', undefined, types.any)
-  .addParam(
-    'parsedConfig',
-    'Parsed ChugSplash configuration',
-    undefined,
-    types.any
-  )
-  .addParam('executor', 'Wallet of the executor', undefined, types.any)
-  .addFlag('silent', "Hide ChugSplash's output")
-  .addFlag(
-    'isLocalExecution',
-    "True if execution is occurring on the user's local machine"
-  )
-  .setAction(executeTask)
-
 export const chugsplashApproveTask = async (
   args: {
     configPath: string
@@ -758,6 +533,7 @@ export const chugsplashCommitSubtask = async (
   bundle: ChugSplashActionBundle
   configUri: string
   bundleId: string
+  canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const { parsedConfig, ipfsUrl, commitToIpfs, noCompile } = args
 
@@ -808,14 +584,12 @@ export const chugsplashCommitSubtask = async (
   // Filter out any sources in the ChugSplash inputs that aren't needed in this deployment.
   const filteredInputs = await filterChugSplashInputs(inputs, parsedConfig)
 
-  const ipfsData = JSON.stringify(
-    {
-      ...parsedConfig,
-      inputs: filteredInputs,
-    },
-    null,
-    2
-  )
+  const canonicalConfig: CanonicalChugSplashConfig = {
+    ...parsedConfig,
+    inputs: filteredInputs,
+  }
+
+  const ipfsData = JSON.stringify(canonicalConfig, null, 2)
 
   let ipfsHash
   if (!commitToIpfs) {
@@ -862,7 +636,7 @@ IPFS_API_KEY_SECRET: ...
     configUri
   )
 
-  return { bundle, configUri, bundleId }
+  return { bundle, configUri, bundleId, canonicalConfig }
 }
 
 subtask(TASK_CHUGSPLASH_COMMIT)
@@ -1030,13 +804,6 @@ export const monitorTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, silent } = args
-
-  if (hre.network.name === 'hardhat') {
-    throw new Error(
-      `Cannot check the status of deployments on the in-process Hardhat network.
-Did you forget the --network flag?`
-    )
-  }
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)

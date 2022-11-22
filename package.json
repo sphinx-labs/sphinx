@@ -8,8 +8,8 @@
     "packages": [
       "packages/contracts",
       "packages/core",
-      "packages/plugins",
       "packages/executor",
+      "packages/plugins",
       "packages/demo"
     ],
     "nohoist": [
