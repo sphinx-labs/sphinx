@@ -121,12 +121,6 @@ export const deployChugSplashConfig = async (
     )
   }
 
-  // The spinner interferes with Hardhat's compilation logs, so we only display this message if
-  // compilation is being skipped.
-  if (noCompile) {
-    spinner.start('Getting the deployment info...')
-  }
-
   // Get the bundle ID without publishing anything to IPFS.
   const { bundleId, bundle, configUri, canonicalConfig } =
     await chugsplashCommitSubtask(
@@ -135,13 +129,10 @@ export const deployChugSplashConfig = async (
         ipfsUrl,
         commitToIpfs: false,
         noCompile,
+        spinner,
       },
       hre
     )
-
-  if (noCompile) {
-    spinner.succeed('Loaded the deployment info.')
-  }
 
   spinner.start('Checking status of the deployment...')
 
