@@ -80,7 +80,6 @@ export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
-export const TASK_TEST_REMOTE_EXECUTION = 'test-remote-execution'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
 export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
@@ -947,51 +946,6 @@ task(TASK_CHUGSPLASH_FUND)
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addPositionalParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashFundTask)
-
-task(TASK_TEST_REMOTE_EXECUTION)
-  .setDescription(
-    'Test remote execution for deployments on the Hardhat network. For testing purposes only.'
-  )
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to deploy'
-  )
-  .addFlag('silent', "Hide all of ChugSplash's output")
-  .addFlag('noCompile', "Don't compile when running this task")
-  .setAction(
-    async (
-      args: {
-        configPath: string
-        noCompile: boolean
-        silent: boolean
-      },
-      hre: HardhatRuntimeEnvironment
-    ) => {
-      const { configPath, noCompile, silent } = args
-
-      if (hre.network.name !== 'localhost') {
-        throw new Error(
-          `You can only test remote execution on localhost. Got network: ${hre.network.name}`
-        )
-      }
-
-      const spinner = ora({ isSilent: silent })
-
-      await deployChugSplashPredeploys(
-        hre.ethers.provider,
-        hre.ethers.provider.getSigner()
-      )
-      await deployChugSplashConfig(
-        hre,
-        configPath,
-        false,
-        true,
-        '',
-        noCompile,
-        spinner
-      )
-    }
-  )
 
 // TODO: change 'any' type
 task(TASK_NODE)
