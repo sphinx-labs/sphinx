@@ -29,10 +29,10 @@ import {
 import { getChugSplashRegistry, getProxyOwner } from '../../utils'
 
 export const deployChugSplashPredeploys = async (
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider,
+  deployer: ethers.Signer
 ): Promise<void> => {
   const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
-  const deployer = provider.getSigner()
 
   // Deploy the root ChugSplashManager.
   const ChugSplashManager = await doDeterministicDeploy(provider, {
@@ -161,7 +161,7 @@ export const deployChugSplashPredeploys = async (
   )
 
   // Optionally initialize registry.
-  const ChugSplashRegistry = getChugSplashRegistry(provider.getSigner())
+  const ChugSplashRegistry = getChugSplashRegistry(deployer)
   const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
   if (adapter === ethers.constants.AddressZero) {
     await (

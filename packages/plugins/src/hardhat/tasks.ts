@@ -174,8 +174,9 @@ export const chugsplashDeployTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
 
-  const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
-  await deployChugSplashPredeploys(hre.ethers.provider)
+  const provider = hre.ethers.provider
+  const remoteExecution = (await getChainId(provider)) !== 31337
+  await deployChugSplashPredeploys(provider, provider.getSigner())
 
   spinner.succeed('ChugSplash is ready to go.')
 
@@ -225,7 +226,7 @@ task(TASK_CHUGSPLASH_REGISTER)
 
       const provider = hre.ethers.provider
 
-      await deployChugSplashPredeploys(provider)
+      await deployChugSplashPredeploys(provider, provider.getSigner())
 
       const spinner = ora({ isSilent: args.silent })
 
@@ -270,7 +271,7 @@ export const chugsplashProposeTask = async (
 
   spinner.start('Booting up ChugSplash...')
 
-  await deployChugSplashPredeploys(provider)
+  await deployChugSplashPredeploys(provider, provider.getSigner())
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
   const projectName = parsedConfig.options.projectName
@@ -976,7 +977,10 @@ task(TASK_TEST_REMOTE_EXECUTION)
 
       const spinner = ora({ isSilent: silent })
 
-      await deployChugSplashPredeploys(hre.ethers.provider)
+      await deployChugSplashPredeploys(
+        hre.ethers.provider,
+        hre.ethers.provider.getSigner()
+      )
       await deployChugSplashConfig(
         hre,
         configPath,
@@ -1014,7 +1018,10 @@ task(TASK_NODE)
     ) => {
       const { setupInternals, disableChugsplash, hide, noCompile } = args
       if (!disableChugsplash) {
-        await deployChugSplashPredeploys(hre.ethers.provider)
+        await deployChugSplashPredeploys(
+          hre.ethers.provider,
+          hre.ethers.provider.getSigner()
+        )
         if (!setupInternals) {
           await deployAllChugSplashConfigs(hre, hide, '', noCompile)
         }
@@ -1046,7 +1053,10 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await deployChugSplashPredeploys(hre.ethers.provider)
+          await deployChugSplashPredeploys(
+            hre.ethers.provider,
+            hre.ethers.provider.getSigner()
+          )
           await deployAllChugSplashConfigs(hre, !show, '', noCompile)
         } finally {
           await writeHardhatSnapshotId(hre)
@@ -1072,7 +1082,10 @@ task(TASK_RUN)
     ) => {
       const { enableChugsplash, noCompile } = args
       if (enableChugsplash) {
-        await deployChugSplashPredeploys(hre.ethers.provider)
+        await deployChugSplashPredeploys(
+          hre.ethers.provider,
+          hre.ethers.provider.getSigner()
+        )
         await deployAllChugSplashConfigs(hre, true, '', noCompile)
       }
       await runSuper(args)
