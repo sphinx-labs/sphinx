@@ -82,6 +82,7 @@ export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
+export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
@@ -169,10 +170,11 @@ export const chugsplashDeployTask = async (
     ipfsUrl: string
     silent: boolean
     noCompile: boolean
+    isUpgrade: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile } = args
+  const { configPath, ipfsUrl, silent, noCompile, isUpgrade } = args
 
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
@@ -195,6 +197,7 @@ export const chugsplashDeployTask = async (
     remoteExecution,
     ipfsUrl,
     noCompile,
+    isUpgrade,
     executor,
     spinner
   )
@@ -213,6 +216,32 @@ task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(chugsplashDeployTask)
+
+export const chugsplashUpgradeTask = async (
+  args: {
+    configPath: string
+    ipfsUrl: string
+    silent: boolean
+    noCompile: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  await chugsplashDeployTask({ ...args, isUpgrade: true }, hre)
+}
+
+task(TASK_CHUGSPLASH_UPGRADE)
+  .setDescription('Upgrades a ChugSplash project')
+  .addPositionalParam(
+    'configPath',
+    'Path to the ChugSplash config file to deploy'
+  )
+  .addOptionalParam(
+    'ipfsUrl',
+    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
+  )
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('noCompile', "Don't compile when running this task")
+  .setAction(chugsplashUpgradeTask)
 
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
@@ -269,10 +298,18 @@ export const chugsplashProposeTask = async (
     silent: boolean
     noCompile: boolean
     remoteExecution: boolean
+    isUpgrade?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile, remoteExecution } = args
+  const {
+    configPath,
+    ipfsUrl,
+    silent,
+    noCompile,
+    remoteExecution,
+    isUpgrade = false,
+  } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -350,7 +387,9 @@ with a name other than ${parsedConfig.options.projectName}`
         bundle,
         configUri,
         remoteExecution,
-        ipfsUrl
+        ipfsUrl,
+        isUpgrade,
+        configPath
       )
       spinner.succeed(
         successfulProposalMessage(
