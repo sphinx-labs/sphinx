@@ -9,9 +9,10 @@ import {
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
-import { sleep } from '@eth-optimism/core-utils'
+import { getChainId, sleep } from '@eth-optimism/core-utils'
 
 import { getFinalDeploymentTxnHash } from './deployments'
+import { writeHardhatSnapshotId } from './utils'
 
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
@@ -106,10 +107,10 @@ npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <c
  * @param parsedConfig Parsed ChugSplashConfig.
  */
 export const postExecutionActions = async (
-  provider: ethers.providers.JsonRpcProvider,
+  hre: HardhatRuntimeEnvironment,
   parsedConfig: ChugSplashConfig
 ) => {
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
@@ -123,7 +124,7 @@ export const postExecutionActions = async (
 
   // Withdraw any of the current project owner's funds in the ChugSplashManager.
   const ownerFunds = await getOwnerBalanceInChugSplashManager(
-    provider,
+    hre.ethers.provider,
     parsedConfig.options.projectName
   )
   if (ownerFunds.gt(0)) {
@@ -143,5 +144,10 @@ export const postExecutionActions = async (
         )
       ).wait()
     }
+  }
+
+  // Save the snapshot ID if we're on the hardhat network.
+  if ((await getChainId(hre.ethers.provider)) === 31337) {
+    await writeHardhatSnapshotId(hre)
   }
 }

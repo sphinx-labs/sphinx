@@ -390,14 +390,12 @@ export const chugsplashApproveTask = async (
   args: {
     configPath: string
     silent: boolean
-    remoteExecution: boolean
     amount: ethers.BigNumber
     skipMonitorStatus: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, remoteExecution, amount, skipMonitorStatus } =
-    args
+  const { configPath, silent, amount, skipMonitorStatus } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -469,14 +467,14 @@ Please wait a couple minutes then try again.`
     await (await ChugSplashManager.approveChugSplashBundle(bundleId)).wait()
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
-    if (remoteExecution && !skipMonitorStatus) {
+    if (!skipMonitorStatus) {
       spinner.start('The deployment is being executed. This may take a moment.')
       const finalDeploymentTxnHash = await monitorRemoteExecution(
         hre,
         parsedConfig,
         bundleId
       )
-      await postExecutionActions(provider, parsedConfig)
+      await postExecutionActions(hre, parsedConfig)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
       spinner.succeed(
@@ -883,25 +881,27 @@ project with a name other than ${parsedConfig.options.projectName}`
     spinner.start(
       'The deployment is currently being executed. This may take a moment.'
     )
-
-    const finalDeploymentTxnHash = await monitorRemoteExecution(
-      hre,
-      parsedConfig,
-      bundleId
-    )
-    await postExecutionActions(provider, parsedConfig)
-    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-
-    bundleState.status === ChugSplashBundleStatus.APPROVED
-      ? spinner.succeed(
-          `${parsedConfig.options.projectName} successfully deployed on ${hre.network.name}.`
-        )
-      : spinner.succeed(
-          `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
-        )
-
-    displayDeploymentTable(parsedConfig, silent)
   }
+
+  // If we make it to this point, the bundle status is either completed or approved.
+
+  const finalDeploymentTxnHash = await monitorRemoteExecution(
+    hre,
+    parsedConfig,
+    bundleId
+  )
+  await postExecutionActions(hre, parsedConfig)
+  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+
+  bundleState.status === ChugSplashBundleStatus.APPROVED
+    ? spinner.succeed(
+        `${parsedConfig.options.projectName} successfully deployed on ${hre.network.name}.`
+      )
+    : spinner.succeed(
+        `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
+      )
+
+  displayDeploymentTable(parsedConfig, silent)
 }
 
 task(TASK_CHUGSPLASH_MONITOR)
@@ -1012,7 +1012,7 @@ task(TASK_NODE)
           }
           await deployAllChugSplashConfigs(hre, hide, '', true, spinner)
         }
-        await writeHardhatSnapshotId(hre)
+        await writeHardhatSnapshotId(hre, 'localhost')
       }
       await runSuper(args)
     }
