@@ -17,6 +17,7 @@ import {
   getChugSplashManager,
   getExecutionAmountToSendPlusBuffer,
   checkValidDeployment,
+  checkValidUpgrade,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -72,6 +73,7 @@ export const deployAllChugSplashConfigs = async (
       remoteExecution,
       ipfsUrl,
       noCompile,
+      false,
       executor,
       spinner
     )
@@ -85,6 +87,7 @@ export const deployChugSplashConfig = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   noCompile: boolean,
+  isUpgrade: boolean,
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -174,7 +177,9 @@ export const deployChugSplashConfig = async (
       bundle,
       configUri,
       remoteExecution,
-      ipfsUrl
+      ipfsUrl,
+      isUpgrade,
+      configPath
     )
     currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
@@ -330,9 +335,25 @@ export const proposeChugSplashBundle = async (
   bundle: ChugSplashActionBundle,
   configUri: string,
   remoteExecution: boolean,
-  ipfsUrl: string
+  ipfsUrl: string,
+  isUpgrade: boolean,
+  configPath: string
 ) => {
-  await checkValidDeployment(hre.ethers.provider, parsedConfig)
+  if (isUpgrade) {
+    await checkValidUpgrade(
+      hre.ethers.provider,
+      parsedConfig,
+      configPath,
+      hre.network.name
+    )
+  } else {
+    await checkValidDeployment(
+      hre.ethers.provider,
+      parsedConfig,
+      configPath,
+      hre.network.name
+    )
+  }
 
   const ChugSplashManager = getChugSplashManager(
     hre.ethers.provider.getSigner(),
