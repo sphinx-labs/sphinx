@@ -192,7 +192,6 @@ export const deployChugSplashConfig = async (
       {
         configPath,
         silent: true,
-        remoteExecution,
         amount: executionAmountPlusBuffer,
         skipMonitorStatus: true,
       },
