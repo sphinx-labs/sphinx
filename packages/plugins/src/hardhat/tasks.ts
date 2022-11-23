@@ -201,6 +201,7 @@ export const chugsplashDeployTask = async (
 }
 
 task(TASK_CHUGSPLASH_DEPLOY)
+  .setDescription('Deploys a ChugSplash config file')
   .addPositionalParam(
     'configPath',
     'Path to the ChugSplash config file to deploy'
@@ -545,7 +546,7 @@ export const chugsplashCommitSubtask = async (
       ? spinner.start(
           `Committing ${parsedConfig.options.projectName} on ${hre.network.name}.`
         )
-      : spinner.start('Loading the deployment info...')
+      : spinner.start('Building the project...')
   }
 
   let configSourceNames = Object.values(parsedConfig.contracts)
@@ -648,7 +649,9 @@ IPFS_API_KEY_SECRET: ...
       ? spinner.succeed(
           `Committed ${parsedConfig.options.projectName} on ${hre.network.name}.`
         )
-      : spinner.succeed('Loaded the deployment info.')
+      : spinner.succeed(
+          `Built ${parsedConfig.options.projectName} on ${hre.network.name}.`
+        )
   }
 
   return { bundle, configUri, bundleId, canonicalConfig }

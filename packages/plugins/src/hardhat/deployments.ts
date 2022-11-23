@@ -134,7 +134,7 @@ export const deployChugSplashConfig = async (
       hre
     )
 
-  spinner.start('Checking status of the deployment...')
+  spinner.start(`Committing ${parsedConfig.options.projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     signer,
@@ -153,7 +153,7 @@ export const deployChugSplashConfig = async (
     )
     await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
     spinner.succeed(
-      `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} was already completed on ${hre.network.name}.`
     )
     displayDeploymentTable(parsedConfig, silent)
     return
@@ -167,10 +167,6 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
-    spinner.succeed(
-      `${parsedConfig.options.projectName} is a fresh deployment.`
-    )
-    spinner.start(`Committing ${parsedConfig.options.projectName}.`)
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -182,10 +178,10 @@ export const deployChugSplashConfig = async (
     currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
 
-  spinner.succeed(`Committed the deployment.`)
+  spinner.succeed(`Committed ${parsedConfig.options.projectName}.`)
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
-    spinner.start('Funding the deployment...')
+    spinner.start(`Funding ${parsedConfig.options.projectName}...`)
     // Get the amount necessary to fund the deployment.
     const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
       hre.ethers.provider,
@@ -203,10 +199,12 @@ export const deployChugSplashConfig = async (
       hre
     )
     currBundleStatus = ChugSplashBundleStatus.APPROVED
-    spinner.succeed('Funded the deployment.')
+    spinner.succeed(`Funded ${parsedConfig.options.projectName}.`)
   }
 
-  spinner.start('The deployment is being executed. This may take a moment.')
+  spinner.start(
+    `${parsedConfig.options.projectName} is being executed. This may take a moment.`
+  )
 
   // If executing locally, then startup executor with HRE provider and pass in canonical config
   if (!remoteExecution) {
@@ -235,7 +233,7 @@ export const deployChugSplashConfig = async (
   )
 
   // At this point, the bundle has been completed.
-  spinner.succeed(`${parsedConfig.options.projectName} deployed!`)
+  spinner.succeed(`${parsedConfig.options.projectName} completed!`)
   displayDeploymentTable(parsedConfig, silent)
 }
 
