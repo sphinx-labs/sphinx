@@ -10,10 +10,14 @@ import {
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
 
-export const writeHardhatSnapshotId = async (hre: any) => {
-  const networkName = hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
+export const writeHardhatSnapshotId = async (
+  hre: any,
+  networkName?: string
+) => {
+  const inferredNetworkName =
+    hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   await writeSnapshotId(
-    networkName,
+    networkName === undefined ? inferredNetworkName : networkName,
     hre.config.paths.deployed,
     await hre.network.provider.send('evm_snapshot', [])
   )
