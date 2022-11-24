@@ -16,6 +16,7 @@ import {
   computeBundleId,
   getChugSplashManager,
   getExecutionAmountToSendPlusBuffer,
+  checkValidDeployment,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -313,27 +314,6 @@ export const resetChugSplashDeployments = async (hre: any) => {
   await writeHardhatSnapshotId(hre)
 }
 
-export const checkValidDeployment = async (
-  hre: HardhatRuntimeEnvironment,
-  parsedConfig: ChugSplashConfig
-) => {
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    if (
-      await isProxyDeployed(
-        hre.ethers.provider,
-        parsedConfig.options.projectName,
-        referenceName
-      )
-    ) {
-      throw new Error(
-        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used
-in a previous deployment for this project. You must change this reference name to something other than
-${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
-      )
-    }
-  }
-}
-
 export const getFinalDeploymentTxnHash = async (
   ChugSplashManager: ethers.Contract,
   bundleId: string
@@ -352,7 +332,7 @@ export const proposeChugSplashBundle = async (
   remoteExecution: boolean,
   ipfsUrl: string
 ) => {
-  await checkValidDeployment(hre, parsedConfig)
+  await checkValidDeployment(hre.ethers.provider, parsedConfig)
 
   const ChugSplashManager = getChugSplashManager(
     hre.ethers.provider.getSigner(),
