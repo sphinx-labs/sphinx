@@ -88,8 +88,29 @@ export const getProxyAddress = (
   )
 }
 
+export const checkValidDeployment = async (
+  provider: ethers.providers.Provider,
+  parsedConfig: ChugSplashConfig
+) => {
+  for (const referenceName of Object.keys(parsedConfig.contracts)) {
+    if (
+      await isProxyDeployed(
+        provider,
+        parsedConfig.options.projectName,
+        referenceName
+      )
+    ) {
+      throw new Error(
+        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used
+in a previous deployment for this project. You must change this reference name to something other than
+${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
+      )
+    }
+  }
+}
+
 export const isProxyDeployed = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.providers.Provider,
   projectName: string,
   referenceName: string
 ): Promise<boolean> => {
