@@ -8,6 +8,7 @@ import {
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ProxyABI,
 } from '@chugsplash/contracts'
 
 import { ChugSplashConfig } from './config'
@@ -90,7 +91,9 @@ export const getProxyAddress = (
 
 export const checkValidDeployment = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ChugSplashConfig,
+  configPath: string,
+  networkName: string
 ) => {
   for (const referenceName of Object.keys(parsedConfig.contracts)) {
     if (
@@ -102,10 +105,80 @@ export const checkValidDeployment = async (
     ) {
       throw new Error(
         `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used
-in a previous deployment for this project. You must change this reference name to something other than
-${referenceName} or change the project name to something other than ${parsedConfig.options.projectName}.`
+in a previous deployment for this project.
+
+To perform a fresh deployment, you must change this reference name to something other than ${referenceName} or
+change the project name to something other than ${parsedConfig.options.projectName}.
+
+If you wish to upgrade ${parsedConfig.options.projectName} then run to following command:
+npx hardhat chugsplash-upgrade --network ${networkName} ${configPath}`
       )
     }
+  }
+}
+
+export const checkValidUpgrade = async (
+  provider: ethers.providers.Provider,
+  parsedConfig: ChugSplashConfig,
+  configPath: string,
+  networkName: string
+) => {
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let proxyDetected = false
+  for (const referenceName of Object.keys(parsedConfig.contracts)) {
+    if (
+      await isProxyDeployed(
+        provider,
+        parsedConfig.options.projectName,
+        referenceName
+      )
+    ) {
+      proxyDetected = true
+      const proxyAddress = getProxyAddress(
+        parsedConfig.options.projectName,
+        referenceName
+      )
+
+      const contract = new ethers.Contract(proxyAddress, ProxyABI, provider)
+
+      const owner = await getProxyOwner(contract)
+      const managerProxy = await getChugSplashManagerProxyAddress(
+        parsedConfig.options.projectName
+      )
+      if (owner !== managerProxy) {
+        requiresOwnershipTransfer.push({
+          name: referenceName,
+          address: proxyAddress,
+        })
+      }
+    }
+  }
+
+  if (!proxyDetected) {
+    throw new Error(
+      `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
+
+Run the following command to deploy this project for the first time:
+npx hardhat chugsplash-deploy --network ${networkName} ${configPath}
+      `
+    )
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    // TODO update this once the transfer ownership task is implemented
+    throw new Error(
+      `Error: Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership>
+      `
+    )
   }
 }
 
