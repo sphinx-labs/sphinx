@@ -162,7 +162,6 @@ const encodeVariable = (
       ]
     } else if (
       variableType.label.startsWith('uint') ||
-      variableType.label.startsWith('int') ||
       variableType.label.startsWith('enum')
     ) {
       if (
