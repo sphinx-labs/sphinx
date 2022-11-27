@@ -25,6 +25,10 @@ contract SimpleStorage {
     mapping(string => mapping(string => string)) public nestedMappingTest;
     mapping(uint8 => mapping(string => mapping(address => uint))) public multiNestedMapping;
 
+    function getTestInt() external view returns (int) {
+        return testInt;
+    }
+
     function getNumber() external view returns (uint8) {
         return number;
     }

@@ -1,4 +1,5 @@
 import { ChugSplashConfig } from '@chugsplash/core'
+import { ethers } from 'ethers'
 
 const config: ChugSplashConfig = {
   // Configuration options for the project:
@@ -12,7 +13,7 @@ const config: ChugSplashConfig = {
     FirstSimpleStorage: {
       contract: 'SimpleStorage',
       variables: {
-        testInt: 1,
+        testInt: ethers.constants.MinInt256.toString(),
         number: 1,
         stored: true,
         storageName: 'First',

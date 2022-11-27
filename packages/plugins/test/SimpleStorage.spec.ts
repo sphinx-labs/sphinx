@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { BigNumber, Contract } from 'ethers'
+import { BigNumber, Contract, constants } from 'ethers'
 
 describe('SimpleStorage', () => {
   let FirstSimpleStorage: Contract
@@ -8,6 +8,12 @@ describe('SimpleStorage', () => {
     await chugsplash.reset()
 
     FirstSimpleStorage = await chugsplash.getContract('FirstSimpleStorage')
+  })
+
+  it('does set int', async () => {
+    expect(await FirstSimpleStorage.getTestInt()).deep.equals(
+      constants.MinInt256
+    )
   })
 
   it('does set struct', async () => {
