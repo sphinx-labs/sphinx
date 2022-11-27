@@ -353,7 +353,7 @@ export const computeStorageSlots = (
   contractConfig: ContractConfig,
   immutableVariables: string[]
 ): Array<StorageSlotPair> => {
-  const storageEntries = []
+  const storageEntries = {}
   for (const storageObj of Object.values(storageLayout.storage)) {
     if (contractConfig.variables[storageObj.label] !== undefined) {
       storageEntries[storageObj.label] = storageObj
@@ -375,9 +375,6 @@ Did you forget to declare it in your ChugSplash config file?`
 
     // Find the entry in the storage layout that corresponds to this variable name.
     const storageObj = storageEntries[variableName]
-    // const storageObj = storageLayout.storage.find((entry) => {
-    //   return entry.label === variableName
-    // })
 
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
