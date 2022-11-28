@@ -27,7 +27,7 @@ export const variables = {
     testKey: {
       a: 1,
       b: 2,
-      c: 3
+      c: 3,
     },
   },
   uint256ToStringMapping: {
