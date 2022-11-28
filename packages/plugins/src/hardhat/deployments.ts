@@ -1,7 +1,8 @@
-import * as path from 'path'
-import * as fs from 'fs'
-
 import '@nomiclabs/hardhat-ethers'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import yesno from 'yesno'
 import { ethers } from 'ethers'
 import {
   ChugSplashConfig,
@@ -16,7 +17,7 @@ import {
   computeBundleId,
   getChugSplashManager,
   getExecutionAmountToSendPlusBuffer,
-  checkValidDeployment,
+  checkIsUpgrade,
   checkValidUpgrade,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -49,6 +50,7 @@ export const deployAllChugSplashConfigs = async (
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
+  confirm: boolean,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
@@ -73,7 +75,7 @@ export const deployAllChugSplashConfigs = async (
       remoteExecution,
       ipfsUrl,
       noCompile,
-      false,
+      confirm,
       executor,
       spinner
     )
@@ -87,7 +89,7 @@ export const deployChugSplashConfig = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   noCompile: boolean,
-  isUpgrade: boolean,
+  confirm: boolean,
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -178,8 +180,9 @@ export const deployChugSplashConfig = async (
       configUri,
       remoteExecution,
       ipfsUrl,
-      isUpgrade,
-      configPath
+      configPath,
+      spinner,
+      confirm
     )
     currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
@@ -336,23 +339,34 @@ export const proposeChugSplashBundle = async (
   configUri: string,
   remoteExecution: boolean,
   ipfsUrl: string,
-  isUpgrade: boolean,
-  configPath: string
+  configPath: string,
+  spinner: ora.Ora,
+  confirm: boolean
 ) => {
+  // Determine if the deployment is an upgrade
+  const isUpgrade = await checkIsUpgrade(hre.ethers.provider, parsedConfig)
   if (isUpgrade) {
+    spinner.succeed('Upgrade detected')
+    // Check if upgrade is valid
     await checkValidUpgrade(
       hre.ethers.provider,
       parsedConfig,
       configPath,
       hre.network.name
     )
-  } else {
-    await checkValidDeployment(
-      hre.ethers.provider,
-      parsedConfig,
-      configPath,
-      hre.network.name
-    )
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployments detected for project ${parsedConfig.options.projectName}, would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(
+          `User denied upgrade. The project name ${parsedConfig.options.projectName} was already used in a previous deployment. To perform a
+  fresh deployment of a new project, you must change the project name to something other than ${parsedConfig.options.projectName}.`
+        )
+      }
+    }
   }
 
   const ChugSplashManager = getChugSplashManager(
