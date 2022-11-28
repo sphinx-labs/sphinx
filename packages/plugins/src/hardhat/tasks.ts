@@ -321,7 +321,7 @@ export const chugsplashProposeTask = async (
     hre
   )
 
-  spinner.start('Proposing the project...')
+  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -349,6 +349,9 @@ with a name other than ${parsedConfig.options.projectName}`
     )
 
     if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+      spinner.succeed(
+        `${parsedConfig.options.projectName} has not been proposed before.`
+      )
       await proposeChugSplashBundle(
         hre,
         parsedConfig,

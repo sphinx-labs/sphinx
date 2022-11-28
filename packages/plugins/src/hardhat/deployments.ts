@@ -140,7 +140,7 @@ export const deployChugSplashConfig = async (
       hre
     )
 
-  spinner.start(`Committing ${parsedConfig.options.projectName}...`)
+  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     signer,
@@ -173,6 +173,9 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
+    spinner.succeed(
+      `${parsedConfig.options.projectName} has not been proposed before.`
+    )
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -186,8 +189,6 @@ export const deployChugSplashConfig = async (
     )
     currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
-
-  spinner.succeed(`Committed ${parsedConfig.options.projectName}.`)
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
     spinner.start(`Funding ${parsedConfig.options.projectName}...`)
@@ -344,9 +345,11 @@ export const proposeChugSplashBundle = async (
   confirm: boolean
 ) => {
   // Determine if the deployment is an upgrade
+  spinner.start(
+    `Checking if ${parsedConfig.options.projectName} is a fresh deployment or upgrade...`
+  )
   const isUpgrade = await checkIsUpgrade(hre.ethers.provider, parsedConfig)
   if (isUpgrade) {
-    spinner.succeed('Upgrade detected')
     // Check if upgrade is valid
     await checkValidUpgrade(
       hre.ethers.provider,
@@ -354,6 +357,8 @@ export const proposeChugSplashBundle = async (
       configPath,
       hre.network.name
     )
+
+    spinner.succeed(`${parsedConfig.options.projectName} is an upgrade.`)
 
     if (!confirm) {
       // Confirm upgrade with user
@@ -367,7 +372,11 @@ export const proposeChugSplashBundle = async (
         )
       }
     }
+  } else {
+    spinner.succeed(`${parsedConfig.options.projectName} is not an upgrade.`)
   }
+
+  spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     hre.ethers.provider.getSigner(),
@@ -403,4 +412,6 @@ export const proposeChugSplashBundle = async (
       configUri
     )
   ).wait()
+
+  spinner.succeed(`Proposed ${parsedConfig.options.projectName}.`)
 }
