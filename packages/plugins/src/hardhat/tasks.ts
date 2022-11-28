@@ -170,11 +170,11 @@ export const chugsplashDeployTask = async (
     ipfsUrl: string
     silent: boolean
     noCompile: boolean
-    isUpgrade: boolean
+    confirm: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile, isUpgrade } = args
+  const { configPath, ipfsUrl, silent, noCompile } = args
 
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
@@ -197,7 +197,7 @@ export const chugsplashDeployTask = async (
     remoteExecution,
     ipfsUrl,
     noCompile,
-    isUpgrade,
+    args.confirm,
     executor,
     spinner
   )
@@ -215,33 +215,11 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
+  .addFlag(
+    'confirm',
+    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+  )
   .setAction(chugsplashDeployTask)
-
-export const chugsplashUpgradeTask = async (
-  args: {
-    configPath: string
-    ipfsUrl: string
-    silent: boolean
-    noCompile: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  await chugsplashDeployTask({ ...args, isUpgrade: true }, hre)
-}
-
-task(TASK_CHUGSPLASH_UPGRADE)
-  .setDescription('Upgrades a ChugSplash project')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to deploy'
-  )
-  .addOptionalParam(
-    'ipfsUrl',
-    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
-  )
-  .addFlag('silent', "Hide all of ChugSplash's output")
-  .addFlag('noCompile', "Don't compile when running this task")
-  .setAction(chugsplashUpgradeTask)
 
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
@@ -298,18 +276,11 @@ export const chugsplashProposeTask = async (
     silent: boolean
     noCompile: boolean
     remoteExecution: boolean
-    isUpgrade?: boolean
+    confirm: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    ipfsUrl,
-    silent,
-    noCompile,
-    remoteExecution,
-    isUpgrade = false,
-  } = args
+  const { configPath, ipfsUrl, silent, noCompile, remoteExecution } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -353,7 +324,7 @@ export const chugsplashProposeTask = async (
     hre
   )
 
-  spinner.start('Proposing the project...')
+  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -381,6 +352,9 @@ with a name other than ${parsedConfig.options.projectName}`
     )
 
     if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+      spinner.succeed(
+        `${parsedConfig.options.projectName} has not been proposed before.`
+      )
       await proposeChugSplashBundle(
         hre,
         parsedConfig,
@@ -388,8 +362,9 @@ with a name other than ${parsedConfig.options.projectName}`
         configUri,
         remoteExecution,
         ipfsUrl,
-        isUpgrade,
-        configPath
+        configPath,
+        spinner,
+        args.confirm
       )
       spinner.succeed(
         successfulProposalMessage(
@@ -423,6 +398,10 @@ task(TASK_CHUGSPLASH_PROPOSE)
     'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
   )
   .addFlag('noCompile', "Don't compile when running this task")
+  .addFlag(
+    'confirm',
+    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+  )
   .setAction(chugsplashProposeTask)
 
 export const chugsplashApproveTask = async (
@@ -1028,6 +1007,7 @@ task(TASK_NODE)
         disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
+        confirm: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
@@ -1049,7 +1029,7 @@ task(TASK_NODE)
           if (!noCompile) {
             await cleanThenCompile(hre)
           }
-          await deployAllChugSplashConfigs(hre, hide, '', true, spinner)
+          await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
         }
         await writeHardhatSnapshotId(hre, 'localhost')
       }
@@ -1060,7 +1040,11 @@ task(TASK_NODE)
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
   .setAction(
-    async (args: { show: boolean; noCompile: boolean }, hre: any, runSuper) => {
+    async (
+      args: { show: boolean; noCompile: boolean; confirm: boolean },
+      hre: any,
+      runSuper
+    ) => {
       const { show, noCompile } = args
       const chainId = await getChainId(hre.ethers.provider)
       if (chainId === 31337) {
@@ -1086,7 +1070,7 @@ task(TASK_TEST)
           if (!noCompile) {
             await cleanThenCompile(hre)
           }
-          await deployAllChugSplashConfigs(hre, !show, '', true)
+          await deployAllChugSplashConfigs(hre, !show, '', true, true)
         } finally {
           await writeHardhatSnapshotId(hre)
         }
@@ -1100,17 +1084,24 @@ task(TASK_RUN)
     'deployAll',
     'Deploy all ChugSplash configs before executing your script.'
   )
+  .addFlag(
+    'confirm',
+    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+  )
   .setAction(
     async (
       args: {
         deployAll: boolean
         noCompile: boolean
+        confirm: boolean
       },
       hre: any,
       runSuper
     ) => {
       const { deployAll, noCompile } = args
       if (deployAll) {
+        const chainId = await getChainId(hre.ethers.provider)
+        const confirm = chainId === 31337 ? true : args.confirm
         await deployChugSplashPredeploys(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
@@ -1118,7 +1109,7 @@ task(TASK_RUN)
         if (!noCompile) {
           await cleanThenCompile(hre)
         }
-        await deployAllChugSplashConfigs(hre, true, '', true)
+        await deployAllChugSplashConfigs(hre, true, '', true, confirm)
       }
       await runSuper(args)
     }
