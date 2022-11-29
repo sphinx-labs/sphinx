@@ -1,7 +1,7 @@
 import { fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
 
-import { ContractConfig } from '../../config'
+import { ParsedContractConfig } from '../../config'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -349,7 +349,7 @@ const encodeVariable = (
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  contractConfig: ContractConfig,
+  contractConfig: ParsedContractConfig,
   immutableVariables: string[]
 ): Array<StorageSlotPair> => {
   const storageEntries = {}

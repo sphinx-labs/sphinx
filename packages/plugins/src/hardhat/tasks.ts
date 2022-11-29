@@ -13,7 +13,7 @@ import { getChainId } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
   makeActionBundleFromConfig,
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
   ChugSplashBundleState,
@@ -120,7 +120,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
   .setAction(bundleRemoteSubtask)
 
 export const bundleLocalSubtask = async (args: {
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
   const { parsedConfig } = args
   const artifacts = {}
@@ -559,7 +559,7 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
 
 export const chugsplashCommitSubtask = async (
   args: {
-    parsedConfig: ChugSplashConfig
+    parsedConfig: ParsedChugSplashConfig
     ipfsUrl: string
     commitToIpfs: boolean
     noCompile: boolean

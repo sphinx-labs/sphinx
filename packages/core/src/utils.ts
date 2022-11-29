@@ -11,7 +11,7 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 
-import { ChugSplashConfig } from './config'
+import { ParsedChugSplashConfig } from './config'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -91,7 +91,7 @@ export const getProxyAddress = (
 
 export const checkValidDeployment = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   configPath: string,
   networkName: string
 ) => {
@@ -119,7 +119,7 @@ npx hardhat chugsplash-upgrade --network ${networkName} ${configPath}`
 
 export const checkValidUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   configPath: string,
   networkName: string
 ) => {
@@ -293,7 +293,7 @@ export const chugsplashLog = (text: string, silent: boolean) => {
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   silent: boolean
 ) => {
   if (!silent) {

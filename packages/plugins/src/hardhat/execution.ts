@@ -1,7 +1,7 @@
 import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   getChugSplashRegistry,
   getChugSplashManager,
   getOwnerBalanceInChugSplashManager,
@@ -16,7 +16,7 @@ import { writeHardhatSnapshotId } from './utils'
 
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   bundleId: string
 ): Promise<string> => {
   const provider = hre.ethers.provider
@@ -104,11 +104,11 @@ npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <c
  * Performs actions on behalf of the project owner after the successful execution of a bundle.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
- * @param parsedConfig Parsed ChugSplashConfig.
+ * @param parsedConfig Parsed ParsedChugSplashConfig.
  */
 export const postExecutionActions = async (
   hre: HardhatRuntimeEnvironment,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ) => {
   const signer = hre.ethers.provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
@@ -132,7 +132,7 @@ export const postExecutionActions = async (
   }
 
   // Transfer ownership of the ChugSplashManager to the project owner specified in the
-  // ChugSplashConfig if their address isn't already the owner.
+  // ParsedChugSplashConfig if their address isn't already the owner.
   if (parsedConfig.options.projectOwner !== currChugSplashManagerOwner) {
     if (parsedConfig.options.projectOwner === ethers.constants.AddressZero) {
       // We must call a separate function if ownership is being transferred to address(0).
