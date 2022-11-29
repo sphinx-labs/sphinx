@@ -2,7 +2,7 @@ import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 
 import { getChugSplashManagerProxyAddress } from './utils'
-import { ChugSplashConfig } from './config/types'
+import { ParsedChugSplashConfig } from './config/types'
 
 /**
  * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment.
@@ -35,7 +35,7 @@ export const getOwnerBalanceInChugSplashManager = async (
  */
 export const getExecutionAmountToSend = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ): Promise<ethers.BigNumber> => {
   const totalExecutionAmount = await simulateExecution(provider, parsedConfig)
   const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
@@ -48,7 +48,7 @@ export const getExecutionAmountToSend = async (
 
 export const simulateExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ) => {
   provider
   parsedConfig
@@ -68,7 +68,7 @@ export const simulateExecution = async (
  */
 export const getExecutionAmountToSendPlusBuffer = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ) => {
   const executionAmount = await getExecutionAmountToSend(provider, parsedConfig)
   return executionAmount.mul(15).div(10)
@@ -76,7 +76,7 @@ export const getExecutionAmountToSendPlusBuffer = async (
 
 export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ): Promise<boolean> => {
   // Get the amount of funds that must be sent to the ChugSplashManager in order to execute the
   // bundle.

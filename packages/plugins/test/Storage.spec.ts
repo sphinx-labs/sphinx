@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { BigNumber, Contract, constants } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 
 import { variables } from './constants'
 

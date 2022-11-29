@@ -1,16 +1,28 @@
 import { CompilerInput } from '../languages'
 
 /**
- * Allowable types for variables.
+ * Allowable types for ChugSplash config variables defined by the user.
  */
-export type ConfigVariable =
+export type UserConfigVariable =
   | boolean
   | string
   | number
-  | Array<ConfigVariable>
+  | Array<UserConfigVariable>
   | ContractReference
   | {
-      [name: string]: ConfigVariable
+      [name: string]: UserConfigVariable
+    }
+
+/**
+ * Parsed ChugSplash config variable.
+ */
+export type ParsedConfigVariable =
+  | boolean
+  | string
+  | number
+  | Array<ParsedConfigVariable>
+  | {
+      [name: string]: ParsedConfigVariable
     }
 
 export type ContractReference = {
@@ -18,23 +30,50 @@ export type ContractReference = {
 }
 
 /**
- * Full config object that can be used to commit a deployment.
+ * Full user-defined config object that can be used to commit a deployment/upgrade.
  */
-export interface ChugSplashConfig {
+export interface UserChugSplashConfig {
   options: {
     projectName: string
     projectOwner: string
   }
   contracts: {
-    [referenceName: string]: ContractConfig
+    [referenceName: string]: UserContractConfig
   }
 }
 
-export type ContractConfig = {
+/**
+ * Full parsed config object.
+ */
+export interface ParsedChugSplashConfig {
+  options: {
+    projectName: string
+    projectOwner: string
+  }
+  contracts: {
+    [referenceName: string]: ParsedContractConfig
+  }
+}
+
+/**
+ * User-defined contract definition in a ChugSplash config.
+ */
+export type UserContractConfig = {
   contract: string
   address?: string
   variables?: {
-    [name: string]: ConfigVariable
+    [name: string]: UserConfigVariable
+  }
+}
+
+/**
+ * Parsed contract definition in a ChugSplash config.
+ */
+export type ParsedContractConfig = {
+  contract: string
+  address: string
+  variables?: {
+    [name: string]: ParsedConfigVariable
   }
 }
 
@@ -42,7 +81,7 @@ export type ContractConfig = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CanonicalChugSplashConfig extends ChugSplashConfig {
+export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
   inputs: ChugSplashInputs
 }
 

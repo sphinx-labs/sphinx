@@ -15,7 +15,12 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getProxyAddress } from '../utils'
-import { ChugSplashConfig, ConfigVariable, ContractReference } from './types'
+import {
+  UserChugSplashConfig,
+  UserConfigVariable,
+  ContractReference,
+  ParsedChugSplashConfig,
+} from './types'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -29,7 +34,7 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const validateChugSplashConfig = (config: ChugSplashConfig) => {
+export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
   if (config.contracts === undefined) {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
@@ -74,9 +79,9 @@ export const validateChugSplashConfig = (config: ChugSplashConfig) => {
  * @return Parsed config file with template variables replaced.
  */
 export const parseChugSplashConfig = (
-  config: ChugSplashConfig,
+  config: UserChugSplashConfig,
   env: any = {}
-): ChugSplashConfig => {
+): ParsedChugSplashConfig => {
   validateChugSplashConfig(config)
 
   const contracts = {}
@@ -89,7 +94,7 @@ export const parseChugSplashConfig = (
     contracts[referenceName] = contractConfig.address
   }
 
-  const parsed: ChugSplashConfig = JSON.parse(
+  const parsed: ParsedChugSplashConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(config))({
       env: new Proxy(env, {
         get: (target, prop) => {
@@ -127,7 +132,7 @@ export const parseChugSplashConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = async (
-  config: ChugSplashConfig,
+  config: ParsedChugSplashConfig,
   artifacts: {
     [name: string]: {
       creationCode: string
@@ -182,8 +187,8 @@ export const makeActionBundleFromConfig = async (
 }
 
 export const parseContractReferences = (
-  config: ChugSplashConfig
-): ChugSplashConfig => {
+  config: UserChugSplashConfig
+): ParsedChugSplashConfig => {
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
@@ -208,11 +213,11 @@ ${referenceName}.`
       }
     }
   }
-  return config
+  return config as ParsedChugSplashConfig
 }
 
 export const isContractReference = (
-  variable: ConfigVariable
+  variable: UserConfigVariable
 ): variable is ContractReference => {
   return (variable as ContractReference)['!Ref'] !== undefined
 }

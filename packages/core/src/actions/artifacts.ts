@@ -1,11 +1,11 @@
 import { remove0x } from '@eth-optimism/core-utils'
 import { utils } from 'ethers'
 
-import { ChugSplashConfig } from '../config'
+import { ParsedChugSplashConfig } from '../config'
 
 export const getCreationCode = (
   bytecode: string,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   referenceName: string,
   abi: any,
   compilerOutput: any,
@@ -31,7 +31,7 @@ export const getCreationCode = (
 }
 
 export const getConstructorArgs = (
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   referenceName: string,
   abi: any,
   compilerOutput: any,
