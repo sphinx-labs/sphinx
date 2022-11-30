@@ -69,7 +69,17 @@ export const writeDeploymentArtifact = (
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
 }
 
-export const getProxyAddress = (
+/**
+ * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
+ * the projectName and the corresponding contract's reference name. Note that a default proxy will
+ * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
+ * attribute.
+ *
+ * @param projectName Name of the ChugSplash project.
+ * @param referenceName Reference name of the contract that corresponds to the proxy.
+ * @returns Address of the default EIP-1967 proxy used by ChugSplash.
+ */
+export const getDefaultProxyAddress = (
   projectName: string,
   referenceName: string
 ): string => {
@@ -93,14 +103,10 @@ export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
   parsedConfig: ParsedChugSplashConfig
 ): Promise<boolean | string> => {
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    if (
-      await isProxyDeployed(
-        provider,
-        parsedConfig.options.projectName,
-        referenceName
-      )
-    ) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if (await isProxyDeployed(provider, contractConfig.address)) {
       return referenceName
     }
   }
@@ -118,21 +124,17 @@ export const checkValidUpgrade = async (
     address: string
   }[] = []
   let proxyDetected = false
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    if (
-      await isProxyDeployed(
-        provider,
-        parsedConfig.options.projectName,
-        referenceName
-      )
-    ) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if (await isProxyDeployed(provider, contractConfig.address)) {
       proxyDetected = true
-      const proxyAddress = getProxyAddress(
-        parsedConfig.options.projectName,
-        referenceName
-      )
 
-      const contract = new ethers.Contract(proxyAddress, ProxyABI, provider)
+      const contract = new ethers.Contract(
+        contractConfig.address,
+        ProxyABI,
+        provider
+      )
 
       const owner = await getProxyOwner(contract)
       const managerProxy = await getChugSplashManagerProxyAddress(
@@ -141,7 +143,7 @@ export const checkValidUpgrade = async (
       if (owner !== managerProxy) {
         requiresOwnershipTransfer.push({
           name: referenceName,
-          address: proxyAddress,
+          address: contractConfig.address,
         })
       }
     }
@@ -174,10 +176,8 @@ npx hardhat chugsplash-transfer-ownership>
 
 export const isProxyDeployed = async (
   provider: ethers.providers.Provider,
-  projectName: string,
-  referenceName: string
+  proxyAddress: string
 ): Promise<boolean> => {
-  const proxyAddress = getProxyAddress(projectName, referenceName)
   return (await provider.getCode(proxyAddress)) !== '0x'
 }
 
