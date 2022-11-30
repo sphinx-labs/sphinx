@@ -20,7 +20,6 @@ import {
   ChugSplashBundleStatus,
   registerChugSplashProject,
   getChugSplashRegistry,
-  parseChugSplashConfig,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
@@ -39,7 +38,7 @@ import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
   ChugSplashExecutor,
-  getArtifactsFromParsedCanonicalConfig,
+  getArtifactsFromCanonicalConfig,
 } from '@chugsplash/executor'
 
 import {
@@ -100,19 +99,11 @@ subtask(TASK_CHUGSPLASH_FETCH)
 export const bundleRemoteSubtask = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
-  const parsedCanonicalConfig = parseChugSplashConfig(
-    args.canonicalConfig
-  ) as CanonicalChugSplashConfig
+  const { canonicalConfig } = args
 
-  const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    parsedCanonicalConfig
-  )
+  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
 
-  return makeActionBundleFromConfig(
-    parsedCanonicalConfig,
-    artifacts,
-    process.env
-  )
+  return makeActionBundleFromConfig(canonicalConfig, artifacts)
 }
 
 subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
@@ -157,7 +148,7 @@ export const bundleLocalSubtask = async (args: {
     }
   }
 
-  return makeActionBundleFromConfig(parsedConfig, artifacts, process.env)
+  return makeActionBundleFromConfig(parsedConfig, artifacts)
 }
 
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)

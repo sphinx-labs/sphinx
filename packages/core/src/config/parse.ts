@@ -80,7 +80,7 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
  */
 export const parseChugSplashConfig = (
   config: UserChugSplashConfig,
-  env: any = {}
+  env: any
 ): ParsedChugSplashConfig => {
   validateChugSplashConfig(config)
 
@@ -134,24 +134,18 @@ export const parseChugSplashConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = async (
-  config: ParsedChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   artifacts: {
     [name: string]: {
       creationCode: string
       storageLayout: SolidityStorageLayout
       immutableVariables: string[]
     }
-  },
-  env: {
-    [key: string]: string | number | boolean
-  } = {}
+  }
 ): Promise<ChugSplashActionBundle> => {
-  // Parse the config to replace any template variables.
-  const parsed = parseChugSplashConfig(config, env)
-
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsed.contracts
+    parsedConfig.contracts
   )) {
     const artifact = artifacts[referenceName]
 

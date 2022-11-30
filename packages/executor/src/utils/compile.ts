@@ -1,9 +1,7 @@
-import * as dotenv from 'dotenv'
 import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
   makeActionBundleFromConfig,
-  parseChugSplashConfig,
   getCreationCode,
   getImmutableVariables,
   chugsplashFetchSubtask,
@@ -17,25 +15,14 @@ import {
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { add0x } from '@eth-optimism/core-utils'
 
-// Load environment variables from .env
-dotenv.config()
-
 export const bundleRemoteSubtask = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
-  const parsedCanonicalConfig = parseChugSplashConfig(
-    args.canonicalConfig
-  ) as CanonicalChugSplashConfig
+  const { canonicalConfig } = args
 
-  const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    parsedCanonicalConfig
-  )
+  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
 
-  return makeActionBundleFromConfig(
-    parsedCanonicalConfig,
-    artifacts,
-    process.env
-  )
+  return makeActionBundleFromConfig(canonicalConfig, artifacts)
 }
 
 // Credit: NomicFoundation
@@ -82,12 +69,12 @@ export const getSolcBuild = async (solcVersion: string) => {
   return wasmCompiler
 }
 
-export const getArtifactsFromParsedCanonicalConfig = async (
-  parsedCanonicalConfig: CanonicalChugSplashConfig
+export const getArtifactsFromCanonicalConfig = async (
+  canonicalConfig: CanonicalChugSplashConfig
 ): Promise<{ [referenceName: string]: any }> => {
   const compilerOutputs: any[] = []
   // Get the compiler output for each compiler input.
-  for (const compilerInput of parsedCanonicalConfig.inputs) {
+  for (const compilerInput of canonicalConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
     let compilerOutput: any // TODO: Compiler output type
     if (solcBuild.isSolcJs) {
@@ -103,7 +90,7 @@ export const getArtifactsFromParsedCanonicalConfig = async (
   const artifacts = {}
   // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedCanonicalConfig.contracts
+    canonicalConfig.contracts
   )) {
     let compilerOutputIndex = 0
     while (artifacts[referenceName] === undefined) {
@@ -119,7 +106,7 @@ export const getArtifactsFromParsedCanonicalConfig = async (
 
           const creationCode = getCreationCode(
             add0x(contractOutput.evm.bytecode.object),
-            parsedCanonicalConfig,
+            canonicalConfig,
             referenceName,
             contractOutput.abi,
             compilerOutput,

@@ -2,10 +2,8 @@ import assert from 'assert'
 
 import { ethers } from 'ethers'
 import {
-  CanonicalChugSplashConfig,
   CompilerInput,
   getChugSplashManagerProxyAddress,
-  parseChugSplashConfig,
   getConstructorArgs,
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
@@ -54,7 +52,7 @@ import {
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
-import { getArtifactsFromParsedCanonicalConfig } from './compile'
+import { getArtifactsFromCanonicalConfig } from './compile'
 import { etherscanApiKey as apiKey, customChains } from './constants'
 
 export interface EtherscanResponseBody {
@@ -76,9 +74,7 @@ export const verifyChugSplashConfig = async (
   )
 
   const canonicalConfig = await chugsplashFetchSubtask({ configUri })
-  const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
-  )
+  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
   const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,

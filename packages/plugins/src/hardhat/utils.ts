@@ -1,5 +1,6 @@
 import path from 'path'
 
+import * as dotenv from 'dotenv'
 import {
   ParsedChugSplashConfig,
   getChugSplashManagerProxyAddress,
@@ -9,6 +10,9 @@ import {
 } from '@chugsplash/core'
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
+
+// Load environment variables from .env
+dotenv.config()
 
 export const writeHardhatSnapshotId = async (
   hre: any,

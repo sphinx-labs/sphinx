@@ -37,9 +37,7 @@ export interface UserChugSplashConfig {
     projectName: string
     projectOwner: string
   }
-  contracts: {
-    [referenceName: string]: UserContractConfig
-  }
+  contracts: UserContractConfigs
 }
 
 /**
@@ -50,9 +48,7 @@ export interface ParsedChugSplashConfig {
     projectName: string
     projectOwner: string
   }
-  contracts: {
-    [referenceName: string]: ParsedContractConfig
-  }
+  contracts: ParsedContractConfigs
 }
 
 /**
@@ -61,9 +57,15 @@ export interface ParsedChugSplashConfig {
 export type UserContractConfig = {
   contract: string
   address?: string
-  variables?: {
-    [name: string]: UserConfigVariable
-  }
+  variables?: UserConfigVariables
+}
+
+export type UserContractConfigs = {
+  [referenceName: string]: UserContractConfig
+}
+
+export type UserConfigVariables = {
+  [name: string]: UserConfigVariable
 }
 
 /**
@@ -72,9 +74,15 @@ export type UserContractConfig = {
 export type ParsedContractConfig = {
   contract: string
   address: string
-  variables?: {
-    [name: string]: ParsedConfigVariable
-  }
+  variables?: ParsedConfigVariables
+}
+
+export type ParsedContractConfigs = {
+  [referenceName: string]: ParsedContractConfig
+}
+
+export type ParsedConfigVariables = {
+  [name: string]: ParsedConfigVariable
 }
 
 /**
