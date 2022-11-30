@@ -148,7 +148,6 @@ export const makeActionBundleFromConfig = async (
 ): Promise<ChugSplashActionBundle> => {
   // Parse the config to replace any template variables.
   const parsed = parseChugSplashConfig(config, env)
-  console.log(parsed.contracts)
 
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
