@@ -34,11 +34,23 @@ describe('SimpleStorage', () => {
     expect(await Storage.stringTest()).equals(variables.stringTest)
   })
 
+  it('does set bytes', async () => {
+    expect(await Storage.bytesTest()).equals(variables.bytesTest)
+  })
+
+  it('does set contract', async () => {
+    expect(await Storage.contractTest()).equals(variables.contractTest)
+  })
+
+  it('does set enum', async () => {
+    expect(await Storage.enumTest()).equals(variables.enumTest)
+  })
+
   it('does set struct', async () => {
-    const { a, b, c } = await Storage.structTest()
-    expect(a).equals(variables.structTest.a)
-    expect(b).equals(variables.structTest.b)
-    expect(c).to.deep.equal(BigNumber.from(variables.structTest.c))
+    const { a, b, c } = await Storage.simpleStruct()
+    expect(a).equals(variables.simpleStruct.a)
+    expect(b).equals(variables.simpleStruct.b)
+    expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
   })
 
   it('does set string mapping to string, uint, bool, address, struct', async () => {
@@ -57,9 +69,24 @@ describe('SimpleStorage', () => {
     )
 
     const { a, b, c } = await Storage.stringToStructMapping(key)
-    expect(a).equals(variables.structTest.a)
-    expect(b).equals(variables.structTest.b)
-    expect(c).to.deep.equal(BigNumber.from(variables.structTest.c))
+    expect(a).equals(variables.simpleStruct.a)
+    expect(b).equals(variables.simpleStruct.b)
+    expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
+  })
+
+  it('does set complex struct', async () => {
+    expect(await Storage.complexStruct()).equals(variables.complexStruct.a)
+
+    const [[key, val]] = Object.entries(variables.complexStruct.b)
+    expect(await Storage.getComplexStructMappingVal(key)).equals(val)
+  })
+
+  it('does set uint64 fixed size array', async () => {
+    for (let i = 0; i < variables.uint64FixedArray.length; i++) {
+      expect(await Storage.uint64FixedArray(i)).deep.equals(
+        BigNumber.from(variables.uint64FixedArray[i])
+      )
+    }
   })
 
   it('does set uint256 mapping to string', async () => {

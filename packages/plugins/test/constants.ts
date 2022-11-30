@@ -1,16 +1,32 @@
 import { ethers } from 'ethers'
 
+const enum TestEnum {
+  'A',
+  'B',
+  'C',
+}
+
 export const variables = {
   minInt256: ethers.constants.MinInt256.toString(),
   minInt8: -128,
   uint8Test: 255,
   boolTest: true,
   stringTest: 'testString',
-  structTest: {
+  bytesTest: '0xabcd1234',
+  contractTest: '0x' + '11'.repeat(20),
+  enumTest: TestEnum.B,
+  simpleStruct: {
     a: 1,
     b: 2,
     c: 3,
   },
+  complexStruct: {
+    a: 4,
+    b: {
+      5: 'testVal',
+    },
+  },
+  uint64FixedArray: [1, 10, 100, 1_000, 10_000],
   stringToStringMapping: {
     testKey: 'testVal',
   },
