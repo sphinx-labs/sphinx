@@ -5,7 +5,7 @@ import * as path from 'path'
 import yesno from 'yesno'
 import { ethers } from 'ethers'
 import {
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   getProxyAddress,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
@@ -255,7 +255,7 @@ export const getContract = async (
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const configsWithFileNames: {
-    config: ChugSplashConfig
+    config: ParsedChugSplashConfig
     configFileName: string
   }[] = fs
     .readdirSync(hre.config.paths.chugsplash)
@@ -335,7 +335,7 @@ export const getFinalDeploymentTxnHash = async (
 
 export const proposeChugSplashBundle = async (
   hre: HardhatRuntimeEnvironment,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   bundle: ChugSplashActionBundle,
   configUri: string,
   remoteExecution: boolean,

@@ -3,7 +3,7 @@ import path from 'path'
 import * as semver from 'semver'
 import {
   SolidityStorageLayout,
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   createDeploymentFolderForNetwork,
   writeDeploymentArtifact,
   getConstructorArgs,
@@ -116,7 +116,7 @@ export const getDeployedBytecode = async (
  */
 export const filterChugSplashInputs = async (
   chugsplashInputs: ChugSplashInputs,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ): Promise<ChugSplashInputs> => {
   const filteredChugSplashInputs: ChugSplashInputs = []
   for (const chugsplashInput of chugsplashInputs) {
@@ -157,7 +157,7 @@ export const filterChugSplashInputs = async (
 
 export const createDeploymentArtifacts = async (
   hre: any,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string
 ) => {
   createDeploymentFolderForNetwork(hre.network.name, hre.config.paths.deployed)

@@ -11,7 +11,7 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 
-import { ChugSplashConfig } from './config'
+import { ParsedChugSplashConfig } from './config'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -91,7 +91,7 @@ export const getProxyAddress = (
 
 export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig
 ): Promise<boolean | string> => {
   for (const referenceName of Object.keys(parsedConfig.contracts)) {
     if (
@@ -109,7 +109,7 @@ export const checkIsUpgrade = async (
 
 export const checkValidUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   configPath: string,
   networkName: string
 ) => {
@@ -283,7 +283,7 @@ export const chugsplashLog = (text: string, silent: boolean) => {
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   silent: boolean
 ) => {
   if (!silent) {

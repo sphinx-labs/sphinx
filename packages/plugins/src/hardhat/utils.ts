@@ -1,7 +1,7 @@
 import path from 'path'
 
 import {
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
   parseChugSplashConfig,
@@ -46,7 +46,7 @@ export const cleanThenCompile = async (hre: any) => {
  */
 export const loadParsedChugSplashConfig = (
   configPath: string
-): ChugSplashConfig => {
+): ParsedChugSplashConfig => {
   delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
