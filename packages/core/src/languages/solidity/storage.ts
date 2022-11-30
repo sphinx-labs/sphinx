@@ -1,4 +1,4 @@
-import { fromHexString, remove0x } from '@eth-optimism/core-utils'
+import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
 
 import { ParsedContractConfig } from '../../config'
@@ -16,9 +16,8 @@ import {
  * @param offset Number of bytes to offset from the right.
  * @return Padded hex string.
  */
-const padHexSlotValue = (val: string, offset: number): string => {
-  return (
-    '0x' +
+export const padHexSlotValue = (val: string, offset: number): string => {
+  return add0x(
     remove0x(val)
       .padStart(64 - offset * 2, '0') // Pad the start with 64 - offset zero bytes.
       .padEnd(64, '0') // Pad the end (up to 64 bytes) with zero bytes.
@@ -26,8 +25,15 @@ const padHexSlotValue = (val: string, offset: number): string => {
   )
 }
 
-const getOffsetPerElement = (varLabel: string): number => {
-  const elementType = varLabel.split('[')[0]
+/**
+ * Gets the size of an array's elements in bytes. For example, this function would return `8` for a
+ * uint64 array, since each element in the array is 8 bytes (64 bits).
+ *
+ * @param arrayLabel Label of the array, e.g. `uint64[]`.
+ * @returns Number of bytes per array element.
+ */
+export const getBytesPerArrayElement = (arrayLabel: string): number => {
+  const elementType = arrayLabel.split('[')[0]
   if (elementType.startsWith('bool')) {
     return 1
   } else if (
@@ -47,70 +53,113 @@ const getOffsetPerElement = (varLabel: string): number => {
 }
 
 /**
- * Encodes a single variable as a series of key/value storage slot pairs using some storage layout
- * as instructions for how to perform this encoding. Works recursively with struct types.
- * ref: https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#layout-of-state-variables-in-storage
+ * Adds two storage slot keys. Each input key will be interpreted as hexadecimal if 0x-prefixed, and
+ * decimal otherwise.
+ *
+ * @param firstSlotKey First storage slot key.
+ * @param secondSlotKey Second storage slot key.
+ * @returns A 32-byte hex string storage slot key.
+ */
+export const addStorageSlotKeys = (
+  firstSlotKey: string,
+  nestedSlotOffset: string
+): string => {
+  return add0x(
+    remove0x(
+      BigNumber.from(firstSlotKey)
+        .add(BigNumber.from(nestedSlotOffset))
+        .toHexString()
+    ).padStart(64, '0')
+  )
+}
+
+/**
+ * Encodes a single variable as a series of key/value storage slot pairs using the Solidity storage
+ * layout as instructions for how to perform this encoding. Works recursively with complex data types.
+ * ref:
+ * https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#layout-of-state-variables-in-storage
  *
  * @param variable Variable to encode as key/value slot pairs.
  * @param storageObj Solidity compiler JSON output describing the layout for this
  * @param storageTypes Full list of storage types allowed for this encoding.
  * @param nestedSlotOffset For nested data structures, keeps track of a value to be added onto the
- * keys for nested values.
+ * storage slot key.
  * @returns Variable encoded as a series of key/value slot pairs.
  */
-const encodeVariable = (
+export const encodeVariable = (
   variable: any,
   storageObj: SolidityStorageObj,
   storageTypes: {
     [name: string]: SolidityStorageType
   },
-  nestedSlotOffset = 0,
-  // Slot key will be the same unless we are storing a mapping.
-  // So default to calculating it here, unless one is passed in.
-  slotKey = '0x' +
-    remove0x(
-      BigNumber.from(
-        parseInt(storageObj.slot as any, 10) + nestedSlotOffset
-      ).toHexString()
-    ).padStart(64, '0'),
-  mappingType: string | undefined = undefined
+  nestedSlotOffset: string
 ): Array<StorageSlotPair> => {
-  const variableType = storageTypes[mappingType ?? storageObj.type]
+  // The current slot key is the slot key of the current storage object plus the `nestedSlotOffset`.
+  const slotKey = addStorageSlotKeys(storageObj.slot, nestedSlotOffset)
 
+  const variableType = storageTypes[storageObj.type]
+
+  // The Solidity compiler uses four encodings to encode state variables: "inplace", "mapping",
+  // "dynamic_array", and "bytes". Each state variable is assigned an encoding depending on its
+  // type.
+  // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
+
+  // Variables with the "inplace" encoding have storage values that are laid out contiguously in
+  // storage.
   if (variableType.encoding === 'inplace') {
     if (storageObj.type.startsWith('t_array')) {
       if (variableType.base.startsWith('t_array')) {
-        throw new Error(`nested arrays are not supported yet`)
+        throw new Error(
+          `User defined a nested array, which is not supported yet. Variable: ${storageObj.label}. Location: ${storageObj.contract}`
+        )
       }
-      const offsetPerElement = getOffsetPerElement(variableType.label)
-      let { offset } = storageObj
-      let slot = parseInt(storageObj.slot, 10)
+      const bytesPerElement = getBytesPerArrayElement(variableType.label)
+
+      // Arrays always start at a new storage slot with an offset of zero.
+      let bytesOffset = 0
+
+      // We proceed by encoding each element in the array.
+
+      const elementStorageType = variableType.base
+
+      // Set the initial slot key of the array's elements to be the array's slot key.
+      // This number will be incremented each time an element no longer fits in the
+      // current storage slot.
+      let elementSlotKey = parseInt(storageObj.slot, 10)
+
       let slots = []
+      // Iterate over the array and encode each element in it.
       for (const element of variable) {
         slots = slots.concat(
           encodeVariable(
             element,
+            // We must manually create a `storageObj` for each element since the Solidity
+            // compiler does not define them.
             {
-              astId: 0,
+              astId: storageObj.astId,
               contract: storageObj.contract,
               label: storageObj.label,
-              offset,
-              slot: slot.toString(),
-              type: variableType.base,
+              offset: bytesOffset,
+              slot: elementSlotKey.toString(),
+              type: elementStorageType,
             },
             storageTypes,
             nestedSlotOffset
           )
         )
-        offset += offsetPerElement
-        if (offset + offsetPerElement > 32) {
-          slot += 1
-          offset = 0
+        // Increment the bytes offset every time we iterate over an element.
+        bytesOffset += bytesPerElement
+
+        if (bytesOffset + bytesPerElement > 32) {
+          // Increment the storage slot key and reset the offset if the next element will not fit in
+          // the current storage slot.
+          elementSlotKey += 1
+          bytesOffset = 0
         }
       }
       return slots
     } else if (
-      variableType.label.startsWith('address') ||
+      variableType.label === 'address' ||
       variableType.label.startsWith('contract')
     ) {
       if (!ethers.utils.isAddress(variable)) {
@@ -145,6 +194,10 @@ const encodeVariable = (
         },
       ]
     } else if (variableType.label.startsWith('bytes')) {
+      // Since this variable's encoding is `inplace`, it is a bytesN, where N is in the range
+      // [1, 32]. Dynamic bytes have an encoding of `bytes`, and are handled elsewhere in this
+      // function.
+
       if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
         throw new Error(
           `invalid bytes${variableType.numberOfBytes} variable: ${variable}`
@@ -162,7 +215,7 @@ const encodeVariable = (
       ]
     } else if (
       variableType.label.startsWith('uint') ||
-      variableType.label.startsWith('enum')
+      variableType.label.startsWith('enum') // Enums are handled identically to uint8
     ) {
       if (
         remove0x(BigNumber.from(variable).toHexString()).length / 2 >
@@ -183,6 +236,8 @@ const encodeVariable = (
         },
       ]
     } else if (variableType.label.startsWith('int')) {
+      // Calculate the minimum and maximum values of the int to ensure that the variable fits within
+      // these bounds.
       const minValue = BigNumber.from(2)
         .pow(8 * variableType.numberOfBytes)
         .div(2)
@@ -213,34 +268,25 @@ const encodeVariable = (
       // Structs are encoded recursively, as defined by their `members` field.
       let slots = []
       for (const [varName, varVal] of Object.entries(variable)) {
-        const currMember = variableType.members.find((member) => {
+        const memberStorageObj = variableType.members.find((member) => {
           return member.label === varName
         })
-        if (currMember === undefined) {
+        if (memberStorageObj === undefined) {
           throw new Error(
-            `incorrect member in ${variableType.label}: ${varName}`
+            `User entered incorrect member in ${variableType.label}: ${varName}`
           )
         }
-        // if this struct is within a mapping, then the key must be calculated
-        // using the passed in slotkey
-        const offsetKey = BigNumber.from(slotKey)
-          .add(parseInt(currMember.slot as any, 10))
-          .toHexString()
         slots = slots.concat(
-          encodeVariable(
-            varVal,
-            currMember,
-            storageTypes,
-            nestedSlotOffset + parseInt(storageObj.slot as any, 10),
-            mappingType ? offsetKey : undefined
-          )
+          encodeVariable(varVal, memberStorageObj, storageTypes, slotKey)
         )
       }
       return slots
     }
   } else if (variableType.encoding === 'bytes') {
+    // The Solidity compiler uses the "bytes" encoding for strings and dynamic bytes.
+    // ref: https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#bytes-and-string
     if (storageObj.offset !== 0) {
-      // string/bytes types are *not* packed by Solidity.
+      // Strings and dynamic bytes are *not* packed by Solidity.
       throw new Error(`got offset for string/bytes type, should never happen`)
     }
 
@@ -250,9 +296,8 @@ const encodeVariable = (
         ? ethers.utils.toUtf8Bytes(variable)
         : fromHexString(variable)
 
-    // ref: https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#bytes-and-string
     if (bytes.length < 32) {
-      // NOTE: Solidity docs (see above) specifies that strings or bytes with a length of 31 bytes
+      // Solidity docs (see above) specifies that strings or bytes with a length of 31 bytes
       // should be placed into a storage slot where the last byte of the storage slot is the length
       // of the variable in bytes * 2.
       return [
@@ -272,67 +317,66 @@ const encodeVariable = (
       throw new Error('large strings (>31 bytes) not supported')
     }
   } else if (variableType.encoding === 'mapping') {
+    // Iterate over every key/value in the mapping to get the storage slot pair for each one.
     let slots = []
-    for (const [key, value] of Object.entries(variable)) {
-      // default pack type for value types
-      let type = variableType.key.split('_')[1]
-      // default key encoding for value types
-      let encodedKey: string | Uint8Array = encodeVariable(
-        key,
-        storageObj,
-        storageTypes,
-        nestedSlotOffset + parseInt(storageObj.slot as any, 10),
-        undefined,
-        variableType.key
-      )[0].val
+    for (const [mappingKey, mappingVal] of Object.entries(variable)) {
+      const mappingKeyStorageType = storageTypes[variableType.key]
 
-      if (variableType.key.startsWith('t_uint')) {
-        // all uints must be packed with type uint256
-        type = 'uint256'
-      } else if (variableType.key.startsWith('t_int')) {
-        // all ints must be packed with type int256
-        type = 'int256'
-      } else if (variableType.key.startsWith('t_string')) {
-        // strings do not need to be encoded
-        // pack type can be pulled from input type
-        encodedKey = key
-      } else if (variableType.key.startsWith('t_bytes')) {
-        // bytes do not need to be encoded, but must be converted from the input string
-        // pack type can be pulled straight from input type
-        encodedKey = fromHexString(key)
-      }
-
-      // key for nested mappings is computed by packing and hashing the key of the child mapping
-      let concatenated
-      if (mappingType) {
-        concatenated = ethers.utils.solidityPack(
-          [type, 'uint256'],
-          [encodedKey, slotKey]
+      // Encode the mapping key according to its Solidity compiler encoding. The encoding for the
+      // mapping key is 'bytes' if the mapping key is a string or dynamic bytes. Otherwise, the
+      // encoding is 'inplace'. Shortly after we encode the mapping key, we will use it to compute
+      // the mapping value's storage slot key.
+      let encodedMappingKey: string
+      if (mappingKeyStorageType.encoding === 'bytes') {
+        // Encode the mapping key and leave it unpadded.
+        encodedMappingKey = utils.solidityPack(
+          [mappingKeyStorageType.label],
+          [mappingKey]
+        )
+      } else if (mappingKeyStorageType.encoding === 'inplace') {
+        // Use the standard ABI encoder if the mapping key is a value type (as opposed to a
+        // reference type).
+        encodedMappingKey = utils.defaultAbiCoder.encode(
+          [mappingKeyStorageType.label],
+          [mappingKey]
         )
       } else {
-        concatenated = ethers.utils.solidityPack(
-          [type, 'uint256'],
-          [encodedKey, BigNumber.from(storageObj.slot).toHexString()]
+        // This error should never occur unless Solidity adds a new encoding type, or allows dynamic
+        // arrays or mappings to be mapping keys.
+        throw new Error(
+          `unsupported mapping key encoding: ${mappingKeyStorageType.encoding}`
         )
       }
 
-      const mappingKey = utils.keccak256(concatenated)
+      // Get the mapping value's storage slot key by first concatenating the encoded mapping key to the
+      // storage slot key of the mapping itself, then hashing the concatenated value.
+      const mappingValueStorageSlotKey = utils.keccak256(
+        utils.hexConcat([encodedMappingKey, slotKey])
+      )
 
+      // Create a new storage object for the mapping value since the Solidity compiler doesn't
+      // generate one for us.
+      const mappingValStorageObj = {
+        astId: storageObj.astId,
+        contract: storageObj.contract,
+        label: '', // The mapping value has no storage label, which is fine since it's unused here.
+        offset: storageObj.offset,
+        slot: mappingValueStorageSlotKey,
+        type: variableType.value,
+      }
+
+      // Encode the storage slot key/value for the mapping value. Note that we set
+      // `nestedSlotOffset` to '0' because it isn't used when calculating the storage slot
+      // key (we already calculated the storage slot key above).
       slots = slots.concat(
-        encodeVariable(
-          value,
-          storageObj,
-          storageTypes,
-          0,
-          mappingKey,
-          variableType.value
-        )
+        encodeVariable(mappingVal, mappingValStorageObj, storageTypes, '0')
       )
     }
     return slots
   } else if (variableType.encoding === 'dynamic_array') {
     throw new Error('array types not yet supported')
   } else {
+    // This error should never be triggered unless the Solidity compiler adds a new encoding type.
     throw new Error(
       `unknown unsupported type ${variableType.encoding} ${variableType.label}`
     )
@@ -385,7 +429,7 @@ but does not exist as a variable in the contract`
 
     // Encode this variable as series of storage slot key/value pairs and save it.
     slots = slots.concat(
-      encodeVariable(variableValue, storageObj, storageLayout.types)
+      encodeVariable(variableValue, storageObj, storageLayout.types, '0')
     )
   }
 
