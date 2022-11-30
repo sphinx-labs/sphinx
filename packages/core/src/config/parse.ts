@@ -14,7 +14,7 @@ import {
   ChugSplashActionBundle,
   makeBundleFromActions,
 } from '../actions'
-import { getProxyAddress } from '../utils'
+import { getDefaultProxyAddress } from '../utils'
 import {
   UserChugSplashConfig,
   UserConfigVariable,
@@ -88,9 +88,11 @@ export const parseChugSplashConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
+    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
+    // used by ChugSplash.
     contractConfig.address =
       contractConfig.address ||
-      getProxyAddress(config.options.projectName, referenceName)
+      getDefaultProxyAddress(config.options.projectName, referenceName)
     contracts[referenceName] = contractConfig.address
   }
 
@@ -146,6 +148,7 @@ export const makeActionBundleFromConfig = async (
 ): Promise<ChugSplashActionBundle> => {
   // Parse the config to replace any template variables.
   const parsed = parseChugSplashConfig(config, env)
+  console.log(parsed.contracts)
 
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -197,7 +200,8 @@ export const parseContractReferences = (
     )) {
       if (isContractReference(variable)) {
         const [targetReferenceName] = Object.values(variable)
-        if (config.contracts[targetReferenceName] === undefined) {
+        const targetContractConfig = config.contracts[targetReferenceName]
+        if (targetContractConfig === undefined) {
           throw new Error(
             `Could not find a contract definition for ${targetReferenceName} in the config file for
 ${config.options.projectName}. Please create a contract definition for ${targetReferenceName} or
@@ -205,11 +209,15 @@ remove the reference to it in the "${variableName}" variable in your contract de
 ${referenceName}.`
           )
         }
+        // Set the variable to be the user-defined proxy address if it exists, otherwise use the
+        // default proxy address.
         config.contracts[referenceName].variables[variableName] =
-          getProxyAddress(
-            config.options.projectName,
-            targetReferenceName.trim()
-          )
+          targetContractConfig.address
+            ? targetContractConfig.address
+            : getDefaultProxyAddress(
+                config.options.projectName,
+                targetReferenceName.trim()
+              )
       }
     }
   }

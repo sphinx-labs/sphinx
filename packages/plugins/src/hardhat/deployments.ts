@@ -6,7 +6,6 @@ import yesno from 'yesno'
 import { ethers } from 'ethers'
 import {
   ParsedChugSplashConfig,
-  getProxyAddress,
   isEmptyChugSplashConfig,
   registerChugSplashProject,
   ChugSplashBundleState,
@@ -284,18 +283,13 @@ ${configsWithFileNames.map(
 
   const { config: cfg } = configsWithFileNames[0]
 
-  if (
-    (await isProxyDeployed(
-      hre.ethers.provider,
-      cfg.options.projectName,
-      referenceName
-    )) === false
-  ) {
+  const proxyAddress = cfg.contracts[referenceName].address
+  if ((await isProxyDeployed(hre.ethers.provider, proxyAddress)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
   }
 
   const Proxy = new ethers.Contract(
-    getProxyAddress(cfg.options.projectName, referenceName),
+    proxyAddress,
     new ethers.utils.Interface(
       getContractArtifact(cfg.contracts[referenceName].contract).abi
     ),

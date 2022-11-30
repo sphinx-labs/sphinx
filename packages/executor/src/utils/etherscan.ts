@@ -5,7 +5,6 @@ import {
   CanonicalChugSplashConfig,
   CompilerInput,
   getChugSplashManagerProxyAddress,
-  getProxyAddress,
   parseChugSplashConfig,
   getConstructorArgs,
   chugsplashFetchSubtask,
@@ -101,7 +100,9 @@ export const verifyChugSplashConfig = async (
     console.error(err)
   }
 
-  for (const referenceName of Object.keys(canonicalConfig.contracts)) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    canonicalConfig.contracts
+  )) {
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName, compilerOutput } = artifact
     const { constructorArgValues } = getConstructorArgs(
@@ -113,10 +114,6 @@ export const verifyChugSplashConfig = async (
       contractName
     )
     const implementationAddress = await ChugSplashManager.implementations(
-      referenceName
-    )
-    const proxyAddress = getProxyAddress(
-      canonicalConfig.options.projectName,
       referenceName
     )
 
@@ -154,7 +151,7 @@ export const verifyChugSplashConfig = async (
       await linkProxyWithImplementation(
         etherscanApiEndpoints,
         etherscanApiKey,
-        proxyAddress,
+        contractConfig.address,
         implementationAddress,
         contractName
       )
