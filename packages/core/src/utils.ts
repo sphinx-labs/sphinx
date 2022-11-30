@@ -89,12 +89,10 @@ export const getProxyAddress = (
   )
 }
 
-export const checkValidDeployment = async (
+export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  configPath: string,
-  networkName: string
-) => {
+  parsedConfig: ParsedChugSplashConfig
+): Promise<boolean | string> => {
   for (const referenceName of Object.keys(parsedConfig.contracts)) {
     if (
       await isProxyDeployed(
@@ -103,18 +101,10 @@ export const checkValidDeployment = async (
         referenceName
       )
     ) {
-      throw new Error(
-        `The reference name ${referenceName} inside ${parsedConfig.options.projectName} was already used
-in a previous deployment for this project.
-
-To perform a fresh deployment, you must change this reference name to something other than ${referenceName} or
-change the project name to something other than ${parsedConfig.options.projectName}.
-
-If you wish to upgrade ${parsedConfig.options.projectName} then run to following command:
-npx hardhat chugsplash-upgrade --network ${networkName} ${configPath}`
-      )
+      return referenceName
     }
   }
+  return false
 }
 
 export const checkValidUpgrade = async (

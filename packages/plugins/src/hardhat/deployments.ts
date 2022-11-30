@@ -1,7 +1,8 @@
-import * as path from 'path'
-import * as fs from 'fs'
-
 import '@nomiclabs/hardhat-ethers'
+import * as fs from 'fs'
+import * as path from 'path'
+
+import yesno from 'yesno'
 import { ethers } from 'ethers'
 import {
   ParsedChugSplashConfig,
@@ -16,7 +17,7 @@ import {
   computeBundleId,
   getChugSplashManager,
   getExecutionAmountToSendPlusBuffer,
-  checkValidDeployment,
+  checkIsUpgrade,
   checkValidUpgrade,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -49,6 +50,7 @@ export const deployAllChugSplashConfigs = async (
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
+  confirm: boolean,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
@@ -73,7 +75,7 @@ export const deployAllChugSplashConfigs = async (
       remoteExecution,
       ipfsUrl,
       noCompile,
-      false,
+      confirm,
       executor,
       spinner
     )
@@ -87,7 +89,7 @@ export const deployChugSplashConfig = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   noCompile: boolean,
-  isUpgrade: boolean,
+  confirm: boolean,
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -138,7 +140,7 @@ export const deployChugSplashConfig = async (
       hre
     )
 
-  spinner.start(`Committing ${parsedConfig.options.projectName}...`)
+  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     signer,
@@ -171,6 +173,9 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
+    spinner.succeed(
+      `${parsedConfig.options.projectName} has not been proposed before.`
+    )
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -178,13 +183,12 @@ export const deployChugSplashConfig = async (
       configUri,
       remoteExecution,
       ipfsUrl,
-      isUpgrade,
-      configPath
+      configPath,
+      spinner,
+      confirm
     )
     currBundleStatus = ChugSplashBundleStatus.PROPOSED
   }
-
-  spinner.succeed(`Committed ${parsedConfig.options.projectName}.`)
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
     spinner.start(`Funding ${parsedConfig.options.projectName}...`)
@@ -336,24 +340,48 @@ export const proposeChugSplashBundle = async (
   configUri: string,
   remoteExecution: boolean,
   ipfsUrl: string,
-  isUpgrade: boolean,
-  configPath: string
+  configPath: string,
+  spinner: ora.Ora = ora({ isSilent: true }),
+  confirm: boolean
 ) => {
-  if (isUpgrade) {
+  // Determine if the deployment is an upgrade
+  spinner.start(
+    `Checking if ${parsedConfig.options.projectName} is a fresh deployment or upgrade...`
+  )
+  const upgradeReferenceName = await checkIsUpgrade(
+    hre.ethers.provider,
+    parsedConfig
+  )
+  if (upgradeReferenceName) {
+    // Check if upgrade is valid
     await checkValidUpgrade(
       hre.ethers.provider,
       parsedConfig,
       configPath,
       hre.network.name
     )
+
+    spinner.succeed(`${parsedConfig.options.projectName} is an upgrade.`)
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployment(s) detected for project ${parsedConfig.options.projectName}, would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(
+          `User denied upgrade. The reference name ${upgradeReferenceName} inside ${parsedConfig.options.projectName} was already used
+in a previous deployment for this project. To perform a fresh deployment of a new project, you must change the project name to
+something other than ${parsedConfig.options.projectName}. If you wish to deploy a new contract within this project you must change the
+reference name to something other than ${upgradeReferenceName}.`
+        )
+      }
+    }
   } else {
-    await checkValidDeployment(
-      hre.ethers.provider,
-      parsedConfig,
-      configPath,
-      hre.network.name
-    )
+    spinner.succeed(`${parsedConfig.options.projectName} is not an upgrade.`)
   }
+
+  spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     hre.ethers.provider.getSigner(),
@@ -389,4 +417,6 @@ export const proposeChugSplashBundle = async (
       configUri
     )
   ).wait()
+
+  spinner.succeed(`Proposed ${parsedConfig.options.projectName}.`)
 }
