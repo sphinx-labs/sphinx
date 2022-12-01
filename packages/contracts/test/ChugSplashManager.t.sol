@@ -380,11 +380,11 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundThenClaimBundle();
         address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
         assertEq(proxyAddress.code.length, 0);
-        address implementationAddress = Create2.compute(
-            address(manager),
-            bytes32(0),
-            firstAction.data
-        );
+
+        // We add 1 here to account for the Proxy deployment that occurs before the implementation deployment.
+        uint256 implementationDeploymentNonce = 1 + vm.getNonce(address(manager));
+        
+        address implementationAddress = computeCreateAddress(address(manager), implementationDeploymentNonce);
         assertEq(implementationAddress.code.length, 0);
         uint256 initialTotalDebt = manager.totalDebt();
         uint256 initialExecutorDebt = manager.debt(executor1);

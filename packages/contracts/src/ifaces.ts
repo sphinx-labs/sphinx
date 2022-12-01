@@ -8,7 +8,7 @@ export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/D
 export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol/Proxy.json')
 export const DeterministicProxyOwnerArtifact = require('../artifacts/contracts/DeterministicProxyOwner.sol/DeterministicProxyOwner.json')
 
-export const buildInfo = require('../artifacts/build-info/1070f6de75e083a61ed5f1303beedb95.json')
+export const buildInfo = require('../artifacts/build-info/e2689fa8b28e57eb1a58836e6f354f84.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
