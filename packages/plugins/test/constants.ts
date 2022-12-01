@@ -16,9 +16,9 @@ export const variables = {
   contractTest: '0x' + '11'.repeat(20),
   enumTest: TestEnum.B,
   simpleStruct: {
-    a: 1,
-    b: 2,
-    c: 3,
+    a: '0x' + 'aa'.repeat(32),
+    b: 12345,
+    c: 54321,
   },
   complexStruct: {
     a: 4,
@@ -27,6 +27,42 @@ export const variables = {
     },
   },
   uint64FixedArray: [1, 10, 100, 1_000, 10_000],
+  uint128FixedNestedArray: [
+    [1, 2, 3, 4, 5],
+    [6, 7, 8, 9, 10],
+    [11, 12, 13, 14, 15],
+    [16, 17, 18, 19, 20],
+    [21, 22, 23, 24, 25],
+    [26, 27, 28, 29, 30],
+  ],
+  uint64FixedMultiNestedArray: [
+    [
+      [1, 2],
+      [3, 4],
+    ],
+    [
+      [5, 6],
+      [7, 8],
+    ],
+  ],
+  int64DynamicArray: [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+  simpleStructDynamicArray: [
+    {
+      a: '0x' + 'ab'.repeat(32),
+      b: 12345,
+      c: 54321,
+    },
+    {
+      a: '0x' + 'cd'.repeat(32),
+      b: 100_000_000,
+      c: 999_999_999,
+    },
+    {
+      a: '0x' + 'ef'.repeat(32),
+      b: 56789,
+      c: 98765,
+    },
+  ],
   stringToStringMapping: {
     testKey: 'testVal',
   },
@@ -41,9 +77,9 @@ export const variables = {
   },
   stringToStructMapping: {
     testKey: {
-      a: 1,
-      b: 2,
-      c: 3,
+      a: '0x' + 'aa'.repeat(32),
+      b: 12345,
+      c: 54321,
     },
   },
   uint256ToStringMapping: {
