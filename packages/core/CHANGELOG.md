@@ -1,5 +1,36 @@
 # @chugsplash/core
 
+## 0.3.16
+
+### Patch Changes
+
+- 74da4d0: Simplify storage slot encoding logic
+- 7a1737e: Separate config type into UserChugSplashConfig and ParsedChugSplashConfig
+- c32f23e: Add basic support for upgrades
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
+- fd5177e: Add chugsplash-list-projects Hardhat task
+- e1af6e3: Merge deploy and upgrade tasks
+- 3572abd: Batch SetStorage actions into large transactions to speed up execution
+- ec87d11: Fixes bug where signed integers were encoded as unsigned integers
+- c5ec8e4: Replace incorrect use of the `getDefaultProxyAddress` function
+- 9ebc63c: Adds support for dynamic arrays
+- ee3ae13: Remove HRE dependency from execution logic and move to core package
+- 0c30af0: Commit only the necessary input sources to IPFS.
+- 6276a86: Move `checkValidDeployment` to the core package
+- fb1168f: Make executor most robust to errors and cancelled bundles. Ensure that executor receives payment.
+- 6a2644e: Fix long error messages truncating
+- 64463f1: Change storageEntries to be the correct type
+- fc8cfd3: Remove progress bar in execution-related Hardhat tasks
+- f217221: Use the executor to deploy and verify the ChugSplash predeployed contracts
+- 780e54f: Submit the minimum compiler input necessary to verify contracts on Etherscan
+- ec41164: Remove console.log
+- da5cb35: Move the logic that initializes the ChugSplash predeploys into the executor.
+- 5406b7b: Update canonical ChugSplash config type usage
+- Updated dependencies [6f83489]
+- Updated dependencies [16348b2]
+- Updated dependencies [9be91c3]
+  - @chugsplash/contracts@0.3.10
+
 ## 0.3.15
 
 ### Patch Changes
