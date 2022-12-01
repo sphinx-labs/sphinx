@@ -1,5 +1,53 @@
 # @chugsplash/demo
 
+## 0.3.16
+
+### Patch Changes
+
+- 7a1737e: Separate config type into UserChugSplashConfig and ParsedChugSplashConfig
+- c5ec8e4: Replace incorrect use of the `getDefaultProxyAddress` function
+- Updated dependencies [af5e5ca]
+- Updated dependencies [74da4d0]
+- Updated dependencies [7a1737e]
+- Updated dependencies [eba1399]
+- Updated dependencies [e757d65]
+- Updated dependencies [c32f23e]
+- Updated dependencies [16348b2]
+- Updated dependencies [fd5177e]
+- Updated dependencies [0b52005]
+- Updated dependencies [e1af6e3]
+- Updated dependencies [3572abd]
+- Updated dependencies [ec87d11]
+- Updated dependencies [ae89911]
+- Updated dependencies [f1e6f8c]
+- Updated dependencies [c5ec8e4]
+- Updated dependencies [bde3888]
+- Updated dependencies [9ebc63c]
+- Updated dependencies [ee3ae13]
+- Updated dependencies [4b67dc0]
+- Updated dependencies [42b6c89]
+- Updated dependencies [9e48bbf]
+- Updated dependencies [0c30af0]
+- Updated dependencies [ee3ae13]
+- Updated dependencies [baee529]
+- Updated dependencies [6276a86]
+- Updated dependencies [fb1168f]
+- Updated dependencies [6a2644e]
+- Updated dependencies [64463f1]
+- Updated dependencies [8e5507d]
+- Updated dependencies [3507e4b]
+- Updated dependencies [fc8cfd3]
+- Updated dependencies [f217221]
+- Updated dependencies [780e54f]
+- Updated dependencies [8478b24]
+- Updated dependencies [ec41164]
+- Updated dependencies [05a7bb4]
+- Updated dependencies [a1ae30f]
+- Updated dependencies [da5cb35]
+- Updated dependencies [5406b7b]
+  - @chugsplash/plugins@0.8.0
+  - @chugsplash/core@0.3.16
+
 ## 0.3.15
 
 ### Patch Changes
