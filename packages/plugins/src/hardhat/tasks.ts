@@ -1140,30 +1140,15 @@ export const chugsplashCancelTask = async (
 You attempted to cancel the project using the address: ${await signer.getAddress()}`)
   }
 
-  // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to
-  // IPFS).
-  const { bundleId } = await chugsplashCommitSubtask(
-    {
-      parsedConfig,
-      ipfsUrl: '',
-      commitToIpfs: false,
-      noCompile: true,
-    },
-    hre
-  )
-
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
+  const activeBundleId = await ChugSplashManager.activeBundleId()
 
-  if (bundleState.status !== ChugSplashBundleStatus.APPROVED) {
-    throw new Error(
-      `Project is not active. Current project state: ${
-        ChugSplashBundleStatus[bundleState.status]
-      }`
+  if (activeBundleId === ethers.constants.HashZero) {
+    spinner.fail(
+      `${projectName} is not an active project, so there is nothing to cancel.`
     )
+    return
   }
 
   await (await ChugSplashManager.cancelActiveChugSplashBundle()).wait()
