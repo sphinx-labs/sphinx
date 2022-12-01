@@ -1,5 +1,43 @@
 # @chugsplash/executor
 
+## 0.4.7
+
+### Patch Changes
+
+- d458d93: Wrap Etherscan verification attempts in try/catch blocks
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
+- 0b52005: Remove redundant Proxy verification attempts. Link ChugSplashManager proxy with its implementation on Etherscan.
+- c5ec8e4: Replace incorrect use of the `getDefaultProxyAddress` function
+- ee3ae13: Remove HRE dependency from execution logic and move to core package
+- fb1168f: Make executor most robust to errors and cancelled bundles. Ensure that executor receives payment.
+- f217221: Use the executor to deploy and verify the ChugSplash predeployed contracts
+- 780e54f: Submit the minimum compiler input necessary to verify contracts on Etherscan
+- da5cb35: Move the logic that initializes the ChugSplash predeploys into the executor.
+- 5406b7b: Update canonical ChugSplash config type usage
+- Updated dependencies [74da4d0]
+- Updated dependencies [7a1737e]
+- Updated dependencies [c32f23e]
+- Updated dependencies [16348b2]
+- Updated dependencies [fd5177e]
+- Updated dependencies [e1af6e3]
+- Updated dependencies [3572abd]
+- Updated dependencies [ec87d11]
+- Updated dependencies [c5ec8e4]
+- Updated dependencies [9ebc63c]
+- Updated dependencies [ee3ae13]
+- Updated dependencies [0c30af0]
+- Updated dependencies [6276a86]
+- Updated dependencies [fb1168f]
+- Updated dependencies [6a2644e]
+- Updated dependencies [64463f1]
+- Updated dependencies [fc8cfd3]
+- Updated dependencies [f217221]
+- Updated dependencies [780e54f]
+- Updated dependencies [ec41164]
+- Updated dependencies [da5cb35]
+- Updated dependencies [5406b7b]
+  - @chugsplash/core@0.3.16
+
 ## 0.4.6
 
 ### Patch Changes

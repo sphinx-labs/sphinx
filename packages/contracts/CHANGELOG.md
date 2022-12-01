@@ -1,5 +1,13 @@
 # @chugsplash/contracts
 
+## 0.3.10
+
+### Patch Changes
+
+- 6f83489: Add support for executing multiple actions at once in the ChugSplashManager
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
+- 9be91c3: Fix underflow bug when cancelling bundle with no executor
+
 ## 0.3.9
 
 ### Patch Changes

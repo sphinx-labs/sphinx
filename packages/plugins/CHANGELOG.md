@@ -1,5 +1,76 @@
 # @chugsplash/plugins
 
+## 0.8.0
+
+### Minor Changes
+
+- ee3ae13: Use executor automatically when deploying against local networks
+
+### Patch Changes
+
+- af5e5ca: Expands storage variable test coverage
+- 74da4d0: Simplify storage slot encoding logic
+- 7a1737e: Separate config type into UserChugSplashConfig and ParsedChugSplashConfig
+- eba1399: Remove the test-remote-execution task
+- e757d65: Throw an error if user attempts to fund a project that hasn't been registered
+- c32f23e: Add basic support for upgrades
+- fd5177e: Add chugsplash-list-projects Hardhat task
+- 0b52005: Remove redundant Proxy verification attempts. Link ChugSplashManager proxy with its implementation on Etherscan.
+- e1af6e3: Merge deploy and upgrade tasks
+- 3572abd: Batch SetStorage actions into large transactions to speed up execution
+- ec87d11: Fixes bug where signed integers were encoded as unsigned integers
+- ae89911: Add user logs for the commit subtask
+- f1e6f8c: Disable ChugSplash by default in the Hardhat "run" task
+- c5ec8e4: Replace incorrect use of the `getDefaultProxyAddress` function
+- bde3888: Improve the hardhat node task
+- ee3ae13: Remove HRE dependency from execution logic and move to core package
+- 4b67dc0: Expands test coverage to support dynamic arrays
+- 42b6c89: Fixes a bug where the BaseServiceV2 was erroring when parsing command line args from the Hardhat plugin
+- 9e48bbf: Support upgrades with the hardhat test command
+- 0c30af0: Commit only the necessary input sources to IPFS.
+- baee529: Deploy the executor only once per CLI command
+- 6276a86: Move `checkValidDeployment` to the core package
+- fb1168f: Make executor most robust to errors and cancelled bundles. Ensure that executor receives payment.
+- 6a2644e: Fix long error messages truncating
+- 8e5507d: Improve logs in hardhat tasks
+- 3507e4b: Add a chugsplash-withdraw task to withdraw project owner funds from projects
+- fc8cfd3: Remove progress bar in execution-related Hardhat tasks
+- f217221: Use the executor to deploy and verify the ChugSplash predeployed contracts
+- 8478b24: Add a chugsplash-cancel Hardhat task to cancel active bundles
+- 05a7bb4: Add noCompile flag to relevant Hardhat tasks
+- a1ae30f: Make language in the user logs neutral to deployments/upgrades.
+- da5cb35: Move the logic that initializes the ChugSplash predeploys into the executor.
+- 5406b7b: Update canonical ChugSplash config type usage
+- Updated dependencies [74da4d0]
+- Updated dependencies [7a1737e]
+- Updated dependencies [d458d93]
+- Updated dependencies [6f83489]
+- Updated dependencies [c32f23e]
+- Updated dependencies [16348b2]
+- Updated dependencies [fd5177e]
+- Updated dependencies [0b52005]
+- Updated dependencies [e1af6e3]
+- Updated dependencies [3572abd]
+- Updated dependencies [ec87d11]
+- Updated dependencies [c5ec8e4]
+- Updated dependencies [9ebc63c]
+- Updated dependencies [ee3ae13]
+- Updated dependencies [9be91c3]
+- Updated dependencies [0c30af0]
+- Updated dependencies [6276a86]
+- Updated dependencies [fb1168f]
+- Updated dependencies [6a2644e]
+- Updated dependencies [64463f1]
+- Updated dependencies [fc8cfd3]
+- Updated dependencies [f217221]
+- Updated dependencies [780e54f]
+- Updated dependencies [ec41164]
+- Updated dependencies [da5cb35]
+- Updated dependencies [5406b7b]
+  - @chugsplash/core@0.3.16
+  - @chugsplash/executor@0.4.7
+  - @chugsplash/contracts@0.3.10
+
 ## 0.7.0
 
 ### Minor Changes
