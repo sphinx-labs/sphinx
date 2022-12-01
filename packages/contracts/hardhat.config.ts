@@ -2,9 +2,6 @@ import { HardhatUserConfig } from 'hardhat/types'
 import { getenv } from '@eth-optimism/core-utils'
 import * as dotenv from 'dotenv'
 
-// Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-
 // Load environment variables from .env
 dotenv.config()
 
@@ -81,11 +78,6 @@ const config: HardhatUserConfig = {
           apiKey: getenv('ETHEREUM_ETHERSCAN_API_KEY'),
         },
       },
-    },
-  },
-  namedAccounts: {
-    deployer: {
-      default: 0,
     },
   },
 }
