@@ -49,7 +49,7 @@ describe('SimpleStorage', () => {
   it('does set struct', async () => {
     const { a, b, c } = await Storage.simpleStruct()
     expect(a).equals(variables.simpleStruct.a)
-    expect(b).equals(variables.simpleStruct.b)
+    expect(b).to.deep.equal(BigNumber.from(variables.simpleStruct.b))
     expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
   })
 
@@ -70,7 +70,7 @@ describe('SimpleStorage', () => {
 
     const { a, b, c } = await Storage.stringToStructMapping(key)
     expect(a).equals(variables.simpleStruct.a)
-    expect(b).equals(variables.simpleStruct.b)
+    expect(b).to.deep.equal(BigNumber.from(variables.simpleStruct.b))
     expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
   })
 
@@ -85,6 +85,59 @@ describe('SimpleStorage', () => {
     for (let i = 0; i < variables.uint64FixedArray.length; i++) {
       expect(await Storage.uint64FixedArray(i)).deep.equals(
         BigNumber.from(variables.uint64FixedArray[i])
+      )
+    }
+  })
+
+  it('does set uint128 fixed size nested array', async () => {
+    for (let i = 0; i < variables.uint128FixedNestedArray.length; i++) {
+      for (let j = 0; j < variables.uint128FixedNestedArray[0].length; j++) {
+        expect(await Storage.uint128FixedNestedArray(i, j)).deep.equals(
+          BigNumber.from(variables.uint128FixedNestedArray[i][j])
+        )
+      }
+    }
+  })
+
+  it('does set uint64 fixed size multi nested array', async () => {
+    for (let i = 0; i < variables.uint64FixedMultiNestedArray.length; i++) {
+      for (
+        let j = 0;
+        j < variables.uint64FixedMultiNestedArray[0].length;
+        j++
+      ) {
+        for (
+          let k = 0;
+          k < variables.uint64FixedMultiNestedArray[0][0].length;
+          k++
+        ) {
+          expect(
+            await Storage.uint64FixedMultiNestedArray(i, j, k)
+          ).deep.equals(
+            BigNumber.from(variables.uint64FixedMultiNestedArray[i][j][k])
+          )
+        }
+      }
+    }
+  })
+
+  it('does set int64 dynamic array', async () => {
+    for (let i = 0; i < variables.int64DynamicArray.length; i++) {
+      expect(await Storage.int64DynamicArray(i)).deep.equals(
+        BigNumber.from(variables.int64DynamicArray[i])
+      )
+    }
+  })
+
+  it('does set dynamic array of simple structs', async () => {
+    for (let i = 0; i < variables.simpleStructDynamicArray.length; i++) {
+      const { a, b, c } = await Storage.simpleStructDynamicArray(i)
+      expect(a).equals(variables.simpleStructDynamicArray[i].a)
+      expect(b).to.deep.equal(
+        BigNumber.from(variables.simpleStructDynamicArray[i].b)
+      )
+      expect(c).to.deep.equal(
+        BigNumber.from(variables.simpleStructDynamicArray[i].c)
       )
     }
   })

@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 contract Storage {
     enum TestEnum { A, B, C }
-    struct SimpleStruct { uint16 a; uint16 b; uint256 c; }
+    struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
     struct ComplexStruct {
         int32 a;
         mapping(uint32 => string) b;
@@ -20,6 +20,10 @@ contract Storage {
     SimpleStruct public simpleStruct;
     ComplexStruct public complexStruct;
     uint64[5] public uint64FixedArray;
+    uint128[5][6] public uint128FixedNestedArray;
+    uint64[2][2][2] public uint64FixedMultiNestedArray;
+    int64[] public int64DynamicArray;
+    SimpleStruct[] public simpleStructDynamicArray;
     mapping(string => string) public stringToStringMapping;
     mapping(string => uint) public stringToUint256Mapping;
     mapping(string => bool) public stringToBoolMapping;
