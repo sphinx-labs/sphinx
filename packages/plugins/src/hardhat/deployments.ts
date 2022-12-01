@@ -258,6 +258,9 @@ export const getContract = async (
     configFileName: string
   }[] = fs
     .readdirSync(hre.config.paths.chugsplash)
+    .filter((configFileName) => {
+      return !isEmptyChugSplashConfig(path.join('chugsplash', configFileName))
+    })
     .map((configFileName) => {
       const config = loadParsedChugSplashConfig(
         path.join('chugsplash', configFileName)
