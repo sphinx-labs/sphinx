@@ -26,33 +26,6 @@ export const padHexSlotValue = (val: string, offset: number): string => {
 }
 
 /**
- * Gets the size of an array's elements in bytes. For example, this function would return `8` for a
- * uint64 array, since each element in the array is 8 bytes (64 bits).
- *
- * @param arrayLabel Label of the array, e.g. `uint64[]`.
- * @returns Number of bytes per array element.
- */
-export const getBytesPerArrayElement = (arrayLabel: string): number => {
-  const elementType = arrayLabel.split('[')[0]
-  if (elementType.startsWith('bool')) {
-    return 1
-  } else if (
-    elementType.startsWith('address') ||
-    elementType.startsWith('contract')
-  ) {
-    return 20
-  } else if (elementType.startsWith('uint')) {
-    const bits = Number(elementType.substring(4))
-    return bits / 8
-  } else if (elementType.startsWith('int')) {
-    const bits = Number(elementType.substring(3))
-    return bits / 8
-  } else if (elementType.startsWith('string')) {
-    return 32
-  }
-}
-
-/**
  * Adds two storage slot keys. Each input key will be interpreted as hexadecimal if 0x-prefixed, and
  * decimal otherwise.
  *
@@ -75,15 +48,15 @@ export const addStorageSlotKeys = (
 
 /**
  * Encodes a single variable as a series of key/value storage slot pairs using the Solidity storage
- * layout as instructions for how to perform this encoding. Works recursively with complex data types.
- * ref:
+ * layout as instructions for how to perform this encoding. Works recursively with complex data
+ * types. ref:
  * https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#layout-of-state-variables-in-storage
  *
  * @param variable Variable to encode as key/value slot pairs.
- * @param storageObj Solidity compiler JSON output describing the layout for this
+ * @param storageObj Solidity compiler JSON output describing the layout for this variable.
  * @param storageTypes Full list of storage types allowed for this encoding.
- * @param nestedSlotOffset For nested data structures, keeps track of a value to be added onto the
- * storage slot key.
+ * @param nestedSlotOffset Keeps track of a value to be added onto the storage slot key. Only used
+ * for members of structs.
  * @returns Variable encoded as a series of key/value slot pairs.
  */
 export const encodeVariable = (
@@ -108,56 +81,18 @@ export const encodeVariable = (
   // storage.
   if (variableType.encoding === 'inplace') {
     if (storageObj.type.startsWith('t_array')) {
-      if (variableType.base.startsWith('t_array')) {
-        throw new Error(
-          `User defined a nested array, which is not supported yet. Variable: ${storageObj.label}. Location: ${storageObj.contract}`
-        )
-      }
-      const bytesPerElement = getBytesPerArrayElement(variableType.label)
-
-      // Arrays always start at a new storage slot with an offset of zero.
-      let bytesOffset = 0
-
-      // We proceed by encoding each element in the array.
-
-      const elementStorageType = variableType.base
-
       // Set the initial slot key of the array's elements to be the array's slot key.
       // This number will be incremented each time an element no longer fits in the
       // current storage slot.
-      let elementSlotKey = parseInt(storageObj.slot, 10)
+      const elementSlotKey = storageObj.slot
 
-      let slots = []
-      // Iterate over the array and encode each element in it.
-      for (const element of variable) {
-        slots = slots.concat(
-          encodeVariable(
-            element,
-            // We must manually create a `storageObj` for each element since the Solidity
-            // compiler does not define them.
-            {
-              astId: storageObj.astId,
-              contract: storageObj.contract,
-              label: storageObj.label,
-              offset: bytesOffset,
-              slot: elementSlotKey.toString(),
-              type: elementStorageType,
-            },
-            storageTypes,
-            nestedSlotOffset
-          )
-        )
-        // Increment the bytes offset every time we iterate over an element.
-        bytesOffset += bytesPerElement
-
-        if (bytesOffset + bytesPerElement > 32) {
-          // Increment the storage slot key and reset the offset if the next element will not fit in
-          // the current storage slot.
-          elementSlotKey += 1
-          bytesOffset = 0
-        }
-      }
-      return slots
+      return encodeArrayElements(
+        variable,
+        storageObj,
+        storageTypes,
+        elementSlotKey,
+        nestedSlotOffset
+      )
     } else if (
       variableType.label === 'address' ||
       variableType.label.startsWith('contract')
@@ -374,13 +309,102 @@ export const encodeVariable = (
     }
     return slots
   } else if (variableType.encoding === 'dynamic_array') {
-    throw new Error('array types not yet supported')
+    // For dynamic arrays, the current storage slot stores the number of elements in the array (byte
+    // arrays and strings are an exception since they use the encoding 'bytes').
+    let slots = [
+      {
+        key: slotKey,
+        val: padHexSlotValue(variable.length.toString(16), 0),
+      },
+    ]
+
+    // Calculate the storage slots of the array elements and concatenate it to the current `slots`
+    // array.
+    slots = slots.concat(
+      encodeArrayElements(
+        variable,
+        storageObj,
+        storageTypes,
+        utils.keccak256(slotKey), // The slot key of the array elements begins at the hash of the `slotKey`.
+        nestedSlotOffset
+      )
+    )
+    return slots
   } else {
     // This error should never be triggered unless the Solidity compiler adds a new encoding type.
     throw new Error(
       `unknown unsupported type ${variableType.encoding} ${variableType.label}`
     )
   }
+}
+
+/**
+ * Encodes the elements of an array as a series of key/value storage slot pairs using the Solidity
+ * storage layout. This function is used whenever the encoding of the array is `inplace` (for fixed
+ * size arrays) or `dynamic_array`, but not `bytes`, which is used for dynamic bytes and strings.
+ * Works recursively with the `encodeVariable` function.
+ *
+ * @param array Array to encode as key/value slot pairs.
+ * @param storageObj Solidity compiler JSON output describing the layout for this array.
+ * @param storageTypes Full list of storage types allowed for this encoding.
+ * @param nestedSlotOffset Keeps track of a value to be added onto the storage slot key. Only used
+ * if the array is within a struct.
+ * @returns Array encoded as a series of key/value slot pairs.
+ */
+export const encodeArrayElements = (
+  array: any[],
+  storageObj: SolidityStorageObj,
+  storageTypes: {
+    [name: string]: SolidityStorageType
+  },
+  elementSlotKey: string,
+  nestedSlotOffset: string
+): Array<StorageSlotPair> => {
+  const elementType = storageTypes[storageObj.type].base
+  const bytesPerElement = Number(storageTypes[elementType].numberOfBytes)
+
+  // Calculate the number of slots to increment when iterating over the array elements. This
+  // number is only ever greater than one if `bytesPerElement` > 32, which could happen if the
+  // array element type is large, e.g. a struct.
+  const numSlotsToIncrement = Math.ceil(bytesPerElement / 32)
+
+  // Arrays always start at a new storage slot with an offset of zero.
+  let bytesOffset = 0
+
+  // Iterate over the array and encode each element in it.
+  let slots = []
+  for (const element of array) {
+    slots = slots.concat(
+      encodeVariable(
+        element,
+        // We must manually create a `storageObj` for each element since the Solidity
+        // compiler does not create them.
+        {
+          astId: storageObj.astId,
+          contract: storageObj.contract,
+          label: storageObj.label,
+          offset: bytesOffset,
+          slot: elementSlotKey,
+          type: elementType,
+        },
+        storageTypes,
+        nestedSlotOffset
+      )
+    )
+    // Increment the bytes offset every time we iterate over an element.
+    bytesOffset += bytesPerElement
+
+    if (bytesOffset + bytesPerElement > 32) {
+      // Increment the storage slot key and reset the offset if the next element will not fit in
+      // the current storage slot.
+      elementSlotKey = addStorageSlotKeys(
+        elementSlotKey,
+        numSlotsToIncrement.toString()
+      )
+      bytesOffset = 0
+    }
+  }
+  return slots
 }
 
 /**
