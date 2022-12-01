@@ -1,7 +1,8 @@
 import path from 'path'
 
+import * as dotenv from 'dotenv'
 import {
-  ChugSplashConfig,
+  ParsedChugSplashConfig,
   getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
   parseChugSplashConfig,
@@ -10,10 +11,17 @@ import {
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
 
-export const writeHardhatSnapshotId = async (hre: any) => {
-  const networkName = hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
+// Load environment variables from .env
+dotenv.config()
+
+export const writeHardhatSnapshotId = async (
+  hre: any,
+  networkName?: string
+) => {
+  const inferredNetworkName =
+    hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   await writeSnapshotId(
-    networkName,
+    networkName === undefined ? inferredNetworkName : networkName,
     hre.config.paths.deployed,
     await hre.network.provider.send('evm_snapshot', [])
   )
@@ -42,7 +50,7 @@ export const cleanThenCompile = async (hre: any) => {
  */
 export const loadParsedChugSplashConfig = (
   configPath: string
-): ChugSplashConfig => {
+): ParsedChugSplashConfig => {
   delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires

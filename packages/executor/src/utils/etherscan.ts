@@ -1,19 +1,13 @@
 import assert from 'assert'
 
-import { Contract } from 'ethers'
+import { ethers } from 'ethers'
 import {
-  CanonicalChugSplashConfig,
   CompilerInput,
   getChugSplashManagerProxyAddress,
-  getProxyAddress,
-  parseChugSplashConfig,
-} from '@chugsplash/core'
-import {
   getConstructorArgs,
-  TASK_CHUGSPLASH_FETCH,
-  getArtifactsFromParsedCanonicalConfig,
-} from '@chugsplash/plugins'
-import { TASK_VERIFY_GET_ETHERSCAN_ENDPOINT } from '@nomiclabs/hardhat-etherscan/dist/src/constants'
+  chugsplashFetchSubtask,
+  getMinimumCompilerInput,
+} from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
@@ -26,18 +20,40 @@ import {
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
 import { resolveEtherscanApiKey } from '@nomiclabs/hardhat-etherscan/dist/src/resolveEtherscanApiKey'
-import { retrieveContractBytecode } from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
+import {
+  retrieveContractBytecode,
+  getEtherscanEndpoints,
+} from '@nomiclabs/hardhat-etherscan/dist/src/network/prober'
 import { Bytecode } from '@nomiclabs/hardhat-etherscan/dist/src/solc/bytecode'
 import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
+import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
-  buildInfo as proxyBuildInfo,
   ChugSplashManagerABI,
+  CHUGSPLASH_MANAGER_ADDRESS,
+  ChugSplashManagerArtifact,
+  ChugSplashBootLoaderArtifact,
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  ProxyUpdaterArtifact,
+  PROXY_UPDATER_ADDRESS,
   ProxyArtifact,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ChugSplashManagerProxyArtifact,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+  ChugSplashRegistryArtifact,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  DefaultAdapterArtifact,
+  DEFAULT_ADAPTER_ADDRESS,
+  DeterministicProxyOwnerArtifact,
+  DETERMINISTIC_PROXY_OWNER_ADDRESS,
+  buildInfo,
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/contracts'
-import { EthereumProvider, HardhatRuntimeEnvironment } from 'hardhat/types'
 import { request } from 'undici'
+
+import { getArtifactsFromCanonicalConfig } from './compile'
+import { etherscanApiKey as apiKey, customChains } from './constants'
 
 export interface EtherscanResponseBody {
   status: string
@@ -48,25 +64,41 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
-  hre: HardhatRuntimeEnvironment,
-  configUri: string
+  configUri: string,
+  provider: ethers.providers.Provider,
+  networkName: string
 ) => {
-  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(hre)
-
-  const canonicalConfig = await hre.run(TASK_CHUGSPLASH_FETCH, {
-    configUri,
-  })
-  const artifacts = await getArtifactsFromParsedCanonicalConfig(
-    hre,
-    parseChugSplashConfig(canonicalConfig) as CanonicalChugSplashConfig
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    provider,
+    networkName
   )
-  const ChugSplashManager = new Contract(
+
+  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
+  const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
-    hre.ethers.provider
+    provider
   )
+  // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
+  const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
+    canonicalConfig.options.projectName
+  )
+  try {
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints,
+      etherscanApiKey,
+      chugsplashManagerProxyAddress,
+      CHUGSPLASH_MANAGER_ADDRESS,
+      'ChugSplashManager'
+    )
+  } catch (err) {
+    console.error(err)
+  }
 
-  for (const referenceName of Object.keys(canonicalConfig.contracts)) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    canonicalConfig.contracts
+  )) {
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName, compilerOutput } = artifact
     const { constructorArgValues } = getConstructorArgs(
@@ -77,66 +109,134 @@ export const verifyChugSplashConfig = async (
       sourceName,
       contractName
     )
-
     const implementationAddress = await ChugSplashManager.implementations(
       referenceName
     )
 
-    const compilerInput = canonicalConfig.inputs.find((compilerInputs) =>
-      Object.keys(compilerInputs.input.sources).includes(sourceName)
+    const { input, solcVersion } = canonicalConfig.inputs.find(
+      (compilerInput) =>
+        Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
-    // Verify the proxy
-    const proxyAddress = getProxyAddress(
-      canonicalConfig.options.projectName,
-      referenceName
-    )
-    const {
-      sourceName: proxySourceName,
-      contractName: proxyContractName,
-      abi: proxyAbi,
-    } = ProxyArtifact
-    await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
-      etherscanApiEndpoints,
-      proxyAddress,
-      proxySourceName,
-      proxyContractName,
-      proxyAbi,
-      etherscanApiKey,
-      proxyBuildInfo.input,
-      proxyBuildInfo.solcVersion,
-      [getChugSplashManagerProxyAddress(canonicalConfig.options.projectName)]
+    const minimumCompilerInput = getMinimumCompilerInput(
+      input,
+      artifact.compilerOutput.sources,
+      sourceName
     )
 
     // Verify the implementation
+    try {
+      await attemptVerification(
+        provider,
+        networkName,
+        etherscanApiEndpoints,
+        implementationAddress,
+        sourceName,
+        contractName,
+        abi,
+        etherscanApiKey,
+        minimumCompilerInput,
+        solcVersion,
+        constructorArgValues
+      )
+    } catch (err) {
+      console.error(err)
+    }
+
+    try {
+      await linkProxyWithImplementation(
+        etherscanApiEndpoints,
+        etherscanApiKey,
+        contractConfig.address,
+        implementationAddress,
+        contractName
+      )
+    } catch (err) {
+      console.error(err)
+    }
+  }
+}
+
+export const verifyChugSplashPredeploys = async (
+  provider: ethers.providers.Provider,
+  networkName: string
+) => {
+  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
+    provider,
+    networkName
+  )
+
+  const contracts = [
+    {
+      artifact: ChugSplashManagerArtifact,
+      address: CHUGSPLASH_MANAGER_ADDRESS,
+    },
+    {
+      artifact: ChugSplashBootLoaderArtifact,
+      address: CHUGSPLASH_BOOTLOADER_ADDRESS,
+    },
+    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
+    {
+      artifact: ChugSplashManagerProxyArtifact,
+      address: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    },
+    {
+      artifact: ChugSplashRegistryArtifact,
+      address: CHUGSPLASH_REGISTRY_ADDRESS,
+    },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    {
+      artifact: DeterministicProxyOwnerArtifact,
+      address: DETERMINISTIC_PROXY_OWNER_ADDRESS,
+    },
+  ]
+
+  for (const { artifact, address } of contracts) {
+    const { sourceName, contractName, abi } = artifact
+
+    const minimumCompilerInput = getMinimumCompilerInput(
+      buildInfo.input,
+      buildInfo.output.sources,
+      sourceName
+    )
+
     await attemptVerification(
-      hre.network.provider,
-      hre.network.name,
+      provider,
+      networkName,
       etherscanApiEndpoints,
-      implementationAddress,
+      address,
       sourceName,
       contractName,
       abi,
       etherscanApiKey,
-      compilerInput.input,
-      compilerInput.solcVersion,
-      constructorArgValues
-    )
-
-    await linkProxyWithImplementation(
-      etherscanApiEndpoints,
-      etherscanApiKey,
-      proxyAddress,
-      implementationAddress,
-      contractName
+      minimumCompilerInput,
+      buildInfo.solcVersion,
+      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
     )
   }
+
+  // Link the ChugSplashRegistry's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    'ChugSplashRegistry'
+  )
+
+  // Link the root ChugSplashManager's implementation with its proxy
+  await linkProxyWithImplementation(
+    etherscanApiEndpoints,
+    etherscanApiKey,
+    ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+    CHUGSPLASH_MANAGER_ADDRESS,
+    'ChugSplashManager'
+  )
 }
 
 export const attemptVerification = async (
-  provider: EthereumProvider,
+  provider: ethers.providers.Provider,
   networkName: string,
   etherscanApiEndpoints: EtherscanURLs,
   contractAddress: string,
@@ -150,7 +250,8 @@ export const attemptVerification = async (
 ): Promise<EtherscanResponse> => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
-    provider,
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
     networkName
   )
   const deployedBytecode = new Bytecode(deployedBytecodeHex)
@@ -246,20 +347,22 @@ export const attemptVerification = async (
 }
 
 export const getEtherscanInfo = async (
-  hre: any
+  provider: ethers.providers.Provider,
+  networkName: string
 ): Promise<{
   etherscanApiKey: string
   etherscanApiEndpoints: EtherscanURLs
 }> => {
-  const { etherscan } = hre.config
-
   const { network: verificationNetwork, urls: etherscanApiEndpoints } =
-    await hre.run(TASK_VERIFY_GET_ETHERSCAN_ENDPOINT)
+    await getEtherscanEndpoints(
+      // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+      provider as any,
+      networkName,
+      chainConfig,
+      customChains
+    )
 
-  const etherscanApiKey = resolveEtherscanApiKey(
-    etherscan.apiKey,
-    verificationNetwork
-  )
+  const etherscanApiKey = resolveEtherscanApiKey(apiKey, verificationNetwork)
 
   return { etherscanApiKey, etherscanApiEndpoints }
 }
@@ -269,7 +372,7 @@ export const linkProxyWithImplementation = async (
   etherscanApiKey: string,
   proxyAddress: string,
   implAddress: string,
-  contractName: string
+  implContractName: string
 ) => {
   const params = {
     module: 'contract',
@@ -304,10 +407,13 @@ export const linkProxyWithImplementation = async (
   }
 
   if (responseBody.status === RESPONSE_OK) {
-    console.log(`Successfully linked ${contractName} proxy to implementation.`)
+    console.log(
+      `Successfully linked ${implContractName} proxy to implementation.`
+    )
   } else {
     throw new Error(
-      `Failed to link ${contractName} proxy with its implementation. Reason: ${responseBody.result}`
+      `Failed to link ${implContractName} proxy with its implementation.
+Reason: ${responseBody.result}`
     )
   }
 }
@@ -331,7 +437,8 @@ export const callEtherscanApi = async (
   if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
     const responseBodyText = await response.body.text()
     throw new Error(
-      `Etherscan API call failed with status ${response.statusCode}. Response: ${responseBodyText}`
+      `Etherscan API call failed with status ${response.statusCode}.
+Response: ${responseBodyText}`
     )
   }
 

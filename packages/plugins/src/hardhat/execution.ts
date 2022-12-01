@@ -1,28 +1,24 @@
 import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  ChugSplashConfig,
-  chugsplashLog,
+  ParsedChugSplashConfig,
   getChugSplashRegistry,
   getChugSplashManager,
+  getOwnerBalanceInChugSplashManager,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { SingleBar, Presets } from 'cli-progress'
 import { ethers } from 'ethers'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
-import { sleep } from '@eth-optimism/core-utils'
+import { getChainId, sleep } from '@eth-optimism/core-utils'
 
-import { getExecutionAmountInChugSplashManager } from './fund'
 import { getFinalDeploymentTxnHash } from './deployments'
+import { writeHardhatSnapshotId } from './utils'
 
 export const monitorRemoteExecution = async (
   hre: HardhatRuntimeEnvironment,
-  parsedConfig: ChugSplashConfig,
-  bundleId: string,
-  silent: boolean
+  parsedConfig: ParsedChugSplashConfig,
+  bundleId: string
 ): Promise<string> => {
-  const progressBar = new SingleBar({}, Presets.shades_classic)
-
   const provider = hre.ethers.provider
 
   const projectName = parsedConfig.options.projectName
@@ -40,20 +36,16 @@ export const monitorRemoteExecution = async (
 
   // Handle cases where the bundle is not approved.
   if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    // Set the progress bar to be the number of executions that had occurred when the bundle was
-    // cancelled.
-    progressBar.start(
-      bundleState.executions.length,
-      bundleState.actionsExecuted
-    )
     throw new Error(`${projectName} was cancelled.`)
   } else if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed or approved for
+execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet approved for execution on ${hre.network.name}.`
+      `${parsedConfig.options.projectName} has not been proposed but not yet
+approved for execution on ${hre.network.name}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     // Get the `completeChugSplashBundle` transaction.
@@ -66,12 +58,6 @@ export const monitorRemoteExecution = async (
 
   // If we make it to this point, we know that the bundle is approved.
 
-  // Set the status bar to display the number of actions executed so far.
-  progressBar.start(
-    bundleState.executions.length,
-    bundleState.actionsExecuted.toNumber()
-  )
-
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     // Check if the available execution amount in the ChugSplashManager is too low to finish the
     // deployment. We do this by estimating the cost of a large transaction, which is calculated by
@@ -79,15 +65,18 @@ export const monitorRemoteExecution = async (
     // ~5.5 million gas to deploy Seaport. This estimated cost is compared to the available
     // execution amount in the ChugSplashManager.
     const gasPrice = await provider.getGasPrice()
-    const availableExecutionAmount =
-      await getExecutionAmountInChugSplashManager(provider, projectName)
+    const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
+      provider,
+      projectName
+    )
     if (gasPrice.mul(8_000_000).gt(availableExecutionAmount)) {
       // If the available execution amount is less than the estimated value, throw an error.
       const estCost = gasPrice.mul(ethers.utils.parseEther('0.1'))
       throw new Error(
-        `${projectName} ran out of funds. Please report this error. Run the following command to add funds to your deployment so it can be completed:
+        `${projectName} ran out of funds. Please report this error.
+Run the following command to add funds to your deployment so it can be completed:
 
-  npx hardhat fund --network ${hre.network.name} --amount ${estCost} <configPath>
+npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
         `
       )
     }
@@ -95,17 +84,11 @@ export const monitorRemoteExecution = async (
     // Get the current bundle state.
     bundleState = await ChugSplashManager.bundles(bundleId)
 
-    // Update the progress bar.
-    progressBar.update(bundleState.actionsExecuted.toNumber())
-
     // Wait for one second.
     await sleep(1000)
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    progressBar.update(bundleState.executions.length)
-    chugsplashLog('\n', silent)
-
     // Get the `completeChugSplashBundle` transaction.
     const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
       ChugSplashManager,
@@ -121,13 +104,13 @@ export const monitorRemoteExecution = async (
  * Performs actions on behalf of the project owner after the successful execution of a bundle.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
- * @param parsedConfig Parsed ChugSplashConfig.
+ * @param parsedConfig Parsed ParsedChugSplashConfig.
  */
 export const postExecutionActions = async (
-  provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ChugSplashConfig
+  hre: HardhatRuntimeEnvironment,
+  parsedConfig: ParsedChugSplashConfig
 ) => {
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
@@ -135,21 +118,21 @@ export const postExecutionActions = async (
   const currChugSplashManagerOwner = await ChugSplashManager.owner()
 
   // Exit early if the calling address is not the current owner of the ChugSplashManager.
-  if (signer.getAddress() !== currChugSplashManagerOwner) {
+  if ((await signer.getAddress()) !== currChugSplashManagerOwner) {
     return
   }
 
   // Withdraw any of the current project owner's funds in the ChugSplashManager.
-  const totalDebt = await ChugSplashManager.totalDebt()
-  const chugsplashManagerBalance = await provider.getBalance(
-    ChugSplashManager.address
+  const ownerFunds = await getOwnerBalanceInChugSplashManager(
+    hre.ethers.provider,
+    parsedConfig.options.projectName
   )
-  if (chugsplashManagerBalance.sub(totalDebt).gt(0)) {
+  if (ownerFunds.gt(0)) {
     await (await ChugSplashManager.withdrawOwnerETH()).wait()
   }
 
   // Transfer ownership of the ChugSplashManager to the project owner specified in the
-  // ChugSplashConfig if their address isn't already the owner.
+  // ParsedChugSplashConfig if their address isn't already the owner.
   if (parsedConfig.options.projectOwner !== currChugSplashManagerOwner) {
     if (parsedConfig.options.projectOwner === ethers.constants.AddressZero) {
       // We must call a separate function if ownership is being transferred to address(0).
@@ -161,5 +144,10 @@ export const postExecutionActions = async (
         )
       ).wait()
     }
+  }
+
+  // Save the snapshot ID if we're on the hardhat network.
+  if ((await getChainId(hre.ethers.provider)) === 31337) {
+    await writeHardhatSnapshotId(hre)
   }
 }

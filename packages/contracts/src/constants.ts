@@ -10,6 +10,7 @@ import {
   ChugSplashManagerProxyArtifact,
   ChugSplashManagerABI,
   ProxyABI,
+  DeterministicProxyOwnerArtifact,
 } from './ifaces'
 
 const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
@@ -22,6 +23,7 @@ const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
 const proxyUpdaterSourceName = ProxyUpdaterArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
 const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
+const deterministicOwnerSourceName = DeterministicProxyOwnerArtifact.sourceName
 
 const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -51,15 +53,24 @@ export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
   ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
 )
 
+export const DETERMINISTIC_PROXY_OWNER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  ethers.constants.HashZero,
+  ethers.utils.solidityKeccak256(
+    ['bytes'],
+    [DeterministicProxyOwnerArtifact.bytecode]
+  )
+)
+
 const [registryProxyConstructorFragment] = ProxyABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 const registryProxyConstructorArgTypes =
   registryProxyConstructorFragment.inputs.map((input) => input.type)
-const registryProxyConstructorArgValues = [CHUGSPLASH_BOOTLOADER_ADDRESS]
+const registryProxyConstructorArgValues = [DETERMINISTIC_PROXY_OWNER_ADDRESS]
 
 export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
-  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   ethers.constants.HashZero,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
@@ -163,3 +174,4 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[proxyUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
   registryProxyConstructorArgValues
+CHUGSPLASH_CONSTRUCTOR_ARGS[deterministicOwnerSourceName] = []

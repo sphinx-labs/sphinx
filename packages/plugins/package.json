@@ -30,23 +30,23 @@
   "dependencies": {
     "@chugsplash/contracts": "^0.3.9",
     "@chugsplash/core": "^0.3.15",
+    "@chugsplash/executor": "^0.4.6",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
-    "@ethersproject/abstract-provider": "^5.7.0",
-    "cli-progress": "^3.11.2",
     "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
     "ipfs-http-client": "56.0.3",
     "ipfs-only-hash": "^4.0.0",
     "node-fetch": "^2.6.7",
     "ora": "^5.4.1",
-    "semver": "^7.3.7"
+    "semver": "^7.3.7",
+    "yesno": "^0.4.0"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.1",
-    "hardhat": "^2.10.0",
-    "chai": "^4.3.6"
+    "chai": "^4.3.6",
+    "hardhat": "^2.10.0"
   },
   "peerDependencies": {
     "@nomiclabs/hardhat-ethers": "^2",

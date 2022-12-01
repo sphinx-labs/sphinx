@@ -1,9 +1,7 @@
 import assert from 'assert'
 
-import { Contract, ethers, Signer } from 'ethers'
+import { ethers } from 'ethers'
 import { Provider } from '@ethersproject/abstract-provider'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { getChugSplashRegistry } from '@chugsplash/core'
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
@@ -19,16 +17,25 @@ import {
   ChugSplashBootLoaderArtifact,
   DEFAULT_ADAPTER_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ProxyArtifact,
+  ProxyABI,
+  DeterministicProxyOwnerABI,
+  DeterministicProxyOwnerArtifact,
+  DETERMINISTIC_PROXY_OWNER_ADDRESS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
 } from '@chugsplash/contracts'
 
+import { getChugSplashRegistry, getProxyOwner } from '../../utils'
+
 export const deployChugSplashPredeploys = async (
-  hre: HardhatRuntimeEnvironment,
+  provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer
 ): Promise<void> => {
   const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
 
   // Deploy the root ChugSplashManager.
-  const ChugSplashManager = await doDeterministicDeploy(hre, {
+  const ChugSplashManager = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
       abi: ChugSplashManagerABI,
@@ -39,16 +46,13 @@ export const deployChugSplashPredeploys = async (
   })
 
   // Deploy the ChugSplashBootLoader.
-  const ChugSplashBootLoader = await doDeterministicDeploy(hre, {
+  const ChugSplashBootLoader = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
       abi: ChugSplashBootLoaderABI,
       bytecode: ChugSplashBootLoaderArtifact.bytecode,
     },
-    salt: hre.ethers.utils.solidityKeccak256(
-      ['string'],
-      ['ChugSplashBootLoader']
-    ),
+    salt: ethers.utils.solidityKeccak256(['string'], ['ChugSplashBootLoader']),
   })
 
   // Make sure the addresses match, just in case.
@@ -66,7 +70,8 @@ export const deployChugSplashPredeploys = async (
         EXECUTION_LOCK_TIME,
         OWNER_BOND_AMOUNT,
         EXECUTOR_PAYMENT_PERCENTAGE,
-        ChugSplashManager.address
+        ChugSplashManager.address,
+        CHUGSPLASH_REGISTRY_PROXY_ADDRESS
       )
     ).wait()
   } catch (err) {
@@ -79,14 +84,74 @@ export const deployChugSplashPredeploys = async (
     }
   }
 
+  // Deploy the ChugSplashRegistry's proxy.
+  const ChugSplashRegistryProxy = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ProxyABI,
+      bytecode: ProxyArtifact.bytecode,
+    },
+    salt: ethers.constants.HashZero,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyArtifact.sourceName],
+  })
+
+  // Make sure the addresses match, just in case.
+  assert(
+    ChugSplashRegistryProxy.address === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    'ChugSplashRegistry proxy address mismatch'
+  )
+
+  // Deploy the DeterministicProxyOwner, which temporarily owns the ChugSplashRegistry proxy.
+  const DeterministicProxyOwner = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: DeterministicProxyOwnerABI,
+      bytecode: DeterministicProxyOwnerArtifact.bytecode,
+    },
+    salt: ethers.constants.HashZero,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[
+      DeterministicProxyOwnerArtifact.sourceName
+    ],
+  })
+
+  // Make sure the addresses match, just in case.
+  assert(
+    DeterministicProxyOwner.address === DETERMINISTIC_PROXY_OWNER_ADDRESS,
+    'DeterministicProxyOwner address mismatch'
+  )
+
+  // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
+  // when the ChugSplashRegistry's proxy is initially deployed.
+  if (
+    (await getProxyOwner(ChugSplashRegistryProxy)) ===
+    DETERMINISTIC_PROXY_OWNER_ADDRESS
+  ) {
+    // Initialize the ChugSplashRegistry's proxy through the DeterministicProxyOwner. This
+    // transaction sets the ChugSplasRegistry proxy's implementation and transfers ownership of the
+    // proxy to the specified owner.
+    await (
+      await DeterministicProxyOwner.initializeProxy(
+        ChugSplashRegistryProxy.address,
+        CHUGSPLASH_REGISTRY_ADDRESS,
+        owner
+      )
+    ).wait()
+
+    // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
+    assert(
+      (await getProxyOwner(ChugSplashRegistryProxy)) === owner,
+      'ChugSplashRegistry proxy has incorrect owner'
+    )
+  }
+
   // Deploy the DefaultAdapter.
-  const DefaultAdapter = await doDeterministicDeploy(hre, {
+  const DefaultAdapter = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
-    salt: hre.ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
+    salt: ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
   })
 
   // Make sure the addresses match, just in case.
@@ -96,9 +161,7 @@ export const deployChugSplashPredeploys = async (
   )
 
   // Optionally initialize registry.
-  const ChugSplashRegistry = getChugSplashRegistry(
-    hre.ethers.provider.getSigner()
-  )
+  const ChugSplashRegistry = getChugSplashRegistry(deployer)
   const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
   if (adapter === ethers.constants.AddressZero) {
     await (
@@ -110,14 +173,14 @@ export const deployChugSplashPredeploys = async (
   }
 }
 
-const getDeterministicFactoryAddress = async (
-  hre: HardhatRuntimeEnvironment
+export const getDeterministicFactoryAddress = async (
+  provider: ethers.providers.JsonRpcProvider
 ) => {
   // Deploy the deterministic deployer.
   if (
     (await isContractDeployed(
       DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-      hre.ethers.provider
+      provider
     )) === false
   ) {
     const sender = '0x3fab184622dc19b6109349b94811493bf2a45362'
@@ -126,7 +189,7 @@ const getDeterministicFactoryAddress = async (
     // we're not running against hardhat then this will fail silently. We'll just need to try the
     // deployment and see if the sender has enough funds to pay for the deployment.
     try {
-      await hre.ethers.provider.send('hardhat_setBalance', [
+      await provider.send('hardhat_setBalance', [
         sender,
         '0xFFFFFFFFFFFFFFFFFFFFFF',
       ])
@@ -136,8 +199,8 @@ const getDeterministicFactoryAddress = async (
 
     // Send the raw deployment transaction for the deterministic deployer.
     try {
-      await hre.ethers.provider.waitForTransaction(
-        await hre.ethers.provider.send('eth_sendRawTransaction', [
+      await provider.waitForTransaction(
+        await provider.send('eth_sendRawTransaction', [
           '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
         ])
       )
@@ -155,24 +218,24 @@ const getDeterministicFactoryAddress = async (
   return DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS
 }
 
-const doDeterministicDeploy = async (
-  hre: HardhatRuntimeEnvironment,
+export const doDeterministicDeploy = async (
+  provider: ethers.providers.JsonRpcProvider,
   options: {
     contract: {
       abi: any
       bytecode: string
     }
     salt: string
-    signer: Signer
+    signer: ethers.Signer
     args?: any[]
   }
-): Promise<Contract> => {
+): Promise<ethers.Contract> => {
   const factory = new ethers.ContractFactory(
     options.contract.abi,
     options.contract.bytecode
   )
   const deploymentTx = factory.getDeployTransaction(...(options.args || []))
-  const deployer = await getDeterministicFactoryAddress(hre)
+  const deployer = await getDeterministicFactoryAddress(provider)
   const address = ethers.utils.getCreate2Address(
     deployer,
     options.salt,
@@ -180,7 +243,7 @@ const doDeterministicDeploy = async (
   )
 
   // Short circuit if already deployed.
-  if (await isContractDeployed(address, hre.ethers.provider)) {
+  if (await isContractDeployed(address, provider)) {
     return new ethers.Contract(address, options.contract.abi, options.signer)
   }
 
@@ -192,7 +255,7 @@ const doDeterministicDeploy = async (
     })
   ).wait()
 
-  if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
+  if ((await isContractDeployed(address, provider)) === false) {
     throw new Error(`failed to deploy contract at ${address}`)
   }
 

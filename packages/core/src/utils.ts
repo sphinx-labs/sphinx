@@ -8,9 +8,10 @@ import {
   ChugSplashManagerABI,
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ProxyABI,
 } from '@chugsplash/contracts'
 
-import { ChugSplashConfig } from './config'
+import { ParsedChugSplashConfig } from './config'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -68,7 +69,17 @@ export const writeDeploymentArtifact = (
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
 }
 
-export const getProxyAddress = (
+/**
+ * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
+ * the projectName and the corresponding contract's reference name. Note that a default proxy will
+ * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
+ * attribute.
+ *
+ * @param projectName Name of the ChugSplash project.
+ * @param referenceName Reference name of the contract that corresponds to the proxy.
+ * @returns Address of the default EIP-1967 proxy used by ChugSplash.
+ */
+export const getDefaultProxyAddress = (
   projectName: string,
   referenceName: string
 ): string => {
@@ -88,12 +99,85 @@ export const getProxyAddress = (
   )
 }
 
+export const checkIsUpgrade = async (
+  provider: ethers.providers.Provider,
+  parsedConfig: ParsedChugSplashConfig
+): Promise<boolean | string> => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if (await isProxyDeployed(provider, contractConfig.address)) {
+      return referenceName
+    }
+  }
+  return false
+}
+
+export const checkValidUpgrade = async (
+  provider: ethers.providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  configPath: string,
+  networkName: string
+) => {
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let proxyDetected = false
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if (await isProxyDeployed(provider, contractConfig.address)) {
+      proxyDetected = true
+
+      const contract = new ethers.Contract(
+        contractConfig.address,
+        ProxyABI,
+        provider
+      )
+
+      const owner = await getProxyOwner(contract)
+      const managerProxy = await getChugSplashManagerProxyAddress(
+        parsedConfig.options.projectName
+      )
+      if (owner !== managerProxy) {
+        requiresOwnershipTransfer.push({
+          name: referenceName,
+          address: contractConfig.address,
+        })
+      }
+    }
+  }
+
+  if (!proxyDetected) {
+    throw new Error(
+      `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
+
+Run the following command to deploy this project for the first time:
+npx hardhat chugsplash-deploy --network ${networkName} ${configPath}
+      `
+    )
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    // TODO update this once the transfer ownership task is implemented
+    throw new Error(
+      `Error: Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership>
+      `
+    )
+  }
+}
+
 export const isProxyDeployed = async (
-  provider: ethers.providers.JsonRpcProvider,
-  projectName: string,
-  referenceName: string
+  provider: ethers.providers.Provider,
+  proxyAddress: string
 ): Promise<boolean> => {
-  const proxyAddress = getProxyAddress(projectName, referenceName)
   return (await provider.getCode(proxyAddress)) !== '0x'
 }
 
@@ -154,13 +238,15 @@ export const getProjectOwnerAddress = async (
   projectName: string
 ): Promise<string> => {
   const signer = provider.getSigner()
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
-  const ChugSplashManager = new Contract(
-    await ChugSplashRegistry.projects(projectName),
-    ChugSplashManagerABI,
-    signer
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.OwnershipTransferred()
   )
-  const projectOwner = await ChugSplashManager.owner()
+
+  // Get the most recent owner from the list of events
+  const projectOwner = ownershipTransferredEvents.at(-1).args.newOwner
+
   return projectOwner
 }
 
@@ -197,7 +283,7 @@ export const chugsplashLog = (text: string, silent: boolean) => {
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ChugSplashConfig,
+  parsedConfig: ParsedChugSplashConfig,
   silent: boolean
 ) => {
   if (!silent) {
@@ -205,11 +291,27 @@ export const displayDeploymentTable = (
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) =>
         (deployments[i + 1] = {
-          Reference: referenceName,
+          'Reference Name': referenceName,
           Contract: contractConfig.contract,
           Address: contractConfig.address,
         })
     )
     console.table(deployments)
   }
+}
+
+export const claimExecutorPayment = async (
+  executor: Signer,
+  ChugSplashManager: Contract
+) => {
+  const executorDebt = await ChugSplashManager.debt(await executor.getAddress())
+  if (executorDebt.gt(0)) {
+    await (await ChugSplashManager.claimExecutorPayment()).wait()
+  }
+}
+
+export const getProxyOwner = async (Proxy: Contract) => {
+  // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
+  const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
+  return args.newAdmin
 }

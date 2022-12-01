@@ -393,6 +393,27 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
+     * @notice Executes multiple ChugSplash actions at once. This speeds up execution time since the
+     *         executor doesn't need to send as many transactions to execute a bundle. Note that
+     *         this function only accepts SetStorage and DeployImplementation actions.
+     *         SetImplementation actions must be sent separately to `completeChugSplashBundle` after
+     *         the SetStorage and DeployImplementation actions have been executed.
+     *
+     * @param _actions       Array of SetStorage/DeployImplementation actions to execute.
+     * @param _actionIndexes Array of action indexes.
+     * @param _proofs        Array of Merkle proofs for each action.
+     */
+    function executeMultipleActions(
+        ChugSplashAction[] memory _actions,
+        uint256[] memory _actionIndexes,
+        bytes32[][] memory _proofs
+    ) public {
+        for (uint256 i = 0; i < _actions.length; i++) {
+            executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
+        }
+    }
+
+    /**
      * @notice Executes a specific action within the current active bundle for a project. Actions
      *         can only be executed once. A re-entrancy guard is added to prevent an implementation
      *         contract's constructor from calling another contract which in turn calls back into
@@ -637,24 +658,30 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
      *
-     *         Cancels an active ChugSplash bundle. This causes the project owner to forfeit their
-     *         bond to the executor, and also refunds the executor's bond.
+     *         Cancels an active ChugSplash bundle. If an executor has not claimed the bundle,
+     *         the owner is simply allowed to withdraw their bond via a subsequent call to
+     *         `withdrawOwnerETH`. Otherwise, cancelling a bundle will cause the project owner to
+     *         forfeit their bond to the executor, and will also allow the executor to refund their
+     *         own bond.
      */
     function cancelActiveChugSplashBundle() public onlyOwner {
         require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
-            // Give the owner's bond to the current executor if the bundle is cancelled within the
-            // `executionLockTime` window. Also return the executor's bond.
-            debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
-            // We don't add the `executorBondAmount` to the `totalDebt` here because we already
-            // did this in `claimBundle`.
-            totalDebt += ownerBondAmount;
-        } else {
-            // Return the bond back to the owner if the `executionLockTime` window has passed.
-            totalDebt -= executorBondAmount;
+        if (bundle.selectedExecutor != address(0)) {
+            if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
+                // Give the owner's bond to the current executor if the bundle is cancelled within
+                // the `executionLockTime` window. Also return the executor's bond.
+                debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
+                // We don't add the `executorBondAmount` to the `totalDebt` here because we already
+                // did this in `claimBundle`.
+                totalDebt += ownerBondAmount;
+            } else {
+                // Give the executor's bond to the owner if the `executionLockTime` window has
+                // passed.
+                totalDebt -= executorBondAmount;
+            }
         }
 
         bytes32 cancelledBundleId = activeBundleId;
@@ -790,11 +817,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
         // Get the expected address of the implementation contract.
-        address expectedImplementation = Create2.compute(
-            address(this),
-            bytes32(0),
-            _code
-        );
+        address expectedImplementation = Create2.compute(address(this), bytes32(0), _code);
 
         address implementation;
         assembly {
