@@ -141,9 +141,9 @@ contract ChugSplashManager_Test is Test {
         bootloader = new ChugSplashBootLoader{salt: bytes32(0) }();
 
         address registryProxyAddress = Create2.compute(
-            address(bootloader),
+            address(this),
             bytes32(0),
-            abi.encodePacked(type(Proxy).creationCode, abi.encode(bootloader))
+            abi.encodePacked(type(Proxy).creationCode, abi.encode(address(owner)))
         );
 
         address proxyUpdaterAddress = Create2.compute(
@@ -169,10 +169,19 @@ contract ChugSplashManager_Test is Test {
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage,
-            address(managerImplementation)
+            address(managerImplementation),
+            registryProxyAddress
         );
 
-        registry = ChugSplashRegistry(address(bootloader.registryProxy()));
+        Proxy registryProxy = new Proxy{ salt: bytes32(0)}(owner);
+
+        vm.startPrank(owner);
+        registryProxy.upgradeTo(address(bootloader.registryImplementation()));
+        vm.stopPrank();
+
+        // Convert the registry proxy to a ChugSplashRegistry type
+        registry = ChugSplashRegistry(address(registryProxy));
+
         registry.register(projectName, owner);
         manager = registry.projects(projectName);
         adapter = new DefaultAdapter();
@@ -183,7 +192,7 @@ contract ChugSplashManager_Test is Test {
     // constructor:
     // - initializes variables correctly
     function test_constructor_success() external {
-        assertEq(address(manager.registry()), address(bootloader.registryProxy()));
+        assertEq(address(manager.registry()), address(registry));
         assertEq(address(manager.proxyUpdater()), address(bootloader.proxyUpdater()));
         assertEq(manager.executorBondAmount(), executorBondAmount);
         assertEq(manager.executionLockTime(), executionLockTime);

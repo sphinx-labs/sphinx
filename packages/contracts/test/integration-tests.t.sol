@@ -8,6 +8,7 @@ import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { ChugSplashBootLoader } from "../contracts/ChugSplashBootLoader.sol";
 import { MockChugSplashManager } from "./MockChugSplashManager.sol";
 import { MockChugSplashRegistry } from "./MockChugSplashRegistry.sol";
+import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract Integration_Tests is Test {
 
@@ -23,15 +24,30 @@ contract Integration_Tests is Test {
 
     function setUp() external {
         bootloader = new ChugSplashBootLoader{salt: bytes32(0) }();
+
+        address registryProxyAddress = Create2.compute(
+            address(this),
+            bytes32(0),
+            abi.encodePacked(type(Proxy).creationCode, abi.encode(address(owner)))
+        );
+
         bootloader.initialize(
             owner,
             executorBondAmount,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage,
-            address(1)
+            address(1),
+            registryProxyAddress
         );
-        ChugSplashRegistry registry = ChugSplashRegistry(address(bootloader.registryProxy()));
+
+        registryProxy = new Proxy{ salt: bytes32(0)}(owner);
+
+        vm.startPrank(owner);
+        registryProxy.upgradeTo(address(bootloader.registryImplementation()));
+        vm.stopPrank();
+
+        ChugSplashRegistry registry = ChugSplashRegistry(address(registryProxy));
         registry.register(projectName, owner);
         manager = registry.projects(projectName);
         registryProxy = Proxy(payable(address(registry)));
