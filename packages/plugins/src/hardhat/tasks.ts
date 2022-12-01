@@ -1109,18 +1109,17 @@ task(TASK_RUN)
 export const chugsplashCancelTask = async (
   args: {
     configPath: string
-    silent: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent } = args
+  const { configPath } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
   const parsedConfig = loadParsedChugSplashConfig(configPath)
   const projectName = parsedConfig.options.projectName
 
-  const spinner = ora({ isSilent: silent })
+  const spinner = ora()
   spinner.start(`Cancelling ${projectName} on ${hre.network.name}.`)
 
   if (!(await isProjectRegistered(signer, projectName))) {
@@ -1169,7 +1168,6 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
 task(TASK_CHUGSPLASH_CANCEL)
   .setDescription('Cancel an active ChugSplash project.')
-  .addFlag('silent', "Hide all of ChugSplash's output")
   .addPositionalParam(
     'configPath',
     'Path to the ChugSplash config file to cancel'
