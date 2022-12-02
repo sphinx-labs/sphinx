@@ -67,6 +67,7 @@ export const deployAllChugSplashConfigs = async (
       return
     }
 
+    const signer = hre.ethers.provider.getSigner()
     await deployChugSplashConfig(
       hre,
       configPath,
@@ -75,6 +76,7 @@ export const deployAllChugSplashConfigs = async (
       ipfsUrl,
       noCompile,
       confirm,
+      await signer.getAddress(),
       executor,
       spinner
     )
@@ -89,6 +91,7 @@ export const deployChugSplashConfig = async (
   ipfsUrl: string,
   noCompile: boolean,
   confirm: boolean,
+  newOwner: string,
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -236,6 +239,7 @@ export const deployChugSplashConfig = async (
     {
       configPath,
       silent: true,
+      newOwner,
     },
     hre
   )

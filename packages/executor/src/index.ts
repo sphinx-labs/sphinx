@@ -18,6 +18,7 @@ import {
   executeTask,
   CanonicalChugSplashConfig,
   deployChugSplashPredeploys,
+  getProjectOwnerAddress,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import * as Amplitude from '@amplitude/node'
@@ -149,20 +150,22 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
   async main(
     options?: Partial<Options>,
-    provider?: ethers.providers.JsonRpcProvider,
+    rpcProvider?: ethers.providers.JsonRpcProvider,
     localCanonicalConfig?: CanonicalChugSplashConfig
   ) {
     // Setup state if options were provided.
     // Necessary to allow the user to pass in options when running the executor programmatically.
     if (options) {
-      await this.setup(options, provider)
+      await this.setup(options, rpcProvider)
     }
 
-    const latestBlockNumber = await this.state.provider.getBlockNumber()
+    const { provider, wallet, registry } = this.state
+
+    const latestBlockNumber = await provider.getBlockNumber()
 
     // Get approval events in blocks after the stored block number
-    const newApprovalEvents = await this.state.registry.queryFilter(
-      this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
+    const newApprovalEvents = await registry.queryFilter(
+      registry.filters.EventAnnounced('ChugSplashBundleApproved'),
       this.state.lastBlockNumber + 1,
       latestBlockNumber
     )
@@ -200,7 +203,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       const manager = new ethers.Contract(
         approvalAnnouncementEvent.args.manager,
         ChugSplashManagerABI,
-        this.state.wallet
+        wallet
       )
 
       // get active bundle id for this project
@@ -232,19 +235,14 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           continue
         }
 
-        if (
-          await hasSufficientFundsForExecution(
-            this.state.provider,
-            canonicalConfig
-          )
-        ) {
+        if (await hasSufficientFundsForExecution(provider, canonicalConfig)) {
           // execute bundle
           try {
             await executeTask({
               chugSplashManager: manager,
               bundleId: activeBundleId,
               bundle,
-              executor: this.state.wallet,
+              executor: wallet,
             })
             this.logger.info('Successfully executed')
           } catch (e) {
@@ -259,10 +257,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
           // verify on etherscan
           try {
-            if ((await getChainId(this.state.provider)) !== 31337) {
+            if ((await getChainId(provider)) !== 31337) {
               await verifyChugSplashConfig(
                 proposalEvent.args.configUri,
-                this.state.provider,
+                provider,
                 this.options.network
               )
               this.logger.info('Successfully verified')
@@ -278,7 +276,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           if (this.options.amplitudeKey !== 'disabled') {
             this.state.amplitudeClient.logEvent({
               event_type: 'ChugSplash Executed',
-              user_id: canonicalConfig.options.projectOwner,
+              user_id: await getProjectOwnerAddress(
+                provider,
+                canonicalConfig.options.projectName
+              ),
               event_properties: {
                 projectName: canonicalConfig.options.projectName,
               },
@@ -294,7 +295,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
       // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
       // project owner during execution, the executor will still be able to claim funds here.
-      await claimExecutorPayment(this.state.wallet, manager)
+      await claimExecutorPayment(wallet, manager)
 
       // If we make it to this point, we know that the executor has executed the bundle (or that it
       // has been cancelled by the owner), and that the executor has claimed its payment.

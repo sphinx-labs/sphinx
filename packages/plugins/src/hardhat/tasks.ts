@@ -158,6 +158,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
+    newOwner: string
     ipfsUrl: string
     silent: boolean
     noCompile: boolean
@@ -165,12 +166,14 @@ export const chugsplashDeployTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile } = args
+  const { configPath, newOwner, ipfsUrl, silent, noCompile } = args
 
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
 
   const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+  const signerAddress = await signer.getAddress()
   const remoteExecution = (await getChainId(provider)) !== 31337
   await deployChugSplashPredeploys(provider, provider.getSigner())
 
@@ -189,6 +192,7 @@ export const chugsplashDeployTask = async (
     ipfsUrl,
     noCompile,
     args.confirm,
+    newOwner ?? signerAddress,
     executor,
     spinner
   )
@@ -199,6 +203,10 @@ task(TASK_CHUGSPLASH_DEPLOY)
   .addPositionalParam(
     'configPath',
     'Path to the ChugSplash config file to deploy'
+  )
+  .addOptionalParam(
+    'newOwner',
+    "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
   )
   .addOptionalParam(
     'ipfsUrl',
@@ -212,6 +220,47 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .setAction(chugsplashDeployTask)
 
+export const chugsplashRegisterTask = async (
+  args: {
+    configPaths: string[]
+    owner: string
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPaths, silent, owner } = args
+
+  if (configPaths.length === 0) {
+    throw new Error('You must specify a path to a ChugSplash config file.')
+  }
+
+  const provider = hre.ethers.provider
+
+  await deployChugSplashPredeploys(provider, provider.getSigner())
+
+  const spinner = ora({ isSilent: silent })
+
+  for (const configPath of args.configPaths) {
+    const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+    spinner.start(`Registering ${parsedConfig.options.projectName}...`)
+
+    const isFirstTimeRegistered = await registerChugSplashProject(
+      provider,
+      parsedConfig.options.projectName,
+      owner
+    )
+
+    isFirstTimeRegistered
+      ? spinner.succeed(
+          `Project successfully registered on ${hre.network.name}. Owner: ${owner}`
+        )
+      : spinner.fail(
+          `Project was already registered by the caller on ${hre.network.name}.`
+        )
+  }
+}
+
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
   .addVariadicPositionalParam(
@@ -219,46 +268,9 @@ task(TASK_CHUGSPLASH_REGISTER)
     'Paths to ChugSplash config files',
     []
   )
+  .addParam('owner', 'Owner of the ChugSplash project')
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .setAction(
-    async (
-      args: {
-        configPaths: string[]
-        silent: boolean
-      },
-      hre
-    ) => {
-      if (args.configPaths.length === 0) {
-        throw new Error('You must specify a path to a ChugSplash config file.')
-      }
-
-      const provider = hre.ethers.provider
-
-      await deployChugSplashPredeploys(provider, provider.getSigner())
-
-      const spinner = ora({ isSilent: args.silent })
-
-      for (const configPath of args.configPaths) {
-        const parsedConfig = loadParsedChugSplashConfig(configPath)
-
-        spinner.start(`Registering ${parsedConfig.options.projectName}...`)
-
-        const isFirstTimeRegistered = await registerChugSplashProject(
-          provider,
-          parsedConfig.options.projectName,
-          parsedConfig.options.projectOwner
-        )
-
-        isFirstTimeRegistered
-          ? spinner.succeed(
-              `Project successfully registered on ${hre.network.name}. Owner: ${parsedConfig.options.projectOwner}`
-            )
-          : spinner.fail(
-              `Project was already registered by the caller on ${hre.network.name}.`
-            )
-      }
-    }
-  )
+  .setAction(chugsplashRegisterTask)
 
 export const chugsplashProposeTask = async (
   args: {
@@ -413,17 +425,27 @@ export const chugsplashApproveTask = async (
   spinner.start('Approving the bundle...')
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+  const signerAddress = await signer.getAddress()
 
-  await registerChugSplashProject(
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      await getChainId(provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const projectOwnerAddress = await getProjectOwnerAddress(
     provider,
-    parsedConfig.options.projectName,
-    parsedConfig.options.projectOwner
+    projectName
   )
+  if (signerAddress !== projectOwnerAddress) {
+    throw new Error(`Caller is not the project owner on ${hre.network.name}.
+Caller's address: ${signerAddress}
+Owner's address: ${projectOwnerAddress}`)
+  }
 
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    parsedConfig.options.projectName
-  )
   // Call the commit subtask locally to get the bundle ID without publishing
   // anything to IPFS.
   const { bundleId } = await chugsplashCommitSubtask(
@@ -436,6 +458,7 @@ export const chugsplashApproveTask = async (
     hre
   )
 
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
@@ -483,11 +506,11 @@ Please wait a couple minutes then try again.`
         parsedConfig,
         bundleId
       )
-      await postExecutionActions(hre, parsedConfig)
+      await postExecutionActions(hre, parsedConfig, signerAddress)
       await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
       displayDeploymentTable(parsedConfig, silent)
       spinner.succeed(
-        `${parsedConfig.options.projectName} successfully deployed on ${hre.network.name}.`
+        `${projectName} successfully deployed on ${hre.network.name}.`
       )
     }
   }
@@ -825,10 +848,11 @@ export const monitorTask = async (
   args: {
     configPath: string
     silent: boolean
+    newOwner: string
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent } = args
+  const { configPath, silent, newOwner } = args
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
@@ -899,7 +923,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     parsedConfig,
     bundleId
   )
-  await postExecutionActions(hre, parsedConfig)
+  await postExecutionActions(hre, parsedConfig, newOwner)
   await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
 
   bundleState.status === ChugSplashBundleStatus.APPROVED
