@@ -54,7 +54,7 @@ export interface ParsedChugSplashConfig {
  */
 export type UserContractConfig = {
   contract: string
-  address?: string
+  proxy?: string
   variables?: UserConfigVariables
 }
 
@@ -71,7 +71,7 @@ export type UserConfigVariables = {
  */
 export type ParsedContractConfig = {
   contract: string
-  address: string
+  proxy: string
   variables?: ParsedConfigVariables
 }
 

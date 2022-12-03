@@ -287,7 +287,7 @@ ${configsWithFileNames.map(
 
   const { config: cfg } = configsWithFileNames[0]
 
-  const proxyAddress = cfg.contracts[referenceName].address
+  const proxyAddress = cfg.contracts[referenceName].proxy
   if ((await isProxyDeployed(hre.ethers.provider, proxyAddress)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
   }
