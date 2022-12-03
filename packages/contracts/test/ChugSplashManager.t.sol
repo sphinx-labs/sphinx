@@ -433,7 +433,8 @@ contract ChugSplashManager_Test is Test {
         assertGt(implementationAddress.code.length, 0);
         assertEq(bundle.actionsExecuted, 1);
         assertTrue(bundle.executions[actionIndexes[0]]);
-        assertEq(manager.implementations(firstAction.target), implementationAddress);
+        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        assertEq(manager.implementations(salt), implementationAddress);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
         assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
@@ -561,7 +562,8 @@ contract ChugSplashManager_Test is Test {
 
         uint256 finalTotalDebt = manager.totalDebt();
         uint256 finalExecutorDebt = manager.debt(executor1);
-        address expectedImplementation = manager.implementations(firstAction.target);
+        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        address expectedImplementation = manager.implementations(salt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 gasUsed = 45472;
         uint256 estExecutorPayment = baseFee * gasUsed * (100 + executorPaymentPercentage) / 100;
