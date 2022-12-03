@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.12
+
+### Patch Changes
+
+- 40c7bfb: Adds proposers to the ChugSplashManager
+
 ## 0.3.11
 
 ### Patch Changes

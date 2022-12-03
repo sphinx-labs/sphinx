@@ -1,5 +1,15 @@
 # @chugsplash/plugins
 
+## 0.8.2
+
+### Patch Changes
+
+- e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
+- Updated dependencies [40c7bfb]
+- Updated dependencies [e105ea9]
+  - @chugsplash/contracts@0.3.12
+  - @chugsplash/core@0.3.18
+
 ## 0.8.1
 
 ### Patch Changes
