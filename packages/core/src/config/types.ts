@@ -35,7 +35,6 @@ export type ContractReference = {
 export interface UserChugSplashConfig {
   options: {
     projectName: string
-    projectOwner: string
   }
   contracts: UserContractConfigs
 }
@@ -46,7 +45,6 @@ export interface UserChugSplashConfig {
 export interface ParsedChugSplashConfig {
   options: {
     projectName: string
-    projectOwner: string
   }
   contracts: ParsedContractConfigs
 }

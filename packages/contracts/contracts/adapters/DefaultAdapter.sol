@@ -2,9 +2,7 @@
 pragma solidity ^0.8.9;
 
 import { IProxyAdapter } from "../IProxyAdapter.sol";
-import {
-    TransparentUpgradeableProxy
-} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { Proxy } from "../libraries/Proxy.sol";
 
 /**
  * @title DefaultAdapter
@@ -17,20 +15,20 @@ contract DefaultAdapter is IProxyAdapter {
      * @inheritdoc IProxyAdapter
      */
     function getProxyImplementation(address payable _proxy) external returns (address) {
-        return TransparentUpgradeableProxy(_proxy).implementation();
+        return Proxy(_proxy).implementation();
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
     function upgradeProxyTo(address payable _proxy, address _implementation) external {
-        TransparentUpgradeableProxy(_proxy).upgradeTo(_implementation);
+        Proxy(_proxy).upgradeTo(_implementation);
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
     function changeProxyAdmin(address payable _proxy, address _newAdmin) external {
-        TransparentUpgradeableProxy(_proxy).changeAdmin(_newAdmin);
+        Proxy(_proxy).changeAdmin(_newAdmin);
     }
 }

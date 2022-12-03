@@ -1,5 +1,6 @@
 import { EXECUTOR_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
+import { Logger } from '@eth-optimism/common-ts'
 
 import {
   fromRawChugSplashAction,
@@ -17,8 +18,13 @@ export const executeTask = async (args: {
   bundleId: string
   bundle: ChugSplashActionBundle
   executor: ethers.Signer
+  projectName: string
+  logger: Logger
 }) => {
-  const { chugSplashManager, bundleId, bundle, executor } = args
+  const { chugSplashManager, bundleId, bundle, executor, projectName, logger } =
+    args
+
+  logger.info(`Preparing to execute the project...`)
 
   const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
     bundleId
@@ -29,19 +35,27 @@ export const executeTask = async (args: {
     bundleState.status !== ChugSplashBundleStatus.APPROVED &&
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
   ) {
-    throw new Error(`Bundle is not approved or completed.`)
+    throw new Error(
+      `${projectName} cannot be executed. Current project status: ${bundleState.status}`
+    )
   }
 
-  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+    logger.info(`Already executed: ${projectName}.`)
+  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+      logger.info(`Claiming the bundle for project: ${projectName}`)
       await (
         await chugSplashManager.claimBundle({
           value: EXECUTOR_BOND_AMOUNT,
         })
       ).wait()
+      logger.info(`Claimed the bundle.`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
       throw new Error(`Another executor has already claimed the bundle.`)
     }
+
+    logger.info(`Setting the state variables...`)
 
     // Execute actions that have not been executed yet.
     let currActionsExecuted = bundleState.actionsExecuted.toNumber()
@@ -85,6 +99,10 @@ export const executeTask = async (args: {
       currActionsExecuted += setStorageBatch.length
     }
 
+    logger.info(
+      `State variables have been set. Deploying the implementation contracts...`
+    )
+
     // Execute DeployImplementation actions in series. We execute them one by one since each one
     // costs significantly more gas than a setStorage action (usually in the millions).
     for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
@@ -97,7 +115,14 @@ export const executeTask = async (args: {
         )
       ).wait()
       currActionsExecuted += 1
+      logger.info(
+        `Deployed implementation contract: ${
+          currActionsExecuted - firstDeployImplIndex
+        }/${firstSetImplIndex - firstDeployImplIndex}`
+      )
     }
+
+    logger.info('Linking proxies to the implementation contracts...')
 
     if (currActionsExecuted === firstSetImplIndex) {
       // Complete the bundle by executing all the SetImplementation actions in a single
@@ -111,5 +136,7 @@ export const executeTask = async (args: {
         )
       ).wait()
     }
+
+    logger.info(`Successfully executed: ${projectName}`)
   }
 }

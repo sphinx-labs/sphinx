@@ -30,11 +30,6 @@ contract ChugSplashBootLoader is Initializable {
     ChugSplashRegistry public registryImplementation;
 
     /**
-     * @notice Address of the ChugSplashRegistry's proxy.
-     */
-    Proxy public registryProxy;
-
-    /**
      * @notice Address of the root ChugSplashManagerProxy.
      */
     ChugSplashManagerProxy public rootManagerProxy;
