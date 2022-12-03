@@ -60,6 +60,10 @@ contract ChugSplashManager_Test is Test {
 
     event OwnerWithdrewETH(address indexed owner, uint256 amount);
 
+    event ProposerAdded(address indexed proposer, address indexed owner);
+
+    event ProposerRemoved(address indexed proposer, address indexed owner);
+
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     bytes32 constant EIP1967_IMPLEMENTATION_KEY =
@@ -85,6 +89,7 @@ contract ChugSplashManager_Test is Test {
     bytes32 bundleId = 0xacdebe08df0d7c9650dfca6191bc88c5a50eb099b18d5cfa663e6f0f11165e2b;
     bytes32 bundleRoot = 0xbe5e67004de3ec5f536e2b5d1ccb2d6d924956a55a866706e97b671f33a8b648;
 
+    address proposer = address(64);
     address owner = address(128);
     address nonOwner = address(256);
     address executor1 = address(512);
@@ -221,17 +226,34 @@ contract ChugSplashManager_Test is Test {
         assertEq(manager.getSelectedExecutor(bundleId), executor1);
     }
 
+    function test_proposeChugSplashBundle_revert_notProposerOrOwner() external {
+        vm.expectRevert("ChugSplashManager: caller must be proposer or owner");
+        vm.prank(executor1);
+        manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
+    }
+
     // proposeChugSplashBundle:
     // - reverts if bundle's status is not `EMPTY`
     function test_proposeChugSplashBundle_revert_nonEmpty() external {
+        vm.startPrank(owner);
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
         vm.expectRevert("ChugSplashManager: bundle already exists");
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
     }
 
+    function test_proposeChugSplashBundle_success_proposer() external {
+        vm.prank(owner);
+        manager.addProposer(proposer);
+        test_proposeChugSplashBundle_success(proposer);
+    }
+
+    function test_proposeChugSplashBundle_success_owner() external {
+        test_proposeChugSplashBundle_success(owner);
+    }
+
     // proposeChugSplashBundle:
     // - updates bundles mapping
-    function test_proposeChugSplashBundle_success() external {
+    function test_proposeChugSplashBundle_success(address _caller) internal {
         vm.expectEmit(true, true, true, true);
         emit ChugSplashBundleProposed(bundleId, bundleRoot, bundleSize, configUri);
         vm.expectCall(
@@ -242,6 +264,7 @@ contract ChugSplashManager_Test is Test {
             )
         );
 
+        vm.prank(_caller);
         manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         assertEq(uint8(bundle.status), uint8(ChugSplashBundleStatus.PROPOSED));
@@ -383,7 +406,7 @@ contract ChugSplashManager_Test is Test {
 
         // We add 1 here to account for the Proxy deployment that occurs before the implementation deployment.
         uint256 implementationDeploymentNonce = 1 + vm.getNonce(address(manager));
-        
+
         address implementationAddress = computeCreateAddress(address(manager), implementationDeploymentNonce);
         assertEq(implementationAddress.code.length, 0);
         uint256 initialTotalDebt = manager.totalDebt();
@@ -814,6 +837,69 @@ contract ChugSplashManager_Test is Test {
 
         vm.prank(executor1);
         assertEq(Proxy(proxyAddress).admin(), executor1);
+    }
+
+    function test_addProposer_revert_nonOwner() external {
+        vm.prank(nonOwner);
+        vm.expectRevert('Ownable: caller is not the owner');
+        manager.addProposer(proposer);
+    }
+
+    function test_addProposer_revert_alreadyAdded() external {
+        vm.startPrank(owner);
+        manager.addProposer(proposer);
+        vm.expectRevert('ChugSplashManager: proposer was already added');
+        manager.addProposer(proposer);
+    }
+
+    function test_addProposer_success() external {
+        assertFalse(manager.proposers(proposer));
+
+        vm.expectEmit(true, true, true, true);
+        emit ProposerAdded(proposer, owner);
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ProposerAdded")
+            )
+        );
+        vm.prank(owner);
+        manager.addProposer(proposer);
+
+        assertTrue(manager.proposers(proposer));
+    }
+
+    function test_removeProposer_revert_nonOwner() external {
+        vm.prank(nonOwner);
+        vm.expectRevert('Ownable: caller is not the owner');
+        manager.removeProposer(proposer);
+    }
+
+    function test_removeProposer_revert_alreadyRemoved() external {
+        vm.prank(owner);
+        vm.expectRevert('ChugSplashManager: proposer was already removed');
+        manager.removeProposer(proposer);
+    }
+
+    function test_removeProposer_success() external {
+        vm.startPrank(owner);
+        manager.addProposer(proposer);
+
+        assertTrue(manager.proposers(proposer));
+
+        vm.expectEmit(true, true, true, true);
+        emit ProposerRemoved(proposer, owner);
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ProposerRemoved")
+            )
+        );
+        manager.removeProposer(proposer);
+
+        assertFalse(manager.proposers(proposer));
     }
 
     // withdrawOwnerETH:

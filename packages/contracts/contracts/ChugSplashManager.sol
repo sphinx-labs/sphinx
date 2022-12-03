@@ -128,6 +128,22 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event OwnerWithdrewETH(address indexed owner, uint256 amount);
 
     /**
+     * @notice Emitted when the owner of this contract adds a new proposer.
+     *
+     * @param proposer Address of the proposer that was added.
+     * @param proposer Address of the owner.
+     */
+    event ProposerAdded(address indexed proposer, address indexed owner);
+
+    /**
+     * @notice Emitted when the owner of this contract removes an existing proposer.
+     *
+     * @param proposer Address of the proposer that was removed.
+     * @param proposer Address of the owner.
+     */
+    event ProposerRemoved(address indexed proposer, address indexed owner);
+
+    /**
      * @notice Emitted when ETH is deposited in this contract
      */
     event ETHDeposited(address indexed from, uint256 indexed amount);
@@ -202,6 +218,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         since the implementations are not deployed via Create2.
      */
     mapping(string => address) public implementations;
+
+    /**
+     * @notice Maps an address to a boolean indicating if the address is allowed to propose bundles.
+     *         The owner of this contract is the only address that can add or remove proposers from
+     *         this mapping.
+     */
+    mapping(address => bool) public proposers;
 
     /**
      * @notice Mapping of bundle IDs to bundle state.
@@ -331,7 +354,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Lets anyone propose a new ChugSplash bundle to be approved.
+     * @notice Propose a new ChugSplash bundle to be approved. Only callable by the owner of this
+     *         contract or a proposer.
      *
      * @param _bundleRoot Root of the bundle's merkle tree.
      * @param _bundleSize Number of elements in the bundle's tree.
@@ -342,6 +366,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _bundleSize,
         string memory _configUri
     ) public {
+        require(
+            msg.sender == owner() || proposers[msg.sender] == true,
+            "ChugSplashManager: caller must be proposer or owner"
+        );
+
         bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
@@ -796,6 +825,34 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         emit OwnerWithdrewETH(msg.sender, amount);
         registry.announce("OwnerWithdrewETH");
+    }
+
+    /**
+     * @notice Allows the owner of this contract to add a proposer.
+     *
+     * @param _proposer Address of the proposer to add.
+     */
+    function addProposer(address _proposer) external onlyOwner {
+        require(proposers[_proposer] == false, "ChugSplashManager: proposer was already added");
+
+        proposers[_proposer] = true;
+
+        emit ProposerAdded(_proposer, msg.sender);
+        registry.announce("ProposerAdded");
+    }
+
+    /**
+     * @notice Allows the owner of this contract to remove a proposer.
+     *
+     * @param _proposer Address of the proposer to remove.
+     */
+    function removeProposer(address _proposer) external onlyOwner {
+        require(proposers[_proposer] == true, "ChugSplashManager: proposer was already removed");
+
+        proposers[_proposer] = false;
+
+        emit ProposerRemoved(_proposer, msg.sender);
+        registry.announce("ProposerRemoved");
     }
 
     /**
