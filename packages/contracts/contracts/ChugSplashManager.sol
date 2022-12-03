@@ -355,7 +355,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @notice Propose a new ChugSplash bundle to be approved. Only callable by the owner of this
-     *         contract or a proposer.
+     *         contract or a proposer. These permissions are required to prevent spam.
      *
      * @param _bundleRoot Root of the bundle's merkle tree.
      * @param _bundleSize Number of elements in the bundle's tree.
