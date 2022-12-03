@@ -1,5 +1,14 @@
 # @chugsplash/contracts
 
+## 0.3.11
+
+### Patch Changes
+
+- d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
+- b1850ad: Change implementation contract deployment from create2 to create
+- e1dc2ec: Upgrade contract tests to reflect latest deployment flow
+- da79232: Remove unnecessary dependencies
+
 ## 0.3.10
 
 ### Patch Changes
