@@ -873,9 +873,17 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _code   Creation bytecode of the implementation contract.
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
+        // Calculate the salt for the Create2 call. This salt ensures that there are no address
+        // collisions since each bundle ID can only be executed once, and each target is unique
+        // within that bundle.
+        bytes32 salt = keccak256(abi.encode(activeBundleId, bytes(_target)));
+
+        // Get the expected address of the implementation contract.
+        address expectedImplementation = Create2.compute(address(this), salt, _code);
+
         address implementation;
         assembly {
-            implementation := create(0x0, add(_code, 0x20), mload(_code))
+            implementation := create2(0x0, add(_code, 0x20), mload(_code), salt)
         }
 
         // Could happen if insufficient gas is supplied to this transaction, should not
@@ -883,7 +891,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // standard OOG, then this would halt the entire contract.
         // TODO: Make sure this cannot happen in any case other than OOG.
         require(
-            implementation != address(0),
+            expectedImplementation == implementation,
             "ChugSplashManager: implementation was not deployed correctly"
         );
 
