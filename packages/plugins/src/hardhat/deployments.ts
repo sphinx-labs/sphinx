@@ -33,10 +33,10 @@ import {
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
-  monitorTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { instantiateExecutor } from '../executor'
+import { monitorExecution, postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -155,11 +155,11 @@ export const deployChugSplashConfig = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
-    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
-      ChugSplashManager,
-      bundleId
+    await createDeploymentArtifacts(
+      hre,
+      parsedConfig,
+      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId)
     )
-    await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
     spinner.succeed(
       `${parsedConfig.options.projectName} was already completed on ${hre.network.name}.`
     )
@@ -178,6 +178,7 @@ export const deployChugSplashConfig = async (
     spinner.succeed(
       `${parsedConfig.options.projectName} has not been proposed before.`
     )
+    spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -193,7 +194,9 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
-    spinner.start(`Funding ${parsedConfig.options.projectName}...`)
+    spinner.start(
+      `Approving and funding ${parsedConfig.options.projectName}...`
+    )
     // Get the amount necessary to fund the deployment.
     const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
       hre.ethers.provider,
@@ -209,39 +212,31 @@ export const deployChugSplashConfig = async (
       },
       hre
     )
+    spinner.succeed(`Approved and funded ${parsedConfig.options.projectName}.`)
     currBundleStatus = ChugSplashBundleStatus.APPROVED
-    spinner.succeed(`Funded ${parsedConfig.options.projectName}.`)
   }
 
-  spinner.start(
-    `${parsedConfig.options.projectName} is being executed. This may take a moment.`
-  )
-
-  // If executing locally, then startup executor with HRE provider and pass in canonical config
-  if (!remoteExecution) {
-    signer.sendTransaction({
+  if (remoteExecution) {
+    await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
+  } else {
+    // If executing locally, then startup executor with HRE provider and pass in canonical config
+    spinner.start('Executing project...')
+    await signer.sendTransaction({
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: ethers.utils.parseEther('1'),
     })
-    await executor.main(
-      {
-        privateKey:
-          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-        logLevel: 'error',
-      },
-      provider,
-      canonicalConfig
-    )
+    await executor.main(canonicalConfig)
+    spinner.succeed(`Executed ${parsedConfig.options.projectName}`)
   }
 
-  // Monitor the deployment regardless
-  await monitorTask(
-    {
-      configPath,
-      silent: true,
-      newOwner,
-    },
-    hre
+  // At this point, we know that the bundle has been completed.
+  spinner.start('Performing post-execution actions...')
+
+  await postExecutionActions(
+    hre,
+    parsedConfig,
+    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    newOwner
   )
 
   // At this point, the bundle has been completed.

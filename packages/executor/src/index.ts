@@ -17,14 +17,14 @@ import {
   hasSufficientFundsForExecution,
   executeTask,
   CanonicalChugSplashConfig,
-  deployChugSplashPredeploys,
+  initializeChugSplash,
   getProjectOwnerAddress,
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
 
 import {
   compileRemoteBundle,
-  verifyChugSplashPredeploys,
+  verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
 } from './utils'
@@ -132,26 +132,25 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.state.provider
     )
 
-    this.logger.info('Deploying ChugSplash predeploy contracts...')
+    this.logger.info('Setting up ChugSplash...')
 
-    // Deploy the ChugSplash predeploys.
-    await deployChugSplashPredeploys(this.state.provider, this.state.wallet)
+    // Deploy the ChugSplash contracts.
+    await initializeChugSplash(
+      this.state.provider,
+      this.state.wallet,
+      this.logger
+    )
 
-    this.logger.info('ChugSplash predeploy contracts have been deployed.')
-
-    // Verify the ChugSplash predeploys if the current network is supported.
+    // Verify the ChugSplash contracts if the current network is supported.
     if (isSupportedNetworkOnEtherscan(this.options.network)) {
-      this.logger.info('Attempting to verify ChugSplash predeploy contracts...')
-      await verifyChugSplashPredeploys(
-        this.state.provider,
-        this.options.network
-      )
+      this.logger.info('Attempting to verify the ChugSplash contracts...')
+      await verifyChugSplash(this.state.provider, this.options.network)
       this.logger.info(
-        'Finished attempting to verify ChugSplash predeploy contracts.'
+        'Finished attempting to verify the ChugSplash contracts.'
       )
     } else {
       this.logger.info(
-        `Skipped verifying the ChugSplash predeploy contracts. Unsupported network: ${this.options.network}`
+        `Etherscan config not detected for: ${this.options.network}. Skipped verifying ChugSplash contracts.`
       )
     }
   }
@@ -160,17 +159,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     await this.setup(this.options)
   }
 
-  async main(
-    options?: Partial<Options>,
-    rpcProvider?: ethers.providers.JsonRpcProvider,
-    localCanonicalConfig?: CanonicalChugSplashConfig
-  ) {
-    // Setup state if options were provided.
-    // Necessary to allow the user to pass in options when running the executor programmatically.
-    if (options) {
-      await this.setup(options, rpcProvider)
-    }
-
+  async main(localCanonicalConfig?: CanonicalChugSplashConfig) {
     const { provider, wallet, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
@@ -222,23 +211,23 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
       // get active bundle id for this project
       const activeBundleId = await manager.activeBundleId()
-      if (activeBundleId !== ethers.constants.HashZero) {
+      if (activeBundleId === ethers.constants.HashZero) {
+        this.logger.info('No active bundle in project.')
+      } else {
         // Retrieve the corresponding proposal event to get the config URI.
         const [proposalEvent] = await manager.queryFilter(
           manager.filters.ChugSplashBundleProposed(activeBundleId)
         )
 
-        this.logger.info('Compiling the project...')
+        this.logger.info('Retrieving the bundle...')
 
-        // Compile the bundle using either the provided localCanonicalConfig (when running the executor from within the ChugSplash plugin),
-        // or using the Config URI
+        // Compile the bundle using either the provided localCanonicalConfig (when running the
+        // executor from within the ChugSplash plugin), or using the Config URI
         const { bundle, canonicalConfig } = await compileRemoteBundle(
           proposalEvent.args.configUri,
           localCanonicalConfig
         )
         const projectName = canonicalConfig.options.projectName
-
-        this.logger.info(`Compiled project: ${projectName}`)
 
         // ensure compiled bundle matches proposed bundle
         if (bundle.root !== proposalEvent.args.bundleRoot) {
@@ -254,7 +243,9 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           continue
         }
 
-        this.logger.info('Checking that the project has sufficient funds...')
+        this.logger.info(
+          `Compiled: ${projectName}. Network: ${this.options.network}. Checking that the project is funded...`
+        )
 
         if (await hasSufficientFundsForExecution(provider, canonicalConfig)) {
           this.logger.info(`${projectName} has sufficient funds.`)
@@ -294,7 +285,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               )
             } else {
               this.logger.info(
-                `Skipped verifying the ChugSplash predeploy contracts. Unsupported network: ${this.options.network}`
+                `Etherscan config not detected for network: ${this.options.network}. Skipped verifying project: ${projectName}.`
               )
             }
           } catch (e) {

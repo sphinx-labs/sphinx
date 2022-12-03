@@ -472,7 +472,7 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@eth-optimism/common-ts@^0.6.0":
+"@eth-optimism/common-ts@^0.6.0", "@eth-optimism/common-ts@^0.6.7":
   version "0.6.7"
   resolved "https://registry.yarnpkg.com/@eth-optimism/common-ts/-/common-ts-0.6.7.tgz#f63f0e14e609215c255675183168fbaa7c641722"
   integrity sha512-zEJ/T58FU41tM+6hrQZvoZUec0Ce9cDJa3/Kd6jvzOfSiRjclIAHLk4BQYuFhNOx6pDNWlbuiNrBxpsWW4HCNg==

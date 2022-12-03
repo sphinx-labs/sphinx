@@ -24,16 +24,23 @@ import {
   DeterministicProxyOwnerArtifact,
   DETERMINISTIC_PROXY_OWNER_ADDRESS,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  owner,
 } from '@chugsplash/contracts'
+import { Logger } from '@eth-optimism/common-ts'
+import { sleep } from '@eth-optimism/core-utils'
 
-import { getChugSplashRegistry, getProxyOwner } from '../../utils'
+import {
+  getChugSplashRegistry,
+  getProxyAt,
+  getProxyOwner,
+  hasCode,
+} from '../../utils'
 
-export const deployChugSplashPredeploys = async (
+export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
-  deployer: ethers.Signer
+  deployer: ethers.Signer,
+  logger?: Logger
 ): Promise<void> => {
-  const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
-
   // Deploy the root ChugSplashManager.
   const ChugSplashManager = await doDeterministicDeploy(provider, {
     signer: deployer,
@@ -45,6 +52,8 @@ export const deployChugSplashPredeploys = async (
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ChugSplashManagerArtifact.sourceName],
   })
 
+  logger?.info('Deployed ChugSplashManager.')
+
   // Deploy the ChugSplashBootLoader.
   const ChugSplashBootLoader = await doDeterministicDeploy(provider, {
     signer: deployer,
@@ -54,6 +63,8 @@ export const deployChugSplashPredeploys = async (
     },
     salt: ethers.utils.solidityKeccak256(['string'], ['ChugSplashBootLoader']),
   })
+
+  logger?.info('Deployed ChugSplashBootloader.')
 
   // Make sure the addresses match, just in case.
   assert(
@@ -74,6 +85,7 @@ export const deployChugSplashPredeploys = async (
         CHUGSPLASH_REGISTRY_PROXY_ADDRESS
       )
     ).wait()
+    logger?.info('Initialized ChugSplashBootloader.')
   } catch (err) {
     if (
       err.message.includes('Initializable: contract is already initialized')
@@ -95,6 +107,8 @@ export const deployChugSplashPredeploys = async (
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyArtifact.sourceName],
   })
 
+  logger?.info('Deployed ChugSplashRegistry proxy.')
+
   // Make sure the addresses match, just in case.
   assert(
     ChugSplashRegistryProxy.address === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
@@ -113,6 +127,8 @@ export const deployChugSplashPredeploys = async (
       DeterministicProxyOwnerArtifact.sourceName
     ],
   })
+
+  logger?.info('Deployed DeterministicProxyOwner.')
 
   // Make sure the addresses match, just in case.
   assert(
@@ -137,6 +153,8 @@ export const deployChugSplashPredeploys = async (
       )
     ).wait()
 
+    logger?.info('Initialized ChugSplashRegistry proxy.')
+
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
       (await getProxyOwner(ChugSplashRegistryProxy)) === owner,
@@ -154,13 +172,17 @@ export const deployChugSplashPredeploys = async (
     salt: ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
   })
 
+  logger?.info('Deployed DefaultAdapter.')
+
   // Make sure the addresses match, just in case.
   assert(
     DefaultAdapter.address === DEFAULT_ADAPTER_ADDRESS,
     'DefaultAdapter address mismatch'
   )
 
-  // Optionally initialize registry.
+  // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
+  // fact that this is the last transaction to setup ChugSplash. If this changes, we also change
+  // `monitorChugSplashSetup` to reflect this.
   const ChugSplashRegistry = getChugSplashRegistry(deployer)
   const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
   if (adapter === ethers.constants.AddressZero) {
@@ -171,6 +193,7 @@ export const deployChugSplashPredeploys = async (
       )
     ).wait()
   }
+  logger?.info('Finished deploying ChugSplash.')
 }
 
 export const getDeterministicFactoryAddress = async (
@@ -267,4 +290,29 @@ export const isContractDeployed = async (
   provider: Provider
 ): Promise<boolean> => {
   return (await provider.getCode(address)) !== '0x'
+}
+
+export const monitorChugSplashSetup = async (
+  provider: ethers.providers.JsonRpcProvider
+) => {
+  const signer = provider.getSigner()
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+
+  while (!(await hasCode(provider, ChugSplashRegistry.address))) {
+    await sleep(1000)
+  }
+
+  while (
+    owner !==
+    (await getProxyOwner(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
+  ) {
+    await sleep(1000)
+  }
+
+  while (
+    (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
+    DEFAULT_ADAPTER_ADDRESS
+  ) {
+    await sleep(1000)
+  }
 }

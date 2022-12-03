@@ -29,7 +29,8 @@ import {
   chugsplashFetchSubtask,
   getExecutionAmountToSendPlusBuffer,
   getOwnerBalanceInChugSplashManager,
-  deployChugSplashPredeploys,
+  initializeChugSplash,
+  monitorChugSplashSetup,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -42,7 +43,6 @@ import {
 } from '@chugsplash/executor'
 
 import {
-  createDeploymentArtifacts,
   getBuildInfo,
   getContractArtifact,
   getStorageLayout,
@@ -64,8 +64,9 @@ import {
   errorProjectNotRegistered,
   successfulProposalMessage,
 } from '../messages'
-import { monitorRemoteExecution, postExecutionActions } from './execution'
+import { monitorExecution, postExecutionActions } from './execution'
 import { instantiateExecutor } from '../executor'
+import {} from '../'
 
 // Load environment variables from .env
 dotenv.config()
@@ -169,17 +170,27 @@ export const chugsplashDeployTask = async (
   const { configPath, newOwner, ipfsUrl, silent, noCompile } = args
 
   const spinner = ora({ isSilent: silent })
-  spinner.start('Booting up ChugSplash...')
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
   const signerAddress = await signer.getAddress()
   const remoteExecution = (await getChainId(provider)) !== 31337
-  await deployChugSplashPredeploys(provider, provider.getSigner())
 
   let executor: ChugSplashExecutor
-  if (!remoteExecution) {
+  if (remoteExecution) {
+    spinner.start('Waiting for the executor to set up ChugSplash...')
+    await monitorChugSplashSetup(provider)
+  } else {
+    spinner.start('Booting up ChugSplash...')
     executor = instantiateExecutor()
+    await executor.setup(
+      {
+        privateKey:
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        logLevel: 'error',
+      },
+      provider
+    )
   }
 
   spinner.succeed('ChugSplash is ready to go.')
@@ -236,7 +247,7 @@ export const chugsplashRegisterTask = async (
 
   const provider = hre.ethers.provider
 
-  await deployChugSplashPredeploys(provider, provider.getSigner())
+  await initializeChugSplash(provider, provider.getSigner())
 
   const spinner = ora({ isSilent: silent })
 
@@ -291,7 +302,7 @@ export const chugsplashProposeTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Booting up ChugSplash...')
 
-  await deployChugSplashPredeploys(provider, provider.getSigner())
+  await initializeChugSplash(provider, provider.getSigner())
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
@@ -448,7 +459,7 @@ Owner's address: ${projectOwnerAddress}`)
 
   // Call the commit subtask locally to get the bundle ID without publishing
   // anything to IPFS.
-  const { bundleId } = await chugsplashCommitSubtask(
+  const { bundleId, bundle } = await chugsplashCommitSubtask(
     {
       parsedConfig,
       ipfsUrl: '',
@@ -501,17 +512,18 @@ Please wait a couple minutes then try again.`
 
     if (!skipMonitorStatus) {
       spinner.start('The deployment is being executed. This may take a moment.')
-      const finalDeploymentTxnHash = await monitorRemoteExecution(
+      const finalDeploymentTxnHash = await monitorExecution(
         hre,
         parsedConfig,
-        bundleId
+        bundle,
+        bundleId,
+        spinner
       )
-      await postExecutionActions(hre, parsedConfig, signerAddress)
-      await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-      displayDeploymentTable(parsedConfig, silent)
+      await postExecutionActions(hre, parsedConfig, finalDeploymentTxnHash)
       spinner.succeed(
         `${projectName} successfully deployed on ${hre.network.name}.`
       )
+      displayDeploymentTable(parsedConfig, silent)
     }
   }
 }
@@ -677,7 +689,7 @@ IPFS_API_KEY_SECRET: ...
   if (spinner) {
     commitToIpfs
       ? spinner.succeed(
-          `Committed ${parsedConfig.options.projectName} on ${hre.network.name}.`
+          `${parsedConfig.options.projectName} has been committed to IPFS.`
         )
       : spinner.succeed(
           `Built ${parsedConfig.options.projectName} on ${hre.network.name}.`
@@ -876,7 +888,7 @@ export const monitorTask = async (
     )
   }
 
-  const { bundleId } = await chugsplashCommitSubtask(
+  const { bundleId, bundle } = await chugsplashCommitSubtask(
     {
       parsedConfig,
       ipfsUrl: '',
@@ -906,29 +918,28 @@ approved for execution on ${hre.network.name}.`
       `Project was already cancelled on ${hre.network.name}. Please propose a new
 project with a name other than ${parsedConfig.options.projectName}`
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.start(
-      'The deployment was already executed. Performing cleanup functions...'
-    )
-  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    spinner.start(
-      'The deployment is currently being executed. This may take a moment.'
-    )
   }
 
   // If we make it to this point, the bundle status is either completed or approved.
 
-  const finalDeploymentTxnHash = await monitorRemoteExecution(
+  const finalDeploymentTxnHash = await monitorExecution(
     hre,
     parsedConfig,
-    bundleId
+    bundle,
+    bundleId,
+    spinner
   )
-  await postExecutionActions(hre, parsedConfig, newOwner)
-  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+
+  await postExecutionActions(
+    hre,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    newOwner
+  )
 
   bundleState.status === ChugSplashBundleStatus.APPROVED
     ? spinner.succeed(
-        `${parsedConfig.options.projectName} successfully deployed on ${hre.network.name}.`
+        `${parsedConfig.options.projectName} successfully completed on ${hre.network.name}.`
       )
     : spinner.succeed(
         `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
@@ -1033,7 +1044,7 @@ task(TASK_NODE)
         const spinner = ora({ isSilent: hide })
         spinner.start('Booting up ChugSplash...')
 
-        await deployChugSplashPredeploys(
+        await initializeChugSplash(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
         )
@@ -1078,7 +1089,7 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await deployChugSplashPredeploys(
+          await initializeChugSplash(
             hre.ethers.provider,
             hre.ethers.provider.getSigner()
           )
@@ -1117,7 +1128,7 @@ task(TASK_RUN)
       if (deployAll) {
         const chainId = await getChainId(hre.ethers.provider)
         const confirm = chainId === 31337 ? true : args.confirm
-        await deployChugSplashPredeploys(
+        await initializeChugSplash(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
         )
@@ -1339,14 +1350,14 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
         'Project Name': event.args.projectName,
         'Is Active': hasActiveBundle ? 'Yes' : 'No',
         "Project Owner's ETH": formattedOwnerBalance,
-        'Total ETH': formattedTotalEthBalance,
+        'Total ETH Stored': formattedTotalEthBalance,
       }
     }
   }
 
   if (numProjectsOwned > 0) {
     spinner.succeed(
-      `Got all projects on ${hre.network.name} owned by: ${signerAddress}`
+      `Retrieved all projects on ${hre.network.name} owned by: ${signerAddress}`
     )
     console.table(projects)
   } else {
