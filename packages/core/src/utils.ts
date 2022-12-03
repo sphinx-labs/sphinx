@@ -12,6 +12,7 @@ import {
 } from '@chugsplash/contracts'
 
 import { ParsedChugSplashConfig } from './config'
+import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -314,4 +315,22 @@ export const getProxyOwner = async (Proxy: Contract) => {
   // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
   const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
   return args.newAdmin
+}
+
+export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
+  return new Contract(proxyAddress, ProxyABI, signer)
+}
+
+export const getCurrentChugSplashActionType = (
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: ethers.BigNumber
+): ChugSplashActionType => {
+  return bundle.actions[actionsExecuted.toNumber()].action.actionType
+}
+
+export const hasCode = async (
+  provider: ethers.providers.Provider,
+  address: string
+): Promise<boolean> => {
+  return '0x' !== (await provider.getCode(address))
 }

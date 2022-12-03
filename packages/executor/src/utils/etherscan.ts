@@ -157,7 +157,7 @@ export const verifyChugSplashConfig = async (
   }
 }
 
-export const verifyChugSplashPredeploys = async (
+export const verifyChugSplash = async (
   provider: ethers.providers.Provider,
   networkName: string
 ) => {
@@ -464,4 +464,12 @@ export const checkProxyVerificationStatus = async (
     checkProxyVerificationParams
   )
   return responseBody
+}
+
+export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
+  const customNetworkNames = customChains.map((chain) => chain.network)
+  return (
+    chainConfig[networkName] !== undefined ||
+    customNetworkNames.includes(networkName)
+  )
 }

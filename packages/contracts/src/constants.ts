@@ -13,7 +13,7 @@ import {
   DeterministicProxyOwnerArtifact,
 } from './ifaces'
 
-const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
+export const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
