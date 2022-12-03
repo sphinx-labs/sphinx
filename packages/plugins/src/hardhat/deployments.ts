@@ -18,6 +18,8 @@ import {
   getExecutionAmountToSendPlusBuffer,
   checkIsUpgrade,
   checkValidUpgrade,
+  getProjectOwnerAddress,
+  isProposer,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -340,9 +342,25 @@ export const proposeChugSplashBundle = async (
   spinner: ora.Ora = ora({ isSilent: true }),
   confirm: boolean
 ) => {
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  const projectName = parsedConfig.options.projectName
+
+  // Throw an error if the caller isn't the project owner or a proposer.
+  if (
+    signerAddress !==
+      (await getProjectOwnerAddress(hre.ethers.provider, projectName)) &&
+    !(await isProposer(provider, projectName, signerAddress))
+  ) {
+    throw new Error(
+      `Caller is not a proposer or the project owner. Caller's address: ${signerAddress}`
+    )
+  }
+
   // Determine if the deployment is an upgrade
   spinner.start(
-    `Checking if ${parsedConfig.options.projectName} is a fresh deployment or upgrade...`
+    `Checking if ${projectName} is a fresh deployment or upgrade...`
   )
   const upgradeReferenceName = await checkIsUpgrade(
     hre.ethers.provider,
@@ -357,31 +375,31 @@ export const proposeChugSplashBundle = async (
       hre.network.name
     )
 
-    spinner.succeed(`${parsedConfig.options.projectName} is an upgrade.`)
+    spinner.succeed(`${projectName} is an upgrade.`)
 
     if (!confirm) {
       // Confirm upgrade with user
       const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${parsedConfig.options.projectName}, would you like to perform an upgrade? (y/n)`,
+        question: `Prior deployment(s) detected for project ${projectName}, would you like to perform an upgrade? (y/n)`,
       })
       if (!userConfirmed) {
         throw new Error(
-          `User denied upgrade. The reference name ${upgradeReferenceName} inside ${parsedConfig.options.projectName} was already used
+          `User denied upgrade. The reference name ${upgradeReferenceName} inside ${projectName} was already used
 in a previous deployment for this project. To perform a fresh deployment of a new project, you must change the project name to
-something other than ${parsedConfig.options.projectName}. If you wish to deploy a new contract within this project you must change the
+something other than ${projectName}. If you wish to deploy a new contract within this project you must change the
 reference name to something other than ${upgradeReferenceName}.`
         )
       }
     }
   } else {
-    spinner.succeed(`${parsedConfig.options.projectName} is not an upgrade.`)
+    spinner.succeed(`${projectName} is not an upgrade.`)
   }
 
-  spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
+  spinner.start(`Proposing ${projectName}...`)
 
   const ChugSplashManager = getChugSplashManager(
     hre.ethers.provider.getSigner(),
-    parsedConfig.options.projectName
+    projectName
   )
 
   const chainId = await getChainId(hre.ethers.provider)
@@ -414,5 +432,5 @@ reference name to something other than ${upgradeReferenceName}.`
     )
   ).wait()
 
-  spinner.succeed(`Proposed ${parsedConfig.options.projectName}.`)
+  spinner.succeed(`Proposed ${projectName}.`)
 }

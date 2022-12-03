@@ -268,6 +268,17 @@ export const getChugSplashManager = (signer: Signer, projectName: string) => {
   )
 }
 
+export const getChugSplashManagerReadOnly = (
+  provider: providers.Provider,
+  projectName: string
+) => {
+  return new Contract(
+    getChugSplashManagerProxyAddress(projectName),
+    ChugSplashManagerABI,
+    provider
+  )
+}
+
 export const getChugSplashManagerImplementationAddress = async (
   signer: Signer
 ): Promise<string> => {
@@ -333,4 +344,13 @@ export const hasCode = async (
   address: string
 ): Promise<boolean> => {
   return '0x' !== (await provider.getCode(address))
+}
+
+export const isProposer = async (
+  provider: providers.Provider,
+  projectName: string,
+  address: string
+): Promise<boolean> => {
+  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+  return ChugSplashManager.proposers(address)
 }
