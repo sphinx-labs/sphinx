@@ -61,11 +61,11 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
 
     // Make sure addresses are fixed and are actually addresses.
     if (
-      contractConfig.address !== undefined &&
-      !ethers.utils.isAddress(contractConfig.address)
+      contractConfig.proxy !== undefined &&
+      !ethers.utils.isAddress(contractConfig.proxy)
     ) {
       throw new Error(
-        `contract address is not a valid address: ${contractConfig.address}`
+        `contract address is not a valid address: ${contractConfig.proxy}`
       )
     }
   }
@@ -90,10 +90,10 @@ export const parseChugSplashConfig = (
   )) {
     // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
     // used by ChugSplash.
-    contractConfig.address =
-      contractConfig.address ||
+    contractConfig.proxy =
+      contractConfig.proxy ||
       getDefaultProxyAddress(config.options.projectName, referenceName)
-    contracts[referenceName] = contractConfig.address
+    contracts[referenceName] = contractConfig.proxy
   }
 
   const parsed: ParsedChugSplashConfig = JSON.parse(
@@ -205,8 +205,8 @@ ${referenceName}.`
         // Set the variable to be the user-defined proxy address if it exists, otherwise use the
         // default proxy address.
         config.contracts[referenceName].variables[variableName] =
-          targetContractConfig.address
-            ? targetContractConfig.address
+          targetContractConfig.proxy
+            ? targetContractConfig.proxy
             : getDefaultProxyAddress(
                 config.options.projectName,
                 targetReferenceName.trim()

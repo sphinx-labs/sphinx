@@ -107,7 +107,7 @@ export const checkIsUpgrade = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (await isProxyDeployed(provider, contractConfig.address)) {
+    if (await isProxyDeployed(provider, contractConfig.proxy)) {
       return referenceName
     }
   }
@@ -128,11 +128,11 @@ export const checkValidUpgrade = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (await isProxyDeployed(provider, contractConfig.address)) {
+    if (await isProxyDeployed(provider, contractConfig.proxy)) {
       proxyDetected = true
 
       const contract = new ethers.Contract(
-        contractConfig.address,
+        contractConfig.proxy,
         ProxyABI,
         provider
       )
@@ -144,7 +144,7 @@ export const checkValidUpgrade = async (
       if (owner !== managerProxy) {
         requiresOwnershipTransfer.push({
           name: referenceName,
-          address: contractConfig.address,
+          address: contractConfig.proxy,
         })
       }
     }
@@ -305,7 +305,7 @@ export const displayDeploymentTable = (
         (deployments[i + 1] = {
           'Reference Name': referenceName,
           Contract: contractConfig.contract,
-          Address: contractConfig.address,
+          Address: contractConfig.proxy,
         })
     )
     console.table(deployments)

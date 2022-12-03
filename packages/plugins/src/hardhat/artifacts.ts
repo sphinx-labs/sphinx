@@ -191,7 +191,7 @@ export const createDeploymentArtifacts = async (
 
     const deploymentArtifact = {
       contractName,
-      address: contractConfig.address,
+      address: contractConfig.proxy,
       abi,
       transactionHash: finalDeploymentTxnHash,
       solcInputHash: buildInfo.id,
@@ -200,7 +200,7 @@ export const createDeploymentArtifacts = async (
       metadata,
       args: constructorArgValues,
       bytecode,
-      deployedBytecode: await provider.getCode(contractConfig.address),
+      deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
       storageLayout: await getStorageLayout(contractConfig.contract),
