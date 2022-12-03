@@ -1,5 +1,17 @@
 # @chugsplash/core
 
+## 0.3.17
+
+### Patch Changes
+
+- d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
+- 7e8dd1e: Removes the projectOwner from the ChugSplash config
+- Updated dependencies [d7fff20]
+- Updated dependencies [b1850ad]
+- Updated dependencies [e1dc2ec]
+- Updated dependencies [da79232]
+  - @chugsplash/contracts@0.3.11
+
 ## 0.3.16
 
 ### Patch Changes

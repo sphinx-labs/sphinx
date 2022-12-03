@@ -1,5 +1,15 @@
 # @chugsplash/executor
 
+## 0.4.8
+
+### Patch Changes
+
+- d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
+- 7e8dd1e: Removes the projectOwner from the ChugSplash config
+- Updated dependencies [d7fff20]
+- Updated dependencies [7e8dd1e]
+  - @chugsplash/core@0.3.17
+
 ## 0.4.7
 
 ### Patch Changes
