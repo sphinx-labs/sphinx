@@ -2,4 +2,4 @@ artifacts/
 cache/
 dist/
 .env
-deployed/
+deployments/

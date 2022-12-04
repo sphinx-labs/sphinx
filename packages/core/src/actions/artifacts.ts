@@ -3,7 +3,7 @@ import { utils } from 'ethers'
 
 import { ParsedChugSplashConfig } from '../config'
 
-export const getCreationCode = (
+export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
   parsedConfig: ParsedChugSplashConfig,
   referenceName: string,
