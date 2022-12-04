@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/plugins",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
@@ -28,9 +28,9 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
-    "@chugsplash/contracts": "^0.3.10",
-    "@chugsplash/core": "^0.3.16",
-    "@chugsplash/executor": "^0.4.7",
+    "@chugsplash/contracts": "^0.3.11",
+    "@chugsplash/core": "^0.3.17",
+    "@chugsplash/executor": "^0.4.8",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
