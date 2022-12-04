@@ -1,5 +1,24 @@
 # @chugsplash/plugins
 
+## 0.8.1
+
+### Patch Changes
+
+- d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
+- 4eef7fb: Changed the deployment folder name to match hardhat-deploy
+- 7e8dd1e: Removes the projectOwner from the ChugSplash config
+- f62dfea: Modify chugsplash-cancel so that it does not retrieve the bundle ID before cancelling
+- bd87e8c: Filter empty ChugSplash configs in `getContract`
+- d12922d: Remove 'silent' flag from the chugsplash-cancel task
+- Updated dependencies [d7fff20]
+- Updated dependencies [b1850ad]
+- Updated dependencies [7e8dd1e]
+- Updated dependencies [e1dc2ec]
+- Updated dependencies [da79232]
+  - @chugsplash/contracts@0.3.11
+  - @chugsplash/core@0.3.17
+  - @chugsplash/executor@0.4.8
+
 ## 0.8.0
 
 ### Minor Changes
