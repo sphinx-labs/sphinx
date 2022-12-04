@@ -2,7 +2,7 @@ import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
   makeActionBundleFromConfig,
-  getCreationCode,
+  getCreationCodeWithConstructorArgs,
   getImmutableVariables,
   chugsplashFetchSubtask,
 } from '@chugsplash/core'
@@ -104,7 +104,7 @@ export const getArtifactsFromCanonicalConfig = async (
         if (sourceOutput.hasOwnProperty(contractConfig.contract)) {
           const contractOutput = sourceOutput[contractConfig.contract]
 
-          const creationCode = getCreationCode(
+          const creationCode = getCreationCodeWithConstructorArgs(
             add0x(contractOutput.evm.bytecode.object),
             canonicalConfig,
             referenceName,

@@ -19,6 +19,7 @@ import {
   CanonicalChugSplashConfig,
   initializeChugSplash,
   getProjectOwnerAddress,
+  ChugSplashBundleState,
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
 
@@ -247,13 +248,24 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           `Compiled: ${projectName}. Network: ${this.options.network}. Checking that the project is funded...`
         )
 
-        if (await hasSufficientFundsForExecution(provider, canonicalConfig)) {
+        const bundleState: ChugSplashBundleState = await manager.bundles(
+          activeBundleId
+        )
+
+        if (
+          await hasSufficientFundsForExecution(
+            provider,
+            bundle,
+            bundleState.actionsExecuted.toNumber(),
+            projectName
+          )
+        ) {
           this.logger.info(`${projectName} has sufficient funds.`)
           // execute bundle
           try {
             await executeTask({
               chugSplashManager: manager,
-              bundleId: activeBundleId,
+              bundleState,
               bundle,
               executor: wallet,
               projectName,
@@ -306,6 +318,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
             })
           }
         } else {
+          this.logger.info(`${projectName} has insufficient funds.`)
           // Continue to the next bundle if there is an insufficient amount of funds in the
           // ChugSplashManager. We will continue to make attempts to execute the bundle on
           // subsequent iterations of the BaseService.

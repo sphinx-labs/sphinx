@@ -32,7 +32,7 @@ import { sleep } from '@eth-optimism/core-utils'
 import {
   getChugSplashRegistry,
   getProxyAt,
-  getProxyOwner,
+  getProxyAdmin,
   hasCode,
 } from '../../utils'
 
@@ -139,7 +139,7 @@ export const initializeChugSplash = async (
   // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
   // when the ChugSplashRegistry's proxy is initially deployed.
   if (
-    (await getProxyOwner(ChugSplashRegistryProxy)) ===
+    (await getProxyAdmin(ChugSplashRegistryProxy)) ===
     DETERMINISTIC_PROXY_OWNER_ADDRESS
   ) {
     // Initialize the ChugSplashRegistry's proxy through the DeterministicProxyOwner. This
@@ -157,7 +157,7 @@ export const initializeChugSplash = async (
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
-      (await getProxyOwner(ChugSplashRegistryProxy)) === owner,
+      (await getProxyAdmin(ChugSplashRegistryProxy)) === owner,
       'ChugSplashRegistry proxy has incorrect owner'
     )
   }
@@ -304,7 +304,7 @@ export const monitorChugSplashSetup = async (
 
   while (
     owner !==
-    (await getProxyOwner(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
+    (await getProxyAdmin(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
   ) {
     await sleep(1000)
   }

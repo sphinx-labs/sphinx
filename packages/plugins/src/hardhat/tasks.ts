@@ -24,13 +24,14 @@ import {
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
   getProjectOwnerAddress,
-  getCreationCode,
+  getCreationCodeWithConstructorArgs,
   getImmutableVariables,
   chugsplashFetchSubtask,
-  getExecutionAmountToSendPlusBuffer,
-  getOwnerBalanceInChugSplashManager,
+  getOwnerWithdrawableAmount,
   initializeChugSplash,
   monitorChugSplashSetup,
+  getAmountToDeposit,
+  EXECUTION_BUFFER_MULTIPLIER,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -128,7 +129,7 @@ export const bundleLocalSubtask = async (args: {
       sourceName,
       contractName
     )
-    const creationCode = getCreationCode(
+    const creationCode = getCreationCodeWithConstructorArgs(
       bytecode,
       parsedConfig,
       referenceName,
@@ -358,11 +359,14 @@ with a name other than ${parsedConfig.options.projectName}`
   } else {
     // Bundle is either in the `EMPTY` or `PROPOSED` state.
 
-    // Get the amount that the user must send in order to execute the bundle including a buffer in
-    // case the gas price increases during execution.
-    const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
-      hre.ethers.provider,
-      parsedConfig
+    // Get the amount that the user must send to the ChugSplashManager to execute the bundle
+    // including a buffer in case the gas price increases during execution.
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      parsedConfig.options.projectName,
+      true
     )
 
     if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
@@ -381,20 +385,12 @@ with a name other than ${parsedConfig.options.projectName}`
         args.confirm
       )
       spinner.succeed(
-        successfulProposalMessage(
-          executionAmountPlusBuffer,
-          configPath,
-          hre.network.name
-        )
+        successfulProposalMessage(amountToDeposit, configPath, hre.network.name)
       )
     } else {
       // Bundle was already in the `PROPOSED` state before the call to this task.
       spinner.fail(
-        alreadyProposedMessage(
-          executionAmountPlusBuffer,
-          configPath,
-          hre.network.name
-        )
+        alreadyProposedMessage(amountToDeposit, configPath, hre.network.name)
       )
     }
   }
@@ -498,6 +494,23 @@ npx hardhat chugsplash-monitor --network ${hre.network.name} ${configPath}`)
 Please wait a couple minutes then try again.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      false
+    )
+
+    if (amountToDeposit.gt(amount)) {
+      throw new Error(`User attempted to less funds than the required amount. No funds were sent.
+User tried to send: ${amount} wei
+Required amount: ${amountToDeposit.mul(EXECUTION_BUFFER_MULTIPLIER)} wei
+
+Please call this task again with the correct amount of funds.
+      `)
+    }
+
     await chugsplashFundTask(
       {
         configPath,
@@ -1056,8 +1069,8 @@ task(TASK_NODE)
             await cleanThenCompile(hre)
           }
           await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
+          await writeHardhatSnapshotId(hre, 'localhost')
         }
-        await writeHardhatSnapshotId(hre, 'localhost')
       }
       await runSuper(args)
     }
@@ -1272,7 +1285,7 @@ npx hardhat chugsplash-cancel --network ${hre.network.name} ${configPath}
     )
   }
 
-  const amountToWithdraw = await getOwnerBalanceInChugSplashManager(
+  const amountToWithdraw = await getOwnerWithdrawableAmount(
     provider,
     projectName
   )
@@ -1334,7 +1347,7 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
       const totalEthBalance = await provider.getBalance(
         ChugSplashManager.address
       )
-      const ownerBalance = await getOwnerBalanceInChugSplashManager(
+      const ownerBalance = await getOwnerWithdrawableAmount(
         provider,
         event.args.projectName
       )

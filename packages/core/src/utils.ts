@@ -137,7 +137,7 @@ export const checkValidUpgrade = async (
         provider
       )
 
-      const owner = await getProxyOwner(contract)
+      const owner = await getProxyAdmin(contract)
       const managerProxy = await getChugSplashManagerProxyAddress(
         parsedConfig.options.projectName
       )
@@ -322,7 +322,7 @@ export const claimExecutorPayment = async (
   }
 }
 
-export const getProxyOwner = async (Proxy: Contract) => {
+export const getProxyAdmin = async (Proxy: Contract) => {
   // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
   const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
   return args.newAdmin
