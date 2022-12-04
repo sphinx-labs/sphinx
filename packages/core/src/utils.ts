@@ -13,7 +13,6 @@ import {
 
 import { ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
-import { isContractDeployed } from './languages'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -340,4 +339,11 @@ export const isProposer = async (
 ): Promise<boolean> => {
   const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
   return ChugSplashManager.proposers(address)
+}
+
+export const isContractDeployed = async (
+  address: string,
+  provider: providers.Provider
+): Promise<boolean> => {
+  return (await provider.getCode(address)) !== '0x'
 }
