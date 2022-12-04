@@ -1,7 +1,11 @@
 import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 
-import { getChugSplashManagerReadOnly, getDefaultProxyAddress } from './utils'
+import {
+  getChugSplashManagerReadOnly,
+  getDefaultProxyAddress,
+  isContractDeployed,
+} from './utils'
 import {
   ChugSplashActionBundle,
   DeployImplementationAction,
@@ -10,7 +14,6 @@ import {
   isSetImplementationAction,
   isSetStorageAction,
 } from './actions'
-import { isContractDeployed } from './languages'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
 
 /**

@@ -10,7 +10,6 @@ import {
   registerChugSplashProject,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  isProxyDeployed,
   displayDeploymentTable,
   ChugSplashActionBundle,
   computeBundleId,
@@ -20,6 +19,7 @@ import {
   getProjectOwnerAddress,
   isProposer,
   getAmountToDeposit,
+  isContractDeployed,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -288,7 +288,7 @@ ${configsWithFileNames.map(
 
   const proxyAddress = cfg.contracts[referenceName].proxy
   console.log(proxyAddress)
-  if ((await isProxyDeployed(hre.ethers.provider, proxyAddress)) === false) {
+  if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
   }
 

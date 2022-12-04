@@ -1,7 +1,6 @@
 import assert from 'assert'
 
 import { ethers } from 'ethers'
-import { Provider } from '@ethersproject/abstract-provider'
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
@@ -33,7 +32,7 @@ import {
   getChugSplashRegistry,
   getProxyAt,
   getProxyAdmin,
-  hasCode,
+  isContractDeployed,
 } from '../../utils'
 
 export const initializeChugSplash = async (
@@ -285,20 +284,13 @@ export const doDeterministicDeploy = async (
   return new ethers.Contract(address, options.contract.abi, options.signer)
 }
 
-export const isContractDeployed = async (
-  address: string,
-  provider: Provider
-): Promise<boolean> => {
-  return (await provider.getCode(address)) !== '0x'
-}
-
 export const monitorChugSplashSetup = async (
   provider: ethers.providers.JsonRpcProvider
 ) => {
   const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
-  while (!(await hasCode(provider, ChugSplashRegistry.address))) {
+  while (!(await isContractDeployed(ChugSplashRegistry.address, provider))) {
     await sleep(1000)
   }
 
