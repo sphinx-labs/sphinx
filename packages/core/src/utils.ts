@@ -13,6 +13,7 @@ import {
 
 import { ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import { isContractDeployed } from './languages'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -107,7 +108,7 @@ export const checkIsUpgrade = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (await isProxyDeployed(provider, contractConfig.proxy)) {
+    if (await isContractDeployed(contractConfig.proxy, provider)) {
       return referenceName
     }
   }
@@ -128,7 +129,7 @@ export const checkValidUpgrade = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (await isProxyDeployed(provider, contractConfig.proxy)) {
+    if (await isContractDeployed(contractConfig.proxy, provider)) {
       proxyDetected = true
 
       const contract = new ethers.Contract(
@@ -173,13 +174,6 @@ npx hardhat chugsplash-transfer-ownership>
       `
     )
   }
-}
-
-export const isProxyDeployed = async (
-  provider: ethers.providers.Provider,
-  proxyAddress: string
-): Promise<boolean> => {
-  return (await provider.getCode(proxyAddress)) !== '0x'
 }
 
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
@@ -337,13 +331,6 @@ export const getCurrentChugSplashActionType = (
   actionsExecuted: ethers.BigNumber
 ): ChugSplashActionType => {
   return bundle.actions[actionsExecuted.toNumber()].action.actionType
-}
-
-export const hasCode = async (
-  provider: ethers.providers.Provider,
-  address: string
-): Promise<boolean> => {
-  return '0x' !== (await provider.getCode(address))
 }
 
 export const isProposer = async (

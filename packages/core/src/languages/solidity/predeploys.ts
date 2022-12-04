@@ -29,12 +29,7 @@ import {
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
 
-import {
-  getChugSplashRegistry,
-  getProxyAt,
-  getProxyAdmin,
-  hasCode,
-} from '../../utils'
+import { getChugSplashRegistry, getProxyAt, getProxyAdmin } from '../../utils'
 
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -298,7 +293,7 @@ export const monitorChugSplashSetup = async (
   const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
-  while (!(await hasCode(provider, ChugSplashRegistry.address))) {
+  while (!(await isContractDeployed(ChugSplashRegistry.address, provider))) {
     await sleep(1000)
   }
 
