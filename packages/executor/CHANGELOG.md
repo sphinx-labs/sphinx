@@ -1,5 +1,19 @@
 # @chugsplash/executor
 
+## 0.4.9
+
+### Patch Changes
+
+- 52d0556: Change the ContractConfig's "address" field to "proxy"
+- 65bc432: Execution gas cost estimation bug fixes
+- e7ae731: Improve execution cost estimation
+- Updated dependencies [52d0556]
+- Updated dependencies [65bc432]
+- Updated dependencies [38c62b5]
+- Updated dependencies [e7ae731]
+- Updated dependencies [2652df5]
+  - @chugsplash/core@0.3.19
+
 ## 0.4.8
 
 ### Patch Changes
