@@ -151,7 +151,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       )
     } else {
       this.logger.info(
-        `Etherscan config not detected for: ${this.options.network}. Skipped verifying ChugSplash contracts.`
+        `Skipped verifying ChugSplash contracts. Reason: Etherscan config not detected for: ${this.options.network}.`
       )
     }
   }
@@ -297,7 +297,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               )
             } else {
               this.logger.info(
-                `Etherscan config not detected for network: ${this.options.network}. Skipped verifying project: ${projectName}.`
+                `Skipped verifying project: ${projectName}. Reason: Etherscan config not detected for network: ${this.options.network}.`
               )
             }
           } catch (e) {

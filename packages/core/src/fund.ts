@@ -82,19 +82,21 @@ export const estimateExecutionGas = async (
     .map(async (action: DeployImplementationAction) =>
       ethers.BigNumber.from(350_000).add(
         await provider.estimateGas({
-          to: ethers.constants.AddressZero,
           data: action.code,
         })
       )
     )
 
-  const resolvedDeploymentPromises = await Promise.all(
+  const resolvedContractDeploymentPromises = await Promise.all(
     deployedProxyPromises.concat(deployedImplementationPromises)
   )
 
-  estimatedGas = estimatedGas.add(
-    resolvedDeploymentPromises.reduce((a, b) => a.add(b))
-  )
+  const estimatedContractDeploymentGas =
+    resolvedContractDeploymentPromises.length > 0
+      ? resolvedContractDeploymentPromises.reduce((a, b) => a.add(b))
+      : ethers.BigNumber.from(0)
+
+  estimatedGas = estimatedGas.add(estimatedContractDeploymentGas)
 
   return estimatedGas
 }
