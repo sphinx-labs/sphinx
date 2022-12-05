@@ -1,5 +1,18 @@
 # @chugsplash/demo
 
+## 0.3.18
+
+### Patch Changes
+
+- b55ab15: Use a salted Create2 call to deploy implementation contracts
+- Updated dependencies [52d0556]
+- Updated dependencies [65bc432]
+- Updated dependencies [38c62b5]
+- Updated dependencies [e7ae731]
+- Updated dependencies [2652df5]
+  - @chugsplash/core@0.3.19
+  - @chugsplash/plugins@0.8.3
+
 ## 0.3.17
 
 ### Patch Changes

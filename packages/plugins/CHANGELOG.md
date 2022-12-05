@@ -1,5 +1,33 @@
 # @chugsplash/plugins
 
+## 0.8.3
+
+### Patch Changes
+
+- 52d0556: Change the ContractConfig's "address" field to "proxy"
+- 38c62b5: Refactor functions that check if an address is a contract
+- e7ae731: Improve execution cost estimation
+- Updated dependencies [52d0556]
+- Updated dependencies [7047b9d]
+- Updated dependencies [65bc432]
+- Updated dependencies [b55ab15]
+- Updated dependencies [38c62b5]
+- Updated dependencies [e7ae731]
+- Updated dependencies [2652df5]
+  - @chugsplash/core@0.3.19
+  - @chugsplash/executor@0.4.9
+  - @chugsplash/contracts@0.3.13
+
+## 0.8.2
+
+### Patch Changes
+
+- e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
+- Updated dependencies [40c7bfb]
+- Updated dependencies [e105ea9]
+  - @chugsplash/contracts@0.3.12
+  - @chugsplash/core@0.3.18
+
 ## 0.8.1
 
 ### Patch Changes

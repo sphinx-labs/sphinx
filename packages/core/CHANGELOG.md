@@ -1,5 +1,26 @@
 # @chugsplash/core
 
+## 0.3.19
+
+### Patch Changes
+
+- 52d0556: Change the ContractConfig's "address" field to "proxy"
+- 65bc432: Execution gas cost estimation bug fixes
+- 38c62b5: Refactor functions that check if an address is a contract
+- e7ae731: Improve execution cost estimation
+- 2652df5: Fixes circular dependency issue caused by `isContractDeployed`
+- Updated dependencies [7047b9d]
+- Updated dependencies [b55ab15]
+  - @chugsplash/contracts@0.3.13
+
+## 0.3.18
+
+### Patch Changes
+
+- e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
+- Updated dependencies [40c7bfb]
+  - @chugsplash/contracts@0.3.12
+
 ## 0.3.17
 
 ### Patch Changes
