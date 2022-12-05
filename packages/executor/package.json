@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/executor",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "ChugSplash deployment execution bot",
   "main": "dist/index",
   "types": "dist/index",
@@ -30,9 +30,9 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "devDependencies": {
-    "@chugsplash/contracts": "^0.3.11",
-    "@chugsplash/core": "^0.3.17",
-    "@chugsplash/plugins": "^0.8.1",
+    "@chugsplash/contracts": "^0.3.13",
+    "@chugsplash/core": "^0.3.19",
+    "@chugsplash/plugins": "^0.8.3",
     "@eth-optimism/common-ts": "^0.6.0",
     "@eth-optimism/core-utils": "^0.9.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.2",
@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@amplitude/node": "^1.10.2",
-    "@chugsplash/core": "^0.3.17",
+    "@chugsplash/core": "^0.3.19",
     "hardhat": "^2.10.0"
   }
 }

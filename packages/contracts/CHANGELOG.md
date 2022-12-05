@@ -1,5 +1,12 @@
 # @chugsplash/contracts
 
+## 0.3.13
+
+### Patch Changes
+
+- 7047b9d: Update implementations mapping to use the salt as its key
+- b55ab15: Use a salted Create2 call to deploy implementation contracts
+
 ## 0.3.12
 
 ### Patch Changes
