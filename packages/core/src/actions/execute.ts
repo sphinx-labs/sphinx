@@ -15,20 +15,23 @@ import {
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
-  bundleId: string
   bundle: ChugSplashActionBundle
+  bundleState: ChugSplashBundleState
   executor: ethers.Signer
   projectName: string
   logger: Logger
 }) => {
-  const { chugSplashManager, bundleId, bundle, executor, projectName, logger } =
-    args
+  const {
+    chugSplashManager,
+    bundle,
+    bundleState,
+    executor,
+    projectName,
+    logger,
+  } = args
 
   logger.info(`Preparing to execute the project...`)
 
-  const bundleState: ChugSplashBundleState = await chugSplashManager.bundles(
-    bundleId
-  )
   const executorAddress = await executor.getAddress()
 
   if (

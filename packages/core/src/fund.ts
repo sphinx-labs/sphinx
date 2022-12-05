@@ -1,85 +1,159 @@
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 
-import { getChugSplashManagerProxyAddress } from './utils'
-import { ParsedChugSplashConfig } from './config/types'
+import {
+  getChugSplashManagerReadOnly,
+  getDefaultProxyAddress,
+  isContractDeployed,
+} from './utils'
+import {
+  ChugSplashActionBundle,
+  DeployImplementationAction,
+  fromRawChugSplashAction,
+  isDeployImplementationAction,
+  isSetImplementationAction,
+  isSetStorageAction,
+} from './actions'
+import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
 
 /**
- * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment.
- * This equals the ChugSplashManager's balance minus the total debt owed to executors.
+ * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This
+ * equals the ChugSplashManager's balance minus the total debt owed to executors minus the owner's
+ * bond amount.
  */
-export const getOwnerBalanceInChugSplashManager = async (
+export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   projectName: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = new ethers.Contract(
-    getChugSplashManagerProxyAddress(projectName),
-    ChugSplashManagerABI,
-    provider
-  )
+  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+
+  const managerBalance = await provider.getBalance(ChugSplashManager.address)
+  const totalDebt = await ChugSplashManager.totalDebt()
+  return managerBalance.sub(totalDebt).sub(OWNER_BOND_AMOUNT)
+}
+
+export const getOwnerWithdrawableAmount = async (
+  provider: ethers.providers.JsonRpcProvider,
+  projectName: string
+): Promise<ethers.BigNumber> => {
+  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+
+  if (
+    (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+  ) {
+    return ethers.BigNumber.from(0)
+  }
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
   const totalDebt = await ChugSplashManager.totalDebt()
   return managerBalance.sub(totalDebt)
 }
 
-/**
- * Gets the minimum amount that must be sent to the ChugSplashManager in order to execute the
- * ChugSplash config. If this function returns zero, then there is already a sufficient amount of
- * funds.
- *
- * @param provider JSON RPC provider.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns The minimum amount to send to the ChugSplashManager in order to execute the config
- * (denominated in wei).
- */
-export const getExecutionAmountToSend = async (
+export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: number,
+  projectName: string
 ): Promise<ethers.BigNumber> => {
-  const totalExecutionAmount = await simulateExecution(provider, parsedConfig)
-  const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
-    provider,
-    parsedConfig.options.projectName
+  const actions = bundle.actions
+    .map((action) => fromRawChugSplashAction(action.action))
+    .slice(actionsExecuted)
+
+  let estimatedGas = ethers.BigNumber.from(150_000).mul(
+    actions.filter(
+      (action) =>
+        isSetImplementationAction(action) || isSetStorageAction(action)
+    ).length
   )
-  const executionAmount = totalExecutionAmount.sub(availableExecutionAmount)
-  return executionAmount.gt(0) ? executionAmount : ethers.BigNumber.from(0)
+
+  const deployedProxyPromises = actions
+    .filter((action) => isDeployImplementationAction(action))
+    .map(async (action) => {
+      return (await isContractDeployed(
+        getDefaultProxyAddress(projectName, action.target),
+        provider
+      ))
+        ? ethers.BigNumber.from(0)
+        : ethers.BigNumber.from(550_000)
+    })
+
+  const deployedImplementationPromises = actions
+    .filter((action) => isDeployImplementationAction(action))
+    .map(async (action: DeployImplementationAction) =>
+      ethers.BigNumber.from(350_000).add(
+        await provider.estimateGas({
+          data: action.code,
+        })
+      )
+    )
+
+  const resolvedContractDeploymentPromises = await Promise.all(
+    deployedProxyPromises.concat(deployedImplementationPromises)
+  )
+
+  const estimatedContractDeploymentGas =
+    resolvedContractDeploymentPromises.length > 0
+      ? resolvedContractDeploymentPromises.reduce((a, b) => a.add(b))
+      : ethers.BigNumber.from(0)
+
+  estimatedGas = estimatedGas.add(estimatedContractDeploymentGas)
+
+  return estimatedGas
 }
 
-export const simulateExecution = async (
+export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig
-) => {
-  provider
-  parsedConfig
-
-  // TODO
-  return ethers.utils.parseEther('0.25')
-}
-
-/**
- * Returns the amount to send to the ChugSplashManager to execute a bundle, plus a buffer in case
- * the gas price increases during execution. If this returns zero, there is already a sufficient
- * amount of funds in the ChugSplashManager.
- *
- * @param provider JSON RPC provider.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns The amount required to fund a bundle, plus a buffer. Denominated in wei.
- */
-export const getExecutionAmountToSendPlusBuffer = async (
-  provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig
-) => {
-  const executionAmount = await getExecutionAmountToSend(provider, parsedConfig)
-  return executionAmount.mul(15).div(10)
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: number,
+  projectName: string
+): Promise<ethers.BigNumber> => {
+  const estExecutionGas = await estimateExecutionGas(
+    provider,
+    bundle,
+    actionsExecuted,
+    projectName
+  )
+  const gasPrice = await provider.getGasPrice()
+  return estExecutionGas.mul(gasPrice)
 }
 
 export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: number,
+  projectName: string
 ): Promise<boolean> => {
-  // Get the amount of funds that must be sent to the ChugSplashManager in order to execute the
-  // bundle.
-  const executionAmount = await getExecutionAmountToSend(provider, parsedConfig)
-  return executionAmount.eq(0)
+  const availableFunds = await availableFundsForExecution(provider, projectName)
+
+  const currExecutionCost = await estimateExecutionCost(
+    provider,
+    bundle,
+    actionsExecuted,
+    projectName
+  )
+
+  return availableFunds.gte(currExecutionCost)
+}
+
+export const getAmountToDeposit = async (
+  provider: ethers.providers.JsonRpcProvider,
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: number,
+  projectName: string,
+  includeBuffer: boolean
+): Promise<ethers.BigNumber> => {
+  const currExecutionCost = await estimateExecutionCost(
+    provider,
+    bundle,
+    actionsExecuted,
+    projectName
+  )
+
+  const availableFunds = await availableFundsForExecution(provider, projectName)
+
+  const amountToDeposit = includeBuffer
+    ? currExecutionCost.sub(availableFunds).mul(EXECUTION_BUFFER_MULTIPLIER)
+    : currExecutionCost.sub(availableFunds)
+
+  return amountToDeposit.lt(0) ? ethers.BigNumber.from(0) : amountToDeposit
 }

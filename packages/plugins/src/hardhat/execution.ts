@@ -3,11 +3,13 @@ import {
   ChugSplashBundleStatus,
   ParsedChugSplashConfig,
   getChugSplashManager,
-  getOwnerBalanceInChugSplashManager,
+  getOwnerWithdrawableAmount,
   getProjectOwnerAddress,
   ChugSplashActionType,
   ChugSplashActionBundle,
   getCurrentChugSplashActionType,
+  getAmountToDeposit,
+  EXECUTION_BUFFER_MULTIPLIER,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers } from 'ethers'
@@ -41,25 +43,27 @@ export const monitorExecution = async (
 
   let actionType: ChugSplashActionType
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    // Check if the available execution amount in the ChugSplashManager is too low to finish the
-    // deployment. We do this by estimating the cost of a large transaction, which is calculated by
-    // taking the current gas price and multiplying it by eight million. For reference, it costs
-    // ~5.5 million gas to deploy Seaport. This estimated cost is compared to the available
-    // execution amount in the ChugSplashManager.
-    const gasPrice = await provider.getGasPrice()
-    const availableExecutionAmount = await getOwnerBalanceInChugSplashManager(
+    // Check if there are enough funds in the ChugSplashManager to finish the deployment.
+    const amountToDeposit = await getAmountToDeposit(
       provider,
-      projectName
+      bundle,
+      bundleState.actionsExecuted.toNumber(),
+      projectName,
+      false
     )
-    if (gasPrice.mul(8_000_000).gt(availableExecutionAmount)) {
-      // If the available execution amount is less than the estimated value, throw an error.
-      const estCost = gasPrice.mul(ethers.utils.parseEther('0.1'))
-      spinner.fail(`Project ran out of funds.`)
+    if (amountToDeposit.gt(0)) {
+      // If the amount to deposit is non-zero, we throw an error that informs the user to deposit
+      // more funds.
+      spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} ran out of funds. Please report this error.
+        `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
 Run the following command to add funds to your deployment so it can be completed:
 
-npx hardhat chugsplash-fund --network ${hre.network.name} --amount ${estCost} <configPath>
+npx hardhat chugsplash-fund --network ${
+          hre.network.name
+        } --amount ${amountToDeposit.mul(
+          EXECUTION_BUFFER_MULTIPLIER
+        )} <configPath>
         `
       )
     }
@@ -163,11 +167,11 @@ export const postExecutionActions = async (
 
   if ((await signer.getAddress()) === currProjectOwner) {
     // Withdraw any of the current project owner's funds in the ChugSplashManager.
-    const ownerFunds = await getOwnerBalanceInChugSplashManager(
+    const ownerBalance = await getOwnerWithdrawableAmount(
       hre.ethers.provider,
       parsedConfig.options.projectName
     )
-    if (ownerFunds.gt(0)) {
+    if (ownerBalance.gt(0)) {
       await (await ChugSplashManager.withdrawOwnerETH()).wait()
     }
 

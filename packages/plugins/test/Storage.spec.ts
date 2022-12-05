@@ -18,7 +18,8 @@ describe('SimpleStorage', () => {
     )
   })
 
-  it('does set min int8', async () => {
+  it.only('does set min int8', async () => {
+    console.log(variables.minInt8)
     expect(await Storage.minInt8()).equals(variables.minInt8)
   })
 

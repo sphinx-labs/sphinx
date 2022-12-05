@@ -213,11 +213,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(string => bytes32) public proxyTypes;
 
     /**
-     * @notice Mapping of targets to deployed implementation addresses. This mapping is a
-     *         convenient way to store implementation addresses before completing a bundle
-     *         since the implementations are not deployed via Create2.
+     * @notice Mapping of salt values to deployed implementation addresses. An implementation
+     *         address is stored in this mapping in each DeployImplementation action, and is
+     *         retrieved in the SetImplementation action. The salt is a hash of the bundle ID and
+     *         target, which is guaranteed to be unique within this contract since each bundle ID
+     *         can only be executed once and each target is unique within a bundle. The salt
+     *         prevents address collisions, which would otherwise be possible since we use Create2
+     *         to deploy the implementations.
      */
-    mapping(string => address) public implementations;
+    mapping(bytes32 => address) public implementations;
 
     /**
      * @notice Maps an address to a boolean indicating if the address is allowed to propose bundles.
@@ -632,8 +636,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             bundle.actionsExecuted++;
             bundle.executions[actionIndex] = true;
 
-            // Get the implementation address.
-            address implementation = implementations[action.target];
+            // Get the implementation address using the salt as its key.
+            address implementation = implementations[
+                keccak256(abi.encode(activeBundleId, bytes(action.target)))
+            ];
 
             // Get the proxy and adapter that correspond to this target.
             address payable proxy = getProxyByTargetName(action.target);
@@ -873,9 +879,17 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _code   Creation bytecode of the implementation contract.
      */
     function _deployImplementation(string memory _target, bytes memory _code) internal {
+        // Calculate the salt for the Create2 call. This salt ensures that there are no address
+        // collisions since each bundle ID can only be executed once, and each target is unique
+        // within that bundle.
+        bytes32 salt = keccak256(abi.encode(activeBundleId, bytes(_target)));
+
+        // Get the expected address of the implementation contract.
+        address expectedImplementation = Create2.compute(address(this), salt, _code);
+
         address implementation;
         assembly {
-            implementation := create(0x0, add(_code, 0x20), mload(_code))
+            implementation := create2(0x0, add(_code, 0x20), mload(_code), salt)
         }
 
         // Could happen if insufficient gas is supplied to this transaction, should not
@@ -883,12 +897,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // standard OOG, then this would halt the entire contract.
         // TODO: Make sure this cannot happen in any case other than OOG.
         require(
-            implementation != address(0),
+            expectedImplementation == implementation,
             "ChugSplashManager: implementation was not deployed correctly"
         );
 
-        // Set the target to its newly deployed implementation.
-        implementations[_target] = implementation;
+        // Map the implementation's salt to its newly deployed address.
+        implementations[salt] = implementation;
     }
 
     /**

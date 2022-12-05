@@ -10,16 +10,16 @@ import {
   registerChugSplashProject,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  isProxyDeployed,
   displayDeploymentTable,
   ChugSplashActionBundle,
   computeBundleId,
   getChugSplashManager,
-  getExecutionAmountToSendPlusBuffer,
   checkIsUpgrade,
   checkValidUpgrade,
   getProjectOwnerAddress,
   isProposer,
+  getAmountToDeposit,
+  isContractDeployed,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -110,25 +110,21 @@ export const deployChugSplashConfig = async (
   spinner.start('Parsing ChugSplash config file...')
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+
   const projectPreviouslyRegistered = await isProjectRegistered(
     signer,
-    parsedConfig.options.projectName
+    projectName
   )
 
-  spinner.succeed(`Parsed ${parsedConfig.options.projectName}.`)
+  spinner.succeed(`Parsed ${projectName}.`)
 
   if (projectPreviouslyRegistered === false) {
-    spinner.start(`Registering ${parsedConfig.options.projectName}...`)
+    spinner.start(`Registering ${projectName}...`)
     // Register the project with the signer as the owner. Once we've completed the deployment, we'll
     // transfer ownership to the project owner specified in the config.
-    await registerChugSplashProject(
-      provider,
-      parsedConfig.options.projectName,
-      signerAddress
-    )
-    spinner.succeed(
-      `Successfully registered ${parsedConfig.options.projectName}.`
-    )
+    await registerChugSplashProject(provider, projectName, signerAddress)
+    spinner.succeed(`Successfully registered ${projectName}.`)
   }
 
   // Get the bundle ID without publishing anything to IPFS.
@@ -144,12 +140,9 @@ export const deployChugSplashConfig = async (
       hre
     )
 
-  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
+  spinner.start(`Checking the status of ${projectName}...`)
 
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    parsedConfig.options.projectName
-  )
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -163,24 +156,20 @@ export const deployChugSplashConfig = async (
       await getFinalDeploymentTxnHash(ChugSplashManager, bundleId)
     )
     spinner.succeed(
-      `${parsedConfig.options.projectName} was already completed on ${hre.network.name}.`
+      `${projectName} was already completed on ${hre.network.name}.`
     )
     displayDeploymentTable(parsedConfig, silent)
     return
   } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(
-      `${parsedConfig.options.projectName} was already cancelled on ${hre.network.name}.`
-    )
+    spinner.fail(`${projectName} was already cancelled on ${hre.network.name}.`)
     throw new Error(
-      `${parsedConfig.options.projectName} was previously cancelled on ${hre.network.name}.`
+      `${projectName} was previously cancelled on ${hre.network.name}.`
     )
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
-    spinner.succeed(
-      `${parsedConfig.options.projectName} has not been proposed before.`
-    )
-    spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
+    spinner.succeed(`${projectName} has not been proposed before.`)
+    spinner.start(`Proposing ${projectName}...`)
     await proposeChugSplashBundle(
       hre,
       parsedConfig,
@@ -196,39 +185,49 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
-    spinner.start(
-      `Approving and funding ${parsedConfig.options.projectName}...`
-    )
-    // Get the amount necessary to fund the deployment.
-    const executionAmountPlusBuffer = await getExecutionAmountToSendPlusBuffer(
-      hre.ethers.provider,
-      parsedConfig
+    spinner.start(`Approving and funding ${projectName}...`)
+    // Get the initial amount necessary to fund the deployment.
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      true
     )
     // Approve and fund the deployment.
     await chugsplashApproveTask(
       {
         configPath,
         silent: true,
-        amount: executionAmountPlusBuffer,
+        amount: amountToDeposit,
         skipMonitorStatus: true,
       },
       hre
     )
-    spinner.succeed(`Approved and funded ${parsedConfig.options.projectName}.`)
+    spinner.succeed(`Approved and funded ${projectName}.`)
     currBundleStatus = ChugSplashBundleStatus.APPROVED
   }
+
+  // At this point, we know that the bundle is active.
 
   if (remoteExecution) {
     await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
   } else {
     // If executing locally, then startup executor with HRE provider and pass in canonical config
     spinner.start('Executing project...')
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      true
+    )
     await signer.sendTransaction({
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      value: ethers.utils.parseEther('1'),
+      value: amountToDeposit,
     })
     await executor.main(canonicalConfig)
-    spinner.succeed(`Executed ${parsedConfig.options.projectName}`)
+    spinner.succeed(`Executed ${projectName}`)
   }
 
   // At this point, we know that the bundle has been completed.
@@ -242,7 +241,7 @@ export const deployChugSplashConfig = async (
   )
 
   // At this point, the bundle has been completed.
-  spinner.succeed(`${parsedConfig.options.projectName} completed!`)
+  spinner.succeed(`${projectName} completed!`)
   displayDeploymentTable(parsedConfig, silent)
 }
 
@@ -287,8 +286,9 @@ ${configsWithFileNames.map(
 
   const { config: cfg } = configsWithFileNames[0]
 
-  const proxyAddress = cfg.contracts[referenceName].address
-  if ((await isProxyDeployed(hre.ethers.provider, proxyAddress)) === false) {
+  const proxyAddress = cfg.contracts[referenceName].proxy
+  console.log(proxyAddress)
+  if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
   }
 

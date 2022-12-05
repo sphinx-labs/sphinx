@@ -403,11 +403,11 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundThenClaimBundle();
         address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
         assertEq(proxyAddress.code.length, 0);
-
-        // We add 1 here to account for the Proxy deployment that occurs before the implementation deployment.
-        uint256 implementationDeploymentNonce = 1 + vm.getNonce(address(manager));
-
-        address implementationAddress = computeCreateAddress(address(manager), implementationDeploymentNonce);
+        address implementationAddress = Create2.compute(
+            address(manager),
+            keccak256(abi.encode(bundleId, bytes(firstAction.target))),
+            firstAction.data
+        );
         assertEq(implementationAddress.code.length, 0);
         uint256 initialTotalDebt = manager.totalDebt();
         uint256 initialExecutorDebt = manager.debt(executor1);
@@ -433,7 +433,8 @@ contract ChugSplashManager_Test is Test {
         assertGt(implementationAddress.code.length, 0);
         assertEq(bundle.actionsExecuted, 1);
         assertTrue(bundle.executions[actionIndexes[0]]);
-        assertEq(manager.implementations(firstAction.target), implementationAddress);
+        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        assertEq(manager.implementations(salt), implementationAddress);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
         assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
@@ -561,7 +562,8 @@ contract ChugSplashManager_Test is Test {
 
         uint256 finalTotalDebt = manager.totalDebt();
         uint256 finalExecutorDebt = manager.debt(executor1);
-        address expectedImplementation = manager.implementations(firstAction.target);
+        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        address expectedImplementation = manager.implementations(salt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 gasUsed = 45472;
         uint256 estExecutorPayment = baseFee * gasUsed * (100 + executorPaymentPercentage) / 100;

@@ -1,7 +1,6 @@
 import assert from 'assert'
 
 import { ethers } from 'ethers'
-import { Provider } from '@ethersproject/abstract-provider'
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
@@ -32,8 +31,8 @@ import { sleep } from '@eth-optimism/core-utils'
 import {
   getChugSplashRegistry,
   getProxyAt,
-  getProxyOwner,
-  hasCode,
+  getProxyAdmin,
+  isContractDeployed,
 } from '../../utils'
 
 export const initializeChugSplash = async (
@@ -139,7 +138,7 @@ export const initializeChugSplash = async (
   // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
   // when the ChugSplashRegistry's proxy is initially deployed.
   if (
-    (await getProxyOwner(ChugSplashRegistryProxy)) ===
+    (await getProxyAdmin(ChugSplashRegistryProxy)) ===
     DETERMINISTIC_PROXY_OWNER_ADDRESS
   ) {
     // Initialize the ChugSplashRegistry's proxy through the DeterministicProxyOwner. This
@@ -157,7 +156,7 @@ export const initializeChugSplash = async (
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
-      (await getProxyOwner(ChugSplashRegistryProxy)) === owner,
+      (await getProxyAdmin(ChugSplashRegistryProxy)) === owner,
       'ChugSplashRegistry proxy has incorrect owner'
     )
   }
@@ -285,26 +284,19 @@ export const doDeterministicDeploy = async (
   return new ethers.Contract(address, options.contract.abi, options.signer)
 }
 
-export const isContractDeployed = async (
-  address: string,
-  provider: Provider
-): Promise<boolean> => {
-  return (await provider.getCode(address)) !== '0x'
-}
-
 export const monitorChugSplashSetup = async (
   provider: ethers.providers.JsonRpcProvider
 ) => {
   const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
-  while (!(await hasCode(provider, ChugSplashRegistry.address))) {
+  while (!(await isContractDeployed(ChugSplashRegistry.address, provider))) {
     await sleep(1000)
   }
 
   while (
     owner !==
-    (await getProxyOwner(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
+    (await getProxyAdmin(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
   ) {
     await sleep(1000)
   }
