@@ -37,7 +37,7 @@ import {
   chugsplashCommitSubtask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
-import { instantiateExecutor } from '../executor'
+import { initializeExecutor } from '../executor'
 import { monitorExecution, postExecutionActions } from './execution'
 
 /**
@@ -59,7 +59,7 @@ export const deployAllChugSplashConfigs = async (
 
   let executor: ChugSplashExecutor
   if (!remoteExecution) {
-    executor = instantiateExecutor()
+    executor = await initializeExecutor(hre.ethers.provider)
   }
 
   for (const fileName of fileNames) {

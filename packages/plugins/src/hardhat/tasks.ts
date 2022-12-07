@@ -66,7 +66,7 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import { monitorExecution, postExecutionActions } from './execution'
-import { instantiateExecutor } from '../executor'
+import { initializeExecutor } from '../executor'
 import {} from '../'
 
 // Load environment variables from .env
@@ -183,15 +183,7 @@ export const chugsplashDeployTask = async (
     await monitorChugSplashSetup(provider)
   } else {
     spinner.start('Booting up ChugSplash...')
-    executor = instantiateExecutor()
-    await executor.setup(
-      {
-        privateKey:
-          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-        logLevel: 'error',
-      },
-      provider
-    )
+    executor = await initializeExecutor(provider)
   }
 
   spinner.succeed('ChugSplash is ready to go.')
