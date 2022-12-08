@@ -90,9 +90,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         owner.
      *
      * @param targetHash Hash of the target's string name.
-     * @param proxy          Address of the proxy that is the subject of the ownership transfer.
-     * @param proxyType      The proxy type.
-     * @param newOwner       Address of the project owner that is receiving ownership of the proxy.
+     * @param proxy      Address of the proxy that is the subject of the ownership transfer.
+     * @param proxyType  The proxy type.
+     * @param newOwner   Address of the project owner that is receiving ownership of the proxy.
      * @param target     String name of the target.
      */
     event ProxyOwnershipTransferred(
@@ -147,6 +147,25 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Emitted when ETH is deposited in this contract
      */
     event ETHDeposited(address indexed from, uint256 indexed amount);
+
+    /**
+     * @notice Emitted when a default proxy is deployed by this contract.
+     *
+     * @param targetHash Hash of the target's string name. This equals the salt used to deploy the
+     *                   proxy.
+     * @param proxy      Address of the deployed proxy.
+     * @param target     String name of the target.
+     */
+    event DefaultProxyDeployed(string indexed targetHash, address indexed proxy, string target);
+
+    /**
+     * @notice Emitted when an implementation contract is deployed by this contract.
+     *
+     * @param targetHash Hash of the target's string name.
+     * @param proxy      Address of the deployed proxy.
+     * @param target     String name of the target.
+     */
+    event ImplementationDeployed(string indexed targetHash, address indexed proxy, string target);
 
     /**
      * @notice The storage slot that holds the address of an EIP-1967 implementation contract.
@@ -337,15 +356,16 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Computes the address of an ERC-1967 proxy that would be created by this contract
-     *         given the target's name. This proxy is the default proxy used by ChugSplash. Uses
-     *         CREATE2 to guarantee that this address will be correct.
+     * @notice Computes the Create2 address of the default EIP-1967 proxy deployed by the
+     *         ChugSplashManager when a bundle is executed. Note that there will not be a contract
+     *         at the deployed address until one with the given target name is executed by
+     *         the ChugSplashManager.
      *
      * @param _name Name of the target to get the corresponding proxy address of.
      *
      * @return Address of the proxy for the given name.
      */
-    function getProxyByTargetName(string memory _name) public view returns (address payable) {
+    function getDefaultProxyAddress(string memory _name) public view returns (address payable) {
         return (
             payable(
                 Create2.compute(
@@ -509,7 +529,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             // *should* be and can therefore easily check if it's already populated.
             // TODO: See if there's a better way to handle this case because it messes with the gas
             // cost of DEPLOY_IMPLEMENTATION/SET_STORAGE operations in a somewhat unpredictable way.
-            proxy = getProxyByTargetName(_action.target);
+            proxy = getDefaultProxyAddress(_action.target);
             if (proxy.code.length == 0) {
                 bytes32 salt = keccak256(bytes(_action.target));
                 Proxy created = new Proxy{ salt: salt }(address(this));
@@ -522,6 +542,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     address(created) == proxy,
                     "ChugSplashManager: Proxy was not created correctly"
                 );
+
+                emit DefaultProxyDeployed(_action.target, proxy, _action.target);
+                registry.announce("DefaultProxyDeployed");
             } else if (_getProxyImplementation(proxy, adapter) != address(0)) {
                 // Set the proxy's implementation to address(0).
                 _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
@@ -642,7 +665,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             ];
 
             // Get the proxy and adapter that correspond to this target.
-            address payable proxy = getProxyByTargetName(action.target);
+            address payable proxy = getDefaultProxyAddress(action.target);
             bytes32 proxyType = proxyTypes[action.target];
             address adapter = registry.adapters(proxyType);
 
@@ -795,7 +818,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address payable proxy;
         if (proxyType == bytes32(0)) {
             // Use a default proxy if no proxy type has been set by the project owner.
-            proxy = getProxyByTargetName(_target);
+            proxy = getDefaultProxyAddress(_target);
         } else {
             // We revert here since we currently do not support custom proxy types.
             revert("ChugSplashManager: invalid proxy type, must be default proxy");
@@ -903,6 +926,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // Map the implementation's salt to its newly deployed address.
         implementations[salt] = implementation;
+
+        emit ImplementationDeployed(_target, implementation, _target);
+        registry.announce("ImplementationDeployed");
     }
 
     /**
