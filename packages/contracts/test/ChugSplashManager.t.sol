@@ -66,6 +66,18 @@ contract ChugSplashManager_Test is Test {
 
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
+    event DefaultProxyDeployed(
+        string indexed targetHash,
+        address indexed proxy,
+        string target
+    );
+
+    event ImplementationDeployed(
+        string indexed targetHash,
+        address indexed proxy,
+        string target
+    );
+
     bytes32 constant EIP1967_IMPLEMENTATION_KEY =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
@@ -401,7 +413,7 @@ contract ChugSplashManager_Test is Test {
 
     function test_executeChugSplashAction_success_deployProxyAndImplementation() external {
         helper_proposeThenApproveThenFundThenClaimBundle();
-        address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         assertEq(proxyAddress.code.length, 0);
         address implementationAddress = Create2.compute(
             address(manager),
@@ -416,11 +428,30 @@ contract ChugSplashManager_Test is Test {
             address(registry),
             abi.encodeCall(
                 ChugSplashRegistry.announce,
+                ("DefaultProxyDeployed")
+            )
+        );
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ImplementationDeployed")
+            )
+        );
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
                 ("ChugSplashActionExecuted")
             )
         );
         vm.expectEmit(true, true, true, true);
+        emit DefaultProxyDeployed(firstAction.target, proxyAddress, firstAction.target);
+        vm.expectEmit(true, true, true, true);
+        emit ImplementationDeployed(firstAction.target, implementationAddress, firstAction.target);
+        vm.expectEmit(true, true, true, true);
         emit ChugSplashActionExecuted(bundleId, executor1, actionIndexes[0]);
+
         helper_executeFirstAction();
         uint256 finalTotalDebt = manager.totalDebt();
         uint256 finalExecutorDebt = manager.debt(executor1);
@@ -459,7 +490,7 @@ contract ChugSplashManager_Test is Test {
         uint256 finalExecutorDebt = manager.debt(executor1);
 
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
-        address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         vm.prank(address(manager));
         address implementationAddress = Proxy(proxyAddress).implementation();
         (bytes32 storageKey, bytes32 expectedStorageValue) = abi.decode(secondAction.data, (bytes32, bytes32));
@@ -482,7 +513,7 @@ contract ChugSplashManager_Test is Test {
         uint256 initialExecutorDebt = manager.debt(executor1);
 
         vm.startPrank(address(manager));
-        address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         vm.store(proxyAddress, EIP1967_IMPLEMENTATION_KEY, bytes32(uint256(1)));
         assertEq(Proxy(proxyAddress).implementation(), address(1));
         vm.stopPrank();
@@ -534,7 +565,7 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
-        address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         uint256 initialTotalDebt = manager.totalDebt();
         uint256 initialExecutorDebt = manager.debt(executor1);
         uint256 actionIndex = setImplementationActionIndexArray[0];
@@ -821,7 +852,7 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeMultipleActions();
         helper_completeBundle(executor1);
-        address payable proxyAddress = manager.getProxyByTargetName(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         vm.prank(address(manager));
         assertEq(Proxy(proxyAddress).admin(), address(manager));
 
