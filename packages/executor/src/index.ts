@@ -142,6 +142,8 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.logger
     )
 
+    this.logger.info('Finished setting up ChugSplash.')
+
     // Verify the ChugSplash contracts if the current network is supported.
     if (isSupportedNetworkOnEtherscan(this.options.network)) {
       this.logger.info('Attempting to verify the ChugSplash contracts...')
