@@ -33,7 +33,7 @@ import {
 export * from './utils'
 
 type Options = {
-  url: string
+  provider: ethers.providers.StaticJsonRpcProvider
   network: string
   privateKey: string
   amplitudeKey: string
@@ -45,7 +45,6 @@ type Metrics = {}
 type State = {
   eventsQueue: ethers.Event[]
   registry: ethers.Contract
-  provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
   amplitudeClient: Amplitude.NodeClient
   wallet: ethers.Wallet
@@ -64,10 +63,12 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       loopIntervalMs: 1000,
       options,
       optionsSpec: {
-        url: {
+        provider: {
           desc: 'Target deployment network access url',
-          validator: validators.str,
-          default: 'http://localhost:8545',
+          validator: validators.staticJsonRpcProvider,
+          default: new ethers.providers.StaticJsonRpcProvider(
+            'http://localhost:8545'
+          ),
         },
         network: {
           desc: 'Target deployment network name',
@@ -102,10 +103,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
    * to pass options into the main() function, or run the executor as a service and pass in options using
    * environment variables.
    **/
-  async setup(
-    options: Partial<Options>,
-    provider?: ethers.providers.JsonRpcProvider
-  ) {
+  async setup(options: Partial<Options>) {
     this.logger = new Logger({
       name: 'Logger',
       level: options.logLevel,
@@ -115,29 +113,27 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       this.state.amplitudeClient = Amplitude.init(this.options.amplitudeKey)
     }
 
-    const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    this.state.provider =
-      provider ?? new ethers.providers.JsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
-      reg,
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
       ChugSplashRegistryABI,
-      this.state.provider
+      this.options.provider
     )
+
+    this.state.wallet = new ethers.Wallet(
+      options.privateKey,
+      this.options.provider
+    )
+
     this.state.lastBlockNumber = -1
 
     // This represents a queue of "BundleApproved" events to execute.
     this.state.eventsQueue = []
 
-    this.state.wallet = new ethers.Wallet(
-      options.privateKey,
-      this.state.provider
-    )
-
     this.logger.info('Setting up ChugSplash...')
 
     // Deploy the ChugSplash contracts.
     await initializeChugSplash(
-      this.state.provider,
+      this.options.provider,
       this.state.wallet,
       this.logger
     )
@@ -145,7 +141,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     // Verify the ChugSplash contracts if the current network is supported.
     if (isSupportedNetworkOnEtherscan(this.options.network)) {
       this.logger.info('Attempting to verify the ChugSplash contracts...')
-      await verifyChugSplash(this.state.provider, this.options.network)
+      await verifyChugSplash(this.options.provider, this.options.network)
       this.logger.info(
         'Finished attempting to verify the ChugSplash contracts.'
       )
@@ -161,13 +157,11 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   }
 
   async main(localCanonicalConfig?: CanonicalChugSplashConfig) {
-    const { provider, wallet, registry } = this.state
-
-    const latestBlockNumber = await provider.getBlockNumber()
+    const latestBlockNumber = await this.options.provider.getBlockNumber()
 
     // Get approval events in blocks after the stored block number
-    const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnounced('ChugSplashBundleApproved'),
+    const newApprovalEvents = await this.state.registry.queryFilter(
+      this.state.registry.filters.EventAnnounced('ChugSplashBundleApproved'),
       this.state.lastBlockNumber + 1,
       latestBlockNumber
     )
@@ -207,7 +201,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       const manager = new ethers.Contract(
         approvalAnnouncementEvent.args.manager,
         ChugSplashManagerABI,
-        wallet
+        this.state.wallet
       )
 
       // get active bundle id for this project
@@ -254,7 +248,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
         if (
           await hasSufficientFundsForExecution(
-            provider,
+            this.options.provider,
             bundle,
             bundleState.actionsExecuted.toNumber(),
             projectName
@@ -267,7 +261,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               chugSplashManager: manager,
               bundleState,
               bundle,
-              executor: wallet,
+              executor: this.state.wallet,
               projectName,
               logger: this.logger,
             })
@@ -289,7 +283,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               )
               await verifyChugSplashConfig(
                 proposalEvent.args.configUri,
-                provider,
+                this.options.provider,
                 this.options.network
               )
               this.logger.info(
@@ -311,7 +305,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           if (this.options.amplitudeKey !== 'disabled') {
             this.state.amplitudeClient.logEvent({
               event_type: 'ChugSplash Executed',
-              user_id: await getProjectOwnerAddress(provider, projectName),
+              user_id: await getProjectOwnerAddress(
+                this.options.provider,
+                projectName
+              ),
               event_properties: {
                 projectName,
               },
@@ -330,7 +327,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
       // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
       // project owner during execution, the executor will still be able to claim funds here.
-      await claimExecutorPayment(wallet, manager)
+      await claimExecutorPayment(this.state.wallet, manager)
 
       this.logger.info(`Claimed executor's payment.`)
 
