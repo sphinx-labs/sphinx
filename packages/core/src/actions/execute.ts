@@ -30,7 +30,7 @@ export const executeTask = async (args: {
     logger,
   } = args
 
-  logger.info(`Preparing to execute the project...`)
+  logger.info(`preparing to execute the project...`)
 
   const executorAddress = await executor.getAddress()
 
@@ -39,26 +39,26 @@ export const executeTask = async (args: {
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
   ) {
     throw new Error(
-      `${projectName} cannot be executed. Current project status: ${bundleState.status}`
+      `${projectName} cannot be executed. current project status: ${bundleState.status}`
     )
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    logger.info(`Already executed: ${projectName}.`)
+    logger.info(`already executed: ${projectName}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      logger.info(`Claiming the bundle for project: ${projectName}`)
+      logger.info(`claiming the bundle for project: ${projectName}`)
       await (
         await chugSplashManager.claimBundle({
           value: EXECUTOR_BOND_AMOUNT,
         })
       ).wait()
-      logger.info(`Claimed the bundle.`)
+      logger.info(`claimed the bundle`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`Another executor has already claimed the bundle.`)
+      throw new Error(`another executor has already claimed the bundle`)
     }
 
-    logger.info(`Setting the state variables...`)
+    logger.info(`setting the state variables...`)
 
     // Execute actions that have not been executed yet.
     let currActionsExecuted = bundleState.actionsExecuted.toNumber()
@@ -103,7 +103,7 @@ export const executeTask = async (args: {
     }
 
     logger.info(
-      `State variables have been set. Deploying the implementation contracts...`
+      `state variables have been set. deploying the implementation contracts...`
     )
 
     // Execute DeployImplementation actions in series. We execute them one by one since each one
@@ -119,13 +119,13 @@ export const executeTask = async (args: {
       ).wait()
       currActionsExecuted += 1
       logger.info(
-        `Deployed implementation contract: ${
+        `deployed implementation contract: ${
           currActionsExecuted - firstDeployImplIndex
         }/${firstSetImplIndex - firstDeployImplIndex}`
       )
     }
 
-    logger.info('Linking proxies to the implementation contracts...')
+    logger.info('linking proxies to the implementation contracts...')
 
     if (currActionsExecuted === firstSetImplIndex) {
       // Complete the bundle by executing all the SetImplementation actions in a single
@@ -140,6 +140,6 @@ export const executeTask = async (args: {
       ).wait()
     }
 
-    logger.info(`Successfully executed: ${projectName}`)
+    logger.info(`successfully executed: ${projectName}`)
   }
 }
