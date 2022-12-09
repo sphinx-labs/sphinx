@@ -30,7 +30,7 @@ export const executeTask = async (args: {
     logger,
   } = args
 
-  logger.info(`preparing to execute the project...`)
+  logger.info(`[ChugSplash]: preparing to execute the project...`)
 
   const executorAddress = await executor.getAddress()
 
@@ -44,21 +44,23 @@ export const executeTask = async (args: {
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    logger.info(`already executed: ${projectName}`)
+    logger.info(`[ChugSplash]: already executed: ${projectName}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      logger.info(`claiming the bundle for project: ${projectName}`)
+      logger.info(
+        `[ChugSplash]: claiming the bundle for project: ${projectName}`
+      )
       await (
         await chugSplashManager.claimBundle({
           value: EXECUTOR_BOND_AMOUNT,
         })
       ).wait()
-      logger.info(`claimed the bundle`)
+      logger.info(`[ChugSplash]: claimed the bundle`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
       throw new Error(`another executor has already claimed the bundle`)
     }
 
-    logger.info(`setting the state variables...`)
+    logger.info(`[ChugSplash]: setting the state variables...`)
 
     // Execute actions that have not been executed yet.
     let currActionsExecuted = bundleState.actionsExecuted.toNumber()
@@ -103,7 +105,7 @@ export const executeTask = async (args: {
     }
 
     logger.info(
-      `state variables have been set. deploying the implementation contracts...`
+      `[ChugSplash]: state variables have been set. deploying the implementation contracts...`
     )
 
     // Execute DeployImplementation actions in series. We execute them one by one since each one
@@ -119,13 +121,15 @@ export const executeTask = async (args: {
       ).wait()
       currActionsExecuted += 1
       logger.info(
-        `deployed implementation contract: ${
+        `[ChugSplash]: deployed implementation contract: ${
           currActionsExecuted - firstDeployImplIndex
         }/${firstSetImplIndex - firstDeployImplIndex}`
       )
     }
 
-    logger.info('linking proxies to the implementation contracts...')
+    logger.info(
+      '[ChugSplash]: linking proxies to the implementation contracts...'
+    )
 
     if (currActionsExecuted === firstSetImplIndex) {
       // Complete the bundle by executing all the SetImplementation actions in a single
@@ -140,6 +144,6 @@ export const executeTask = async (args: {
       ).wait()
     }
 
-    logger.info(`successfully executed: ${projectName}`)
+    logger.info(`[ChugSplash]: successfully executed: ${projectName}`)
   }
 }
