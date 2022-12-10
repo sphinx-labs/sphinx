@@ -20,6 +20,7 @@ import {
   isProposer,
   getAmountToDeposit,
   isContractDeployed,
+  formatEther,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -185,8 +186,7 @@ export const deployChugSplashConfig = async (
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
-    spinner.start(`Approving and funding ${projectName}...`)
-    // Get the initial amount necessary to fund the deployment.
+    spinner.start(`Calculating amount to deposit...`)
     const amountToDeposit = await getAmountToDeposit(
       provider,
       bundle,
@@ -194,6 +194,9 @@ export const deployChugSplashConfig = async (
       projectName,
       true
     )
+    spinner.succeed(`Amount to deposit: ${formatEther(amountToDeposit, 4)} ETH`)
+    spinner.start(`Approving and funding ${projectName}...`)
+    // Get the initial amount necessary to fund the deployment.
     // Approve and fund the deployment.
     await chugsplashApproveTask(
       {
@@ -227,17 +230,15 @@ export const deployChugSplashConfig = async (
       value: amountToDeposit,
     })
     await executor.main(canonicalConfig)
-    spinner.succeed(`Executed ${projectName}`)
+    spinner.succeed(`Executed ${projectName}.`)
   }
-
-  // At this point, we know that the bundle has been completed.
-  spinner.start('Performing post-execution actions...')
 
   await postExecutionActions(
     hre,
     parsedConfig,
     await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
-    newOwner
+    newOwner,
+    spinner
   )
 
   // At this point, the bundle has been completed.

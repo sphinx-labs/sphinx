@@ -10,6 +10,7 @@ import {
   getCurrentChugSplashActionType,
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
+  formatEther,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers } from 'ethers'
@@ -153,8 +154,11 @@ export const postExecutionActions = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
-  newProjectOwner?: string
+  newProjectOwner?: string,
+  spinner: ora.Ora = ora({ isSilent: true })
 ) => {
+  spinner.start(`Sending leftover funds to the project owner...`)
+
   const signer = hre.ethers.provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
     signer,
@@ -173,10 +177,21 @@ export const postExecutionActions = async (
     )
     if (ownerBalance.gt(0)) {
       await (await ChugSplashManager.withdrawOwnerETH()).wait()
+      spinner.succeed(
+        `Sent leftover funds to the project owner. Amount: ${formatEther(
+          ownerBalance,
+          4
+        )} ETH. Recipient: ${currProjectOwner}`
+      )
+    } else {
+      spinner.succeed(
+        `There were no leftover funds to send to the project owner.`
+      )
     }
 
     // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
     if (newProjectOwner !== undefined && newProjectOwner !== currProjectOwner) {
+      spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
       if (newProjectOwner === ethers.constants.AddressZero) {
         // We must call a separate function if ownership is being transferred to address(0).
         await (await ChugSplashManager.renounceOwnership()).wait()
@@ -185,8 +200,11 @@ export const postExecutionActions = async (
           await ChugSplashManager.transferOwnership(newProjectOwner)
         ).wait()
       }
+      spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
     }
   }
+
+  spinner.start(`Writing deployment artifacts...`)
 
   // Save the snapshot ID if we're on the hardhat network.
   if ((await getChainId(hre.ethers.provider)) === 31337) {
@@ -194,4 +212,6 @@ export const postExecutionActions = async (
   }
 
   await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+
+  spinner.succeed(`Wrote deployment artifacts.`)
 }

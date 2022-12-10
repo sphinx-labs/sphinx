@@ -347,3 +347,10 @@ export const isContractDeployed = async (
 ): Promise<boolean> => {
   return (await provider.getCode(address)) !== '0x'
 }
+
+export const formatEther = (
+  amount: ethers.BigNumber,
+  decimals: number
+): string => {
+  return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
+}
