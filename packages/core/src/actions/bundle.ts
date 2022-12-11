@@ -28,10 +28,10 @@ export const isSetStorageAction = (
 }
 
 /**
- * TODO
+ * Checks whether a given action is a SetImplementation action.
  *
- * @param action
- * @returns
+ * @param action ChugSplash action to check.
+ * @returns `true` if the action is a SetImplementation action, `false` otherwise.
  */
 export const isSetImplementationAction = (
   action: ChugSplashAction
@@ -40,9 +40,10 @@ export const isSetImplementationAction = (
 }
 
 /**
+ * Checks whether a given action is a DeployImplementation action.
  *
- * @param action
- * @returns
+ * @param action ChugSplash action to check.
+ * @returns `true` if the action is a DeployImplementation action, `false` otherwise.
  */
 export const isDeployImplementationAction = (
   action: ChugSplashAction
