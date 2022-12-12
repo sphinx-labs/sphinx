@@ -1,6 +1,6 @@
 # ChugSplash Hardhat plugin
 
-ChugSplash is a modern smart contract deployment system that lets you to define your deployments inside of a configuration file instead of writing scripts. ChugSplash automatically verifies your source code on Etherscan and generates deployment artifacts in the same format as hardhat-deploy.
+ChugSplash is a smart contract deployment tool that lets you define your deployments declaratively inside of a single configuration file. No deployment scripts necessary. ChugSplash automatically verifies your source code on Etherscan and generates deployment artifacts in the same format as hardhat-deploy.
 
 ## Installation
 Install the ChugSplash packages.
@@ -40,32 +40,16 @@ export default config
 ```
 
 ## Tutorial
-1. In your existing contracts folder, create a contract called `SimpleStorage.sol`. Copy and paste its contents:
+1. In your existing contracts folder, create a contract called `SimpleStorage.sol`. Copy and paste:
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
 contract SimpleStorage {
-    uint8 internal number;
-    bool internal stored;
-    address internal otherStorage;
-    string internal storageName;
-
-    function getNumber() external view returns (uint8) {
-        return number;
-    }
-
-    function isStored() external view returns (bool) {
-        return stored;
-    }
-
-    function getOtherStorage() external view returns (address) {
-        return otherStorage;
-    }
-
-    function getStorageName() external view returns (string memory) {
-        return storageName;
-    }
+    uint8 public number;
+    bool public stored;
+    address public otherStorage;
+    string public storageName;
 }
 ```
 
@@ -74,17 +58,12 @@ contract SimpleStorage {
 npx hardhat compile
 ```
 
-3. Make a `chugsplash/` folder in your project root:
+3. Create a `chugsplash/` folder, and a config file for your first ChugSplash project. We'll call it `SimpleStorage.config.ts`.
 ```
-mkdir chugsplash
-```
-
-4. In your `chugsplash/` folder, create a config file for your first ChugSplash project. We'll call it `SimpleStorage.config.ts`.
-```
-echo > chugsplash/MyFirstProject.config.ts
+mkdir chugsplash && echo > chugsplash/MyFirstProject.config.ts
 ```
 
-5. Copy and paste the following deployment information into your ChugSplash config file. You will deploy two instances of the `SimpleStorage` contract.
+4. Copy and paste the following deployment information into your ChugSplash config file. You will deploy two instances of the `SimpleStorage` contract.
 ```typescript
 import { ChugSplashConfig } from '@chugsplash/core'
 
@@ -92,7 +71,6 @@ const config: ChugSplashConfig = {
   // Configuration options for the project:
   options: {
     projectName: 'My First Project',
-    projectOwner: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
   },
   // Below, we define all of the contracts in the deployment along with their state variables.
   contracts: {
@@ -122,7 +100,7 @@ const config: ChugSplashConfig = {
 export default config
 ```
 
-Take a moment to familiarize yourself with the layout of the ChugSplash config file. Notice that we assign values directly to the state variables, so there is no need for a constructor or initializer function in the contract.
+Take a moment to familiarize yourself with the ChugSplash config file. Notice that we assign values directly to the state variables, so there is no need for a constructor or initializer function in the contract.
 
 6. Deploy the contracts locally:
 ```
@@ -130,7 +108,7 @@ npx hardhat chugsplash-deploy
 ```
 
 ### Immutable variables
-ChugSplash supports all immutable variables except for [user defined value types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types). You can define immutable variables in your ChugSplash config file the exact same way that you define regular state variables. However, there is one caveat: you must instantiate the immutable variables in your constructor or else the Solidity compiler will throw an error. If we wanted to change the state variables in our `SimpleStorage` example to be immutable, we can keep the ChugSplash config file unchanged and update `SimpleStorage.sol` to include the following:
+You can define immutable variables in your ChugSplash config file the exact same way that you define regular state variables. However, there is one caveat: you must instantiate the immutable variables in your constructor or else the Solidity compiler will throw an error. If we wanted to change the state variables in our `SimpleStorage` example to be immutable, we can keep the ChugSplash config file unchanged and update `SimpleStorage.sol` to include the following:
 ```solidity
 contract SimpleStorage {
     // Define immutable variables
@@ -177,10 +155,10 @@ describe('SimpleStorage', () => {
   })
 
   it('initializes correctly', async () => {
-    expect(await FirstSimpleStorage.getNumber()).equals(1)
-    expect(await FirstSimpleStorage.getOtherStorage()).equals(SecondSimpleStorage.address)
-    expect(await SecondSimpleStorage.isStored()).equals(true)
-    expect(await SecondSimpleStorage.getStorageName()).equals('Second')
+    expect(await FirstSimpleStorage.number()).equals(1)
+    expect(await FirstSimpleStorage.otherStorage()).equals(SecondSimpleStorage.address)
+    expect(await SecondSimpleStorage.stored()).equals(true)
+    expect(await SecondSimpleStorage.storageName()).equals('Second')
   })
 })
 ```
@@ -192,9 +170,8 @@ npx hardhat test test/SimpleStorage.spec.ts
 
 ## How it works
 
-ChugSplash uses deterministic proxies to deploy contracts and set their state variables. An important point to mention is that the values of state variables are set in the proxy, **not** in the implementation contract. For example, the `number` variable from the `FirstSimpleStorage` contract is set to `1` **only** in the proxy contract. If you call `getNumber` on the implementation contract, it would return the default value, `0`. This is standard behavior for proxies, but it can be surprising if you haven't used proxies before. If you want the proxy to be non-upgradeable, you can set the `projectOwner` parameter in the ChugSplash config file to the zero-address.
-
+ChugSplash uses deterministic proxies to deploy contracts and set their state variables. An important point to mention is that the values of state variables are set in the proxy, **not** in the implementation contract. For example, the `number` variable from the `FirstSimpleStorage` contract is set to `1` **only** in the proxy contract. If you call `number` on the implementation contract, it would return the default value, `0`. This is standard behavior for proxies, but it can be surprising if you haven't used proxies before.
 
 ## Reach out
 
-Hit up [@samgoldman0](https://t.me/samgoldman0) on Telegram if you have any questions/comments!
+Hit up [@samgoldman0](https://t.me/samgoldman0) on Telegram if you have any requests for features or questions!
