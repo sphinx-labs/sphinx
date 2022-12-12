@@ -18,6 +18,7 @@ import {
   ChugSplashActionBundle,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
+  displayProposerTable,
   registerChugSplashProject,
   getChugSplashRegistry,
   displayDeploymentTable,
@@ -92,6 +93,8 @@ export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
+export const TASK_CHUGSPLASH_LIST_PROPOSERS = 'chugsplash-list-proposers'
+export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -1375,3 +1378,137 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
 task(TASK_CHUGSPLASH_LIST_PROJECTS)
   .setDescription('Lists all projects that are owned by the caller.')
   .setAction(listProjectsTask)
+
+export const listProposersTask = async (
+  args: { configPath: string },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath } = args
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  const proposers = []
+
+  // Fetch current owner
+  const owner = await getProjectOwnerAddress(
+    provider,
+    parsedConfig.options.projectName
+  )
+  proposers.push(owner)
+
+  // Fetch all previous proposers
+  const addProposerEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ProposerAdded()
+  )
+
+  // Verify if each previous proposer is still a proposer before adding it to the list
+  for (const proposerEvent of addProposerEvents) {
+    const address = proposerEvent.args.proposer
+    const isStillProposer = await ChugSplashManager.proposers(address)
+    if (isStillProposer && !proposers.includes(address)) {
+      proposers.push(address)
+    }
+  }
+
+  // Display the list of proposers
+  displayProposerTable(proposers)
+}
+
+task(TASK_CHUGSPLASH_LIST_PROPOSERS)
+  .setDescription('Lists all of the approved proposers for this project')
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .setAction(listProposersTask)
+
+export const addProposerTask = async (
+  args: {
+    configPath: string
+    newProposers: string[]
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, newProposers } = args
+
+  if (newProposers.length === 0) {
+    throw new Error('You must specify at least one proposer to add.')
+  }
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  const spinner = ora()
+  spinner.start('Confirming project ownership...')
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  // Fetch current owner
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider,
+    parsedConfig.options.projectName
+  )
+  if (projectOwnerAddress !== (await signer.getAddress())) {
+    throw new Error(`Project is owned by: ${projectOwnerAddress}.
+You attempted to add a proposer using address: ${await signer.getAddress()}`)
+  }
+
+  spinner.succeed('Project ownership confirmed.')
+
+  for (const newProposer of newProposers) {
+    spinner.start(`Adding proposer ${newProposer}...`)
+
+    const isAlreadyProposer = await ChugSplashManager.proposers(newProposer)
+    if (isAlreadyProposer) {
+      throw new Error(
+        `A proposer with the address ${newProposer} has already been added.`
+      )
+    }
+
+    await (await ChugSplashManager.addProposer(newProposer)).wait()
+
+    spinner.succeed(`Proposer ${newProposer} successfully added!`)
+  }
+
+  await listProposersTask({ configPath }, hre)
+}
+
+task(TASK_CHUGSPLASH_ADD_PROPOSER)
+  .setDescription('Adds a new proposer to the list of approved proposers')
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .addVariadicPositionalParam(
+    'newProposers',
+    'Paths to ChugSplash config files',
+    []
+  )
+  .setAction(addProposerTask)
