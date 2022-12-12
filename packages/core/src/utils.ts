@@ -287,6 +287,16 @@ export const chugsplashLog = (text: string, silent: boolean) => {
   }
 }
 
+export const displayProposerTable = (proposerAddresses: string[]) => {
+  const proposers = {}
+  proposerAddresses.forEach((address, i) => {
+    proposers[i + 1] = {
+      Address: address,
+    }
+  })
+  console.table(proposers)
+}
+
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
   silent: boolean
