@@ -33,6 +33,7 @@ import {
   monitorChugSplashSetup,
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
+  formatEther,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -522,7 +523,6 @@ Please call this task again with the correct amount of funds.
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
     if (!skipMonitorStatus) {
-      spinner.start('The deployment is being executed. This may take a moment.')
       const finalDeploymentTxnHash = await monitorExecution(
         hre,
         parsedConfig,
@@ -530,7 +530,13 @@ Please call this task again with the correct amount of funds.
         bundleId,
         spinner
       )
-      await postExecutionActions(hre, parsedConfig, finalDeploymentTxnHash)
+      await postExecutionActions(
+        hre,
+        parsedConfig,
+        finalDeploymentTxnHash,
+        undefined,
+        spinner
+      )
       spinner.succeed(
         `${projectName} successfully deployed on ${hre.network.name}.`
       )
@@ -945,7 +951,8 @@ project with a name other than ${parsedConfig.options.projectName}`
     hre,
     parsedConfig,
     finalDeploymentTxnHash,
-    newOwner
+    newOwner,
+    spinner
   )
 
   bundleState.status === ChugSplashBundleStatus.APPROVED
@@ -1351,10 +1358,10 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
       )
 
       const formattedTotalEthBalance = totalEthBalance.gt(0)
-        ? parseFloat(ethers.utils.formatEther(totalEthBalance)).toFixed(4)
+        ? formatEther(totalEthBalance, 4)
         : 0
       const formattedOwnerBalance = ownerBalance.gt(0)
-        ? parseFloat(ethers.utils.formatEther(ownerBalance)).toFixed(4)
+        ? formatEther(ownerBalance, 4)
         : 0
 
       projects[numProjectsOwned] = {
