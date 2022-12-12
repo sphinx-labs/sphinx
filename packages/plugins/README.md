@@ -202,7 +202,7 @@ ChugSplash uses deterministic proxies to deploy contracts and set their state va
 * Structs
 * Enums
 * Mappings
-* Arrays of fixed length
+* Arrays (including dynamic and nested arrays)
 * Bytes value types, i.e. bytes1, bytes2, …, bytes32
 * Dynamic bytes that are <= 31 bytes
 * Strings that are <= 31 characters
@@ -210,11 +210,7 @@ ChugSplash uses deterministic proxies to deploy contracts and set their state va
 ## Current limitations
 * ChugSplash does not currently support the following variable types:
   * Strings that are > 31 characters
-  * Nested arrays
-  * Dynamic arrays
-* You cannot use ChugSplash to upgrade existing contracts.
 * You cannot call contracts inside the constructor of any of your deployed contracts.
 * References to contracts in other ChugSplash config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
-* Contract ABIs, source code, and deployment configs are not published to NPM.
 
-All of these features will be supported in the near future. If you need any of these features before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
+These features will be supported in the near future. If you need any of these features before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.

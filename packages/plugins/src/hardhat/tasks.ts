@@ -9,7 +9,7 @@ import {
   TASK_RUN,
 } from 'hardhat/builtin-tasks/task-names'
 import { create } from 'ipfs-http-client'
-import { getChainId } from '@eth-optimism/core-utils'
+import { getChainId, remove0x } from '@eth-optimism/core-utils'
 import {
   computeBundleId,
   makeActionBundleFromConfig,
@@ -18,6 +18,7 @@ import {
   ChugSplashActionBundle,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
+  displayProposerTable,
   registerChugSplashProject,
   getChugSplashRegistry,
   displayDeploymentTable,
@@ -33,7 +34,7 @@ import {
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import * as dotenv from 'dotenv'
@@ -92,6 +93,11 @@ export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
 export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
+export const TASK_CHUGSPLASH_LIST_PROPOSERS = 'chugsplash-list-proposers'
+export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
+export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
+  'chugsplash-transfer-ownership'
+export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -1375,3 +1381,320 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
 task(TASK_CHUGSPLASH_LIST_PROJECTS)
   .setDescription('Lists all projects that are owned by the caller.')
   .setAction(listProjectsTask)
+
+export const listProposersTask = async (
+  args: { configPath: string },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath } = args
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  const proposers = []
+
+  // Fetch current owner
+  const owner = await getProjectOwnerAddress(
+    provider,
+    parsedConfig.options.projectName
+  )
+  proposers.push(owner)
+
+  // Fetch all previous proposers
+  const addProposerEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ProposerAdded()
+  )
+
+  // Verify if each previous proposer is still a proposer before adding it to the list
+  for (const proposerEvent of addProposerEvents) {
+    const address = proposerEvent.args.proposer
+    const isStillProposer = await ChugSplashManager.proposers(address)
+    if (isStillProposer && !proposers.includes(address)) {
+      proposers.push(address)
+    }
+  }
+
+  // Display the list of proposers
+  displayProposerTable(proposers)
+}
+
+task(TASK_CHUGSPLASH_LIST_PROPOSERS)
+  .setDescription('Lists all of the approved proposers for this project')
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .setAction(listProposersTask)
+
+export const addProposerTask = async (
+  args: {
+    configPath: string
+    newProposers: string[]
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, newProposers } = args
+
+  if (newProposers.length === 0) {
+    throw new Error('You must specify at least one proposer to add.')
+  }
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  const spinner = ora()
+  spinner.start('Confirming project ownership...')
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  // Fetch current owner
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider,
+    parsedConfig.options.projectName
+  )
+  if (projectOwnerAddress !== (await signer.getAddress())) {
+    throw new Error(`Project is owned by: ${projectOwnerAddress}.
+  You attempted to add a proposer using address: ${await signer.getAddress()}`)
+  }
+
+  spinner.succeed('Project ownership confirmed.')
+
+  for (const newProposer of newProposers) {
+    spinner.start(`Adding proposer ${newProposer}...`)
+
+    const isAlreadyProposer = await ChugSplashManager.proposers(newProposer)
+    if (isAlreadyProposer) {
+      throw new Error(
+        `A proposer with the address ${newProposer} has already been added.`
+      )
+    }
+
+    await (await ChugSplashManager.addProposer(newProposer)).wait()
+
+    spinner.succeed(`Proposer ${newProposer} successfully added!`)
+  }
+
+  await listProposersTask({ configPath }, hre)
+}
+
+task(TASK_CHUGSPLASH_ADD_PROPOSER)
+  .setDescription('Adds a new proposer to the list of approved proposers')
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .addVariadicPositionalParam(
+    'newProposers',
+    'Paths to ChugSplash config files',
+    []
+  )
+  .setAction(addProposerTask)
+
+export const claimProxyTask = async (
+  args: {
+    configPath: string
+    referenceName: string
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, referenceName, silent } = args
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Checking project registration...')
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  // Throw an error if the project has not been registered
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  const owner = await getProjectOwnerAddress(
+    provider,
+    parsedConfig.options.projectName
+  )
+
+  const signerAddress = await signer.getAddress()
+  if (owner !== signerAddress) {
+    throw new Error(
+      `Caller does not own the project ${parsedConfig.options.projectName}`
+    )
+  }
+
+  spinner.succeed('Project registration detected')
+  spinner.start('Claiming proxy ownership...')
+
+  const manager = getChugSplashManager(signer, parsedConfig.options.projectName)
+
+  const activeBundleId = await manager.activeBundleId()
+  if (activeBundleId !== ethers.constants.HashZero) {
+    throw new Error(
+      `A project is currently being executed. Proxy ownership has not been transferred.
+  Please wait a couple of minutes before trying again.`
+    )
+  }
+
+  await (
+    await manager.transferProxyOwnership(referenceName, signerAddress)
+  ).wait()
+
+  spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
+}
+
+task(TASK_CHUGSPLASH_CLAIM_PROXY)
+  .setDescription(
+    'Transfers ownership of a proxy from ChugSplash to the caller'
+  )
+  .addParam(
+    'configPath',
+    'Path to the ChugSplash config file for the project that owns the target contract'
+  )
+  .addParam(
+    'referenceName',
+    'Reference name of the contract that should be transferred to you'
+  )
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .setAction(claimProxyTask)
+
+export const transferOwnershipTask = async (
+  args: {
+    configPath: string
+    proxy: string
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, proxy, silent } = args
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Checking project registration...')
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  // Throw an error if the project has not been registered
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      await getChainId(hre.ethers.provider),
+      hre.network.name,
+      configPath
+    )
+  }
+
+  spinner.succeed('Project registration detected')
+  spinner.start('Checking proxy compatibility...')
+
+  const incompatibleProxyError = `ChugSplash does not support your proxy type.
+    Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+    If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`
+
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  const bytecode = await provider.getCode(proxy)
+  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      throw new Error(incompatibleProxyError)
+    }
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = ethers.utils.defaultAbiCoder.decode(
+    ['address'],
+    await provider.getStorageAt(
+      proxy,
+      '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+    )
+  )[0]
+
+  // Fetch ChugSplashManager address for this project
+  const managerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    throw new Error(incompatibleProxyError)
+  }
+
+  // If proxy owner is already ChugSplash, then throw an error
+  if (managerAddress.toLowerCase() === ownerAddress.toLowerCase()) {
+    throw new Error('Proxy is already owned by ChugSplash')
+  }
+
+  // If the signer doesn't own the target proxy, then throw an error
+  const signerAddress = await signer.getAddress()
+  if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+    throw new Error(`Target proxy is owned by: ${ownerAddress}.
+  You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
+  }
+
+  // Check that the proxy implementation function returns an address
+  const contract = new ethers.Contract(proxy, iface, signer)
+  const implementationAddress = await contract.callStatic.implementation()
+  if (!ethers.utils.isAddress(implementationAddress)) {
+    throw new Error(incompatibleProxyError)
+  }
+
+  spinner.succeed('Proxy compatibility verified')
+  spinner.start('Transferring proxy ownership to ChugSplash...')
+
+  // Transfer ownership of the proxy to the ChugSplashManager.
+  await (await contract.changeAdmin(managerAddress)).wait()
+
+  spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
+}
+
+task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
+  .setDescription('Transfers ownership of a proxy to ChugSplash')
+  .addParam(
+    'configPath',
+    'Path to the ChugSplash config file for the project that you would like to own the target contract'
+  )
+  .addParam(
+    'proxy',
+    'Address of the contract that should have its ownership transferred to ChugSplash.'
+  )
+  .addFlag('silent', "Hide all of ChugSplash's output")
+  .setAction(transferOwnershipTask)

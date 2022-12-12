@@ -62,17 +62,22 @@ export type ChugSplashAction =
   | SetImplementationAction
 
 /**
+ * ChugSplash action that is part of a bundle.
+ */
+export type BundledChugSplashAction = {
+  action: RawChugSplashAction
+  proof: {
+    actionIndex: number
+    siblings: string[]
+  }
+}
+
+/**
  * Bundle of ChugSplash actions.
  */
 export interface ChugSplashActionBundle {
   root: string
-  actions: Array<{
-    action: RawChugSplashAction
-    proof: {
-      actionIndex: number
-      siblings: string[]
-    }
-  }>
+  actions: BundledChugSplashAction[]
 }
 
 /**
