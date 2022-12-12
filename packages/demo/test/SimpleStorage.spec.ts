@@ -13,11 +13,11 @@ describe('SimpleStorage', () => {
   })
 
   it('initializes correctly', async () => {
-    expect(await FirstSimpleStorage.getNumber()).equals(1)
-    expect(await FirstSimpleStorage.getOtherStorage()).equals(
+    expect(await FirstSimpleStorage.number()).equals(1)
+    expect(await SecondSimpleStorage.stored()).equals(true)
+    expect(await SecondSimpleStorage.storageName()).equals('Second')
+    expect(await FirstSimpleStorage.otherStorage()).equals(
       SecondSimpleStorage.address
     )
-    expect(await SecondSimpleStorage.isStored()).equals(true)
-    expect(await SecondSimpleStorage.getStorageName()).equals('Second')
   })
 })
