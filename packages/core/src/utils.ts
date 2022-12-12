@@ -161,7 +161,6 @@ npx hardhat chugsplash-deploy --network ${networkName} ${configPath}
   }
 
   if (requiresOwnershipTransfer.length > 0) {
-    // TODO update this once the transfer ownership task is implemented
     throw new Error(
       `Error: Detected proxy contracts which are not managed by ChugSplash.
       ${requiresOwnershipTransfer.map(
@@ -169,7 +168,7 @@ npx hardhat chugsplash-deploy --network ${networkName} ${configPath}
       )}
 
 To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership>
+npx hardhat chugsplash-transfer-ownership --network ${networkName} --config-path ${configPath} --proxy <proxy address>
       `
     )
   }
