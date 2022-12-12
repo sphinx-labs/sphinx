@@ -192,25 +192,9 @@ npx hardhat test test/SimpleStorage.spec.ts
 
 ## How it works
 
-ChugSplash uses deterministic proxies to deploy contracts and set their state variables. An important point to mention is that the values of state variables are set in the proxy, **not** in the implementation contract. For example, the `number` variable from the `FirstSimpleStorage` contract is set to `1` **only** in the proxy contract. If you call `getNumber` on the implementation contract, it would return the default value, `0`. This is standard behavior for proxies, but it can be surprising if you haven't used proxies before. If you want the proxy to be non-upgradeable, you can set the `projectOwner` parameter in the ChugSplash config file to the zero-address. If this is confusing or problematic for your use case, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram.
+ChugSplash uses deterministic proxies to deploy contracts and set their state variables. An important point to mention is that the values of state variables are set in the proxy, **not** in the implementation contract. For example, the `number` variable from the `FirstSimpleStorage` contract is set to `1` **only** in the proxy contract. If you call `getNumber` on the implementation contract, it would return the default value, `0`. This is standard behavior for proxies, but it can be surprising if you haven't used proxies before. If you want the proxy to be non-upgradeable, you can set the `projectOwner` parameter in the ChugSplash config file to the zero-address.
 
-## Supported variable types
-* Booleans
-* Integers (signed and unsigned)
-* Addresses
-* Contract types
-* Structs
-* Enums
-* Mappings
-* Arrays (including dynamic and nested arrays)
-* Bytes value types, i.e. bytes1, bytes2, …, bytes32
-* Dynamic bytes that are <= 31 bytes
-* Strings that are <= 31 characters
 
-## Current limitations
-* ChugSplash does not currently support the following variable types:
-  * Strings that are > 31 characters
-* You cannot call contracts inside the constructor of any of your deployed contracts.
-* References to contracts in other ChugSplash config files are not supported (i.e. `{"!Ref: MyOtherProject.OtherContract "}`)
+## Reach out
 
-These features will be supported in the near future. If you need any of these features before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
+Hit up [@samgoldman0](https://t.me/samgoldman0) on Telegram if you have any questions/comments!
