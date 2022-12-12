@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.14
+
+### Patch Changes
+
+- c5cf649: Add events for default proxy and implementation contract deployment
+
 ## 0.3.13
 
 ### Patch Changes

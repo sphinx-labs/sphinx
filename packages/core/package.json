@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/core",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "description": "ChugSplash core library",
   "main": "dist/index",
   "types": "dist/index",
@@ -28,7 +28,7 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
-    "@chugsplash/contracts": "^0.3.13",
+    "@chugsplash/contracts": "^0.3.14",
     "@eth-optimism/common-ts": "^0.6.7",
     "@eth-optimism/contracts-bedrock": "^0.8.0",
     "@eth-optimism/core-utils": "^0.9.1",
