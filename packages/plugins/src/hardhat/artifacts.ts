@@ -181,6 +181,8 @@ export const createDeploymentArtifacts = async (
       contractName
     )
 
+    const receipt = await provider.getTransactionReceipt(finalDeploymentTxnHash)
+
     const metadata =
       buildInfo.output.contracts[sourceName][contractName].metadata
 
@@ -195,9 +197,15 @@ export const createDeploymentArtifacts = async (
       abi,
       transactionHash: finalDeploymentTxnHash,
       solcInputHash: buildInfo.id,
-      receipt: await provider.getTransactionReceipt(finalDeploymentTxnHash),
+      receipt: {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+        effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+      },
       numDeployments: 1,
-      metadata,
+      metadata:
+        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
       args: constructorArgValues,
       bytecode,
       deployedBytecode: await provider.getCode(contractConfig.proxy),
