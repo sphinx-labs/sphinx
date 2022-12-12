@@ -1,5 +1,28 @@
 # @chugsplash/plugins
 
+## 0.8.4
+
+### Patch Changes
+
+- ad6a5be: Update plugins README and demo
+- d5872d5: Fix uninitialized executor bug
+- 921f917: Improved logs for funding and post-execution actions
+- 693ca0f: Removed hard-coded proxy address
+- ba24573: Add list-proposers and add-proposers tasks
+- 2182a3c: Add transfer and claim ownership tasks
+- 4b8d25d: Fixes several bugs in the format of the generated artifact files
+- Updated dependencies [c5cf649]
+- Updated dependencies [3f6cabd]
+- Updated dependencies [921f917]
+- Updated dependencies [d8554c0]
+- Updated dependencies [780a395]
+- Updated dependencies [335dfc7]
+- Updated dependencies [ba24573]
+- Updated dependencies [276d5ea]
+  - @chugsplash/contracts@0.3.14
+  - @chugsplash/core@0.3.20
+  - @chugsplash/executor@0.4.10
+
 ## 0.8.3
 
 ### Patch Changes
