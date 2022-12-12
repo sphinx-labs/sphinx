@@ -8,6 +8,7 @@ import {
   isSetImplementationAction,
 } from './bundle'
 import {
+  BundledChugSplashAction,
   ChugSplashActionBundle,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
@@ -30,7 +31,7 @@ export const executeTask = async (args: {
     logger,
   } = args
 
-  logger.info(`Preparing to execute the project...`)
+  logger.info(`[ChugSplash]: preparing to execute the project...`)
 
   const executorAddress = await executor.getAddress()
 
@@ -39,107 +40,193 @@ export const executeTask = async (args: {
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
   ) {
     throw new Error(
-      `${projectName} cannot be executed. Current project status: ${bundleState.status}`
+      `${projectName} cannot be executed. current project status: ${bundleState.status}`
     )
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    logger.info(`Already executed: ${projectName}.`)
+    logger.info(`[ChugSplash]: already executed: ${projectName}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      logger.info(`Claiming the bundle for project: ${projectName}`)
+      logger.info(
+        `[ChugSplash]: claiming the bundle for project: ${projectName}`
+      )
       await (
         await chugSplashManager.claimBundle({
           value: EXECUTOR_BOND_AMOUNT,
         })
       ).wait()
-      logger.info(`Claimed the bundle.`)
+      logger.info(`[ChugSplash]: claimed the bundle`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`Another executor has already claimed the bundle.`)
+      throw new Error(`another executor has already claimed the bundle`)
     }
 
-    logger.info(`Setting the state variables...`)
+    // We execute all actions in batches to reduce the total number of transactions and reduce the
+    // cost of a deployment in general. Approaching the maximum block gas limit can cause
+    // transactions to be executed slowly as a result of the algorithms that miners use to select
+    // which transactions to include. As a result, we restrict our total gas usage to a fraction of
+    // the block gas limit.
+    const latestBlock = await executor.provider.getBlock('latest')
+    const gasFraction = 2
+    const maxGasLimit = latestBlock.gasLimit.div(gasFraction)
 
-    // Execute actions that have not been executed yet.
-    let currActionsExecuted = bundleState.actionsExecuted.toNumber()
+    /**
+     * Helper function for finding the maximum number of batch elements that can be executed from a
+     * given input list of actions. This is done by performing a binary search over the possible
+     * batch sizes and finding the largest batch size that does not exceed the maximum gas limit.
+     *
+     * @param actions List of actions to execute.
+     * @returns Maximum number of actions that can be executed.
+     */
+    const findMaxBatchSize = async (
+      actions: BundledChugSplashAction[]
+    ): Promise<number> => {
+      /**
+       * Helper function that determines if a given batch is executable.
+       *
+       * @param selected Selected actions to execute.
+       * @returns True if the batch is executable, false otherwise.
+       */
+      const executable = async (
+        selected: BundledChugSplashAction[]
+      ): Promise<boolean> => {
+        try {
+          await chugSplashManager.callStatic.executeMultipleActions(
+            selected.map((action) => action.action),
+            selected.map((action) => action.proof.actionIndex),
+            selected.map((action) => action.proof.siblings),
+            {
+              gasLimit: maxGasLimit,
+            }
+          )
 
-    // The actions have already been sorted in the order: SetStorage,
-    // DeployImplementation, SetImplementation. Here, we get the indexes
-    // of the first DeployImplementation and SetImplementation action.
-    const firstDeployImplIndex = bundle.actions.findIndex((action) =>
+          // We didn't error so this batch size is valid.
+          return true
+        } catch (err) {
+          return false
+        }
+      }
+
+      // Optimization, try to execute the entire batch at once before going through the hassle of a
+      // binary search. Can often save a significant amount of time on execution.
+      if (await executable(actions)) {
+        return actions.length
+      }
+
+      // If the full batch size isn't executable, then we need to perform a binary search to find the
+      // largest batch size that is actually executable.
+      let min = 0
+      let max = actions.length
+      while (min < max) {
+        const mid = Math.ceil((min + max) / 2)
+        if (await executable(actions.slice(0, mid))) {
+          min = mid
+        } else {
+          max = mid - 1
+        }
+      }
+
+      // No possible size works, this is a problem and should never happen.
+      if (min === 0) {
+        throw new Error(
+          'unable to find a batch size that does not exceed the block gas limit'
+        )
+      }
+
+      return min
+    }
+
+    /**
+     * Helper function for executing a list of actions in batches.
+     *
+     * @param actions List of actions to execute.
+     */
+    const executeBatchActions = async (actions: BundledChugSplashAction[]) => {
+      // Pull the bundle state from the contract so we're guaranteed to be up to date.
+      const activeBundleId = await chugSplashManager.activeBundleId()
+      const state: ChugSplashBundleState = await chugSplashManager.bundles(
+        activeBundleId
+      )
+
+      // Filter out any actions that have already been executed, sort by ascending action index.
+      const filtered = actions
+        .filter((action) => {
+          return !state.executions[action.proof.actionIndex]
+        })
+        .sort((a, b) => {
+          return a.proof.actionIndex - b.proof.actionIndex
+        })
+
+      // We can return early if there are no actions to execute.
+      if (filtered.length === 0) {
+        logger.info('[ChugSplash]: no actions left to execute')
+        return
+      }
+
+      let executed = 0
+      while (executed < filtered.length) {
+        // Figure out the maximum number of actions that can be executed in a single batch.
+        const batchSize = await findMaxBatchSize(filtered.slice(executed))
+
+        // Pull out the next batch of actions.
+        const batch = filtered.slice(executed, executed + batchSize)
+
+        // Keep 'em notified.
+        logger.info(
+          `[ChugSplash]: executing actions ${executed} to ${
+            executed + batchSize
+          } of ${filtered.length}...`
+        )
+
+        // Execute the batch.
+        await (
+          await chugSplashManager.executeMultipleActions(
+            batch.map((action) => action.action),
+            batch.map((action) => action.proof.actionIndex),
+            batch.map((action) => action.proof.siblings)
+          )
+        ).wait()
+
+        // Move on to the next batch if necessary.
+        executed += batchSize
+      }
+    }
+
+    // Find the indices of the first DeployImplementation and SetImpl actions so we know where to
+    // split up our batches. Actions have already been sorted in the order SetStorage,
+    // DeployImplementation, SetImplementation. Although we could execute SetStorage and
+    // DeployImplementation actions together, SetStorage actions can often fit in a single batch
+    // so it's more efficient to execute them separately.
+    const firstDepImpl = bundle.actions.findIndex((action) =>
       isDeployImplementationAction(fromRawChugSplashAction(action.action))
     )
-    const firstSetImplIndex = bundle.actions.findIndex((action) =>
+    const firstSetImpl = bundle.actions.findIndex((action) =>
       isSetImplementationAction(fromRawChugSplashAction(action.action))
     )
 
-    // We execute the SetStorage actions in batches, which have a size based on the maximum
-    // block gas limit. This speeds up execution considerably. To get the batch size, we divide
-    // the block gas limit by 150,000, which is the approximate gas cost of a single SetStorage
-    // action. We then divide this quantity by 2 to ensure that we're not approaching the block
-    // gas limit. For example, a network with a 30 million block gas limit would result in a
-    // batch size of (30 million / 150,000) / 2 = 100 SetStorage actions.
-    const { gasLimit: blockGasLimit } = await executor.provider.getBlock(
-      'latest'
-    )
-    const batchSize = blockGasLimit.div(150_000).div(2).toNumber()
-
     // Execute SetStorage actions in batches.
-    const setStorageActions = bundle.actions.slice(0, firstDeployImplIndex)
-    for (
-      let i = currActionsExecuted;
-      i < firstDeployImplIndex;
-      i += batchSize
-    ) {
-      const setStorageBatch = setStorageActions.slice(i, i + batchSize)
-      await (
-        await chugSplashManager.executeMultipleActions(
-          setStorageBatch.map((action) => action.action),
-          setStorageBatch.map((action) => action.proof.actionIndex),
-          setStorageBatch.map((action) => action.proof.siblings)
-        )
-      ).wait()
-      currActionsExecuted += setStorageBatch.length
-    }
+    logger.info(`[ChugSplash]: executing SetStorage actions...`)
+    await executeBatchActions(bundle.actions.slice(0, firstDepImpl))
+    logger.info(`[ChugSplash]: executed SetStorage actions`)
 
-    logger.info(
-      `State variables have been set. Deploying the implementation contracts...`
-    )
+    // Execute DeployImplementation actions in batches.
+    logger.info(`[ChugSplash]: executing DeployImplementation actions...`)
+    await executeBatchActions(bundle.actions.slice(firstDepImpl, firstSetImpl))
+    logger.info(`[ChugSplash]: executed DeployImplementation actions`)
 
-    // Execute DeployImplementation actions in series. We execute them one by one since each one
-    // costs significantly more gas than a setStorage action (usually in the millions).
-    for (let i = currActionsExecuted; i < firstSetImplIndex; i++) {
-      const action = bundle.actions[i]
-      await (
-        await chugSplashManager.executeChugSplashAction(
-          action.action,
-          action.proof.actionIndex,
-          action.proof.siblings
-        )
-      ).wait()
-      currActionsExecuted += 1
-      logger.info(
-        `Deployed implementation contract: ${
-          currActionsExecuted - firstDeployImplIndex
-        }/${firstSetImplIndex - firstDeployImplIndex}`
+    // Execute SetImplementation actions in a single transaction.
+    logger.info(`[ChugSplash]: executing SetImplementation actions...`)
+    const setImplActions = bundle.actions.slice(firstSetImpl)
+    await (
+      await chugSplashManager.completeChugSplashBundle(
+        setImplActions.map((action) => action.action),
+        setImplActions.map((action) => action.proof.actionIndex),
+        setImplActions.map((action) => action.proof.siblings)
       )
-    }
+    ).wait()
+    logger.info(`[ChugSplash]: executed SetImplementation actions`)
 
-    logger.info('Linking proxies to the implementation contracts...')
-
-    if (currActionsExecuted === firstSetImplIndex) {
-      // Complete the bundle by executing all the SetImplementation actions in a single
-      // transaction.
-      const setImplActions = bundle.actions.slice(firstSetImplIndex)
-      await (
-        await chugSplashManager.completeChugSplashBundle(
-          setImplActions.map((action) => action.action),
-          setImplActions.map((action) => action.proof.actionIndex),
-          setImplActions.map((action) => action.proof.siblings)
-        )
-      ).wait()
-    }
-
-    logger.info(`Successfully executed: ${projectName}`)
+    // We're done!
+    logger.info(`[ChugSplash]: successfully executed: ${projectName}`)
   }
 }

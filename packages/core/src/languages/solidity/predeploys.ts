@@ -40,6 +40,8 @@ export const initializeChugSplash = async (
   deployer: ethers.Signer,
   logger?: Logger
 ): Promise<void> => {
+  logger?.info('[ChugSplash]: deploying ChugSplashManager...')
+
   // Deploy the root ChugSplashManager.
   const ChugSplashManager = await doDeterministicDeploy(provider, {
     signer: deployer,
@@ -51,7 +53,8 @@ export const initializeChugSplash = async (
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ChugSplashManagerArtifact.sourceName],
   })
 
-  logger?.info('Deployed ChugSplashManager.')
+  logger?.info('[ChugSplash]: ChugSplashManager deployed')
+  logger?.info('[ChugSplash]: deploying ChugSplashBootLoader...')
 
   // Deploy the ChugSplashBootLoader.
   const ChugSplashBootLoader = await doDeterministicDeploy(provider, {
@@ -63,7 +66,7 @@ export const initializeChugSplash = async (
     salt: ethers.utils.solidityKeccak256(['string'], ['ChugSplashBootLoader']),
   })
 
-  logger?.info('Deployed ChugSplashBootloader.')
+  logger?.info('[ChugSplash]: ChugSplashBootLoader deployed')
 
   // Make sure the addresses match, just in case.
   assert(
@@ -71,7 +74,9 @@ export const initializeChugSplash = async (
     'ChugSplashBootLoader address mismatch'
   )
 
-  // Initialize the ChugSplashBootloader.
+  logger?.info('[ChugSplash]: initializing ChugSplashBootLoader...')
+
+  // Initialize the ChugSplashBootLoader.
   try {
     await (
       await ChugSplashBootLoader.initialize(
@@ -84,16 +89,18 @@ export const initializeChugSplash = async (
         CHUGSPLASH_REGISTRY_PROXY_ADDRESS
       )
     ).wait()
-    logger?.info('Initialized ChugSplashBootloader.')
+    logger?.info('[ChugSplash]: ChugSplashBootLoader initialized')
   } catch (err) {
     if (
       err.message.includes('Initializable: contract is already initialized')
     ) {
-      // Ignore.
+      logger?.info('[ChugSplash]: ChugSplashBootLoader was already initialized')
     } else {
       throw err
     }
   }
+
+  logger?.info('[ChugSplash]: deploying ChugSplashRegistry proxy...')
 
   // Deploy the ChugSplashRegistry's proxy.
   const ChugSplashRegistryProxy = await doDeterministicDeploy(provider, {
@@ -106,13 +113,15 @@ export const initializeChugSplash = async (
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyArtifact.sourceName],
   })
 
-  logger?.info('Deployed ChugSplashRegistry proxy.')
+  logger?.info('[ChugSplash]: ChugSplashRegistry proxy deployed')
 
   // Make sure the addresses match, just in case.
   assert(
     ChugSplashRegistryProxy.address === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     'ChugSplashRegistry proxy address mismatch'
   )
+
+  logger?.info('[ChugSplash]: deploying DeterministicProxyOwner...')
 
   // Deploy the DeterministicProxyOwner, which temporarily owns the ChugSplashRegistry proxy.
   const DeterministicProxyOwner = await doDeterministicDeploy(provider, {
@@ -127,13 +136,15 @@ export const initializeChugSplash = async (
     ],
   })
 
-  logger?.info('Deployed DeterministicProxyOwner.')
+  logger?.info('[ChugSplash]: DeterministicProxyOwner deployed')
 
   // Make sure the addresses match, just in case.
   assert(
     DeterministicProxyOwner.address === DETERMINISTIC_PROXY_OWNER_ADDRESS,
     'DeterministicProxyOwner address mismatch'
   )
+
+  logger?.info('[ChugSplash]: initializing ChugSplashRegistry proxy...')
 
   // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
   // when the ChugSplashRegistry's proxy is initially deployed.
@@ -152,14 +163,20 @@ export const initializeChugSplash = async (
       )
     ).wait()
 
-    logger?.info('Initialized ChugSplashRegistry proxy.')
-
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
       (await getProxyAdmin(ChugSplashRegistryProxy)) === owner,
       'ChugSplashRegistry proxy has incorrect owner'
     )
+
+    logger?.info('[ChugSplash]: ChugSplashRegistry proxy initialized')
+  } else {
+    logger?.info(
+      '[ChugSplash]: ChugSplashRegistry proxy was already initialized'
+    )
   }
+
+  logger?.info('[ChugSplash]: deploying DefaultAdapter...')
 
   // Deploy the DefaultAdapter.
   const DefaultAdapter = await doDeterministicDeploy(provider, {
@@ -171,12 +188,16 @@ export const initializeChugSplash = async (
     salt: ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
   })
 
-  logger?.info('Deployed DefaultAdapter.')
+  logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
   // Make sure the addresses match, just in case.
   assert(
     DefaultAdapter.address === DEFAULT_ADAPTER_ADDRESS,
     'DefaultAdapter address mismatch'
+  )
+
+  logger?.info(
+    '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )
 
   // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
@@ -191,8 +212,14 @@ export const initializeChugSplash = async (
         DefaultAdapter.address
       )
     ).wait()
+    logger?.info(
+      '[ChugSplash]: added the default proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the default proxy type was already added to the ChugSplashRegistry'
+    )
   }
-  logger?.info('Finished deploying ChugSplash.')
 }
 
 export const getDeterministicFactoryAddress = async (
