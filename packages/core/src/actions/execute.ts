@@ -159,7 +159,7 @@ export const executeTask = async (args: {
 
       // We can return early if there are no actions to execute.
       if (filtered.length === 0) {
-        logger.info('no actions left to execute')
+        logger.info('[ChugSplash]: no actions left to execute')
         return
       }
 
@@ -173,9 +173,9 @@ export const executeTask = async (args: {
 
         // Keep 'em notified.
         logger.info(
-          `executing actions ${executed} to ${executed + batchSize} of ${
-            filtered.length
-          }...`
+          `[ChugSplash]: executing actions ${executed} to ${
+            executed + batchSize
+          } of ${filtered.length}...`
         )
 
         // Execute the batch.
@@ -205,17 +205,17 @@ export const executeTask = async (args: {
     )
 
     // Execute SetStorage actions in batches.
-    logger.info(`executing SetStorage actions...`)
+    logger.info(`[ChugSplash]: executing SetStorage actions...`)
     await executeBatchActions(bundle.actions.slice(0, firstDepImpl))
-    logger.info(`executed SetStorage actions`)
+    logger.info(`[ChugSplash]: executed SetStorage actions`)
 
     // Execute DeployImplementation actions in batches.
-    logger.info(`executing DeployImplementation actions...`)
+    logger.info(`[ChugSplash]: executing DeployImplementation actions...`)
     await executeBatchActions(bundle.actions.slice(firstDepImpl, firstSetImpl))
-    logger.info(`executed DeployImplementation actions`)
+    logger.info(`[ChugSplash]: executed DeployImplementation actions`)
 
     // Execute SetImplementation actions in a single transaction.
-    logger.info(`executing SetImplementation actions...`)
+    logger.info(`[ChugSplash]: executing SetImplementation actions...`)
     const setImplActions = bundle.actions.slice(firstSetImpl)
     await (
       await chugSplashManager.completeChugSplashBundle(
@@ -224,9 +224,9 @@ export const executeTask = async (args: {
         setImplActions.map((action) => action.proof.siblings)
       )
     ).wait()
-    logger.info(`executed SetImplementation actions`)
+    logger.info(`[ChugSplash]: executed SetImplementation actions`)
 
     // We're done!
-    logger.info(`successfully executed: ${projectName}`)
+    logger.info(`[ChugSplash]: successfully executed: ${projectName}`)
   }
 }

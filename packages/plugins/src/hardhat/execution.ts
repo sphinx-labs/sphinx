@@ -84,7 +84,7 @@ npx hardhat chugsplash-fund --network ${
         ) {
           spinner.succeed('State variables have been set.')
         } else if (currActionType === ChugSplashActionType.SET_IMPLEMENTATION) {
-          spinner.succeed('The contracts have been deployed.')
+          spinner.succeed('Contracts have been deployed.')
           spinner.start(
             'Executor is linking the proxies with their implementation contracts...'
           )
@@ -117,7 +117,7 @@ npx hardhat chugsplash-fund --network ${
       ChugSplashManager,
       bundleId
     )
-    spinner.succeed('Got deployment info.')
+    spinner.succeed('Retrieved deployment info.')
     return finalDeploymentTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
