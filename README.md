@@ -1,6 +1,6 @@
 # ChugSplash
 
-ChugSplash is the easiest, fastest, and safest to deploy and upgrade smart contracts. We built ChugSplash because we were tired of slow, buggy, and opaque upgrades.
+ChugSplash is the easiest, fastest, and safest to deploy and upgrade smart contracts. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
 
 ## Key features
 
