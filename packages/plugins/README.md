@@ -59,9 +59,9 @@ mkdir chugsplash && echo > chugsplash/SimpleStorage.config.ts
 
 3. Copy and paste the following into your ChugSplash config file:
 ```typescript
-import { ChugSplashConfig } from '@chugsplash/core'
+import { UserChugSplashConfig } from '@chugsplash/core'
 
-const config: ChugSplashConfig = {
+const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
     projectName: 'My First Project',
