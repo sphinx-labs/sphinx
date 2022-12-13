@@ -31,7 +31,7 @@ export const executeTask = async (args: {
     logger,
   } = args
 
-  logger.info(`Preparing to execute the project...`)
+  logger.info(`[ChugSplash]: preparing to execute the project...`)
 
   const executorAddress = await executor.getAddress()
 
@@ -40,23 +40,25 @@ export const executeTask = async (args: {
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
   ) {
     throw new Error(
-      `${projectName} cannot be executed. Current project status: ${bundleState.status}`
+      `${projectName} cannot be executed. current project status: ${bundleState.status}`
     )
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    logger.info(`Already executed: ${projectName}.`)
+    logger.info(`[ChugSplash]: already executed: ${projectName}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      logger.info(`Claiming the bundle for project: ${projectName}`)
+      logger.info(
+        `[ChugSplash]: claiming the bundle for project: ${projectName}`
+      )
       await (
         await chugSplashManager.claimBundle({
           value: EXECUTOR_BOND_AMOUNT,
         })
       ).wait()
-      logger.info(`Claimed the bundle.`)
+      logger.info(`[ChugSplash]: claimed the bundle`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`Another executor has already claimed the bundle.`)
+      throw new Error(`another executor has already claimed the bundle`)
     }
 
     // We execute all actions in batches to reduce the total number of transactions and reduce the
@@ -157,7 +159,7 @@ export const executeTask = async (args: {
 
       // We can return early if there are no actions to execute.
       if (filtered.length === 0) {
-        logger.info('no actions left to execute')
+        logger.info('[ChugSplash]: no actions left to execute')
         return
       }
 
@@ -171,9 +173,9 @@ export const executeTask = async (args: {
 
         // Keep 'em notified.
         logger.info(
-          `executing actions ${executed} to ${executed + batchSize} of ${
-            filtered.length
-          }...`
+          `[ChugSplash]: executing actions ${executed} to ${
+            executed + batchSize
+          } of ${filtered.length}...`
         )
 
         // Execute the batch.
@@ -203,17 +205,17 @@ export const executeTask = async (args: {
     )
 
     // Execute SetStorage actions in batches.
-    logger.info(`executing SetStorage actions...`)
+    logger.info(`[ChugSplash]: executing SetStorage actions...`)
     await executeBatchActions(bundle.actions.slice(0, firstDepImpl))
-    logger.info(`executed SetStorage actions`)
+    logger.info(`[ChugSplash]: executed SetStorage actions`)
 
     // Execute DeployImplementation actions in batches.
-    logger.info(`executing DeployImplementation actions...`)
+    logger.info(`[ChugSplash]: executing DeployImplementation actions...`)
     await executeBatchActions(bundle.actions.slice(firstDepImpl, firstSetImpl))
-    logger.info(`executed DeployImplementation actions`)
+    logger.info(`[ChugSplash]: executed DeployImplementation actions`)
 
     // Execute SetImplementation actions in a single transaction.
-    logger.info(`executing SetImplementation actions...`)
+    logger.info(`[ChugSplash]: executing SetImplementation actions...`)
     const setImplActions = bundle.actions.slice(firstSetImpl)
     await (
       await chugSplashManager.completeChugSplashBundle(
@@ -222,9 +224,9 @@ export const executeTask = async (args: {
         setImplActions.map((action) => action.proof.siblings)
       )
     ).wait()
-    logger.info(`executed SetImplementation actions`)
+    logger.info(`[ChugSplash]: executed SetImplementation actions`)
 
     // We're done!
-    logger.info(`successfully executed: ${projectName}`)
+    logger.info(`[ChugSplash]: successfully executed: ${projectName}`)
   }
 }

@@ -1,5 +1,22 @@
 # @chugsplash/executor
 
+## 0.4.10
+
+### Patch Changes
+
+- 921f917: Improved logs for funding and post-execution actions
+- d8554c0: Prefix logs with [ChugSplash]
+- 780a395: Standardize logger messages
+- 335dfc7: Adds more logs to the ChugSplash setup process in the executor
+- Updated dependencies [3f6cabd]
+- Updated dependencies [921f917]
+- Updated dependencies [d8554c0]
+- Updated dependencies [780a395]
+- Updated dependencies [335dfc7]
+- Updated dependencies [ba24573]
+- Updated dependencies [276d5ea]
+  - @chugsplash/core@0.3.20
+
 ## 0.4.9
 
 ### Patch Changes

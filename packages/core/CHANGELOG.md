@@ -1,5 +1,19 @@
 # @chugsplash/core
 
+## 0.3.20
+
+### Patch Changes
+
+- 3f6cabd: Smarter management of batched action execution
+- 921f917: Improved logs for funding and post-execution actions
+- d8554c0: Prefix logs with [ChugSplash]
+- 780a395: Standardize logger messages
+- 335dfc7: Adds more logs to the ChugSplash setup process in the executor
+- ba24573: Add list-proposers and add-proposers tasks
+- 276d5ea: Adds function comments to several type checking functions
+- Updated dependencies [c5cf649]
+  - @chugsplash/contracts@0.3.14
+
 ## 0.3.19
 
 ### Patch Changes

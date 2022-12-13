@@ -1,5 +1,25 @@
 # @chugsplash/demo
 
+## 0.3.19
+
+### Patch Changes
+
+- ad6a5be: Update plugins README and demo
+- Updated dependencies [ad6a5be]
+- Updated dependencies [d5872d5]
+- Updated dependencies [3f6cabd]
+- Updated dependencies [921f917]
+- Updated dependencies [d8554c0]
+- Updated dependencies [780a395]
+- Updated dependencies [335dfc7]
+- Updated dependencies [693ca0f]
+- Updated dependencies [ba24573]
+- Updated dependencies [2182a3c]
+- Updated dependencies [276d5ea]
+- Updated dependencies [4b8d25d]
+  - @chugsplash/plugins@0.8.4
+  - @chugsplash/core@0.3.20
+
 ## 0.3.18
 
 ### Patch Changes
