@@ -64,7 +64,7 @@ npx hardhat chugsplash-fund --network ${
           hre.network.name
         } --amount ${amountToDeposit.mul(
           EXECUTION_BUFFER_MULTIPLIER
-        )} <configPath>
+        )} --config-path <configPath>
         `
       )
     }
