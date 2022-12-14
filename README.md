@@ -1,6 +1,21 @@
 # ChugSplash
 
-ChugSplash is the easiest, fastest, and safest to deploy and upgrade smart contracts. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
+The easiest, fastest, and safest way to deploy and upgrade smart contracts. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
+
+## Table of Contents
+
+- [ChugSplash](#chugsplash)
+  - [Table of Contents](#table-of-contents)
+  - [Key features](#key-features)
+  - [Install](#install)
+  - [Usage](#usage)
+  - [Tutorial](#tutorial)
+  - [Bonus features](#bonus-features)
+  - [Coming soon...](#coming-soon)
+  - [Reach out](#reach-out)
+  - [Maintainers](#maintainers)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Key features
 
@@ -34,14 +49,126 @@ const config = {
 }
 ```
 
+## Install
+
+With Yarn:
+```
+yarn add --dev @chugsplash/plugins @chugsplash/core
+```
+
+With NPM:
+```
+yarn add --dev @chugsplash/plugins @chugsplash/core
+```
+
+## Usage
+
+In `hardhat.config.ts`, import `chugsplash/plugins`:
+```ts
+import '@chugsplash/plugins'
+```
+
+Update the `outputSelection` setting in `hardhat.config.ts`:
+```ts
+const config: HardhatUserConfig = {
+    ...
+    solidity: {
+        ...
+        settings: {
+            // you must include the following
+            outputSelection: {
+                '*': {
+                  '*': ['storageLayout']
+                }
+            }
+        }
+    }
+}
+export default config
+```
+
+Create a `chugsplash.config.ts` file:
+```ts
+import { UserChugSplashConfig } from '@chugsplash/core'
+
+const enum TestEnum {
+  'A',
+  'B',
+  'C',
+}
+
+const config: UserChugSplashConfig = {
+  // First, set the configuration options for the project.
+  options: {
+    projectName: 'Project Name',
+  },
+  // Then create a definition for each contract you would like to deploy
+  contracts: {
+    // Each definition should have a unique reference name to identify it after deployment
+    DeployedSimpleStorage: {
+      // You must specify the name of the source contract
+      contract: 'SimpleStorage',
+      // Finally, specify the state variables you would like to set during the deployment and their values
+      variables: {
+        // Primitives
+        number: 1,
+        bool: true,
+        string: 'First',
+        address: '0x1111111111111111111111111111111111111111',
+
+        // Enums
+        enum: SimpleEnum.B,
+
+        // Dynamic & Fixed Arrays
+        intArray: [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+
+        // Structs
+        complexStruct: {
+          a: 1,
+          b: {
+            1: 'value',
+          },
+        },
+
+        // Mappings
+        intMapping: {
+          1: 'value',
+          '-1': 'value'
+        },
+        stringMapping: {
+          string: 'value'
+        },
+        addressMapping: {
+          '0x1111111111111111111111111111111111111111': 'value'
+        },
+        bytesMapping: {
+          '0xabcd1234': 'testVal',
+        },
+        nestedMapping: {
+          firstKey: {
+            secondKey: 'nestedVal',
+          },
+        }
+      },
+    },
+  }
+}
+export default config
+```
+
+Start the deployment:
+```
+npx hardhat chugsplash-deploy chugsplash.config.ts
+```
+
+## Tutorial
+
+[Click here](https://github.com/chugsplash/chugsplash/blob/develop/packages/plugins/README.md) for a more comprehensive tutorial.
+
 ## Bonus features
 * Verifies source code on Etherscan automatically.
 * Generates deployment artifacts in the same format as hardhat-deploy.
 * Deploys contracts at the same addresses across networks.
-
-## Tutorial
-
-[Click here](https://github.com/chugsplash/chugsplash/blob/develop/packages/plugins/README.md) for a tutorial.
 
 ## Coming soon...
 * ChugSplash will automatically distribute the source code and ABI for deployments via `npm`.
@@ -49,3 +176,18 @@ const config = {
 ## Reach out
 
 If you need anything before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
+
+## Maintainers
+
+[@sam-goldman](https://github.com/sam-goldman)
+[@rpate97](https://github.com/RPate97)
+
+## Contributing
+
+PRs accepted.
+
+Small note: If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
+
+## License
+
+MIT © 2022
