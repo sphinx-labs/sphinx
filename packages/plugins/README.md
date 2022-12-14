@@ -86,7 +86,7 @@ Take a moment to familiarize yourself with the layout of the ChugSplash config f
 
 4. Deploy the contracts locally:
 ```
-npx hardhat chugsplash-deploy chugsplash/SimpleStorage.config.ts
+npx hardhat chugsplash-deploy --config-path chugsplash/SimpleStorage.config.ts
 ```
 
 ### Testing your deployments

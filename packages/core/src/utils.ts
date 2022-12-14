@@ -155,7 +155,7 @@ export const checkValidUpgrade = async (
       `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
 
 Run the following command to deploy this project for the first time:
-npx hardhat chugsplash-deploy --network ${networkName} ${configPath}
+npx hardhat chugsplash-deploy --network ${networkName} --config-path ${configPath}
       `
     )
   }

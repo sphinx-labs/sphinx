@@ -211,10 +211,7 @@ export const chugsplashDeployTask = async (
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .setDescription('Deploys a ChugSplash config file')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to deploy'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to deploy')
   .addOptionalParam(
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
@@ -397,10 +394,7 @@ with a name other than ${parsedConfig.options.projectName}`
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash project')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to propose'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addOptionalParam(
     'ipfsUrl',
@@ -473,12 +467,12 @@ Owner's address: ${projectOwnerAddress}`)
     throw new Error(`You must first propose the project before it can be approved.
 No funds were sent. To propose the project, run the command:
 
-npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-propose --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.succeed(`Project has already been approved. It should be executed shortly.
 No funds were sent. Run the following command to monitor its status:
 
-npx hardhat chugsplash-monitor --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-monitor --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(
       `Project was already completed on ${hre.network.name}. No funds were sent.`
@@ -551,10 +545,7 @@ task(TASK_CHUGSPLASH_APPROVE)
     'amount',
     'Amount to send to fund the deployment, denominated in wei'
   )
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to approve'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to approve')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(chugsplashApproveTask)
 
@@ -968,10 +959,7 @@ project with a name other than ${parsedConfig.options.projectName}`
 
 task(TASK_CHUGSPLASH_MONITOR)
   .setDescription('Displays the status of a ChugSplash bundle')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to monitor'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to monitor')
   .setAction(monitorTask)
 
 export const chugsplashFundTask = async (
@@ -1033,7 +1021,7 @@ task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
   .addParam('amount', 'Amount to send in wei')
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashFundTask)
 
 task(TASK_NODE)
@@ -1221,10 +1209,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
 task(TASK_CHUGSPLASH_CANCEL)
   .setDescription('Cancel an active ChugSplash project.')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to cancel'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to cancel')
   .setAction(chugsplashCancelTask)
 
 export const chugsplashWithdrawTask = async (
@@ -1285,7 +1270,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     throw new Error(
       `Project is currently active. You must cancel the project in order to withdraw funds:
 
-npx hardhat chugsplash-cancel --network ${hre.network.name} ${configPath}
+npx hardhat chugsplash-cancel --network ${hre.network.name} --config-path ${configPath}
         `
     )
   }
@@ -1315,7 +1300,7 @@ task(TASK_CHUGSPLASH_WITHDRAW)
     'Withdraw funds in a ChugSplash project belonging to the project owner.'
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashWithdrawTask)
 
 export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
