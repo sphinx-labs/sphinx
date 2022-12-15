@@ -177,7 +177,7 @@ npx hardhat chugsplash-deploy chugsplash.config.ts
 
 ## Reach out
 
-If you need anything before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
+If you need anything before you can start using ChugSplash for your projects, please [reach out](https://discord.com/channels/1053048300565188729/1053048301143986219) and it will be prioritized.
 
 ## Maintainers
 
