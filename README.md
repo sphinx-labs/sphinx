@@ -1,19 +1,15 @@
 # ChugSplash
 
-The easiest, fastest, and safest way to deploy and upgrade smart contracts.
-
-ChugSplash is designed to give you complete confidence throughout the entire deployment process. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
+ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It's designed for deployments that are complex or high-risk.
 
 ## Table of Contents
 
 - [ChugSplash](#chugsplash)
   - [Table of Contents](#table-of-contents)
-  - [Key features](#key-features)
+  - [Features](#key-features)
   - [Install](#install)
   - [Usage](#usage)
   - [Tutorial](#tutorial)
-  - [Bonus features](#bonus-features)
-  - [Coming soon...](#coming-soon)
   - [Reach out](#reach-out)
   - [Maintainers](#maintainers)
   - [Contributing](#contributing)
@@ -21,12 +17,36 @@ ChugSplash is designed to give you complete confidence throughout the entire dep
 
 ## Key features
 
-* **Fully deterministic.** Standard contract deployments are non-deterministic and can lead to dangerous edge cases when halted midway. ChugSplash deployments are fully deterministic by default. Additionally, ChugSplash lets you view an exact line-by-line diff of a proposed deployment or upgrade. Since ChugSplash is deterministic, the diff is guaranteed to be applied correctly.
-* **Trustless deployments**. Every time you touch your private keys is an opportunity for an attack or a mistake. ChugSplash lets you approve a deployment of any size with a single tiny transaction that fits on the screen of your hardware wallet. ChugSplash will then trustlessly execute your deployment in minutes. No more burner wallets, no more worrying about gas prices, and no more stop-and-go deployments.
-* **Define deployments declaratively.** ChugSplash says goodbye to deployment scripts. With ChugSplash, you define your deployments declaratively in a single configuration file. It's like [Terraform](https://www.terraform.io/) for smart contracts. Here's what a deployment looks like:
+* **Less code.** ChugSplash significantly reduces the amount of code it takes to deploy contracts. This is because it lets you define your deployments declaratively inside of a single file instead of writing deployment scripts. It's like [Terraform](https://www.terraform.io/) for smart contracts. [Here's a sample deployment](#usage).
+* **Faster deployments**. ChugSplash deploys your contracts faster than existing tools. It does this by relying on a network of bots that trustlessly and efficiently complete the entire deployment within minutes. All you need to do is approve the deployment with a single tiny transaction. No burner wallets, no worrying about gas prices, and no stop-and-go deployments.
+* **Safe upgrades**. ChugSplash makes it simple to safely upgrade your contracts. It displays the exact variables and lines of code in every modified contract via a git-style diff. Upgrades can be defined in exactly the same declarative format as deployments.
+* **Fully secure.** ChugSplash deployments are not prone to dangerous edge cases like normal deployments. Standard deployment scripts are vulnerable to random local errors, unexpected bugs, and any number of external attacks. Contracts deployed or upgraded using ChugSplash are immune to these dangers because ChugSplash is fully deterministic.
 
+### Bonus features
+
+* Verifies source code on Etherscan automatically.
+* Deploys contracts at the same addresses across networks via `CREATE2`.
+* Generates deployment artifacts in the same format as hardhat-deploy.
+
+## Install
+
+With Yarn:
+```
+yarn add --dev @chugsplash/plugins @chugsplash/core
+```
+
+With NPM:
+```
+npm install --save-dev @chugsplash/plugins @chugsplash/core
+```
+
+## Usage
+
+Define a ChugSplash deployment in `chugsplash.config.ts`:
 ```ts
-const config = {
+import { UserChugSplashConfig } from '@chugsplash/core'
+
+const config: UserChugSplashConfig = {
   contracts: {
     MyToken: {
       source: 'ERC20',
@@ -43,41 +63,26 @@ const config = {
     MyMerkleDistributor: {
       source: 'MerkleDistributor',
       variables: {
-        token: '{{ MyToken }}', // Reference another contract's address. No keeping track of contract dependencies!
+        token: '{{ MyToken }}', // MyToken's address. No keeping track of dependencies!
         merkleRoot: "0xc24c743268ce26f68cb820c7b58ec4841de32da07de505049b09405e0372cc41"
       }
     }
   },
 }
+export default config
 ```
 
-## Install
-
-With Yarn:
-```
-yarn add --dev @chugsplash/plugins @chugsplash/core
-```
-
-With NPM:
-```
-yarn add --dev @chugsplash/plugins @chugsplash/core
-```
-
-## Usage
-
-In `hardhat.config.ts`, import `chugsplash/plugins`:
+In `hardhat.config.ts`:
 ```ts
+// Import ChugSplash
 import '@chugsplash/plugins'
-```
 
-Update the `outputSelection` setting in `hardhat.config.ts`:
-```ts
+// Update the `outputSelection` setting
 const config: HardhatUserConfig = {
     ...
     solidity: {
         ...
         settings: {
-            // you must include the following
             outputSelection: {
                 '*': {
                   '*': ['storageLayout']
@@ -86,102 +91,25 @@ const config: HardhatUserConfig = {
         }
     }
 }
-export default config
 ```
 
-Create a `chugsplash.config.ts` file:
-```ts
-import { UserChugSplashConfig } from '@chugsplash/core'
-
-const enum TestEnum {
-  'A',
-  'B',
-  'C',
-}
-
-const config: UserChugSplashConfig = {
-  // First, set the configuration options for the project.
-  options: {
-    projectName: 'Project Name',
-  },
-  // Then create a definition for each contract you would like to deploy
-  contracts: {
-    // Each definition should have a unique reference name to identify it after deployment
-    DeployedSimpleStorage: {
-      // You must specify the name of the source contract
-      contract: 'SimpleStorage',
-      // Finally, specify the state variables you would like to set during the deployment and their values
-      variables: {
-        // Primitives
-        number: 1,
-        bool: true,
-        string: 'First',
-        address: '0x1111111111111111111111111111111111111111',
-
-        // Enums
-        enum: SimpleEnum.B,
-
-        // Dynamic & Fixed Arrays
-        intArray: [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
-
-        // Structs
-        complexStruct: {
-          a: 1,
-          b: {
-            1: 'value',
-          },
-        },
-
-        // Mappings
-        intMapping: {
-          1: 'value',
-          '-1': 'value'
-        },
-        stringMapping: {
-          string: 'value'
-        },
-        addressMapping: {
-          '0x1111111111111111111111111111111111111111': 'value'
-        },
-        bytesMapping: {
-          '0xabcd1234': 'testVal',
-        },
-        nestedMapping: {
-          firstKey: {
-            secondKey: 'nestedVal',
-          },
-        }
-      },
-    },
-  }
-}
-export default config
+Deploy:
 ```
-
-Start the deployment:
-```
-npx hardhat chugsplash-deploy chugsplash.config.ts
+npx hardhat chugsplash-deploy --config-path chugsplash.config.ts
 ```
 
 ## Tutorial
 
 [Click here](https://github.com/chugsplash/chugsplash/blob/develop/packages/plugins/README.md) for a more comprehensive tutorial.
 
-## Bonus features
-* Verifies source code on Etherscan automatically.
-* Generates deployment artifacts in the same format as hardhat-deploy.
-* Deploys contracts at the same addresses across networks.
-
-## Coming soon...
-* ChugSplash will automatically distribute the source code and ABI for deployments via `npm`.
-
 ## Reach out
 
-If you need anything before you can start using ChugSplash for your projects, please reach out to [@samgoldman0](https://t.me/samgoldman0) on Telegram and it will be prioritized.
+If you need anything before you can start using ChugSplash for your projects, please [reach out](https://discord.com/channels/1053048300565188729/1053048301143986219) and it will be prioritized.
 
 ## Maintainers
 
-[@sam-goldman](https://github.com/sam-goldman)
+[@smartcontracts](https://github.com/smartcontracts)\
+[@sam-goldman](https://github.com/sam-goldman)\
 [@rpate97](https://github.com/RPate97)
 
 ## Contributing
