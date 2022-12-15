@@ -1,6 +1,8 @@
 # ChugSplash
 
-The easiest, fastest, and safest way to deploy and upgrade smart contracts. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
+The easiest, fastest, and safest way to deploy and upgrade smart contracts.
+
+ChugSplash is designed to give you complete confidence throughout the entire deployment process. We built ChugSplash because we were tired of slow, buggy, and opaque deployments.
 
 ## Table of Contents
 
@@ -19,8 +21,8 @@ The easiest, fastest, and safest way to deploy and upgrade smart contracts. We b
 
 ## Key features
 
+* **Fully deterministic.** Standard contract deployments are non-deterministic and can lead to dangerous edge cases when halted midway. ChugSplash deployments are fully deterministic by default. Additionally, ChugSplash lets you view an exact line-by-line diff of a proposed deployment or upgrade. Since ChugSplash is deterministic, the diff is guaranteed to be applied correctly.
 * **Trustless deployments**. Every time you touch your private keys is an opportunity for an attack or a mistake. ChugSplash lets you approve a deployment of any size with a single tiny transaction that fits on the screen of your hardware wallet. ChugSplash will then trustlessly execute your deployment in minutes. No more burner wallets, no more worrying about gas prices, and no more stop-and-go deployments.
-* **Fully deterministic.** Standard contract deployments are non-deterministic and can lead to dangerous edge cases when halted midway. ChugSplash deployments are fully deterministic by default. Additionally, ChugSplash lets you view an exact line-by-line diff of an upgrade before it's executed. Since ChugSplash is deterministic, the diff is guaranteed to be applied correctly.
 * **Define deployments declaratively.** ChugSplash says goodbye to deployment scripts. With ChugSplash, you define your deployments declaratively in a single configuration file. It's like [Terraform](https://www.terraform.io/) for smart contracts. Here's what a deployment looks like:
 
 ```ts
