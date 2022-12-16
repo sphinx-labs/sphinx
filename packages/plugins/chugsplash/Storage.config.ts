@@ -15,7 +15,7 @@ const config: UserChugSplashConfig = {
     MySimpleStorage: {
       contract: 'SimpleStorage',
       variables: {
-        myStorage: { '!Ref': 'MyStorage' },
+        myStorage: '{{ MyStorage }}',
       },
     },
   },
