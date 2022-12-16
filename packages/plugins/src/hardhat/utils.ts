@@ -1,6 +1,5 @@
 import path from 'path'
 
-import * as dotenv from 'dotenv'
 import {
   ParsedChugSplashConfig,
   getChugSplashManagerProxyAddress,
@@ -10,9 +9,6 @@ import {
 } from '@chugsplash/core'
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
-
-// Load environment variables from .env
-dotenv.config()
 
 export const writeHardhatSnapshotId = async (
   hre: any,
@@ -56,7 +52,7 @@ export const loadParsedChugSplashConfig = (
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   let config = require(path.resolve(configPath))
   config = config.default || config
-  return parseChugSplashConfig(config, process.env)
+  return parseChugSplashConfig(config)
 }
 
 export const isProjectRegistered = async (
