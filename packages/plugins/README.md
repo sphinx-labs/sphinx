@@ -89,8 +89,6 @@ Take a moment to familiarize yourself with the layout of the ChugSplash config f
 npx hardhat chugsplash-deploy --config-path chugsplash/SimpleStorage.config.ts
 ```
 
-Note: If you'd like to deploy on a live network, please [reach out](https://discord.com/channels/1053048300565188729/1053048301143986219)!
-
 ### Testing your deployments
 
 1. In your existing test folder, create a new test file called `SimpleStorage.spec.ts`.
@@ -156,4 +154,4 @@ An important point to mention is that the values of state variables are set in t
 
 ## Reach out
 
-If you need anything before you can start using ChugSplash for your projects, please [reach out](https://discord.com/channels/1053048300565188729/1053048301143986219) and it will be prioritized.
+If you have questions or want to request a feature, join our [Discord channel](https://discord.com/channels/1053048300565188729/1053048301143986219)!
