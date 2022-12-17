@@ -154,4 +154,4 @@ An important point to mention is that the values of state variables are set in t
 
 ## Reach out
 
-If you have questions or want to request a feature, join our [Discord channel](https://discord.com/channels/1053048300565188729/1053048301143986219)!
+If you have questions or want to request a feature, join our [Discord channel](https://discord.gg/4cdTjkax)!
