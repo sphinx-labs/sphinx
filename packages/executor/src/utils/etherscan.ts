@@ -19,7 +19,6 @@ import {
   toVerifyRequest,
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
-import { resolveEtherscanApiKey } from '@nomiclabs/hardhat-etherscan/dist/src/resolveEtherscanApiKey'
 import {
   retrieveContractBytecode,
   getEtherscanEndpoints,
@@ -353,18 +352,15 @@ export const getEtherscanInfo = async (
   etherscanApiKey: string
   etherscanApiEndpoints: EtherscanURLs
 }> => {
-  const { network: verificationNetwork, urls: etherscanApiEndpoints } =
-    await getEtherscanEndpoints(
-      // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
-      provider as any,
-      networkName,
-      chainConfig,
-      customChains
-    )
+  const { urls: etherscanApiEndpoints } = await getEtherscanEndpoints(
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
+    networkName,
+    chainConfig,
+    customChains
+  )
 
-  const etherscanApiKey = resolveEtherscanApiKey(apiKey, verificationNetwork)
-
-  return { etherscanApiKey, etherscanApiEndpoints }
+  return { etherscanApiKey: apiKey, etherscanApiEndpoints }
 }
 
 export const linkProxyWithImplementation = async (

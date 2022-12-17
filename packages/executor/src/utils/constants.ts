@@ -12,13 +12,14 @@ export const customChains = [
       browserURL: 'https://goerli-optimism.etherscan.io',
     },
   },
+  {
+    network: 'arbitrum-goerli',
+    chainId: 421613,
+    urls: {
+      apiURL: 'https://api-goerli.arbiscan.io/api',
+      browserURL: 'https://goerli.arbiscan.io/',
+    },
+  },
 ]
 
-export const etherscanApiKey = {
-  optimisticGoerli: process.env.OPT_ETHERSCAN_API_KEY
-    ? process.env.OPT_ETHERSCAN_API_KEY
-    : '',
-  goerli: process.env.ETH_ETHERSCAN_API_KEY
-    ? process.env.ETH_ETHERSCAN_API_KEY
-    : '',
-}
+export const etherscanApiKey = process.env.ETHERSCAN_API_KEY

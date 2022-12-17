@@ -54,9 +54,6 @@ type State = {
   wallet: ethers.Wallet
 }
 
-// TODO: Add logging agent for docker container and connect to a managed sink such as logz.io
-// Refactor chugsplash commands to decide whether to use the executor based on the target network
-
 export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   constructor(options?: Partial<Options>) {
     super({
@@ -64,7 +61,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
-      loopIntervalMs: 1000,
+      loopIntervalMs: 5000,
       options,
       optionsSpec: {
         url: {
@@ -175,7 +172,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
       registry.filters.EventAnnounced('ChugSplashBundleApproved'),
-      this.state.lastBlockNumber + 1,
+      this.state.lastBlockNumber,
       latestBlockNumber
     )
 
