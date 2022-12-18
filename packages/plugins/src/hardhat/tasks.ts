@@ -45,6 +45,7 @@ import {
   getArtifactsFromCanonicalConfig,
 } from '@chugsplash/executor'
 
+import { getSampleContractFile } from '../sample-project'
 import {
   getBuildInfo,
   getContractArtifact,
@@ -69,7 +70,10 @@ import {
 } from '../messages'
 import { monitorExecution, postExecutionActions } from './execution'
 import { initializeExecutor } from '../executor'
-import {} from '../'
+import {
+  sampleTestFileJavaScript,
+  sampleTestFileTypeScript,
+} from '../sample-project/sample-tests'
 
 // Load environment variables from .env
 dotenv.config()
@@ -84,6 +88,7 @@ export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
+export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
@@ -1690,3 +1695,98 @@ task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(transferOwnershipTask)
+
+export const chugsplashInitTask = async (
+  args: {
+    silent: boolean
+  },
+  hre: any
+) => {
+  const { silent } = args
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Initializing ChugSplash project...')
+
+  // Create the ChugSplash folder if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.chugsplash)) {
+    fs.mkdirSync(hre.config.paths.chugsplash)
+  }
+
+  // Create a folder for smart contract source files if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.sources)) {
+    fs.mkdirSync(hre.config.paths.sources)
+  }
+
+  // Create a folder for test files if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.tests)) {
+    fs.mkdirSync(hre.config.paths.tests)
+  }
+
+  // First, we'll create the sample ChugSplash file.
+
+  // True if the Hardhat project is TypeScript and false if it's JavaScript.
+  const isTypeScriptProject =
+    path.extname(hre.config.paths.configFile) === '.ts'
+
+  // Get the path from the current directory to the sample source files
+  const sampleSrcPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'src',
+    'sample-project'
+  )
+
+  // Check if the sample ChugSplash file already exists.
+  const chugsplashFileName = isTypeScriptProject
+    ? 'hello-chugsplash.ts'
+    : 'hello-chugsplash.js'
+  const chugsplashFilePathDest = path.join(
+    hre.config.paths.chugsplash,
+    chugsplashFileName
+  )
+  if (!fs.existsSync(chugsplashFilePathDest)) {
+    // Copy the sample ChugSplash file to the destination path.
+    fs.copyFileSync(
+      path.join(sampleSrcPath, chugsplashFileName),
+      chugsplashFilePathDest
+    )
+  }
+
+  // Next, we'll create the sample contract file.
+
+  // Get the Solidity compiler version from the Hardhat config.
+  const [{ version: solcVersion }] = hre.config.solidity.compilers
+
+  // Check if the sample smart contract exists.
+  const contractFilePath = path.join(
+    hre.config.paths.sources,
+    'HelloChugSplash.sol'
+  )
+  if (!fs.existsSync(contractFilePath)) {
+    // Create the sample contract file.
+    fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
+  }
+
+  // Lastly, we'll create the sample test file.
+
+  // Check if the sample test file exists.
+  const testFileName = isTypeScriptProject
+    ? 'HelloChugSplash.spec.ts'
+    : 'HelloChugSplash.test.js'
+  const testFilePath = path.join(hre.config.paths.tests, testFileName)
+  if (!fs.existsSync(testFilePath)) {
+    // Create the sample test file.
+    fs.writeFileSync(
+      testFilePath,
+      isTypeScriptProject ? sampleTestFileTypeScript : sampleTestFileJavaScript
+    )
+  }
+
+  spinner.succeed('Initialized ChugSplash project.')
+}
+
+task(TASK_CHUGSPLASH_INIT)
+  .setDescription('Sets up a ChugSplash project.')
+  .addFlag('silent', "Hide ChugSplash's output")
+  .setAction(chugsplashInitTask)
