@@ -12,6 +12,7 @@ import {
   getMinimumCompilerInput,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 // TODO
 export type ContractArtifact = any
@@ -156,11 +157,14 @@ export const filterChugSplashInputs = async (
 }
 
 export const createDeploymentArtifacts = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string
 ) => {
-  createDeploymentFolderForNetwork(hre.network.name, hre.config.paths.deployed)
+  createDeploymentFolderForNetwork(
+    hre.network.name,
+    hre.config.paths.deployments
+  )
 
   const provider = hre.ethers.provider
 
@@ -216,7 +220,7 @@ export const createDeploymentArtifacts = async (
 
     writeDeploymentArtifact(
       hre.network.name,
-      hre.config.paths.deployed,
+      hre.config.paths.deployments,
       deploymentArtifact,
       referenceName
     )

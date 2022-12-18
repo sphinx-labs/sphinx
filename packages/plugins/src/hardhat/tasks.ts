@@ -1074,7 +1074,7 @@ task(TASK_TEST)
   .setAction(
     async (
       args: { show: boolean; noCompile: boolean; confirm: boolean },
-      hre: any,
+      hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
       const { show, noCompile } = args
@@ -1082,7 +1082,7 @@ task(TASK_TEST)
       if (chainId === 31337) {
         try {
           const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployed),
+            path.basename(hre.config.paths.deployments),
             hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
             '.snapshotId'
           )
@@ -1127,7 +1127,7 @@ task(TASK_RUN)
         noCompile: boolean
         confirm: boolean
       },
-      hre: any,
+      hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
       const { deployAll, noCompile } = args
