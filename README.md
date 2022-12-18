@@ -29,8 +29,9 @@ ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It'
 
 ## Documentation
 
-1. [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define a deployment or upgrade. Start here.
-2. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
+1. [Setting up a ChugSplash project](https://github.com/chugsplash/chugsplash/blob/develop/docs/setup-project.md): Take your first steps with ChugSplash.
+2. [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define a deployment or upgrade.
+3. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
 
 ## Reach out
 
