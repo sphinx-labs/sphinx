@@ -12,7 +12,11 @@ export const variables = {
   uint8Test: 255,
   boolTest: true,
   stringTest: 'testString',
+  longStringTest:
+    'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
   bytesTest: '0xabcd1234',
+  longBytesTest:
+    '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
   contractTest: '0x' + '11'.repeat(20),
   enumTest: TestEnum.B,
   simpleStruct: {
@@ -65,6 +69,10 @@ export const variables = {
   ],
   stringToStringMapping: {
     testKey: 'testVal',
+  },
+  longStringToLongStringMapping: {
+    abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz:
+      'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
   },
   stringToUint256Mapping: {
     testKey: 12341234,
