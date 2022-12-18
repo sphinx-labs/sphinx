@@ -1,3 +1,5 @@
+import '@chugsplash/plugins'
+import { chugsplash } from 'hardhat'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
