@@ -9,16 +9,17 @@ import {
 } from '@chugsplash/core'
 import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 export const writeHardhatSnapshotId = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   networkName?: string
 ) => {
   const inferredNetworkName =
     hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   await writeSnapshotId(
     networkName === undefined ? inferredNetworkName : networkName,
-    hre.config.paths.deployed,
+    hre.config.paths.deployments,
     await hre.network.provider.send('evm_snapshot', [])
   )
 }
@@ -28,7 +29,7 @@ export const writeHardhatSnapshotId = async (
  *
  * @param hre Hardhat runtime environment
  */
-export const cleanThenCompile = async (hre: any) => {
+export const cleanThenCompile = async (hre: HardhatRuntimeEnvironment) => {
   // Clean the artifacts to ensure that we're working with the latest build info.
   await hre.run(TASK_CLEAN, {
     quiet: true,

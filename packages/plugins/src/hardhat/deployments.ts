@@ -48,7 +48,7 @@ import { monitorExecution, postExecutionActions } from './execution'
  * @param contractName Name of the contract in the config file.
  */
 export const deployAllChugSplashConfigs = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
@@ -247,7 +247,7 @@ export const deployChugSplashConfig = async (
 }
 
 export const getContract = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   provider: ethers.providers.JsonRpcProvider,
   referenceName: string
 ): Promise<ethers.Contract> => {
@@ -303,11 +303,13 @@ ${configsWithFileNames.map(
   return Proxy
 }
 
-export const resetChugSplashDeployments = async (hre: any) => {
+export const resetChugSplashDeployments = async (
+  hre: HardhatRuntimeEnvironment
+) => {
   const networkFolderName =
     hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   const snapshotIdPath = path.join(
-    path.basename(hre.config.paths.deployed),
+    path.basename(hre.config.paths.deployments),
     networkFolderName,
     '.snapshotId'
   )
