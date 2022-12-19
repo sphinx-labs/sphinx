@@ -45,7 +45,7 @@ A ChugSplash file contains all of the information necessary to define a deployme
 
 ### Configuration settings
 
-The `options` property in your ChugSplash file contains only a single field, `projectName`. The project name can be any name you choose.
+The `options` property in your ChugSplash file contains only a single field, `projectName`. The project name can be any name you choose, but they're reserved on a first-come, first-served basis.
 
 ### Contract definitions
 
