@@ -9,7 +9,6 @@ ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It'
 - [Reach out](#reach-out)
 - [Install](#install)
 - [Usage](#usage)
-- [Tutorial](#tutorial)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
 - [License](#license)
@@ -83,33 +82,34 @@ export default config
 
 In `hardhat.config.ts`:
 ```ts
-// Import ChugSplash
 import '@chugsplash/plugins'
 
-// Update the `outputSelection` setting
 const config: HardhatUserConfig = {
-    ...
-    solidity: {
-        ...
+  ... // Other Hardhat settings go here
+  solidity: {
+    ... // Other Solidity settings go here
+    compilers: [
+      {
+        version: ... , // Solidity compiler version
         settings: {
-            outputSelection: {
-                '*': {
-                  '*': ['storageLayout']
-                }
-            }
-        }
-    }
+          outputSelection: {
+            '*': {
+              '*': ['storageLayout'],
+            },
+          },
+        },
+      },
+    ]
+  }
 }
+
+export default config
 ```
 
 Deploy:
 ```
 npx hardhat chugsplash-deploy --config-path chugsplash.config.ts
 ```
-
-## Tutorial
-
-[Click here](https://github.com/chugsplash/chugsplash/blob/develop/packages/plugins/README.md) for a more comprehensive tutorial.
 
 ## Maintainers
 
