@@ -20,6 +20,14 @@ contract ChugSplashRegistry_Test is Test {
 
     event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
 
+    event EventAnnouncedWithData(
+        string indexed eventNameHash,
+        address indexed manager,
+        bytes indexed dataHash,
+        string eventName,
+        bytes data
+    );
+
     event ProxyTypeAdded(bytes32 proxyType, address adapter);
 
     address owner = address(128);
@@ -116,6 +124,30 @@ contract ChugSplashRegistry_Test is Test {
         vm.expectEmit(true, true, true, true);
         emit EventAnnounced(announcedEvent, address(newManager), announcedEvent);
         registry.announce(announcedEvent);
+    }
+
+    function test_announceWithData_revert_onlyManager() external {
+        vm.prank(owner);
+        vm.expectRevert("ChugSplashRegistry: events can only be announced by ChugSplashManager contracts");
+        registry.announceWithData('ChugSplashActionExecuted', abi.encodePacked(owner));
+    }
+
+    function test_announceWithData_success() external {
+        string memory announcedEvent = "ChugSplashActionExecuted";
+        registry.register(projectName, owner);
+        ChugSplashManager newManager = registry.projects(projectName);
+        bytes memory data = abi.encodePacked(newManager);
+
+        vm.prank(address(newManager));
+        vm.expectEmit(true, true, true, true);
+        emit EventAnnouncedWithData(
+            announcedEvent,
+            address(newManager),
+            data,
+            announcedEvent,
+            data
+        );
+        registry.announceWithData(announcedEvent, data);
     }
 
     function test_addProxyType_revert_existingAdapter() external {
