@@ -41,10 +41,30 @@ contract ChugSplashRegistry is Initializable {
      *         to find events emitted by the various manager contracts.
      *
      * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the manager announcing an event.
+     * @param manager       Address of the ChugSplashManager announcing an event.
      * @param eventName     Name of the event being announced.
      */
     event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
+
+    /**
+     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
+     *         registry, including a field for arbitrary data. We use this to avoid needing a
+     *         complex indexing system when we're trying to find events emitted by the various
+     *         manager contracts.
+     *
+     * @param eventNameHash Hash of the name of the event being announced.
+     * @param manager       Address of the ChugSplashManager announcing an event.
+     * @param dataHash      Hash of the extra data.
+     * @param eventName     Name of the event being announced.
+     * @param data          The extra data.
+     */
+    event EventAnnouncedWithData(
+        string indexed eventNameHash,
+        address indexed manager,
+        bytes indexed dataHash,
+        string eventName,
+        bytes data
+    );
 
     /**
      * @notice Emitted whenever a new proxy type is added.
@@ -174,6 +194,22 @@ contract ChugSplashRegistry is Initializable {
         );
 
         emit EventAnnounced(_event, msg.sender, _event);
+    }
+
+    /**
+     * @notice Allows ChugSplashManager contracts to announce events, including a field for
+     *         arbitrary data.
+     *
+     * @param _event Name of the event to announce.
+     * @param _data  Arbitrary data to include in the announced event.
+     */
+    function announceWithData(string memory _event, bytes memory _data) public {
+        require(
+            managers[ChugSplashManager(payable(msg.sender))] == true,
+            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+        );
+
+        emit EventAnnouncedWithData(_event, msg.sender, _data, _event, _data);
     }
 
     /**
