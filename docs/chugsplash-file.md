@@ -1,6 +1,6 @@
 # ChugSplash File
 
-A ChugSplash file is where you define an entire deployment or upgrade. It includes configuration settings, contract definitions, and state variables. The ChugSplash file replaces deployment scripts, which are used in other tools like [Hardhat](https://hardhat.org/hardhat-runner/docs/guides/deploying) and [Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting).
+A ChugSplash file contains all of the information necessary to define a deployment or upgrade. It includes configuration settings, contract definitions, and state variables. The ChugSplash file replaces deployment scripts, which are used in other tools like [Hardhat](https://hardhat.org/hardhat-runner/docs/guides/deploying) and [Foundry](https://book.getfoundry.sh/tutorials/solidity-scripting).
 
 ## Table of Contents
 
