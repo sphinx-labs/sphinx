@@ -14,7 +14,9 @@ contract Storage {
     uint8 public uint8Test;
     bool public boolTest;
     string public stringTest;
+    string public longStringTest;
     bytes public bytesTest;
+    bytes public longBytesTest;
     Storage public contractTest;
     TestEnum public enumTest;
     SimpleStruct public simpleStruct;
@@ -25,6 +27,7 @@ contract Storage {
     int64[] public int64DynamicArray;
     SimpleStruct[] public simpleStructDynamicArray;
     mapping(string => string) public stringToStringMapping;
+    mapping(string => string) public longStringToLongStringMapping;
     mapping(string => uint) public stringToUint256Mapping;
     mapping(string => bool) public stringToBoolMapping;
     mapping(string => address) public stringToAddressMapping;
