@@ -41,8 +41,16 @@ describe('Storage', () => {
     expect(await MyStorage.stringTest()).equals(variables.stringTest)
   })
 
+  it('does set long string', async () => {
+    expect(await MyStorage.longStringTest()).equals(variables.longStringTest)
+  })
+
   it('does set bytes', async () => {
     expect(await MyStorage.bytesTest()).equals(variables.bytesTest)
+  })
+
+  it('does set long bytes', async () => {
+    expect(await MyStorage.longBytesTest()).equals(variables.longBytesTest)
   })
 
   it('does set contract', async () => {
@@ -79,6 +87,13 @@ describe('Storage', () => {
     expect(a).equals(variables.simpleStruct.a)
     expect(b).to.deep.equal(BigNumber.from(variables.simpleStruct.b))
     expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
+  })
+
+  it('does set long string mapping to long string', async () => {
+    const [key] = Object.keys(variables.longStringToLongStringMapping)
+    expect(await MyStorage.longStringToLongStringMapping(key)).to.equal(
+      variables.longStringToLongStringMapping[key]
+    )
   })
 
   it('does set complex struct', async () => {
