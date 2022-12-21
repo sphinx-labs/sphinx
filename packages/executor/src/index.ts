@@ -20,6 +20,8 @@ import {
   initializeChugSplash,
   getProjectOwnerAddress,
   ChugSplashBundleState,
+  ChugSplashActionBundle,
+  readCanonicalConfig,
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
 
@@ -28,6 +30,7 @@ import {
   verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
+  bundleRemoteSubtask,
 } from './utils'
 
 export * from './utils'
@@ -164,7 +167,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     await this.setup(this.options)
   }
 
-  async main(localCanonicalConfig?: CanonicalChugSplashConfig) {
+  async main(localBundleId?: string, canonicalConfigFolderPath?: string) {
     const { provider, wallet, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
@@ -226,12 +229,21 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
         this.logger.info('[ChugSplash]: retrieving the bundle...')
 
-        // Compile the bundle using either the provided localCanonicalConfig (when running the
-        // executor from within the ChugSplash plugin), or using the Config URI
-        const { bundle, canonicalConfig } = await compileRemoteBundle(
-          proposalEvent.args.configUri,
-          localCanonicalConfig
-        )
+        // Compile the bundle using either the provided localBundleId (when running the in-process
+        // executor), or using the Config URI
+        let bundle: ChugSplashActionBundle
+        let canonicalConfig: CanonicalChugSplashConfig
+        if (localBundleId !== undefined) {
+          canonicalConfig = readCanonicalConfig(
+            canonicalConfigFolderPath,
+            localBundleId
+          )
+          bundle = await bundleRemoteSubtask({ canonicalConfig })
+        } else {
+          ;({ bundle, canonicalConfig } = await compileRemoteBundle(
+            proposalEvent.args.configUri
+          ))
+        }
         const projectName = canonicalConfig.options.projectName
 
         // ensure compiled bundle matches proposed bundle

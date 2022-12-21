@@ -129,17 +129,16 @@ export const deployChugSplashConfig = async (
   }
 
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri, canonicalConfig } =
-    await chugsplashCommitSubtask(
-      {
-        parsedConfig,
-        ipfsUrl,
-        commitToIpfs: false,
-        noCompile,
-        spinner,
-      },
-      hre
-    )
+  const { bundleId, bundle, configUri } = await chugsplashCommitSubtask(
+    {
+      parsedConfig,
+      ipfsUrl,
+      commitToIpfs: false,
+      noCompile,
+      spinner,
+    },
+    hre
+  )
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -216,7 +215,7 @@ export const deployChugSplashConfig = async (
   if (remoteExecution) {
     await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
   } else {
-    // If executing locally, then startup executor with HRE provider and pass in canonical config
+    // Use the in-process executor if executing the bundle locally.
     spinner.start('Executing project...')
     const amountToDeposit = await getAmountToDeposit(
       provider,
@@ -229,7 +228,7 @@ export const deployChugSplashConfig = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(canonicalConfig)
+    await executor.main(bundleId, hre.config.paths.canonicalConfigs)
     spinner.succeed(`Executed ${projectName}.`)
   }
 

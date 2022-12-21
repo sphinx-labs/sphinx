@@ -18,6 +18,7 @@ declare module 'hardhat/types/config' {
   export interface ProjectPathsConfig {
     chugsplash: string
     deployments: string
+    canonicalConfigs: string
   }
 }
 
@@ -35,6 +36,10 @@ declare module 'hardhat/types/runtime' {
 extendConfig((config: HardhatConfig) => {
   config.paths.chugsplash = path.join(config.paths.root, 'chugsplash')
   config.paths.deployments = path.join(config.paths.root, 'deployments')
+  config.paths.canonicalConfigs = path.join(
+    config.paths.root,
+    '.canonical-configs'
+  )
 })
 
 extendEnvironment((hre: HardhatRuntimeEnvironment) => {
