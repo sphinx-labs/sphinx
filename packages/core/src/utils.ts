@@ -11,7 +11,7 @@ import {
   ProxyABI,
 } from '@chugsplash/contracts'
 
-import { ParsedChugSplashConfig } from './config'
+import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 
 export const computeBundleId = (
@@ -362,4 +362,40 @@ export const formatEther = (
   decimals: number
 ): string => {
   return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
+}
+
+export const readCanonicalConfig = (
+  canonicalConfigFolderPath: string,
+  bundleId: string
+): CanonicalChugSplashConfig => {
+  // Check that the file containing the canonical config exists.
+  const canonicalConfigPath = path.join(
+    canonicalConfigFolderPath,
+    `${bundleId}.json`
+  )
+  if (!fs.existsSync(canonicalConfigPath)) {
+    throw new Error(
+      `Could not find local bundle ID file. Please report this error.`
+    )
+  }
+
+  return JSON.parse(fs.readFileSync(canonicalConfigPath, 'utf8'))
+}
+
+export const writeCanonicalConfig = (
+  canonicalConfigFolderPath: string,
+  bundleId: string,
+  canonicalConfig: CanonicalChugSplashConfig
+) => {
+  // Create the canonical config folder if it doesn't already exist.
+  if (!fs.existsSync(canonicalConfigFolderPath)) {
+    fs.mkdirSync(canonicalConfigFolderPath)
+  }
+
+  // Write the canonical config to the local file system. It will exist in a JSON file that has the
+  // bundle ID as its name.
+  fs.writeFileSync(
+    path.join(canonicalConfigFolderPath, `${bundleId}.json`),
+    JSON.stringify(canonicalConfig, null, 2)
+  )
 }

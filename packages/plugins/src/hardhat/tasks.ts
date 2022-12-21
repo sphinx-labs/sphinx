@@ -34,6 +34,7 @@ import {
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
   formatEther,
+  writeCanonicalConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -583,12 +584,11 @@ export const chugsplashCommitSubtask = async (
     noCompile: boolean
     spinner?: ora.Ora
   },
-  hre
+  hre: HardhatRuntimeEnvironment
 ): Promise<{
   bundle: ChugSplashActionBundle
   configUri: string
   bundleId: string
-  canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const { parsedConfig, ipfsUrl, commitToIpfs, noCompile, spinner } = args
 
@@ -699,6 +699,15 @@ IPFS_API_KEY_SECRET: ...
     configUri
   )
 
+  // Write the canonical config to the local file system if we aren't committing it to IPFS.
+  if (!commitToIpfs) {
+    writeCanonicalConfig(
+      hre.config.paths.canonicalConfigs,
+      bundleId,
+      canonicalConfig
+    )
+  }
+
   if (spinner) {
     commitToIpfs
       ? spinner.succeed(
@@ -709,7 +718,7 @@ IPFS_API_KEY_SECRET: ...
         )
   }
 
-  return { bundle, configUri, bundleId, canonicalConfig }
+  return { bundle, configUri, bundleId }
 }
 
 subtask(TASK_CHUGSPLASH_COMMIT)
@@ -1700,7 +1709,7 @@ export const chugsplashInitTask = async (
   args: {
     silent: boolean
   },
-  hre: any
+  hre: HardhatRuntimeEnvironment
 ) => {
   const { silent } = args
 
