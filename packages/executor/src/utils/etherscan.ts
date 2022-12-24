@@ -45,10 +45,10 @@ import {
   CHUGSPLASH_REGISTRY_ADDRESS,
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
-  DeterministicProxyOwnerArtifact,
-  DETERMINISTIC_PROXY_OWNER_ADDRESS,
   buildInfo,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  PROXY_INITIALIZER_ADDRESS,
+  ProxyInitializerArtifact,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
@@ -187,8 +187,8 @@ export const verifyChugSplash = async (
     },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
     {
-      artifact: DeterministicProxyOwnerArtifact,
-      address: DETERMINISTIC_PROXY_OWNER_ADDRESS,
+      artifact: ProxyInitializerArtifact,
+      address: PROXY_INITIALIZER_ADDRESS,
     },
   ]
 

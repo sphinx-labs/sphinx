@@ -10,10 +10,12 @@ import {
   ChugSplashManagerProxyArtifact,
   ChugSplashManagerABI,
   ProxyABI,
-  DeterministicProxyOwnerArtifact,
+  ProxyInitializerArtifact,
+  ProxyInitializerABI,
 } from './ifaces'
 
-export const owner = '0x1A3DAA6F487A480c1aD312b90FD0244871940b66'
+export const OWNER_MULTISIG_ADDRESS =
+  '0xB1251e3Bd0EFf7852dF6ea3F11D73b0b28eA4aA8'
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
@@ -23,7 +25,14 @@ const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
 const proxyUpdaterSourceName = ProxyUpdaterArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
 const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
-const deterministicOwnerSourceName = DeterministicProxyOwnerArtifact.sourceName
+const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
+
+const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
+  (fragment) => fragment.type === 'constructor'
+)
+const proxyInitializerConstructorArgTypes =
+  proxyInitializerConstructorFragment.inputs.map((input) => input.type)
+const proxyInitializerConstructorArgValues = [OWNER_MULTISIG_ADDRESS]
 
 const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -53,12 +62,18 @@ export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
   ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
 )
 
-export const DETERMINISTIC_PROXY_OWNER_ADDRESS = ethers.utils.getCreate2Address(
+export const PROXY_INITIALIZER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   ethers.constants.HashZero,
   ethers.utils.solidityKeccak256(
-    ['bytes'],
-    [DeterministicProxyOwnerArtifact.bytecode]
+    ['bytes', 'bytes'],
+    [
+      ProxyInitializerArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        proxyInitializerConstructorArgTypes,
+        proxyInitializerConstructorArgValues
+      ),
+    ]
   )
 )
 
@@ -67,10 +82,10 @@ const [registryProxyConstructorFragment] = ProxyABI.filter(
 )
 const registryProxyConstructorArgTypes =
   registryProxyConstructorFragment.inputs.map((input) => input.type)
-const registryProxyConstructorArgValues = [DETERMINISTIC_PROXY_OWNER_ADDRESS]
+const registryProxyConstructorArgValues = [PROXY_INITIALIZER_ADDRESS]
 
 export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  PROXY_INITIALIZER_ADDRESS,
   ethers.constants.HashZero,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
@@ -103,7 +118,7 @@ export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
 const chugsplashManagerConstructorArgValues = [
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   'Root Manager',
-  owner,
+  OWNER_MULTISIG_ADDRESS,
   PROXY_UPDATER_ADDRESS,
   EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
@@ -174,4 +189,5 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[proxyUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
   registryProxyConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[deterministicOwnerSourceName] = []
+CHUGSPLASH_CONSTRUCTOR_ARGS[proxyInitializerSourceName] =
+  proxyInitializerConstructorArgValues

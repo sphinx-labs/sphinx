@@ -399,3 +399,20 @@ export const writeCanonicalConfig = (
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
+
+export const getProxyImplementationAddress = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<string> => {
+  const iface = new ethers.utils.Interface(ProxyABI)
+  const encodedImplAddress = await provider.call({
+    to: proxyAddress,
+    from: ethers.constants.AddressZero,
+    data: iface.getSighash('implementation'),
+  })
+  const [decoded] = ethers.utils.defaultAbiCoder.decode(
+    ['address'],
+    encodedImplAddress
+  )
+  return decoded
+}
