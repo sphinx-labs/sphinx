@@ -6,9 +6,9 @@ export const ChugSplashManagerArtifact = require('../artifacts/contracts/ChugSpl
 export const ProxyUpdaterArtifact = require('../artifacts/contracts/ProxyUpdater.sol/ProxyUpdater.json')
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')
 export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol/Proxy.json')
-export const DeterministicProxyOwnerArtifact = require('../artifacts/contracts/DeterministicProxyOwner.sol/DeterministicProxyOwner.json')
+export const ProxyInitializerArtifact = require('../artifacts/contracts/ProxyInitializer.sol/ProxyInitializer.json')
 
-export const buildInfo = require('../artifacts/build-info/2aab3c6134a98e6fd11e3e8006420088.json')
+export const buildInfo = require('../artifacts/build-info/8937e3b5ee14db19c324042441a75b73.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
@@ -17,4 +17,4 @@ export const ChugSplashManagerABI = ChugSplashManagerArtifact.abi
 export const ProxyUpdaterABI = ProxyUpdaterArtifact.abi
 export const DefaultAdapterABI = DefaultAdapterArtifact.abi
 export const ProxyABI = ProxyArtifact.abi
-export const DeterministicProxyOwnerABI = DeterministicProxyOwnerArtifact.abi
+export const ProxyInitializerABI = ProxyInitializerArtifact.abi
