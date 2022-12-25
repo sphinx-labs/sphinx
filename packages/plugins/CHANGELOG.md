@@ -1,5 +1,28 @@
 # @chugsplash/plugins
 
+## 0.8.5
+
+### Patch Changes
+
+- a3664d7: Add SimpleStorage contract to plugins
+- bb241f5: Update tutorial to use UserChugSplashConfig
+- d843707: Expand test coverage to include contract references
+- baf3ac1: Changes contract reference syntax from '!Ref' to '{{ }}'
+- 89cd352: feat(core): support bytes/strings (length >31)
+- dba31f7: Write canonical config to file system when using executing bundles locally
+- 4c04d0a: Add chugsplash-init Hardhat task
+- c9eeb47: Make configPath a normal parameter on all tasks
+- Updated dependencies [74a61c0]
+- Updated dependencies [2dbf187]
+- Updated dependencies [3ec7a05]
+- Updated dependencies [baf3ac1]
+- Updated dependencies [89cd352]
+- Updated dependencies [dba31f7]
+- Updated dependencies [c9eeb47]
+  - @chugsplash/contracts@0.3.15
+  - @chugsplash/core@0.3.21
+  - @chugsplash/executor@0.4.11
+
 ## 0.8.4
 
 ### Patch Changes
