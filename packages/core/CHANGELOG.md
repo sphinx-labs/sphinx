@@ -1,5 +1,18 @@
 # @chugsplash/core
 
+## 0.3.21
+
+### Patch Changes
+
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
+- baf3ac1: Changes contract reference syntax from '!Ref' to '{{ }}'
+- 89cd352: feat(core): support bytes/strings (length >31)
+- dba31f7: Write canonical config to file system when using executing bundles locally
+- c9eeb47: Make configPath a normal parameter on all tasks
+- Updated dependencies [74a61c0]
+- Updated dependencies [3ec7a05]
+  - @chugsplash/contracts@0.3.15
+
 ## 0.3.20
 
 ### Patch Changes
