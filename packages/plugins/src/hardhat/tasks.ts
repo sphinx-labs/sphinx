@@ -34,6 +34,7 @@ import {
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
   formatEther,
+  writeCanonicalConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -45,6 +46,7 @@ import {
   getArtifactsFromCanonicalConfig,
 } from '@chugsplash/executor'
 
+import { getSampleContractFile } from '../sample-project'
 import {
   getBuildInfo,
   getContractArtifact,
@@ -69,7 +71,10 @@ import {
 } from '../messages'
 import { monitorExecution, postExecutionActions } from './execution'
 import { initializeExecutor } from '../executor'
-import {} from '../'
+import {
+  sampleTestFileJavaScript,
+  sampleTestFileTypeScript,
+} from '../sample-project/sample-tests'
 
 // Load environment variables from .env
 dotenv.config()
@@ -84,6 +89,7 @@ export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
+export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
@@ -211,10 +217,7 @@ export const chugsplashDeployTask = async (
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .setDescription('Deploys a ChugSplash config file')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to deploy'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to deploy')
   .addOptionalParam(
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
@@ -397,10 +400,7 @@ with a name other than ${parsedConfig.options.projectName}`
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash project')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to propose'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addOptionalParam(
     'ipfsUrl',
@@ -473,12 +473,12 @@ Owner's address: ${projectOwnerAddress}`)
     throw new Error(`You must first propose the project before it can be approved.
 No funds were sent. To propose the project, run the command:
 
-npx hardhat chugsplash-propose --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-propose --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.succeed(`Project has already been approved. It should be executed shortly.
 No funds were sent. Run the following command to monitor its status:
 
-npx hardhat chugsplash-monitor --network ${hre.network.name} ${configPath}`)
+npx hardhat chugsplash-monitor --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(
       `Project was already completed on ${hre.network.name}. No funds were sent.`
@@ -551,10 +551,7 @@ task(TASK_CHUGSPLASH_APPROVE)
     'amount',
     'Amount to send to fund the deployment, denominated in wei'
   )
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to approve'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to approve')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(chugsplashApproveTask)
 
@@ -587,12 +584,11 @@ export const chugsplashCommitSubtask = async (
     noCompile: boolean
     spinner?: ora.Ora
   },
-  hre
+  hre: HardhatRuntimeEnvironment
 ): Promise<{
   bundle: ChugSplashActionBundle
   configUri: string
   bundleId: string
-  canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const { parsedConfig, ipfsUrl, commitToIpfs, noCompile, spinner } = args
 
@@ -703,6 +699,15 @@ IPFS_API_KEY_SECRET: ...
     configUri
   )
 
+  // Write the canonical config to the local file system if we aren't committing it to IPFS.
+  if (!commitToIpfs) {
+    writeCanonicalConfig(
+      hre.config.paths.canonicalConfigs,
+      bundleId,
+      canonicalConfig
+    )
+  }
+
   if (spinner) {
     commitToIpfs
       ? spinner.succeed(
@@ -713,7 +718,7 @@ IPFS_API_KEY_SECRET: ...
         )
   }
 
-  return { bundle, configUri, bundleId, canonicalConfig }
+  return { bundle, configUri, bundleId }
 }
 
 subtask(TASK_CHUGSPLASH_COMMIT)
@@ -968,10 +973,7 @@ project with a name other than ${parsedConfig.options.projectName}`
 
 task(TASK_CHUGSPLASH_MONITOR)
   .setDescription('Displays the status of a ChugSplash bundle')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to monitor'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to monitor')
   .setAction(monitorTask)
 
 export const chugsplashFundTask = async (
@@ -1033,7 +1035,7 @@ task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
   .addParam('amount', 'Amount to send in wei')
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashFundTask)
 
 task(TASK_NODE)
@@ -1086,7 +1088,7 @@ task(TASK_TEST)
   .setAction(
     async (
       args: { show: boolean; noCompile: boolean; confirm: boolean },
-      hre: any,
+      hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
       const { show, noCompile } = args
@@ -1094,7 +1096,7 @@ task(TASK_TEST)
       if (chainId === 31337) {
         try {
           const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployed),
+            path.basename(hre.config.paths.deployments),
             hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
             '.snapshotId'
           )
@@ -1139,7 +1141,7 @@ task(TASK_RUN)
         noCompile: boolean
         confirm: boolean
       },
-      hre: any,
+      hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
       const { deployAll, noCompile } = args
@@ -1221,10 +1223,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
 task(TASK_CHUGSPLASH_CANCEL)
   .setDescription('Cancel an active ChugSplash project.')
-  .addPositionalParam(
-    'configPath',
-    'Path to the ChugSplash config file to cancel'
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to cancel')
   .setAction(chugsplashCancelTask)
 
 export const chugsplashWithdrawTask = async (
@@ -1285,7 +1284,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     throw new Error(
       `Project is currently active. You must cancel the project in order to withdraw funds:
 
-npx hardhat chugsplash-cancel --network ${hre.network.name} ${configPath}
+npx hardhat chugsplash-cancel --network ${hre.network.name} --config-path ${configPath}
         `
     )
   }
@@ -1315,7 +1314,7 @@ task(TASK_CHUGSPLASH_WITHDRAW)
     'Withdraw funds in a ChugSplash project belonging to the project owner.'
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
-  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashWithdrawTask)
 
 export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
@@ -1705,3 +1704,98 @@ task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(transferOwnershipTask)
+
+export const chugsplashInitTask = async (
+  args: {
+    silent: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { silent } = args
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Initializing ChugSplash project...')
+
+  // Create the ChugSplash folder if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.chugsplash)) {
+    fs.mkdirSync(hre.config.paths.chugsplash)
+  }
+
+  // Create a folder for smart contract source files if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.sources)) {
+    fs.mkdirSync(hre.config.paths.sources)
+  }
+
+  // Create a folder for test files if it doesn't exist
+  if (!fs.existsSync(hre.config.paths.tests)) {
+    fs.mkdirSync(hre.config.paths.tests)
+  }
+
+  // First, we'll create the sample ChugSplash file.
+
+  // True if the Hardhat project is TypeScript and false if it's JavaScript.
+  const isTypeScriptProject =
+    path.extname(hre.config.paths.configFile) === '.ts'
+
+  // Get the path from the current directory to the sample source files
+  const sampleSrcPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'src',
+    'sample-project'
+  )
+
+  // Check if the sample ChugSplash file already exists.
+  const chugsplashFileName = isTypeScriptProject
+    ? 'hello-chugsplash.ts'
+    : 'hello-chugsplash.js'
+  const chugsplashFilePathDest = path.join(
+    hre.config.paths.chugsplash,
+    chugsplashFileName
+  )
+  if (!fs.existsSync(chugsplashFilePathDest)) {
+    // Copy the sample ChugSplash file to the destination path.
+    fs.copyFileSync(
+      path.join(sampleSrcPath, chugsplashFileName),
+      chugsplashFilePathDest
+    )
+  }
+
+  // Next, we'll create the sample contract file.
+
+  // Get the Solidity compiler version from the Hardhat config.
+  const [{ version: solcVersion }] = hre.config.solidity.compilers
+
+  // Check if the sample smart contract exists.
+  const contractFilePath = path.join(
+    hre.config.paths.sources,
+    'HelloChugSplash.sol'
+  )
+  if (!fs.existsSync(contractFilePath)) {
+    // Create the sample contract file.
+    fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
+  }
+
+  // Lastly, we'll create the sample test file.
+
+  // Check if the sample test file exists.
+  const testFileName = isTypeScriptProject
+    ? 'HelloChugSplash.spec.ts'
+    : 'HelloChugSplash.test.js'
+  const testFilePath = path.join(hre.config.paths.tests, testFileName)
+  if (!fs.existsSync(testFilePath)) {
+    // Create the sample test file.
+    fs.writeFileSync(
+      testFilePath,
+      isTypeScriptProject ? sampleTestFileTypeScript : sampleTestFileJavaScript
+    )
+  }
+
+  spinner.succeed('Initialized ChugSplash project.')
+}
+
+task(TASK_CHUGSPLASH_INIT)
+  .setDescription('Sets up a ChugSplash project.')
+  .addFlag('silent', "Hide ChugSplash's output")
+  .setAction(chugsplashInitTask)

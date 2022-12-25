@@ -15,12 +15,7 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getDefaultProxyAddress } from '../utils'
-import {
-  UserChugSplashConfig,
-  UserConfigVariable,
-  ContractReference,
-  ParsedChugSplashConfig,
-} from './types'
+import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -38,6 +33,8 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
   if (config.contracts === undefined) {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
+
+  const referenceNames: string[] = Object.keys(config.contracts)
 
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
@@ -68,6 +65,37 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
         `contract address is not a valid address: ${contractConfig.proxy}`
       )
     }
+
+    // Check for invalid contract references.
+    for (const [varName, varValue] of Object.entries(
+      contractConfig.variables
+    )) {
+      if (
+        typeof varValue === 'string' &&
+        varValue.includes('{{') &&
+        varValue.includes('}}')
+      ) {
+        if (!varValue.startsWith('{{')) {
+          throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
+Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+          `)
+        } else if (!varValue.endsWith('}}')) {
+          throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
+Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+          `)
+        }
+
+        const contractReference = varValue
+          .substring(2, varValue.length - 2)
+          .trim()
+
+        if (!referenceNames.includes(contractReference)) {
+          throw new Error(`Contract reference cannot be found: ${contractReference}
+Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+          `)
+        }
+      }
+    }
   }
 }
 
@@ -79,8 +107,7 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
  * @return Parsed config file with template variables replaced.
  */
 export const parseChugSplashConfig = (
-  config: UserChugSplashConfig,
-  env: any
+  config: UserChugSplashConfig
 ): ParsedChugSplashConfig => {
   validateChugSplashConfig(config)
 
@@ -98,32 +125,11 @@ export const parseChugSplashConfig = (
 
   const parsed: ParsedChugSplashConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(config))({
-      env: new Proxy(env, {
-        get: (target, prop) => {
-          const val = target[prop]
-          if (val === undefined) {
-            throw new Error(
-              `attempted to access unknown env value: ${prop as any}`
-            )
-          }
-          return val
-        },
-      }),
-      contracts: new Proxy(contracts, {
-        get: (target, prop) => {
-          const val = target[prop]
-          if (val === undefined) {
-            throw new Error(
-              `attempted to access unknown contract: ${prop as any}`
-            )
-          }
-          return val
-        },
-      }),
+      ...contracts,
     })
   )
 
-  return parseContractReferences(parsed)
+  return parsed
 }
 
 /**
@@ -180,45 +186,4 @@ export const makeActionBundleFromConfig = async (
 
   // Generate a bundle from the list of actions.
   return makeBundleFromActions(actions)
-}
-
-export const parseContractReferences = (
-  config: UserChugSplashConfig
-): ParsedChugSplashConfig => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    config.contracts
-  )) {
-    for (const [variableName, variable] of Object.entries(
-      contractConfig.variables
-    )) {
-      if (isContractReference(variable)) {
-        const [targetReferenceName] = Object.values(variable)
-        const targetContractConfig = config.contracts[targetReferenceName]
-        if (targetContractConfig === undefined) {
-          throw new Error(
-            `Could not find a contract definition for ${targetReferenceName} in the config file for
-${config.options.projectName}. Please create a contract definition for ${targetReferenceName} or
-remove the reference to it in the "${variableName}" variable in your contract definition for
-${referenceName}.`
-          )
-        }
-        // Set the variable to be the user-defined proxy address if it exists, otherwise use the
-        // default proxy address.
-        config.contracts[referenceName].variables[variableName] =
-          targetContractConfig.proxy
-            ? targetContractConfig.proxy
-            : getDefaultProxyAddress(
-                config.options.projectName,
-                targetReferenceName.trim()
-              )
-      }
-    }
-  }
-  return config as ParsedChugSplashConfig
-}
-
-export const isContractReference = (
-  variable: UserConfigVariable
-): variable is ContractReference => {
-  return (variable as ContractReference)['!Ref'] !== undefined
 }

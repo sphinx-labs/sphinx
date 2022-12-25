@@ -48,7 +48,7 @@ import { monitorExecution, postExecutionActions } from './execution'
  * @param contractName Name of the contract in the config file.
  */
 export const deployAllChugSplashConfigs = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
@@ -129,17 +129,16 @@ export const deployChugSplashConfig = async (
   }
 
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri, canonicalConfig } =
-    await chugsplashCommitSubtask(
-      {
-        parsedConfig,
-        ipfsUrl,
-        commitToIpfs: false,
-        noCompile,
-        spinner,
-      },
-      hre
-    )
+  const { bundleId, bundle, configUri } = await chugsplashCommitSubtask(
+    {
+      parsedConfig,
+      ipfsUrl,
+      commitToIpfs: false,
+      noCompile,
+      spinner,
+    },
+    hre
+  )
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -216,7 +215,7 @@ export const deployChugSplashConfig = async (
   if (remoteExecution) {
     await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
   } else {
-    // If executing locally, then startup executor with HRE provider and pass in canonical config
+    // Use the in-process executor if executing the bundle locally.
     spinner.start('Executing project...')
     const amountToDeposit = await getAmountToDeposit(
       provider,
@@ -229,7 +228,7 @@ export const deployChugSplashConfig = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(canonicalConfig)
+    await executor.main(bundleId, hre.config.paths.canonicalConfigs)
     spinner.succeed(`Executed ${projectName}.`)
   }
 
@@ -247,7 +246,7 @@ export const deployChugSplashConfig = async (
 }
 
 export const getContract = async (
-  hre: any,
+  hre: HardhatRuntimeEnvironment,
   provider: ethers.providers.JsonRpcProvider,
   referenceName: string
 ): Promise<ethers.Contract> => {
@@ -303,11 +302,13 @@ ${configsWithFileNames.map(
   return Proxy
 }
 
-export const resetChugSplashDeployments = async (hre: any) => {
+export const resetChugSplashDeployments = async (
+  hre: HardhatRuntimeEnvironment
+) => {
   const networkFolderName =
     hre.network.name === 'localhost' ? 'localhost' : 'hardhat'
   const snapshotIdPath = path.join(
-    path.basename(hre.config.paths.deployed),
+    path.basename(hre.config.paths.deployments),
     networkFolderName,
     '.snapshotId'
   )

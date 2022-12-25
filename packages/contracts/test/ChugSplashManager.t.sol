@@ -69,12 +69,14 @@ contract ChugSplashManager_Test is Test {
     event DefaultProxyDeployed(
         string indexed targetHash,
         address indexed proxy,
+        bytes32 indexed bundleId,
         string target
     );
 
     event ImplementationDeployed(
         string indexed targetHash,
-        address indexed proxy,
+        address indexed implementation,
+        bytes32 indexed bundleId,
         string target
     );
 
@@ -441,14 +443,14 @@ contract ChugSplashManager_Test is Test {
         vm.expectCall(
             address(registry),
             abi.encodeCall(
-                ChugSplashRegistry.announce,
-                ("ChugSplashActionExecuted")
+                ChugSplashRegistry.announceWithData,
+                ("ChugSplashActionExecuted", abi.encodePacked(proxyAddress))
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit DefaultProxyDeployed(firstAction.target, proxyAddress, firstAction.target);
+        emit DefaultProxyDeployed(firstAction.target, proxyAddress, bundleId, firstAction.target);
         vm.expectEmit(true, true, true, true);
-        emit ImplementationDeployed(firstAction.target, implementationAddress, firstAction.target);
+        emit ImplementationDeployed(firstAction.target, implementationAddress, bundleId, firstAction.target);
         vm.expectEmit(true, true, true, true);
         emit ChugSplashActionExecuted(bundleId, executor1, actionIndexes[0]);
 
@@ -475,12 +477,13 @@ contract ChugSplashManager_Test is Test {
         helper_executeFirstAction();
         uint256 initialTotalDebt = manager.totalDebt();
         uint256 initialExecutorDebt = manager.debt(executor1);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
 
         vm.expectCall(
             address(registry),
             abi.encodeCall(
-                ChugSplashRegistry.announce,
-                ("ChugSplashActionExecuted")
+                ChugSplashRegistry.announceWithData,
+                ("ChugSplashActionExecuted", abi.encodePacked(proxyAddress))
             )
         );
         vm.expectEmit(true, true, true, true);
@@ -490,7 +493,6 @@ contract ChugSplashManager_Test is Test {
         uint256 finalExecutorDebt = manager.debt(executor1);
 
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
         vm.prank(address(manager));
         address implementationAddress = Proxy(proxyAddress).implementation();
         (bytes32 storageKey, bytes32 expectedStorageValue) = abi.decode(secondAction.data, (bytes32, bytes32));
@@ -574,8 +576,8 @@ contract ChugSplashManager_Test is Test {
         vm.expectCall(
             address(registry),
             abi.encodeCall(
-                ChugSplashRegistry.announce,
-                ("ChugSplashActionExecuted")
+                ChugSplashRegistry.announceWithData,
+                ("ChugSplashActionExecuted", abi.encodePacked(proxyAddress))
             )
         );
         vm.expectEmit(true, true, true, true);

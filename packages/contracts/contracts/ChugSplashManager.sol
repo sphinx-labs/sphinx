@@ -154,18 +154,30 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param targetHash Hash of the target's string name. This equals the salt used to deploy the
      *                   proxy.
      * @param proxy      Address of the deployed proxy.
+     * @param bundleId   ID of the bundle in which the proxy was deployed.
      * @param target     String name of the target.
      */
-    event DefaultProxyDeployed(string indexed targetHash, address indexed proxy, string target);
+    event DefaultProxyDeployed(
+        string indexed targetHash,
+        address indexed proxy,
+        bytes32 indexed bundleId,
+        string target
+    );
 
     /**
      * @notice Emitted when an implementation contract is deployed by this contract.
      *
-     * @param targetHash Hash of the target's string name.
-     * @param proxy      Address of the deployed proxy.
-     * @param target     String name of the target.
+     * @param targetHash     Hash of the target's string name.
+     * @param implementation Address of the deployed implementation.
+     * @param bundleId       ID of the bundle in which the implementation was deployed.
+     * @param target         String name of the target.
      */
-    event ImplementationDeployed(string indexed targetHash, address indexed proxy, string target);
+    event ImplementationDeployed(
+        string indexed targetHash,
+        address indexed implementation,
+        bytes32 indexed bundleId,
+        string target
+    );
 
     /**
      * @notice The storage slot that holds the address of an EIP-1967 implementation contract.
@@ -543,7 +555,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     "ChugSplashManager: Proxy was not created correctly"
                 );
 
-                emit DefaultProxyDeployed(_action.target, proxy, _action.target);
+                emit DefaultProxyDeployed(_action.target, proxy, activeBundleId, _action.target);
                 registry.announce("DefaultProxyDeployed");
             } else if (_getProxyImplementation(proxy, adapter) != address(0)) {
                 // Set the proxy's implementation to address(0).
@@ -573,7 +585,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         emit ChugSplashActionExecuted(activeBundleId, msg.sender, _actionIndex);
-        registry.announce("ChugSplashActionExecuted");
+        registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
 
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
@@ -673,7 +685,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _upgradeProxyTo(proxy, adapter, implementation);
 
             emit ChugSplashActionExecuted(activeBundleId, msg.sender, actionIndex);
-            registry.announce("ChugSplashActionExecuted");
+            registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
         }
 
         require(
@@ -927,7 +939,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Map the implementation's salt to its newly deployed address.
         implementations[salt] = implementation;
 
-        emit ImplementationDeployed(_target, implementation, _target);
+        emit ImplementationDeployed(_target, implementation, activeBundleId, _target);
         registry.announce("ImplementationDeployed");
     }
 

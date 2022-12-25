@@ -8,7 +8,6 @@ export type UserConfigVariable =
   | string
   | number
   | Array<UserConfigVariable>
-  | ContractReference
   | {
       [name: string]: UserConfigVariable
     }
@@ -24,10 +23,6 @@ export type ParsedConfigVariable =
   | {
       [name: string]: ParsedConfigVariable
     }
-
-export type ContractReference = {
-  '!Ref': string
-}
 
 /**
  * Full user-defined config object that can be used to commit a deployment/upgrade.

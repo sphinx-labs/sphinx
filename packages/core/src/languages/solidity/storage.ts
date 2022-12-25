@@ -249,7 +249,19 @@ export const encodeVariable = (
         },
       ]
     } else {
-      throw new Error('large strings (>31 bytes) not supported')
+      let slots = [
+        {
+          key: slotKey,
+          val: padHexSlotValue((bytes.length * 2 + 1).toString(16), 0),
+        },
+      ]
+      slots = slots.concat(
+        encodeBytesArrayElements(
+          bytes,
+          utils.keccak256(slotKey) // The slot key of the array elements begins at the hash of the `slotKey`.
+        )
+      )
+      return slots
     }
   } else if (variableType.encoding === 'mapping') {
     // Iterate over every key/value in the mapping to get the storage slot pair for each one.
@@ -402,6 +414,46 @@ export const encodeArrayElements = (
         numSlotsToIncrement.toString()
       )
       bytesOffset = 0
+    }
+  }
+  return slots
+}
+
+/**
+ * Encodes a bytes/string value of length > 31 bytes as a series of key/value storage slot pairs
+ * using the Solidity storage layout.
+ *
+ * TODO - Refactor long bytes/string encoding to instead use the encodeArrayElements and treat the
+ * variable as a fixed size array of bytes1.
+ *
+ * @param array Bytes array to encode.
+ * @param elementSlotKey The key of the slot where the beginning of the array is stored.
+ * @returns Array encoded as a series of key/value slot pairs.
+ */
+export const encodeBytesArrayElements = (
+  array: Uint8Array | Buffer,
+  elementSlotKey: string
+): Array<StorageSlotPair> => {
+  // Iterate over the array and encode each element in it.
+  const slots = []
+  for (let i = 0; i <= array.length; i += 32) {
+    if (i + 32 <= array.length) {
+      // beginning or middle chunk of the array
+      slots.push({
+        key: elementSlotKey,
+        val: ethers.utils.hexlify(array.subarray(i, i + 32)),
+      })
+
+      elementSlotKey = addStorageSlotKeys(elementSlotKey, '1')
+    } else {
+      const arr = ethers.utils
+        .concat([array, ethers.constants.HashZero])
+        .slice(i, i + 32)
+      // end chunk of the array
+      slots.push({
+        key: elementSlotKey,
+        val: ethers.utils.hexlify(arr),
+      })
     }
   }
   return slots

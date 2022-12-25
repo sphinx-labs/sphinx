@@ -8,9 +8,15 @@ const config: UserChugSplashConfig = {
     projectName: 'My First Project',
   },
   contracts: {
-    Storage: {
+    MyStorage: {
       contract: 'Storage',
       variables,
+    },
+    MySimpleStorage: {
+      contract: 'SimpleStorage',
+      variables: {
+        myStorage: '{{ MyStorage }}',
+      },
     },
   },
 }

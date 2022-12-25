@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ethers } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import {
   OWNER_BOND_AMOUNT,
   EXECUTOR_BOND_AMOUNT,
@@ -17,13 +17,12 @@ import {
   DEFAULT_ADAPTER_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  ProxyArtifact,
   ProxyABI,
-  DeterministicProxyOwnerABI,
-  DeterministicProxyOwnerArtifact,
-  DETERMINISTIC_PROXY_OWNER_ADDRESS,
+  ProxyInitializerABI,
+  ProxyInitializerArtifact,
   CHUGSPLASH_REGISTRY_ADDRESS,
-  owner,
+  OWNER_MULTISIG_ADDRESS,
+  PROXY_INITIALIZER_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -33,6 +32,7 @@ import {
   getProxyAt,
   getProxyAdmin,
   isContractDeployed,
+  getProxyImplementationAddress,
 } from '../../utils'
 
 export const initializeChugSplash = async (
@@ -80,7 +80,7 @@ export const initializeChugSplash = async (
   try {
     await (
       await ChugSplashBootLoader.initialize(
-        owner,
+        OWNER_MULTISIG_ADDRESS,
         EXECUTOR_BOND_AMOUNT,
         EXECUTION_LOCK_TIME,
         OWNER_BOND_AMOUNT,
@@ -100,73 +100,73 @@ export const initializeChugSplash = async (
     }
   }
 
-  logger?.info('[ChugSplash]: deploying ChugSplashRegistry proxy...')
+  logger?.info('[ChugSplash]: deploying ProxyInitializer...')
 
-  // Deploy the ChugSplashRegistry's proxy.
-  const ChugSplashRegistryProxy = await doDeterministicDeploy(provider, {
+  // Deploy the ProxyInitializer, which we use to deploy and initialize the ChugSplashRegistry's
+  // proxy.
+  const ProxyInitializer = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: ProxyABI,
-      bytecode: ProxyArtifact.bytecode,
+      abi: ProxyInitializerABI,
+      bytecode: ProxyInitializerArtifact.bytecode,
     },
     salt: ethers.constants.HashZero,
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyArtifact.sourceName],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyInitializerArtifact.sourceName],
   })
 
-  logger?.info('[ChugSplash]: ChugSplashRegistry proxy deployed')
+  logger?.info('[ChugSplash]: ProxyInitializer deployed')
 
-  // Make sure the addresses match, just in case.
+  // Make sure the ChugSplashRegistry proxy deployed by the ProxyInitializer has the correct
+  // address.
   assert(
-    ChugSplashRegistryProxy.address === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    (await ProxyInitializer.proxy()) === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     'ChugSplashRegistry proxy address mismatch'
   )
 
-  logger?.info('[ChugSplash]: deploying DeterministicProxyOwner...')
-
-  // Deploy the DeterministicProxyOwner, which temporarily owns the ChugSplashRegistry proxy.
-  const DeterministicProxyOwner = await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: DeterministicProxyOwnerABI,
-      bytecode: DeterministicProxyOwnerArtifact.bytecode,
-    },
-    salt: ethers.constants.HashZero,
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[
-      DeterministicProxyOwnerArtifact.sourceName
-    ],
-  })
-
-  logger?.info('[ChugSplash]: DeterministicProxyOwner deployed')
-
-  // Make sure the addresses match, just in case.
+  // Make sure the multisig owner address is correct.
   assert(
-    DeterministicProxyOwner.address === DETERMINISTIC_PROXY_OWNER_ADDRESS,
-    'DeterministicProxyOwner address mismatch'
+    (await ProxyInitializer.newOwner()) === OWNER_MULTISIG_ADDRESS,
+    'ProxyInitializer has incorrect multisig owner address'
+  )
+
+  // Make sure the ProxyInitializer addresses match, just in case.
+  assert(
+    ProxyInitializer.address === PROXY_INITIALIZER_ADDRESS,
+    'ProxyInitializer address mismatch'
   )
 
   logger?.info('[ChugSplash]: initializing ChugSplashRegistry proxy...')
 
-  // Check if the ChugSplashRegistry proxy's owner is the DeterministicProxyOwner. This will only be true
-  // when the ChugSplashRegistry's proxy is initially deployed.
+  const ChugSplashRegistryProxy = new Contract(
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    ProxyABI,
+    provider
+  )
+
+  // Check if the ChugSplashRegistry proxy's owner is the ProxyInitializer. This will only be true
+  // when the ChugSplashRegistry's proxy hasn't been initialized yet.
   if (
-    (await getProxyAdmin(ChugSplashRegistryProxy)) ===
-    DETERMINISTIC_PROXY_OWNER_ADDRESS
+    (await getProxyAdmin(ChugSplashRegistryProxy)) === PROXY_INITIALIZER_ADDRESS
   ) {
-    // Initialize the ChugSplashRegistry's proxy through the DeterministicProxyOwner. This
-    // transaction sets the ChugSplasRegistry proxy's implementation and transfers ownership of the
-    // proxy to the specified owner.
+    // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
+    // implementation and transfers ownership of the proxy to the multisig owner.
     await (
-      await DeterministicProxyOwner.initializeProxy(
-        ChugSplashRegistryProxy.address,
-        CHUGSPLASH_REGISTRY_ADDRESS,
-        owner
-      )
+      await ProxyInitializer.initialize(CHUGSPLASH_REGISTRY_ADDRESS)
     ).wait()
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
-      (await getProxyAdmin(ChugSplashRegistryProxy)) === owner,
+      (await getProxyAdmin(ChugSplashRegistryProxy)) === OWNER_MULTISIG_ADDRESS,
       'ChugSplashRegistry proxy has incorrect owner'
+    )
+
+    // Make sure the ChugSplashRegistry's proxy has the correct implementation address.
+    assert(
+      (await getProxyImplementationAddress(
+        provider,
+        CHUGSPLASH_REGISTRY_PROXY_ADDRESS
+      )) === CHUGSPLASH_REGISTRY_ADDRESS,
+      'ChugSplashRegistry proxy has incorrect implememtation'
     )
 
     logger?.info('[ChugSplash]: ChugSplashRegistry proxy initialized')
@@ -322,7 +322,7 @@ export const monitorChugSplashSetup = async (
   }
 
   while (
-    owner !==
+    OWNER_MULTISIG_ADDRESS !==
     (await getProxyAdmin(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
   ) {
     await sleep(1000)

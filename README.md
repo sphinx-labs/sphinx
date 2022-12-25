@@ -1,138 +1,128 @@
 # ChugSplash
 
-ChugSplash is a modern smart contract deployment system, currently in development.
-We built ChugSplash because we were tired of slow, buggy, and opaque upgrades.
-ChugSplash is designed to give you complete confidence throughout the entire smart contract deployment process.
+ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It's designed for deployments that are complex or high-risk.
 
-## Why does this exist?
+## Table of Contents
 
-### Your contract deployments need to be secure
-
-- Predictable deployments are secure deployments. You should know exactly what your system is going to look like before you perform an initial deployment or an upgrade. Standard contract deployments are non-deterministic and can lead to dangerous edge-cases when halted mid-deployment. **ChugSplash's fully deterministic deployment process and strong verifiability means you can be confident during every step of a deploy.**
-- Every time you touch your private keys is an opportunity for an attack or a mistake. ChugSplash allows you to approve a deployment of any size with a single tiny transaction that you can easily read on the screen of your hardware wallet. This is more secure for smaller projects (less of a chance to sign the wrong thing) and more scalable for larger ones (governance only needs to vote on a single transaction).
-- Deployment scripts are vulnerable to random local errors, unexpected bugs, and any number of external attacks. **With ChugSplash you can "fire and forget" — approve a deployment, fund it, and wait for the ChugSplash bot army to trustlessly deploy your new code in a matter of minutes.**
-
-### Your contract deployments need to be verifiable
-
-- You need to distribute your smart contract code to users so that they know what contract they're interacting with. Your dapp isn't really all that decentralized unless users can be sure that a contract is going to behave in the way you claim it'll behave. You also need to be able to distribute your new source code whenever you're planning to do an upgrade to an existing system.
-- You should be hosting your source code in a public, decentralized manner. ChugSplash makes decentralized hosting the default. ChugSplash bots will also automatically verify your contract source code on services like Etherscan or Sourcify to make sure your users can see your code where they expect it.
-- Once your users have their hands on your source code, they should be able to verify that the source matches what's actually been deployed. **The ChugSplash Explorer website gives your users a dead simple tool for verifying the entirety of an upgrade on the client side.** No more convoluted verification scripts. What you see is what you get.
-- Similarly, users should be able to see the exact set of changes that any proposed future upgrade will bring. **ChugSplash makes it possible to view a proposed upgrade as a diff against the existing system.** Users can see the exact lines of code and variables that are going to change. They can also feel confident that the new code they're looking at will actually be the new code that gets deployed.
-
-### Your contract deployments need to be flexible
-
-- ChugSplash stores historical versions of your code so that you'll be able to revert changes if necessary. This also makes it easy for users to see how your system has evolved over time.
-- An upgrade system needs to work for projects of any size. ChugSplash is designed to work seamlessly for anyone from smaller projects deploying from a multisig to massive projects that rely on a governance contract.
-- A single transaction can be used to authorize a ChugSplash deployment of any size. Whether you're just changing one variable or completely overhauling your entire system, approvals can always be completed in a single transaction.
-
-### Your contract deployments need to be predictable
-
-- Web3 users expect apps to be available 24/7. You should be able to predict the amount of downtime for an upgrade with a high level of confidence. ChugSplash gives you accurate estimates for the time required for an upgrade based on the size of the update and current network congestion.
-- Your costs should also be predictable. ETH doesn't grow on trees. **ChugSplash can give you accurate estimates for the total cost of your deployment so you can budget accordingly.**
-
-### Your contract deployments need to be accessible
-
-- If you really want your contracts to be used, you need to maximize for compatibility and composability. ChugSplash automatically distributes the source code and ABI for spec-compliant deployments via `npm` (and eventually other package management systems). It'll even automatically connect your contracts to the right addresses.
-- ChugSplash contracts that are distributed via `npm` can also be used directly in your smart contracts. Import any contract directly via the `@chugsplash/registry` package.
-- ChugSplash-compatible contracts can easily reference other compatible contracts via the `ChugSplashRegistry` contract. When configuring a deployment, you can simply use the syntax `{{ <deployment name>.<contract name> }}` to reference any contract within any deployment registered in the global `ChugSplashRegistry`.
+- [Features](#key-features)
+- [Documentation](#documentation)
+- [Reach out](#reach-out)
+- [Install](#install)
+- [Usage](#usage)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Key features
 
-### Declarative deployment configuration
+* **Less code.** ChugSplash significantly reduces the amount of code it takes to deploy contracts. This is because it lets you define your deployments declaratively inside of a single file instead of writing deployment scripts. It's like [Terraform](https://www.terraform.io/) for smart contracts. [Here's a sample deployment](#usage).
+* **Faster deployments**. ChugSplash deploys your contracts faster than existing tools. It does this by relying on a network of bots that trustlessly and efficiently complete the entire deployment within minutes. All you need to do is approve the deployment with a single tiny transaction. No burner wallets, no worrying about gas prices, and no stop-and-go deployments.
+* **Safe upgrades**. ChugSplash makes it simple to safely upgrade your contracts. It displays the exact variables and lines of code in every modified contract via a git-style diff. Upgrades can be defined in exactly the same declarative format as deployments.
+* **Fully secure.** ChugSplash deployments are not prone to dangerous edge cases like normal deployments. Standard deployment scripts are vulnerable to random local errors, unexpected bugs, and any number of external attacks. Contracts deployed or upgraded using ChugSplash are immune to these dangers because ChugSplash is fully deterministic.
 
-ChugSplash says goodbye to error-prone deployment scripts.
-Instead, ChugSplash is based on static configuration files.
-Just tell ChugSplash what you want your system to look like and ChugSplash will get you there:
+### Bonus features
 
-```json
-{
-  "contracts": {
-    "MyToken": {
-      "source": "ERC20",
-      "variables": {
-        "name": "My Token",
-        "symbol": "MYT",
-        "decimals": 18,
-        "totalSupply": 1000,
-        "balanceOf": {
-          "0x0000000000000000000000000000000000000000": 1000,
-        },
-      },
-    },
-    "MyMerkleDistributor": {
-      "source": "MerkleDistributor",
-      "variables": {
-        "token": "{{ MyToken }}",
-        "merkleRoot": "0xc24c743268ce26f68cb820c7b58ec4841de32da07de505049b09405e0372cc41"
-      }
-    }
-  },
-}
+* Verifies source code on Etherscan automatically.
+* Deploys contracts at the same addresses across networks via `CREATE2`.
+* Generates deployment artifacts in the same format as hardhat-deploy.
+
+## Documentation
+
+1. [Setting up a ChugSplash project](https://github.com/chugsplash/chugsplash/blob/develop/docs/setup-project.md): Take your first steps with ChugSplash.
+2. [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define a deployment or upgrade.
+3. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
+
+## Reach out
+
+If you have questions or want to request a feature, join our [Discord channel](https://discord.gg/4cdTjkax)!
+
+## Install
+
+With Yarn:
+```
+yarn add --dev @chugsplash/plugins @chugsplash/core
 ```
 
-Want to do something slightly more complex?
-Define your config in TypeScript:
+With NPM:
+```
+npm install --save-dev @chugsplash/plugins @chugsplash/core
+```
 
+## Usage
+
+Define a ChugSplash deployment in `chugsplash.config.ts`:
 ```ts
-import { ChugSplashConfig } from '@chugsplash/core'
+import { UserChugSplashConfig } from '@chugsplash/core'
 
-const totalSupply = 1000
-const merkleRoot = ...
-
-const config: ChugSplashConfig = {
+const config: UserChugSplashConfig = {
   contracts: {
     MyToken: {
-      source: 'ERC20',
+      contract: 'ERC20',
       variables: {
         name: 'My Token',
         symbol: 'MYT',
         decimals: 18,
-        totalSupply: totalSupply,
+        totalSupply: 1000,
         balanceOf: {
-          '0x0000000000000000000000000000000000000000': totalSupply,
+          '0x0000000000000000000000000000000000000000': 1000,
         },
       },
     },
     MyMerkleDistributor: {
-      source: 'MerkleDistributor',
+      contract: 'MerkleDistributor',
       variables: {
-        token: '{{ MyToken }}',
-        merkleRoot: merkleRoot
+        token: '{{ MyToken }}', // MyToken's address. No keeping track of dependencies!
+        merkleRoot: "0xc24c743268ce26f68cb820c7b58ec4841de32da07de505049b09405e0372cc41"
       }
     }
   },
+}
+export default config
+```
+
+In `hardhat.config.ts`:
+```ts
+import '@chugsplash/plugins'
+
+const config: HardhatUserConfig = {
+  ... // Other Hardhat settings go here
+  solidity: {
+    ... // Other Solidity settings go here
+    compilers: [
+      {
+        version: ... , // Solidity compiler version
+        settings: {
+          outputSelection: {
+            '*': {
+              '*': ['storageLayout'],
+            },
+          },
+        },
+      },
+    ]
+  }
 }
 
 export default config
 ```
 
-### The ChugSplash bot army
+Deploy:
+```
+npx hardhat chugsplash-deploy --config-path chugsplash.config.ts
+```
 
-We built ChugSplash because we never wanted to paste a private key into an `.env` file or approve opaque transaction data on a tiny Ledger screen ever again.
-Instead, ChugSplash includes fully automated deployments by default.
-As soon as you approve an upgrade, an army of ChugSplash bots will trustlessly and deterministically complete the entire process within minutes.
-ChugSplash bots are incentivized to execute your upgrade quickly and efficiently.
+## Maintainers
 
-### ChugSplash Explorer
+[@smartcontracts](https://github.com/smartcontracts)\
+[@sam-goldman](https://github.com/sam-goldman)\
+[@rpate97](https://github.com/RPate97)
 
-Smart contract upgrades today are opaque.
-ChugSplash is making them transparent.
-ChugSplash deployments need to be proposed before they can be approved.
-Before approving a deployment proposal, your team and your users can independently view and verify your upgrade before it actually executes.
-Since ChugSplash deployments are fully deterministic, your users will be able to see *exactly* what your system will look like once the upgrade goes through.
+## Contributing
 
-The ChugSplash Explorer website aims to make key upgrade information accessible to everyone who needs it.
-The Explorer will compile ChugSplash deployments locally and can display key information like the validity of the upgrade, the safety of the upgrade based on certain tools (like OpenZeppelin's storage slot checker), and even the exact line-by-line diff in every modified contract.
-No more running complex validation scripts.
-Just propose an upgrade, and the ChugSplash Explorer will tell you what that upgrade is about to do *before* it actually does anything.
+PRs accepted.
 
-### Bonus features
+Small note: If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
 
-ChugSplash bots will carry out extra convenience features on your behalf to make your contract code and interfaces accessible to users and developers who might need them.
-Contracts in any ChugSplash deployment are all automatically verified on both [Etherscan](https://etherscan.io) and [Sourcify](https://sourcify.dev/).
-ChugSplash will also automatically distribute contract ABIs and source code in the `@chugsplash/registry` package so clients can easily interface with your contract code.
+## License
 
-## Project status
-
-ChugSplash is under heavy development.
-If you're interested in contributing, please let us know or check out the list of Good First Issues.
+MIT © 2022
