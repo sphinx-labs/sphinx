@@ -1,5 +1,23 @@
 # @chugsplash/demo
 
+## 0.3.20
+
+### Patch Changes
+
+- 5e304a4: Add HelloChugSplash test, contract, and ChugSplash files
+- 2a4bc68: Replace SimpleStorage with HelloChugSplash demo
+- Updated dependencies [74a61c0]
+- Updated dependencies [a3664d7]
+- Updated dependencies [bb241f5]
+- Updated dependencies [d843707]
+- Updated dependencies [baf3ac1]
+- Updated dependencies [89cd352]
+- Updated dependencies [dba31f7]
+- Updated dependencies [4c04d0a]
+- Updated dependencies [c9eeb47]
+  - @chugsplash/core@0.3.21
+  - @chugsplash/plugins@0.8.5
+
 ## 0.3.19
 
 ### Patch Changes

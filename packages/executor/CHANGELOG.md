@@ -1,5 +1,19 @@
 # @chugsplash/executor
 
+## 0.4.11
+
+### Patch Changes
+
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
+- 2dbf187: Change @nomiclabs/hardhat-etherscan from devDependency to dependency
+- dba31f7: Write canonical config to file system when using executing bundles locally
+- Updated dependencies [74a61c0]
+- Updated dependencies [baf3ac1]
+- Updated dependencies [89cd352]
+- Updated dependencies [dba31f7]
+- Updated dependencies [c9eeb47]
+  - @chugsplash/core@0.3.21
+
 ## 0.4.10
 
 ### Patch Changes

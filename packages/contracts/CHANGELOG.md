@@ -1,5 +1,12 @@
 # @chugsplash/contracts
 
+## 0.3.15
+
+### Patch Changes
+
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
+- 3ec7a05: Announce events with data on the ChugSplashRegistry
+
 ## 0.3.14
 
 ### Patch Changes
