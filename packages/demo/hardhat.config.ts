@@ -27,6 +27,11 @@ const config: HardhatUserConfig = {
       url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
+    ethereum: {
+      chainId: 1,
+      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
     'optimism-goerli': {
       chainId: 420,
       url: `https://optimism-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
