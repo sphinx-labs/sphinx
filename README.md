@@ -18,7 +18,7 @@ ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It'
 * **Less code.** ChugSplash significantly reduces the amount of code it takes to deploy contracts. This is because it lets you define your deployments declaratively inside of a single file instead of writing deployment scripts. It's like [Terraform](https://www.terraform.io/) for smart contracts. [Here's a sample deployment](#usage).
 * **Faster deployments**. ChugSplash deploys your contracts faster than existing tools. It does this by relying on a network of bots that trustlessly and efficiently complete the entire deployment within minutes. All you need to do is approve the deployment with a single tiny transaction. No burner wallets, no worrying about gas prices, and no stop-and-go deployments.
 * **Safe upgrades**. ChugSplash makes it simple to safely upgrade your contracts. It displays the exact variables and lines of code in every modified contract via a git-style diff. Upgrades can be defined in exactly the same declarative format as deployments.
-* **Fully secure.** ChugSplash deployments are not prone to dangerous edge cases like normal deployments. Standard deployment scripts are vulnerable to random local errors, unexpected bugs, and any number of external attacks. Contracts deployed or upgraded using ChugSplash are immune to these dangers because ChugSplash is fully deterministic.
+* **Fully secure.** ChugSplash deployments are not prone to dangerous edge cases like normal deployments, which are vulnerable to random local errors, unexpected bugs, and any number of external attacks. Contracts deployed or upgraded using ChugSplash are immune to these issues because ChugSplash is fully deterministic.
 
 ### Bonus features
 
