@@ -31,6 +31,7 @@ ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It'
 1. [Setting up a ChugSplash project](https://github.com/chugsplash/chugsplash/blob/develop/docs/setup-project.md): Take your first steps with ChugSplash.
 2. [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define a deployment or upgrade.
 3. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
+4. [Integrating ChugSplash with Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry.md): Explains how to integrate ChugSplash into an existing Foundry test suite.
 
 ## Reach out
 
