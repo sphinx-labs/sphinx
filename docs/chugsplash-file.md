@@ -55,7 +55,7 @@ Each contract definition is keyed by a **contract reference name**, which can be
 
 ### State variables
 
-The `variables` property contains the state variables and their values. For example, `MyToken` has a `symbol` variable with a value of `'MYT'`.
+The `variables` property contains the state variables and their values. For example, the `MyToken` contract has a `symbol` variable with a value of `'MYT'`.
 
 > Note: ChugSplash assigns values directly to the state variables in your contracts, so you do not need a constructor or initializer function in your contracts.
 
