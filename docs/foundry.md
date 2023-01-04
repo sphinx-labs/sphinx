@@ -6,14 +6,10 @@ This guide demonstrates how to integrate ChugSplash into an existing Foundry tes
 * [Install Foundry](https://book.getfoundry.sh/getting-started/installation)
 * [Setup a ChugSplash project](https://github.com/chugsplash/chugsplash/blob/develop/docs/setup-project.md)
 
-### 1. Start a stand-alone RPC server using Hardhat or Anvil.
+### 1. Start a stand-alone RPC server using Anvil.
 
-With Hardhat:
-```
-npx hardhat node
-```
+Simply run:
 
-With Anvil:
 ```
 anvil
 ```
