@@ -15,7 +15,7 @@ import {
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
-  '0xB1251e3Bd0EFf7852dF6ea3F11D73b0b28eA4aA8'
+  '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
 
 export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
 
