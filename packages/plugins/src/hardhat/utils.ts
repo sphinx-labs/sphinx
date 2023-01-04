@@ -7,7 +7,6 @@ import {
   parseChugSplashConfig,
   writeSnapshotId,
 } from '@chugsplash/core'
-import { TASK_COMPILE, TASK_CLEAN } from 'hardhat/builtin-tasks/task-names'
 import { Signer } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -22,22 +21,6 @@ export const writeHardhatSnapshotId = async (
     hre.config.paths.deployments,
     await hre.network.provider.send('evm_snapshot', [])
   )
-}
-
-/**
- * Clean the artifacts directory then compile it to ensure that we have the latest artifacts.
- *
- * @param hre Hardhat runtime environment
- */
-export const cleanThenCompile = async (hre: HardhatRuntimeEnvironment) => {
-  // Clean the artifacts to ensure that we're working with the latest build info.
-  await hre.run(TASK_CLEAN, {
-    quiet: true,
-  })
-  // Make sure we have the latest compiled code.
-  await hre.run(TASK_COMPILE, {
-    quiet: true,
-  })
 }
 
 /**
