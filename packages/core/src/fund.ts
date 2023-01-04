@@ -114,7 +114,12 @@ export const estimateExecutionCost = async (
     projectName
   )
   const feeData = await provider.getFeeData()
-  return estExecutionGas.mul(feeData.maxFeePerGas)
+
+  // Use the `maxFeePerGas` if it exists, otherwise use the `gasPrice`. The `maxFeePerGas` is not
+  // defined on Optimism.
+  const estGasPrice = feeData.maxFeePerGas ?? feeData.gasPrice
+
+  return estExecutionGas.mul(estGasPrice)
 }
 
 export const hasSufficientFundsForExecution = async (
