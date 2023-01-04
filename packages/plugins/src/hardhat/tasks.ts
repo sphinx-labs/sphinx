@@ -7,6 +7,7 @@ import {
   TASK_NODE,
   TASK_TEST,
   TASK_RUN,
+  TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import { create } from 'ipfs-http-client'
 import { getChainId, remove0x } from '@eth-optimism/core-utils'
@@ -62,7 +63,6 @@ import {
   loadParsedChugSplashConfig,
   writeHardhatSnapshotId,
   isProjectRegistered,
-  cleanThenCompile,
 } from './utils'
 import {
   alreadyProposedMessage,
@@ -593,7 +593,9 @@ export const chugsplashCommitSubtask = async (
   const { parsedConfig, ipfsUrl, commitToIpfs, noCompile, spinner } = args
 
   if (!noCompile) {
-    await cleanThenCompile(hre)
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
   }
 
   if (spinner) {
@@ -1073,7 +1075,9 @@ task(TASK_NODE)
 
         if (deployAll) {
           if (!noCompile) {
-            await cleanThenCompile(hre)
+            await hre.run(TASK_COMPILE, {
+              quiet: true,
+            })
           }
           await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
           await writeHardhatSnapshotId(hre, 'localhost')
@@ -1114,7 +1118,9 @@ task(TASK_TEST)
             hre.ethers.provider.getSigner()
           )
           if (!noCompile) {
-            await cleanThenCompile(hre)
+            await hre.run(TASK_COMPILE, {
+              quiet: true,
+            })
           }
           await deployAllChugSplashConfigs(hre, !show, '', true, true)
         } finally {
@@ -1153,7 +1159,9 @@ task(TASK_RUN)
           hre.ethers.provider.getSigner()
         )
         if (!noCompile) {
-          await cleanThenCompile(hre)
+          await hre.run(TASK_COMPILE, {
+            quiet: true,
+          })
         }
         await deployAllChugSplashConfigs(hre, true, '', true, confirm)
       }
