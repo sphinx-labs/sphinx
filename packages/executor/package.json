@@ -20,7 +20,7 @@
     "lint:ts:check": "eslint . --max-warnings=0",
     "pre-commit": "lint-staged",
     "build-container": "docker build --tag chugsplash-executor .",
-    "run-container": "docker run --env-file ./.env chugsplash-executor"
+    "container": "docker run --env-file ./.env chugsplash-executor"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/executor#readme",
   "license": "MIT",
