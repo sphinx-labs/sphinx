@@ -108,6 +108,7 @@ contract ChugSplashManager_Test is Test {
     address nonOwner = address(256);
     address executor1 = address(512);
     address executor2 = address(1024);
+    bytes32 salt = bytes32(hex"11");
     uint256 initialTimestamp = 1641070800;
     uint256 baseFee = 1 gwei;
     uint256 bundleExecutionCost = 2 ether;
@@ -157,21 +158,21 @@ contract ChugSplashManager_Test is Test {
         vm.warp(initialTimestamp);
         vm.fee(baseFee);
 
-        bootloader = new ChugSplashBootLoader{salt: bytes32(0) }();
+        bootloader = new ChugSplashBootLoader{salt: salt }();
 
         address registryProxyAddress = Create2.compute(
             address(this),
-            bytes32(0),
+            salt,
             abi.encodePacked(type(Proxy).creationCode, abi.encode(address(owner)))
         );
 
         address proxyUpdaterAddress = Create2.compute(
             address(bootloader),
-            bytes32(0),
+            salt,
             type(ProxyUpdater).creationCode
         );
 
-        ChugSplashManager managerImplementation = new ChugSplashManager{ salt: bytes32(0) }(
+        ChugSplashManager managerImplementation = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(registryProxyAddress),
             projectName,
             owner,
@@ -189,10 +190,11 @@ contract ChugSplashManager_Test is Test {
             ownerBondAmount,
             executorPaymentPercentage,
             address(managerImplementation),
-            registryProxyAddress
+            registryProxyAddress,
+            salt
         );
 
-        Proxy registryProxy = new Proxy{ salt: bytes32(0)}(owner);
+        Proxy registryProxy = new Proxy{ salt: salt}(owner);
 
         vm.startPrank(owner);
         registryProxy.upgradeTo(address(bootloader.registryImplementation()));
@@ -466,8 +468,8 @@ contract ChugSplashManager_Test is Test {
         assertGt(implementationAddress.code.length, 0);
         assertEq(bundle.actionsExecuted, 1);
         assertTrue(bundle.executions[actionIndexes[0]]);
-        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
-        assertEq(manager.implementations(salt), implementationAddress);
+        bytes32 implemenetationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        assertEq(manager.implementations(implemenetationSalt), implementationAddress);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
         assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
@@ -595,8 +597,8 @@ contract ChugSplashManager_Test is Test {
 
         uint256 finalTotalDebt = manager.totalDebt();
         uint256 finalExecutorDebt = manager.debt(executor1);
-        bytes32 salt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
-        address expectedImplementation = manager.implementations(salt);
+        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        address expectedImplementation = manager.implementations(implementationSalt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 gasUsed = 45472;
         uint256 estExecutorPayment = baseFee * gasUsed * (100 + executorPaymentPercentage) / 100;

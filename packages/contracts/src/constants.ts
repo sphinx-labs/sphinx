@@ -17,6 +17,8 @@ import {
 export const OWNER_MULTISIG_ADDRESS =
   '0xB1251e3Bd0EFf7852dF6ea3F11D73b0b28eA4aA8'
 
+export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
+
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
 const chugsplashManagerProxySourceName =
@@ -32,7 +34,10 @@ const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
 )
 const proxyInitializerConstructorArgTypes =
   proxyInitializerConstructorFragment.inputs.map((input) => input.type)
-const proxyInitializerConstructorArgValues = [OWNER_MULTISIG_ADDRESS]
+const proxyInitializerConstructorArgValues = [
+  OWNER_MULTISIG_ADDRESS,
+  CHUGSPLASH_SALT,
+]
 
 const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -49,7 +54,7 @@ export const EXECUTOR_PAYMENT_PERCENTAGE = 20
 
 export const CHUGSPLASH_BOOTLOADER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.utils.solidityKeccak256(['string'], ['ChugSplashBootLoader']),
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes'],
     [ChugSplashBootLoaderArtifact.bytecode]
@@ -58,13 +63,13 @@ export const CHUGSPLASH_BOOTLOADER_ADDRESS = ethers.utils.getCreate2Address(
 
 export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ethers.constants.HashZero,
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
 )
 
 export const PROXY_INITIALIZER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.constants.HashZero,
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
@@ -86,7 +91,7 @@ const registryProxyConstructorArgValues = [PROXY_INITIALIZER_ADDRESS]
 
 export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
   PROXY_INITIALIZER_ADDRESS,
-  ethers.constants.HashZero,
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
@@ -102,7 +107,7 @@ export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
 export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
   ethers.utils.getCreate2Address(
     CHUGSPLASH_BOOTLOADER_ADDRESS,
-    ethers.constants.HashZero,
+    CHUGSPLASH_SALT,
     ethers.utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -128,7 +133,7 @@ const chugsplashManagerConstructorArgValues = [
 
 export const CHUGSPLASH_MANAGER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.constants.HashZero,
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
@@ -143,7 +148,7 @@ export const CHUGSPLASH_MANAGER_ADDRESS = ethers.utils.getCreate2Address(
 
 export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ethers.constants.HashZero,
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
@@ -165,7 +170,7 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
 
 export const DEFAULT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
+  CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(['bytes'], [DefaultAdapterArtifact.bytecode])
 )
 
