@@ -33,6 +33,15 @@ ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It'
 3. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
 4. [Integrating ChugSplash with Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry.md): Explains how to integrate ChugSplash into an existing Foundry test suite.
 
+## Supported Networks
+
+* Ethereum
+* Optimism
+
+Test networks:
+* Ethereum Goerli
+* Optimism Goerli
+
 ## Reach out
 
 If you have questions or want to request a feature, join our [Discord channel](https://discord.gg/4cdTjkax)!
