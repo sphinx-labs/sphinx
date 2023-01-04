@@ -49,6 +49,8 @@ contract ChugSplashBootLoader is Initializable {
      *                                   denominated as a percentage.
      * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      * @param _registryProxy             Address of the ChugSplashRegistry's proxy.
+     * @param _salt                      Salt to be used in the `CREATE2` calls that deploy the
+     *                                   contracts.
      */
     function initialize(
         address _owner,
@@ -57,13 +59,14 @@ contract ChugSplashBootLoader is Initializable {
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         address _managerImplementation,
-        address _registryProxy
+        address _registryProxy,
+        bytes32 _salt
     ) external initializer {
         // Deploy the ProxyUpdater.
-        proxyUpdater = new ProxyUpdater{ salt: bytes32(0) }();
+        proxyUpdater = new ProxyUpdater{ salt: _salt }();
 
         // Deploy the root ChugSplashManager's proxy.
-        rootManagerProxy = new ChugSplashManagerProxy{ salt: bytes32(0) }(
+        rootManagerProxy = new ChugSplashManagerProxy{ salt: _salt }(
             ChugSplashRegistry(_registryProxy),
             address(this)
         );
@@ -78,7 +81,7 @@ contract ChugSplashBootLoader is Initializable {
         rootManagerProxy.changeAdmin(_owner);
 
         // Deploy and initialize the ChugSplashRegistry's implementation contract.
-        registryImplementation = new ChugSplashRegistry{ salt: bytes32(0) }(
+        registryImplementation = new ChugSplashRegistry{ salt: _salt }(
             address(proxyUpdater),
             _ownerBondAmount,
             _executorBondAmount,
