@@ -22,9 +22,6 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    localhost: {
-      url: 'http://localhost:8545',
-    },
     goerli: {
       chainId: 5,
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -32,7 +29,7 @@ const config: HardhatUserConfig = {
     },
     ethereum: {
       chainId: 1,
-      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.INFURA_API_KEY}`,
+      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     'optimism-goerli': {
