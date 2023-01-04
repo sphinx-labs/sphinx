@@ -601,13 +601,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // debt.
         uint256 executorPayment;
         if (block.chainid != 10 && block.chainid != 420) {
-            // Use the basefee for any network that isn't Optimism.
-            executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            // Use the gas price for any network that isn't Optimism.
+            executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
         } else if (block.chainid == 10) {
-            // Optimism mainnet does not have the basefee opcode, so we hardcode its value here.
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
             executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
         } else {
-            // Optimism goerli does not have the basefee opcode, so we hardcode its value here.
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
             executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
         }
 
@@ -708,13 +710,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Calculate the executor's payment.
         uint256 executorPayment;
         if (block.chainid != 10 && block.chainid != 420) {
-            // Use the basefee for any network that isn't Optimism.
-            executorPayment = (block.basefee * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            // Use the gas price for any network that isn't Optimism.
+            executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
         } else if (block.chainid == 10) {
-            // Optimism mainnet does not have the basefee opcode, so we hardcode its value here.
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
             executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
         } else {
-            // Optimism goerli does not have the basefee opcode, so we hardcode its value here.
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
             executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
         }
 
