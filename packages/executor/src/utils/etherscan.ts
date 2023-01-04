@@ -65,7 +65,8 @@ export const RESPONSE_OK = '1'
 export const verifyChugSplashConfig = async (
   configUri: string,
   provider: ethers.providers.Provider,
-  networkName: string
+  networkName: string,
+  bundleId: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
     provider,
@@ -109,7 +110,12 @@ export const verifyChugSplashConfig = async (
       contractName
     )
     const implementationAddress = await ChugSplashManager.implementations(
-      referenceName
+      ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ['bytes32', 'string'],
+          [bundleId, referenceName]
+        )
+      )
     )
 
     const { input, solcVersion } = canonicalConfig.inputs.find(
@@ -123,8 +129,8 @@ export const verifyChugSplashConfig = async (
       sourceName
     )
 
-    // Verify the implementation
     try {
+      // Verify the implementation
       await attemptVerification(
         provider,
         networkName,
@@ -138,11 +144,8 @@ export const verifyChugSplashConfig = async (
         solcVersion,
         constructorArgValues
       )
-    } catch (err) {
-      console.error(err)
-    }
 
-    try {
+      // Link the proxy with its implementation
       await linkProxyWithImplementation(
         etherscanApiEndpoints,
         etherscanApiKey,
@@ -462,10 +465,8 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
-  const customNetworkNames = customChains.map((chain) => chain.network)
-  return (
-    chainConfig[networkName] !== undefined ||
-    customNetworkNames.includes(networkName)
-  )
+export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
+  const chainIds = Object.values(chainConfig).map((config) => config.chainId)
+  const customChainIds = customChains.map((chain) => chain.chainId)
+  return chainIds.includes(chainId) || customChainIds.includes(chainId)
 }

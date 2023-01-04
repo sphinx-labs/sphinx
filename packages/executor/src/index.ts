@@ -24,6 +24,7 @@ import {
   readCanonicalConfig,
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
+import { getChainId } from '@eth-optimism/core-utils'
 
 import {
   compileRemoteBundle,
@@ -145,7 +146,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(this.options.network)) {
+    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
       this.logger.info(
         '[ChugSplash]: attempting to verify the chugsplash contracts...'
       )
@@ -296,14 +297,19 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
           // verify on etherscan
           try {
-            if (isSupportedNetworkOnEtherscan(this.options.network)) {
+            if (
+              isSupportedNetworkOnEtherscan(
+                await getChainId(this.state.provider)
+              )
+            ) {
               this.logger.info(
                 `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
               )
               await verifyChugSplashConfig(
                 proposalEvent.args.configUri,
                 provider,
-                this.options.network
+                this.options.network,
+                activeBundleId
               )
               this.logger.info(
                 `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`

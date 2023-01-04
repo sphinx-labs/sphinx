@@ -205,7 +205,10 @@ export const createDeploymentArtifacts = async (
         ...receipt,
         gasUsed: receipt.gasUsed.toString(),
         cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-        effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+        // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
+        ...(receipt.effectiveGasPrice && {
+          effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+        }),
       },
       numDeployments: 1,
       metadata:
