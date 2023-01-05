@@ -63,6 +63,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       version: require('../package.json').version,
       loop: true,
       loopIntervalMs: 5000,
+      port: parseInt(process.env.EXECUTOR_PORT, 10),
       options,
       optionsSpec: {
         url: {
