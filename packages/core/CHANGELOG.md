@@ -1,5 +1,18 @@
 # @chugsplash/core
 
+## 0.3.22
+
+### Patch Changes
+
+- 1cb43e7: Fix Etherscan bug that was caused by an incorrect calculation of implementation addresses
+- acfe88d: Improve execution cost estimation
+- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the ChugSplash contracts
+- Updated dependencies [10f3054]
+- Updated dependencies [fdf512b]
+- Updated dependencies [88e9465]
+- Updated dependencies [a60020a]
+  - @chugsplash/contracts@0.3.16
+
 ## 0.3.21
 
 ### Patch Changes

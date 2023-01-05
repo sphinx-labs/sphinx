@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/contracts",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "description": "ChugSplash contracts",
   "main": "dist/index",
   "types": "dist/index",

@@ -1,5 +1,19 @@
 # @chugsplash/demo
 
+## 0.3.21
+
+### Patch Changes
+
+- a60020a: Remove Infura as RPC URL service
+- Updated dependencies [9212fae]
+- Updated dependencies [1cb43e7]
+- Updated dependencies [acfe88d]
+- Updated dependencies [fdf512b]
+- Updated dependencies [a60020a]
+- Updated dependencies [64e57d6]
+  - @chugsplash/plugins@0.8.6
+  - @chugsplash/core@0.3.22
+
 ## 0.3.20
 
 ### Patch Changes
