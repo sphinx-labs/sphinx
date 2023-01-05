@@ -1,5 +1,17 @@
 # @chugsplash/executor
 
+## 0.4.12
+
+### Patch Changes
+
+- 1cb43e7: Fix Etherscan bug that was caused by an incorrect calculation of implementation addresses
+- a60020a: Remove Infura as RPC URL service
+- 64e57d6: Better support for deploying containerized executor with Terraform
+- Updated dependencies [1cb43e7]
+- Updated dependencies [acfe88d]
+- Updated dependencies [fdf512b]
+  - @chugsplash/core@0.3.22
+
 ## 0.4.11
 
 ### Patch Changes
