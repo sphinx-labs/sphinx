@@ -1,5 +1,14 @@
 # @chugsplash/contracts
 
+## 0.3.16
+
+### Patch Changes
+
+- 10f3054: Use `tx.gasprice` instead of `block.basefee`
+- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the ChugSplash contracts
+- 88e9465: Update owner multisig address
+- a60020a: Remove Infura as RPC URL service
+
 ## 0.3.15
 
 ### Patch Changes

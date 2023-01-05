@@ -1,5 +1,24 @@
 # @chugsplash/plugins
 
+## 0.8.6
+
+### Patch Changes
+
+- 9212fae: Compile files without first cleaning the artifacts directory
+- 1cb43e7: Fix Etherscan bug that was caused by an incorrect calculation of implementation addresses
+- a60020a: Remove Infura as RPC URL service
+- 64e57d6: Better support for deploying containerized executor with Terraform
+- Updated dependencies [10f3054]
+- Updated dependencies [1cb43e7]
+- Updated dependencies [acfe88d]
+- Updated dependencies [fdf512b]
+- Updated dependencies [88e9465]
+- Updated dependencies [a60020a]
+- Updated dependencies [64e57d6]
+  - @chugsplash/contracts@0.3.16
+  - @chugsplash/core@0.3.22
+  - @chugsplash/executor@0.4.12
+
 ## 0.8.5
 
 ### Patch Changes
