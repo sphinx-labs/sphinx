@@ -19,7 +19,6 @@ import {
   toVerifyRequest,
   toCheckStatusRequest,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanVerifyContractRequest'
-import { resolveEtherscanApiKey } from '@nomiclabs/hardhat-etherscan/dist/src/resolveEtherscanApiKey'
 import {
   retrieveContractBytecode,
   getEtherscanEndpoints,
@@ -66,7 +65,8 @@ export const RESPONSE_OK = '1'
 export const verifyChugSplashConfig = async (
   configUri: string,
   provider: ethers.providers.Provider,
-  networkName: string
+  networkName: string,
+  bundleId: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
     provider,
@@ -110,7 +110,12 @@ export const verifyChugSplashConfig = async (
       contractName
     )
     const implementationAddress = await ChugSplashManager.implementations(
-      referenceName
+      ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ['bytes32', 'string'],
+          [bundleId, referenceName]
+        )
+      )
     )
 
     const { input, solcVersion } = canonicalConfig.inputs.find(
@@ -124,8 +129,8 @@ export const verifyChugSplashConfig = async (
       sourceName
     )
 
-    // Verify the implementation
     try {
+      // Verify the implementation
       await attemptVerification(
         provider,
         networkName,
@@ -139,11 +144,8 @@ export const verifyChugSplashConfig = async (
         solcVersion,
         constructorArgValues
       )
-    } catch (err) {
-      console.error(err)
-    }
 
-    try {
+      // Link the proxy with its implementation
       await linkProxyWithImplementation(
         etherscanApiEndpoints,
         etherscanApiKey,
@@ -353,18 +355,15 @@ export const getEtherscanInfo = async (
   etherscanApiKey: string
   etherscanApiEndpoints: EtherscanURLs
 }> => {
-  const { network: verificationNetwork, urls: etherscanApiEndpoints } =
-    await getEtherscanEndpoints(
-      // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
-      provider as any,
-      networkName,
-      chainConfig,
-      customChains
-    )
+  const { urls: etherscanApiEndpoints } = await getEtherscanEndpoints(
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
+    networkName,
+    chainConfig,
+    customChains
+  )
 
-  const etherscanApiKey = resolveEtherscanApiKey(apiKey, verificationNetwork)
-
-  return { etherscanApiKey, etherscanApiEndpoints }
+  return { etherscanApiKey: apiKey, etherscanApiEndpoints }
 }
 
 export const linkProxyWithImplementation = async (
@@ -466,10 +465,8 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
-  const customNetworkNames = customChains.map((chain) => chain.network)
-  return (
-    chainConfig[networkName] !== undefined ||
-    customNetworkNames.includes(networkName)
-  )
+export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
+  const chainIds = Object.values(chainConfig).map((config) => config.chainId)
+  const customChainIds = customChains.map((chain) => chain.chainId)
+  return chainIds.includes(chainId) || customChainIds.includes(chainId)
 }

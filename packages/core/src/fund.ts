@@ -113,8 +113,13 @@ export const estimateExecutionCost = async (
     actionsExecuted,
     projectName
   )
-  const gasPrice = await provider.getGasPrice()
-  return estExecutionGas.mul(gasPrice)
+  const feeData = await provider.getFeeData()
+
+  // Use the `maxFeePerGas` if it exists, otherwise use the `gasPrice`. The `maxFeePerGas` is not
+  // defined on Optimism.
+  const estGasPrice = feeData.maxFeePerGas ?? feeData.gasPrice
+
+  return estExecutionGas.mul(estGasPrice)
 }
 
 export const hasSufficientFundsForExecution = async (
@@ -152,7 +157,7 @@ export const getAmountToDeposit = async (
   const availableFunds = await availableFundsForExecution(provider, projectName)
 
   const amountToDeposit = includeBuffer
-    ? currExecutionCost.sub(availableFunds).mul(EXECUTION_BUFFER_MULTIPLIER)
+    ? currExecutionCost.mul(EXECUTION_BUFFER_MULTIPLIER).sub(availableFunds)
     : currExecutionCost.sub(availableFunds)
 
   return amountToDeposit.lt(0) ? ethers.BigNumber.from(0) : amountToDeposit

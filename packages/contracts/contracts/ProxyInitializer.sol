@@ -28,12 +28,13 @@ contract ProxyInitializer is Initializable {
      *         the initializer.
      *
      * @param _newOwner Address that will receive ownership of the proxy in the initializer.
+     * @param _salt Salt to be used in the `CREATE2` call that deploys the proxy.
      */
-    constructor(address _newOwner) {
+    constructor(address _newOwner, bytes32 _salt) {
         newOwner = _newOwner;
 
         // Deploy the proxy.
-        proxy = new Proxy{ salt: bytes32(0) }(
+        proxy = new Proxy{ salt: _salt }(
             // The owner must initially be this contract so that it can set the proxy's
             // implementation contract in the initializer.
             address(this)

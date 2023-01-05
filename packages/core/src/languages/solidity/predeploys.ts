@@ -23,6 +23,7 @@ import {
   CHUGSPLASH_REGISTRY_ADDRESS,
   OWNER_MULTISIG_ADDRESS,
   PROXY_INITIALIZER_ADDRESS,
+  CHUGSPLASH_SALT,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -49,7 +50,7 @@ export const initializeChugSplash = async (
       abi: ChugSplashManagerABI,
       bytecode: ChugSplashManagerArtifact.bytecode,
     },
-    salt: ethers.constants.HashZero,
+    salt: CHUGSPLASH_SALT,
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ChugSplashManagerArtifact.sourceName],
   })
 
@@ -63,7 +64,7 @@ export const initializeChugSplash = async (
       abi: ChugSplashBootLoaderABI,
       bytecode: ChugSplashBootLoaderArtifact.bytecode,
     },
-    salt: ethers.utils.solidityKeccak256(['string'], ['ChugSplashBootLoader']),
+    salt: CHUGSPLASH_SALT,
   })
 
   logger?.info('[ChugSplash]: ChugSplashBootLoader deployed')
@@ -86,7 +87,8 @@ export const initializeChugSplash = async (
         OWNER_BOND_AMOUNT,
         EXECUTOR_PAYMENT_PERCENTAGE,
         ChugSplashManager.address,
-        CHUGSPLASH_REGISTRY_PROXY_ADDRESS
+        CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+        CHUGSPLASH_SALT
       )
     ).wait()
     logger?.info('[ChugSplash]: ChugSplashBootLoader initialized')
@@ -110,7 +112,7 @@ export const initializeChugSplash = async (
       abi: ProxyInitializerABI,
       bytecode: ProxyInitializerArtifact.bytecode,
     },
-    salt: ethers.constants.HashZero,
+    salt: CHUGSPLASH_SALT,
     args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyInitializerArtifact.sourceName],
   })
 
@@ -185,7 +187,7 @@ export const initializeChugSplash = async (
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
-    salt: ethers.utils.solidityKeccak256(['string'], ['DefaultAdapter']),
+    salt: CHUGSPLASH_SALT,
   })
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')

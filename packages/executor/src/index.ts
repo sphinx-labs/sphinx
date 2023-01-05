@@ -24,6 +24,7 @@ import {
   readCanonicalConfig,
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
+import { getChainId } from '@eth-optimism/core-utils'
 
 import {
   compileRemoteBundle,
@@ -54,9 +55,6 @@ type State = {
   wallet: ethers.Wallet
 }
 
-// TODO: Add logging agent for docker container and connect to a managed sink such as logz.io
-// Refactor chugsplash commands to decide whether to use the executor based on the target network
-
 export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   constructor(options?: Partial<Options>) {
     super({
@@ -64,7 +62,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
-      loopIntervalMs: 1000,
+      loopIntervalMs: 5000,
       options,
       optionsSpec: {
         url: {
@@ -148,7 +146,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(this.options.network)) {
+    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
       this.logger.info(
         '[ChugSplash]: attempting to verify the chugsplash contracts...'
       )
@@ -175,7 +173,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
       registry.filters.EventAnnounced('ChugSplashBundleApproved'),
-      this.state.lastBlockNumber + 1,
+      this.state.lastBlockNumber,
       latestBlockNumber
     )
 
@@ -299,14 +297,19 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
 
           // verify on etherscan
           try {
-            if (isSupportedNetworkOnEtherscan(this.options.network)) {
+            if (
+              isSupportedNetworkOnEtherscan(
+                await getChainId(this.state.provider)
+              )
+            ) {
               this.logger.info(
                 `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
               )
               await verifyChugSplashConfig(
                 proposalEvent.args.configUri,
                 provider,
-                this.options.network
+                this.options.network,
+                activeBundleId
               )
               this.logger.info(
                 `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`

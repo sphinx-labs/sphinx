@@ -24,17 +24,22 @@ const config: HardhatUserConfig = {
   networks: {
     goerli: {
       chainId: 5,
-      url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts,
+    },
+    ethereum: {
+      chainId: 1,
+      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     'optimism-goerli': {
       chainId: 420,
-      url: `https://optimism-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     optimism: {
       chainId: 10,
-      url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      url: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     arbitrum: {
@@ -44,7 +49,7 @@ const config: HardhatUserConfig = {
     },
     'arbitrum-goerli': {
       chainId: 421613,
-      url: 'https://goerli-rollup.arbitrum.io/rpc',
+      url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
   },

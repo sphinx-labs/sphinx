@@ -33,6 +33,7 @@ contract ChugSplashRegistry_Test is Test {
     address owner = address(128);
     address adapter = address(256);
     bytes32 proxyType = bytes32(hex"1337");
+    bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
     string projectName = 'TestProject';
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
@@ -47,7 +48,7 @@ contract ChugSplashRegistry_Test is Test {
     function setUp() external {
         proxyUpdater = new ProxyUpdater();
 
-        manager = new ChugSplashManager{ salt: bytes32(0) }(
+        manager = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(dummyRegistryProxyAddress),
             projectName,
             owner,
@@ -58,7 +59,7 @@ contract ChugSplashRegistry_Test is Test {
             executorPaymentPercentage
         );
 
-        registry = new ChugSplashRegistry{ salt: bytes32(0) }(
+        registry = new ChugSplashRegistry{ salt: salt }(
             address(proxyUpdater),
             ownerBondAmount,
             executorBondAmount,

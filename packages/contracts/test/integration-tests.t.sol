@@ -13,6 +13,7 @@ import { Create2 } from "../contracts/libraries/Create2.sol";
 contract Integration_Tests is Test {
 
     address owner = address(128);
+    bytes32 salt = bytes32(hex"11");
     string projectName = 'TestProject';
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
     uint256 executorBondAmount = 1 ether;
@@ -23,11 +24,11 @@ contract Integration_Tests is Test {
     Proxy registryProxy;
 
     function setUp() external {
-        bootloader = new ChugSplashBootLoader{salt: bytes32(0) }();
+        bootloader = new ChugSplashBootLoader{salt: salt }();
 
         address registryProxyAddress = Create2.compute(
             address(this),
-            bytes32(0),
+            salt,
             abi.encodePacked(type(Proxy).creationCode, abi.encode(address(owner)))
         );
 
@@ -38,10 +39,11 @@ contract Integration_Tests is Test {
             ownerBondAmount,
             executorPaymentPercentage,
             address(1),
-            registryProxyAddress
+            registryProxyAddress,
+            salt
         );
 
-        registryProxy = new Proxy{ salt: bytes32(0)}(owner);
+        registryProxy = new Proxy{ salt: salt }(owner);
 
         vm.startPrank(owner);
         registryProxy.upgradeTo(address(bootloader.registryImplementation()));
