@@ -34,6 +34,7 @@ import {
   getProxyAdmin,
   isContractDeployed,
   getProxyImplementationAddress,
+  getGasPriceOverrides,
 } from '../../utils'
 
 export const initializeChugSplash = async (
@@ -88,7 +89,8 @@ export const initializeChugSplash = async (
         EXECUTOR_PAYMENT_PERCENTAGE,
         ChugSplashManager.address,
         CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-        CHUGSPLASH_SALT
+        CHUGSPLASH_SALT,
+        await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info('[ChugSplash]: ChugSplashBootLoader initialized')
@@ -153,7 +155,10 @@ export const initializeChugSplash = async (
     // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
     // implementation and transfers ownership of the proxy to the multisig owner.
     await (
-      await ProxyInitializer.initialize(CHUGSPLASH_REGISTRY_ADDRESS)
+      await ProxyInitializer.initialize(
+        CHUGSPLASH_REGISTRY_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
     ).wait()
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
@@ -211,7 +216,8 @@ export const initializeChugSplash = async (
     await (
       await ChugSplashRegistry.addProxyType(
         ethers.constants.HashZero,
-        DefaultAdapter.address
+        DefaultAdapter.address,
+        await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
@@ -298,13 +304,14 @@ export const doDeterministicDeploy = async (
     return new ethers.Contract(address, options.contract.abi, options.signer)
   }
 
+  // Create a transaction request with gas price overrides.
+  const txnRequest = await getGasPriceOverrides(provider, {
+    to: deployer,
+    data: options.salt + ethers.utils.hexlify(deploymentTx.data).slice(2),
+  })
+
   // Deploy the contract.
-  await (
-    await options.signer.sendTransaction({
-      to: deployer,
-      data: options.salt + ethers.utils.hexlify(deploymentTx.data).slice(2),
-    })
-  ).wait()
+  await (await options.signer.sendTransaction(txnRequest)).wait()
 
   if ((await isContractDeployed(address, provider)) === false) {
     throw new Error(`failed to deploy contract at ${address}`)

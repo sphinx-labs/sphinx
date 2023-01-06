@@ -13,12 +13,13 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
 } from './types'
+import { getGasPriceOverrides } from '../utils'
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
   bundle: ChugSplashActionBundle
   bundleState: ChugSplashBundleState
-  executor: ethers.Signer
+  executor: ethers.Wallet
   projectName: string
   logger: Logger
 }) => {
@@ -52,9 +53,11 @@ export const executeTask = async (args: {
         `[ChugSplash]: claiming the bundle for project: ${projectName}`
       )
       await (
-        await chugSplashManager.claimBundle({
-          value: EXECUTOR_BOND_AMOUNT,
-        })
+        await chugSplashManager.claimBundle(
+          await getGasPriceOverrides(executor.provider, {
+            value: EXECUTOR_BOND_AMOUNT,
+          })
+        )
       ).wait()
       logger.info(`[ChugSplash]: claimed the bundle`)
     } else if (bundleState.selectedExecutor !== executorAddress) {
@@ -183,7 +186,8 @@ export const executeTask = async (args: {
           await chugSplashManager.executeMultipleActions(
             batch.map((action) => action.action),
             batch.map((action) => action.proof.actionIndex),
-            batch.map((action) => action.proof.siblings)
+            batch.map((action) => action.proof.siblings),
+            await getGasPriceOverrides(executor.provider)
           )
         ).wait()
 
@@ -221,7 +225,8 @@ export const executeTask = async (args: {
       await chugSplashManager.completeChugSplashBundle(
         setImplActions.map((action) => action.action),
         setImplActions.map((action) => action.proof.actionIndex),
-        setImplActions.map((action) => action.proof.siblings)
+        setImplActions.map((action) => action.proof.siblings),
+        await getGasPriceOverrides(executor.provider)
       )
     ).wait()
     logger.info(`[ChugSplash]: executed SetImplementation actions`)

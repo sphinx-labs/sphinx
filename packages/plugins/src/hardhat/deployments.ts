@@ -21,6 +21,7 @@ import {
   getAmountToDeposit,
   isContractDeployed,
   formatEther,
+  getGasPriceOverrides,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -429,7 +430,8 @@ reference name to something other than ${upgradeReferenceName}.`
     await ChugSplashManager.proposeChugSplashBundle(
       bundle.root,
       bundle.actions.length,
-      configUri
+      configUri,
+      await getGasPriceOverrides(provider)
     )
   ).wait()
 

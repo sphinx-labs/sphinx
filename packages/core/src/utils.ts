@@ -1,7 +1,17 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { utils, constants, Signer, Contract, providers, ethers } from 'ethers'
+import {
+  utils,
+  constants,
+  Signer,
+  Wallet,
+  Contract,
+  providers,
+  ethers,
+  PayableOverrides,
+  BigNumber,
+} from 'ethers'
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,
@@ -10,6 +20,7 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
 } from '@chugsplash/contracts'
+import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
@@ -211,7 +222,13 @@ export const registerChugSplashProject = async (
   if (
     (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
   ) {
-    await (await ChugSplashRegistry.register(projectName, projectOwner)).wait()
+    await (
+      await ChugSplashRegistry.register(
+        projectName,
+        projectOwner,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
     return true
   } else {
     const existingProjectOwner = await getProjectOwnerAddress(
@@ -315,12 +332,16 @@ export const displayDeploymentTable = (
 }
 
 export const claimExecutorPayment = async (
-  executor: Signer,
+  executor: Wallet,
   ChugSplashManager: Contract
 ) => {
   const executorDebt = await ChugSplashManager.debt(await executor.getAddress())
   if (executorDebt.gt(0)) {
-    await (await ChugSplashManager.claimExecutorPayment()).wait()
+    await (
+      await ChugSplashManager.claimExecutorPayment(
+        await getGasPriceOverrides(executor.provider)
+      )
+    ).wait()
   }
 }
 
@@ -415,4 +436,31 @@ export const getProxyImplementationAddress = async (
     encodedImplAddress
   )
   return decoded
+}
+
+/**
+ * Overrides an object's gas price settings to support EIP-1559 transactions if EIP-1559 is
+ * supported by the network. This only overrides the default behavior on Goerli, where transactions
+ * sent via Alchemy or Infura do not yet support EIP-1559 gas pricing, despite the fact that
+ * `maxFeePerGas` and `maxPriorityFeePerGas` are defined.
+ *
+ * @param provider Provider object.
+ * @param overridden The object whose gas price settings will be overridden.
+ * @returns The object whose gas price settings will be overridden.
+ */
+export const getGasPriceOverrides = async (
+  provider: ethers.providers.Provider,
+  overridden: PayableOverrides | TransactionRequest = {}
+): Promise<PayableOverrides | TransactionRequest> => {
+  const { maxFeePerGas, maxPriorityFeePerGas } = await provider.getFeeData()
+
+  if (
+    BigNumber.isBigNumber(maxFeePerGas) &&
+    BigNumber.isBigNumber(maxPriorityFeePerGas)
+  ) {
+    overridden.maxFeePerGas = maxFeePerGas
+    overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+  }
+
+  return overridden
 }
