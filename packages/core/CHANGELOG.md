@@ -1,5 +1,13 @@
 # @chugsplash/core
 
+## 0.3.24
+
+### Patch Changes
+
+- 2267ec4: Bump versions
+- Updated dependencies [2267ec4]
+  - @chugsplash/contracts@0.3.17
+
 ## 0.3.23
 
 ### Patch Changes
