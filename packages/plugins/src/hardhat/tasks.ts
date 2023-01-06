@@ -48,7 +48,11 @@ import {
   getArtifactsFromCanonicalConfig,
 } from '@chugsplash/executor'
 
-import { getSampleContractFile } from '../sample-project'
+import {
+  getSampleContractFile,
+  sampleChugSplashFileJavaScript,
+  sampleChugSplashFileTypeScript,
+} from '../sample-project'
 import {
   getBuildInfo,
   getContractArtifact,
@@ -1777,29 +1781,29 @@ export const chugsplashInitTask = async (
   const isTypeScriptProject =
     path.extname(hre.config.paths.configFile) === '.ts'
 
-  // Get the path from the current directory to the sample source files
-  const sampleSrcPath = path.join(
-    __dirname,
-    '..',
-    '..',
-    'src',
-    'sample-project'
-  )
-
   // Check if the sample ChugSplash file already exists.
   const chugsplashFileName = isTypeScriptProject
     ? 'hello-chugsplash.ts'
     : 'hello-chugsplash.js'
-  const chugsplashFilePathDest = path.join(
+  const chugsplashFilePath = path.join(
     hre.config.paths.chugsplash,
     chugsplashFileName
   )
-  if (!fs.existsSync(chugsplashFilePathDest)) {
-    // Copy the sample ChugSplash file to the destination path.
-    fs.copyFileSync(
-      path.join(sampleSrcPath, chugsplashFileName),
-      chugsplashFilePathDest
+  if (!fs.existsSync(chugsplashFilePath)) {
+    // Create the sample ChugSplash file.
+    fs.writeFileSync(
+      chugsplashFilePath,
+      isTypeScriptProject
+        ? sampleChugSplashFileTypeScript
+        : sampleChugSplashFileJavaScript
     )
+
+    // TODO: rm
+    // // Copy the sample ChugSplash file to the destination path.
+    // fs.copyFileSync(
+    //   path.join(sampleSrcPath, chugsplashFileName),
+    //   chugsplashFilePathDest
+    // )
   }
 
   // Next, we'll create the sample contract file.
