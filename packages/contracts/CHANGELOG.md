@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.3.17
+
+### Patch Changes
+
+- 2267ec4: Bump versions
+
 ## 0.3.16
 
 ### Patch Changes

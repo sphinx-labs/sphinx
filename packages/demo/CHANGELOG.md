@@ -1,5 +1,14 @@
 # @chugsplash/demo
 
+## 0.3.22
+
+### Patch Changes
+
+- 2267ec4: Bump versions
+- Updated dependencies [2267ec4]
+  - @chugsplash/core@0.3.24
+  - @chugsplash/plugins@0.8.9
+
 ## 0.3.21
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @chugsplash/executor
 
+## 0.4.14
+
+### Patch Changes
+
+- 2267ec4: Bump versions
+- Updated dependencies [2267ec4]
+  - @chugsplash/core@0.3.24
+
 ## 0.4.13
 
 ### Patch Changes
