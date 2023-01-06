@@ -11,6 +11,7 @@ import {
   getAmountToDeposit,
   EXECUTION_BUFFER_MULTIPLIER,
   formatEther,
+  getGasPriceOverrides,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ethers } from 'ethers'
@@ -159,7 +160,8 @@ export const postExecutionActions = async (
 ) => {
   spinner.start(`Sending leftover funds to the project owner...`)
 
-  const signer = hre.ethers.provider.getSigner()
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
@@ -172,11 +174,15 @@ export const postExecutionActions = async (
   if ((await signer.getAddress()) === currProjectOwner) {
     // Withdraw any of the current project owner's funds in the ChugSplashManager.
     const ownerBalance = await getOwnerWithdrawableAmount(
-      hre.ethers.provider,
+      provider,
       parsedConfig.options.projectName
     )
     if (ownerBalance.gt(0)) {
-      await (await ChugSplashManager.withdrawOwnerETH()).wait()
+      await (
+        await ChugSplashManager.withdrawOwnerETH(
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
       spinner.succeed(
         `Sent leftover funds to the project owner. Amount: ${formatEther(
           ownerBalance,
@@ -194,10 +200,17 @@ export const postExecutionActions = async (
       spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
       if (newProjectOwner === ethers.constants.AddressZero) {
         // We must call a separate function if ownership is being transferred to address(0).
-        await (await ChugSplashManager.renounceOwnership()).wait()
+        await (
+          await ChugSplashManager.renounceOwnership(
+            await getGasPriceOverrides(provider)
+          )
+        ).wait()
       } else {
         await (
-          await ChugSplashManager.transferOwnership(newProjectOwner)
+          await ChugSplashManager.transferOwnership(
+            newProjectOwner,
+            await getGasPriceOverrides(provider)
+          )
         ).wait()
       }
       spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)

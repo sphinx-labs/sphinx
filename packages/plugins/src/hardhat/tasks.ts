@@ -36,6 +36,7 @@ import {
   EXECUTION_BUFFER_MULTIPLIER,
   formatEther,
   writeCanonicalConfig,
+  getGasPriceOverrides,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -519,7 +520,12 @@ Please call this task again with the correct amount of funds.
       hre
     )
 
-    await (await ChugSplashManager.approveChugSplashBundle(bundleId)).wait()
+    await (
+      await ChugSplashManager.approveChugSplashBundle(
+        bundleId,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
     spinner.succeed(`Project approved on ${hre.network.name}.`)
 
     if (!skipMonitorStatus) {
@@ -990,7 +996,8 @@ export const chugsplashFundTask = async (
 
   const spinner = ora({ isSilent: silent })
 
-  const signer = hre.ethers.provider.getSigner()
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
   const parsedConfig = loadParsedChugSplashConfig(configPath)
   const projectName = parsedConfig.options.projectName
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
@@ -1009,7 +1016,7 @@ Please send more ETH to ${await signer.getAddress()} on ${
 
   if (!(await isProjectRegistered(signer, projectName))) {
     errorProjectNotRegistered(
-      await getChainId(hre.ethers.provider),
+      await getChainId(provider),
       hre.network.name,
       configPath
     )
@@ -1020,12 +1027,11 @@ Please send more ETH to ${await signer.getAddress()} on ${
       amount
     )} ETH for the project: ${projectName}...`
   )
-  await (
-    await signer.sendTransaction({
-      value: amount,
-      to: chugsplashManagerAddress,
-    })
-  ).wait()
+  const txnRequest = await getGasPriceOverrides(provider, {
+    value: amount,
+    to: chugsplashManagerAddress,
+  })
+  await (await signer.sendTransaction(txnRequest)).wait()
   spinner.succeed(
     `Deposited ${ethers.utils.formatEther(
       amount
@@ -1213,13 +1219,21 @@ You attempted to cancel the project using the address: ${await signer.getAddress
     return
   }
 
-  await (await ChugSplashManager.cancelActiveChugSplashBundle()).wait()
+  await (
+    await ChugSplashManager.cancelActiveChugSplashBundle(
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
 
   spinner.succeed(`Cancelled ${projectName} on ${hre.network.name}.`)
   spinner.start(`Refunding the project owner...`)
 
   const prevOwnerBalance = await signer.getBalance()
-  await (await ChugSplashManager.withdrawOwnerETH()).wait()
+  await (
+    await ChugSplashManager.withdrawOwnerETH(
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
   const refund = (await signer.getBalance()).sub(prevOwnerBalance)
 
   spinner.succeed(
@@ -1303,7 +1317,11 @@ npx hardhat chugsplash-cancel --network ${hre.network.name} --config-path ${conf
   )
 
   if (amountToWithdraw.gt(0)) {
-    await (await ChugSplashManager.withdrawOwnerETH()).wait()
+    await (
+      await ChugSplashManager.withdrawOwnerETH(
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
 
     spinner.succeed(
       `Withdrew ${ethers.utils.formatEther(amountToWithdraw)} ETH on ${
@@ -1512,7 +1530,12 @@ export const addProposerTask = async (
       )
     }
 
-    await (await ChugSplashManager.addProposer(newProposer)).wait()
+    await (
+      await ChugSplashManager.addProposer(
+        newProposer,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
 
     spinner.succeed(`Proposer ${newProposer} successfully added!`)
   }
@@ -1585,7 +1608,11 @@ export const claimProxyTask = async (
   }
 
   await (
-    await manager.transferProxyOwnership(referenceName, signerAddress)
+    await manager.transferProxyOwnership(
+      referenceName,
+      signerAddress,
+      await getGasPriceOverrides(provider)
+    )
   ).wait()
 
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
@@ -1695,7 +1722,12 @@ export const transferOwnershipTask = async (
   spinner.start('Transferring proxy ownership to ChugSplash...')
 
   // Transfer ownership of the proxy to the ChugSplashManager.
-  await (await contract.changeAdmin(managerAddress)).wait()
+  await (
+    await contract.changeAdmin(
+      managerAddress,
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
 
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
