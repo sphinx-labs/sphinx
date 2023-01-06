@@ -1048,12 +1048,17 @@ task(TASK_CHUGSPLASH_FUND)
 
 task(TASK_NODE)
   .addFlag('deployAll', 'Deploy all ChugSplash config files on startup')
+  .addFlag(
+    'disableChugsplash',
+    "Completely disable all of ChugSplash's activity."
+  )
   .addFlag('hide', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         deployAll: boolean
+        disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
         confirm: boolean
@@ -1061,9 +1066,9 @@ task(TASK_NODE)
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, hide, noCompile } = args
+      const { deployAll, disableChugsplash, hide, noCompile } = args
 
-      if (deployAll) {
+      if (!disableChugsplash) {
         const spinner = ora({ isSilent: hide })
         spinner.start('Booting up ChugSplash...')
 
@@ -1074,13 +1079,15 @@ task(TASK_NODE)
 
         spinner.succeed('ChugSplash has been initialized.')
 
-        if (!noCompile) {
-          await hre.run(TASK_COMPILE, {
-            quiet: true,
-          })
+        if (deployAll) {
+          if (!noCompile) {
+            await hre.run(TASK_COMPILE, {
+              quiet: true,
+            })
+          }
+          await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
+          await writeHardhatSnapshotId(hre, 'localhost')
         }
-        await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
-        await writeHardhatSnapshotId(hre, 'localhost')
       }
       await runSuper(args)
     }
