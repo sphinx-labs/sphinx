@@ -147,9 +147,7 @@ const config: HardhatUserConfig = {
 export default config
 ```
 
-## Sample ChugSplash Project
-
-Create a sample ChugSplash project:
+Next, create a sample ChugSplash project:
 ```
 npx hardhat chugsplash-init
 ```
