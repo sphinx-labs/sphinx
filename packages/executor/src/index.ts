@@ -334,6 +334,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
               user_id: await getProjectOwnerAddress(provider, projectName),
               event_properties: {
                 projectName,
+                network: this.options.network,
               },
             })
           }
