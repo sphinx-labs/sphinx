@@ -1,5 +1,12 @@
 # @chugsplash/plugins
 
+## 0.8.8
+
+### Patch Changes
+
+- b70b268: Fix chugsplash-init bug where task attempted to copy from non-existent file
+- ea1b6d4: Make '@nomiclabs/hardhat-ethers' a dependency instead of devDependency
+
 ## 0.8.7
 
 ### Patch Changes
