@@ -1,5 +1,15 @@
 # @chugsplash/executor
 
+## 0.4.13
+
+### Patch Changes
+
+- 7cd5e1b: Add blockchain network parameter to execution event
+- d6984ec: Override transaction gas prices to use EIP-1559 if supported by the network
+- 532d586: Support defining executor port with environment variable
+- Updated dependencies [d6984ec]
+  - @chugsplash/core@0.3.23
+
 ## 0.4.12
 
 ### Patch Changes
