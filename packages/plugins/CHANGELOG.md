@@ -1,5 +1,16 @@
 # @chugsplash/plugins
 
+## 0.8.7
+
+### Patch Changes
+
+- d6984ec: Override transaction gas prices to use EIP-1559 if supported by the network
+- Updated dependencies [7cd5e1b]
+- Updated dependencies [d6984ec]
+- Updated dependencies [532d586]
+  - @chugsplash/executor@0.4.13
+  - @chugsplash/core@0.3.23
+
 ## 0.8.6
 
 ### Patch Changes
