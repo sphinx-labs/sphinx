@@ -125,7 +125,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       ChugSplashRegistryABI,
       this.state.provider
     )
-    this.state.lastBlockNumber = -1
+    this.state.lastBlockNumber = 0
 
     // This represents a queue of "BundleApproved" events to execute.
     this.state.eventsQueue = []
