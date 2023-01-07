@@ -422,20 +422,22 @@ export const chugsplashApproveTask = async (
   args: {
     configPath: string
     silent: boolean
-    amount: ethers.BigNumber
     skipMonitorStatus: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, amount, skipMonitorStatus } = args
+  const { configPath, silent, skipMonitorStatus } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const spinner = ora({ isSilent: silent })
-  spinner.start('Approving the bundle...')
-
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(
+    `Approving ${parsedConfig.options.projectName} on ${hre.network.name}...`
+  )
+
   const projectName = parsedConfig.options.projectName
   const signerAddress = await signer.getAddress()
 
@@ -476,25 +478,21 @@ Owner's address: ${projectOwnerAddress}`)
   const activeBundleId = await ChugSplashManager.activeBundleId()
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(`You must first propose the project before it can be approved.
-No funds were sent. To propose the project, run the command:
+To propose the project, run the command:
 
 npx hardhat chugsplash-propose --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.succeed(`Project has already been approved. It should be executed shortly.
-No funds were sent. Run the following command to monitor its status:
+Run the following command to monitor its status:
 
 npx hardhat chugsplash-monitor --network ${hre.network.name} --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.succeed(
-      `Project was already completed on ${hre.network.name}. No funds were sent.`
-    )
+    spinner.succeed(`Project was already completed on ${hre.network.name}.`)
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    throw new Error(
-      `Project was already cancelled on ${hre.network.name}. No funds were sent.`
-    )
+    throw new Error(`Project was already cancelled on ${hre.network.name}.`)
   } else if (activeBundleId !== ethers.constants.HashZero) {
     throw new Error(
-      `Another project is currently being executed. No funds were sent.
+      `Another project is currently being executed.
 Please wait a couple minutes then try again.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
@@ -506,23 +504,15 @@ Please wait a couple minutes then try again.`
       false
     )
 
-    if (amountToDeposit.gt(amount)) {
-      throw new Error(`User attempted to less funds than the required amount. No funds were sent.
-User tried to send: ${amount} wei
-Required amount: ${amountToDeposit.mul(EXECUTION_BUFFER_MULTIPLIER)} wei
-
-Please call this task again with the correct amount of funds.
-      `)
+    if (amountToDeposit.gt(0)) {
+      throw new Error(`Project was not approved because it has insufficient funds.
+Fund the project with the following command:
+npx hardhat chugsplash-fund --network ${
+        hre.network.name
+      } --amount ${amountToDeposit.mul(
+        EXECUTION_BUFFER_MULTIPLIER
+      )} --config-path <configPath>`)
     }
-
-    await chugsplashFundTask(
-      {
-        configPath,
-        amount,
-        silent: true,
-      },
-      hre
-    )
 
     await (
       await ChugSplashManager.approveChugSplashBundle(
@@ -530,7 +520,10 @@ Please call this task again with the correct amount of funds.
         await getGasPriceOverrides(provider)
       )
     ).wait()
-    spinner.succeed(`Project approved on ${hre.network.name}.`)
+
+    spinner.succeed(
+      `${parsedConfig.options.projectName} approved on ${hre.network.name}.`
+    )
 
     if (!skipMonitorStatus) {
       const finalDeploymentTxnHash = await monitorExecution(
