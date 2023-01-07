@@ -37,6 +37,7 @@ import {
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
+  chugsplashFundTask,
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { initializeExecutor } from '../executor'
@@ -194,20 +195,37 @@ export const deployChugSplashConfig = async (
       projectName,
       true
     )
-    spinner.succeed(`Amount to deposit: ${formatEther(amountToDeposit, 4)} ETH`)
-    spinner.start(`Approving and funding ${projectName}...`)
-    // Get the initial amount necessary to fund the deployment.
-    // Approve and fund the deployment.
+
+    if (amountToDeposit.gt(0)) {
+      spinner.succeed(
+        `Amount to deposit: ${formatEther(amountToDeposit, 4)} ETH`
+      )
+      spinner.start(`Funding ${projectName}...`)
+
+      await chugsplashFundTask(
+        {
+          configPath,
+          amount: amountToDeposit,
+          silent: true,
+        },
+        hre
+      )
+
+      spinner.succeed(`Funded ${projectName}.`)
+    } else {
+      spinner.succeed(`Sufficient funds already deposited.`)
+    }
+
+    // Approve the deployment.
     await chugsplashApproveTask(
       {
         configPath,
         silent: true,
-        amount: amountToDeposit,
         skipMonitorStatus: true,
       },
       hre
     )
-    spinner.succeed(`Approved and funded ${projectName}.`)
+
     currBundleStatus = ChugSplashBundleStatus.APPROVED
   }
 
