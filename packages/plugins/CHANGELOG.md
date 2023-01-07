@@ -1,5 +1,22 @@
 # @chugsplash/plugins
 
+## 0.8.9
+
+### Patch Changes
+
+- 2267ec4: Bump versions
+- Updated dependencies [2267ec4]
+  - @chugsplash/contracts@0.3.17
+  - @chugsplash/core@0.3.24
+  - @chugsplash/executor@0.4.14
+
+## 0.8.8
+
+### Patch Changes
+
+- b70b268: Fix chugsplash-init bug where task attempted to copy from non-existent file
+- ea1b6d4: Make '@nomiclabs/hardhat-ethers' a dependency instead of devDependency
+
 ## 0.8.7
 
 ### Patch Changes
