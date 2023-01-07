@@ -183,10 +183,19 @@ export const chugsplashDeployTask = async (
     silent: boolean
     noCompile: boolean
     confirm: boolean
+    noWithdraw: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, newOwner, ipfsUrl, silent, noCompile } = args
+  const {
+    configPath,
+    newOwner,
+    ipfsUrl,
+    silent,
+    noCompile,
+    confirm,
+    noWithdraw,
+  } = args
 
   const spinner = ora({ isSilent: silent })
 
@@ -213,7 +222,8 @@ export const chugsplashDeployTask = async (
     remoteExecution,
     ipfsUrl,
     noCompile,
-    args.confirm,
+    confirm,
+    !noWithdraw,
     newOwner ?? signerAddress,
     executor,
     spinner
@@ -233,6 +243,10 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addFlag('noCompile', "Don't compile when running this task")
+  .addFlag(
+    'noWithdraw',
+    'Skip withdrawing leftover funds to the project owner.'
+  )
   .addFlag(
     'confirm',
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
@@ -421,12 +435,13 @@ task(TASK_CHUGSPLASH_PROPOSE)
 export const chugsplashApproveTask = async (
   args: {
     configPath: string
+    noWithdraw: boolean
     silent: boolean
     skipMonitorStatus: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, skipMonitorStatus } = args
+  const { configPath, noWithdraw, silent, skipMonitorStatus } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -537,6 +552,7 @@ npx hardhat chugsplash-fund --network ${
         hre,
         parsedConfig,
         finalDeploymentTxnHash,
+        !noWithdraw,
         undefined,
         spinner
       )
@@ -550,9 +566,9 @@ npx hardhat chugsplash-fund --network ${
 
 task(TASK_CHUGSPLASH_APPROVE)
   .setDescription('Allows a manager to approve a bundle to be executed.')
-  .addParam(
-    'amount',
-    'Amount to send to fund the deployment, denominated in wei'
+  .addFlag(
+    'noWithdraw',
+    'Skip withdrawing leftover funds to the project owner.'
   )
   .addParam('configPath', 'Path to the ChugSplash config file to approve')
   .addFlag('silent', "Hide all of ChugSplash's output")
@@ -886,12 +902,13 @@ subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
 export const monitorTask = async (
   args: {
     configPath: string
+    noWithdraw: boolean
     silent: boolean
     newOwner: string
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, newOwner } = args
+  const { configPath, noWithdraw, silent, newOwner } = args
 
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
@@ -961,6 +978,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     hre,
     parsedConfig,
     finalDeploymentTxnHash,
+    !noWithdraw,
     newOwner,
     spinner
   )
@@ -979,6 +997,10 @@ project with a name other than ${parsedConfig.options.projectName}`
 task(TASK_CHUGSPLASH_MONITOR)
   .setDescription('Displays the status of a ChugSplash bundle')
   .addParam('configPath', 'Path to the ChugSplash config file to monitor')
+  .addFlag(
+    'noWithdraw',
+    'Skip withdrawing leftover funds to the project owner.'
+  )
   .setAction(monitorTask)
 
 export const chugsplashFundTask = async (
