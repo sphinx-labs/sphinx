@@ -81,6 +81,7 @@ export const deployAllChugSplashConfigs = async (
       ipfsUrl,
       noCompile,
       confirm,
+      true,
       await signer.getAddress(),
       executor,
       spinner
@@ -96,6 +97,7 @@ export const deployChugSplashConfig = async (
   ipfsUrl: string,
   noCompile: boolean,
   confirm: boolean,
+  withdraw: boolean,
   newOwner: string,
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -220,6 +222,7 @@ export const deployChugSplashConfig = async (
     await chugsplashApproveTask(
       {
         configPath,
+        noWithdraw: false, // This value doesn't matter because we're skipping monitoring deployment
         silent: true,
         skipMonitorStatus: true,
       },
@@ -255,6 +258,7 @@ export const deployChugSplashConfig = async (
     hre,
     parsedConfig,
     await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    withdraw,
     newOwner,
     spinner
   )
