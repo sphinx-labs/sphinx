@@ -44,7 +44,7 @@ Test networks:
 
 ## Reach out
 
-If you have questions or want to request a feature, join our [Discord channel](https://discord.gg/4cdTjkax)!
+If you have questions or want to request a feature, join our [Discord channel](https://discord.com/invite/CqUPhgRrxq)!
 
 ## Install
 
