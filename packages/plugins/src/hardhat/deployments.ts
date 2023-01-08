@@ -22,6 +22,7 @@ import {
   isContractDeployed,
   formatEther,
   getGasPriceOverrides,
+  loadParsedChugSplashConfig,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -29,11 +30,7 @@ import ora from 'ora'
 import { ChugSplashExecutor } from '@chugsplash/executor'
 
 import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
-import {
-  isProjectRegistered,
-  loadParsedChugSplashConfig,
-  writeHardhatSnapshotId,
-} from './utils'
+import { isProjectRegistered, writeHardhatSnapshotId } from './utils'
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
@@ -128,7 +125,13 @@ export const deployChugSplashConfig = async (
     spinner.start(`Registering ${projectName}...`)
     // Register the project with the signer as the owner. Once we've completed the deployment, we'll
     // transfer ownership to the project owner specified in the config.
-    await registerChugSplashProject(provider, projectName, signerAddress)
+    await registerChugSplashProject(
+      provider,
+      signer,
+      signerAddress,
+      projectName,
+      signerAddress
+    )
     spinner.succeed(`Successfully registered ${projectName}.`)
   }
 
@@ -374,7 +377,10 @@ export const proposeChugSplashBundle = async (
   // Throw an error if the caller isn't the project owner or a proposer.
   if (
     signerAddress !==
-      (await getProjectOwnerAddress(hre.ethers.provider, projectName)) &&
+      (await getProjectOwnerAddress(
+        hre.ethers.provider.getSigner(),
+        projectName
+      )) &&
     !(await isProposer(provider, projectName, signerAddress))
   ) {
     throw new Error(

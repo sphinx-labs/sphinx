@@ -22,7 +22,11 @@ import {
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
+import {
+  CanonicalChugSplashConfig,
+  parseChugSplashConfig,
+  ParsedChugSplashConfig,
+} from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 
 export const computeBundleId = (
@@ -213,10 +217,11 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
  */
 export const registerChugSplashProject = async (
   provider: providers.JsonRpcProvider,
+  signer: Signer,
+  signerAddress: string,
   projectName: string,
   projectOwner: string
 ): Promise<boolean> => {
-  const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
@@ -232,10 +237,10 @@ export const registerChugSplashProject = async (
     return true
   } else {
     const existingProjectOwner = await getProjectOwnerAddress(
-      provider,
+      signer,
       projectName
     )
-    if (existingProjectOwner !== (await signer.getAddress())) {
+    if (existingProjectOwner !== signerAddress) {
       throw new Error(`Project already owned by: ${existingProjectOwner}.`)
     } else {
       return false
@@ -244,10 +249,9 @@ export const registerChugSplashProject = async (
 }
 
 export const getProjectOwnerAddress = async (
-  provider: providers.JsonRpcProvider,
+  signer: Signer,
   projectName: string
 ): Promise<string> => {
-  const signer = provider.getSigner()
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
@@ -463,4 +467,20 @@ export const getGasPriceOverrides = async (
   }
 
   return overridden
+}
+
+/**
+ * Loads a ChugSplash config file synchronously.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ */
+export const loadParsedChugSplashConfig = (
+  configPath: string
+): ParsedChugSplashConfig => {
+  delete require.cache[require.resolve(path.resolve(configPath))]
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  let config = require(path.resolve(configPath))
+  config = config.default || config
+  return parseChugSplashConfig(config)
 }

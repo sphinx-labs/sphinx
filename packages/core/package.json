@@ -37,6 +37,7 @@
     "handlebars": "^4.7.7",
     "hardhat-deploy": "^0.11.18",
     "ipfs-http-client": "56.0.3",
-    "merkletreejs": "^0.2.18"
+    "merkletreejs": "^0.2.18",
+    "ora": "^5.4.1"
   }
 }

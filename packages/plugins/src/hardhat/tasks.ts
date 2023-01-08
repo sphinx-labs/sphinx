@@ -20,7 +20,6 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   displayProposerTable,
-  registerChugSplashProject,
   getChugSplashRegistry,
   displayDeploymentTable,
   getChugSplashManagerProxyAddress,
@@ -37,6 +36,8 @@ import {
   formatEther,
   writeCanonicalConfig,
   getGasPriceOverrides,
+  chugsplashRegisterAbstractTask,
+  loadParsedChugSplashConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -64,11 +65,7 @@ import {
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
 } from './deployments'
-import {
-  loadParsedChugSplashConfig,
-  writeHardhatSnapshotId,
-  isProjectRegistered,
-} from './utils'
+import { writeHardhatSnapshotId, isProjectRegistered } from './utils'
 import {
   alreadyProposedMessage,
   errorProjectNotRegistered,
@@ -268,30 +265,18 @@ export const chugsplashRegisterTask = async (
   }
 
   const provider = hre.ethers.provider
-
-  await initializeChugSplash(provider, provider.getSigner())
-
-  const spinner = ora({ isSilent: silent })
-
+  const configs: ParsedChugSplashConfig[] = []
   for (const configPath of args.configPaths) {
-    const parsedConfig = loadParsedChugSplashConfig(configPath)
-
-    spinner.start(`Registering ${parsedConfig.options.projectName}...`)
-
-    const isFirstTimeRegistered = await registerChugSplashProject(
-      provider,
-      parsedConfig.options.projectName,
-      owner
-    )
-
-    isFirstTimeRegistered
-      ? spinner.succeed(
-          `Project successfully registered on ${hre.network.name}. Owner: ${owner}`
-        )
-      : spinner.fail(
-          `Project was already registered by the caller on ${hre.network.name}.`
-        )
+    configs.push(loadParsedChugSplashConfig(configPath))
   }
+
+  chugsplashRegisterAbstractTask(
+    configs,
+    owner,
+    silent,
+    provider,
+    provider.getSigner()
+  )
 }
 
 task(TASK_CHUGSPLASH_REGISTER)
@@ -465,7 +450,7 @@ export const chugsplashApproveTask = async (
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     projectName
   )
   if (signerAddress !== projectOwnerAddress) {
@@ -1219,7 +1204,7 @@ export const chugsplashCancelTask = async (
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     projectName
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
@@ -1295,7 +1280,7 @@ export const chugsplashWithdrawTask = async (
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     projectName
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
@@ -1386,7 +1371,7 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
       event.args.projectName
     )
     const projectOwnerAddress = await getProjectOwnerAddress(
-      provider,
+      provider.getSigner(),
       event.args.projectName
     )
     if (projectOwnerAddress === signerAddress) {
@@ -1463,7 +1448,7 @@ export const listProposersTask = async (
 
   // Fetch current owner
   const owner = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     parsedConfig.options.projectName
   )
   proposers.push(owner)
@@ -1529,7 +1514,7 @@ export const addProposerTask = async (
 
   // Fetch current owner
   const projectOwnerAddress = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     parsedConfig.options.projectName
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
@@ -1602,7 +1587,7 @@ export const claimProxyTask = async (
   }
 
   const owner = await getProjectOwnerAddress(
-    provider,
+    provider.getSigner(),
     parsedConfig.options.projectName
   )
 

@@ -1,10 +1,6 @@
-import path from 'path'
-
 import {
-  ParsedChugSplashConfig,
   getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
-  parseChugSplashConfig,
   writeSnapshotId,
 } from '@chugsplash/core'
 import { Signer } from 'ethers'
@@ -21,22 +17,6 @@ export const writeHardhatSnapshotId = async (
     hre.config.paths.deployments,
     await hre.network.provider.send('evm_snapshot', [])
   )
-}
-
-/**
- * Loads a ChugSplash config file synchronously.
- *
- * @param configPath Path to the ChugSplash config file.
- */
-export const loadParsedChugSplashConfig = (
-  configPath: string
-): ParsedChugSplashConfig => {
-  delete require.cache[require.resolve(path.resolve(configPath))]
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configPath))
-  config = config.default || config
-  return parseChugSplashConfig(config)
 }
 
 export const isProjectRegistered = async (

@@ -168,7 +168,7 @@ export const postExecutionActions = async (
     parsedConfig.options.projectName
   )
   const currProjectOwner = await getProjectOwnerAddress(
-    hre.ethers.provider,
+    hre.ethers.provider.getSigner(),
     parsedConfig.options.projectName
   )
 

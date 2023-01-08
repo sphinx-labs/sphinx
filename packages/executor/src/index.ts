@@ -331,7 +331,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           if (this.options.amplitudeKey !== 'disabled') {
             this.state.amplitudeClient.logEvent({
               event_type: 'chugsplash executed',
-              user_id: await getProjectOwnerAddress(provider, projectName),
+              user_id: await getProjectOwnerAddress(
+                this.state.wallet,
+                projectName
+              ),
               event_properties: {
                 projectName,
                 network: this.options.network,
