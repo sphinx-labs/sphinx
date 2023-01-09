@@ -5,6 +5,8 @@ import {
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
   chugsplashFetchSubtask,
+  CompilerInput,
+  CompilerOutput,
 } from '@chugsplash/core'
 import { SolcBuild } from 'hardhat/types'
 import { getCompilersDir } from 'hardhat/internal/util/global-dir'
@@ -156,4 +158,26 @@ export const compileRemoteBundle = async (
 
   const bundle = await bundleRemoteSubtask({ canonicalConfig })
   return { bundle, canonicalConfig }
+}
+
+export const compile = async (
+  compilerInput: CompilerInput,
+  solcVersion: string
+): Promise<CompilerOutput> => {
+  const solcBuild: SolcBuild = await getSolcBuild(solcVersion)
+  let compilerOutput
+  if (solcBuild.isSolcJs) {
+    const compiler = new Compiler(solcBuild.compilerPath)
+    compilerOutput = await compiler.compile(compilerInput)
+  } else {
+    const compiler = new NativeCompiler(solcBuild.compilerPath)
+    compilerOutput = await compiler.compile(compilerInput)
+  }
+
+  if (compilerOutput.errors !== undefined) {
+    throw new Error(`Compilation error(s):
+${compilerOutput.errors.map((error, i) => `\n${i + 1}: ${error.message}`)}\n`)
+  }
+
+  return compilerOutput
 }

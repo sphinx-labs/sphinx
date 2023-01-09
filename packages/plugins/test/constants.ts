@@ -11,9 +11,9 @@ export const variables = {
   minInt8: -128,
   uint8Test: 255,
   boolTest: true,
+  addressTest: '0x' + '22'.repeat(20),
   stringTest: 'testString',
-  longStringTest:
-    'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
+  longStringTest: 'a'.repeat(32),
   bytesTest: '0xabcd1234',
   longBytesTest:
     '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
@@ -69,6 +69,7 @@ export const variables = {
   ],
   stringToStringMapping: {
     testKey: 'testVal',
+    testKey2: 'testVal2',
   },
   longStringToLongStringMapping: {
     abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz:

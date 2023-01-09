@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import { exec, execSync, spawnSync } from 'child_process'
 
 import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
@@ -12,6 +13,7 @@ import {
 import { create } from 'ipfs-http-client'
 import { getChainId, remove0x } from '@eth-optimism/core-utils'
 import {
+  deployChugSplashPredeploys,
   computeBundleId,
   makeActionBundleFromConfig,
   ParsedChugSplashConfig,
@@ -37,6 +39,13 @@ import {
   formatEther,
   writeCanonicalConfig,
   getGasPriceOverrides,
+  getExecutionAmountToSendPlusBuffer,
+  getOwnerBalanceInChugSplashManager,
+  generateConfigFromDeployedContracts,
+  decodeDeployedVariablesUsingConfig,
+  ParsedContractConfigs,
+  isContractDeployed,
+  hasChugSplashUsedProxy,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -66,8 +75,13 @@ import {
 } from './deployments'
 import {
   loadParsedChugSplashConfig,
+  loadUserChugSplashConfig,
   writeHardhatSnapshotId,
   isProjectRegistered,
+  cleanThenCompile,
+  getDeployedContractConfigUsingArtifact,
+  validateHardhatConfig,
+  getDeployedContractConfig,
 } from './utils'
 import {
   alreadyProposedMessage,
@@ -96,7 +110,6 @@ export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
-export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
 export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
@@ -110,6 +123,7 @@ export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
   'chugsplash-transfer-ownership'
 export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
+export const TASK_CHUGSPLASH_PLAN = 'chugsplash-plan' // TODO: change
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -197,6 +211,8 @@ export const chugsplashDeployTask = async (
     noWithdraw,
   } = args
 
+  validateHardhatConfig(hre.config)
+
   const spinner = ora({ isSilent: silent })
 
   const provider = hre.ethers.provider
@@ -217,6 +233,7 @@ export const chugsplashDeployTask = async (
 
   await deployChugSplashConfig(
     hre,
+    hre.network.name,
     configPath,
     silent,
     remoteExecution,
@@ -266,6 +283,8 @@ export const chugsplashRegisterTask = async (
   if (configPaths.length === 0) {
     throw new Error('You must specify a path to a ChugSplash config file.')
   }
+
+  validateHardhatConfig(hre.config)
 
   const provider = hre.ethers.provider
 
@@ -317,6 +336,8 @@ export const chugsplashProposeTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, ipfsUrl, silent, noCompile, remoteExecution } = args
+
+  validateHardhatConfig(hre.config)
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -550,6 +571,7 @@ npx hardhat chugsplash-fund --network ${
       )
       await postExecutionActions(
         hre,
+        hre.network.name,
         parsedConfig,
         finalDeploymentTxnHash,
         !noWithdraw,
@@ -976,6 +998,7 @@ project with a name other than ${parsedConfig.options.projectName}`
 
   await postExecutionActions(
     hre,
+    hre.network.name,
     parsedConfig,
     finalDeploymentTxnHash,
     !noWithdraw,
@@ -1104,7 +1127,15 @@ task(TASK_NODE)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
+          await deployAllChugSplashConfigs(
+            hre,
+            'localhost',
+            hide,
+            '',
+            true,
+            true,
+            spinner
+          )
           await writeHardhatSnapshotId(hre, 'localhost')
         }
       }
@@ -1126,7 +1157,7 @@ task(TASK_TEST)
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
-            hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
+            hre.network.name,
             '.snapshotId'
           )
           const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -1147,7 +1178,14 @@ task(TASK_TEST)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, !show, '', true, true)
+          await deployAllChugSplashConfigs(
+            hre,
+            hre.network.name,
+            !show,
+            '',
+            true,
+            true
+          )
         } finally {
           await writeHardhatSnapshotId(hre)
         }
@@ -1188,7 +1226,14 @@ task(TASK_RUN)
             quiet: true,
           })
         }
-        await deployAllChugSplashConfigs(hre, true, '', true, confirm)
+        await deployAllChugSplashConfigs(
+          hre,
+          hre.network.name,
+          true,
+          '',
+          true,
+          confirm
+        )
       }
       await runSuper(args)
     }
@@ -1432,6 +1477,153 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
 task(TASK_CHUGSPLASH_LIST_PROJECTS)
   .setDescription('Lists all projects that are owned by the caller.')
   .setAction(listProjectsTask)
+
+export const chugsplashDiffTask = async (
+  args: {
+    configPath: string
+    noCompile: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, noCompile } = args
+
+  if (!noCompile) {
+    await cleanThenCompile(hre)
+  }
+
+  const provider = hre.ethers.provider
+  const { contracts: newContractConfigs } =
+    loadParsedChugSplashConfig(configPath)
+
+  // Get the UserChugSplashConfig, which contains the 'artifact' properties (if any have been
+  // specified by the user).
+  const { contracts: newUserContractConfigs } =
+    loadUserChugSplashConfig(configPath)
+
+  // Initialize an array of warnings to display to the user.
+  const warnings: string[] = []
+
+  const currContractConfigs: ParsedContractConfigs = {}
+  for (const [newReferenceName, newContractConfig] of Object.entries(
+    newContractConfigs
+  )) {
+    // Check if the proxy is deployed. If so, we treat it as an upgrade. Otherwise, it's a fresh
+    // deployment, so we skip to the next proxy.
+    if (await isContractDeployed(newContractConfig.proxy, provider)) {
+      // Check if the proxy has been used by ChugSplash before.
+      const chugsplashHasUsedProxy = await hasChugSplashUsedProxy(
+        provider,
+        newContractConfig.proxy
+      )
+
+      // Get the deployment artifact path from the user config, which may be undefined.
+      const deploymentArtifactPath =
+        newUserContractConfigs[newReferenceName].artifact
+
+      if (chugsplashHasUsedProxy && deploymentArtifactPath !== undefined) {
+        warnings.push(`User overrode default deployment detection by specifying an 'artifact' parameter
+in the contract definition for: ${newReferenceName}.`)
+      }
+
+      if (deploymentArtifactPath !== undefined) {
+        currContractConfigs[newReferenceName] =
+          await getDeployedContractConfigUsingArtifact(
+            provider,
+            JSON.parse(fs.readFileSync(deploymentArtifactPath, 'utf8')),
+            newContractConfig.proxy
+          )
+      } else if (chugsplashHasUsedProxy) {
+        currContractConfigs[newReferenceName] = await getDeployedContractConfig(
+          provider,
+          newContractConfig.proxy
+        )
+      }
+    } else {
+      throw new Error(`User did not include an 'artifact' property for '${newReferenceName}' in the ChugSplash file.
+In your ChugSplash file, please include an 'artifact' parameter that contains
+a path to a deployment artifact for the implementation contract.`)
+    }
+  }
+
+  // Define a helper function to alphabetize the contract config object keys. This ensures that the
+  // diff looks clean.
+  const sort = (unsorted: object): object => {
+    if (typeof unsorted !== 'object') {
+      return unsorted
+    }
+
+    if (unsorted instanceof Array) {
+      const sorted = []
+      for (const element of unsorted) {
+        sorted.push(sort(element))
+      }
+      return sorted
+    } else {
+      const sorted = {}
+      const sortedKeys = Object.keys(unsorted).sort()
+      for (const key of sortedKeys) {
+        // Sort the object values
+        sorted[key] = sort(unsorted[key])
+      }
+      return sorted
+    }
+  }
+
+  // Next, we'll generate the diff between the existing set of contracts and the new contracts. To
+  // do this, we'll first need to create a temporary file for both the existing and the new system.
+
+  // Create a '.tmp' folder if one doesn't already exist.
+  const tempFolderPath = path.join(hre.config.paths.root, '.tmp')
+  if (!fs.existsSync(tempFolderPath)) {
+    fs.mkdirSync(tempFolderPath)
+  }
+
+  // Create a temporary file for the existing set of contracts.
+  const currContractsPath = path.join(tempFolderPath, 'existing.txt')
+  fs.writeFileSync(
+    currContractsPath,
+    `${JSON.stringify(sort(currContractConfigs), null, 2)}\n`
+  )
+
+  // Create a temporary file for the new set of contracts.
+  const newContractsPath = path.join(tempFolderPath, 'new.txt')
+  fs.writeFileSync(
+    newContractsPath,
+    `${JSON.stringify(sort(newContractConfigs), null, 2)}\n`
+  )
+
+  // Display the diff to the user with Git. We could use other diff libraries like jsdiff, but git
+  // seems to be the best solution out of the box.
+  const child = spawnSync(
+    'git',
+    ['diff', '--no-index', '-U3', currContractsPath, newContractsPath],
+    {
+      stdio: 'inherit', // Display color in the diff
+    }
+  )
+  if (child.error) {
+    // Should only happen if the user doesn't have Git installed on their machine.
+    throw child.error
+  }
+
+  // Remove the files from the '.tmp' folder.
+  fs.rmSync(currContractsPath)
+  fs.rmSync(newContractsPath)
+
+  // Remove the '.tmp' folder if it's empty.
+  if (fs.readdirSync(tempFolderPath).length === 0) {
+    fs.rmdirSync(tempFolderPath)
+  }
+
+  // Display warnings to the user (if any) in yellow.
+  warnings.forEach((warning) => console.log('\x1b[33m' + `Warning: ${warning}`))
+}
+
+task(TASK_CHUGSPLASH_DIFF)
+  .setDescription('TODO')
+  .addParam('configPath', 'Path to the ChugSplash config file')
+  .addFlag('noCompile', "Don't compile when running this task")
+  .setAction(chugsplashDiffTask)
 
 export const listProposersTask = async (
   args: { configPath: string },
@@ -1858,3 +2050,53 @@ task(TASK_CHUGSPLASH_INIT)
   .setDescription('Sets up a ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's output")
   .setAction(chugsplashInitTask)
+
+export const chugsplashPlanTask = async (
+  args: {
+    configPath: string
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath } = args
+  const { contracts: newContracts } = loadParsedChugSplashConfig(configPath)
+
+  // TODO: this logic is basically duplicated in bundleLocalSubtask (minus getCreationCode), and
+  // partially in getDeploymentArtifacts.
+  // const deployedContractConfigs: ParsedContractConfigs = {}
+  // for (const [newReferenceName, newContractConfig] of Object.entries(
+  //   newContracts
+  // )) {
+  // const deploymentArtifact = getDeploymentArtifact(
+  //   hre.network.name,
+  //   newReferenceName,
+  //   newContractConfig.contract
+  // )
+
+  // const { sourceName, contractName } = getContractArtifact(
+  //   newContractConfig.contract
+  // )
+  // const { output: compilerOutput } = await getBuildInfo(
+  //   sourceName,
+  //   contractName
+  // )
+  // const immutableVariables = getImmutableVariables(
+  //   compilerOutput,
+  //   sourceName,
+  //   contractName
+  // )
+
+  // TODO: case: deployedConfig has no variables
+
+  // deployedContractConfigs[deployedReferenceName].variables =
+  //   await decodeDeployedVariables(
+  //     hre.ethers.provider,
+  //     newConfig,
+  //     deployedContractConfigs
+  //   )
+  // }
+}
+
+task(TASK_CHUGSPLASH_PLAN)
+  .setDescription('TODO')
+  .addPositionalParam('configPath', 'Path to the ChugSplash config file')
+  .setAction(chugsplashPlanTask)

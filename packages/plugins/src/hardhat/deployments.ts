@@ -51,6 +51,7 @@ import { monitorExecution, postExecutionActions } from './execution'
  */
 export const deployAllChugSplashConfigs = async (
   hre: HardhatRuntimeEnvironment,
+  networkName: string,
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
@@ -75,6 +76,7 @@ export const deployAllChugSplashConfigs = async (
     const signer = hre.ethers.provider.getSigner()
     await deployChugSplashConfig(
       hre,
+      networkName,
       configPath,
       silent,
       remoteExecution,
@@ -91,6 +93,7 @@ export const deployAllChugSplashConfigs = async (
 
 export const deployChugSplashConfig = async (
   hre: HardhatRuntimeEnvironment,
+  networkName: string,
   configPath: string,
   silent: boolean,
   remoteExecution: boolean,
@@ -156,6 +159,7 @@ export const deployChugSplashConfig = async (
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
     await createDeploymentArtifacts(
       hre,
+      networkName,
       parsedConfig,
       await getFinalDeploymentTxnHash(ChugSplashManager, bundleId)
     )
@@ -256,6 +260,7 @@ export const deployChugSplashConfig = async (
 
   await postExecutionActions(
     hre,
+    networkName,
     parsedConfig,
     await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
     withdraw,
@@ -311,7 +316,9 @@ ${configsWithFileNames.map(
 
   const proxyAddress = cfg.contracts[referenceName].proxy
   if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
-    throw new Error(`You must first deploy ${referenceName}.`)
+    throw new Error(
+      `The proxy for ${referenceName} in ${cfg.options.projectName} has not been deployed. Proxy: ${proxyAddress}`
+    )
   }
 
   const Proxy = new ethers.Contract(

@@ -102,6 +102,7 @@ const config: HardhatUserConfig = {
       {
         version: ... , // Solidity compiler version
         settings: {
+          metadata: { useLiteralContent: true },
           outputSelection: {
             '*': {
               '*': ['storageLayout'],

@@ -37,6 +37,10 @@ describe('Storage', () => {
     expect(await MyStorage.boolTest()).equals(variables.boolTest)
   })
 
+  it('does set address', async () => {
+    expect(await MyStorage.addressTest()).equals(variables.addressTest)
+  })
+
   it('does set string', async () => {
     expect(await MyStorage.stringTest()).equals(variables.stringTest)
   })

@@ -15,7 +15,14 @@ import {
   makeBundleFromActions,
 } from '../actions'
 import { getDefaultProxyAddress } from '../utils'
-import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
+import {
+  UserChugSplashConfig,
+  ParsedChugSplashConfig,
+  ParsedConfigVariable,
+  ParsedConfigVariables,
+  UserConfigVariables,
+  UserConfigVariable,
+} from './types'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -102,34 +109,61 @@ Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
 /**
  * Parses a ChugSplash config file by replacing template values.
  *
- * @param config Unparsed config file to parse.
+ * @param userConfig Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
 export const parseChugSplashConfig = (
-  config: UserChugSplashConfig
+  userConfig: UserChugSplashConfig
 ): ParsedChugSplashConfig => {
-  validateChugSplashConfig(config)
+  validateChugSplashConfig(userConfig)
 
-  const contracts = {}
-  for (const [referenceName, contractConfig] of Object.entries(
-    config.contracts
-  )) {
-    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
-    // used by ChugSplash.
-    contractConfig.proxy =
-      contractConfig.proxy ||
-      getDefaultProxyAddress(config.options.projectName, referenceName)
-    contracts[referenceName] = contractConfig.proxy
+  let parsedConfig: ParsedChugSplashConfig = {
+    options: userConfig.options,
+    contracts: {},
   }
 
-  const parsed: ParsedChugSplashConfig = JSON.parse(
-    Handlebars.compile(JSON.stringify(config))({
+  const contracts = {}
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const parsedVariables = {}
+    for (const [varName, userVariable] of Object.entries(
+      userContractConfig.variables
+    )) {
+      parsedVariables[varName] = convertNumbersToStrings(userVariable)
+    }
+
+    parsedConfig.contracts[referenceName] = {
+      contract: userContractConfig.contract,
+      variables: parsedVariables,
+      // Set the proxy address to the user-defined value if it exists, otherwise set it to the
+      // default proxy used by ChugSplash.
+      proxy:
+        userContractConfig.proxy ||
+        getDefaultProxyAddress(userConfig.options.projectName, referenceName),
+    }
+
+    contracts[referenceName] = parsedConfig.contracts[referenceName].proxy
+  }
+
+  parsedConfig = JSON.parse(
+    Handlebars.compile(JSON.stringify(parsedConfig))({
       ...contracts,
     })
   )
 
-  return parsed
+  return parsedConfig
+}
+
+const parseNumbersToStrings = (variables: ParsedConfigVariable) => {
+  Object.keys(variables).forEach((varName) => {
+    if (typeof variables[varName] === 'object') {
+      return parseNumbersToStrings(variables[varName])
+    } else if (typeof variables[varName] === 'number') {
+      variables[varName] = variables[varName].toString()
+    }
+  })
 }
 
 /**
@@ -186,4 +220,26 @@ export const makeActionBundleFromConfig = async (
 
   // Generate a bundle from the list of actions.
   return makeBundleFromActions(actions)
+}
+
+export const convertNumbersToStrings = (
+  userVariable: UserConfigVariable
+): ParsedConfigVariable => {
+  if (typeof userVariable === 'number') {
+    return userVariable.toString()
+  } else if (userVariable instanceof Array) {
+    const parsedVariable = []
+    for (const element of userVariable) {
+      parsedVariable.push(convertNumbersToStrings(element))
+    }
+    return parsedVariable
+  } else if (typeof userVariable === 'object') {
+    const parsedVariable = {}
+    for (const [varName, varValue] of Object.entries(userVariable)) {
+      parsedVariable[varName] = convertNumbersToStrings(varValue)
+    }
+    return parsedVariable
+  } else {
+    return userVariable
+  }
 }

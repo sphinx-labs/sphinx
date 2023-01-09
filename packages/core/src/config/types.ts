@@ -18,7 +18,6 @@ export type UserConfigVariable =
 export type ParsedConfigVariable =
   | boolean
   | string
-  | number
   | Array<ParsedConfigVariable>
   | {
       [name: string]: ParsedConfigVariable
@@ -51,6 +50,7 @@ export type UserContractConfig = {
   contract: string
   proxy?: string
   variables?: UserConfigVariables
+  artifact?: string
 }
 
 export type UserContractConfigs = {

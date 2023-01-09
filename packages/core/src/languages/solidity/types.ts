@@ -20,7 +20,7 @@ export interface SolidityStorageObj {
 export interface SolidityStorageType {
   encoding: 'inplace' | 'mapping' | 'dynamic_array' | 'bytes'
   label: string
-  numberOfBytes: number
+  numberOfBytes: string
   key?: string
   value?: string
   base?: string
@@ -41,6 +41,10 @@ export interface SolidityStorageLayout {
 export interface StorageSlotPair {
   key: string
   val: string
+}
+
+export interface StorageSlotMapping {
+  [key: string]: string
 }
 
 export interface CompilerInput {

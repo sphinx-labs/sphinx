@@ -6,6 +6,7 @@ If your repository has an existing Hardhat project, you can skip to [here](#inst
 
 ## Table of Contents
 
+- [Prerequisites](TODO)
 - [Initialize Node.js](#initialize-nodejs)
 - [Setup Hardhat](#setup-hardhat)
 - [Install ChugSplash](#install-chugsplash)
@@ -78,6 +79,7 @@ module.exports = {
       {
         version: ... , // Solidity compiler version (e.g. 0.8.15)
         settings: {
+          metadata: { useLiteralContent: true },
           outputSelection: {
             '*': {
               '*': ['storageLayout'],
@@ -132,6 +134,7 @@ const config: HardhatUserConfig = {
       {
         version: ... , // Solidity compiler version (e.g. 0.8.15)
         settings: {
+          metadata: { useLiteralContent: true },
           outputSelection: {
             '*': {
               '*': ['storageLayout'],

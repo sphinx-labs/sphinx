@@ -155,6 +155,7 @@ export const getNumDeployedImplementations = (
  */
 export const postExecutionActions = async (
   hre: HardhatRuntimeEnvironment,
+  networkName: string,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
   withdraw: boolean,
@@ -236,10 +237,15 @@ export const postExecutionActions = async (
 
   // Save the snapshot ID if we're on the hardhat network.
   if ((await getChainId(hre.ethers.provider)) === 31337) {
-    await writeHardhatSnapshotId(hre)
+    await writeHardhatSnapshotId(hre, networkName)
   }
 
-  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+  await writeDeploymentArtifacts(
+    hre,
+    networkName,
+    parsedConfig,
+    deploymentEvents
+  )
 
   spinner.succeed(`Wrote deployment artifacts.`)
 }

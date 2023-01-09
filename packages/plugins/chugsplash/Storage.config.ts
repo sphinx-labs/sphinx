@@ -10,10 +10,12 @@ const config: UserChugSplashConfig = {
   contracts: {
     MyStorage: {
       contract: 'Storage',
+      artifact: 'deployments/localhost/MyStorage.json',
       variables,
     },
     MySimpleStorage: {
       contract: 'SimpleStorage',
+      artifact: 'deployments/localhost/MySimpleStorage.json',
       variables: {
         myStorage: '{{ MyStorage }}',
       },

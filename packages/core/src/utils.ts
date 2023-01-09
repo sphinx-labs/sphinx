@@ -22,8 +22,18 @@ import {
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import {
+  CanonicalChugSplashConfig,
+  ParsedChugSplashConfig,
+  ParsedContractConfigs,
+} from './config'
+import { SolidityStorageLayout, StorageSlotPair } from './languages'
+import {
+  computeStorageSlots,
+  mapVarNameToStorageObj,
+} from './languages/solidity/storage'
+import { errorConfigVarNotInContract } from './errors'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -269,6 +279,17 @@ export const getChugSplashRegistry = (signer: Signer): Contract => {
   )
 }
 
+export const getChugSplashRegistryReadOnly = (
+  provider: providers.Provider
+): Contract => {
+  return new Contract(
+    // CHUGSPLASH_REGISTRY_ADDRESS,
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    ChugSplashRegistryABI,
+    provider
+  )
+}
+
 export const getChugSplashManager = (signer: Signer, projectName: string) => {
   return new Contract(
     getChugSplashManagerProxyAddress(projectName),
@@ -378,13 +399,6 @@ export const isContractDeployed = async (
   return (await provider.getCode(address)) !== '0x'
 }
 
-export const formatEther = (
-  amount: ethers.BigNumber,
-  decimals: number
-): string => {
-  return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
-}
-
 export const readCanonicalConfig = (
   canonicalConfigFolderPath: string,
   bundleId: string
@@ -463,4 +477,51 @@ export const getGasPriceOverrides = async (
   }
 
   return overridden
+}
+
+export const getMinIntValue = (numberOfBytes: number): ethers.BigNumber => {
+  return ethers.BigNumber.from(2)
+    .pow(8 * numberOfBytes)
+    .div(2)
+    .mul(-1)
+}
+
+export const getMaxIntValue = (numberOfBytes: number): ethers.BigNumber => {
+  return ethers.BigNumber.from(2)
+    .pow(8 * numberOfBytes)
+    .div(2)
+    .sub(1)
+}
+
+export const getSolcVersionFromSolcLongVersion = (
+  solcLongVersion: string
+): string => {
+  return solcLongVersion.split('+')[0]
+}
+
+export const formatEther = (
+  amount: ethers.BigNumber,
+  decimals: number
+): string => {
+  return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
+}
+
+/**
+ * Returns true if the given proxy address has had any actions executed on it by ChugSplash.
+ */
+export const hasChugSplashUsedProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  const ChugSplashRegistry = getChugSplashRegistryReadOnly(provider)
+
+  const events = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
+      'ChugSplashActionExecuted',
+      null,
+      proxyAddress
+    )
+  )
+
+  return events.length > 0
 }

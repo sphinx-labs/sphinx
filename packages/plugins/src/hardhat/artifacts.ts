@@ -158,13 +158,11 @@ export const filterChugSplashInputs = async (
 
 export const createDeploymentArtifacts = async (
   hre: HardhatRuntimeEnvironment,
+  networkName: string,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string
 ) => {
-  createDeploymentFolderForNetwork(
-    hre.network.name,
-    hre.config.paths.deployments
-  )
+  writeDeploymentFolderForNetwork(networkName, hre.config.paths.deployments)
 
   const provider = hre.ethers.provider
 
@@ -175,15 +173,6 @@ export const createDeploymentArtifacts = async (
     const { sourceName, contractName, bytecode, abi } = artifact
 
     const buildInfo = await getBuildInfo(sourceName, contractName)
-
-    const { constructorArgValues } = getConstructorArgs(
-      parsedConfig,
-      referenceName,
-      abi,
-      buildInfo.output,
-      sourceName,
-      contractName
-    )
 
     const receipt = await provider.getTransactionReceipt(finalDeploymentTxnHash)
 
@@ -206,19 +195,83 @@ export const createDeploymentArtifacts = async (
         gasUsed: receipt.gasUsed.toString(),
         cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
         // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
+        // TODO: duplicate this for the implementation artifact
         ...(receipt.effectiveGasPrice && {
           effectiveGasPrice: receipt.effectiveGasPrice.toString(),
-        }),
-      },
-      numDeployments: 1,
-      metadata:
-        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-      args: constructorArgValues,
-      bytecode,
-      deployedBytecode: await provider.getCode(contractConfig.proxy),
-      devdoc,
-      userdoc,
-      storageLayout: await getStorageLayout(contractConfig.contract),
+        },
+        numDeployments: 1,
+        metadata:
+          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+        args: [
+          getChugSplashManagerProxyAddress(parsedConfig.options.projectName),
+        ],
+        bytecode: ProxyArtifact.bytecode,
+        deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
+        devdoc,
+        userdoc,
+        storageLayout,
+      }
+
+      // Write the deployment artifact for the proxy contract.
+      writeDeploymentArtifact(
+        networkName,
+        hre.config.paths.deployments,
+        proxyArtifact,
+        `${deploymentEvent.args.target}Proxy`
+      )
+    } else if (deploymentEvent.event === 'ImplementationDeployed') {
+      // Get the implementation contract's info.
+      const referenceName = deploymentEvent.args.target
+      const contractConfig = parsedConfig.contracts[referenceName]
+      const artifact = getContractArtifact(contractConfig.contract)
+      const { sourceName, contractName, bytecode, abi } = artifact
+      const buildInfo = await getBuildInfo(sourceName, contractName)
+      const { constructorArgValues } = getConstructorArgs(
+        parsedConfig,
+        referenceName,
+        abi,
+        buildInfo.output,
+        sourceName,
+        contractName
+      )
+      const { metadata, storageLayout } =
+        buildInfo.output.contracts[sourceName][contractName]
+      const { devdoc, userdoc } =
+        typeof metadata === 'string'
+          ? JSON.parse(metadata).output
+          : metadata.output
+
+      // Define the deployment artifact for the implementation contract.
+      const implementationArtifact = {
+        address: deploymentEvent.args.implementation,
+        abi,
+        transactionHash: deploymentEvent.transactionHash,
+        solcInputHash: buildInfo.id,
+        receipt: {
+          ...receipt,
+          gasUsed: receipt.gasUsed.toString(),
+          cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+          effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+        },
+        numDeployments: 1,
+        metadata:
+          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+        args: constructorArgValues,
+        bytecode,
+        deployedBytecode: await provider.getCode(
+          deploymentEvent.args.implementation
+        ),
+        devdoc,
+        userdoc,
+        storageLayout,
+      }
+      // Write the deployment artifact for the implementation contract.
+      writeDeploymentArtifact(
+        networkName,
+        hre.config.paths.deployments,
+        implementationArtifact,
+        referenceName
+      )
     }
 
     writeDeploymentArtifact(

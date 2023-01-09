@@ -13,14 +13,13 @@ contract Storage {
     int8 public minInt8;
     uint8 public uint8Test;
     bool public boolTest;
+    address public addressTest;
     string public stringTest;
     string public longStringTest;
     bytes public bytesTest;
     bytes public longBytesTest;
     Storage public contractTest;
     TestEnum public enumTest;
-    SimpleStruct public simpleStruct;
-    ComplexStruct public complexStruct;
     uint64[5] public uint64FixedArray;
     uint128[5][6] public uint128FixedNestedArray;
     uint64[2][2][2] public uint64FixedMultiNestedArray;
@@ -42,6 +41,8 @@ contract Storage {
     mapping(bytes => string) public bytesToStringMapping;
     mapping(string => mapping(string => string)) public nestedMapping;
     mapping(uint8 => mapping(string => mapping(address => uint))) public multiNestedMapping;
+    SimpleStruct public simpleStruct;
+    ComplexStruct public complexStruct;
 
     function getComplexStructMappingVal(uint32 _mappingKey) external view returns (string memory) {
         return complexStruct.b[_mappingKey];
