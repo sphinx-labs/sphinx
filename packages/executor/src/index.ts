@@ -31,7 +31,7 @@ import {
   verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
-  bundleRemoteSubtask,
+  bundleRemote,
 } from './utils'
 
 export * from './utils'
@@ -237,7 +237,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
             canonicalConfigFolderPath,
             localBundleId
           )
-          bundle = await bundleRemoteSubtask({ canonicalConfig })
+          bundle = await bundleRemote({ canonicalConfig })
         } else {
           ;({ bundle, canonicalConfig } = await compileRemoteBundle(
             proposalEvent.args.configUri

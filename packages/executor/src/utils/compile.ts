@@ -1,10 +1,10 @@
 import {
   CanonicalChugSplashConfig,
   ChugSplashActionBundle,
-  makeActionBundleFromConfig,
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
   chugsplashFetchSubtask,
+  makeActionBundleFromConfig,
 } from '@chugsplash/core'
 import { SolcBuild } from 'hardhat/types'
 import { getCompilersDir } from 'hardhat/internal/util/global-dir'
@@ -15,7 +15,7 @@ import {
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { add0x } from '@eth-optimism/core-utils'
 
-export const bundleRemoteSubtask = async (args: {
+export const bundleRemote = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
   const { canonicalConfig } = args
@@ -154,6 +154,6 @@ export const compileRemoteBundle = async (
 }> => {
   const canonicalConfig = await chugsplashFetchSubtask({ configUri })
 
-  const bundle = await bundleRemoteSubtask({ canonicalConfig })
+  const bundle = await bundleRemote({ canonicalConfig })
   return { bundle, canonicalConfig }
 }

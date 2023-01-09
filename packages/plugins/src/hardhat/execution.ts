@@ -1,3 +1,5 @@
+import * as path from 'path'
+
 import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
@@ -239,7 +241,14 @@ export const postExecutionActions = async (
     await writeHardhatSnapshotId(hre)
   }
 
-  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+
+  await createDeploymentArtifacts(
+    hre,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    artifactFolder
+  )
 
   spinner.succeed(`Wrote deployment artifacts.`)
 }

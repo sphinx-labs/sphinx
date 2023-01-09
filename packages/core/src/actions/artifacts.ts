@@ -1,7 +1,121 @@
+import path from 'path'
+import * as fs from 'fs'
+
+import * as semver from 'semver'
 import { remove0x } from '@eth-optimism/core-utils'
 import { utils } from 'ethers'
 
-import { ParsedChugSplashConfig } from '../config'
+import { ChugSplashInputs, ParsedChugSplashConfig } from '../config'
+import {
+  CompilerInput,
+  getMinimumCompilerInput,
+  SolidityStorageObj,
+} from '../languages'
+
+// TODO
+export type ContractArtifact = any
+export type BuildInfo = any
+
+/**
+ * Retrieves an artifact by name.
+ *
+ * @param name Name of the artifact.
+ * @returns Artifact.
+ */
+export const getContractArtifact = (
+  name: string,
+  artifactFilder: string
+): ContractArtifact => {
+  return JSON.parse(fs.readFileSync(path.join(artifactFilder, name), 'utf8'))
+}
+
+export const getBuildInfo = (
+  buildInfoFolder: string,
+  sourceName: string
+): BuildInfo => {
+  const contractBuildInfo: BuildInfo[] = []
+  // Get the inputs from the build info folder.
+  const inputs = fs
+    .readdirSync(buildInfoFolder)
+    .filter((file) => {
+      return file.endsWith('.json')
+    })
+    .map((file) => {
+      return JSON.parse(
+        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
+      )
+    })
+
+  // Find the correct build info file
+  for (const input of inputs) {
+    if (input?.output?.sources[sourceName] !== undefined) {
+      contractBuildInfo.push({
+        solcVersion: input.solcVersion,
+        output: input?.output,
+      })
+    }
+  }
+
+  // Should find exactly one. If anything else happens, then throw an error.
+  if (contractBuildInfo.length < 0 || contractBuildInfo.length > 1) {
+    throw new Error(
+      `Failed to find build info for ${sourceName}. Are you sure your contracts were compiled and ${buildInfoFolder} is the correct build info directory?`
+    )
+  }
+
+  return contractBuildInfo[0]
+}
+
+/**
+ * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
+ * config.
+ *
+ * @param chugsplashInputs ChugSplash input array.
+ * @param parsedConfig Parsed ChugSplash config.
+ * @returns Filtered ChugSplash input array.
+ */
+export const filterChugSplashInputs = async (
+  chugsplashInputs: ChugSplashInputs,
+  parsedConfig: ParsedChugSplashConfig,
+  artifactFolder: string
+): Promise<ChugSplashInputs> => {
+  const filteredChugSplashInputs: ChugSplashInputs = []
+  for (const chugsplashInput of chugsplashInputs) {
+    let filteredSources: CompilerInput['sources'] = {}
+    for (const contractConfig of Object.values(parsedConfig.contracts)) {
+      const { sourceName, contractName } = getContractArtifact(
+        contractConfig.contract,
+        artifactFolder
+      )
+      const { solcVersion, output: compilerOutput } = await getBuildInfo(
+        sourceName,
+        contractName
+      )
+      if (solcVersion === chugsplashInput.solcVersion) {
+        const { sources: newSources } = getMinimumCompilerInput(
+          chugsplashInput.input,
+          compilerOutput.sources,
+          sourceName
+        )
+        // Merge the existing sources with the new sources, which are required to compile the
+        // current `sourceName`.
+        filteredSources = { ...filteredSources, ...newSources }
+      }
+    }
+    const filteredCompilerInput: CompilerInput = {
+      language: chugsplashInput.input.language,
+      settings: chugsplashInput.input.settings,
+      sources: filteredSources,
+    }
+    filteredChugSplashInputs.push({
+      solcVersion: chugsplashInput.solcVersion,
+      solcLongVersion: chugsplashInput.solcLongVersion,
+      input: filteredCompilerInput,
+    })
+  }
+
+  return filteredChugSplashInputs
+}
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
@@ -198,4 +312,36 @@ export const getImmutableVariables = (
     }
   }
   return immutableVariables
+}
+
+/**
+ * Retrieves the storageLayout portion of the compiler artifact for a given contract by name.
+ *
+ * @param name Name of the contract to retrieve the storage layout for.
+ * @param artifactFolder Relative path to the folder where artifacts are stored.
+ * @return Storage layout object from the compiler output.
+ */
+export const getStorageLayout = async (
+  name: string,
+  artifactFolder: string
+): Promise<SolidityStorageObj> => {
+  const { sourceName, contractName } = getContractArtifact(name, artifactFolder)
+  const buildInfo = await getBuildInfo(sourceName, contractName)
+  const output = buildInfo.output.contracts[sourceName][contractName]
+
+  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
+  }
+
+  if (!('storageLayout' in output)) {
+    throw new Error(
+      `Storage layout for ${name} not found. Did you forget to set the storage layout
+compiler option in your hardhat config? Read more:
+https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+    )
+  }
+
+  return (output as any).storageLayout
 }

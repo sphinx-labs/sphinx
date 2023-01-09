@@ -1,9 +1,4 @@
-import {
-  getChugSplashManagerProxyAddress,
-  getChugSplashRegistry,
-  writeSnapshotId,
-} from '@chugsplash/core'
-import { Signer } from 'ethers'
+import { writeSnapshotId } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 export const writeHardhatSnapshotId = async (
@@ -17,16 +12,4 @@ export const writeHardhatSnapshotId = async (
     hre.config.paths.deployments,
     await hre.network.provider.send('evm_snapshot', [])
   )
-}
-
-export const isProjectRegistered = async (
-  signer: Signer,
-  projectName: string
-) => {
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
-  const isRegistered: boolean = await ChugSplashRegistry.managers(
-    chugsplashManagerAddress
-  )
-  return isRegistered
 }

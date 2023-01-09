@@ -2,6 +2,14 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
+import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
+import {
+  getContractArtifact,
+  getStorageLayout,
+  getCreationCodeWithConstructorArgs,
+  getImmutableVariables,
+  getBuildInfo,
+} from './artifacts'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -206,4 +214,49 @@ export const makeBundleFromActions = (
       }
     }),
   }
+}
+
+export const bundleLocal = async (
+  parsedConfig: ParsedChugSplashConfig,
+  artifactFolder: string
+): Promise<ChugSplashActionBundle> => {
+  const artifacts = {}
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const storageLayout = await getStorageLayout(
+      contractConfig.contract,
+      artifactFolder
+    )
+
+    const { abi, sourceName, contractName, bytecode } = getContractArtifact(
+      contractConfig.contract,
+      artifactFolder
+    )
+    const { output: compilerOutput } = await getBuildInfo(
+      sourceName,
+      contractName
+    )
+    const creationCode = getCreationCodeWithConstructorArgs(
+      bytecode,
+      parsedConfig,
+      referenceName,
+      abi,
+      compilerOutput,
+      sourceName,
+      contractName
+    )
+    const immutableVariables = getImmutableVariables(
+      compilerOutput,
+      sourceName,
+      contractName
+    )
+    artifacts[referenceName] = {
+      creationCode,
+      storageLayout,
+      immutableVariables,
+    }
+  }
+
+  return makeActionBundleFromConfig(parsedConfig, artifacts)
 }

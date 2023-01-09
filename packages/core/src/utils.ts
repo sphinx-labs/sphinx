@@ -484,3 +484,15 @@ export const loadParsedChugSplashConfig = (
   config = config.default || config
   return parseChugSplashConfig(config)
 }
+
+export const isProjectRegistered = async (
+  signer: Signer,
+  projectName: string
+) => {
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const isRegistered: boolean = await ChugSplashRegistry.managers(
+    chugsplashManagerAddress
+  )
+  return isRegistered
+}

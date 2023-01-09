@@ -23,14 +23,16 @@ import {
   formatEther,
   getGasPriceOverrides,
   loadParsedChugSplashConfig,
+  isProjectRegistered,
+  getContractArtifact,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
 import { ChugSplashExecutor } from '@chugsplash/executor'
 
-import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
-import { isProjectRegistered, writeHardhatSnapshotId } from './utils'
+import { createDeploymentArtifacts } from './artifacts'
+import { writeHardhatSnapshotId } from './utils'
 import {
   chugsplashApproveTask,
   chugsplashCommitSubtask,
@@ -157,10 +159,13 @@ export const deployChugSplashConfig = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
+    const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+
     await createDeploymentArtifacts(
       hre,
       parsedConfig,
-      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId)
+      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+      artifactFolder
     )
     spinner.succeed(
       `${projectName} was already completed on ${hre.network.name}.`
@@ -317,10 +322,15 @@ ${configsWithFileNames.map(
     throw new Error(`You must first deploy ${referenceName}.`)
   }
 
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+
   const Proxy = new ethers.Contract(
     proxyAddress,
     new ethers.utils.Interface(
-      getContractArtifact(cfg.contracts[referenceName].contract).abi
+      getContractArtifact(
+        cfg.contracts[referenceName].contract,
+        artifactFolder
+      ).abi
     ),
     provider.getSigner()
   )
