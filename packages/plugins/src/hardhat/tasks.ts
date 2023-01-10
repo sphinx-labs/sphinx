@@ -37,6 +37,7 @@ import {
   chugsplashProposeAbstractTask,
   monitorExecution,
   chugsplashApproveAbstractTask,
+  chugsplashFundAbstractTask,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -648,50 +649,16 @@ export const chugsplashFundTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { amount, silent, configPath } = args
-
-  const spinner = ora({ isSilent: silent })
-
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
-  const projectName = parsedConfig.options.projectName
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
-  const signerBalance = await signer.getBalance()
 
-  if (signerBalance.lt(amount)) {
-    throw new Error(`Signer's balance is less than the amount required to fund your project.
-
-Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
-Amount: ${ethers.utils.formatEther(amount)} ETH
-
-Please send more ETH to ${await signer.getAddress()} on ${
-      hre.network.name
-    } then try again.`)
-  }
-
-  if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(
-      provider,
-      await getChainId(provider),
-      configPath,
-      'hardhat'
-    )
-  }
-
-  spinner.start(
-    `Depositing ${ethers.utils.formatEther(
-      amount
-    )} ETH for the project: ${projectName}...`
-  )
-  const txnRequest = await getGasPriceOverrides(provider, {
-    value: amount,
-    to: chugsplashManagerAddress,
-  })
-  await (await signer.sendTransaction(txnRequest)).wait()
-  spinner.succeed(
-    `Deposited ${ethers.utils.formatEther(
-      amount
-    )} ETH for the project: ${projectName}.`
+  await chugsplashFundAbstractTask(
+    provider,
+    signer,
+    configPath,
+    amount,
+    silent,
+    'hardhat'
   )
 }
 

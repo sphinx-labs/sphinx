@@ -13,6 +13,7 @@ import {
   computeBundleId,
   displayDeploymentTable,
   getChugSplashManager,
+  getChugSplashManagerProxyAddress,
   getGasPriceOverrides,
   getProjectOwnerAddress,
   isProjectRegistered,
@@ -363,12 +364,14 @@ export const chugsplashApproveAbstractTask = async (
   integration: Integration,
   buildInfoFolder: string,
   artifactFolder: string,
-  canonicalConfigPath: string
+  canonicalConfigPath: string,
+  stream: NodeJS.WritableStream = process.stderr
 ): Promise<string | undefined> => {
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+  console.log('approving resolving name')
   const networkName = resolveNetworkName(provider, integration)
 
-  const spinner = ora({ isSilent: silent })
+  const spinner = ora({ isSilent: silent, stream })
   spinner.start(
     `Approving ${parsedConfig.options.projectName} on ${networkName}...`
   )
@@ -477,4 +480,56 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
       return finalDeploymentTxnHash
     }
   }
+}
+
+export const chugsplashFundAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  amount: ethers.BigNumber,
+  silent: boolean,
+  integration: Integration,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const spinner = ora({ isSilent: silent, stream })
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const signerBalance = await signer.getBalance()
+  const networkName = resolveNetworkName(provider, integration)
+
+  if (signerBalance.lt(amount)) {
+    throw new Error(`Signer's balance is less than the amount required to fund your project.
+
+Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
+Amount: ${ethers.utils.formatEther(amount)} ETH
+
+Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
+  }
+
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  spinner.start(
+    `Depositing ${ethers.utils.formatEther(
+      amount
+    )} ETH for the project: ${projectName}...`
+  )
+  const txnRequest = await getGasPriceOverrides(provider, {
+    value: amount,
+    to: chugsplashManagerAddress,
+  })
+  await (await signer.sendTransaction(txnRequest)).wait()
+  spinner.succeed(
+    `Deposited ${ethers.utils.formatEther(
+      amount
+    )} ETH for the project: ${projectName}.`
+  )
 }
