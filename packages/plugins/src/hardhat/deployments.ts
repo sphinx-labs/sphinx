@@ -25,6 +25,8 @@ import {
   loadParsedChugSplashConfig,
   isProjectRegistered,
   getContractArtifact,
+  getFinalDeploymentTxnHash,
+  monitorExecution,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -40,7 +42,7 @@ import {
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { initializeExecutor } from '../executor'
-import { monitorExecution, postExecutionActions } from './execution'
+import { postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -168,7 +170,8 @@ export const deployChugSplashConfig = async (
       await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
       artifactFolder,
       buildInfoFolder,
-      'hardhat'
+      'hardhat',
+      spinner
     )
     spinner.succeed(
       `${projectName} was already completed on ${hre.network.name}.`
@@ -246,7 +249,15 @@ export const deployChugSplashConfig = async (
   // At this point, we know that the bundle is active.
 
   if (remoteExecution) {
-    await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
+    await monitorExecution(
+      provider,
+      signer,
+      parsedConfig,
+      bundle,
+      bundleId,
+      spinner,
+      'hardhat'
+    )
   } else {
     // Use the in-process executor if executing the bundle locally.
     spinner.start('Executing project...')
@@ -360,16 +371,6 @@ export const resetChugSplashDeployments = async (
     throw new Error('Snapshot failed to be reverted.')
   }
   await writeHardhatSnapshotId(hre)
-}
-
-export const getFinalDeploymentTxnHash = async (
-  ChugSplashManager: ethers.Contract,
-  bundleId: string
-): Promise<string> => {
-  const [finalDeploymentEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
-  )
-  return finalDeploymentEvent.transactionHash
 }
 
 export const proposeChugSplashBundle = async (

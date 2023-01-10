@@ -11,17 +11,21 @@ import { create } from 'ipfs-http-client'
 import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
   computeBundleId,
+  displayDeploymentTable,
   getChugSplashManager,
+  getGasPriceOverrides,
+  getProjectOwnerAddress,
   isProjectRegistered,
+  loadParsedChugSplashConfig,
   registerChugSplashProject,
   writeCanonicalConfig,
 } from '../utils'
 import { initializeChugSplash } from '../languages'
-import { Integration } from '../constants'
+import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import {
   alreadyProposedMessage,
   errorProjectNotRegistered,
-  resolveUnknownNetworkName,
+  resolveNetworkName,
   successfulProposalMessage,
 } from '../messages'
 import {
@@ -34,6 +38,7 @@ import {
   proposeChugSplashBundle,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
+import { monitorExecution } from '../execution'
 
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -58,10 +63,7 @@ export const chugsplashRegisterAbstractTask = async (
       owner
     )
 
-    const networkName = resolveUnknownNetworkName(
-      provider.network.name,
-      integration
-    )
+    const networkName = resolveNetworkName(provider, integration)
 
     isFirstTimeRegistered
       ? spinner.succeed(
@@ -100,8 +102,8 @@ export const chugsplashProposeAbstractTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(provider),
-      provider.network.name,
       configPath,
       integration
     )
@@ -184,9 +186,9 @@ with a name other than ${parsedConfig.options.projectName}`
         integration
       )
       const message = successfulProposalMessage(
+        provider,
         amountToDeposit,
         configPath,
-        provider.network.name,
         integration
       )
       spinner.succeed(message)
@@ -194,9 +196,9 @@ with a name other than ${parsedConfig.options.projectName}`
       // Bundle was already in the `PROPOSED` state before the call to this task.
       spinner.fail(
         alreadyProposedMessage(
+          provider,
           amountToDeposit,
           configPath,
-          provider.network.name,
           integration
         )
       )
@@ -349,4 +351,130 @@ IPFS_API_KEY_SECRET: ...
   }
 
   return { bundle, configUri, bundleId }
+}
+
+export const chugsplashApproveAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  noWithdraw: boolean,
+  silent: boolean,
+  skipMonitorStatus: boolean,
+  integration: Integration,
+  buildInfoFolder: string,
+  artifactFolder: string,
+  canonicalConfigPath: string
+): Promise<string | undefined> => {
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const networkName = resolveNetworkName(provider, integration)
+
+  const spinner = ora({ isSilent: silent })
+  spinner.start(
+    `Approving ${parsedConfig.options.projectName} on ${networkName}...`
+  )
+
+  const projectName = parsedConfig.options.projectName
+  const signerAddress = await signer.getAddress()
+
+  if (!(await isProjectRegistered(signer, projectName))) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider.getSigner(),
+    projectName
+  )
+  if (signerAddress !== projectOwnerAddress) {
+    throw new Error(`Caller is not the project owner on ${networkName}.
+Caller's address: ${signerAddress}
+Owner's address: ${projectOwnerAddress}`)
+  }
+
+  // Call the commit subtask locally to get the bundle ID without publishing
+  // anything to IPFS.
+  const { bundleId, bundle } = await chugsplashCommitAbstractSubtask(
+    provider,
+    signer,
+    parsedConfig,
+    '',
+    false,
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath,
+    spinner,
+    integration
+  )
+
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
+    bundleId
+  )
+  const activeBundleId = await ChugSplashManager.activeBundleId()
+  if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+    throw new Error(`You must first propose the project before it can be approved.
+To propose the project, run the command:
+
+npx hardhat chugsplash-propose --network ${networkName} --config-path ${configPath}`)
+  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    spinner.succeed(`Project has already been approved. It should be executed shortly.
+Run the following command to monitor its status:
+
+npx hardhat chugsplash-monitor --network ${networkName} --config-path ${configPath}`)
+  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+    spinner.succeed(`Project was already completed on ${networkName}.`)
+  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+    throw new Error(`Project was already cancelled on ${networkName}.`)
+  } else if (activeBundleId !== ethers.constants.HashZero) {
+    throw new Error(
+      `Another project is currently being executed.
+Please wait a couple minutes then try again.`
+    )
+  } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      false
+    )
+
+    if (amountToDeposit.gt(0)) {
+      throw new Error(`Project was not approved because it has insufficient funds.
+Fund the project with the following command:
+npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.mul(
+        EXECUTION_BUFFER_MULTIPLIER
+      )} --config-path <configPath>`)
+    }
+
+    await (
+      await ChugSplashManager.approveChugSplashBundle(
+        bundleId,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+
+    spinner.succeed(
+      `${parsedConfig.options.projectName} approved on ${networkName}.`
+    )
+
+    if (!skipMonitorStatus) {
+      const finalDeploymentTxnHash = await monitorExecution(
+        provider,
+        signer,
+        parsedConfig,
+        bundle,
+        bundleId,
+        spinner,
+        integration
+      )
+      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
+      displayDeploymentTable(parsedConfig, silent)
+      return finalDeploymentTxnHash
+    }
+  }
 }

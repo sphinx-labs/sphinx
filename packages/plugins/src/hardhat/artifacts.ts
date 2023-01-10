@@ -8,8 +8,12 @@ import {
   getBuildInfo,
   Integration,
 } from '@chugsplash/core'
+import { getChainId } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import ora from 'ora'
+
+import { writeHardhatSnapshotId } from './utils'
 
 export const getDeployedBytecode = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -25,8 +29,16 @@ export const createDeploymentArtifacts = async (
   finalDeploymentTxnHash: string,
   artifactFolder: string,
   buildInfoFolder: string,
-  integration: Integration
+  integration: Integration,
+  spinner: ora.Ora
 ) => {
+  spinner.start(`Writing deployment artifacts...`)
+
+  // Save the snapshot ID if we're on the hardhat network.
+  if ((await getChainId(hre.ethers.provider)) === 31337) {
+    await writeHardhatSnapshotId(hre)
+  }
+
   createDeploymentFolderForNetwork(
     hre.network.name,
     hre.config.paths.deployments
@@ -103,4 +115,6 @@ export const createDeploymentArtifacts = async (
       referenceName
     )
   }
+
+  spinner.succeed(`Wrote deployment artifacts.`)
 }

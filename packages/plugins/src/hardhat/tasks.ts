@@ -25,8 +25,6 @@ import {
   getOwnerWithdrawableAmount,
   initializeChugSplash,
   monitorChugSplashSetup,
-  getAmountToDeposit,
-  EXECUTION_BUFFER_MULTIPLIER,
   formatEther,
   getGasPriceOverrides,
   chugsplashRegisterAbstractTask,
@@ -37,6 +35,8 @@ import {
   bundleLocal,
   verifyBundle,
   chugsplashProposeAbstractTask,
+  monitorExecution,
+  chugsplashApproveAbstractTask,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -54,7 +54,7 @@ import {
   deployAllChugSplashConfigs,
 } from './deployments'
 import { writeHardhatSnapshotId } from './utils'
-import { monitorExecution, postExecutionActions } from './execution'
+import { postExecutionActions } from './execution'
 import { initializeExecutor } from '../executor'
 import {
   sampleTestFileJavaScript,
@@ -316,121 +316,34 @@ export const chugsplashApproveTask = async (
   const signer = provider.getSigner()
 
   const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
 
-  const spinner = ora({ isSilent: silent })
-  spinner.start(
-    `Approving ${parsedConfig.options.projectName} on ${hre.network.name}...`
+  const canonicalConfigPath = hre.config.paths.canonicalConfigs
+
+  const finalDeploymentTxnHash = await chugsplashApproveAbstractTask(
+    provider,
+    signer,
+    configPath,
+    noWithdraw,
+    silent,
+    skipMonitorStatus,
+    'hardhat',
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath
   )
 
-  const projectName = parsedConfig.options.projectName
-  const signerAddress = await signer.getAddress()
-
-  if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(
-      await getChainId(provider),
-      hre.network.name,
-      configPath,
-      'hardhat'
-    )
-  }
-
-  const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
-    projectName
-  )
-  if (signerAddress !== projectOwnerAddress) {
-    throw new Error(`Caller is not the project owner on ${hre.network.name}.
-Caller's address: ${signerAddress}
-Owner's address: ${projectOwnerAddress}`)
-  }
-
-  // Call the commit subtask locally to get the bundle ID without publishing
-  // anything to IPFS.
-  const { bundleId, bundle } = await chugsplashCommitSubtask(
-    {
+  if (finalDeploymentTxnHash) {
+    const spinner = ora({ isSilent: silent })
+    await postExecutionActions(
+      hre,
       parsedConfig,
-      ipfsUrl: '',
-      commitToIpfs: false,
-      noCompile: true,
-    },
-    hre
-  )
-
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
-  const activeBundleId = await ChugSplashManager.activeBundleId()
-  if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
-    throw new Error(`You must first propose the project before it can be approved.
-To propose the project, run the command:
-
-npx hardhat chugsplash-propose --network ${hre.network.name} --config-path ${configPath}`)
-  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    spinner.succeed(`Project has already been approved. It should be executed shortly.
-Run the following command to monitor its status:
-
-npx hardhat chugsplash-monitor --network ${hre.network.name} --config-path ${configPath}`)
-  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.succeed(`Project was already completed on ${hre.network.name}.`)
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    throw new Error(`Project was already cancelled on ${hre.network.name}.`)
-  } else if (activeBundleId !== ethers.constants.HashZero) {
-    throw new Error(
-      `Another project is currently being executed.
-Please wait a couple minutes then try again.`
+      finalDeploymentTxnHash,
+      !noWithdraw,
+      undefined,
+      spinner
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
-    const amountToDeposit = await getAmountToDeposit(
-      provider,
-      bundle,
-      0,
-      projectName,
-      false
-    )
-
-    if (amountToDeposit.gt(0)) {
-      throw new Error(`Project was not approved because it has insufficient funds.
-Fund the project with the following command:
-npx hardhat chugsplash-fund --network ${
-        hre.network.name
-      } --amount ${amountToDeposit.mul(
-        EXECUTION_BUFFER_MULTIPLIER
-      )} --config-path <configPath>`)
-    }
-
-    await (
-      await ChugSplashManager.approveChugSplashBundle(
-        bundleId,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-
-    spinner.succeed(
-      `${parsedConfig.options.projectName} approved on ${hre.network.name}.`
-    )
-
-    if (!skipMonitorStatus) {
-      const finalDeploymentTxnHash = await monitorExecution(
-        hre,
-        parsedConfig,
-        bundle,
-        bundleId,
-        spinner
-      )
-      await postExecutionActions(
-        hre,
-        parsedConfig,
-        finalDeploymentTxnHash,
-        !noWithdraw,
-        undefined,
-        spinner
-      )
-      spinner.succeed(
-        `${projectName} successfully deployed on ${hre.network.name}.`
-      )
-      displayDeploymentTable(parsedConfig, silent)
-    }
   }
 }
 
@@ -646,8 +559,8 @@ export const monitorTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -688,11 +601,13 @@ project with a name other than ${parsedConfig.options.projectName}`
   // If we make it to this point, the bundle status is either completed or approved.
 
   const finalDeploymentTxnHash = await monitorExecution(
-    hre,
+    provider,
+    signer,
     parsedConfig,
     bundle,
     bundleId,
-    spinner
+    spinner,
+    'hardhat'
   )
 
   await postExecutionActions(
@@ -756,8 +671,8 @@ Please send more ETH to ${await signer.getAddress()} on ${
 
   if (!(await isProjectRegistered(signer, projectName))) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -934,8 +849,8 @@ export const chugsplashCancelTask = async (
 
   if (!(await isProjectRegistered(signer, projectName))) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -1011,8 +926,8 @@ export const chugsplashWithdrawTask = async (
 
   if (!(await isProjectRegistered(signer, projectName))) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -1172,8 +1087,8 @@ export const listProposersTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(hre.ethers.provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -1241,8 +1156,8 @@ export const addProposerTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(hre.ethers.provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -1321,8 +1236,8 @@ export const claimProxyTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(hre.ethers.provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )
@@ -1402,8 +1317,8 @@ export const transferOwnershipTask = async (
     false
   ) {
     errorProjectNotRegistered(
+      provider,
       await getChainId(hre.ethers.provider),
-      hre.network.name,
       configPath,
       'hardhat'
     )

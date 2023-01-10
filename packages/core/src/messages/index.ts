@@ -1,28 +1,28 @@
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 
 import { Integration } from '../constants'
 
-export const resolveUnknownNetworkName = (
-  networkName: string,
+export const resolveNetworkName = (
+  provider: ethers.providers.JsonRpcProvider,
   integration: Integration
 ) => {
-  if (networkName === 'unknown') {
+  if (provider.network.name === 'unknown') {
     if (integration === 'hardhat') {
-      networkName = 'hardhat'
+      return 'hardhat'
     } else if (integration === 'foundry') {
-      networkName = 'anvil'
+      return 'anvil'
     }
   }
-  return networkName
+  return provider.network.name
 }
 
 export const errorProjectNotRegistered = (
+  provider: ethers.providers.JsonRpcProvider,
   chainId: number,
-  networkName: string,
   configPath: string,
   integration: Integration
 ) => {
-  networkName = resolveUnknownNetworkName(networkName, integration)
+  const networkName = resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     throw new Error(`This project has not been registered on ${networkName}.
@@ -40,12 +40,12 @@ TODO: Finish foundry success message`)
 }
 
 export const successfulProposalMessage = (
+  provider: ethers.providers.JsonRpcProvider,
   amount: BigNumber,
   configPath: string,
-  networkName: string,
   integration: Integration
 ): string => {
-  networkName = resolveUnknownNetworkName(networkName, integration)
+  const networkName = resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     if (amount.gt(0)) {
@@ -72,12 +72,12 @@ TODO: Finish foundry success message`
 }
 
 export const alreadyProposedMessage = (
+  provider: ethers.providers.JsonRpcProvider,
   amount: BigNumber,
   configPath: string,
-  networkName: string,
   integration: Integration
 ): string => {
-  networkName = resolveUnknownNetworkName(networkName, integration)
+  const networkName = resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     if (amount.gt(0)) {
