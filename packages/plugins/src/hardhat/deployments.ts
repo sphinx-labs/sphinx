@@ -159,13 +159,16 @@ export const deployChugSplashConfig = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
+    const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
     const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
 
     await createDeploymentArtifacts(
       hre,
       parsedConfig,
       await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
-      artifactFolder
+      artifactFolder,
+      buildInfoFolder,
+      'hardhat'
     )
     spinner.succeed(
       `${projectName} was already completed on ${hre.network.name}.`
@@ -329,7 +332,8 @@ ${configsWithFileNames.map(
     new ethers.utils.Interface(
       getContractArtifact(
         cfg.contracts[referenceName].contract,
-        artifactFolder
+        artifactFolder,
+        'hardhat'
       ).abi
     ),
     provider.getSigner()

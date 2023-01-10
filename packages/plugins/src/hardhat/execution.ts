@@ -242,12 +242,15 @@ export const postExecutionActions = async (
   }
 
   const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
 
   await createDeploymentArtifacts(
     hre,
     parsedConfig,
     finalDeploymentTxnHash,
-    artifactFolder
+    artifactFolder,
+    buildInfoFolder,
+    'hardhat'
   )
 
   spinner.succeed(`Wrote deployment artifacts.`)

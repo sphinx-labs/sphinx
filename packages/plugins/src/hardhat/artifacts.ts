@@ -6,6 +6,7 @@ import {
   getContractArtifact,
   getStorageLayout,
   getBuildInfo,
+  Integration,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -22,7 +23,9 @@ export const createDeploymentArtifacts = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
-  artifactFolder: string
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration
 ) => {
   createDeploymentFolderForNetwork(
     hre.network.name,
@@ -36,7 +39,8 @@ export const createDeploymentArtifacts = async (
   )) {
     const artifact = getContractArtifact(
       contractConfig.contract,
-      artifactFolder
+      artifactFolder,
+      integration
     )
     const { sourceName, contractName, bytecode, abi } = artifact
 
@@ -86,7 +90,9 @@ export const createDeploymentArtifacts = async (
       userdoc,
       storageLayout: await getStorageLayout(
         contractConfig.contract,
-        artifactFolder
+        artifactFolder,
+        buildInfoFolder,
+        integration
       ),
     }
 

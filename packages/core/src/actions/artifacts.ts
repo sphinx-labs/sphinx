@@ -11,10 +11,33 @@ import {
   getMinimumCompilerInput,
   SolidityStorageObj,
 } from '../languages'
+import { Integration } from '../constants'
 
 // TODO
-export type ContractArtifact = any
 export type BuildInfo = any
+export type ContractAftifact = {
+  abi: string
+  sourceName: string
+  contractName: string
+  bytecode: string
+}
+
+/**
+ * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
+ *
+ * @param artifact Raw artifact object.
+ * @returns ContractArtifact
+ */
+const parseFoundryArtifact = (artifact: any): ContractAftifact => {
+  const abi = artifact.abi
+  const bytecode = artifact.bytecode.object
+
+  const compilationTarget = artifact.metadata.settings.compilationTarget
+  const sourceName = Object.keys(compilationTarget)[0]
+  const contractName = compilationTarget[sourceName]
+
+  return { abi, bytecode, sourceName, contractName }
+}
 
 /**
  * Retrieves an artifact by name.
@@ -24,9 +47,19 @@ export type BuildInfo = any
  */
 export const getContractArtifact = (
   name: string,
-  artifactFilder: string
-): ContractArtifact => {
-  return JSON.parse(fs.readFileSync(path.join(artifactFilder, name), 'utf8'))
+  artifactFilder: string,
+  integration: Integration
+): ContractAftifact => {
+  const folderName = `${name}.sol`
+  const fileName = `${name}.json`
+  const completeFilePath = path.join(artifactFilder, folderName, fileName)
+  const artifact = JSON.parse(fs.readFileSync(completeFilePath, 'utf8'))
+
+  if (integration === 'hardhat') {
+    return artifact
+  } else if (integration === 'foundry') {
+    return parseFoundryArtifact(artifact)
+  }
 }
 
 export const getBuildInfo = (
@@ -34,9 +67,11 @@ export const getBuildInfo = (
   sourceName: string
 ): BuildInfo => {
   const contractBuildInfo: BuildInfo[] = []
+  const completeFilePath = path.join(buildInfoFolder)
+
   // Get the inputs from the build info folder.
   const inputs = fs
-    .readdirSync(buildInfoFolder)
+    .readdirSync(completeFilePath)
     .filter((file) => {
       return file.endsWith('.json')
     })
@@ -57,7 +92,7 @@ export const getBuildInfo = (
   }
 
   // Should find exactly one. If anything else happens, then throw an error.
-  if (contractBuildInfo.length < 0 || contractBuildInfo.length > 1) {
+  if (contractBuildInfo.length < 1 || contractBuildInfo.length > 1) {
     throw new Error(
       `Failed to find build info for ${sourceName}. Are you sure your contracts were compiled and ${buildInfoFolder} is the correct build info directory?`
     )
@@ -77,19 +112,22 @@ export const getBuildInfo = (
 export const filterChugSplashInputs = async (
   chugsplashInputs: ChugSplashInputs,
   parsedConfig: ParsedChugSplashConfig,
-  artifactFolder: string
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration
 ): Promise<ChugSplashInputs> => {
   const filteredChugSplashInputs: ChugSplashInputs = []
   for (const chugsplashInput of chugsplashInputs) {
     let filteredSources: CompilerInput['sources'] = {}
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      const { sourceName, contractName } = getContractArtifact(
+      const { sourceName } = getContractArtifact(
         contractConfig.contract,
-        artifactFolder
+        artifactFolder,
+        integration
       )
       const { solcVersion, output: compilerOutput } = await getBuildInfo(
-        sourceName,
-        contractName
+        buildInfoFolder,
+        sourceName
       )
       if (solcVersion === chugsplashInput.solcVersion) {
         const { sources: newSources } = getMinimumCompilerInput(
@@ -323,10 +361,16 @@ export const getImmutableVariables = (
  */
 export const getStorageLayout = async (
   name: string,
-  artifactFolder: string
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration
 ): Promise<SolidityStorageObj> => {
-  const { sourceName, contractName } = getContractArtifact(name, artifactFolder)
-  const buildInfo = await getBuildInfo(sourceName, contractName)
+  const { sourceName, contractName } = getContractArtifact(
+    name,
+    artifactFolder,
+    integration
+  )
+  const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {

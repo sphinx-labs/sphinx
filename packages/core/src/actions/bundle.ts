@@ -3,6 +3,7 @@ import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
 import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
+import { Integration } from '../constants'
 import {
   getContractArtifact,
   getStorageLayout,
@@ -218,7 +219,9 @@ export const makeBundleFromActions = (
 
 export const bundleLocal = async (
   parsedConfig: ParsedChugSplashConfig,
-  artifactFolder: string
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration
 ): Promise<ChugSplashActionBundle> => {
   const artifacts = {}
   for (const [referenceName, contractConfig] of Object.entries(
@@ -226,16 +229,19 @@ export const bundleLocal = async (
   )) {
     const storageLayout = await getStorageLayout(
       contractConfig.contract,
-      artifactFolder
+      artifactFolder,
+      buildInfoFolder,
+      integration
     )
 
     const { abi, sourceName, contractName, bytecode } = getContractArtifact(
       contractConfig.contract,
-      artifactFolder
+      artifactFolder,
+      integration
     )
     const { output: compilerOutput } = await getBuildInfo(
-      sourceName,
-      contractName
+      buildInfoFolder,
+      sourceName
     )
     const creationCode = getCreationCodeWithConstructorArgs(
       bytecode,

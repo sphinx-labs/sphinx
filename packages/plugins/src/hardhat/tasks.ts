@@ -106,7 +106,14 @@ export const bundleLocalSubtask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  return bundleLocal(args.parsedConfig, hre.config.paths.artifacts)
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  return bundleLocal(
+    args.parsedConfig,
+    artifactFolder,
+    buildInfoFolder,
+    'hardhat'
+  )
 }
 
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
@@ -206,17 +213,20 @@ export const chugsplashRegisterTask = async (
   }
 
   const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
   const configs: ParsedChugSplashConfig[] = []
   for (const configPath of args.configPaths) {
     configs.push(loadParsedChugSplashConfig(configPath))
   }
 
-  chugsplashRegisterAbstractTask(
+  await chugsplashRegisterAbstractTask(
     provider,
-    provider.getSigner(),
+    signer,
     configs,
     owner,
-    silent
+    silent,
+    'hardhat'
   )
 }
 
@@ -492,7 +502,8 @@ export const chugsplashCommitSubtask = async (
     buildInfoFolder,
     artifactFolder,
     canonicalConfigPath,
-    spinner
+    spinner,
+    'hardhat'
   )
 }
 

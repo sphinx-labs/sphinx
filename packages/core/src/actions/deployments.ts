@@ -4,6 +4,7 @@ import ora from 'ora'
 import yesno from 'yesno'
 
 import { ParsedChugSplashConfig, verifyBundle } from '../config'
+import { Integration } from '../constants'
 import { chugsplashCommitAbstractSubtask } from '../tasks'
 import {
   checkIsUpgrade,
@@ -30,7 +31,8 @@ export const proposeChugSplashBundle = async (
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
-  silent: boolean
+  silent: boolean,
+  integration: Integration
 ) => {
   const signerAddress = await signer.getAddress()
   const projectName = parsedConfig.options.projectName
@@ -97,7 +99,8 @@ export const proposeChugSplashBundle = async (
       buildInfoFolder,
       artifactFolder,
       canonicalConfigPath,
-      spinner
+      spinner,
+      integration
     )
     // Verify that the bundle has been committed to IPFS with the correct bundle hash.
     await verifyBundle({
