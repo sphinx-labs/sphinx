@@ -27,6 +27,7 @@ import {
   getContractArtifact,
   getFinalDeploymentTxnHash,
   monitorExecution,
+  postExecutionActions,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -42,7 +43,6 @@ import {
   TASK_CHUGSPLASH_VERIFY_BUNDLE,
 } from './tasks'
 import { initializeExecutor } from '../executor'
-import { postExecutionActions } from './execution'
 
 /**
  * TODO
@@ -103,6 +103,9 @@ export const deployChugSplashConfig = async (
   executor?: ChugSplashExecutor,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+
   if (executor === undefined && !remoteExecution) {
     throw new Error(
       'You must pass in a ChugSplashExecutor if executing locally'
@@ -161,9 +164,6 @@ export const deployChugSplashConfig = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
-    const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-    const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
-
     await createDeploymentArtifacts(
       hre,
       parsedConfig,
@@ -276,12 +276,28 @@ export const deployChugSplashConfig = async (
     spinner.succeed(`Executed ${projectName}.`)
   }
 
+  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    ChugSplashManager,
+    bundleId
+  )
+
   await postExecutionActions(
-    hre,
+    provider,
+    signer,
     parsedConfig,
-    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    finalDeploymentTxnHash,
     withdraw,
     newOwner,
+    spinner
+  )
+
+  await createDeploymentArtifacts(
+    hre,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    artifactFolder,
+    buildInfoFolder,
+    'hardhat',
     spinner
   )
 

@@ -38,6 +38,7 @@ import {
   monitorExecution,
   chugsplashApproveAbstractTask,
   chugsplashFundAbstractTask,
+  postExecutionActions,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -55,12 +56,12 @@ import {
   deployAllChugSplashConfigs,
 } from './deployments'
 import { writeHardhatSnapshotId } from './utils'
-import { postExecutionActions } from './execution'
 import { initializeExecutor } from '../executor'
 import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
+import { createDeploymentArtifacts } from './artifacts'
 
 // Load environment variables from .env
 dotenv.config()
@@ -337,12 +338,13 @@ export const chugsplashApproveTask = async (
 
   if (finalDeploymentTxnHash) {
     const spinner = ora({ isSilent: silent })
-    await postExecutionActions(
+    await createDeploymentArtifacts(
       hre,
       parsedConfig,
       finalDeploymentTxnHash,
-      !noWithdraw,
-      undefined,
+      artifactFolder,
+      buildInfoFolder,
+      'hardhat',
       spinner
     )
   }
@@ -544,6 +546,9 @@ export const monitorTask = async (
 ) => {
   const { configPath, noWithdraw, silent, newOwner } = args
 
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
 
@@ -612,11 +617,22 @@ project with a name other than ${parsedConfig.options.projectName}`
   )
 
   await postExecutionActions(
-    hre,
+    provider,
+    signer,
     parsedConfig,
     finalDeploymentTxnHash,
     !noWithdraw,
     newOwner,
+    spinner
+  )
+
+  await createDeploymentArtifacts(
+    hre,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    artifactFolder,
+    buildInfoFolder,
+    'hardhat',
     spinner
   )
 

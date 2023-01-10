@@ -39,7 +39,7 @@ import {
   proposeChugSplashBundle,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
-import { monitorExecution } from '../execution'
+import { monitorExecution, postExecutionActions } from '../execution'
 
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -474,6 +474,15 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         bundleId,
         spinner,
         integration
+      )
+      await postExecutionActions(
+        provider,
+        signer,
+        parsedConfig,
+        finalDeploymentTxnHash,
+        !noWithdraw,
+        undefined,
+        spinner
       )
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
       displayDeploymentTable(parsedConfig, silent)
