@@ -4,17 +4,20 @@ import process from 'process'
 
 import { ethers } from 'ethers'
 import ora from 'ora'
-import { getChainId } from '@eth-optimism/core-utils'
+import { getChainId, remove0x } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
+import { ProxyABI } from '@chugsplash/contracts'
 
 import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
   computeBundleId,
   displayDeploymentTable,
+  displayProposerTable,
   formatEther,
   getChugSplashManager,
   getChugSplashManagerProxyAddress,
+  getChugSplashRegistry,
   getGasPriceOverrides,
   getProjectOwnerAddress,
   isProjectRegistered,
@@ -1036,4 +1039,348 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
       `No funds available to withdraw on ${networkName} for the project: ${projectName}.`
     )
   }
+}
+
+export const chugsplashListProjectsAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  integration: Integration,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const networkName = resolveNetworkName(provider, integration)
+  const signerAddress = await signer.getAddress()
+
+  const spinner = ora({ stream })
+  spinner.start(`Getting projects on ${networkName} owned by: ${signerAddress}`)
+
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+
+  const projectRegisteredEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.ChugSplashProjectRegistered()
+  )
+
+  const projects = {}
+  let numProjectsOwned = 0
+  for (const event of projectRegisteredEvents) {
+    const ChugSplashManager = getChugSplashManager(
+      signer,
+      event.args.projectName
+    )
+    const projectOwnerAddress = await getProjectOwnerAddress(
+      provider.getSigner(),
+      event.args.projectName
+    )
+    if (projectOwnerAddress === signerAddress) {
+      numProjectsOwned += 1
+      const hasActiveBundle =
+        (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+      const totalEthBalance = await provider.getBalance(
+        ChugSplashManager.address
+      )
+      const ownerBalance = await getOwnerWithdrawableAmount(
+        provider,
+        event.args.projectName
+      )
+
+      const formattedTotalEthBalance = totalEthBalance.gt(0)
+        ? formatEther(totalEthBalance, 4)
+        : 0
+      const formattedOwnerBalance = ownerBalance.gt(0)
+        ? formatEther(ownerBalance, 4)
+        : 0
+
+      projects[numProjectsOwned] = {
+        'Project Name': event.args.projectName,
+        'Is Active': hasActiveBundle ? 'Yes' : 'No',
+        "Project Owner's ETH": formattedOwnerBalance,
+        'Total ETH Stored': formattedTotalEthBalance,
+      }
+    }
+  }
+
+  if (numProjectsOwned > 0) {
+    spinner.succeed(
+      `Retrieved all projects on ${networkName} owned by: ${signerAddress}`
+    )
+    console.table(projects)
+  } else {
+    spinner.fail(`No projects on ${networkName} owned by: ${signerAddress}`)
+  }
+}
+
+export const chugsplashListProposersAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string
+) => {
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  const proposers = []
+
+  // Fetch current owner
+  const owner = await getProjectOwnerAddress(
+    provider.getSigner(),
+    parsedConfig.options.projectName
+  )
+  proposers.push(owner)
+
+  // Fetch all previous proposers
+  const addProposerEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ProposerAdded()
+  )
+
+  // Verify if each previous proposer is still a proposer before adding it to the list
+  for (const proposerEvent of addProposerEvents) {
+    const address = proposerEvent.args.proposer
+    const isStillProposer = await ChugSplashManager.proposers(address)
+    if (isStillProposer && !proposers.includes(address)) {
+      proposers.push(address)
+    }
+  }
+
+  // Display the list of proposers
+  displayProposerTable(proposers)
+}
+
+export const chugsplashAddProposerAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  newProposers: string[],
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  if (newProposers.length === 0) {
+    throw new Error('You must specify at least one proposer to add.')
+  }
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  const spinner = ora({ stream })
+  spinner.start('Confirming project ownership...')
+
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    parsedConfig.options.projectName
+  )
+
+  // Fetch current owner
+  const projectOwnerAddress = await getProjectOwnerAddress(
+    provider.getSigner(),
+    parsedConfig.options.projectName
+  )
+  if (projectOwnerAddress !== (await signer.getAddress())) {
+    throw new Error(`Project is owned by: ${projectOwnerAddress}.
+  You attempted to add a proposer using address: ${await signer.getAddress()}`)
+  }
+
+  spinner.succeed('Project ownership confirmed.')
+
+  for (const newProposer of newProposers) {
+    spinner.start(`Adding proposer ${newProposer}...`)
+
+    const isAlreadyProposer = await ChugSplashManager.proposers(newProposer)
+    if (isAlreadyProposer) {
+      throw new Error(
+        `A proposer with the address ${newProposer} has already been added.`
+      )
+    }
+
+    await (
+      await ChugSplashManager.addProposer(
+        newProposer,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+
+    spinner.succeed(`Proposer ${newProposer} successfully added!`)
+  }
+
+  await chugsplashListProposersAbstractTask(provider, signer, configPath)
+}
+
+export const chugsplashClaimProxyAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  referenceName: string,
+  silent: boolean,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const spinner = ora({ isSilent: silent, stream })
+  spinner.start('Checking project registration...')
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  // Throw an error if the project has not been registered
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  const owner = await getProjectOwnerAddress(
+    provider.getSigner(),
+    parsedConfig.options.projectName
+  )
+
+  const signerAddress = await signer.getAddress()
+  if (owner !== signerAddress) {
+    throw new Error(
+      `Caller does not own the project ${parsedConfig.options.projectName}`
+    )
+  }
+
+  spinner.succeed('Project registration detected')
+  spinner.start('Claiming proxy ownership...')
+
+  const manager = getChugSplashManager(signer, parsedConfig.options.projectName)
+
+  const activeBundleId = await manager.activeBundleId()
+  if (activeBundleId !== ethers.constants.HashZero) {
+    throw new Error(
+      `A project is currently being executed. Proxy ownership has not been transferred.
+  Please wait a couple of minutes before trying again.`
+    )
+  }
+
+  await (
+    await manager.transferProxyOwnership(
+      referenceName,
+      signerAddress,
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
+
+  spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
+}
+
+export const chugsplashTransferOwnershipAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  proxy: string,
+  silent: boolean,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const spinner = ora({ isSilent: silent, stream })
+  spinner.start('Checking project registration...')
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  // Throw an error if the project has not been registered
+  if (
+    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    false
+  ) {
+    errorProjectNotRegistered(
+      provider,
+      await getChainId(provider),
+      configPath,
+      'hardhat'
+    )
+  }
+
+  spinner.succeed('Project registration detected')
+  spinner.start('Checking proxy compatibility...')
+
+  const incompatibleProxyError = `ChugSplash does not support your proxy type.
+    Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+    If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`
+
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  const bytecode = await provider.getCode(proxy)
+  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      throw new Error(incompatibleProxyError)
+    }
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = ethers.utils.defaultAbiCoder.decode(
+    ['address'],
+    await provider.getStorageAt(
+      proxy,
+      '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+    )
+  )[0]
+
+  // Fetch ChugSplashManager address for this project
+  const managerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    throw new Error(incompatibleProxyError)
+  }
+
+  // If proxy owner is already ChugSplash, then throw an error
+  if (managerAddress.toLowerCase() === ownerAddress.toLowerCase()) {
+    throw new Error('Proxy is already owned by ChugSplash')
+  }
+
+  // If the signer doesn't own the target proxy, then throw an error
+  const signerAddress = await signer.getAddress()
+  if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+    throw new Error(`Target proxy is owned by: ${ownerAddress}.
+  You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
+  }
+
+  // Check that the proxy implementation function returns an address
+  const contract = new ethers.Contract(proxy, iface, signer)
+  const implementationAddress = await contract.callStatic.implementation()
+  if (!ethers.utils.isAddress(implementationAddress)) {
+    throw new Error(incompatibleProxyError)
+  }
+
+  spinner.succeed('Proxy compatibility verified')
+  spinner.start('Transferring proxy ownership to ChugSplash...')
+
+  // Transfer ownership of the proxy to the ChugSplashManager.
+  await (
+    await contract.changeAdmin(
+      managerAddress,
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
+
+  spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
