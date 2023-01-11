@@ -48,10 +48,7 @@ export const monitorExecution = async (
   const networkName = resolveNetworkName(provider, integration)
 
   const projectName = parsedConfig.options.projectName
-  const ChugSplashManager = getChugSplashManager(
-    provider.getSigner(),
-    projectName
-  )
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   // Get the bundle state of the bundle ID.
   let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(

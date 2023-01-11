@@ -60,10 +60,7 @@ export const createDeploymentFolderForNetwork = (
   networkName: string,
   deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(
-    path.basename(deploymentFolderPath),
-    networkName
-  )
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }

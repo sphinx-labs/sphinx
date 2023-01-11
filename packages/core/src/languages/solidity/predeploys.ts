@@ -321,9 +321,9 @@ export const doDeterministicDeploy = async (
 }
 
 export const monitorChugSplashSetup = async (
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer
 ) => {
-  const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   while (!(await isContractDeployed(ChugSplashRegistry.address, provider))) {

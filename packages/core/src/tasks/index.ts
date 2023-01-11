@@ -392,10 +392,7 @@ export const chugsplashApproveAbstractTask = async (
     )
   }
 
-  const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
-    projectName
-  )
+  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
   if (signerAddress !== projectOwnerAddress) {
     throw new Error(`Caller is not the project owner on ${networkName}.
 Caller's address: ${signerAddress}

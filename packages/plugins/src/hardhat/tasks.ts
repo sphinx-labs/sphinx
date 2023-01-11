@@ -152,7 +152,7 @@ export const chugsplashDeployTask = async (
   let executor: ChugSplashExecutor
   if (remoteExecution) {
     spinner.start('Waiting for the executor to set up ChugSplash...')
-    await monitorChugSplashSetup(provider)
+    await monitorChugSplashSetup(provider, signer)
   } else {
     spinner.start('Booting up ChugSplash...')
     executor = await initializeExecutor(provider)
