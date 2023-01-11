@@ -32,7 +32,6 @@
   "devDependencies": {
     "@chugsplash/contracts": "^0.3.17",
     "@chugsplash/core": "^0.3.24",
-    "@chugsplash/plugins": "^0.8.9",
     "@eth-optimism/common-ts": "^0.6.0",
     "@eth-optimism/core-utils": "^0.9.3",
     "dotenv": "^16.0.3",

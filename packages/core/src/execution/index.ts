@@ -1,4 +1,4 @@
-import { sleep } from '@eth-optimism/core-utils'
+import { getChainId, sleep } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import ora from 'ora'
 
@@ -7,6 +7,7 @@ import {
   ChugSplashActionType,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
+  createDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
@@ -19,6 +20,7 @@ import {
   getCurrentChugSplashActionType,
   getGasPriceOverrides,
   getProjectOwnerAddress,
+  writeSnapshotId,
 } from '../utils'
 
 export const getNumDeployedImplementations = (
@@ -158,6 +160,11 @@ export const postExecutionActions = async (
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
   withdraw: boolean,
+  networkName: string,
+  deploymentfolderPath: string,
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -229,4 +236,21 @@ export const postExecutionActions = async (
       spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
     }
   }
+
+  // Save the snapshot ID if we're on the hardhat network.
+  if ((await getChainId(provider)) === 31337) {
+    await writeSnapshotId(provider, networkName, deploymentfolderPath)
+  }
+
+  await createDeploymentArtifacts(
+    provider,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    artifactFolder,
+    buildInfoFolder,
+    integration,
+    spinner,
+    networkName,
+    deploymentfolderPath
+  )
 }

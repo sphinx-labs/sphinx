@@ -12,6 +12,7 @@ import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
   computeBundleId,
   displayDeploymentTable,
+  formatEther,
   getChugSplashManager,
   getChugSplashManagerProxyAddress,
   getGasPriceOverrides,
@@ -34,12 +35,15 @@ import {
   ChugSplashActionBundle,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
+  createDeploymentArtifacts,
   filterChugSplashInputs,
   getContractArtifact,
   proposeChugSplashBundle,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
+import { getFinalDeploymentTxnHash } from '../deployments'
+import { ChugSplashExecutorType } from '../types'
 
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -131,7 +135,6 @@ export const chugsplashProposeAbstractTask = async (
     buildInfoFolder,
     artifactFolder,
     canonicalConfigPath,
-    spinner,
     integration
   )
 
@@ -216,8 +219,8 @@ export const chugsplashCommitAbstractSubtask = async (
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
-  spinner: ora.Ora = ora({ isSilent: true }),
-  integration: Integration
+  integration: Integration,
+  spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
   bundle: ChugSplashActionBundle
   configUri: string
@@ -342,12 +345,13 @@ IPFS_API_KEY_SECRET: ...
   }
 
   if (spinner) {
+    const networkName = resolveNetworkName(provider, integration)
     commitToIpfs
       ? spinner.succeed(
           `${parsedConfig.options.projectName} has been committed to IPFS.`
         )
       : spinner.succeed(
-          `Built ${parsedConfig.options.projectName} on ${provider.network.name}.`
+          `Built ${parsedConfig.options.projectName} on ${networkName}.`
         )
   }
 
@@ -365,10 +369,10 @@ export const chugsplashApproveAbstractTask = async (
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
+  deploymentFolderPath: string,
   stream: NodeJS.WritableStream = process.stderr
-): Promise<string | undefined> => {
+) => {
   const parsedConfig = loadParsedChugSplashConfig(configPath)
-  console.log('approving resolving name')
   const networkName = resolveNetworkName(provider, integration)
 
   const spinner = ora({ isSilent: silent, stream })
@@ -409,8 +413,8 @@ Owner's address: ${projectOwnerAddress}`)
     buildInfoFolder,
     artifactFolder,
     canonicalConfigPath,
-    spinner,
-    integration
+    integration,
+    spinner
   )
 
   const ChugSplashManager = getChugSplashManager(signer, projectName)
@@ -481,12 +485,16 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         parsedConfig,
         finalDeploymentTxnHash,
         !noWithdraw,
+        networkName,
+        deploymentFolderPath,
+        artifactFolder,
+        buildInfoFolder,
+        integration,
         undefined,
         spinner
       )
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
       displayDeploymentTable(parsedConfig, silent)
-      return finalDeploymentTxnHash
     }
   }
 }
@@ -541,4 +549,231 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
       amount
     )} ETH for the project: ${projectName}.`
   )
+}
+
+export const chugsplashDeployAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  silent: boolean,
+  remoteExecution: boolean,
+  ipfsUrl: string,
+  noCompile: boolean,
+  confirm: boolean,
+  withdraw: boolean,
+  newOwner: string,
+  buildInfoFolder: string,
+  artifactFolder: string,
+  canonicalConfigPath: string,
+  deploymentFolder: string,
+  integration: Integration,
+  executor?: ChugSplashExecutorType,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const spinner = ora({ isSilent: silent, stream })
+  const networkName = resolveNetworkName(provider, integration)
+
+  if (executor === undefined && !remoteExecution) {
+    throw new Error(
+      'You must pass in a ChugSplashExecutor if executing locally'
+    )
+  }
+
+  const signerAddress = await signer.getAddress()
+
+  spinner.start('Parsing ChugSplash config file...')
+
+  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const projectName = parsedConfig.options.projectName
+
+  const projectPreviouslyRegistered = await isProjectRegistered(
+    signer,
+    projectName
+  )
+
+  spinner.succeed(`Parsed ${projectName}.`)
+
+  if (projectPreviouslyRegistered === false) {
+    spinner.start(`Registering ${projectName}...`)
+    // Register the project with the signer as the owner. Once we've completed the deployment, we'll
+    // transfer ownership to the project owner specified in the config.
+    await registerChugSplashProject(
+      provider,
+      signer,
+      signerAddress,
+      projectName,
+      signerAddress
+    )
+    spinner.succeed(`Successfully registered ${projectName}.`)
+  }
+
+  // Get the bundle ID without publishing anything to IPFS.
+  const { bundleId, bundle, configUri } = await chugsplashCommitAbstractSubtask(
+    provider,
+    signer,
+    parsedConfig,
+    ipfsUrl,
+    false,
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath,
+    integration
+  )
+
+  spinner.start(`Checking the status of ${projectName}...`)
+
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
+    bundleId
+  )
+  let currBundleStatus = bundleState.status
+
+  if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
+    await createDeploymentArtifacts(
+      provider,
+      parsedConfig,
+      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+      artifactFolder,
+      buildInfoFolder,
+      integration,
+      spinner,
+      networkName,
+      deploymentFolder
+    )
+    spinner.succeed(`${projectName} was already completed on ${networkName}.`)
+    displayDeploymentTable(parsedConfig, silent)
+    return
+  } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
+    spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
+    throw new Error(
+      `${projectName} was previously cancelled on ${networkName}.`
+    )
+  }
+
+  if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
+    spinner.succeed(`${projectName} has not been proposed before.`)
+    spinner.start(`Proposing ${projectName}...`)
+    await proposeChugSplashBundle(
+      provider,
+      signer,
+      parsedConfig,
+      bundle,
+      configUri,
+      remoteExecution,
+      ipfsUrl,
+      configPath,
+      spinner,
+      confirm,
+      buildInfoFolder,
+      artifactFolder,
+      canonicalConfigPath,
+      silent,
+      integration
+    )
+    currBundleStatus = ChugSplashBundleStatus.PROPOSED
+  }
+
+  if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
+    spinner.start(`Calculating amount to deposit...`)
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      true
+    )
+
+    if (amountToDeposit.gt(0)) {
+      spinner.succeed(
+        `Amount to deposit: ${formatEther(amountToDeposit, 4)} ETH`
+      )
+      spinner.start(`Funding ${projectName}...`)
+
+      await chugsplashFundAbstractTask(
+        provider,
+        signer,
+        configPath,
+        amountToDeposit,
+        silent,
+        integration,
+        stream
+      )
+
+      spinner.succeed(`Funded ${projectName}.`)
+    } else {
+      spinner.succeed(`Sufficient funds already deposited.`)
+    }
+
+    // Approve the deployment.
+    await chugsplashApproveAbstractTask(
+      provider,
+      signer,
+      configPath,
+      false,
+      silent,
+      true,
+      integration,
+      buildInfoFolder,
+      artifactFolder,
+      canonicalConfigPath,
+      deploymentFolder,
+      stream
+    )
+
+    currBundleStatus = ChugSplashBundleStatus.APPROVED
+  }
+
+  // At this point, we know that the bundle is active.
+
+  if (remoteExecution) {
+    await monitorExecution(
+      provider,
+      signer,
+      parsedConfig,
+      bundle,
+      bundleId,
+      spinner,
+      integration
+    )
+  } else {
+    // Use the in-process executor if executing the bundle locally.
+    const amountToDeposit = await getAmountToDeposit(
+      provider,
+      bundle,
+      0,
+      projectName,
+      true
+    )
+    await signer.sendTransaction({
+      to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      value: amountToDeposit,
+    })
+    await executor.main(bundleId, canonicalConfigPath)
+    spinner.succeed(`Executed ${projectName}.`)
+  }
+
+  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    ChugSplashManager,
+    bundleId
+  )
+
+  await postExecutionActions(
+    provider,
+    signer,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    withdraw,
+    networkName,
+    deploymentFolder,
+    artifactFolder,
+    buildInfoFolder,
+    integration,
+    newOwner,
+    spinner
+  )
+
+  // At this point, the bundle has been completed.
+  spinner.succeed(`${projectName} completed!`)
+  displayDeploymentTable(parsedConfig, silent)
 }

@@ -28,8 +28,8 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
+    "@amplitude/node": "^1.10.2",
     "@chugsplash/contracts": "^0.3.17",
-    "@chugsplash/executor": "^0.4.14",
     "@eth-optimism/common-ts": "^0.6.7",
     "@eth-optimism/contracts-bedrock": "^0.8.0",
     "@eth-optimism/core-utils": "^0.9.1",

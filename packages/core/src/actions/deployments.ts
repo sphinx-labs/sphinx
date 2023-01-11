@@ -99,8 +99,8 @@ export const proposeChugSplashBundle = async (
       buildInfoFolder,
       artifactFolder,
       canonicalConfigPath,
-      spinner,
-      integration
+      integration,
+      spinner
     )
     // Verify that the bundle has been committed to IPFS with the correct bundle hash.
     await verifyBundle({

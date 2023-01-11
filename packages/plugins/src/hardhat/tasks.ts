@@ -39,6 +39,9 @@ import {
   chugsplashApproveAbstractTask,
   chugsplashFundAbstractTask,
   postExecutionActions,
+  chugsplashDeployAbstractTask,
+  resolveNetworkName,
+  writeSnapshotId,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -51,17 +54,12 @@ import {
   sampleChugSplashFileJavaScript,
   sampleChugSplashFileTypeScript,
 } from '../sample-project'
-import {
-  deployChugSplashConfig,
-  deployAllChugSplashConfigs,
-} from './deployments'
-import { writeHardhatSnapshotId } from './utils'
+import { deployAllChugSplashConfigs } from './deployments'
 import { initializeExecutor } from '../executor'
 import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
-import { createDeploymentArtifacts } from './artifacts'
 
 // Load environment variables from .env
 dotenv.config()
@@ -162,8 +160,14 @@ export const chugsplashDeployTask = async (
 
   spinner.succeed('ChugSplash is ready to go.')
 
-  await deployChugSplashConfig(
-    hre,
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const canonicalConfigPath = hre.config.paths.canonicalConfigs
+  const deploymentFolder = hre.config.paths.deployments
+
+  await chugsplashDeployAbstractTask(
+    provider,
+    signer,
     configPath,
     silent,
     remoteExecution,
@@ -172,8 +176,12 @@ export const chugsplashDeployTask = async (
     confirm,
     !noWithdraw,
     newOwner ?? signerAddress,
-    executor,
-    spinner
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath,
+    deploymentFolder,
+    'hardhat',
+    executor
   )
 }
 
@@ -317,13 +325,13 @@ export const chugsplashApproveTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
   const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
   const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
+  const deploymentFolder = hre.config.paths.deployments
 
-  const finalDeploymentTxnHash = await chugsplashApproveAbstractTask(
+  await chugsplashApproveAbstractTask(
     provider,
     signer,
     configPath,
@@ -333,21 +341,9 @@ export const chugsplashApproveTask = async (
     'hardhat',
     buildInfoFolder,
     artifactFolder,
-    canonicalConfigPath
+    canonicalConfigPath,
+    deploymentFolder
   )
-
-  if (finalDeploymentTxnHash) {
-    const spinner = ora({ isSilent: silent })
-    await createDeploymentArtifacts(
-      hre,
-      parsedConfig,
-      finalDeploymentTxnHash,
-      artifactFolder,
-      buildInfoFolder,
-      'hardhat',
-      spinner
-    )
-  }
 }
 
 task(TASK_CHUGSPLASH_APPROVE)
@@ -418,8 +414,8 @@ export const chugsplashCommitSubtask = async (
     buildInfoFolder,
     artifactFolder,
     canonicalConfigPath,
-    spinner,
-    'hardhat'
+    'hardhat',
+    spinner
   )
 }
 
@@ -546,9 +542,6 @@ export const monitorTask = async (
 ) => {
   const { configPath, noWithdraw, silent, newOwner } = args
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
-
   const spinner = ora({ isSilent: silent })
   spinner.start(`Loading project information...`)
 
@@ -616,23 +609,23 @@ project with a name other than ${parsedConfig.options.projectName}`
     'hardhat'
   )
 
+  const networkName = resolveNetworkName(provider, 'hardhat')
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const deploymentFolder = hre.config.paths.deployments
+
   await postExecutionActions(
     provider,
     signer,
     parsedConfig,
     finalDeploymentTxnHash,
     !noWithdraw,
-    newOwner,
-    spinner
-  )
-
-  await createDeploymentArtifacts(
-    hre,
-    parsedConfig,
-    finalDeploymentTxnHash,
+    networkName,
+    deploymentFolder,
     artifactFolder,
     buildInfoFolder,
     'hardhat',
+    newOwner,
     spinner
   )
 
@@ -724,8 +717,13 @@ task(TASK_NODE)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, hide, '', true, true, spinner)
-          await writeHardhatSnapshotId(hre, 'localhost')
+          await deployAllChugSplashConfigs(hre, hide, '', true, true)
+          const networkName = resolveNetworkName(hre.ethers.provider, 'hardhat')
+          await writeSnapshotId(
+            hre.ethers.provider,
+            networkName,
+            hre.config.paths.deployments
+          )
         }
       }
       await runSuper(args)
@@ -769,7 +767,12 @@ task(TASK_TEST)
           }
           await deployAllChugSplashConfigs(hre, !show, '', true, true)
         } finally {
-          await writeHardhatSnapshotId(hre)
+          const networkName = resolveNetworkName(hre.ethers.provider, 'hardhat')
+          await writeSnapshotId(
+            hre.ethers.provider,
+            networkName,
+            hre.config.paths.deployments
+          )
         }
       }
       await runSuper(args)

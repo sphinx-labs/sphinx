@@ -43,14 +43,12 @@ export const computeBundleId = (
 }
 
 export const writeSnapshotId = async (
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string,
-  deploymentFolderPath: string,
-  snapshotId: string
+  deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(
-    path.basename(deploymentFolderPath),
-    networkName
-  )
+  const snapshotId = await provider.send('evm_snapshot', [])
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
@@ -78,7 +76,7 @@ export const writeDeploymentArtifact = (
   referenceName: string
 ) => {
   const artifactPath = path.join(
-    path.basename(deploymentFolderPath),
+    deploymentFolderPath,
     networkName,
     `${referenceName}.json`
   )

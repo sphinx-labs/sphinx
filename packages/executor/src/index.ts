@@ -1,11 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import {
-  BaseServiceV2,
-  Logger,
-  LogLevel,
-  validators,
-} from '@eth-optimism/common-ts'
+import { BaseServiceV2, Logger, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
   ChugSplashManagerABI,
@@ -25,6 +20,11 @@ import {
 } from '@chugsplash/core'
 import * as Amplitude from '@amplitude/node'
 import { getChainId } from '@eth-optimism/core-utils'
+import {
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState,
+} from '@chugsplash/core/dist/types'
 
 import {
   compileRemoteBundle,
@@ -36,27 +36,12 @@ import {
 
 export * from './utils'
 
-type Options = {
-  url: string
-  network: string
-  privateKey: string
-  amplitudeKey: string
-  logLevel: LogLevel
-}
-
-type Metrics = {}
-
-type State = {
-  eventsQueue: ethers.Event[]
-  registry: ethers.Contract
-  provider: ethers.providers.JsonRpcProvider
-  lastBlockNumber: number
-  amplitudeClient: Amplitude.NodeClient
-  wallet: ethers.Wallet
-}
-
-export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
-  constructor(options?: Partial<Options>) {
+export class ChugSplashExecutor extends BaseServiceV2<
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState
+> {
+  constructor(options?: Partial<ExecutorOptions>) {
     super({
       name: 'chugsplash-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -105,7 +90,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
    * environment variables.
    **/
   async setup(
-    options: Partial<Options>,
+    options: Partial<ExecutorOptions>,
     provider?: ethers.providers.JsonRpcProvider
   ) {
     this.logger = new Logger({
