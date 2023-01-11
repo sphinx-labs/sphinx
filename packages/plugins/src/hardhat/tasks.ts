@@ -17,7 +17,6 @@ import {
   ChugSplashBundleStatus,
   displayProposerTable,
   getChugSplashRegistry,
-  displayDeploymentTable,
   getChugSplashManagerProxyAddress,
   getChugSplashManager,
   getProjectOwnerAddress,
@@ -35,13 +34,14 @@ import {
   bundleLocal,
   verifyBundle,
   chugsplashProposeAbstractTask,
-  monitorExecution,
   chugsplashApproveAbstractTask,
   chugsplashFundAbstractTask,
-  postExecutionActions,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,
+  chugsplashMonitorAbstractTask,
+  chugsplashCancelAbstractTask,
+  chugsplashWithdrawAbstractTask,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, ProxyABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -542,102 +542,25 @@ export const monitorTask = async (
 ) => {
   const { configPath, noWithdraw, silent, newOwner } = args
 
-  const spinner = ora({ isSilent: silent })
-  spinner.start(`Loading project information...`)
-
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    parsedConfig.options.projectName
-  )
-
-  if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
-    false
-  ) {
-    errorProjectNotRegistered(
-      provider,
-      await getChainId(provider),
-      configPath,
-      'hardhat'
-    )
-  }
-
-  const { bundleId, bundle } = await chugsplashCommitSubtask(
-    {
-      parsedConfig,
-      ipfsUrl: '',
-      commitToIpfs: false,
-      noCompile: true,
-    },
-    hre
-  )
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
-
-  spinner.succeed(`Loaded project information.`)
-
-  if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
-    throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for
-execution on ${hre.network.name}.`
-    )
-  } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
-    throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet
-approved for execution on ${hre.network.name}.`
-    )
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    throw new Error(
-      `Project was already cancelled on ${hre.network.name}. Please propose a new
-project with a name other than ${parsedConfig.options.projectName}`
-    )
-  }
-
-  // If we make it to this point, the bundle status is either completed or approved.
-
-  const finalDeploymentTxnHash = await monitorExecution(
-    provider,
-    signer,
-    parsedConfig,
-    bundle,
-    bundleId,
-    spinner,
-    'hardhat'
-  )
-
-  const networkName = resolveNetworkName(provider, 'hardhat')
   const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
   const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
-
-  await postExecutionActions(
+  await chugsplashMonitorAbstractTask(
     provider,
     signer,
-    parsedConfig,
-    finalDeploymentTxnHash,
-    !noWithdraw,
-    networkName,
-    deploymentFolder,
-    artifactFolder,
-    buildInfoFolder,
-    'hardhat',
+    configPath,
+    noWithdraw,
+    silent,
     newOwner,
-    spinner
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath,
+    deploymentFolder,
+    'hardhat'
   )
-
-  bundleState.status === ChugSplashBundleStatus.APPROVED
-    ? spinner.succeed(
-        `${parsedConfig.options.projectName} successfully completed on ${hre.network.name}.`
-      )
-    : spinner.succeed(
-        `${parsedConfig.options.projectName} was already deployed on ${hre.network.name}.`
-      )
-
-  displayDeploymentTable(parsedConfig, silent)
 }
 
 task(TASK_CHUGSPLASH_MONITOR)
@@ -827,63 +750,8 @@ export const chugsplashCancelTask = async (
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
-  const projectName = parsedConfig.options.projectName
 
-  const spinner = ora()
-  spinner.start(`Cancelling ${projectName} on ${hre.network.name}.`)
-
-  if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(
-      provider,
-      await getChainId(provider),
-      configPath,
-      'hardhat'
-    )
-  }
-
-  const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
-    projectName
-  )
-  if (projectOwnerAddress !== (await signer.getAddress())) {
-    throw new Error(`Project is owned by: ${projectOwnerAddress}.
-You attempted to cancel the project using the address: ${await signer.getAddress()}`)
-  }
-
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
-
-  const activeBundleId = await ChugSplashManager.activeBundleId()
-
-  if (activeBundleId === ethers.constants.HashZero) {
-    spinner.fail(
-      `${projectName} is not an active project, so there is nothing to cancel.`
-    )
-    return
-  }
-
-  await (
-    await ChugSplashManager.cancelActiveChugSplashBundle(
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
-
-  spinner.succeed(`Cancelled ${projectName} on ${hre.network.name}.`)
-  spinner.start(`Refunding the project owner...`)
-
-  const prevOwnerBalance = await signer.getBalance()
-  await (
-    await ChugSplashManager.withdrawOwnerETH(
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
-  const refund = (await signer.getBalance()).sub(prevOwnerBalance)
-
-  spinner.succeed(
-    `Refunded ${ethers.utils.formatEther(refund)} ETH on ${
-      hre.network.name
-    } to the project owner: ${await signer.getAddress()}.`
-  )
+  await chugsplashCancelAbstractTask(provider, signer, configPath, 'hardhat')
 }
 
 task(TASK_CHUGSPLASH_CANCEL)
@@ -902,81 +770,19 @@ export const chugsplashWithdrawTask = async (
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
-  const projectName = parsedConfig.options.projectName
-
-  const spinner = ora({ isSilent: silent })
-  spinner.start(
-    `Withdrawing ETH in the project ${projectName} on ${hre.network.name}.`
-  )
-
-  if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(
-      provider,
-      await getChainId(provider),
-      configPath,
-      'hardhat'
-    )
-  }
-
-  const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
-    projectName
-  )
-  if (projectOwnerAddress !== (await signer.getAddress())) {
-    throw new Error(`Project is owned by: ${projectOwnerAddress}.
-Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
-  }
-
-  // Get the bundle info by calling the commit subtask locally (which doesn't publish anything to
-  // IPFS).
-  const { bundleId } = await chugsplashCommitSubtask(
-    {
-      parsedConfig,
-      ipfsUrl: '',
-      commitToIpfs: false,
-      noCompile: true,
-    },
-    hre
-  )
-
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
-
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
-
-  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    throw new Error(
-      `Project is currently active. You must cancel the project in order to withdraw funds:
-
-npx hardhat chugsplash-cancel --network ${hre.network.name} --config-path ${configPath}
-        `
-    )
-  }
-
-  const amountToWithdraw = await getOwnerWithdrawableAmount(
+  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
+  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const canonicalConfigPath = hre.config.paths.canonicalConfigs
+  await chugsplashWithdrawAbstractTask(
     provider,
-    projectName
+    signer,
+    configPath,
+    silent,
+    buildInfoFolder,
+    artifactFolder,
+    canonicalConfigPath,
+    'hardhat'
   )
-
-  if (amountToWithdraw.gt(0)) {
-    await (
-      await ChugSplashManager.withdrawOwnerETH(
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-
-    spinner.succeed(
-      `Withdrew ${ethers.utils.formatEther(amountToWithdraw)} ETH on ${
-        hre.network.name
-      } to the project owner: ${await signer.getAddress()}.`
-    )
-  } else {
-    spinner.fail(
-      `No funds available to withdraw on ${hre.network.name} for the project: ${projectName}.`
-    )
-  }
 }
 
 task(TASK_CHUGSPLASH_WITHDRAW)

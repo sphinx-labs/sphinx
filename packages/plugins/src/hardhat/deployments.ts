@@ -2,20 +2,11 @@ import '@nomiclabs/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import yesno from 'yesno'
 import { ethers } from 'ethers'
 import {
   ParsedChugSplashConfig,
   isEmptyChugSplashConfig,
-  ChugSplashActionBundle,
-  computeBundleId,
-  getChugSplashManager,
-  checkIsUpgrade,
-  checkValidUpgrade,
-  getProjectOwnerAddress,
-  isProposer,
   isContractDeployed,
-  getGasPriceOverrides,
   loadParsedChugSplashConfig,
   getContractArtifact,
   chugsplashDeployAbstractTask,
@@ -24,10 +15,8 @@ import {
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import ora from 'ora'
 import { ChugSplashExecutor } from '@chugsplash/executor'
 
-import { chugsplashCommitSubtask, TASK_CHUGSPLASH_VERIFY_BUNDLE } from './tasks'
 import { initializeExecutor } from '../executor'
 
 /**
@@ -169,112 +158,4 @@ export const resetChugSplashDeployments = async (
     networkFolderName,
     hre.config.paths.deployments
   )
-}
-
-export const proposeChugSplashBundle = async (
-  hre: HardhatRuntimeEnvironment,
-  parsedConfig: ParsedChugSplashConfig,
-  bundle: ChugSplashActionBundle,
-  configUri: string,
-  remoteExecution: boolean,
-  ipfsUrl: string,
-  configPath: string,
-  spinner: ora.Ora = ora({ isSilent: true }),
-  confirm: boolean
-) => {
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-  const signerAddress = await signer.getAddress()
-  const projectName = parsedConfig.options.projectName
-
-  // Throw an error if the caller isn't the project owner or a proposer.
-  if (
-    signerAddress !==
-      (await getProjectOwnerAddress(
-        hre.ethers.provider.getSigner(),
-        projectName
-      )) &&
-    !(await isProposer(provider, projectName, signerAddress))
-  ) {
-    throw new Error(
-      `Caller is not a proposer or the project owner. Caller's address: ${signerAddress}`
-    )
-  }
-
-  // Determine if the deployment is an upgrade
-  spinner.start(
-    `Checking if ${projectName} is a fresh deployment or upgrade...`
-  )
-  const upgradeReferenceName = await checkIsUpgrade(
-    hre.ethers.provider,
-    parsedConfig
-  )
-  if (upgradeReferenceName) {
-    // Check if upgrade is valid
-    await checkValidUpgrade(
-      hre.ethers.provider,
-      parsedConfig,
-      configPath,
-      hre.network.name
-    )
-
-    spinner.succeed(`${projectName} is an upgrade.`)
-
-    if (!confirm) {
-      // Confirm upgrade with user
-      const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${projectName}, would you like to perform an upgrade? (y/n)`,
-      })
-      if (!userConfirmed) {
-        throw new Error(
-          `User denied upgrade. The reference name ${upgradeReferenceName} inside ${projectName} was already used
-in a previous deployment for this project. To perform a fresh deployment of a new project, you must change the project name to
-something other than ${projectName}. If you wish to deploy a new contract within this project you must change the
-reference name to something other than ${upgradeReferenceName}.`
-        )
-      }
-    }
-  } else {
-    spinner.succeed(`${projectName} is not an upgrade.`)
-  }
-
-  spinner.start(`Proposing ${projectName}...`)
-
-  const ChugSplashManager = getChugSplashManager(
-    hre.ethers.provider.getSigner(),
-    projectName
-  )
-
-  const chainId = await getChainId(hre.ethers.provider)
-
-  if (remoteExecution || chainId !== 31337) {
-    // Commit the bundle to IPFS if the network is live (i.e. not the local Hardhat network) or
-    // if we explicitly specify remote execution.
-    await chugsplashCommitSubtask(
-      {
-        parsedConfig,
-        ipfsUrl,
-        commitToIpfs: true,
-        noCompile: true,
-      },
-      hre
-    )
-    // Verify that the bundle has been committed to IPFS with the correct bundle hash.
-    await hre.run(TASK_CHUGSPLASH_VERIFY_BUNDLE, {
-      configUri,
-      bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
-      ipfsUrl,
-    })
-  }
-  // Propose the bundle.
-  await (
-    await ChugSplashManager.proposeChugSplashBundle(
-      bundle.root,
-      bundle.actions.length,
-      configUri,
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
-
-  spinner.succeed(`Proposed ${projectName}.`)
 }

@@ -35,7 +35,29 @@ npx hardhat chugsplash-register --network ${networkName} --owner <ownerAddress> 
     throw new Error(`This project has not been registered on ${networkName}.
 To register the project on this network...
 
-TODO: Finish foundry success message`)
+TODO: Finish foundry error message`)
+  }
+}
+
+export const errorProjectCurrentlyActive = (
+  provider: ethers.providers.JsonRpcProvider,
+  integration: Integration,
+  configPath: string
+) => {
+  const networkName = resolveNetworkName(provider, integration)
+
+  if (integration === 'hardhat') {
+    throw new Error(
+      `Project is currently active. You must cancel the project in order to withdraw funds:
+
+npx hardhat chugsplash-cancel --network ${networkName} --config-path ${configPath}
+        `
+    )
+  } else {
+    // TODO - output foundry error
+    throw new Error(`Project is currently active. You must cancel the project in order to withdraw funds...
+
+TODO: Finish foundry error message`)
   }
 }
 
