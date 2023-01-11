@@ -13,8 +13,6 @@ import { getChainId, remove0x } from '@eth-optimism/core-utils'
 import {
   ParsedChugSplashConfig,
   ChugSplashActionBundle,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
   displayProposerTable,
   getChugSplashRegistry,
   getChugSplashManagerProxyAddress,
