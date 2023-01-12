@@ -4,15 +4,21 @@ import * as semver from 'semver'
 import {
   SolidityStorageLayout,
   ParsedChugSplashConfig,
-  createDeploymentFolderForNetwork,
   writeDeploymentArtifact,
   getConstructorArgs,
   ChugSplashInputs,
   CompilerInput,
   getMinimumCompilerInput,
+  getChugSplashManagerProxyAddress,
+  writeDeploymentFolderForNetwork,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  ProxyArtifact,
+  buildInfo as chugsplashBuildInfo,
+  ProxyABI,
+} from '@chugsplash/contracts'
 
 // TODO
 export type ContractArtifact = any
@@ -156,76 +162,124 @@ export const filterChugSplashInputs = async (
   return filteredChugSplashInputs
 }
 
-export const createDeploymentArtifacts = async (
+export const writeDeploymentArtifacts = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ParsedChugSplashConfig,
-  finalDeploymentTxnHash: string
+  deploymentEvents: ethers.Event[]
 ) => {
-  createDeploymentFolderForNetwork(
+  writeDeploymentFolderForNetwork(
     hre.network.name,
     hre.config.paths.deployments
   )
 
   const provider = hre.ethers.provider
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const artifact = getContractArtifact(contractConfig.contract)
-    const { sourceName, contractName, bytecode, abi } = artifact
+  for (const deploymentEvent of deploymentEvents) {
+    const receipt = await deploymentEvent.getTransactionReceipt()
 
-    const buildInfo = await getBuildInfo(sourceName, contractName)
+    if (deploymentEvent.event === 'DefaultProxyDeployed') {
+      const { metadata, storageLayout } =
+        chugsplashBuildInfo.output.contracts['contracts/libraries/Proxy.sol'][
+          'Proxy'
+        ]
+      const { devdoc, userdoc } =
+        typeof metadata === 'string'
+          ? JSON.parse(metadata).output
+          : metadata.output
 
-    const { constructorArgValues } = getConstructorArgs(
-      parsedConfig,
-      referenceName,
-      abi,
-      buildInfo.output,
-      sourceName,
-      contractName
-    )
-
-    const receipt = await provider.getTransactionReceipt(finalDeploymentTxnHash)
-
-    const metadata =
-      buildInfo.output.contracts[sourceName][contractName].metadata
-
-    const { devdoc, userdoc } =
-      typeof metadata === 'string'
-        ? JSON.parse(metadata).output
-        : metadata.output
-
-    const deploymentArtifact = {
-      contractName,
-      address: contractConfig.proxy,
-      abi,
-      transactionHash: finalDeploymentTxnHash,
-      solcInputHash: buildInfo.id,
-      receipt: {
-        ...receipt,
-        gasUsed: receipt.gasUsed.toString(),
-        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-        // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
-        ...(receipt.effectiveGasPrice && {
+      // Define the deployment artifact for the proxy.
+      const proxyArtifact = {
+        address: deploymentEvent.args.proxy,
+        abi: ProxyABI,
+        transactionHash: deploymentEvent.transactionHash,
+        solcInputHash: chugsplashBuildInfo.id,
+        receipt: {
+          ...receipt,
+          gasUsed: receipt.gasUsed.toString(),
+          cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
           effectiveGasPrice: receipt.effectiveGasPrice.toString(),
-        }),
-      },
-      numDeployments: 1,
-      metadata:
-        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-      args: constructorArgValues,
-      bytecode,
-      deployedBytecode: await provider.getCode(contractConfig.proxy),
-      devdoc,
-      userdoc,
-      storageLayout: await getStorageLayout(contractConfig.contract),
-    }
+          // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
+          ...(receipt.effectiveGasPrice && {
+            effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+          }),
+        },
+        numDeployments: 1,
+        metadata:
+          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+        args: [
+          getChugSplashManagerProxyAddress(parsedConfig.options.projectName),
+        ],
+        bytecode: ProxyArtifact.bytecode,
+        deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
+        devdoc,
+        userdoc,
+        storageLayout,
+      }
 
-    writeDeploymentArtifact(
-      hre.network.name,
-      hre.config.paths.deployments,
-      deploymentArtifact,
-      referenceName
-    )
+      // Write the deployment artifact for the proxy contract.
+      writeDeploymentArtifact(
+        hre.network.name,
+        hre.config.paths.deployments,
+        proxyArtifact,
+        `${deploymentEvent.args.target}Proxy`
+      )
+    } else if (deploymentEvent.event === 'ImplementationDeployed') {
+      // Get the implementation contract's info.
+      const referenceName = deploymentEvent.args.target
+      const contractConfig = parsedConfig.contracts[referenceName]
+      const artifact = getContractArtifact(contractConfig.contract)
+      const { sourceName, contractName, bytecode, abi } = artifact
+      const buildInfo = await getBuildInfo(sourceName, contractName)
+      const { constructorArgValues } = getConstructorArgs(
+        parsedConfig,
+        referenceName,
+        abi,
+        buildInfo.output,
+        sourceName,
+        contractName
+      )
+      const { metadata, storageLayout } =
+        buildInfo.output.contracts[sourceName][contractName]
+      const { devdoc, userdoc } =
+        typeof metadata === 'string'
+          ? JSON.parse(metadata).output
+          : metadata.output
+
+      // Define the deployment artifact for the implementation contract.
+      const implementationArtifact = {
+        address: deploymentEvent.args.implementation,
+        abi,
+        transactionHash: deploymentEvent.transactionHash,
+        solcInputHash: buildInfo.id,
+        receipt: {
+          ...receipt,
+          gasUsed: receipt.gasUsed.toString(),
+          cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+          effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+          // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
+          ...(receipt.effectiveGasPrice && {
+            effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+          }),
+        },
+        numDeployments: 1,
+        metadata:
+          typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
+        args: constructorArgValues,
+        bytecode,
+        deployedBytecode: await provider.getCode(
+          deploymentEvent.args.implementation
+        ),
+        devdoc,
+        userdoc,
+        storageLayout,
+      }
+      // Write the deployment artifact for the implementation contract.
+      writeDeploymentArtifact(
+        hre.network.name,
+        hre.config.paths.deployments,
+        implementationArtifact,
+        referenceName
+      )
+    }
   }
 }

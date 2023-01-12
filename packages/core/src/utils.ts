@@ -24,7 +24,6 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
-
 export const computeBundleId = (
   bundleRoot: string,
   bundleSize: number,
@@ -54,7 +53,7 @@ export const writeSnapshotId = async (
   fs.writeFileSync(snapshotIdPath, snapshotId)
 }
 
-export const createDeploymentFolderForNetwork = (
+export const writeDeploymentFolderForNetwork = (
   networkName: string,
   deploymentFolderPath: string
 ) => {

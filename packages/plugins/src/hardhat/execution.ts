@@ -18,9 +18,9 @@ import { ethers } from 'ethers'
 import { getChainId, sleep } from '@eth-optimism/core-utils'
 import ora from 'ora'
 
-import { getFinalDeploymentTxnHash } from './deployments'
+import { getDeploymentEvents } from './deployments'
 import { writeHardhatSnapshotId } from './utils'
-import { createDeploymentArtifacts } from './artifacts'
+import { writeDeploymentArtifacts } from './artifacts'
 
 export const monitorExecution = async (
   hre: HardhatRuntimeEnvironment,
@@ -28,7 +28,7 @@ export const monitorExecution = async (
   bundle: ChugSplashActionBundle,
   bundleId: string,
   spinner: ora.Ora
-): Promise<string> => {
+) => {
   spinner.start('Waiting for executor...')
   const provider = hre.ethers.provider
 
@@ -113,13 +113,12 @@ npx hardhat chugsplash-fund --network ${
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
-    // Get the `completeChugSplashBundle` transaction.
-    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
       bundleId
     )
     spinner.succeed('Retrieved deployment info.')
-    return finalDeploymentTxnHash
+    return deploymentEvents
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
@@ -147,8 +146,7 @@ export const getNumDeployedImplementations = (
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param parsedConfig Parsed ParsedChugSplashConfig.
- * @param finalDeploymentTxnHash Hash of the transaction that completed the deployment. This is the
- * call to `completeChugSplashBundle` on the ChugSplashManager.
+ * @param deploymentEvents Array of `DefaultProxyDeployed` and `ImplementationDeployed` events
  * @param withdraw Boolean that determines if remaining funds in the ChugSplashManager should be
  * withdrawn to the project owner.
  * @param newProjectOwner Optional address to receive ownership of the project.
@@ -156,7 +154,7 @@ export const getNumDeployedImplementations = (
 export const postExecutionActions = async (
   hre: HardhatRuntimeEnvironment,
   parsedConfig: ParsedChugSplashConfig,
-  finalDeploymentTxnHash: string,
+  deploymentEvents: ethers.Event[],
   withdraw: boolean,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -239,7 +237,7 @@ export const postExecutionActions = async (
     await writeHardhatSnapshotId(hre)
   }
 
-  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
+  await writeDeploymentArtifacts(hre, parsedConfig, deploymentEvents)
 
   spinner.succeed(`Wrote deployment artifacts.`)
 }

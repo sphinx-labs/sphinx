@@ -28,7 +28,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
 import { ChugSplashExecutor } from '@chugsplash/executor'
 
-import { createDeploymentArtifacts, getContractArtifact } from './artifacts'
+import { writeDeploymentArtifacts, getContractArtifact } from './artifacts'
 import {
   isProjectRegistered,
   loadParsedChugSplashConfig,
@@ -154,10 +154,10 @@ export const deployChugSplashConfig = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
-    await createDeploymentArtifacts(
+    await writeDeploymentArtifacts(
       hre,
       parsedConfig,
-      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId)
+      await getDeploymentEvents(ChugSplashManager, bundleId)
     )
     spinner.succeed(
       `${projectName} was already completed on ${hre.network.name}.`
@@ -257,7 +257,7 @@ export const deployChugSplashConfig = async (
   await postExecutionActions(
     hre,
     parsedConfig,
-    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    await getDeploymentEvents(ChugSplashManager, bundleId),
     withdraw,
     newOwner,
     spinner
@@ -345,14 +345,30 @@ export const resetChugSplashDeployments = async (
   await writeHardhatSnapshotId(hre)
 }
 
-export const getFinalDeploymentTxnHash = async (
+export const getDeploymentEvents = async (
   ChugSplashManager: ethers.Contract,
   bundleId: string
-): Promise<string> => {
-  const [finalDeploymentEvent] = await ChugSplashManager.queryFilter(
+): Promise<ethers.Event[]> => {
+  const [approvalEvent] = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleApproved(bundleId)
+  )
+  const [completedEvent] = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
   )
-  return finalDeploymentEvent.transactionHash
+
+  const proxyDeployedEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.DefaultProxyDeployed(null, null, bundleId),
+    approvalEvent.blockNumber,
+    completedEvent.blockNumber
+  )
+
+  const implementationDeployedEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ImplementationDeployed(null, null, bundleId),
+    approvalEvent.blockNumber,
+    completedEvent.blockNumber
+  )
+
+  return proxyDeployedEvents.concat(implementationDeployedEvents)
 }
 
 export const proposeChugSplashBundle = async (

@@ -63,6 +63,7 @@ import {
   deployChugSplashConfig,
   deployAllChugSplashConfigs,
   proposeChugSplashBundle,
+  getDeploymentEvents,
 } from './deployments'
 import {
   loadParsedChugSplashConfig,
@@ -541,17 +542,11 @@ npx hardhat chugsplash-fund --network ${
     )
 
     if (!skipMonitorStatus) {
-      const finalDeploymentTxnHash = await monitorExecution(
-        hre,
-        parsedConfig,
-        bundle,
-        bundleId,
-        spinner
-      )
+      await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
       await postExecutionActions(
         hre,
         parsedConfig,
-        finalDeploymentTxnHash,
+        await getDeploymentEvents(ChugSplashManager, bundleId),
         !noWithdraw,
         undefined,
         spinner
@@ -966,18 +961,12 @@ project with a name other than ${parsedConfig.options.projectName}`
 
   // If we make it to this point, the bundle status is either completed or approved.
 
-  const finalDeploymentTxnHash = await monitorExecution(
-    hre,
-    parsedConfig,
-    bundle,
-    bundleId,
-    spinner
-  )
+  await monitorExecution(hre, parsedConfig, bundle, bundleId, spinner)
 
   await postExecutionActions(
     hre,
     parsedConfig,
-    finalDeploymentTxnHash,
+    await getDeploymentEvents(ChugSplashManager, bundleId),
     !noWithdraw,
     newOwner,
     spinner
