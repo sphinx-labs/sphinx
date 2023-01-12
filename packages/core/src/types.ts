@@ -2,6 +2,12 @@ import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import * as Amplitude from '@amplitude/node'
 
+export type FoundryContractArtifact = {
+  referenceName: string
+  contractName: string
+  contractAddress: string
+}
+
 export type ExecutorOptions = {
   url: string
   network: string

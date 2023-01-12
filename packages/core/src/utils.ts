@@ -28,6 +28,7 @@ import {
   ParsedChugSplashConfig,
 } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import { FoundryContractArtifact } from './types'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -328,6 +329,25 @@ export const displayDeploymentTable = (
     )
     console.table(deployments)
   }
+}
+
+export const generateFoundryTestArtifacts = (
+  parsedConfig: ParsedChugSplashConfig
+): FoundryContractArtifact[] => {
+  const artifacts: {
+    referenceName: string
+    contractName: string
+    contractAddress: string
+  }[] = []
+  Object.entries(parsedConfig.contracts).forEach(
+    ([referenceName, contractConfig], i) =>
+      (artifacts[i] = {
+        referenceName,
+        contractName: contractConfig.contract,
+        contractAddress: contractConfig.proxy,
+      })
+  )
+  return artifacts
 }
 
 export const claimExecutorPayment = async (

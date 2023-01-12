@@ -15,6 +15,7 @@ import {
   displayDeploymentTable,
   displayProposerTable,
   formatEther,
+  generateFoundryTestArtifacts,
   getChugSplashManager,
   getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
@@ -47,7 +48,7 @@ import {
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
 import { getFinalDeploymentTxnHash } from '../deployments'
-import { ChugSplashExecutorType } from '../types'
+import { ChugSplashExecutorType, FoundryContractArtifact } from '../types'
 
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -570,7 +571,7 @@ export const chugsplashDeployAbstractTask = async (
   integration: Integration,
   executor?: ChugSplashExecutorType,
   stream: NodeJS.WritableStream = process.stderr
-) => {
+): Promise<FoundryContractArtifact[] | undefined> => {
   const spinner = ora({ isSilent: silent, stream })
   const networkName = resolveNetworkName(provider, integration)
 
@@ -643,7 +644,11 @@ export const chugsplashDeployAbstractTask = async (
       deploymentFolder
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
-    displayDeploymentTable(parsedConfig, silent)
+    if (integration === 'hardhat') {
+      displayDeploymentTable(parsedConfig, silent)
+    } else {
+      return generateFoundryTestArtifacts(parsedConfig)
+    }
     return
   } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
@@ -776,7 +781,11 @@ export const chugsplashDeployAbstractTask = async (
 
   // At this point, the bundle has been completed.
   spinner.succeed(`${projectName} completed!`)
-  displayDeploymentTable(parsedConfig, silent)
+  if (integration === 'hardhat') {
+    displayDeploymentTable(parsedConfig, silent)
+  } else {
+    return generateFoundryTestArtifacts(parsedConfig)
+  }
 }
 
 export const chugsplashMonitorAbstractTask = async (
