@@ -1278,8 +1278,8 @@ export const chugsplashClaimProxyAbstractTask = async (
   await (
     await manager.transferProxyOwnership(
       referenceName,
-      signerAddress
-      // await getGasPriceOverrides(provider)
+      signerAddress,
+      await getGasPriceOverrides(provider)
     )
   ).wait()
 
