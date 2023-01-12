@@ -33,7 +33,7 @@ import {
   chugsplashWithdrawAbstractTask,
   chugsplashListProjectsAbstractTask,
   chugsplashListProposersAbstractTask,
-  chugsplashAddProposerAbstractTask,
+  chugsplashAddProposersAbstractTask,
   chugsplashClaimProxyAbstractTask,
   chugsplashTransferOwnershipAbstractTask,
 } from '@chugsplash/core'
@@ -831,7 +831,7 @@ export const addProposerTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  await chugsplashAddProposerAbstractTask(
+  await chugsplashAddProposersAbstractTask(
     provider,
     signer,
     configPath,

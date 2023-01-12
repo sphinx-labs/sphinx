@@ -983,10 +983,7 @@ export const chugsplashWithdrawAbstractTask = async (
     )
   }
 
-  const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
-    projectName
-  )
+  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
 Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
@@ -1067,7 +1064,7 @@ export const chugsplashListProjectsAbstractTask = async (
       event.args.projectName
     )
     const projectOwnerAddress = await getProjectOwnerAddress(
-      provider.getSigner(),
+      signer,
       event.args.projectName
     )
     if (projectOwnerAddress === signerAddress) {
@@ -1136,7 +1133,7 @@ export const chugsplashListProposersAbstractTask = async (
 
   // Fetch current owner
   const owner = await getProjectOwnerAddress(
-    provider.getSigner(),
+    signer,
     parsedConfig.options.projectName
   )
   proposers.push(owner)
@@ -1159,7 +1156,7 @@ export const chugsplashListProposersAbstractTask = async (
   displayProposerTable(proposers)
 }
 
-export const chugsplashAddProposerAbstractTask = async (
+export const chugsplashAddProposersAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
@@ -1194,7 +1191,7 @@ export const chugsplashAddProposerAbstractTask = async (
 
   // Fetch current owner
   const projectOwnerAddress = await getProjectOwnerAddress(
-    provider.getSigner(),
+    signer,
     parsedConfig.options.projectName
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
@@ -1254,7 +1251,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   }
 
   const owner = await getProjectOwnerAddress(
-    provider.getSigner(),
+    signer,
     parsedConfig.options.projectName
   )
 
@@ -1281,8 +1278,8 @@ export const chugsplashClaimProxyAbstractTask = async (
   await (
     await manager.transferProxyOwnership(
       referenceName,
-      signerAddress,
-      await getGasPriceOverrides(provider)
+      signerAddress
+      // await getGasPriceOverrides(provider)
     )
   ).wait()
 
