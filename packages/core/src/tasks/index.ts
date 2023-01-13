@@ -49,6 +49,18 @@ import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
 import { getFinalDeploymentTxnHash } from '../deployments'
 import { ChugSplashExecutorType, FoundryContractArtifact } from '../types'
+import {
+  trackApproved,
+  trackCancel,
+  trackClaimProxy,
+  trackDeployed,
+  trackFund,
+  trackListProjects,
+  trackListProposers,
+  trackRegistered,
+  trackTransferProxy,
+  trackWithdraw,
+} from '../analytics'
 
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -82,6 +94,14 @@ export const chugsplashRegisterAbstractTask = async (
       : spinner.fail(
           `Project was already registered by the caller on ${networkName}.`
         )
+
+    const projectName = parsedConfig.options.projectName
+    await trackRegistered(
+      await getProjectOwnerAddress(signer, projectName),
+      projectName,
+      networkName,
+      integration
+    )
   }
 }
 
@@ -493,6 +513,13 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
       displayDeploymentTable(parsedConfig, silent)
     }
+
+    await trackApproved(
+      await getProjectOwnerAddress(signer, projectName),
+      projectName,
+      networkName,
+      integration
+    )
   }
 }
 
@@ -540,6 +567,13 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
     `Deposited ${ethers.utils.formatEther(
       amount
     )} ETH for the project: ${projectName}.`
+  )
+
+  await trackFund(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
   )
 }
 
@@ -748,7 +782,7 @@ export const chugsplashDeployAbstractTask = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(bundleId, canonicalConfigPath)
+    await executor.main(bundleId, canonicalConfigPath, integration)
     spinner.succeed(`Executed ${projectName}.`)
   }
 
@@ -771,6 +805,13 @@ export const chugsplashDeployAbstractTask = async (
     remoteExecution,
     newOwner,
     spinner
+  )
+
+  await trackDeployed(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
   )
 
   // At this point, the bundle has been completed.
@@ -947,6 +988,13 @@ You attempted to cancel the project using the address: ${await signer.getAddress
       refund
     )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
   )
+
+  await trackCancel(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashWithdrawAbstractTask = async (
@@ -1026,6 +1074,12 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
       `No funds available to withdraw on ${networkName} for the project: ${projectName}.`
     )
   }
+  await trackWithdraw(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashListProjectsAbstractTask = async (
@@ -1093,12 +1147,15 @@ export const chugsplashListProjectsAbstractTask = async (
   } else {
     spinner.fail(`No projects on ${networkName} owned by: ${signerAddress}`)
   }
+
+  await trackListProjects(signerAddress, networkName, integration)
 }
 
 export const chugsplashListProposersAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  configPath: string
+  configPath: string,
+  integration: Integration
 ) => {
   const parsedConfig = loadParsedChugSplashConfig(configPath)
 
@@ -1139,6 +1196,15 @@ export const chugsplashListProposersAbstractTask = async (
 
   // Display the list of proposers
   displayProposerTable(proposers)
+
+  const networkName = resolveNetworkName(provider, integration)
+  const projectName = parsedConfig.options.projectName
+  await trackListProposers(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashAddProposersAbstractTask = async (
@@ -1146,6 +1212,7 @@ export const chugsplashAddProposersAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   newProposers: string[],
+  integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   if (newProposers.length === 0) {
@@ -1201,7 +1268,21 @@ export const chugsplashAddProposersAbstractTask = async (
     spinner.succeed(`Proposer ${newProposer} successfully added!`)
   }
 
-  await chugsplashListProposersAbstractTask(provider, signer, configPath)
+  await chugsplashListProposersAbstractTask(
+    provider,
+    signer,
+    configPath,
+    integration
+  )
+
+  const networkName = resolveNetworkName(provider, integration)
+  const projectName = parsedConfig.options.projectName
+  await trackListProposers(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashClaimProxyAbstractTask = async (
@@ -1210,6 +1291,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   configPath: string,
   referenceName: string,
   silent: boolean,
+  integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
@@ -1259,6 +1341,15 @@ export const chugsplashClaimProxyAbstractTask = async (
   ).wait()
 
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
+
+  const networkName = resolveNetworkName(provider, integration)
+  const projectName = parsedConfig.options.projectName
+  await trackClaimProxy(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashTransferOwnershipAbstractTask = async (
@@ -1267,6 +1358,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   configPath: string,
   proxy: string,
   silent: boolean,
+  integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
@@ -1350,4 +1442,13 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   ).wait()
 
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
+
+  const networkName = resolveNetworkName(provider, integration)
+  const projectName = parsedConfig.options.projectName
+  await trackTransferProxy(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }

@@ -17,8 +17,9 @@ import {
   ChugSplashBundleState,
   ChugSplashActionBundle,
   readCanonicalConfig,
+  trackExecuted,
+  Integration,
 } from '@chugsplash/core'
-import * as Amplitude from '@amplitude/node'
 import { getChainId } from '@eth-optimism/core-utils'
 import {
   ExecutorOptions,
@@ -67,11 +68,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
           default:
             '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
         },
-        amplitudeKey: {
-          desc: 'Amplitude API key for analytics',
-          validator: validators.str,
-          default: 'disabled',
-        },
         logLevel: {
           desc: 'Executor log level',
           validator: validators.str,
@@ -98,10 +94,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
       name: 'Logger',
       level: options.logLevel,
     })
-
-    if (options.amplitudeKey !== 'disabled') {
-      this.state.amplitudeClient = Amplitude.init(this.options.amplitudeKey)
-    }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
     this.state.provider =
@@ -158,6 +150,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
   async main(
     localBundleId?: string,
     canonicalConfigFolderPath?: string,
+    integration?: Integration,
     remoteExecution: boolean = false
   ) {
     const { provider, wallet, registry } = this.state
@@ -321,19 +314,12 @@ export class ChugSplashExecutor extends BaseServiceV2<
             )
           }
 
-          if (this.options.amplitudeKey !== 'disabled') {
-            this.state.amplitudeClient.logEvent({
-              event_type: 'chugsplash executed',
-              user_id: await getProjectOwnerAddress(
-                this.state.wallet,
-                projectName
-              ),
-              event_properties: {
-                projectName,
-                network: this.options.network,
-              },
-            })
-          }
+          trackExecuted(
+            await getProjectOwnerAddress(this.state.wallet, projectName),
+            projectName,
+            this.options.network,
+            integration
+          )
         } else {
           this.logger.info(
             `[ChugSplash]: ${projectName} has insufficient funds`
