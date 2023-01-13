@@ -815,7 +815,12 @@ export const listProposersTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  await chugsplashListProposersAbstractTask(provider, signer, configPath)
+  await chugsplashListProposersAbstractTask(
+    provider,
+    signer,
+    configPath,
+    'hardhat'
+  )
 }
 
 task(TASK_CHUGSPLASH_LIST_PROPOSERS)
@@ -843,7 +848,8 @@ export const addProposerTask = async (
     provider,
     signer,
     configPath,
-    newProposers
+    newProposers,
+    'hardhat'
   )
 }
 
@@ -874,7 +880,8 @@ export const claimProxyTask = async (
     signer,
     configPath,
     referenceName,
-    silent
+    silent,
+    'hardhat'
   )
 }
 
@@ -910,7 +917,8 @@ export const transferOwnershipTask = async (
     signer,
     configPath,
     proxy,
-    silent
+    silent,
+    'hardhat'
   )
 }
 
