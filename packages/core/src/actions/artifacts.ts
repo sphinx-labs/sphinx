@@ -2,7 +2,7 @@ import path from 'path'
 import * as fs from 'fs'
 
 import * as semver from 'semver'
-import { getChainId, remove0x } from '@eth-optimism/core-utils'
+import { remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import ora from 'ora'
 
@@ -413,14 +413,15 @@ export const createDeploymentArtifacts = async (
   integration: Integration,
   spinner: ora.Ora,
   networkName: string,
-  deploymentFolderPath: string
+  deploymentFolderPath: string,
+  remoteExecution: boolean
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
   createDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
   // Save the snapshot ID if we're on the hardhat network.
-  if ((await getChainId(provider)) === 31337) {
+  if (!remoteExecution) {
     await writeSnapshotId(provider, networkName, deploymentFolderPath)
   }
 

@@ -36,12 +36,13 @@ import {
   chugsplashAddProposersAbstractTask,
   chugsplashClaimProxyAbstractTask,
   chugsplashTransferOwnershipAbstractTask,
+  ChugSplashExecutorType,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { ChugSplashExecutor, bundleRemote } from '@chugsplash/executor'
+import { bundleRemote } from '@chugsplash/executor'
 
 import {
   getSampleContractFile,
@@ -143,7 +144,7 @@ export const chugsplashDeployTask = async (
   const signerAddress = await signer.getAddress()
   const remoteExecution = (await getChainId(provider)) !== 31337
 
-  let executor: ChugSplashExecutor
+  let executor: ChugSplashExecutorType
   if (remoteExecution) {
     spinner.start('Waiting for the executor to set up ChugSplash...')
     await monitorChugSplashSetup(provider, signer)
@@ -325,6 +326,8 @@ export const chugsplashApproveTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
+  const remoteExecution = (await getChainId(provider)) !== 31337
+
   await chugsplashApproveAbstractTask(
     provider,
     signer,
@@ -336,7 +339,8 @@ export const chugsplashApproveTask = async (
     buildInfoFolder,
     artifactFolder,
     canonicalConfigPath,
-    deploymentFolder
+    deploymentFolder,
+    remoteExecution
   )
 }
 
@@ -542,6 +546,9 @@ export const monitorTask = async (
   const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
+
+  const remoteExecution = (await getChainId(provider)) !== 31337
+
   await chugsplashMonitorAbstractTask(
     provider,
     signer,
@@ -553,7 +560,8 @@ export const monitorTask = async (
     artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
-    'hardhat'
+    'hardhat',
+    remoteExecution
   )
 }
 

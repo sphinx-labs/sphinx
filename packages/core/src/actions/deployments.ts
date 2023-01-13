@@ -1,4 +1,3 @@
-import { getChainId } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import ora from 'ora'
 import yesno from 'yesno'
@@ -85,11 +84,7 @@ export const proposeChugSplashBundle = async (
 
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
-  const chainId = await getChainId(provider)
-
-  if (remoteExecution || chainId !== 31337) {
-    // Commit the bundle to IPFS if the network is live (i.e. not the local Hardhat network) or
-    // if we explicitly specify remote execution.
+  if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(
       provider,
       signer,

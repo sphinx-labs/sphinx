@@ -1,4 +1,4 @@
-import { getChainId, sleep } from '@eth-optimism/core-utils'
+import { sleep } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import ora from 'ora'
 
@@ -162,6 +162,7 @@ export const postExecutionActions = async (
   artifactFolder: string,
   buildInfoFolder: string,
   integration: Integration,
+  remoteExecution: boolean,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -235,7 +236,7 @@ export const postExecutionActions = async (
   }
 
   // Save the snapshot ID if we're on the hardhat network.
-  if ((await getChainId(provider)) === 31337) {
+  if (!remoteExecution) {
     await writeSnapshotId(provider, networkName, deploymentfolderPath)
   }
 
@@ -248,6 +249,7 @@ export const postExecutionActions = async (
     integration,
     spinner,
     networkName,
-    deploymentfolderPath
+    deploymentfolderPath,
+    remoteExecution
   )
 }

@@ -18,7 +18,6 @@ export const resolveNetworkName = (
 
 export const errorProjectNotRegistered = (
   provider: ethers.providers.JsonRpcProvider,
-  chainId: number,
   configPath: string,
   integration: Integration
 ) => {

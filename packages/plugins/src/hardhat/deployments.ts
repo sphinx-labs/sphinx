@@ -12,10 +12,10 @@ import {
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
+  ChugSplashExecutorType,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { ChugSplashExecutor } from '@chugsplash/executor'
 
 import { initializeExecutor } from '../executor'
 
@@ -35,7 +35,7 @@ export const deployAllChugSplashConfigs = async (
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
 
-  let executor: ChugSplashExecutor
+  let executor: ChugSplashExecutorType
   if (!remoteExecution) {
     executor = await initializeExecutor(hre.ethers.provider)
   }

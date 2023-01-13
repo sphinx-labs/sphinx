@@ -91,6 +91,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
    **/
   async setup(
     options: Partial<ExecutorOptions>,
+    remoteExecution: boolean,
     provider?: ethers.providers.JsonRpcProvider
   ) {
     this.logger = new Logger({
@@ -132,7 +133,10 @@ export class ChugSplashExecutor extends BaseServiceV2<
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
+    if (
+      remoteExecution &&
+      isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
+    ) {
       this.logger.info(
         '[ChugSplash]: attempting to verify the chugsplash contracts...'
       )
@@ -148,10 +152,14 @@ export class ChugSplashExecutor extends BaseServiceV2<
   }
 
   async init() {
-    await this.setup(this.options)
+    await this.setup(this.options, true)
   }
 
-  async main(localBundleId?: string, canonicalConfigFolderPath?: string) {
+  async main(
+    localBundleId?: string,
+    canonicalConfigFolderPath?: string,
+    remoteExecution: boolean = false
+  ) {
     const { provider, wallet, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
@@ -285,7 +293,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           try {
             if (
               isSupportedNetworkOnEtherscan(
-                await getChainId(this.state.provider)
+                remoteExecution && (await getChainId(this.state.provider))
               )
             ) {
               this.logger.info(
