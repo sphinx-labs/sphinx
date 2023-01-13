@@ -18,6 +18,7 @@ import {
   ChugSplashActionBundle,
   readCanonicalConfig,
   trackExecuted,
+  Integration,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import {
@@ -149,6 +150,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
   async main(
     localBundleId?: string,
     canonicalConfigFolderPath?: string,
+    integration?: Integration,
     remoteExecution: boolean = false
   ) {
     const { provider, wallet, registry } = this.state
@@ -315,7 +317,8 @@ export class ChugSplashExecutor extends BaseServiceV2<
           trackExecuted(
             await getProjectOwnerAddress(this.state.wallet, projectName),
             projectName,
-            this.options.network
+            this.options.network,
+            integration
           )
         } else {
           this.logger.info(

@@ -57,8 +57,6 @@ import {
   trackFund,
   trackListProjects,
   trackListProposers,
-  trackMonitor,
-  trackProposed,
   trackRegistered,
   trackTransferProxy,
   trackWithdraw,
@@ -101,7 +99,8 @@ export const chugsplashRegisterAbstractTask = async (
     await trackRegistered(
       await getProjectOwnerAddress(signer, projectName),
       projectName,
-      networkName
+      networkName,
+      integration
     )
   }
 }
@@ -231,14 +230,6 @@ with a name other than ${parsedConfig.options.projectName}`
         )
       )
     }
-
-    const networkName = resolveNetworkName(provider, integration)
-    const projectName = parsedConfig.options.projectName
-    await trackProposed(
-      await getProjectOwnerAddress(signer, projectName),
-      projectName,
-      networkName
-    )
   }
 }
 
@@ -526,7 +517,8 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
     await trackApproved(
       await getProjectOwnerAddress(signer, projectName),
       projectName,
-      networkName
+      networkName,
+      integration
     )
   }
 }
@@ -580,7 +572,8 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   await trackFund(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -789,7 +782,7 @@ export const chugsplashDeployAbstractTask = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(bundleId, canonicalConfigPath)
+    await executor.main(bundleId, canonicalConfigPath, integration)
     spinner.succeed(`Executed ${projectName}.`)
   }
 
@@ -814,6 +807,13 @@ export const chugsplashDeployAbstractTask = async (
     spinner
   )
 
+  await trackDeployed(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
+
   // At this point, the bundle has been completed.
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
@@ -821,12 +821,6 @@ export const chugsplashDeployAbstractTask = async (
   } else {
     return generateFoundryTestArtifacts(parsedConfig)
   }
-
-  await trackDeployed(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
-    networkName
-  )
 }
 
 export const chugsplashMonitorAbstractTask = async (
@@ -935,13 +929,6 @@ project with a name other than ${parsedConfig.options.projectName}`
       )
 
   displayDeploymentTable(parsedConfig, silent)
-
-  const projectName = parsedConfig.options.projectName
-  await trackMonitor(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
-    networkName
-  )
 }
 
 export const chugsplashCancelAbstractTask = async (
@@ -1005,7 +992,8 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   await trackCancel(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -1089,7 +1077,8 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
   await trackWithdraw(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -1159,7 +1148,7 @@ export const chugsplashListProjectsAbstractTask = async (
     spinner.fail(`No projects on ${networkName} owned by: ${signerAddress}`)
   }
 
-  await trackListProjects(signerAddress, networkName)
+  await trackListProjects(signerAddress, networkName, integration)
 }
 
 export const chugsplashListProposersAbstractTask = async (
@@ -1213,7 +1202,8 @@ export const chugsplashListProposersAbstractTask = async (
   await trackListProposers(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -1290,7 +1280,8 @@ export const chugsplashAddProposersAbstractTask = async (
   await trackListProposers(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -1356,7 +1347,8 @@ export const chugsplashClaimProxyAbstractTask = async (
   await trackClaimProxy(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }
 
@@ -1456,6 +1448,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   await trackTransferProxy(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
-    networkName
+    networkName,
+    integration
   )
 }

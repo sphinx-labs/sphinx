@@ -2,8 +2,10 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 import yesno from 'yesno'
 
+import { trackProposed } from '../analytics'
 import { ParsedChugSplashConfig, verifyBundle } from '../config'
 import { Integration } from '../constants'
+import { resolveNetworkName } from '../messages'
 import { chugsplashCommitAbstractSubtask } from '../tasks'
 import {
   checkIsUpgrade,
@@ -116,4 +118,12 @@ export const proposeChugSplashBundle = async (
   ).wait()
 
   spinner.succeed(`Proposed ${projectName}.`)
+
+  const networkName = resolveNetworkName(provider, integration)
+  await trackProposed(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 }

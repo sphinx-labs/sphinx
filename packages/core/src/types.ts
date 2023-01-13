@@ -1,6 +1,8 @@
 import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 
+import { Integration } from './constants'
+
 export type FoundryContractArtifact = {
   referenceName: string
   contractName: string
@@ -35,6 +37,8 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
   init(): Promise<void>
   main(
     localBundleId?: string,
-    canonicalConfigFolderPath?: string
+    canonicalConfigFolderPath?: string,
+    integration?: Integration,
+    remoteExecution?: boolean
   ): Promise<void>
 }
