@@ -13,6 +13,7 @@ import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import { getFinalDeploymentTxnHash } from '../deployments'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
+import { ArtifactPaths } from '../languages'
 import { resolveNetworkName } from '../messages'
 import {
   formatEther,
@@ -159,6 +160,7 @@ export const postExecutionActions = async (
   withdraw: boolean,
   networkName: string,
   deploymentfolderPath: string,
+  artifactPaths: ArtifactPaths,
   artifactFolder: string,
   buildInfoFolder: string,
   integration: Integration,
@@ -244,8 +246,7 @@ export const postExecutionActions = async (
     provider,
     parsedConfig,
     finalDeploymentTxnHash,
-    artifactFolder,
-    buildInfoFolder,
+    artifactPaths,
     integration,
     spinner,
     networkName,

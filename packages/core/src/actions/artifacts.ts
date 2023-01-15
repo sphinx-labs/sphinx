@@ -1,4 +1,3 @@
-import path from 'path'
 import * as fs from 'fs'
 
 import * as semver from 'semver'
@@ -8,6 +7,7 @@ import ora from 'ora'
 
 import { ChugSplashInputs, ParsedChugSplashConfig } from '../config'
 import {
+  ArtifactPaths,
   CompilerInput,
   getMinimumCompilerInput,
   SolidityStorageObj,
@@ -21,7 +21,7 @@ import {
 
 // TODO
 export type BuildInfo = any
-export type ContractAftifact = {
+export type ContractArtifact = {
   abi: string
   sourceName: string
   contractName: string
@@ -34,7 +34,7 @@ export type ContractAftifact = {
  * @param artifact Raw artifact object.
  * @returns ContractArtifact
  */
-const parseFoundryArtifact = (artifact: any): ContractAftifact => {
+const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const abi = artifact.abi
   const bytecode = artifact.bytecode.object
 
@@ -46,20 +46,21 @@ const parseFoundryArtifact = (artifact: any): ContractAftifact => {
 }
 
 /**
- * Retrieves an artifact by name.
+ * Retrieves an artifact by name from the local file system.
  *
- * @param name Name of the artifact.
+ * @param name Contract name or fully qualified name.
  * @returns Artifact.
  */
-export const getContractArtifact = (
-  name: string,
-  artifactFilder: string,
+export const readContractArtifact = (
+  artifactPaths: ArtifactPaths,
+  contract: string,
   integration: Integration
-): ContractAftifact => {
-  const folderName = `${name}.sol`
-  const fileName = `${name}.json`
-  const completeFilePath = path.join(artifactFilder, folderName, fileName)
-  const artifact = JSON.parse(fs.readFileSync(completeFilePath, 'utf8'))
+): ContractArtifact => {
+  const { contractArtifactPath } =
+    artifactPaths[contract] ?? artifactPaths[contract.split(':').at(-1)]
+  const artifact: ContractArtifact = JSON.parse(
+    fs.readFileSync(contractArtifactPath, 'utf8')
+  )
 
   if (integration === 'hardhat') {
     return artifact
@@ -68,43 +69,24 @@ export const getContractArtifact = (
   }
 }
 
-export const getBuildInfo = (
-  buildInfoFolder: string,
-  sourceName: string
+/**
+ * Reads the build info from the local file system.
+ *
+ * @param artifactPaths ArtifactPaths object.
+ * @param contract Contract name or fully qualified name.
+ * @returns BuildInfo object.
+ */
+export const readBuildInfo = (
+  artifactPaths: ArtifactPaths,
+  contract: string
 ): BuildInfo => {
-  const contractBuildInfo: BuildInfo[] = []
-  const completeFilePath = path.join(buildInfoFolder)
+  const { buildInfoPath } =
+    artifactPaths[contract] ?? artifactPaths[contract.split(':').at(-1)]
+  const buildInfo: BuildInfo = JSON.parse(
+    fs.readFileSync(buildInfoPath, 'utf8')
+  )
 
-  // Get the inputs from the build info folder.
-  const inputs = fs
-    .readdirSync(completeFilePath)
-    .filter((file) => {
-      return file.endsWith('.json')
-    })
-    .map((file) => {
-      return JSON.parse(
-        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
-      )
-    })
-
-  // Find the correct build info file
-  for (const input of inputs) {
-    if (input?.output?.sources[sourceName] !== undefined) {
-      contractBuildInfo.push({
-        solcVersion: input.solcVersion,
-        output: input?.output,
-      })
-    }
-  }
-
-  // Should find exactly one. If anything else happens, then throw an error.
-  if (contractBuildInfo.length < 1 || contractBuildInfo.length > 1) {
-    throw new Error(
-      `Failed to find build info for ${sourceName}. Are you sure your contracts were compiled and ${buildInfoFolder} is the correct build info directory?`
-    )
-  }
-
-  return contractBuildInfo[0]
+  return buildInfo
 }
 
 /**
@@ -118,22 +100,17 @@ export const getBuildInfo = (
 export const filterChugSplashInputs = async (
   chugsplashInputs: ChugSplashInputs,
   parsedConfig: ParsedChugSplashConfig,
-  artifactFolder: string,
-  buildInfoFolder: string,
-  integration: Integration
+  artifactPaths: ArtifactPaths
 ): Promise<ChugSplashInputs> => {
   const filteredChugSplashInputs: ChugSplashInputs = []
   for (const chugsplashInput of chugsplashInputs) {
     let filteredSources: CompilerInput['sources'] = {}
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      const { sourceName } = getContractArtifact(
-        contractConfig.contract,
-        artifactFolder,
-        integration
-      )
-      const { solcVersion, output: compilerOutput } = await getBuildInfo(
-        buildInfoFolder,
-        sourceName
+      // Split the contract's fully qualified name to get its source name
+      const [sourceName] = contractConfig.contract.split(':')
+      const { solcVersion, output: compilerOutput } = readBuildInfo(
+        artifactPaths,
+        contractConfig.contract
       )
       if (solcVersion === chugsplashInput.solcVersion) {
         const { sources: newSources } = getMinimumCompilerInput(
@@ -359,24 +336,24 @@ export const getImmutableVariables = (
 }
 
 /**
- * Retrieves the storageLayout portion of the compiler artifact for a given contract by name.
+ * Reads the storageLayout portion of the compiler artifact for a given contract by name. Reads the
+ * artifact from the local file system.
  *
  * @param name Name of the contract to retrieve the storage layout for.
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const getStorageLayout = async (
-  name: string,
-  artifactFolder: string,
-  buildInfoFolder: string,
+export const readStorageLayout = async (
+  contract: string,
+  artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<SolidityStorageObj> => {
-  const { sourceName, contractName } = getContractArtifact(
-    name,
-    artifactFolder,
+  const { sourceName, contractName } = readContractArtifact(
+    artifactPaths,
+    contract,
     integration
   )
-  const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
+  const buildInfo = readBuildInfo(artifactPaths, contract)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
@@ -408,8 +385,7 @@ export const createDeploymentArtifacts = async (
   provider: ethers.providers.JsonRpcProvider,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
-  artifactFolder: string,
-  buildInfoFolder: string,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   spinner: ora.Ora,
   networkName: string,
@@ -428,14 +404,17 @@ export const createDeploymentArtifacts = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const artifact = getContractArtifact(
+    const artifact = readContractArtifact(
+      artifactPaths,
       contractConfig.contract,
-      artifactFolder,
       integration
     )
     const { sourceName, contractName, bytecode, abi } = artifact
 
-    const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
+    const buildInfo = readBuildInfo(
+      artifactPaths,
+      `${sourceName}:${contractName}`
+    )
 
     const { constructorArgValues } = getConstructorArgs(
       parsedConfig,
@@ -479,10 +458,9 @@ export const createDeploymentArtifacts = async (
       deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
-      storageLayout: await getStorageLayout(
+      storageLayout: await readStorageLayout(
         contractConfig.contract,
-        artifactFolder,
-        buildInfoFolder,
+        artifactPaths,
         integration
       ),
     }

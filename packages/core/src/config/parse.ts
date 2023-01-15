@@ -6,6 +6,7 @@ import { ethers } from 'ethers'
 
 /* Imports: Internal */
 import {
+  ArtifactPaths,
   computeStorageSlots,
   SolidityStorageLayout,
 } from '../languages/solidity'
@@ -13,9 +14,11 @@ import {
   ChugSplashAction,
   ChugSplashActionBundle,
   makeBundleFromActions,
+  readContractArtifact,
 } from '../actions'
 import { getDefaultProxyAddress } from '../utils'
 import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
+import { Integration } from '../constants'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -100,14 +103,16 @@ Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
 }
 
 /**
- * Parses a ChugSplash config file by replacing template values.
+ * Parses a ChugSplash config file from the config file given by the user.
  *
  * @param config Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
 export const parseChugSplashConfig = (
-  config: UserChugSplashConfig
+  config: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
 ): ParsedChugSplashConfig => {
   validateChugSplashConfig(config)
 
@@ -128,6 +133,18 @@ export const parseChugSplashConfig = (
       ...contracts,
     })
   )
+
+  // Change the `contract` fields to be fully qualified names. This ensures that it's easy for the
+  // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
+  // config.
+  for (const contractConfig of Object.values(parsed.contracts)) {
+    const { sourceName, contractName } = readContractArtifact(
+      artifactPaths,
+      contractConfig.contract,
+      integration
+    )
+    contractConfig.contract = `${sourceName}:${contractName}`
+  }
 
   return parsed
 }

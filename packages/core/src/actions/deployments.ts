@@ -5,6 +5,7 @@ import yesno from 'yesno'
 import { trackProposed } from '../analytics'
 import { ParsedChugSplashConfig, verifyBundle } from '../config'
 import { Integration } from '../constants'
+import { ArtifactPaths } from '../languages'
 import { resolveNetworkName } from '../messages'
 import { chugsplashCommitAbstractSubtask } from '../tasks'
 import {
@@ -29,6 +30,7 @@ export const proposeChugSplashBundle = async (
   configPath: string,
   spinner: ora.Ora = ora({ isSilent: true }),
   confirm: boolean,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
@@ -93,8 +95,8 @@ export const proposeChugSplashBundle = async (
       parsedConfig,
       ipfsUrl,
       true,
+      artifactPaths,
       buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       integration,
       spinner
@@ -104,7 +106,8 @@ export const proposeChugSplashBundle = async (
       configUri,
       bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
       ipfsUrl,
-      silent,
+      artifactPaths,
+      integration,
     })
   }
   // Propose the bundle.

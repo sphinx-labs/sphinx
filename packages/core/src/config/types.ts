@@ -62,7 +62,9 @@ export type UserConfigVariables = {
 }
 
 /**
- * Parsed contract definition in a ChugSplash config.
+ * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
+ * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
+ * qualified name or the contract name.
  */
 export type ParsedContractConfig = {
   contract: string
