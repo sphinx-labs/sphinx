@@ -26,9 +26,12 @@ import {
   CanonicalChugSplashConfig,
   parseChugSplashConfig,
   ParsedChugSplashConfig,
+  UserChugSplashConfig,
 } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 import { FoundryContractArtifact } from './types'
+import { ArtifactPaths } from './languages'
+import { Integration } from './constants'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -490,14 +493,22 @@ export const getGasPriceOverrides = async (
  * @param configPath Path to the ChugSplash config file.
  */
 export const loadParsedChugSplashConfig = (
-  configPath: string
+  configPath: string,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
 ): ParsedChugSplashConfig => {
+  const userConfig = loadUserChugSplashConfig(configPath)
+  return parseChugSplashConfig(userConfig, artifactPaths, integration)
+}
+
+export const loadUserChugSplashConfig = (
+  configPath: string
+): UserChugSplashConfig => {
   delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configPath))
-  config = config.default || config
-  return parseChugSplashConfig(config)
+  const config = require(path.resolve(configPath))
+  return config.default || config
 }
 
 export const isProjectRegistered = async (

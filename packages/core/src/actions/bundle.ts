@@ -4,12 +4,13 @@ import MerkleTree from 'merkletreejs'
 
 import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
 import { Integration } from '../constants'
+import { ArtifactPaths } from '../languages'
 import {
-  getContractArtifact,
-  getStorageLayout,
+  readContractArtifact,
+  readStorageLayout,
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
-  getBuildInfo,
+  readBuildInfo,
 } from './artifacts'
 import {
   ChugSplashAction,
@@ -219,29 +220,27 @@ export const makeBundleFromActions = (
 
 export const bundleLocal = async (
   parsedConfig: ParsedChugSplashConfig,
-  artifactFolder: string,
-  buildInfoFolder: string,
+  artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<ChugSplashActionBundle> => {
   const artifacts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const storageLayout = await getStorageLayout(
+    const storageLayout = await readStorageLayout(
       contractConfig.contract,
-      artifactFolder,
-      buildInfoFolder,
+      artifactPaths,
       integration
     )
 
-    const { abi, sourceName, contractName, bytecode } = getContractArtifact(
+    const { abi, sourceName, contractName, bytecode } = readContractArtifact(
+      artifactPaths,
       contractConfig.contract,
-      artifactFolder,
       integration
     )
-    const { output: compilerOutput } = await getBuildInfo(
-      buildInfoFolder,
-      sourceName
+    const { output: compilerOutput } = readBuildInfo(
+      artifactPaths,
+      contractConfig.contract
     )
     const creationCode = getCreationCodeWithConstructorArgs(
       bytecode,

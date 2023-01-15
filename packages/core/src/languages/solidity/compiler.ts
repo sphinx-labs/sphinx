@@ -17,14 +17,14 @@ import {
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
 } from '../../actions'
-import { CompilerInput, CompilerOutputSources } from './types'
+import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
 
 export const bundleRemote = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
   const { canonicalConfig } = args
 
-  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
+  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
 
   return makeActionBundleFromConfig(canonicalConfig, artifacts)
 }
@@ -73,14 +73,15 @@ export const getSolcBuild = async (solcVersion: string) => {
   return wasmCompiler
 }
 
-export const getArtifactsFromCanonicalConfig = async (
+// TODO: `CanonicalConfigArtifact` type
+export const getCanonicalConfigArtifacts = async (
   canonicalConfig: CanonicalChugSplashConfig
 ): Promise<{ [referenceName: string]: any }> => {
   const compilerOutputs: any[] = []
   // Get the compiler output for each compiler input.
   for (const compilerInput of canonicalConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
-    let compilerOutput: any // TODO: Compiler output type
+    let compilerOutput: CompilerOutput
     if (solcBuild.isSolcJs) {
       const compiler = new Compiler(solcBuild.compilerPath)
       compilerOutput = await compiler.compile(compilerInput.input)
@@ -96,48 +97,38 @@ export const getArtifactsFromCanonicalConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
   )) {
-    let compilerOutputIndex = 0
-    while (artifacts[referenceName] === undefined) {
-      // Iterate through the sources in the current compiler output to find the one that
-      // contains this contract.
-      const compilerOutput = compilerOutputs[compilerOutputIndex]
-      for (const [sourceName, sourceOutput] of Object.entries(
-        compilerOutput.contracts
-      )) {
-        // Check if the current source contains the contract.
-        if (sourceOutput.hasOwnProperty(contractConfig.contract)) {
-          const contractOutput = sourceOutput[contractConfig.contract]
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
 
-          const creationCode = getCreationCodeWithConstructorArgs(
-            add0x(contractOutput.evm.bytecode.object),
-            canonicalConfig,
-            referenceName,
-            contractOutput.abi,
-            compilerOutput,
-            sourceName,
-            contractConfig.contract
-          )
-          const immutableVariables = getImmutableVariables(
-            compilerOutput,
-            sourceName,
-            contractConfig.contract
-          )
+    for (const compilerOutput of compilerOutputs) {
+      const contractOutput =
+        compilerOutput.contracts?.[sourceName]?.[contractName]
+      if (contractOutput !== undefined) {
+        const creationCode = getCreationCodeWithConstructorArgs(
+          add0x(contractOutput.evm.bytecode.object),
+          canonicalConfig,
+          referenceName,
+          contractOutput.abi,
+          compilerOutput,
+          sourceName,
+          contractName
+        )
+        const immutableVariables = getImmutableVariables(
+          compilerOutput,
+          sourceName,
+          contractName
+        )
 
-          artifacts[referenceName] = {
-            creationCode,
-            storageLayout: contractOutput.storageLayout,
-            immutableVariables,
-            abi: contractOutput.abi,
-            compilerOutput,
-            sourceName,
-            contractName: contractConfig.contract,
-          }
-          // We can exit the loop at this point since each contract only has a single artifact
-          // associated with it.
-          break
+        artifacts[referenceName] = {
+          creationCode,
+          storageLayout: contractOutput.storageLayout,
+          immutableVariables,
+          abi: contractOutput.abi,
+          compilerOutput,
+          sourceName,
+          contractName,
         }
       }
-      compilerOutputIndex += 1
     }
   }
   return artifacts
@@ -158,7 +149,9 @@ export const compileRemoteBundle = async (
 }> => {
   const canonicalConfig = await chugsplashFetchSubtask({ configUri })
 
-  const bundle = await bundleRemote({ canonicalConfig })
+  const bundle = await bundleRemote({
+    canonicalConfig,
+  })
   return { bundle, canonicalConfig }
 }
 

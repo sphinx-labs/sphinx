@@ -9,7 +9,7 @@ const config: UserChugSplashConfig = {
   },
   contracts: {
     MyStorage: {
-      contract: 'Storage',
+      contract: 'contracts/Storage.t.sol:Storage',
       variables,
     },
     MySimpleStorage: {

@@ -19,20 +19,18 @@ import {
   readCanonicalConfig,
   trackExecuted,
   Integration,
-} from '@chugsplash/core'
-import { getChainId } from '@eth-optimism/core-utils'
-import {
+  compileRemoteBundle,
+  bundleRemote,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
-} from '@chugsplash/core/dist/types'
+} from '@chugsplash/core'
+import { getChainId } from '@eth-optimism/core-utils'
 
 import {
-  compileRemoteBundle,
   verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
-  bundleRemote,
 } from './utils'
 
 export * from './utils'
@@ -223,7 +221,9 @@ export class ChugSplashExecutor extends BaseServiceV2<
             canonicalConfigFolderPath,
             localBundleId
           )
-          bundle = await bundleRemote({ canonicalConfig })
+          bundle = await bundleRemote({
+            canonicalConfig,
+          })
         } else {
           ;({ bundle, canonicalConfig } = await compileRemoteBundle(
             proposalEvent.args.configUri
