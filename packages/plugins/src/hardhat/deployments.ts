@@ -4,20 +4,21 @@ import * as path from 'path'
 
 import { ethers } from 'ethers'
 import {
-  ParsedChugSplashConfig,
   isEmptyChugSplashConfig,
   isContractDeployed,
-  loadParsedChugSplashConfig,
-  getContractArtifact,
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
   ChugSplashExecutorType,
+  loadUserChugSplashConfig,
+  UserChugSplashConfig,
+  getDefaultProxyAddress,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { initializeExecutor } from '../executor'
+import { getArtifactPaths, getContractArtifact } from './artifacts'
 
 /**
  * TODO
@@ -52,6 +53,14 @@ export const deployAllChugSplashConfigs = async (
       return
     }
 
+    const userConfig = loadUserChugSplashConfig(configPath)
+
+    const artifactPaths = await getArtifactPaths(
+      userConfig.contracts,
+      hre.config.paths.artifacts,
+      path.join(hre.config.paths.artifacts, 'build-info')
+    )
+
     const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
       hre.ethers.provider,
@@ -64,6 +73,7 @@ export const deployAllChugSplashConfigs = async (
       confirm,
       true,
       await signer.getAddress(),
+      artifactPaths,
       buildInfoFolder,
       artifactFolder,
       canonicalConfigPath,
@@ -83,7 +93,7 @@ export const getContract = async (
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const configsWithFileNames: {
-    config: ParsedChugSplashConfig
+    userConfig: UserChugSplashConfig
     configFileName: string
   }[] = fs
     .readdirSync(hre.config.paths.chugsplash)
@@ -91,13 +101,13 @@ export const getContract = async (
       return !isEmptyChugSplashConfig(path.join('chugsplash', configFileName))
     })
     .map((configFileName) => {
-      const config = loadParsedChugSplashConfig(
+      const userConfig = loadUserChugSplashConfig(
         path.join('chugsplash', configFileName)
       )
-      return { configFileName, config }
+      return { configFileName, userConfig }
     })
-    .filter(({ config }) => {
-      return Object.keys(config.contracts).includes(referenceName)
+    .filter(({ userConfig }) => {
+      return Object.keys(userConfig.contracts).includes(referenceName)
     })
 
   // TODO: Make function `getContract(projectName, target)` and change this error message.
@@ -113,23 +123,19 @@ ${configsWithFileNames.map(
     throw new Error(`Cannot find a config file containing ${referenceName}.`)
   }
 
-  const { config: cfg } = configsWithFileNames[0]
+  const { userConfig: userCfg } = configsWithFileNames[0]
 
-  const proxyAddress = cfg.contracts[referenceName].proxy
+  const proxyAddress =
+    userCfg.contracts[referenceName].proxy ||
+    getDefaultProxyAddress(userCfg.options.projectName, referenceName)
   if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
   }
 
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
-
   const Proxy = new ethers.Contract(
     proxyAddress,
     new ethers.utils.Interface(
-      getContractArtifact(
-        cfg.contracts[referenceName].contract,
-        artifactFolder,
-        'hardhat'
-      ).abi
+      getContractArtifact(userCfg.contracts[referenceName].contract).abi
     ),
     provider.getSigner()
   )

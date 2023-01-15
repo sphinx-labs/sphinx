@@ -26,7 +26,7 @@ import {
   registerChugSplashProject,
   writeCanonicalConfig,
 } from '../utils'
-import { initializeChugSplash } from '../languages'
+import { ArtifactPaths, initializeChugSplash } from '../languages'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import {
   alreadyProposedMessage,
@@ -42,7 +42,6 @@ import {
   ChugSplashBundleStatus,
   createDeploymentArtifacts,
   filterChugSplashInputs,
-  getContractArtifact,
   proposeChugSplashBundle,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
@@ -115,6 +114,7 @@ export const chugsplashProposeAbstractTask = async (
   remoteExecution: boolean,
   confirm: boolean,
   integration: Integration,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
@@ -152,8 +152,8 @@ export const chugsplashProposeAbstractTask = async (
     parsedConfig,
     '',
     false,
+    artifactPaths,
     buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     integration
   )
@@ -206,6 +206,7 @@ with a name other than ${parsedConfig.options.projectName}`
         configPath,
         spinner,
         confirm,
+        artifactPaths,
         buildInfoFolder,
         artifactFolder,
         canonicalConfigPath,
@@ -239,8 +240,8 @@ export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
   ipfsUrl: string,
   commitToIpfs: boolean,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -258,12 +259,13 @@ export const chugsplashCommitAbstractSubtask = async (
   }
 
   // Get unique source names for the contracts in the ChugSplash config
-  let configSourceNames = Object.values(parsedConfig.contracts)
-    .map((contractConfig) => contractConfig.contract)
-    .map(
-      (name) =>
-        getContractArtifact(name, artifactFolder, integration).sourceName
-    )
+  let configSourceNames = Object.values(parsedConfig.contracts).map(
+    (contractConfig) => {
+      // Split the contract's fully qualified name to get its source name
+      const [sourceName] = contractConfig.contract.split(':')
+      return sourceName
+    }
+  )
   configSourceNames = Array.from(new Set(configSourceNames))
 
   // Get the inputs from the build info folder. This also filters out build info
@@ -302,9 +304,7 @@ export const chugsplashCommitAbstractSubtask = async (
   const filteredInputs = await filterChugSplashInputs(
     inputs,
     parsedConfig,
-    artifactFolder,
-    buildInfoFolder,
-    integration
+    artifactPaths
   )
 
   const canonicalConfig: CanonicalChugSplashConfig = {
@@ -348,12 +348,7 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundle = await bundleLocal(
-    parsedConfig,
-    artifactFolder,
-    buildInfoFolder,
-    integration
-  )
+  const bundle = await bundleLocal(parsedConfig, artifactPaths, integration)
 
   const configUri = `ipfs://${ipfsHash}`
   const bundleId = computeBundleId(
@@ -388,6 +383,7 @@ export const chugsplashApproveAbstractTask = async (
   noWithdraw: boolean,
   silent: boolean,
   skipMonitorStatus: boolean,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   buildInfoFolder: string,
   artifactFolder: string,
@@ -396,7 +392,11 @@ export const chugsplashApproveAbstractTask = async (
   remoteExecution: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const networkName = resolveNetworkName(provider, integration)
 
   const spinner = ora({ isSilent: silent, stream })
@@ -426,8 +426,8 @@ Owner's address: ${projectOwnerAddress}`)
     parsedConfig,
     '',
     false,
+    artifactPaths,
     buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     integration,
     spinner
@@ -503,6 +503,7 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         !noWithdraw,
         networkName,
         deploymentFolderPath,
+        artifactPaths,
         artifactFolder,
         buildInfoFolder,
         integration,
@@ -529,12 +530,17 @@ export const chugsplashFundAbstractTask = async (
   configPath: string,
   amount: ethers.BigNumber,
   silent: boolean,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const projectName = parsedConfig.options.projectName
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
   const signerBalance = await signer.getBalance()
@@ -588,6 +594,7 @@ export const chugsplashDeployAbstractTask = async (
   confirm: boolean,
   withdraw: boolean,
   newOwner: string,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
@@ -609,7 +616,11 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const projectName = parsedConfig.options.projectName
 
   const projectPreviouslyRegistered = await isProjectRegistered(
@@ -640,8 +651,8 @@ export const chugsplashDeployAbstractTask = async (
     parsedConfig,
     ipfsUrl,
     false,
+    artifactPaths,
     buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     integration
   )
@@ -660,8 +671,7 @@ export const chugsplashDeployAbstractTask = async (
       provider,
       parsedConfig,
       await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
-      artifactFolder,
-      buildInfoFolder,
+      artifactPaths,
       integration,
       spinner,
       networkName,
@@ -697,6 +707,7 @@ export const chugsplashDeployAbstractTask = async (
       configPath,
       spinner,
       confirm,
+      artifactPaths,
       buildInfoFolder,
       artifactFolder,
       canonicalConfigPath,
@@ -728,6 +739,7 @@ export const chugsplashDeployAbstractTask = async (
         configPath,
         amountToDeposit,
         silent,
+        artifactPaths,
         integration,
         stream
       )
@@ -745,6 +757,7 @@ export const chugsplashDeployAbstractTask = async (
       false,
       silent,
       true,
+      artifactPaths,
       integration,
       buildInfoFolder,
       artifactFolder,
@@ -799,6 +812,7 @@ export const chugsplashDeployAbstractTask = async (
     withdraw,
     networkName,
     deploymentFolder,
+    artifactPaths,
     artifactFolder,
     buildInfoFolder,
     integration,
@@ -830,6 +844,7 @@ export const chugsplashMonitorAbstractTask = async (
   noWithdraw: boolean,
   silent: boolean,
   newOwner: string,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
@@ -842,7 +857,11 @@ export const chugsplashMonitorAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(`Loading project information...`)
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
@@ -864,8 +883,8 @@ export const chugsplashMonitorAbstractTask = async (
     parsedConfig,
     '',
     false,
+    artifactPaths,
     buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     integration
   )
@@ -912,6 +931,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     !noWithdraw,
     networkName,
     deploymentFolder,
+    artifactPaths,
     artifactFolder,
     buildInfoFolder,
     'hardhat',
@@ -935,11 +955,17 @@ export const chugsplashCancelAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const networkName = resolveNetworkName(provider, integration)
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const projectName = parsedConfig.options.projectName
 
   const spinner = ora({ stream })
@@ -1002,6 +1028,7 @@ export const chugsplashWithdrawAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   silent: boolean,
+  artifactPaths: ArtifactPaths,
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
@@ -1009,7 +1036,11 @@ export const chugsplashWithdrawAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const networkName = resolveNetworkName(provider, integration)
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
   const projectName = parsedConfig.options.projectName
 
   const spinner = ora({ isSilent: silent, stream })
@@ -1036,8 +1067,8 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     parsedConfig,
     '',
     false,
+    artifactPaths,
     buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     integration
   )
@@ -1155,9 +1186,14 @@ export const chugsplashListProposersAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
+  artifactPaths: ArtifactPaths,
   integration: Integration
 ) => {
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -1212,6 +1248,7 @@ export const chugsplashAddProposersAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   newProposers: string[],
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
@@ -1219,7 +1256,11 @@ export const chugsplashAddProposersAbstractTask = async (
     throw new Error('You must specify at least one proposer to add.')
   }
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
 
   const spinner = ora({ stream })
   spinner.start('Confirming project ownership...')
@@ -1272,6 +1313,7 @@ export const chugsplashAddProposersAbstractTask = async (
     provider,
     signer,
     configPath,
+    artifactPaths,
     integration
   )
 
@@ -1291,13 +1333,18 @@ export const chugsplashClaimProxyAbstractTask = async (
   configPath: string,
   referenceName: string,
   silent: boolean,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
 
   // Throw an error if the project has not been registered
   if (
@@ -1358,13 +1405,18 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   configPath: string,
   proxy: string,
   silent: boolean,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = loadParsedChugSplashConfig(configPath)
+  const parsedConfig = loadParsedChugSplashConfig(
+    configPath,
+    artifactPaths,
+    integration
+  )
 
   // Throw an error if the project has not been registered
   if (
