@@ -53,6 +53,7 @@ import { monitorExecution, postExecutionActions } from '../execution'
 import { getFinalDeploymentTxnHash } from '../deployments'
 import { ChugSplashExecutorType, FoundryContractArtifact } from '../types'
 import {
+  trackAddProposers,
   trackApproved,
   trackCancel,
   trackClaimProxy,
@@ -90,14 +91,6 @@ export const chugsplashRegisterAbstractTask = async (
 
     const networkName = resolveNetworkName(provider, integration)
 
-    isFirstTimeRegistered
-      ? spinner.succeed(
-          `Project successfully registered on ${networkName}. Owner: ${owner}`
-        )
-      : spinner.fail(
-          `Project was already registered by the caller on ${networkName}.`
-        )
-
     const projectName = parsedConfig.options.projectName
     await trackRegistered(
       await getProjectOwnerAddress(signer, projectName),
@@ -105,6 +98,14 @@ export const chugsplashRegisterAbstractTask = async (
       networkName,
       integration
     )
+
+    isFirstTimeRegistered
+      ? spinner.succeed(
+          `Project successfully registered on ${networkName}. Owner: ${owner}`
+        )
+      : spinner.fail(
+          `Project was already registered by the caller on ${networkName}.`
+        )
   }
 }
 
@@ -494,6 +495,13 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
       )
     ).wait()
 
+    await trackApproved(
+      await getProjectOwnerAddress(signer, projectName),
+      projectName,
+      networkName,
+      integration
+    )
+
     spinner.succeed(
       `${parsedConfig.options.projectName} approved on ${networkName}.`
     )
@@ -524,16 +532,10 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         undefined,
         spinner
       )
-      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
       displayDeploymentTable(parsedConfig, silent)
-    }
 
-    await trackApproved(
-      await getProjectOwnerAddress(signer, projectName),
-      projectName,
-      networkName,
-      integration
-    )
+      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
+    }
   }
 }
 
@@ -582,17 +584,18 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
     to: chugsplashManagerAddress,
   })
   await (await signer.sendTransaction(txnRequest)).wait()
-  spinner.succeed(
-    `Deposited ${ethers.utils.formatEther(
-      amount
-    )} ETH for the project: ${projectName}.`
-  )
 
   await trackFund(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
     networkName,
     integration
+  )
+
+  spinner.succeed(
+    `Deposited ${ethers.utils.formatEther(
+      amount
+    )} ETH for the project: ${projectName}.`
   )
 }
 
@@ -704,10 +707,10 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
       displayDeploymentTable(parsedConfig, silent)
+      return
     } else {
       return generateFoundryTestArtifacts(parsedConfig)
     }
-    return
   } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
     throw new Error(
@@ -754,7 +757,6 @@ export const chugsplashDeployAbstractTask = async (
       spinner.succeed(
         `Amount to deposit: ${formatEther(amountToDeposit, 4)} ETH`
       )
-      spinner.start(`Funding ${projectName}...`)
 
       await chugsplashFundAbstractTask(
         provider,
@@ -766,8 +768,6 @@ export const chugsplashDeployAbstractTask = async (
         integration,
         stream
       )
-
-      spinner.succeed(`Funded ${projectName}.`)
     } else {
       spinner.succeed(`Sufficient funds already deposited.`)
     }
@@ -806,6 +806,7 @@ export const chugsplashDeployAbstractTask = async (
       integration
     )
   } else if (executor !== undefined) {
+    spinner.start(`Executing ${projectName}...`)
     // Use the in-process executor if executing the bundle locally.
     const amountToDeposit = await getAmountToDeposit(
       provider,
@@ -1034,17 +1035,17 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   ).wait()
   const refund = (await signer.getBalance()).sub(prevOwnerBalance)
 
-  spinner.succeed(
-    `Refunded ${ethers.utils.formatEther(
-      refund
-    )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
-  )
-
   await trackCancel(
     await getProjectOwnerAddress(signer, projectName),
     projectName,
     networkName,
     integration
+  )
+
+  spinner.succeed(
+    `Refunded ${ethers.utils.formatEther(
+      refund
+    )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
   )
 }
 
@@ -1113,6 +1114,13 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     projectName
   )
 
+  await trackWithdraw(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
+
   if (amountToWithdraw.gt(0)) {
     await (
       await ChugSplashManager.withdrawOwnerETH(
@@ -1130,12 +1138,6 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
       `No funds available to withdraw on ${networkName} for the project: ${projectName}.`
     )
   }
-  await trackWithdraw(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
-    networkName,
-    integration
-  )
 }
 
 export const chugsplashListProjectsAbstractTask = async (
@@ -1201,6 +1203,8 @@ export const chugsplashListProjectsAbstractTask = async (
     }
   }
 
+  await trackListProjects(signerAddress, networkName, integration)
+
   if (numProjectsOwned > 0) {
     spinner.succeed(
       `Retrieved all projects on ${networkName} owned by: ${signerAddress}`
@@ -1209,8 +1213,6 @@ export const chugsplashListProjectsAbstractTask = async (
   } else {
     spinner.fail(`No projects on ${networkName} owned by: ${signerAddress}`)
   }
-
-  await trackListProjects(signerAddress, networkName, integration)
 }
 
 export const chugsplashListProposersAbstractTask = async (
@@ -1267,9 +1269,6 @@ export const chugsplashListProposersAbstractTask = async (
     }
   }
 
-  // Display the list of proposers
-  displayProposerTable(proposers)
-
   const networkName = resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackListProposers(
@@ -1278,6 +1277,9 @@ export const chugsplashListProposersAbstractTask = async (
     networkName,
     integration
   )
+
+  // Display the list of proposers
+  displayProposerTable(proposers)
 }
 
 export const chugsplashAddProposersAbstractTask = async (
@@ -1326,6 +1328,15 @@ export const chugsplashAddProposersAbstractTask = async (
 
   spinner.succeed('Project ownership confirmed.')
 
+  const networkName = resolveNetworkName(provider, integration)
+  const projectName = parsedConfig.options.projectName
+  await trackAddProposers(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
+
   for (const newProposer of newProposers) {
     spinner.start(`Adding proposer ${newProposer}...`)
 
@@ -1351,15 +1362,6 @@ export const chugsplashAddProposersAbstractTask = async (
     signer,
     configPath,
     artifactPaths,
-    integration
-  )
-
-  const networkName = resolveNetworkName(provider, integration)
-  const projectName = parsedConfig.options.projectName
-  await trackListProposers(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
-    networkName,
     integration
   )
 }
@@ -1424,8 +1426,6 @@ export const chugsplashClaimProxyAbstractTask = async (
     )
   ).wait()
 
-  spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
-
   const networkName = resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackClaimProxy(
@@ -1434,6 +1434,8 @@ export const chugsplashClaimProxyAbstractTask = async (
     networkName,
     integration
   )
+
+  spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
 }
 
 export const chugsplashTransferOwnershipAbstractTask = async (
@@ -1530,8 +1532,6 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     )
   ).wait()
 
-  spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
-
   const networkName = resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackTransferProxy(
@@ -1540,4 +1540,6 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     networkName,
     integration
   )
+
+  spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }

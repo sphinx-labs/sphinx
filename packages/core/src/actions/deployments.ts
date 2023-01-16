@@ -40,6 +40,8 @@ export const proposeChugSplashBundle = async (
   const signerAddress = await signer.getAddress()
   const projectName = parsedConfig.options.projectName
 
+  spinner.start(`Checking if the caller is a proposer...`)
+
   // Throw an error if the caller isn't the project owner or a proposer.
   if (
     signerAddress !== (await getProjectOwnerAddress(signer, projectName)) &&
@@ -49,6 +51,8 @@ export const proposeChugSplashBundle = async (
       `Caller is not a proposer or the project owner. Caller's address: ${signerAddress}`
     )
   }
+
+  spinner.succeed(`Caller is a proposer.`)
 
   // Determine if the deployment is an upgrade
   spinner.start(
@@ -120,8 +124,6 @@ export const proposeChugSplashBundle = async (
     )
   ).wait()
 
-  spinner.succeed(`Proposed ${projectName}.`)
-
   const networkName = resolveNetworkName(provider, integration)
   await trackProposed(
     await getProjectOwnerAddress(signer, projectName),
@@ -129,4 +131,6 @@ export const proposeChugSplashBundle = async (
     networkName,
     integration
   )
+
+  spinner.succeed(`Proposed ${projectName}.`)
 }
