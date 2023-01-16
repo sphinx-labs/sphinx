@@ -4,8 +4,13 @@ import * as semver from 'semver'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import ora from 'ora'
+import { Fragment } from 'ethers/lib/utils'
 
-import { ChugSplashInputs, ParsedChugSplashConfig } from '../config'
+import {
+  ChugSplashInputs,
+  ParsedChugSplashConfig,
+  ParsedConfigVariable,
+} from '../config'
 import {
   ArtifactPaths,
   CompilerInput,
@@ -22,7 +27,7 @@ import {
 // TODO
 export type BuildInfo = any
 export type ContractArtifact = {
-  abi: string
+  abi: Array<Fragment>
   sourceName: string
   contractName: string
   bytecode: string
@@ -56,8 +61,19 @@ export const readContractArtifact = (
   contract: string,
   integration: Integration
 ): ContractArtifact => {
-  const { contractArtifactPath } =
-    artifactPaths[contract] ?? artifactPaths[contract.split(':').at(-1)]
+  let contractArtifactPath: string
+  if (artifactPaths[contract]) {
+    contractArtifactPath = artifactPaths[contract].contractArtifactPath
+  } else {
+    // The contract must be a fully qualified name.
+    const contractName = contract.split(':').at(-1)
+    if (contractName === undefined) {
+      throw new Error('Could not use contract name to get build info')
+    } else {
+      contractArtifactPath = artifactPaths[contractName].contractArtifactPath
+    }
+  }
+
   const artifact: ContractArtifact = JSON.parse(
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
@@ -66,6 +82,8 @@ export const readContractArtifact = (
     return artifact
   } else if (integration === 'foundry') {
     return parseFoundryArtifact(artifact)
+  } else {
+    throw new Error('Unknown integration')
   }
 }
 
@@ -80,8 +98,19 @@ export const readBuildInfo = (
   artifactPaths: ArtifactPaths,
   contract: string
 ): BuildInfo => {
-  const { buildInfoPath } =
-    artifactPaths[contract] ?? artifactPaths[contract.split(':').at(-1)]
+  let buildInfoPath: string
+  if (artifactPaths[contract]) {
+    buildInfoPath = artifactPaths[contract].buildInfoPath
+  } else {
+    // The contract must be a fully qualified name.
+    const contractName = contract.split(':').at(-1)
+    if (contractName === undefined) {
+      throw new Error('Could not use contract name to get build info')
+    } else {
+      buildInfoPath = artifactPaths[contractName].buildInfoPath
+    }
+  }
+
   const buildInfo: BuildInfo = JSON.parse(
     fs.readFileSync(buildInfoPath, 'utf8')
   )
@@ -168,11 +197,11 @@ export const getCreationCodeWithConstructorArgs = (
 export const getConstructorArgs = (
   parsedConfig: ParsedChugSplashConfig,
   referenceName: string,
-  abi: any,
+  abi: Array<Fragment>,
   compilerOutput: any,
   sourceName: string,
   contractName: string
-): { constructorArgTypes: any[]; constructorArgValues: any[] } => {
+): { constructorArgTypes: Array<string>; constructorArgValues: any[] } => {
   const immutableReferences =
     compilerOutput.contracts[sourceName][contractName].evm.deployedBytecode
       .immutableReferences
@@ -182,8 +211,8 @@ export const getConstructorArgs = (
   const constructorFragment = abi.find(
     (fragment) => fragment.type === 'constructor'
   )
-  const constructorArgTypes = []
-  const constructorArgValues = []
+  const constructorArgTypes: Array<string> = []
+  const constructorArgValues: Array<ParsedConfigVariable> = []
   if (constructorFragment === undefined) {
     return { constructorArgTypes, constructorArgValues }
   }

@@ -486,7 +486,7 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
     )
 
     if (!skipMonitorStatus) {
-      const finalDeploymentTxnHash = await monitorExecution(
+      await monitorExecution(
         provider,
         signer,
         parsedConfig,
@@ -499,7 +499,7 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         provider,
         signer,
         parsedConfig,
-        finalDeploymentTxnHash,
+        await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
         !noWithdraw,
         networkName,
         deploymentFolderPath,
@@ -782,7 +782,7 @@ export const chugsplashDeployAbstractTask = async (
       spinner,
       integration
     )
-  } else {
+  } else if (executor !== undefined) {
     // Use the in-process executor if executing the bundle locally.
     const amountToDeposit = await getAmountToDeposit(
       provider,
@@ -797,6 +797,8 @@ export const chugsplashDeployAbstractTask = async (
     })
     await executor.main(bundleId, canonicalConfigPath, integration)
     spinner.succeed(`Executed ${projectName}.`)
+  } else {
+    throw new Error(`Local execution specified but no executor was given.`)
   }
 
   const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
@@ -913,7 +915,7 @@ project with a name other than ${parsedConfig.options.projectName}`
 
   // If we make it to this point, the bundle status is either completed or approved.
 
-  const finalDeploymentTxnHash = await monitorExecution(
+  await monitorExecution(
     provider,
     signer,
     parsedConfig,
@@ -927,7 +929,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     provider,
     signer,
     parsedConfig,
-    finalDeploymentTxnHash,
+    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
     !noWithdraw,
     networkName,
     deploymentFolder,
@@ -1134,6 +1136,12 @@ export const chugsplashListProjectsAbstractTask = async (
   const projects = {}
   let numProjectsOwned = 0
   for (const event of projectRegisteredEvents) {
+    if (event.args === undefined) {
+      throw new Error(
+        `No event args found for ChugSplashProjectRegistered. Should never happen.`
+      )
+    }
+
     const ChugSplashManager = getChugSplashManager(
       signer,
       event.args.projectName
@@ -1207,7 +1215,7 @@ export const chugsplashListProposersAbstractTask = async (
     parsedConfig.options.projectName
   )
 
-  const proposers = []
+  const proposers: Array<string> = []
 
   // Fetch current owner
   const owner = await getProjectOwnerAddress(
@@ -1223,6 +1231,12 @@ export const chugsplashListProposersAbstractTask = async (
 
   // Verify if each previous proposer is still a proposer before adding it to the list
   for (const proposerEvent of addProposerEvents) {
+    if (proposerEvent.args === undefined) {
+      throw new Error(
+        `No args found for ProposerAdded event. Should never happen.`
+      )
+    }
+
     const address = proposerEvent.args.proposer
     const isStillProposer = await ChugSplashManager.proposers(address)
     if (isStillProposer && !proposers.includes(address)) {

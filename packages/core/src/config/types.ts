@@ -69,7 +69,7 @@ export type UserConfigVariables = {
 export type ParsedContractConfig = {
   contract: string
   proxy: string
-  variables?: ParsedConfigVariables
+  variables: ParsedConfigVariables
 }
 
 export type ParsedContractConfigs = {

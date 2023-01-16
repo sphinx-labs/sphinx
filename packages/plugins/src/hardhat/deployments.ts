@@ -36,7 +36,7 @@ export const deployAllChugSplashConfigs = async (
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
   const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
 
-  let executor: ChugSplashExecutorType
+  let executor: ChugSplashExecutorType | undefined
   if (!remoteExecution) {
     executor = await initializeExecutor(hre.ethers.provider)
   }

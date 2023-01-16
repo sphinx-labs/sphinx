@@ -70,32 +70,34 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
     }
 
     // Check for invalid contract references.
-    for (const [varName, varValue] of Object.entries(
-      contractConfig.variables
-    )) {
-      if (
-        typeof varValue === 'string' &&
-        varValue.includes('{{') &&
-        varValue.includes('}}')
-      ) {
-        if (!varValue.startsWith('{{')) {
-          throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
-        } else if (!varValue.endsWith('}}')) {
-          throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
-        }
+    if (contractConfig.variables !== undefined) {
+      for (const [varName, varValue] of Object.entries(
+        contractConfig.variables
+      )) {
+        if (
+          typeof varValue === 'string' &&
+          varValue.includes('{{') &&
+          varValue.includes('}}')
+        ) {
+          if (!varValue.startsWith('{{')) {
+            throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
+                 Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                 `)
+          } else if (!varValue.endsWith('}}')) {
+            throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
+                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                  `)
+          }
 
-        const contractReference = varValue
-          .substring(2, varValue.length - 2)
-          .trim()
+          const contractReference = varValue
+            .substring(2, varValue.length - 2)
+            .trim()
 
-        if (!referenceNames.includes(contractReference)) {
-          throw new Error(`Contract reference cannot be found: ${contractReference}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
+          if (!referenceNames.includes(contractReference)) {
+            throw new Error(`Contract reference cannot be found: ${contractReference}
+                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                  `)
+          }
         }
       }
     }
@@ -134,10 +136,16 @@ export const parseChugSplashConfig = (
     })
   )
 
-  // Change the `contract` fields to be fully qualified names. This ensures that it's easy for the
-  // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
-  // config.
   for (const contractConfig of Object.values(parsed.contracts)) {
+    // If the variables field is undefined, change it to an empty object. This simplifies logic that
+    // iterates over the parsed variables later.
+    if (contractConfig.variables === undefined) {
+      contractConfig.variables = {}
+    }
+
+    // Change the `contract` fields to be fully qualified names. This ensures that it's easy for the
+    // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
+    // config.
     const { sourceName, contractName } = readContractArtifact(
       artifactPaths,
       contractConfig.contract,

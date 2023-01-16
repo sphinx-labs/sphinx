@@ -291,8 +291,13 @@ export const doDeterministicDeploy = async (
     options.contract.abi,
     options.contract.bytecode
   )
-  const deploymentTx = factory.getDeployTransaction(...(options.args || []))
   const deployer = await getDeterministicFactoryAddress(provider)
+
+  const deploymentTx = factory.getDeployTransaction(...(options.args || []))
+  if (deploymentTx.data === undefined) {
+    throw new Error(`Deployment transaction data is undefined`)
+  }
+
   const address = ethers.utils.getCreate2Address(
     deployer,
     options.salt,
