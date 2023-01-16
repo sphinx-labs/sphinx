@@ -7,7 +7,7 @@ import ora from 'ora'
 import { getChainId, remove0x } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
-import { ProxyABI } from '@chugsplash/contracts'
+import { EXECUTOR, ProxyABI } from '@chugsplash/contracts'
 
 import {
   assertValidUpgrade,
@@ -76,7 +76,7 @@ export const chugsplashRegisterAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
-  await initializeChugSplash(provider, signer)
+  await initializeChugSplash(provider, signer, EXECUTOR)
 
   for (const parsedConfig of configs) {
     spinner.start(`Registering ${parsedConfig.options.projectName}...`)
@@ -130,7 +130,7 @@ export const chugsplashProposeAbstractTask = async (
     spinner.start('Booting up ChugSplash...')
   }
 
-  await initializeChugSplash(provider, signer)
+  await initializeChugSplash(provider, signer, EXECUTOR)
 
   await assertValidUpgrade(
     provider,

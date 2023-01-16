@@ -46,10 +46,11 @@ contract ProxyInitializer is Initializable {
      *         new owner specified in the constructor.
      *
      * @param _implementation The proxy's implementation address.
+     * @param _data           Data to delegatecall the new implementation with.
      */
-    function initialize(address _implementation) external initializer {
-        // Set the proxy's implementation contract.
-        proxy.upgradeTo(_implementation);
+    function initialize(address _implementation, bytes memory _data) external initializer {
+        // Set the proxy's implementation contract and delegatecall it with the supplied data.
+        proxy.upgradeToAndCall(_implementation, _data);
 
         // Transfer ownership of the proxy to the new owner.
         proxy.changeAdmin(newOwner);

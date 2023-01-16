@@ -30,14 +30,19 @@ contract ChugSplashRegistry_Test is Test {
 
     event ProxyTypeAdded(bytes32 proxyType, address adapter);
 
+    event ExecutorAdded(address indexed executor);
+
+    event ExecutorRemoved(address indexed executor);
+
     address owner = address(128);
     address adapter = address(256);
+    address executor = address(512);
+    address nonOwner = address(1024);
     bytes32 proxyType = bytes32(hex"1337");
     bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
     string projectName = 'TestProject';
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
-    uint256 executorBondAmount = 1 ether;
     uint256 executionLockTime = 15 minutes;
     uint256 executorPaymentPercentage = 20;
 
@@ -53,7 +58,6 @@ contract ChugSplashRegistry_Test is Test {
             projectName,
             owner,
             address(proxyUpdater),
-            executorBondAmount,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
@@ -62,20 +66,22 @@ contract ChugSplashRegistry_Test is Test {
         registry = new ChugSplashRegistry{ salt: salt }(
             address(proxyUpdater),
             ownerBondAmount,
-            executorBondAmount,
             executionLockTime,
             executorPaymentPercentage,
             address(manager)
         );
+
+        registry.initialize(owner, new address[](0));
     }
 
-    function test_constructor_success() external {
+    function test_initialize_success() external {
         assertEq(address(registry.proxyUpdater()), address(proxyUpdater));
-        assertEq(registry.executorBondAmount(), executorBondAmount);
         assertEq(registry.executionLockTime(), executionLockTime);
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
         assertEq(registry.managerImplementation(), address(manager));
+
+        assertEq(registry.owner(), owner);
     }
 
     function test_register_revert_nameAlreadyRegistered() external {
@@ -149,6 +155,55 @@ contract ChugSplashRegistry_Test is Test {
             data
         );
         registry.announceWithData(announcedEvent, data);
+    }
+
+    function test_addExecutor_revert_nonOwner() external {
+        vm.prank(nonOwner);
+        vm.expectRevert('Ownable: caller is not the owner');
+        registry.addExecutor(executor);
+    }
+
+    function test_addExecutor_revert_alreadyAdded() external {
+        vm.startPrank(owner);
+        registry.addExecutor(executor);
+        vm.expectRevert('ChugSplashRegistry: executor already added');
+        registry.addExecutor(executor);
+    }
+
+    function test_addExecutor_success() external {
+        assertFalse(registry.executors(executor));
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecutorAdded(executor);
+        vm.prank(owner);
+        registry.addExecutor(executor);
+
+        assertTrue(registry.executors(executor));
+    }
+
+    function test_removeExecutor_revert_nonOwner() external {
+        vm.prank(nonOwner);
+        vm.expectRevert('Ownable: caller is not the owner');
+        registry.removeExecutor(executor);
+    }
+
+    function test_removeExecutor_revert_alreadyRemoved() external {
+        vm.prank(owner);
+        vm.expectRevert('ChugSplashRegistry: executor already removed');
+        registry.removeExecutor(executor);
+    }
+
+    function test_removeExecutor_success() external {
+        vm.startPrank(owner);
+        registry.addExecutor(executor);
+
+        assertTrue(registry.executors(executor));
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecutorRemoved(executor);
+        registry.removeExecutor(executor);
+
+        assertFalse(registry.executors(executor));
     }
 
     function test_addProxyType_revert_existingAdapter() external {

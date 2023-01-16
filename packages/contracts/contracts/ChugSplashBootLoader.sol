@@ -40,7 +40,6 @@ contract ChugSplashBootLoader is Initializable {
      *         using ChugSplash!
      *
      * @param _owner                     Address of the owner of the ChugSplash contracts.
-     * @param _executorBondAmount        Executor bond amount in ETH.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -54,7 +53,6 @@ contract ChugSplashBootLoader is Initializable {
      */
     function initialize(
         address _owner,
-        uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
@@ -84,10 +82,11 @@ contract ChugSplashBootLoader is Initializable {
         registryImplementation = new ChugSplashRegistry{ salt: _salt }(
             address(proxyUpdater),
             _ownerBondAmount,
-            _executorBondAmount,
             _executionLockTime,
             _executorPaymentPercentage,
             _managerImplementation
         );
+
+        registryImplementation.initialize(_owner, new address[](0));
     }
 }

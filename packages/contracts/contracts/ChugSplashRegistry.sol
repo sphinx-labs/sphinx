@@ -4,6 +4,9 @@ pragma solidity ^0.8.9;
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
 
 /**
@@ -13,7 +16,7 @@ import { Proxy } from "./libraries/Proxy.sol";
  *         find and index these deployments. Deployment names are unique and are reserved on a
  *         first-come, first-served basis.
  */
-contract ChugSplashRegistry is Initializable {
+contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
@@ -75,6 +78,20 @@ contract ChugSplashRegistry is Initializable {
     event ProxyTypeAdded(bytes32 proxyType, address adapter);
 
     /**
+     * @notice Emitted when an executor is added.
+     *
+     * @param executor Address of the added executor.
+     */
+    event ExecutorAdded(address indexed executor);
+
+    /**
+     * @notice Emitted when an executor is removed.
+     *
+     * @param executor Address of the removed executor.
+     */
+    event ExecutorRemoved(address indexed executor);
+
+    /**
      * @notice Mapping of project names to ChugSplashManager contracts.
      */
     mapping(string => ChugSplashManager) public projects;
@@ -90,6 +107,11 @@ contract ChugSplashRegistry is Initializable {
     mapping(bytes32 => address) public adapters;
 
     /**
+     * @notice Addresses that can execute bundles.
+     */
+    mapping(address => bool) public executors;
+
+    /**
      * @notice Address of the ProxyUpdater.
      */
     address public immutable proxyUpdater;
@@ -98,11 +120,6 @@ contract ChugSplashRegistry is Initializable {
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
      */
     uint256 public immutable ownerBondAmount;
-
-    /**
-     * @notice Amount that an executor must send to the ChugSplashManager to claim a bundle.
-     */
-    uint256 public immutable executorBondAmount;
 
     /**
      * @notice Amount of time for an executor to completely execute a bundle after claiming it.
@@ -124,8 +141,6 @@ contract ChugSplashRegistry is Initializable {
      * @param _proxyUpdater              Address of the ProxyUpdater.
      * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
      *                                   order to execute a bundle.
-     * @param _executorBondAmount        Amount that an executor must send to the ChugSplashManager
-     *                                   to claim a bundle.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
@@ -135,17 +150,28 @@ contract ChugSplashRegistry is Initializable {
     constructor(
         address _proxyUpdater,
         uint256 _ownerBondAmount,
-        uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _executorPaymentPercentage,
         address _managerImplementation
     ) {
         proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
-        executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         executorPaymentPercentage = _executorPaymentPercentage;
         managerImplementation = _managerImplementation;
+    }
+
+    /**
+     * @param _owner Initial owner of this contract.
+     * @param _executors Array of executors to add.
+     */
+    function initialize(address _owner, address[] memory _executors) public initializer {
+        __Ownable_init();
+        _transferOwnership(_owner);
+
+        for (uint i = 0; i < _executors.length; i++) {
+            _setExecutor(_executors[i], true);
+        }
     }
 
     /**
@@ -227,5 +253,38 @@ contract ChugSplashRegistry is Initializable {
         adapters[_proxyType] = _adapter;
 
         emit ProxyTypeAdded(_proxyType, _adapter);
+    }
+
+    /**
+     * @notice Add an executor, which can execute bundles on behalf of users. Only callable by the
+     *         owner of this contract.
+     *
+     * @param _executor Address of the executor to add.
+     */
+    function addExecutor(address _executor) public onlyOwner {
+        require(executors[_executor] == false, "ChugSplashRegistry: executor already added");
+        _setExecutor(_executor, true);
+        emit ExecutorAdded(_executor);
+    }
+
+    /**
+     * @notice Remove an executor. Only callable by the owner of this contract.
+     *
+     * @param _executor Address of the executor to remove.
+     */
+    function removeExecutor(address _executor) public onlyOwner {
+        require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
+        _setExecutor(_executor, false);
+        emit ExecutorRemoved(_executor);
+    }
+
+    /**
+     * @notice Internal function that adds or removes an executor.
+     *
+     * @param _executor   Address of the executor to add or remove.
+     * @param _isExecutor Boolean indicating if the executor is being added or removed.
+     */
+    function _setExecutor(address _executor, bool _isExecutor) internal {
+        executors[_executor] = _isExecutor;
     }
 }
