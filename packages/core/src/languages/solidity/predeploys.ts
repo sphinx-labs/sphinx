@@ -3,7 +3,6 @@ import assert from 'assert'
 import { Contract, ethers } from 'ethers'
 import {
   OWNER_BOND_AMOUNT,
-  EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
@@ -24,6 +23,7 @@ import {
   OWNER_MULTISIG_ADDRESS,
   PROXY_INITIALIZER_ADDRESS,
   CHUGSPLASH_SALT,
+  ChugSplashRegistryABI,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -40,6 +40,7 @@ import {
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
+  executorAddress: string,
   logger?: Logger
 ): Promise<void> => {
   logger?.info('[ChugSplash]: deploying ChugSplashManager...')
@@ -83,7 +84,6 @@ export const initializeChugSplash = async (
     await (
       await ChugSplashBootLoader.initialize(
         OWNER_MULTISIG_ADDRESS,
-        EXECUTOR_BOND_AMOUNT,
         EXECUTION_LOCK_TIME,
         OWNER_BOND_AMOUNT,
         EXECUTOR_PAYMENT_PERCENTAGE,
@@ -141,29 +141,50 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: initializing ChugSplashRegistry proxy...')
 
-  const ChugSplashRegistryProxy = new Contract(
+  // Define two contract objects for the ChugSplashRegistry's proxy: one with the Proxy ABI, and the
+  // other with the ChugSplashRegistry ABI.
+  const Proxy__ChugSplashRegistry = new Contract(
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ProxyABI,
     provider
+  )
+  const ChugSplashRegistryProxy = new Contract(
+    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    ChugSplashRegistryABI,
+    deployer
   )
 
   // Check if the ChugSplashRegistry proxy's owner is the ProxyInitializer. This will only be true
   // when the ChugSplashRegistry's proxy hasn't been initialized yet.
   if (
-    (await getProxyAdmin(ChugSplashRegistryProxy)) === PROXY_INITIALIZER_ADDRESS
+    (await getProxyAdmin(Proxy__ChugSplashRegistry)) ===
+    PROXY_INITIALIZER_ADDRESS
   ) {
+    logger?.info('[ChugSplash]: initializing ChugSplashRegistry...')
+
     // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
-    // implementation and transfers ownership of the proxy to the multisig owner.
+    // implementation, calls the ChugSplashRegistry's initializer, and transfers ownership of the proxy to the
+    // multisig owner.
     await (
       await ProxyInitializer.initialize(
         CHUGSPLASH_REGISTRY_ADDRESS,
+        ChugSplashRegistryProxy.interface.encodeFunctionData('initialize', [
+          await deployer.getAddress(),
+          [executorAddress],
+        ]),
         await getGasPriceOverrides(provider)
       )
     ).wait()
 
+    assert(
+      (await ChugSplashRegistryProxy.executors(executorAddress)) === true,
+      'Failed to add executor to ChugSplashRegistry'
+    )
+
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
-      (await getProxyAdmin(ChugSplashRegistryProxy)) === OWNER_MULTISIG_ADDRESS,
+      (await getProxyAdmin(Proxy__ChugSplashRegistry)) ===
+        OWNER_MULTISIG_ADDRESS,
       'ChugSplashRegistry proxy has incorrect owner'
     )
 
@@ -176,7 +197,20 @@ export const initializeChugSplash = async (
       'ChugSplashRegistry proxy has incorrect implememtation'
     )
 
-    logger?.info('[ChugSplash]: ChugSplashRegistry proxy initialized')
+    // Transfer ownership of the ChugSplashRegistry's proxy from the deployer to the multisig.
+    await (
+      await ChugSplashRegistryProxy.transferOwnership(
+        OWNER_MULTISIG_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+
+    assert(
+      (await ChugSplashRegistryProxy.owner()) === OWNER_MULTISIG_ADDRESS,
+      'Failed to set owner of ChugSplashRegistry via its proxy'
+    )
+
+    logger?.info('[ChugSplash]: ChugSplashRegistry initialized')
   } else {
     logger?.info(
       '[ChugSplash]: ChugSplashRegistry proxy was already initialized'

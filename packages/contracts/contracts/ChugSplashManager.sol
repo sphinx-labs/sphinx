@@ -106,14 +106,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     );
 
     /**
-     * @notice Emitted when a bundle is claimed by an executor.
-     *
-     * @param bundleId ID of the bundle that was claimed.
-     * @param executor Address of the executor that claimed the bundle ID for the project.
-     */
-    event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
-
-    /**
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
@@ -202,16 +194,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Amount that must be deposited in this contract in order to execute a bundle. The
      *         project owner can withdraw this amount whenever a bundle is not active. This bond
      *         will be forfeited if the project owner cancels a bundle that is in progress, which is
-     *         necessary to prevent owners from trolling executors by immediately cancelling and
+     *         necessary to prevent owners from trolling the executor by immediately cancelling and
      *         withdrawing funds.
      */
     uint256 public immutable ownerBondAmount;
-
-    /**
-     * @notice Amount in ETH that the executor must send to this contract to claim a bundle for
-     *         `executionLockTime`.
-     */
-    uint256 public immutable executorBondAmount;
 
     /**
      * @notice Amount of time for an executor to finish executing a bundle once they have claimed
@@ -221,9 +207,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public immutable executionLockTime;
 
     /**
-     * @notice Amount that executors are paid, denominated as a percentage of the cost of execution.
-     *         For example: if a bundle costs 1 gwei to execute and the executorPaymentPercentage is
-     *         10, then the executor will profit 0.1 gwei.
+     * @notice Amount that the executor is paid, denominated as a percentage of the cost of
+     *         execution. For example: if a bundle costs 1 gwei to execute and the
+     *         executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
      */
     uint256 public immutable executorPaymentPercentage;
 
@@ -232,12 +218,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         proxy, then its value in this mapping is the zero-address.
      */
     mapping(string => address payable) public proxies;
-
-    /**
-     * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
-     *         owed to them.
-     */
-    mapping(address => uint256) public debt;
 
     /**
      * @notice Mapping of targets to proxy types. If a target is using the default proxy,
@@ -279,16 +259,26 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     bytes32 public activeBundleId;
 
     /**
-     * @notice Total ETH amount that is owed to executors.
+     * @notice ETH amount that is owed to the executor.
      */
-    uint256 public totalDebt;
+    uint256 public debt;
+
+    /**
+     * @notice Modifier that restricts access to the executor.
+     */
+    modifier onlyExecutor() {
+        require(
+            registry.executors(msg.sender) == true,
+            "ChugSplashManager: caller is not an executor"
+        );
+        _;
+    }
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
      * @param _name                      Name of the project this contract is managing.
      * @param _owner                     Address of the project owner.
      * @param _proxyUpdater              Address of the ProxyUpdater.
-     * @param _executorBondAmount        Executor bond amount in ETH.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -301,14 +291,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         string memory _name,
         address _owner,
         address _proxyUpdater,
-        uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage
     ) {
         registry = _registry;
         proxyUpdater = _proxyUpdater;
-        executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -342,18 +330,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         string memory _configUri
     ) public pure returns (bytes32) {
         return keccak256(abi.encode(_bundleRoot, _bundleSize, _configUri));
-    }
-
-    /**
-     * @notice Queries the selected executor for a given project/bundle.
-     *
-     * @param _bundleId ID of the bundle currently being executed.
-     *
-     * @return Address of the selected executor.
-     */
-    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
-        ChugSplashBundleState storage bundle = _bundles[_bundleId];
-        return bundle.selectedExecutor;
     }
 
     /**
@@ -436,7 +412,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
         require(
-            address(this).balance - totalDebt >= ownerBondAmount,
+            address(this).balance - debt >= ownerBondAmount,
             "ChugSplashManager: insufficient balance in manager"
         );
 
@@ -464,7 +440,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         executor doesn't need to send as many transactions to execute a bundle. Note that
      *         this function only accepts SetStorage and DeployImplementation actions.
      *         SetImplementation actions must be sent separately to `completeChugSplashBundle` after
-     *         the SetStorage and DeployImplementation actions have been executed.
+     *         the SetStorage and DeployImplementation actions have been executed. Only callable by
+     *         the executor.
      *
      * @param _actions       Array of SetStorage/DeployImplementation actions to execute.
      * @param _actionIndexes Array of action indexes.
@@ -474,7 +451,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public {
+    ) public onlyExecutor {
         for (uint256 i = 0; i < _actions.length; i++) {
             executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
         }
@@ -484,7 +461,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Executes a specific action within the current active bundle for a project. Actions
      *         can only be executed once. A re-entrancy guard is added to prevent an implementation
      *         contract's constructor from calling another contract which in turn calls back into
-     *         this function.
+     *         this function. Only callable by the executor
      *
      * @param _action      Action to execute.
      * @param _actionIndex Index of the action in the bundle.
@@ -494,7 +471,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
-    ) public nonReentrant {
+    ) public nonReentrant onlyExecutor {
         uint256 initialGasLeft = gasleft();
 
         require(
@@ -507,12 +484,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(
             bundle.executions[_actionIndex] == false,
             "ChugSplashManager: action has already been executed"
-        );
-
-        address executor = getSelectedExecutor(activeBundleId);
-        require(
-            executor == msg.sender,
-            "ChugSplashManager: caller is not approved executor for active bundle ID"
         );
 
         require(
@@ -559,9 +530,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
                 emit DefaultProxyDeployed(_action.target, proxy, activeBundleId, _action.target);
                 registry.announce("DefaultProxyDeployed");
-            } else if (_getProxyImplementation(proxy, adapter) != address(0)) {
-                // Set the proxy's implementation to address(0).
-                _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
             }
         } else {
             // We intend to support alternative proxy types in the future, but doing so requires
@@ -570,6 +538,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             // additional checks.
             revert("ChugSplashManager: invalid proxy type, must be default proxy");
             // proxy = proxies[_action.target];
+        }
+
+        if (_getProxyImplementation(proxy, adapter) != address(0)) {
+            // Set the proxy's implementation to address(0). This ensures that end-users can't
+            // accidentally interact with a proxy that is in the process of being upgraded.
+            _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
         }
 
         // Mark the action as executed and update the total number of executed actions.
@@ -592,15 +566,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
         // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
-        // executorPayment to the totalDebt and debt. Unfortunately, there is a wide variance in the
+        // executorPayment to the debt and debt. Unfortunately, there is a wide variance in the
         // gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
         // might be contributing to the difficulty of getting a good estimate. For now, we err on
         // the side of safety by adding a larger value.
         // TODO: Get a better estimate than 152778.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
 
-        // Calculate the executor's payment and add it to the total debt and the current executor's
-        // debt.
+        // Calculate the executor's payment and add it to the debt owed to the executor.
         uint256 executorPayment;
         if (block.chainid != 10 && block.chainid != 420) {
             // Use the gas price for any network that isn't Optimism.
@@ -615,8 +588,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
         }
 
-        totalDebt += executorPayment;
-        debt[msg.sender] += executorPayment;
+        debt += executorPayment;
     }
 
     /**
@@ -624,6 +596,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         single transaction to ensure that all contracts are initialized at the same time.
      *         Note that this function will revert if it is called before all of the SetCode and
      *         DeployImplementation actions have been executed in `executeChugSplashAction`.
+     *         Only callable by the executor.
      *
      * @param _actions       Array of ChugSplashActions, where each action type must be
      *                       `SET_IMPLEMENTATION`.
@@ -634,18 +607,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public {
+    ) public onlyExecutor {
         uint256 initialGasLeft = gasleft();
 
         require(
             activeBundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
-        );
-
-        address executor = getSelectedExecutor(activeBundleId);
-        require(
-            executor == msg.sender,
-            "ChugSplashManager: caller is not approved executor for active bundle ID"
         );
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
@@ -724,10 +691,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
         }
 
-        // Add the executor's payment to the total debt.
-        totalDebt += executorPayment;
-        // Add the executor's payment and the executor's bond to their debt.
-        debt[msg.sender] += executorPayment + executorBondAmount;
+        // Add the executor's payment to the debt.
+        debt += executorPayment;
     }
 
     /**
@@ -745,19 +710,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        if (bundle.selectedExecutor != address(0)) {
-            if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
-                // Give the owner's bond to the current executor if the bundle is cancelled within
-                // the `executionLockTime` window. Also return the executor's bond.
-                debt[bundle.selectedExecutor] += ownerBondAmount + executorBondAmount;
-                // We don't add the `executorBondAmount` to the `totalDebt` here because we already
-                // did this in `claimBundle`.
-                totalDebt += ownerBondAmount;
-            } else {
-                // Give the executor's bond to the owner if the `executionLockTime` window has
-                // passed.
-                totalDebt -= executorBondAmount;
-            }
+        if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
+            // Give the owner's bond to the executor if the bundle is cancelled within
+            // the `executionLockTime` window.
+            debt += ownerBondAmount;
         }
 
         bytes32 cancelledBundleId = activeBundleId;
@@ -769,56 +725,19 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Allows an executor to post a bond of `executorBondAmount` to claim the sole right to
-     *         execute actions for a bundle over a period of `executionLockTime`. Only the first
-     *         executor to post a bond gains this right. Executors must finish executing the bundle
-     *         within `executionLockTime` or else their bond is forfeited to this contract and
-     *         another executor may claim the bundle. Note that this strategy creates a PGA for the
-     *         transaction to claim the bundle but removes PGAs during the execution process.
+     * @notice Allows the executor to claim their ETH payments and bond. The executor may only
+     *         withdraw ETH that is owed to it by this contract.
      */
-    function claimBundle() external payable {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
-        require(
-            executorBondAmount == msg.value,
-            "ChugSplashManager: incorrect executor bond amount"
-        );
+    function claimExecutorPayment() external onlyExecutor {
+        require(debt > 0, "ChugSplashManager: no debt to withdraw");
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        uint256 amountToWithdraw = debt;
+        debt = 0;
 
-        require(
-            block.timestamp > bundle.timeClaimed + executionLockTime,
-            "ChugSplashManager: bundle is currently claimed by an executor"
-        );
+        (bool success, ) = payable(msg.sender).call{ value: amountToWithdraw }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw executor funds failed");
 
-        address prevExecutor = bundle.selectedExecutor;
-        bundle.timeClaimed = block.timestamp;
-        bundle.selectedExecutor = msg.sender;
-
-        // Add the new executor's bond to the `totalDebt` if there was no previous executor. We skip
-        // this if there was a previous executor because this allows the owner to claim the previous
-        // executor's forfeited bond.
-        if (prevExecutor == address(0)) {
-            totalDebt += executorBondAmount;
-        }
-
-        emit ChugSplashBundleClaimed(activeBundleId, msg.sender);
-        registry.announce("ChugSplashBundleClaimed");
-    }
-
-    /**
-     * @notice Allows executors to claim their ETH payments and bond. Executors may only withdraw
-     *         ETH that is owed to them by this contract.
-     */
-    function claimExecutorPayment() external {
-        uint256 amount = debt[msg.sender];
-
-        debt[msg.sender] -= amount;
-        totalDebt -= amount;
-
-        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw owner funds failed");
-
-        emit ExecutorPaymentClaimed(msg.sender, amount);
+        emit ExecutorPaymentClaimed(msg.sender, amountToWithdraw);
         registry.announce("ExecutorPaymentClaimed");
     }
 
@@ -857,8 +776,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Allows the project owner to withdraw all funds in this contract minus the total debt
-     *         owed to the executors. Cannot be called when there is an active bundle.
+     * @notice Allows the project owner to withdraw all funds in this contract minus the debt
+     *         owed to the executor. Cannot be called when there is an active bundle.
      */
     function withdrawOwnerETH() external onlyOwner {
         require(
@@ -866,7 +785,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: cannot withdraw funds while bundle is active"
         );
 
-        uint256 amount = address(this).balance - totalDebt;
+        uint256 amount = address(this).balance - debt;
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw owner funds failed");
 

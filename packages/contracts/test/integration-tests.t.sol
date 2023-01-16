@@ -13,10 +13,10 @@ import { Create2 } from "../contracts/libraries/Create2.sol";
 contract Integration_Tests is Test {
 
     address owner = address(128);
+    address executor = address(256);
     bytes32 salt = bytes32(hex"11");
     string projectName = 'TestProject';
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
-    uint256 executorBondAmount = 1 ether;
     uint256 executionLockTime = 15 minutes;
     uint256 executorPaymentPercentage = 20;
     ChugSplashBootLoader bootloader;
@@ -34,7 +34,6 @@ contract Integration_Tests is Test {
 
         bootloader.initialize(
             owner,
-            executorBondAmount,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage,

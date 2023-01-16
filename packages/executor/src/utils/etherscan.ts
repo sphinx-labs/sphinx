@@ -214,7 +214,7 @@ export const verifyChugSplash = async (
       etherscanApiKey,
       minimumCompilerInput,
       buildInfo.solcVersion,
-      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
+      CHUGSPLASH_CONSTRUCTOR_ARGS[address]
     )
   }
 

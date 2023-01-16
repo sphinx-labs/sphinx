@@ -41,7 +41,7 @@ import {
   bundleRemote,
   readUserChugSplashConfig,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import { ChugSplashManagerABI, EXECUTOR } from '@chugsplash/contracts'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
@@ -717,10 +717,9 @@ task(TASK_NODE)
         const spinner = ora({ isSilent: hide })
         spinner.start('Booting up ChugSplash...')
 
-        await initializeChugSplash(
-          hre.ethers.provider,
-          hre.ethers.provider.getSigner()
-        )
+        const signer = hre.ethers.provider.getSigner()
+        const signerAddress = await signer.getAddress()
+        await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
         spinner.succeed('ChugSplash has been initialized.')
 
@@ -753,6 +752,8 @@ task(TASK_TEST)
     ) => {
       const { show, noCompile } = args
       const chainId = await getChainId(hre.ethers.provider)
+      const signer = hre.ethers.provider.getSigner()
+      const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
       if (chainId === 31337) {
         try {
           const snapshotIdPath = path.join(
@@ -769,10 +770,7 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await initializeChugSplash(
-            hre.ethers.provider,
-            hre.ethers.provider.getSigner()
-          )
+          await initializeChugSplash(hre.ethers.provider, signer, executor)
           if (!noCompile) {
             await hre.run(TASK_COMPILE, {
               quiet: true,
@@ -813,12 +811,13 @@ task(TASK_RUN)
     ) => {
       const { deployAll, noCompile } = args
       if (deployAll) {
+        const signer = hre.ethers.provider.getSigner()
         const chainId = await getChainId(hre.ethers.provider)
+
         const confirm = chainId === 31337 ? true : args.confirm
-        await initializeChugSplash(
-          hre.ethers.provider,
-          hre.ethers.provider.getSigner()
-        )
+        const executor =
+          chainId === 31337 ? await signer.getAddress() : EXECUTOR
+        await initializeChugSplash(hre.ethers.provider, signer, executor)
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {
             quiet: true,

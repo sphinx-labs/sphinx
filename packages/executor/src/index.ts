@@ -117,6 +117,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     await initializeChugSplash(
       this.state.provider,
       this.state.wallet,
+      this.state.wallet.address,
       this.logger
     )
 
