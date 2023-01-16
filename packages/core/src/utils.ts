@@ -347,7 +347,7 @@ export const generateFoundryTestArtifacts = (
     ([referenceName, contractConfig], i) =>
       (artifacts[i] = {
         referenceName,
-        contractName: contractConfig.contract,
+        contractName: contractConfig.contract.split(':')[1],
         contractAddress: contractConfig.proxy,
       })
   )

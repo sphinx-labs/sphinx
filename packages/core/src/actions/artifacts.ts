@@ -34,7 +34,7 @@ export type ContractArtifact = {
  * @param artifact Raw artifact object.
  * @returns ContractArtifact
  */
-const parseFoundryArtifact = (artifact: any): ContractArtifact => {
+export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const abi = artifact.abi
   const bytecode = artifact.bytecode.object
 
