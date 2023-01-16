@@ -119,6 +119,10 @@ export const estimateExecutionCost = async (
   // defined on Optimism.
   const estGasPrice = feeData.maxFeePerGas ?? feeData.gasPrice
 
+  if (estGasPrice === null) {
+    throw new Error(`Gas price does not exist on network`)
+  }
+
   return estExecutionGas.mul(estGasPrice)
 }
 

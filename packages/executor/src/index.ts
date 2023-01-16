@@ -1,11 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import {
-  BaseServiceV2,
-  Logger,
-  LogLevel,
-  validators,
-} from '@eth-optimism/common-ts'
+import { BaseServiceV2, Logger, validators } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
   ChugSplashManagerABI,
@@ -22,41 +17,30 @@ import {
   ChugSplashBundleState,
   ChugSplashActionBundle,
   readCanonicalConfig,
+  trackExecuted,
+  Integration,
+  compileRemoteBundle,
+  bundleRemote,
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState,
 } from '@chugsplash/core'
-import * as Amplitude from '@amplitude/node'
 import { getChainId } from '@eth-optimism/core-utils'
 
 import {
-  compileRemoteBundle,
   verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
-  bundleRemoteSubtask,
 } from './utils'
 
 export * from './utils'
 
-type Options = {
-  url: string
-  network: string
-  privateKey: string
-  amplitudeKey: string
-  logLevel: LogLevel
-}
-
-type Metrics = {}
-
-type State = {
-  eventsQueue: ethers.Event[]
-  registry: ethers.Contract
-  provider: ethers.providers.JsonRpcProvider
-  lastBlockNumber: number
-  amplitudeClient: Amplitude.NodeClient
-  wallet: ethers.Wallet
-}
-
-export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
-  constructor(options?: Partial<Options>) {
+export class ChugSplashExecutor extends BaseServiceV2<
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState
+> {
+  constructor(options?: Partial<ExecutorOptions>) {
     super({
       name: 'chugsplash-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -82,11 +66,6 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           default:
             '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
         },
-        amplitudeKey: {
-          desc: 'Amplitude API key for analytics',
-          validator: validators.str,
-          default: 'disabled',
-        },
         logLevel: {
           desc: 'Executor log level',
           validator: validators.str,
@@ -105,17 +84,14 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
    * environment variables.
    **/
   async setup(
-    options: Partial<Options>,
+    options: Partial<ExecutorOptions>,
+    remoteExecution: boolean,
     provider?: ethers.providers.JsonRpcProvider
   ) {
     this.logger = new Logger({
       name: 'Logger',
       level: options.logLevel,
     })
-
-    if (options.amplitudeKey !== 'disabled') {
-      this.state.amplitudeClient = Amplitude.init(this.options.amplitudeKey)
-    }
 
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
     this.state.provider =
@@ -147,7 +123,10 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
+    if (
+      remoteExecution &&
+      isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
+    ) {
       this.logger.info(
         '[ChugSplash]: attempting to verify the chugsplash contracts...'
       )
@@ -163,10 +142,14 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
   }
 
   async init() {
-    await this.setup(this.options)
+    await this.setup(this.options, true)
   }
 
-  async main(localBundleId?: string, canonicalConfigFolderPath?: string) {
+  async main(
+    canonicalConfigFolderPath?: string,
+    integration?: Integration,
+    remoteExecution: boolean = false
+  ) {
     const { provider, wallet, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
@@ -232,16 +215,18 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
         // executor), or using the Config URI
         let bundle: ChugSplashActionBundle
         let canonicalConfig: CanonicalChugSplashConfig
-        if (localBundleId !== undefined) {
-          canonicalConfig = readCanonicalConfig(
-            canonicalConfigFolderPath,
-            localBundleId
-          )
-          bundle = await bundleRemoteSubtask({ canonicalConfig })
-        } else {
+        if (remoteExecution) {
           ;({ bundle, canonicalConfig } = await compileRemoteBundle(
             proposalEvent.args.configUri
           ))
+        } else {
+          canonicalConfig = readCanonicalConfig(
+            canonicalConfigFolderPath,
+            proposalEvent.args.configUri
+          )
+          bundle = await bundleRemote({
+            canonicalConfig,
+          })
         }
         const projectName = canonicalConfig.options.projectName
 
@@ -300,7 +285,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           try {
             if (
               isSupportedNetworkOnEtherscan(
-                await getChainId(this.state.provider)
+                remoteExecution && (await getChainId(this.state.provider))
               )
             ) {
               this.logger.info(
@@ -328,16 +313,12 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
             )
           }
 
-          if (this.options.amplitudeKey !== 'disabled') {
-            this.state.amplitudeClient.logEvent({
-              event_type: 'chugsplash executed',
-              user_id: await getProjectOwnerAddress(provider, projectName),
-              event_properties: {
-                projectName,
-                network: this.options.network,
-              },
-            })
-          }
+          trackExecuted(
+            await getProjectOwnerAddress(this.state.wallet, projectName),
+            projectName,
+            this.options.network,
+            integration
+          )
         } else {
           this.logger.info(
             `[ChugSplash]: ${projectName} has insufficient funds`

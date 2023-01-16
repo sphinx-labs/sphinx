@@ -1,4 +1,171 @@
-import { CompilerInput, CompilerOutputSources } from './types'
+import { SolcBuild } from 'hardhat/types'
+import { getCompilersDir } from 'hardhat/internal/util/global-dir'
+import {
+  CompilerDownloader,
+  CompilerPlatform,
+} from 'hardhat/internal/solidity/compiler/downloader'
+import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
+import { add0x } from '@eth-optimism/core-utils'
+
+import {
+  CanonicalChugSplashConfig,
+  chugsplashFetchSubtask,
+  makeActionBundleFromConfig,
+} from '../../config'
+import {
+  ChugSplashActionBundle,
+  getCreationCodeWithConstructorArgs,
+  getImmutableVariables,
+} from '../../actions'
+import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
+import { addEnumMembersToStorageLayout } from './storage'
+
+export const bundleRemote = async (args: {
+  canonicalConfig: CanonicalChugSplashConfig
+}): Promise<ChugSplashActionBundle> => {
+  const { canonicalConfig } = args
+
+  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
+
+  return makeActionBundleFromConfig(canonicalConfig, artifacts)
+}
+
+// Credit: NomicFoundation
+// https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
+export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
+  const compilersCache = await getCompilersDir()
+
+  const compilerPlatform = CompilerDownloader.getCompilerPlatform()
+  const downloader = CompilerDownloader.getConcurrencySafeDownloader(
+    compilerPlatform,
+    compilersCache
+  )
+
+  const isCompilerDownloaded = await downloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isCompilerDownloaded) {
+    console.log(`Downloading compiler version ${solcVersion}`)
+    await downloader.downloadCompiler(solcVersion)
+  }
+
+  const compiler = await downloader.getCompiler(solcVersion)
+
+  if (compiler !== undefined) {
+    return compiler
+  }
+
+  const wasmDownloader = CompilerDownloader.getConcurrencySafeDownloader(
+    CompilerPlatform.WASM,
+    compilersCache
+  )
+
+  const isWasmCompilerDownloader = await wasmDownloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isWasmCompilerDownloader) {
+    console.log(`Downloading compiler version ${solcVersion}`)
+    await wasmDownloader.downloadCompiler(solcVersion)
+  }
+
+  const wasmCompiler = await wasmDownloader.getCompiler(solcVersion)
+
+  if (wasmCompiler === undefined) {
+    throw new Error(`Could not get WASM compiler.`)
+  }
+
+  return wasmCompiler
+}
+
+// TODO: `CanonicalConfigArtifact` type
+export const getCanonicalConfigArtifacts = async (
+  canonicalConfig: CanonicalChugSplashConfig
+): Promise<{ [referenceName: string]: any }> => {
+  const compilerOutputs: any[] = []
+  // Get the compiler output for each compiler input.
+  for (const compilerInput of canonicalConfig.inputs) {
+    const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
+    let compilerOutput: CompilerOutput
+    if (solcBuild.isSolcJs) {
+      const compiler = new Compiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(compilerInput.input)
+    } else {
+      const compiler = new NativeCompiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(compilerInput.input)
+    }
+    compilerOutputs.push(compilerOutput)
+  }
+
+  const artifacts = {}
+  // Generate an artifact for each contract in the ChugSplash config.
+  for (const [referenceName, contractConfig] of Object.entries(
+    canonicalConfig.contracts
+  )) {
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    for (const compilerOutput of compilerOutputs) {
+      const contractOutput =
+        compilerOutput.contracts?.[sourceName]?.[contractName]
+      if (contractOutput !== undefined) {
+        const creationCode = getCreationCodeWithConstructorArgs(
+          add0x(contractOutput.evm.bytecode.object),
+          canonicalConfig,
+          referenceName,
+          contractOutput.abi,
+          compilerOutput,
+          sourceName,
+          contractName
+        )
+        const immutableVariables = getImmutableVariables(
+          compilerOutput,
+          sourceName,
+          contractName
+        )
+
+        addEnumMembersToStorageLayout(
+          contractOutput.storageLayout,
+          contractName,
+          compilerOutput.sources[sourceName].ast.nodes
+        )
+
+        artifacts[referenceName] = {
+          creationCode,
+          storageLayout: contractOutput.storageLayout,
+          immutableVariables,
+          abi: contractOutput.abi,
+          compilerOutput,
+          sourceName,
+          contractName,
+        }
+      }
+    }
+  }
+  return artifacts
+}
+
+/**
+ * Compiles a remote ChugSplashBundle from a uri.
+ *
+ * @param configUri URI of the ChugSplashBundle to compile.
+ * @param provider JSON RPC provider.
+ * @returns Compiled ChugSplashBundle.
+ */
+export const compileRemoteBundle = async (
+  configUri: string
+): Promise<{
+  bundle: ChugSplashActionBundle
+  canonicalConfig: CanonicalChugSplashConfig
+}> => {
+  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+
+  const bundle = await bundleRemote({
+    canonicalConfig,
+  })
+  return { bundle, canonicalConfig }
+}
 
 /**
  * Returns the minimum compiler input necessary to compile a given source name. All contracts that

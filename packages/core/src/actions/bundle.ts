@@ -2,6 +2,16 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
+import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
+import { Integration } from '../constants'
+import { ArtifactPaths } from '../languages'
+import {
+  readContractArtifact,
+  readStorageLayout,
+  getCreationCodeWithConstructorArgs,
+  getImmutableVariables,
+  readBuildInfo,
+} from './artifacts'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -173,7 +183,7 @@ export const makeBundleFromActions = (
   })
 
   // Pad the list of elements out with default hashes if len < a power of 2.
-  const filledElements = []
+  const filledElements: string[] = []
   for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
     if (i < elements.length) {
       filledElements.push(elements[i])
@@ -206,4 +216,52 @@ export const makeBundleFromActions = (
       }
     }),
   }
+}
+
+export const bundleLocal = async (
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ChugSplashActionBundle> => {
+  const artifacts = {}
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const storageLayout = readStorageLayout(
+      contractConfig.contract,
+      artifactPaths,
+      integration
+    )
+
+    const { abi, sourceName, contractName, bytecode } = readContractArtifact(
+      artifactPaths,
+      contractConfig.contract,
+      integration
+    )
+    const { output: compilerOutput } = readBuildInfo(
+      artifactPaths,
+      contractConfig.contract
+    )
+    const creationCode = getCreationCodeWithConstructorArgs(
+      bytecode,
+      parsedConfig,
+      referenceName,
+      abi,
+      compilerOutput,
+      sourceName,
+      contractName
+    )
+    const immutableVariables = getImmutableVariables(
+      compilerOutput,
+      sourceName,
+      contractName
+    )
+    artifacts[referenceName] = {
+      creationCode,
+      storageLayout,
+      immutableVariables,
+    }
+  }
+
+  return makeActionBundleFromConfig(parsedConfig, artifacts)
 }

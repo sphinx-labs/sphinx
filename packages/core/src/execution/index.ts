@@ -1,49 +1,62 @@
-import {
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
-  ParsedChugSplashConfig,
-  getChugSplashManager,
-  getOwnerWithdrawableAmount,
-  getProjectOwnerAddress,
-  ChugSplashActionType,
-  ChugSplashActionBundle,
-  getCurrentChugSplashActionType,
-  getAmountToDeposit,
-  EXECUTION_BUFFER_MULTIPLIER,
-  formatEther,
-  getGasPriceOverrides,
-} from '@chugsplash/core'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { sleep } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
-import { getChainId, sleep } from '@eth-optimism/core-utils'
 import ora from 'ora'
 
-import { getFinalDeploymentTxnHash } from './deployments'
-import { writeHardhatSnapshotId } from './utils'
-import { createDeploymentArtifacts } from './artifacts'
+import {
+  ChugSplashActionBundle,
+  ChugSplashActionType,
+  ChugSplashBundleState,
+  ChugSplashBundleStatus,
+  createDeploymentArtifacts,
+} from '../actions'
+import { ParsedChugSplashConfig } from '../config'
+import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
+import { getFinalDeploymentTxnHash } from '../deployments'
+import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
+import { ArtifactPaths } from '../languages'
+import { resolveNetworkName } from '../messages'
+import {
+  formatEther,
+  getChugSplashManager,
+  getCurrentChugSplashActionType,
+  getGasPriceOverrides,
+  getProjectOwnerAddress,
+  writeSnapshotId,
+} from '../utils'
+
+export const getNumDeployedImplementations = (
+  bundle: ChugSplashActionBundle,
+  actionsExecuted: ethers.BigNumber
+): number => {
+  return bundle.actions
+    .slice(0, actionsExecuted.toNumber())
+    .filter(
+      (action) =>
+        action.action.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
+    ).length
+}
 
 export const monitorExecution = async (
-  hre: HardhatRuntimeEnvironment,
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
   bundle: ChugSplashActionBundle,
   bundleId: string,
-  spinner: ora.Ora
-): Promise<string> => {
+  spinner: ora.Ora,
+  integration: Integration
+) => {
   spinner.start('Waiting for executor...')
-  const provider = hre.ethers.provider
+  const networkName = resolveNetworkName(provider, integration)
 
   const projectName = parsedConfig.options.projectName
-  const ChugSplashManager = getChugSplashManager(
-    provider.getSigner(),
-    projectName
-  )
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   // Get the bundle state of the bundle ID.
   let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
 
-  let actionType: ChugSplashActionType
+  let actionType: ChugSplashActionType | undefined
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     // Check if there are enough funds in the ChugSplashManager to finish the deployment.
     const amountToDeposit = await getAmountToDeposit(
@@ -59,14 +72,12 @@ export const monitorExecution = async (
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
         `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
-Run the following command to add funds to your deployment so it can be completed:
+  Run the following command to add funds to your deployment so it can be completed:
 
-npx hardhat chugsplash-fund --network ${
-          hre.network.name
-        } --amount ${amountToDeposit.mul(
+  npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.mul(
           EXECUTION_BUFFER_MULTIPLIER
         )} --config-path <configPath>
-        `
+          `
       )
     }
 
@@ -130,18 +141,6 @@ npx hardhat chugsplash-fund --network ${
   }
 }
 
-export const getNumDeployedImplementations = (
-  bundle: ChugSplashActionBundle,
-  actionsExecuted: ethers.BigNumber
-): number => {
-  return bundle.actions
-    .slice(0, actionsExecuted.toNumber())
-    .filter(
-      (action) =>
-        action.action.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
-    ).length
-}
-
 /**
  * Performs actions on behalf of the project owner after the successful execution of a bundle.
  *
@@ -154,21 +153,27 @@ export const getNumDeployedImplementations = (
  * @param newProjectOwner Optional address to receive ownership of the project.
  */
 export const postExecutionActions = async (
-  hre: HardhatRuntimeEnvironment,
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
   finalDeploymentTxnHash: string,
   withdraw: boolean,
+  networkName: string,
+  deploymentfolderPath: string,
+  artifactPaths: ArtifactPaths,
+  artifactFolder: string,
+  buildInfoFolder: string,
+  integration: Integration,
+  remoteExecution: boolean,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
   )
   const currProjectOwner = await getProjectOwnerAddress(
-    hre.ethers.provider,
+    signer,
     parsedConfig.options.projectName
   )
 
@@ -209,6 +214,7 @@ export const postExecutionActions = async (
 
     // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
     if (
+      newProjectOwner !== undefined &&
       ethers.utils.isAddress(newProjectOwner) &&
       newProjectOwner !== currProjectOwner
     ) {
@@ -232,14 +238,20 @@ export const postExecutionActions = async (
     }
   }
 
-  spinner.start(`Writing deployment artifacts...`)
-
   // Save the snapshot ID if we're on the hardhat network.
-  if ((await getChainId(hre.ethers.provider)) === 31337) {
-    await writeHardhatSnapshotId(hre)
+  if (!remoteExecution) {
+    await writeSnapshotId(provider, networkName, deploymentfolderPath)
   }
 
-  await createDeploymentArtifacts(hre, parsedConfig, finalDeploymentTxnHash)
-
-  spinner.succeed(`Wrote deployment artifacts.`)
+  await createDeploymentArtifacts(
+    provider,
+    parsedConfig,
+    finalDeploymentTxnHash,
+    artifactPaths,
+    integration,
+    spinner,
+    networkName,
+    deploymentfolderPath,
+    remoteExecution
+  )
 }

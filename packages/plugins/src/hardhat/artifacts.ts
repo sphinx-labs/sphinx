@@ -1,27 +1,16 @@
 import path from 'path'
 
-import * as semver from 'semver'
+import { BuildInfo } from 'hardhat/types'
 import {
-  SolidityStorageLayout,
-  ParsedChugSplashConfig,
-  createDeploymentFolderForNetwork,
-  writeDeploymentArtifact,
-  getConstructorArgs,
-  ChugSplashInputs,
-  CompilerInput,
-  getMinimumCompilerInput,
+  ArtifactPaths,
+  ContractArtifact,
+  UserContractConfigs,
 } from '@chugsplash/core'
-import { ethers } from 'ethers'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-
-// TODO
-export type ContractArtifact = any
-export type BuildInfo = any
 
 /**
  * Retrieves an artifact by name.
  *
- * @param name Name of the artifact.
+ * @param Name Name of the contract.
  * @returns Artifact.
  */
 export const getContractArtifact = (name: string): ContractArtifact => {
@@ -67,165 +56,24 @@ export const getBuildInfo = async (
   return buildInfo
 }
 
-/**
- * Retrieves the storageLayout portion of the compiler artifact for a given contract by name. This
- * function is hardhat specific.
- *
- * @param hre HardhatRuntimeEnvironment, required for the readArtifactSync function.
- * @param name Name of the contract to retrieve the storage layout for.
- * @return Storage layout object from the compiler output.
- */
-export const getStorageLayout = async (
-  name: string
-): Promise<SolidityStorageLayout> => {
-  const { sourceName, contractName } = getContractArtifact(name)
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
+export const getArtifactPaths = async (
+  contractConfigs: UserContractConfigs,
+  artifactFolder: string,
+  buildInfoFolder: string
+): Promise<ArtifactPaths> => {
+  const artifactPaths: ArtifactPaths = {}
 
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  if (!('storageLayout' in output)) {
-    throw new Error(
-      `Storage layout for ${name} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
-    )
-  }
-
-  return (output as any).storageLayout
-}
-
-export const getDeployedBytecode = async (
-  provider: ethers.providers.JsonRpcProvider,
-  address: string
-): Promise<string> => {
-  const deployedBytecode = await provider.getCode(address)
-  return deployedBytecode
-}
-
-/**
- * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
- * config.
- *
- * @param chugsplashInputs ChugSplash input array.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns Filtered ChugSplash input array.
- */
-export const filterChugSplashInputs = async (
-  chugsplashInputs: ChugSplashInputs,
-  parsedConfig: ParsedChugSplashConfig
-): Promise<ChugSplashInputs> => {
-  const filteredChugSplashInputs: ChugSplashInputs = []
-  for (const chugsplashInput of chugsplashInputs) {
-    let filteredSources: CompilerInput['sources'] = {}
-    for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      const { sourceName, contractName } = getContractArtifact(
-        contractConfig.contract
-      )
-      const { solcVersion, output: compilerOutput } = await getBuildInfo(
-        sourceName,
-        contractName
-      )
-      if (solcVersion === chugsplashInput.solcVersion) {
-        const { sources: newSources } = getMinimumCompilerInput(
-          chugsplashInput.input,
-          compilerOutput.sources,
-          sourceName
-        )
-        // Merge the existing sources with the new sources, which are required to compile the
-        // current `sourceName`.
-        filteredSources = { ...filteredSources, ...newSources }
-      }
-    }
-    const filteredCompilerInput: CompilerInput = {
-      language: chugsplashInput.input.language,
-      settings: chugsplashInput.input.settings,
-      sources: filteredSources,
-    }
-    filteredChugSplashInputs.push({
-      solcVersion: chugsplashInput.solcVersion,
-      solcLongVersion: chugsplashInput.solcLongVersion,
-      input: filteredCompilerInput,
-    })
-  }
-
-  return filteredChugSplashInputs
-}
-
-export const createDeploymentArtifacts = async (
-  hre: HardhatRuntimeEnvironment,
-  parsedConfig: ParsedChugSplashConfig,
-  finalDeploymentTxnHash: string
-) => {
-  createDeploymentFolderForNetwork(
-    hre.network.name,
-    hre.config.paths.deployments
-  )
-
-  const provider = hre.ethers.provider
-
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const artifact = getContractArtifact(contractConfig.contract)
-    const { sourceName, contractName, bytecode, abi } = artifact
-
+  for (const { contract } of Object.values(contractConfigs)) {
+    const { sourceName, contractName } = getContractArtifact(contract)
     const buildInfo = await getBuildInfo(sourceName, contractName)
-
-    const { constructorArgValues } = getConstructorArgs(
-      parsedConfig,
-      referenceName,
-      abi,
-      buildInfo.output,
-      sourceName,
-      contractName
-    )
-
-    const receipt = await provider.getTransactionReceipt(finalDeploymentTxnHash)
-
-    const metadata =
-      buildInfo.output.contracts[sourceName][contractName].metadata
-
-    const { devdoc, userdoc } =
-      typeof metadata === 'string'
-        ? JSON.parse(metadata).output
-        : metadata.output
-
-    const deploymentArtifact = {
-      contractName,
-      address: contractConfig.proxy,
-      abi,
-      transactionHash: finalDeploymentTxnHash,
-      solcInputHash: buildInfo.id,
-      receipt: {
-        ...receipt,
-        gasUsed: receipt.gasUsed.toString(),
-        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-        // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
-        ...(receipt.effectiveGasPrice && {
-          effectiveGasPrice: receipt.effectiveGasPrice.toString(),
-        }),
-      },
-      numDeployments: 1,
-      metadata:
-        typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-      args: constructorArgValues,
-      bytecode,
-      deployedBytecode: await provider.getCode(contractConfig.proxy),
-      devdoc,
-      userdoc,
-      storageLayout: await getStorageLayout(contractConfig.contract),
+    artifactPaths[contract] = {
+      buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
+      contractArtifactPath: path.join(
+        artifactFolder,
+        sourceName,
+        `${contractName}.json`
+      ),
     }
-
-    writeDeploymentArtifact(
-      hre.network.name,
-      hre.config.paths.deployments,
-      deploymentArtifact,
-      referenceName
-    )
   }
+  return artifactPaths
 }
