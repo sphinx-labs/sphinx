@@ -47,7 +47,7 @@ const chugsplashManagerConstructorArgTypes =
 
 export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =
   '0x4e59b44847b379578588920ca78fbf26c0b4956c'
-export const OWNER_BOND_AMOUNT = ethers.utils.parseEther('0.01')
+export const OWNER_BOND_AMOUNT = ethers.utils.parseEther('0.001')
 export const EXECUTOR_BOND_AMOUNT = ethers.utils.parseEther('0.01')
 export const EXECUTION_LOCK_TIME = 15 * 60
 export const EXECUTOR_PAYMENT_PERCENTAGE = 20
