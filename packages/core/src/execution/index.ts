@@ -44,7 +44,7 @@ export const monitorExecution = async (
   bundleId: string,
   spinner: ora.Ora,
   integration: Integration
-): Promise<string> => {
+) => {
   spinner.start('Waiting for executor...')
   const networkName = resolveNetworkName(provider, integration)
 
@@ -56,7 +56,7 @@ export const monitorExecution = async (
     bundleId
   )
 
-  let actionType: ChugSplashActionType
+  let actionType: ChugSplashActionType | undefined
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     // Check if there are enough funds in the ChugSplashManager to finish the deployment.
     const amountToDeposit = await getAmountToDeposit(
@@ -214,6 +214,7 @@ export const postExecutionActions = async (
 
     // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
     if (
+      newProjectOwner !== undefined &&
       ethers.utils.isAddress(newProjectOwner) &&
       newProjectOwner !== currProjectOwner
     ) {

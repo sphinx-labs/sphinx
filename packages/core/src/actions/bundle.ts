@@ -183,7 +183,7 @@ export const makeBundleFromActions = (
   })
 
   // Pad the list of elements out with default hashes if len < a power of 2.
-  const filledElements = []
+  const filledElements: string[] = []
   for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
     if (i < elements.length) {
       filledElements.push(elements[i])

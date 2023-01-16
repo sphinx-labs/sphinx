@@ -31,7 +31,7 @@ export const bundleRemote = async (args: {
 
 // Credit: NomicFoundation
 // https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
-export const getSolcBuild = async (solcVersion: string) => {
+export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   const compilersCache = await getCompilersDir()
 
   const compilerPlatform = CompilerDownloader.getCompilerPlatform()
@@ -70,6 +70,11 @@ export const getSolcBuild = async (solcVersion: string) => {
   }
 
   const wasmCompiler = await wasmDownloader.getCompiler(solcVersion)
+
+  if (wasmCompiler === undefined) {
+    throw new Error(`Could not get WASM compiler.`)
+  }
+
   return wasmCompiler
 }
 

@@ -146,7 +146,7 @@ export const chugsplashDeployTask = async (
   const signerAddress = await signer.getAddress()
   const remoteExecution = (await getChainId(provider)) !== 31337
 
-  let executor: ChugSplashExecutorType
+  let executor: ChugSplashExecutorType | undefined
   if (remoteExecution) {
     spinner.start('Waiting for the executor to set up ChugSplash...')
     await monitorChugSplashSetup(provider, signer)
@@ -406,6 +406,12 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
 
     console.table(
       events.map((event) => {
+        if (event.args === undefined) {
+          throw new Error(
+            `ChugSplashProjectRegistered event does not have arguments.`
+          )
+        }
+
         return {
           name: event.args.projectName,
           manager: event.args.manager,
@@ -508,7 +514,12 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       let approvedEvent: any
       if (activeBundleId !== ethers.constants.HashZero) {
         for (let i = 0; i < proposedEvents.length; i++) {
-          const bundleId = proposedEvents[i].args.bundleId
+          const proposedEvent = proposedEvents[i]
+          if (proposedEvent.args === undefined) {
+            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+          }
+
+          const bundleId = proposedEvent.args.bundleId
           if (bundleId === activeBundleId) {
             // Remove the active bundle event in-place and return it.
             approvedEvent = proposedEvents.splice(i, 1)
@@ -527,6 +538,13 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       for (const executed of executedEvents) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const proposed = proposedEvents[i]
+          if (proposed.args === undefined) {
+            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+          } else if (executed.args === undefined) {
+            throw new Error(
+              `ChugSplashBundleCompleted event does not have arguments.`
+            )
+          }
           // Remove the event if the bundle hashes match
           if (proposed.args.bundleId === executed.args.bundleId) {
             proposedEvents.splice(i, 1)
@@ -540,11 +558,14 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       } else {
         // Display the proposed bundles
         console.log(`Proposals for ${args.projectName}:`)
-        proposedEvents.forEach((event) =>
+        proposedEvents.forEach((event) => {
+          if (event.args === undefined) {
+            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+          }
           console.log(
             `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
           )
-        )
+        })
       }
 
       // Display the approved bundle if it exists
@@ -559,11 +580,16 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       if (args.includeExecuted) {
         console.log('\n')
         console.log('Executed:')
-        executedEvents.forEach((event) =>
+        executedEvents.forEach((event) => {
+          if (event.args === undefined) {
+            throw new Error(
+              `ChugSplashBundleCompleted event does not have arguments.`
+            )
+          }
           console.log(
             `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
           )
-        )
+        })
       }
     }
   )

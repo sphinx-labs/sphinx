@@ -257,8 +257,16 @@ export const getProjectOwnerAddress = async (
     ChugSplashManager.filters.OwnershipTransferred()
   )
 
+  const latestEvent = ownershipTransferredEvents.at(-1)
+
+  if (latestEvent === undefined) {
+    throw new Error(`Could not find OwnershipTransferred event.`)
+  } else if (latestEvent.args === undefined) {
+    throw new Error(`No args found for OwnershipTransferred event.`)
+  }
+
   // Get the most recent owner from the list of events
-  const projectOwner = ownershipTransferredEvents.at(-1).args.newOwner
+  const projectOwner = latestEvent.args.newOwner
 
   return projectOwner
 }
@@ -369,8 +377,16 @@ export const claimExecutorPayment = async (
 
 export const getProxyAdmin = async (Proxy: Contract) => {
   // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
-  const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
-  return args.newAdmin
+  const adminChangedEvents = await Proxy.queryFilter('AdminChanged')
+  const latestEvent = adminChangedEvents.at(-1)
+
+  if (latestEvent === undefined) {
+    throw new Error(`Could not find AdminChanged event.`)
+  } else if (latestEvent.args === undefined) {
+    throw new Error(`No args found for AdminChanged event.`)
+  }
+
+  return latestEvent.args.newAdmin
 }
 
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
