@@ -2,7 +2,8 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { ethers } from 'ethers'
+import { ethers, providers } from 'ethers'
+import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
 
 /* Imports: Internal */
 import {
@@ -13,12 +14,14 @@ import {
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
+  readStorageLayout,
   makeBundleFromActions,
   readContractArtifact,
 } from '../actions'
 import { getDefaultProxyAddress } from '../utils'
 import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
 import { Integration } from '../constants'
+import { getLatestDeployedStorageLayout } from '../deployed'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -32,7 +35,9 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
+export const assertValidChugSplashConfigFields = (
+  config: UserChugSplashConfig
+) => {
   if (config.contracts === undefined) {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
@@ -104,6 +109,43 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
   }
 }
 
+export const assertValidUpgrade = async (
+  provider: providers.Provider,
+  config: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string
+) => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    config.contracts
+  )) {
+    const newStorageLayout = readStorageLayout(
+      contractConfig.contract,
+      artifactPaths,
+      integration
+    )
+
+    const isProxyDeployed =
+      (await provider.getCode(contractConfig.proxy)) !== '0x'
+    if (isProxyDeployed && config.options.skipStorageCheck !== true) {
+      const currStorageLayout = await getLatestDeployedStorageLayout(
+        provider,
+        referenceName,
+        contractConfig.proxy,
+        remoteExecution,
+        canonicalConfigFolderPath
+      )
+
+      assertStorageUpgradeSafe(
+        currStorageLayout as any,
+        newStorageLayout as any,
+        false
+      )
+    }
+  }
+}
+
 /**
  * Parses a ChugSplash config file from the config file given by the user.
  *
@@ -116,8 +158,6 @@ export const parseChugSplashConfig = (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): ParsedChugSplashConfig => {
-  validateChugSplashConfig(config)
-
   const contracts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts

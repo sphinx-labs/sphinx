@@ -36,7 +36,6 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
   ): Promise<void>
   init(): Promise<void>
   main(
-    localBundleId?: string,
     canonicalConfigFolderPath?: string,
     integration?: Integration,
     remoteExecution?: boolean

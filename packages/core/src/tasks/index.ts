@@ -9,7 +9,11 @@ import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
+import {
+  assertValidUpgrade,
+  CanonicalChugSplashConfig,
+  ParsedChugSplashConfig,
+} from '../config'
 import {
   computeBundleId,
   displayDeploymentTable,
@@ -22,7 +26,7 @@ import {
   getGasPriceOverrides,
   getProjectOwnerAddress,
   isProjectRegistered,
-  loadParsedChugSplashConfig,
+  readParsedChugSplashConfig,
   registerChugSplashProject,
   writeCanonicalConfig,
 } from '../utils'
@@ -126,6 +130,15 @@ export const chugsplashProposeAbstractTask = async (
   }
 
   await initializeChugSplash(provider, signer)
+
+  await assertValidUpgrade(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration,
+    remoteExecution,
+    canonicalConfigPath
+  )
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -359,7 +372,7 @@ IPFS_API_KEY_SECRET: ...
 
   // Write the canonical config to the local file system if we aren't committing it to IPFS.
   if (!commitToIpfs) {
-    writeCanonicalConfig(canonicalConfigPath, bundleId, canonicalConfig)
+    writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
   }
 
   if (spinner) {
@@ -392,7 +405,7 @@ export const chugsplashApproveAbstractTask = async (
   remoteExecution: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -536,7 +549,7 @@ export const chugsplashFundAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: silent, stream })
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -616,11 +629,21 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
   )
+
+  await assertValidUpgrade(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration,
+    remoteExecution,
+    canonicalConfigPath
+  )
+
   const projectName = parsedConfig.options.projectName
 
   const projectPreviouslyRegistered = await isProjectRegistered(
@@ -795,7 +818,7 @@ export const chugsplashDeployAbstractTask = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(bundleId, canonicalConfigPath, integration)
+    await executor.main(canonicalConfigPath, integration)
     spinner.succeed(`Executed ${projectName}.`)
   } else {
     throw new Error(`Local execution specified but no executor was given.`)
@@ -859,7 +882,7 @@ export const chugsplashMonitorAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(`Loading project information...`)
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -963,7 +986,7 @@ export const chugsplashCancelAbstractTask = async (
 ) => {
   const networkName = resolveNetworkName(provider, integration)
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -1038,7 +1061,7 @@ export const chugsplashWithdrawAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const networkName = resolveNetworkName(provider, integration)
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -1197,7 +1220,7 @@ export const chugsplashListProposersAbstractTask = async (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ) => {
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -1270,7 +1293,7 @@ export const chugsplashAddProposersAbstractTask = async (
     throw new Error('You must specify at least one proposer to add.')
   }
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -1354,7 +1377,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
@@ -1426,7 +1449,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = loadParsedChugSplashConfig(
+  const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
     integration
