@@ -593,3 +593,25 @@ but does not exist as a variable in the contract`
 
   return slots
 }
+
+export const addEnumMembersToStorageLayout = (
+  storageLayout: SolidityStorageLayout,
+  contractName: string,
+  sourceNodes: any
+): SolidityStorageLayout => {
+  for (const layoutType of Object.values(storageLayout.types)) {
+    if (layoutType.label.startsWith('enum')) {
+      const canonicalVarName = layoutType.label.substring(5)
+      for (const contractNode of sourceNodes) {
+        if (contractNode.canonicalName === contractName) {
+          for (const node of contractNode.nodes) {
+            if (node.canonicalName === canonicalVarName) {
+              layoutType.members = node.members.map((member) => member.name)
+            }
+          }
+        }
+      }
+    }
+  }
+  return storageLayout
+}

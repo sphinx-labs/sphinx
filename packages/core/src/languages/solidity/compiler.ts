@@ -18,6 +18,7 @@ import {
   getImmutableVariables,
 } from '../../actions'
 import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
+import { addEnumMembersToStorageLayout } from './storage'
 
 export const bundleRemote = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
@@ -122,6 +123,12 @@ export const getCanonicalConfigArtifacts = async (
           compilerOutput,
           sourceName,
           contractName
+        )
+
+        addEnumMembersToStorageLayout(
+          contractOutput.storageLayout,
+          contractName,
+          compilerOutput.sources[sourceName].ast.nodes
         )
 
         artifacts[referenceName] = {

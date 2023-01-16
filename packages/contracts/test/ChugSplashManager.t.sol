@@ -46,6 +46,7 @@ contract ChugSplashManager_Test is Test {
 
     event ChugSplashActionExecuted(
         bytes32 indexed bundleId,
+        address indexed proxy,
         address indexed executor,
         uint256 actionIndex
     );
@@ -457,7 +458,7 @@ contract ChugSplashManager_Test is Test {
         vm.expectEmit(true, true, true, true);
         emit ImplementationDeployed(firstAction.target, implementationAddress, bundleId, firstAction.target);
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, executor1, actionIndexes[0]);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndexes[0]);
 
         helper_executeFirstAction();
         uint256 finalTotalDebt = manager.totalDebt();
@@ -474,7 +475,7 @@ contract ChugSplashManager_Test is Test {
         bytes32 implemenetationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
         assertEq(manager.implementations(implemenetationSalt), implementationAddress);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
-        // assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
     function test_executeChugSplashAction_success_setStorage() external {
@@ -492,7 +493,7 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, executor1, actionIndexes[1]);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndexes[1]);
         helper_executeSecondAction();
         uint256 finalTotalDebt = manager.totalDebt();
         uint256 finalExecutorDebt = manager.debt(executor1);
@@ -586,7 +587,7 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, executor1, actionIndex);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndex);
         vm.expectCall(
             address(registry),
             abi.encodeCall(

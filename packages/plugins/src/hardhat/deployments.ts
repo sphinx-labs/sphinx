@@ -10,7 +10,7 @@ import {
   writeSnapshotId,
   resolveNetworkName,
   ChugSplashExecutorType,
-  loadUserChugSplashConfig,
+  readUserChugSplashConfig,
   UserChugSplashConfig,
   getDefaultProxyAddress,
 } from '@chugsplash/core'
@@ -53,7 +53,7 @@ export const deployAllChugSplashConfigs = async (
       return
     }
 
-    const userConfig = loadUserChugSplashConfig(configPath)
+    const userConfig = readUserChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
       userConfig.contracts,
@@ -101,7 +101,7 @@ export const getContract = async (
       return !isEmptyChugSplashConfig(path.join('chugsplash', configFileName))
     })
     .map((configFileName) => {
-      const userConfig = loadUserChugSplashConfig(
+      const userConfig = readUserChugSplashConfig(
         path.join('chugsplash', configFileName)
       )
       return { configFileName, userConfig }

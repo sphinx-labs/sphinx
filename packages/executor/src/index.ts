@@ -146,7 +146,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
   }
 
   async main(
-    localBundleId?: string,
     canonicalConfigFolderPath?: string,
     integration?: Integration,
     remoteExecution: boolean = false
@@ -216,18 +215,18 @@ export class ChugSplashExecutor extends BaseServiceV2<
         // executor), or using the Config URI
         let bundle: ChugSplashActionBundle
         let canonicalConfig: CanonicalChugSplashConfig
-        if (localBundleId !== undefined) {
+        if (remoteExecution) {
+          ;({ bundle, canonicalConfig } = await compileRemoteBundle(
+            proposalEvent.args.configUri
+          ))
+        } else {
           canonicalConfig = readCanonicalConfig(
             canonicalConfigFolderPath,
-            localBundleId
+            proposalEvent.args.configUri
           )
           bundle = await bundleRemote({
             canonicalConfig,
           })
-        } else {
-          ;({ bundle, canonicalConfig } = await compileRemoteBundle(
-            proposalEvent.args.configUri
-          ))
         }
         const projectName = canonicalConfig.options.projectName
 

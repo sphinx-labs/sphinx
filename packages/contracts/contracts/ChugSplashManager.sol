@@ -50,11 +50,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Emitted when a ChugSplash action is executed.
      *
      * @param bundleId    Unique ID for the bundle.
+     * @param proxy       Address of the proxy on which the event was executed.
      * @param executor    Address of the executor.
      * @param actionIndex Index within the bundle hash of the action that was executed.
      */
     event ChugSplashActionExecuted(
         bytes32 indexed bundleId,
+        address indexed proxy,
         address indexed executor,
         uint256 actionIndex
     );
@@ -584,7 +586,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             revert("ChugSplashManager: attemped setImplementation action in wrong function");
         }
 
-        emit ChugSplashActionExecuted(activeBundleId, msg.sender, _actionIndex);
+        emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, _actionIndex);
         registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
 
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
@@ -686,7 +688,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             // Upgrade the proxy's implementation contract.
             _upgradeProxyTo(proxy, adapter, implementation);
 
-            emit ChugSplashActionExecuted(activeBundleId, msg.sender, actionIndex);
+            emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
         }
 

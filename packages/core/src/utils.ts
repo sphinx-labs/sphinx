@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import 'core-js/features/array/at'
 import {
   utils,
   constants,
@@ -272,12 +271,14 @@ export const getProjectOwnerAddress = async (
   return projectOwner
 }
 
-export const getChugSplashRegistry = (signer: Signer): Contract => {
+export const getChugSplashRegistry = (
+  signerOrProvider: Signer | providers.Provider
+): Contract => {
   return new Contract(
     // CHUGSPLASH_REGISTRY_ADDRESS,
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ChugSplashRegistryABI,
-    signer
+    signerOrProvider
   )
 }
 
@@ -426,36 +427,38 @@ export const formatEther = (
 
 export const readCanonicalConfig = (
   canonicalConfigFolderPath: string,
-  bundleId: string
+  configUri: string
 ): CanonicalChugSplashConfig => {
+  const ipfsHash = configUri.replace('ipfs://', '')
   // Check that the file containing the canonical config exists.
-  const canonicalConfigPath = path.join(
+  const canonicalConfigFilePath = path.join(
     canonicalConfigFolderPath,
-    `${bundleId}.json`
+    `${ipfsHash}.json`
   )
-  if (!fs.existsSync(canonicalConfigPath)) {
-    throw new Error(
-      `Could not find local bundle ID file. Please report this error.`
-    )
+  if (!fs.existsSync(canonicalConfigFilePath)) {
+    throw new Error(`Could not find cached canonical config file at:
+${canonicalConfigFilePath}`)
   }
 
-  return JSON.parse(fs.readFileSync(canonicalConfigPath, 'utf8'))
+  return JSON.parse(fs.readFileSync(canonicalConfigFilePath, 'utf8'))
 }
 
 export const writeCanonicalConfig = (
   canonicalConfigFolderPath: string,
-  bundleId: string,
+  configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
 ) => {
+  const ipfsHash = configUri.replace('ipfs://', '')
+
   // Create the canonical config folder if it doesn't already exist.
   if (!fs.existsSync(canonicalConfigFolderPath)) {
     fs.mkdirSync(canonicalConfigFolderPath)
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
-  // bundle ID as its name.
+  // config URI as its name.
   fs.writeFileSync(
-    path.join(canonicalConfigFolderPath, `${bundleId}.json`),
+    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
@@ -505,20 +508,21 @@ export const getGasPriceOverrides = async (
 }
 
 /**
- * Loads a ChugSplash config file synchronously.
+ * Reads a ChugSplash config file synchronously.
  *
  * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
  */
-export const loadParsedChugSplashConfig = (
+export const readParsedChugSplashConfig = (
   configPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): ParsedChugSplashConfig => {
-  const userConfig = loadUserChugSplashConfig(configPath)
+  const userConfig = readUserChugSplashConfig(configPath)
   return parseChugSplashConfig(userConfig, artifactPaths, integration)
 }
 
-export const loadUserChugSplashConfig = (
+export const readUserChugSplashConfig = (
   configPath: string
 ): UserChugSplashConfig => {
   delete require.cache[require.resolve(path.resolve(configPath))]

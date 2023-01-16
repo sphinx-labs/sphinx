@@ -12,6 +12,7 @@ import {
   ParsedConfigVariable,
 } from '../config'
 import {
+  addEnumMembersToStorageLayout,
   ArtifactPaths,
   CompilerInput,
   getMinimumCompilerInput,
@@ -91,29 +92,24 @@ export const readContractArtifact = (
  * Reads the build info from the local file system.
  *
  * @param artifactPaths ArtifactPaths object.
- * @param contract Contract name or fully qualified name.
+ * @param fullyQualifiedName Fully qualified name of the contract.
  * @returns BuildInfo object.
  */
 export const readBuildInfo = (
   artifactPaths: ArtifactPaths,
-  contract: string
+  fullyQualifiedName: string
 ): BuildInfo => {
-  let buildInfoPath: string
-  if (artifactPaths[contract]) {
-    buildInfoPath = artifactPaths[contract].buildInfoPath
-  } else {
-    // The contract must be a fully qualified name.
-    const contractName = contract.split(':').at(-1)
-    if (contractName === undefined) {
-      throw new Error('Could not use contract name to get build info')
-    } else {
-      buildInfoPath = artifactPaths[contractName].buildInfoPath
-    }
-  }
-
+  const [sourceName, contractName] = fullyQualifiedName.split(':')
+  const { buildInfoPath } =
+    artifactPaths[fullyQualifiedName] ?? artifactPaths[contractName]
   const buildInfo: BuildInfo = JSON.parse(
     fs.readFileSync(buildInfoPath, 'utf8')
   )
+
+  const { storageLayout } = buildInfo.output.contracts[sourceName][contractName]
+  const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
+
+  addEnumMembersToStorageLayout(storageLayout, contractName, sourceNodes)
 
   return buildInfo
 }
@@ -365,24 +361,24 @@ export const getImmutableVariables = (
 }
 
 /**
- * Reads the storageLayout portion of the compiler artifact for a given contract by name. Reads the
+ * Reads the storageLayout portion of the compiler artifact for a given contract. Reads the
  * artifact from the local file system.
  *
- * @param name Name of the contract to retrieve the storage layout for.
+ * @param fullyQualifiedName Fully qualified name of the contract.
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const readStorageLayout = async (
-  contract: string,
+export const readStorageLayout = (
+  fullyQualifiedName: string,
   artifactPaths: ArtifactPaths,
   integration: Integration
-): Promise<SolidityStorageObj> => {
+): SolidityStorageObj => {
   const { sourceName, contractName } = readContractArtifact(
     artifactPaths,
-    contract,
+    fullyQualifiedName,
     integration
   )
-  const buildInfo = readBuildInfo(artifactPaths, contract)
+  const buildInfo = readBuildInfo(artifactPaths, fullyQualifiedName)
   const output = buildInfo.output.contracts[sourceName][contractName]
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
@@ -440,10 +436,7 @@ export const createDeploymentArtifacts = async (
     )
     const { sourceName, contractName, bytecode, abi } = artifact
 
-    const buildInfo = readBuildInfo(
-      artifactPaths,
-      `${sourceName}:${contractName}`
-    )
+    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
 
     const { constructorArgValues } = getConstructorArgs(
       parsedConfig,
@@ -487,7 +480,7 @@ export const createDeploymentArtifacts = async (
       deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
-      storageLayout: await readStorageLayout(
+      storageLayout: readStorageLayout(
         contractConfig.contract,
         artifactPaths,
         integration

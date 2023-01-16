@@ -227,7 +227,7 @@ export const bundleLocal = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const storageLayout = await readStorageLayout(
+    const storageLayout = readStorageLayout(
       contractConfig.contract,
       artifactPaths,
       integration
