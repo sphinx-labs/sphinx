@@ -124,7 +124,7 @@ export const proposeChugSplashBundle = async (
     )
   ).wait()
 
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   await trackProposed(
     await getProjectOwnerAddress(signer, projectName),
     projectName,

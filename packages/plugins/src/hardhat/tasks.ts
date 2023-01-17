@@ -730,7 +730,10 @@ task(TASK_NODE)
             })
           }
           await deployAllChugSplashConfigs(hre, hide, '', true, true)
-          const networkName = resolveNetworkName(hre.ethers.provider, 'hardhat')
+          const networkName = await resolveNetworkName(
+            hre.ethers.provider,
+            'hardhat'
+          )
           await writeSnapshotId(
             hre.ethers.provider,
             networkName,
@@ -778,7 +781,10 @@ task(TASK_TEST)
           }
           await deployAllChugSplashConfigs(hre, !show, '', true, true)
         } finally {
-          const networkName = resolveNetworkName(hre.ethers.provider, 'hardhat')
+          const networkName = await resolveNetworkName(
+            hre.ethers.provider,
+            'hardhat'
+          )
           await writeSnapshotId(
             hre.ethers.provider,
             networkName,

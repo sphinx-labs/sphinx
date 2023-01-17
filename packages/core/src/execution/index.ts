@@ -46,7 +46,7 @@ export const monitorExecution = async (
   integration: Integration
 ) => {
   spinner.start('Waiting for executor...')
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   const projectName = parsedConfig.options.projectName
   const ChugSplashManager = getChugSplashManager(signer, projectName)

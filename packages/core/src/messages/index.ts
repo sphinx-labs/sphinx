@@ -2,26 +2,27 @@ import { BigNumber, ethers } from 'ethers'
 
 import { Integration } from '../constants'
 
-export const resolveNetworkName = (
-  provider: ethers.providers.JsonRpcProvider,
+export const resolveNetworkName = async (
+  provider: ethers.providers.Provider,
   integration: Integration
 ) => {
-  if (provider.network.name === 'unknown') {
+  const { name: networkName } = await provider.getNetwork()
+  if (networkName === 'unknown') {
     if (integration === 'hardhat') {
       return 'hardhat'
     } else if (integration === 'foundry') {
       return 'anvil'
     }
   }
-  return provider.network.name
+  return networkName
 }
 
-export const errorProjectNotRegistered = (
+export const errorProjectNotRegistered = async (
   provider: ethers.providers.JsonRpcProvider,
   configPath: string,
   integration: Integration
 ) => {
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     throw new Error(`This project has not been registered on ${networkName}.
@@ -38,12 +39,12 @@ TODO: Finish foundry error message`)
   }
 }
 
-export const errorProjectCurrentlyActive = (
+export const errorProjectCurrentlyActive = async (
   provider: ethers.providers.JsonRpcProvider,
   integration: Integration,
   configPath: string
 ) => {
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     throw new Error(
@@ -60,13 +61,13 @@ TODO: Finish foundry error message`)
   }
 }
 
-export const successfulProposalMessage = (
+export const successfulProposalMessage = async (
   provider: ethers.providers.JsonRpcProvider,
   amount: BigNumber,
   configPath: string,
   integration: Integration
-): string => {
-  const networkName = resolveNetworkName(provider, integration)
+): Promise<string> => {
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     if (amount.gt(0)) {
@@ -92,13 +93,13 @@ TODO: Finish foundry success message`
   }
 }
 
-export const alreadyProposedMessage = (
+export const alreadyProposedMessage = async (
   provider: ethers.providers.JsonRpcProvider,
   amount: BigNumber,
   configPath: string,
   integration: Integration
-): string => {
-  const networkName = resolveNetworkName(provider, integration)
+): Promise<string> => {
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
     if (amount.gt(0)) {
