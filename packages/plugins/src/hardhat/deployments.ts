@@ -146,7 +146,10 @@ ${configsWithFileNames.map(
 export const resetChugSplashDeployments = async (
   hre: HardhatRuntimeEnvironment
 ) => {
-  const networkFolderName = resolveNetworkName(hre.ethers.provider, 'hardhat')
+  const networkFolderName = await resolveNetworkName(
+    hre.ethers.provider,
+    'hardhat'
+  )
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployments),
     networkFolderName,
