@@ -89,7 +89,7 @@ export const chugsplashRegisterAbstractTask = async (
       owner
     )
 
-    const networkName = resolveNetworkName(provider, integration)
+    const networkName = await resolveNetworkName(provider, integration)
 
     const projectName = parsedConfig.options.projectName
     await trackRegistered(
@@ -145,7 +145,7 @@ export const chugsplashProposeAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, integration)
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const ChugSplashManager = getChugSplashManager(
@@ -227,7 +227,7 @@ with a name other than ${parsedConfig.options.projectName}`
         silent,
         integration
       )
-      const message = successfulProposalMessage(
+      const message = await successfulProposalMessage(
         provider,
         amountToDeposit,
         configPath,
@@ -237,7 +237,7 @@ with a name other than ${parsedConfig.options.projectName}`
     } else {
       // Bundle was already in the `PROPOSED` state before the call to this task.
       spinner.fail(
-        alreadyProposedMessage(
+        await alreadyProposedMessage(
           provider,
           amountToDeposit,
           configPath,
@@ -377,7 +377,7 @@ IPFS_API_KEY_SECRET: ...
   }
 
   if (spinner) {
-    const networkName = resolveNetworkName(provider, integration)
+    const networkName = await resolveNetworkName(provider, integration)
     commitToIpfs
       ? spinner.succeed(
           `${parsedConfig.options.projectName} has been committed to IPFS.`
@@ -411,7 +411,7 @@ export const chugsplashApproveAbstractTask = async (
     artifactPaths,
     integration
   )
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(
@@ -422,7 +422,7 @@ export const chugsplashApproveAbstractTask = async (
   const signerAddress = await signer.getAddress()
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -559,7 +559,7 @@ export const chugsplashFundAbstractTask = async (
   const projectName = parsedConfig.options.projectName
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
   const signerBalance = await signer.getBalance()
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (signerBalance.lt(amount)) {
     throw new Error(`Signer's balance is less than the amount required to fund your project.
@@ -571,7 +571,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   }
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   spinner.start(
@@ -620,7 +620,7 @@ export const chugsplashDeployAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<FoundryContractArtifact[] | undefined> => {
   const spinner = ora({ isSilent: silent, stream })
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   if (executor === undefined && !remoteExecution) {
     throw new Error(
@@ -879,7 +879,7 @@ export const chugsplashMonitorAbstractTask = async (
   remoteExecution: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const networkName = resolveNetworkName(provider, 'hardhat')
+  const networkName = await resolveNetworkName(provider, 'hardhat')
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(`Loading project information...`)
 
@@ -897,7 +897,7 @@ export const chugsplashMonitorAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
@@ -985,7 +985,7 @@ export const chugsplashCancelAbstractTask = async (
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
   const parsedConfig = readParsedChugSplashConfig(
     configPath,
@@ -998,7 +998,7 @@ export const chugsplashCancelAbstractTask = async (
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -1061,7 +1061,7 @@ export const chugsplashWithdrawAbstractTask = async (
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const parsedConfig = readParsedChugSplashConfig(
     configPath,
     artifactPaths,
@@ -1075,7 +1075,7 @@ export const chugsplashWithdrawAbstractTask = async (
   )
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -1106,7 +1106,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
   )
 
   if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    errorProjectCurrentlyActive(provider, integration, configPath)
+    await errorProjectCurrentlyActive(provider, integration, configPath)
   }
 
   const amountToWithdraw = await getOwnerWithdrawableAmount(
@@ -1146,7 +1146,7 @@ export const chugsplashListProjectsAbstractTask = async (
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const signerAddress = await signer.getAddress()
 
   const spinner = ora({ stream })
@@ -1232,7 +1232,7 @@ export const chugsplashListProposersAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const ChugSplashManager = getChugSplashManager(
@@ -1269,7 +1269,7 @@ export const chugsplashListProposersAbstractTask = async (
     }
   }
 
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackListProposers(
     await getProjectOwnerAddress(signer, projectName),
@@ -1308,7 +1308,7 @@ export const chugsplashAddProposersAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const ChugSplashManager = getChugSplashManager(
@@ -1328,7 +1328,7 @@ export const chugsplashAddProposersAbstractTask = async (
 
   spinner.succeed('Project ownership confirmed.')
 
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackAddProposers(
     await getProjectOwnerAddress(signer, projectName),
@@ -1390,7 +1390,7 @@ export const chugsplashClaimProxyAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   const owner = await getProjectOwnerAddress(
@@ -1426,7 +1426,7 @@ export const chugsplashClaimProxyAbstractTask = async (
     )
   ).wait()
 
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackClaimProxy(
     await getProjectOwnerAddress(signer, projectName),
@@ -1462,7 +1462,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, 'hardhat')
   }
 
   spinner.succeed('Project registration detected')
@@ -1532,7 +1532,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     )
   ).wait()
 
-  const networkName = resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackTransferProxy(
     await getProjectOwnerAddress(signer, projectName),
