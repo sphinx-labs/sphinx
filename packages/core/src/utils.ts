@@ -32,6 +32,7 @@ import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 import { FoundryContractArtifact } from './types'
 import { ArtifactPaths } from './languages'
 import { Integration } from './constants'
+import 'core-js/features/array/at'
 
 export const computeBundleId = (
   bundleRoot: string,
