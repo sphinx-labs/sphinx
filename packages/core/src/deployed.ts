@@ -7,7 +7,7 @@ import { CanonicalChugSplashConfig, chugsplashFetchSubtask } from './config'
 import { getCanonicalConfigArtifacts, SolidityStorageLayout } from './languages'
 import {
   getChugSplashRegistry,
-  getProxyImplementationAddress,
+  getEIP1967ProxyImplementationAddress,
   readCanonicalConfig,
 } from './utils'
 
@@ -111,7 +111,7 @@ export const getLatestDeployedStorageLayout = async (
     return deployedCanonicalConfigArtifacts[referenceName].storageLayout
   } else {
     const manifest = new Manifest(await getChainId(provider))
-    const currImplAddress = await getProxyImplementationAddress(
+    const currImplAddress = await getEIP1967ProxyImplementationAddress(
       provider,
       proxyAddress
     )
