@@ -65,7 +65,7 @@ export const proposeChugSplashBundle = async (
       provider,
       parsedConfig,
       configPath,
-      provider.network.name
+      await resolveNetworkName(provider, integration)
     )
 
     spinner.succeed(`${projectName} is an upgrade.`)
