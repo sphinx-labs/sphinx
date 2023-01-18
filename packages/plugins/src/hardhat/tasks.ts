@@ -120,6 +120,7 @@ export const chugsplashDeployTask = async (
     noCompile: boolean
     confirm: boolean
     noWithdraw: boolean
+    skipStorageCheck: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
@@ -131,6 +132,7 @@ export const chugsplashDeployTask = async (
     noCompile,
     confirm,
     noWithdraw,
+    skipStorageCheck,
   } = args
 
   if (!noCompile) {
@@ -186,6 +188,7 @@ export const chugsplashDeployTask = async (
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
+    skipStorageCheck,
     executor
   )
 }
@@ -210,6 +213,10 @@ task(TASK_CHUGSPLASH_DEPLOY)
   .addFlag(
     'confirm',
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+  )
+  .addFlag(
+    'skipStorageCheck',
+    "Upgrade your contract(s) without checking for storage layout compatibility. Only use this when confident that the upgrade won't lead to storage layout issues."
   )
   .setAction(chugsplashDeployTask)
 
@@ -272,11 +279,19 @@ export const chugsplashProposeTask = async (
     noCompile: boolean
     remoteExecution: boolean
     confirm: boolean
+    skipStorageCheck: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile, remoteExecution, confirm } =
-    args
+  const {
+    configPath,
+    ipfsUrl,
+    silent,
+    noCompile,
+    remoteExecution,
+    confirm,
+    skipStorageCheck,
+  } = args
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -318,7 +333,8 @@ export const chugsplashProposeTask = async (
     artifactPaths,
     buildInfoFolder,
     artifactFolder,
-    canonicalConfigPath
+    canonicalConfigPath,
+    skipStorageCheck
   )
 }
 
@@ -334,6 +350,10 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .addFlag(
     'confirm',
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+  )
+  .addFlag(
+    'skipStorageCheck',
+    "Upgrade your contract(s) without checking for storage layout compatibility. Only use this when confident that the upgrade won't lead to storage layout issues."
   )
   .setAction(chugsplashProposeTask)
 
