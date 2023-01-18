@@ -28,7 +28,7 @@ export const getLatestDeployedCanonicalConfig = async (
   )
 
   if (actionExecutedEvents.length === 0) {
-    throw new Error(`No contract config detected for proxy: ${proxyAddress}`)
+    return undefined
   }
 
   const latestRegistryEvent = actionExecutedEvents.at(-1)
@@ -130,7 +130,9 @@ export const getLatestDeployedStorageLayout = async (
       return implDeployment.layout as unknown as SolidityStorageLayout
     } else {
       throw new Error(
-        `Could not find implementation address at: ${currImplAddress}`
+        `Could not find the most recent storage layout to use for the storage slot checker.
+If you are confident that there are no storage slot conflicts, call this task again with the flag: --skip-storage-check
+Otherwise, please report this error.`
       )
     }
   }

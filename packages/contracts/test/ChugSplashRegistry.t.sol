@@ -6,6 +6,7 @@ import { ChugSplashManager } from "../contracts/ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "../contracts/ChugSplashManagerProxy.sol";
 import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { ProxyUpdater } from "../contracts/ProxyUpdater.sol";
+import { Reverter } from "../contracts/Reverter.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract ChugSplashRegistry_Test is Test {
@@ -49,6 +50,7 @@ contract ChugSplashRegistry_Test is Test {
     ChugSplashRegistry registry;
     ChugSplashManager manager;
     ProxyUpdater proxyUpdater;
+    Reverter reverter;
 
     function setUp() external {
         proxyUpdater = new ProxyUpdater();
@@ -65,6 +67,7 @@ contract ChugSplashRegistry_Test is Test {
 
         registry = new ChugSplashRegistry{ salt: salt }(
             address(proxyUpdater),
+            address(reverter),
             ownerBondAmount,
             executionLockTime,
             executorPaymentPercentage,

@@ -222,38 +222,34 @@ task(TASK_CHUGSPLASH_DEPLOY)
 
 export const chugsplashRegisterTask = async (
   args: {
-    configPaths: string[]
+    configPath: string
     owner: string
     silent: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPaths, silent, owner } = args
-
-  if (configPaths.length === 0) {
-    throw new Error('You must specify a path to a ChugSplash config file.')
-  }
+  const { configPath, silent, owner } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
+  const userConfig = readUserChugSplashConfig(configPath)
+  const artifactPaths = await getArtifactPaths(
+    userConfig.contracts,
+    hre.config.paths.artifacts,
+    path.join(hre.config.paths.artifacts, 'build-info')
+  )
 
-  const configs: ParsedChugSplashConfig[] = []
-  for (const configPath of args.configPaths) {
-    const userConfig = readUserChugSplashConfig(configPath)
-    const artifactPaths = await getArtifactPaths(
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
-    configs.push(
-      readParsedChugSplashConfig(configPath, artifactPaths, 'hardhat')
-    )
-  }
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat'
+  )
 
   await chugsplashRegisterAbstractTask(
     provider,
     signer,
-    configs,
+    parsedConfig,
     owner,
     silent,
     'hardhat'
@@ -262,11 +258,7 @@ export const chugsplashRegisterTask = async (
 
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
-  .addVariadicPositionalParam(
-    'configPaths',
-    'Paths to ChugSplash config files',
-    []
-  )
+  .addParam('configPath', 'Path to the ChugSplash config file to propose')
   .addParam('owner', 'Owner of the ChugSplash project')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(chugsplashRegisterTask)
@@ -314,7 +306,8 @@ export const chugsplashProposeTask = async (
     path.join(hre.config.paths.artifacts, 'build-info')
   )
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     'hardhat'
