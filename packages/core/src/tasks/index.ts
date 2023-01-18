@@ -1469,6 +1469,11 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   spinner.succeed('Project registration detected')
   spinner.start('Checking proxy compatibility...')
 
+  const networkName = await resolveNetworkName(provider, integration)
+  if ((await provider.getCode(proxy)) === '0x') {
+    throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
+  }
+
   const incompatibleProxyError = `ChugSplash does not support your proxy type.
     Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
     If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`
@@ -1533,7 +1538,6 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     )
   ).wait()
 
-  const networkName = await resolveNetworkName(provider, integration)
   const projectName = parsedConfig.options.projectName
   await trackTransferProxy(
     await getProjectOwnerAddress(signer, projectName),
