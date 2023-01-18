@@ -14,7 +14,6 @@ import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import { getFinalDeploymentTxnHash } from '../deployments'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { ArtifactPaths } from '../languages'
-import { resolveNetworkName } from '../messages'
 import {
   formatEther,
   getChugSplashManager,
@@ -42,12 +41,9 @@ export const monitorExecution = async (
   parsedConfig: ParsedChugSplashConfig,
   bundle: ChugSplashActionBundle,
   bundleId: string,
-  spinner: ora.Ora,
-  integration: Integration
+  spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const networkName = await resolveNetworkName(provider, integration)
-
   const projectName = parsedConfig.options.projectName
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
@@ -74,9 +70,9 @@ export const monitorExecution = async (
         `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
   Run the following command to add funds to your deployment so it can be completed:
 
-  npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.mul(
-          EXECUTION_BUFFER_MULTIPLIER
-        )} --config-path <configPath>
+  npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
+    EXECUTION_BUFFER_MULTIPLIER
+  )} --config-path <configPath>
           `
       )
     }
