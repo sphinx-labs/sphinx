@@ -61,12 +61,7 @@ export const proposeChugSplashBundle = async (
   const upgradeReferenceName = await checkIsUpgrade(provider, parsedConfig)
   if (upgradeReferenceName) {
     // Check if upgrade is valid
-    await checkValidUpgrade(
-      provider,
-      parsedConfig,
-      configPath,
-      await resolveNetworkName(provider, integration)
-    )
+    await checkValidUpgrade(provider, parsedConfig, configPath)
 
     spinner.succeed(`${projectName} is an upgrade.`)
 

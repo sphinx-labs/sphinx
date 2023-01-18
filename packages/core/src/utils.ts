@@ -132,8 +132,7 @@ export const checkIsUpgrade = async (
 export const checkValidUpgrade = async (
   provider: ethers.providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  configPath: string,
-  networkName: string
+  configPath: string
 ) => {
   const requiresOwnershipTransfer: {
     name: string
@@ -170,7 +169,7 @@ export const checkValidUpgrade = async (
       `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
 
 Run the following command to deploy this project for the first time:
-npx hardhat chugsplash-deploy --network ${networkName} --config-path ${configPath}
+npx hardhat chugsplash-deploy --network <network> --config-path ${configPath}
       `
     )
   }
@@ -183,7 +182,7 @@ npx hardhat chugsplash-deploy --network ${networkName} --config-path ${configPat
       )}
 
 To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network ${networkName} --config-path ${configPath} --proxy <proxy address>
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path ${configPath} --proxy <proxy address>
       `
     )
   }

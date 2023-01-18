@@ -28,7 +28,7 @@ export const errorProjectNotRegistered = async (
     throw new Error(`This project has not been registered on ${networkName}.
 To register the project on this network, run the following command:
 
-npx hardhat chugsplash-register --network ${networkName} --owner <ownerAddress> --config-path ${configPath}
+npx hardhat chugsplash-register --network <network> --owner <ownerAddress> --config-path ${configPath}
   `)
   } else {
     // TODO - output foundry error
@@ -39,18 +39,15 @@ TODO: Finish foundry error message`)
   }
 }
 
-export const errorProjectCurrentlyActive = async (
-  provider: ethers.providers.JsonRpcProvider,
+export const errorProjectCurrentlyActive = (
   integration: Integration,
   configPath: string
 ) => {
-  const networkName = await resolveNetworkName(provider, integration)
-
   if (integration === 'hardhat') {
     throw new Error(
       `Project is currently active. You must cancel the project in order to withdraw funds:
 
-npx hardhat chugsplash-cancel --network ${networkName} --config-path ${configPath}
+npx hardhat chugsplash-cancel --network <network> --config-path ${configPath}
         `
     )
   } else {
@@ -73,11 +70,11 @@ export const successfulProposalMessage = async (
     if (amount.gt(0)) {
       return `Project successfully proposed on ${networkName}. Fund and approve the deployment using the command:
 
-npx hardhat chugsplash-approve --network ${networkName} --amount ${amount} --config-path ${configPath}`
+npx hardhat chugsplash-approve --network <network> --amount ${amount} --config-path ${configPath}`
     } else {
       return `Project successfully proposed and funded on ${networkName}. Approve the deployment using the command:
 
-npx hardhat chugsplash-approve --network ${networkName} --config-path ${configPath}`
+npx hardhat chugsplash-approve --network <network> --config-path ${configPath}`
     }
   } else {
     // TODO - output foundry error
@@ -105,11 +102,11 @@ export const alreadyProposedMessage = async (
     if (amount.gt(0)) {
       return `Project has already been proposed on ${networkName}. Fund and approve the deployment using the command:
 
-npx hardhat chugsplash-approve --network ${networkName} --amount ${amount} --config-path ${configPath}`
+npx hardhat chugsplash-approve --network <network> --amount ${amount} --config-path ${configPath}`
     } else {
       return `Project has already been proposed and funded on ${networkName}. Approve the deployment using the command:
 
-npx hardhat chugsplash-approve --network ${networkName} --config-path ${configPath}`
+npx hardhat chugsplash-approve --network <network> --config-path ${configPath}`
     }
   } else {
     // TODO - output foundry error

@@ -460,12 +460,12 @@ Owner's address: ${projectOwnerAddress}`)
     throw new Error(`You must first propose the project before it can be approved.
 To propose the project, run the command:
 
-npx hardhat chugsplash-propose --network ${networkName} --config-path ${configPath}`)
+npx hardhat chugsplash-propose --network <network> --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.succeed(`Project has already been approved. It should be executed shortly.
 Run the following command to monitor its status:
 
-npx hardhat chugsplash-monitor --network ${networkName} --config-path ${configPath}`)
+npx hardhat chugsplash-monitor --network <network> --config-path ${configPath}`)
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(`Project was already completed on ${networkName}.`)
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
@@ -487,7 +487,7 @@ Please wait a couple minutes then try again.`
     if (amountToDeposit.gt(0)) {
       throw new Error(`Project was not approved because it has insufficient funds.
 Fund the project with the following command:
-npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.mul(
+npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         EXECUTION_BUFFER_MULTIPLIER
       )} --config-path <configPath>`)
     }
@@ -517,8 +517,7 @@ npx hardhat chugsplash-fund --network ${networkName} --amount ${amountToDeposit.
         parsedConfig,
         bundle,
         bundleId,
-        spinner,
-        integration
+        spinner
       )
       await postExecutionActions(
         provider,
@@ -809,8 +808,7 @@ export const chugsplashDeployAbstractTask = async (
       parsedConfig,
       bundle,
       bundleId,
-      spinner,
-      integration
+      spinner
     )
   } else if (executor !== undefined) {
     spinner.start(`Executing ${projectName}...`)
@@ -952,8 +950,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     parsedConfig,
     bundle,
     bundleId,
-    spinner,
-    'hardhat'
+    spinner
   )
 
   await postExecutionActions(
@@ -1113,7 +1110,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
   )
 
   if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    await errorProjectCurrentlyActive(provider, integration, configPath)
+    errorProjectCurrentlyActive(integration, configPath)
   }
 
   const amountToWithdraw = await getOwnerWithdrawableAmount(
