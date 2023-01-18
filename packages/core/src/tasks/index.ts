@@ -178,15 +178,16 @@ export const chugsplashProposeAbstractTask = async (
     bundleId
   )
 
+  const networkName = await resolveNetworkName(provider, integration)
   if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     spinner.fail(
-      `Project was already proposed and is currently being executed on ${provider.network.name}.`
+      `Project was already proposed and is currently being executed on ${networkName}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.fail(`Project was already completed on ${provider.network.name}.`)
+    spinner.fail(`Project was already completed on ${networkName}.`)
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
-      `Project was already cancelled on ${provider.network.name}. Please propose a new project
+      `Project was already cancelled on ${networkName}. Please propose a new project
 with a name other than ${parsedConfig.options.projectName}`
     )
   } else {
@@ -264,10 +265,11 @@ export const chugsplashCommitAbstractSubtask = async (
   configUri: string
   bundleId: string
 }> => {
+  const networkName = await resolveNetworkName(provider, integration)
   if (spinner) {
     commitToIpfs
       ? spinner.start(
-          `Committing ${parsedConfig.options.projectName} on ${provider.network.name}.`
+          `Committing ${parsedConfig.options.projectName} on ${networkName}.`
         )
       : spinner.start('Building the project...')
   }
@@ -352,7 +354,7 @@ export const chugsplashCommitAbstractSubtask = async (
     ipfsHash = (await ipfs.add(ipfsData)).path
   } else {
     throw new Error(
-      `To deploy on ${provider.network.name}, you must first setup an IPFS project with
+      `To deploy on ${networkName}, you must first setup an IPFS project with
 Infura: https://app.infura.io/. Once you've done this, copy and paste the following
 variables into your .env file:
 
@@ -377,7 +379,6 @@ IPFS_API_KEY_SECRET: ...
   }
 
   if (spinner) {
-    const networkName = await resolveNetworkName(provider, integration)
     commitToIpfs
       ? spinner.succeed(
           `${parsedConfig.options.projectName} has been committed to IPFS.`

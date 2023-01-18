@@ -757,11 +757,15 @@ task(TASK_TEST)
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
       const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
+      const networkName = await resolveNetworkName(
+        hre.ethers.provider,
+        'hardhat'
+      )
       if (chainId === 31337) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
-            hre.network.name === 'localhost' ? 'localhost' : 'hardhat',
+            networkName,
             '.snapshotId'
           )
           const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -781,10 +785,6 @@ task(TASK_TEST)
           }
           await deployAllChugSplashConfigs(hre, !show, '', true, true)
         } finally {
-          const networkName = await resolveNetworkName(
-            hre.ethers.provider,
-            'hardhat'
-          )
           await writeSnapshotId(
             hre.ethers.provider,
             networkName,
