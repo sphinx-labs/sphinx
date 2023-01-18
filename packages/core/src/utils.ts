@@ -334,12 +334,16 @@ export const displayDeploymentTable = (
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) =>
-        (deployments[i + 1] = {
+      ([referenceName, contractConfig], i) => {
+        const contractName = contractConfig.contract.includes(':')
+          ? contractConfig.contract.split(':').at(-1)
+          : contractConfig.contract
+        deployments[i + 1] = {
           'Reference Name': referenceName,
-          Contract: contractConfig.contract,
+          Contract: contractName,
           Address: contractConfig.proxy,
-        })
+        }
+      }
     )
     console.table(deployments)
   }
