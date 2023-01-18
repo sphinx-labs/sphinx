@@ -109,7 +109,7 @@ export const assertValidChugSplashConfigFields = (
   }
 }
 
-export const assertValidUpgrade = async (
+export const assertStorageSlotCheck = async (
   provider: providers.Provider,
   config: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,

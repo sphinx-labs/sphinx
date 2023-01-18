@@ -10,7 +10,7 @@ import { create } from 'ipfs-http-client'
 import { EXECUTOR, ProxyABI } from '@chugsplash/contracts'
 
 import {
-  assertValidUpgrade,
+  assertStorageSlotCheck,
   CanonicalChugSplashConfig,
   ParsedChugSplashConfig,
 } from '../config'
@@ -123,6 +123,7 @@ export const chugsplashProposeAbstractTask = async (
   buildInfoFolder: string,
   artifactFolder: string,
   canonicalConfigPath: string,
+  skipStorageCheck: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
@@ -132,14 +133,16 @@ export const chugsplashProposeAbstractTask = async (
 
   await initializeChugSplash(provider, signer, EXECUTOR)
 
-  await assertValidUpgrade(
-    provider,
-    parsedConfig,
-    artifactPaths,
-    integration,
-    remoteExecution,
-    canonicalConfigPath
-  )
+  if (!skipStorageCheck) {
+    await assertStorageSlotCheck(
+      provider,
+      parsedConfig,
+      artifactPaths,
+      integration,
+      remoteExecution,
+      canonicalConfigPath
+    )
+  }
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -617,6 +620,7 @@ export const chugsplashDeployAbstractTask = async (
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
+  skipStorageCheck: boolean,
   executor?: ChugSplashExecutorType,
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<FoundryContractArtifact[] | undefined> => {
@@ -639,14 +643,16 @@ export const chugsplashDeployAbstractTask = async (
     integration
   )
 
-  await assertValidUpgrade(
-    provider,
-    parsedConfig,
-    artifactPaths,
-    integration,
-    remoteExecution,
-    canonicalConfigPath
-  )
+  if (!skipStorageCheck) {
+    await assertStorageSlotCheck(
+      provider,
+      parsedConfig,
+      artifactPaths,
+      integration,
+      remoteExecution,
+      canonicalConfigPath
+    )
+  }
 
   const projectName = parsedConfig.options.projectName
 

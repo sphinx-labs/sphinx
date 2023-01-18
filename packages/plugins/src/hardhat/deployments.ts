@@ -79,6 +79,7 @@ export const deployAllChugSplashConfigs = async (
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
+      true,
       executor
     )
   }
