@@ -464,16 +464,19 @@ export const writeCanonicalConfig = (
   )
 }
 
-export const getProxyImplementationAddress = async (
+export const getEIP1967ProxyImplementationAddress = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<string> => {
-  const iface = new ethers.utils.Interface(ProxyABI)
-  const encodedImplAddress = await provider.call({
-    to: proxyAddress,
-    from: ethers.constants.AddressZero,
-    data: iface.getSighash('implementation'),
-  })
+  // keccak256('eip1967.proxy.implementation')) - 1
+  // See: https://eips.ethereum.org/EIPS/eip-1967#specification
+  const storageKey =
+    '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+
+  const encodedImplAddress = await provider.getStorageAt(
+    proxyAddress,
+    storageKey
+  )
   const [decoded] = ethers.utils.defaultAbiCoder.decode(
     ['address'],
     encodedImplAddress

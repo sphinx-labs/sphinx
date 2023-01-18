@@ -33,7 +33,7 @@ import {
   getProxyAt,
   getProxyAdmin,
   isContractDeployed,
-  getProxyImplementationAddress,
+  getEIP1967ProxyImplementationAddress,
   getGasPriceOverrides,
 } from '../../utils'
 
@@ -190,7 +190,7 @@ export const initializeChugSplash = async (
 
     // Make sure the ChugSplashRegistry's proxy has the correct implementation address.
     assert(
-      (await getProxyImplementationAddress(
+      (await getEIP1967ProxyImplementationAddress(
         provider,
         CHUGSPLASH_REGISTRY_PROXY_ADDRESS
       )) === CHUGSPLASH_REGISTRY_ADDRESS,
