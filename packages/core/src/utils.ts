@@ -609,8 +609,6 @@ export const assertValidUpgrade = async (
     `Checking if ${projectName} is a fresh deployment or upgrade...`
   )
 
-  // TODO: test what happens if you insert a random contract that's deployed but isn't a proxy into your user config
-
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
     parsedConfig.options.projectName
   )
