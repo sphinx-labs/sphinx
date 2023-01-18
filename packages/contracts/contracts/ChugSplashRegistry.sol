@@ -117,6 +117,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     address public immutable proxyUpdater;
 
     /**
+     * @notice Address of the Reverter.
+     */
+    address public immutable reverter;
+
+    /**
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
      */
     uint256 public immutable ownerBondAmount;
@@ -139,6 +144,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
 
     /**
      * @param _proxyUpdater              Address of the ProxyUpdater.
+     * @param _reverter                  Address of the Reverter.
      * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
      *                                   order to execute a bundle.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
@@ -149,12 +155,14 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      */
     constructor(
         address _proxyUpdater,
+        address _reverter,
         uint256 _ownerBondAmount,
         uint256 _executionLockTime,
         uint256 _executorPaymentPercentage,
         address _managerImplementation
     ) {
         proxyUpdater = _proxyUpdater;
+        reverter = _reverter;
         ownerBondAmount = _ownerBondAmount;
         executionLockTime = _executionLockTime;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -261,7 +269,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      *
      * @param _executor Address of the executor to add.
      */
-    function addExecutor(address _executor) public onlyOwner {
+    function addExecutor(address _executor) external onlyOwner {
         require(executors[_executor] == false, "ChugSplashRegistry: executor already added");
         _setExecutor(_executor, true);
         emit ExecutorAdded(_executor);
@@ -272,7 +280,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      *
      * @param _executor Address of the executor to remove.
      */
-    function removeExecutor(address _executor) public onlyOwner {
+    function removeExecutor(address _executor) external onlyOwner {
         require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
         _setExecutor(_executor, false);
         emit ExecutorRemoved(_executor);

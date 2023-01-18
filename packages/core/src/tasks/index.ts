@@ -4,17 +4,14 @@ import process from 'process'
 
 import { ethers } from 'ethers'
 import ora from 'ora'
-import { getChainId, remove0x } from '@eth-optimism/core-utils'
+import { getChainId } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { EXECUTOR, ProxyABI } from '@chugsplash/contracts'
 
+import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
-  assertStorageSlotCheck,
-  CanonicalChugSplashConfig,
-  ParsedChugSplashConfig,
-} from '../config'
-import {
+  assertValidUpgrade,
   computeBundleId,
   displayDeploymentTable,
   displayProposerTable,
@@ -23,11 +20,15 @@ import {
   getChugSplashManager,
   getChugSplashManagerProxyAddress,
   getChugSplashRegistry,
+  getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
   getProjectOwnerAddress,
+  isDefaultProxy,
   isProjectRegistered,
+  isTransparentProxy,
   readParsedChugSplashConfig,
   registerChugSplashProject,
+  setProxiesToReferenceNames,
   writeCanonicalConfig,
 } from '../utils'
 import { ArtifactPaths, initializeChugSplash } from '../languages'
@@ -69,7 +70,7 @@ import {
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  configs: ParsedChugSplashConfig[],
+  parsedConfig: ParsedChugSplashConfig,
   owner: string,
   silent: boolean,
   integration: Integration,
@@ -78,35 +79,33 @@ export const chugsplashRegisterAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   await initializeChugSplash(provider, signer, EXECUTOR)
 
-  for (const parsedConfig of configs) {
-    spinner.start(`Registering ${parsedConfig.options.projectName}...`)
+  spinner.start(`Registering ${parsedConfig.options.projectName}...`)
 
-    const isFirstTimeRegistered = await registerChugSplashProject(
-      provider,
-      signer,
-      await signer.getAddress(),
-      parsedConfig.options.projectName,
-      owner
-    )
+  const isFirstTimeRegistered = await registerChugSplashProject(
+    provider,
+    signer,
+    await signer.getAddress(),
+    parsedConfig.options.projectName,
+    owner
+  )
 
-    const networkName = await resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(provider, integration)
 
-    const projectName = parsedConfig.options.projectName
-    await trackRegistered(
-      await getProjectOwnerAddress(signer, projectName),
-      projectName,
-      networkName,
-      integration
-    )
+  const projectName = parsedConfig.options.projectName
+  await trackRegistered(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
 
-    isFirstTimeRegistered
-      ? spinner.succeed(
-          `Project successfully registered on ${networkName}. Owner: ${owner}`
-        )
-      : spinner.fail(
-          `Project was already registered by the caller on ${networkName}.`
-        )
-  }
+  isFirstTimeRegistered
+    ? spinner.succeed(
+        `Project successfully registered on ${networkName}. Owner: ${owner}`
+      )
+    : spinner.fail(
+        `Project was already registered by the caller on ${networkName}.`
+      )
 }
 
 export const chugsplashProposeAbstractTask = async (
@@ -133,16 +132,17 @@ export const chugsplashProposeAbstractTask = async (
 
   await initializeChugSplash(provider, signer, EXECUTOR)
 
-  if (!skipStorageCheck) {
-    await assertStorageSlotCheck(
-      provider,
-      parsedConfig,
-      artifactPaths,
-      integration,
-      remoteExecution,
-      canonicalConfigPath
-    )
-  }
+  await assertValidUpgrade(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration,
+    remoteExecution,
+    canonicalConfigPath,
+    skipStorageCheck,
+    confirm,
+    spinner
+  )
 
   if (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
@@ -159,6 +159,16 @@ export const chugsplashProposeAbstractTask = async (
   if (integration === 'hardhat') {
     spinner.succeed('ChugSplash is ready to go.')
   }
+
+  spinner.start('Setting proxies to reference names...')
+
+  await setProxiesToReferenceNames(
+    provider,
+    ChugSplashManager,
+    parsedConfig.contracts
+  )
+
+  spinner.succeed('Set proxies to reference names.')
 
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
@@ -410,11 +420,13 @@ export const chugsplashApproveAbstractTask = async (
   remoteExecution: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
   )
+
   const networkName = await resolveNetworkName(provider, integration)
 
   const spinner = ora({ isSilent: silent, stream })
@@ -554,7 +566,8 @@ export const chugsplashFundAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: silent, stream })
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -636,22 +649,12 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
   )
-
-  if (!skipStorageCheck) {
-    await assertStorageSlotCheck(
-      provider,
-      parsedConfig,
-      artifactPaths,
-      integration,
-      remoteExecution,
-      canonicalConfigPath
-    )
-  }
 
   const projectName = parsedConfig.options.projectName
 
@@ -661,6 +664,18 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.succeed(`Parsed ${projectName}.`)
+
+  await assertValidUpgrade(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration,
+    remoteExecution,
+    canonicalConfigPath,
+    skipStorageCheck,
+    confirm,
+    spinner
+  )
 
   if (projectPreviouslyRegistered === false) {
     spinner.start(`Registering ${projectName}...`)
@@ -676,6 +691,18 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`Successfully registered ${projectName}.`)
   }
 
+  spinner.start('Setting proxies to reference names...')
+
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+
+  await setProxiesToReferenceNames(
+    provider,
+    ChugSplashManager,
+    parsedConfig.contracts
+  )
+
+  spinner.succeed('Set proxies to reference names.')
+
   // Get the bundle ID without publishing anything to IPFS.
   const { bundleId, bundle, configUri } = await chugsplashCommitAbstractSubtask(
     provider,
@@ -690,8 +717,6 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.start(`Checking the status of ${projectName}...`)
-
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -888,7 +913,8 @@ export const chugsplashMonitorAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(`Loading project information...`)
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -991,7 +1017,8 @@ export const chugsplashCancelAbstractTask = async (
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1066,7 +1093,8 @@ export const chugsplashWithdrawAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1226,7 +1254,8 @@ export const chugsplashListProposersAbstractTask = async (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ) => {
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1299,7 +1328,8 @@ export const chugsplashAddProposersAbstractTask = async (
     throw new Error('You must specify at least one proposer to add.')
   }
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1383,7 +1413,8 @@ export const chugsplashClaimProxyAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1455,7 +1486,8 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   const spinner = ora({ isSilent: silent, stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = readParsedChugSplashConfig(
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
     configPath,
     artifactPaths,
     integration
@@ -1477,39 +1509,21 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
 
-  const incompatibleProxyError = `ChugSplash does not support your proxy type.
-    Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
-    If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`
-
-  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
-  const iface = new ethers.utils.Interface(ProxyABI)
-  const bytecode = await provider.getCode(proxy)
-  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
-  for (const func of checkFunctions) {
-    const sigHash = remove0x(iface.getSighash(func))
-    if (!bytecode.includes(sigHash)) {
-      throw new Error(incompatibleProxyError)
-    }
+  if (
+    (await isDefaultProxy(provider, proxy)) === false &&
+    (await isTransparentProxy(provider, proxy)) === false
+  ) {
+    throw new Error(`ChugSplash does not support your proxy type.
+Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
   }
-
-  // Fetch proxy owner address from storage slot defined by EIP-1967
-  const ownerAddress = ethers.utils.defaultAbiCoder.decode(
-    ['address'],
-    await provider.getStorageAt(
-      proxy,
-      '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
-    )
-  )[0]
 
   // Fetch ChugSplashManager address for this project
   const managerAddress = getChugSplashManagerProxyAddress(
     parsedConfig.options.projectName
   )
 
-  // If proxy owner is not a valid address, then proxy type is incompatible
-  if (!ethers.utils.isAddress(ownerAddress)) {
-    throw new Error(incompatibleProxyError)
-  }
+  const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxy)
 
   // If proxy owner is already ChugSplash, then throw an error
   if (managerAddress.toLowerCase() === ownerAddress.toLowerCase()) {
@@ -1523,19 +1537,13 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
   }
 
-  // Check that the proxy implementation function returns an address
-  const contract = new ethers.Contract(proxy, iface, signer)
-  const implementationAddress = await contract.callStatic.implementation()
-  if (!ethers.utils.isAddress(implementationAddress)) {
-    throw new Error(incompatibleProxyError)
-  }
-
   spinner.succeed('Proxy compatibility verified')
   spinner.start('Transferring proxy ownership to ChugSplash...')
 
   // Transfer ownership of the proxy to the ChugSplashManager.
+  const Proxy = new ethers.Contract(proxy, ProxyABI, signer)
   await (
-    await contract.changeAdmin(
+    await Proxy.changeAdmin(
       managerAddress,
       await getGasPriceOverrides(provider)
     )

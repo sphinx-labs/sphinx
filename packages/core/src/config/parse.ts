@@ -35,9 +35,7 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidChugSplashConfigFields = (
-  config: UserChugSplashConfig
-) => {
+export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
   if (config.contracts === undefined) {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
@@ -120,12 +118,6 @@ export const assertStorageSlotCheck = async (
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
-    const newStorageLayout = readStorageLayout(
-      contractConfig.contract,
-      artifactPaths,
-      integration
-    )
-
     const isProxyDeployed =
       (await provider.getCode(contractConfig.proxy)) !== '0x'
     if (isProxyDeployed && config.options.skipStorageCheck !== true) {
@@ -136,7 +128,12 @@ export const assertStorageSlotCheck = async (
         remoteExecution,
         canonicalConfigFolderPath
       )
-
+      const newStorageLayout = readStorageLayout(
+        contractConfig.contract,
+        artifactPaths,
+        integration
+      )
+      // Run OpenZeppelin's storage slot checker.
       assertStorageUpgradeSafe(
         currStorageLayout as any,
         newStorageLayout as any,
@@ -153,15 +150,25 @@ export const assertStorageSlotCheck = async (
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const parseChugSplashConfig = (
+export const parseChugSplashConfig = async (
+  provider: providers.Provider,
   config: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration
-): ParsedChugSplashConfig => {
+): Promise<ParsedChugSplashConfig> => {
   const contracts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
+    if (
+      contractConfig.proxy !== undefined &&
+      (await provider.getCode(contractConfig.proxy)) === '0x'
+    ) {
+      throw new Error(
+        `User entered a proxy address that does not exist: ${contractConfig.proxy}`
+      )
+    }
+
     // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
     // used by ChugSplash.
     contractConfig.proxy =

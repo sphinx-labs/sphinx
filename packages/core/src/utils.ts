@@ -19,13 +19,20 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
+  TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
+import { remove0x } from '@eth-optimism/core-utils'
+import ora from 'ora'
+import yesno from 'yesno'
 
 import {
+  assertStorageSlotCheck,
+  assertValidUserConfigFields,
   CanonicalChugSplashConfig,
   parseChugSplashConfig,
   ParsedChugSplashConfig,
+  ParsedContractConfigs,
   UserChugSplashConfig,
 } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
@@ -127,65 +134,6 @@ export const checkIsUpgrade = async (
     }
   }
   return false
-}
-
-export const checkValidUpgrade = async (
-  provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  configPath: string
-) => {
-  const requiresOwnershipTransfer: {
-    name: string
-    address: string
-  }[] = []
-  let proxyDetected = false
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if (await isContractDeployed(contractConfig.proxy, provider)) {
-      proxyDetected = true
-
-      const contract = new ethers.Contract(
-        contractConfig.proxy,
-        ProxyABI,
-        provider
-      )
-
-      const owner = await getProxyAdmin(contract)
-      const managerProxy = await getChugSplashManagerProxyAddress(
-        parsedConfig.options.projectName
-      )
-      if (owner !== managerProxy) {
-        requiresOwnershipTransfer.push({
-          name: referenceName,
-          address: contractConfig.proxy,
-        })
-      }
-    }
-  }
-
-  if (!proxyDetected) {
-    throw new Error(
-      `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
-
-Run the following command to deploy this project for the first time:
-npx hardhat chugsplash-deploy --network <network> --config-path ${configPath}
-      `
-    )
-  }
-
-  if (requiresOwnershipTransfer.length > 0) {
-    throw new Error(
-      `Error: Detected proxy contracts which are not managed by ChugSplash.
-      ${requiresOwnershipTransfer.map(
-        ({ name, address }) => `${name}, ${address}\n`
-      )}
-
-To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network <network> --config-path ${configPath} --proxy <proxy address>
-      `
-    )
-  }
 }
 
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
@@ -381,20 +329,6 @@ export const claimExecutorPayment = async (
   }
 }
 
-export const getProxyAdmin = async (Proxy: Contract) => {
-  // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
-  const adminChangedEvents = await Proxy.queryFilter('AdminChanged')
-  const latestEvent = adminChangedEvents.at(-1)
-
-  if (latestEvent === undefined) {
-    throw new Error(`Could not find AdminChanged event.`)
-  } else if (latestEvent.args === undefined) {
-    throw new Error(`No args found for AdminChanged event.`)
-  }
-
-  return latestEvent.args.newAdmin
-}
-
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
   return new Contract(proxyAddress, ProxyABI, signer)
 }
@@ -473,18 +407,33 @@ export const getEIP1967ProxyImplementationAddress = async (
 ): Promise<string> => {
   // keccak256('eip1967.proxy.implementation')) - 1
   // See: https://eips.ethereum.org/EIPS/eip-1967#specification
-  const storageKey =
+  const implStorageKey =
     '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
 
   const encodedImplAddress = await provider.getStorageAt(
     proxyAddress,
-    storageKey
+    implStorageKey
   )
   const [decoded] = ethers.utils.defaultAbiCoder.decode(
     ['address'],
     encodedImplAddress
   )
   return decoded
+}
+
+export const getEIP1967ProxyAdminAddress = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<string> => {
+  // See: https://eips.ethereum.org/EIPS/eip-1967#specification
+  const ownerStorageKey =
+    '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+
+  const [ownerAddress] = ethers.utils.defaultAbiCoder.decode(
+    ['address'],
+    await provider.getStorageAt(proxyAddress, ownerStorageKey)
+  )
+  return ownerAddress
 }
 
 /**
@@ -520,13 +469,14 @@ export const getGasPriceOverrides = async (
  * @param configPath Path to the ChugSplash config file.
  * @returns The parsed ChugSplash config file.
  */
-export const readParsedChugSplashConfig = (
+export const readParsedChugSplashConfig = async (
+  provider: providers.Provider,
   configPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration
-): ParsedChugSplashConfig => {
+): Promise<ParsedChugSplashConfig> => {
   const userConfig = readUserChugSplashConfig(configPath)
-  return parseChugSplashConfig(userConfig, artifactPaths, integration)
+  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
 }
 
 export const readUserChugSplashConfig = (
@@ -535,8 +485,10 @@ export const readUserChugSplashConfig = (
   delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const config = require(path.resolve(configPath))
-  return config.default || config
+  let config = require(path.resolve(configPath))
+  config = config.default || config
+  assertValidUserConfigFields(config)
+  return config
 }
 
 export const isProjectRegistered = async (
@@ -549,4 +501,181 @@ export const isProjectRegistered = async (
     chugsplashManagerAddress
   )
   return isRegistered
+}
+
+export const isDefaultProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  const ChugSplashRegistry = getChugSplashRegistry(provider)
+
+  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
+      'DefaultProxyDeployed',
+      null,
+      proxyAddress
+    )
+  )
+
+  return actionExecutedEvents.length === 1
+}
+
+export const isTransparentProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  // We don't consider default proxies to be transparent proxies, even though they share the same
+  // interface.
+  if ((await isDefaultProxy(provider, proxyAddress)) === true) {
+    return false
+  }
+
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  const bytecode = await provider.getCode(proxyAddress)
+  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      return false
+    }
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxyAddress)
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    return false
+  }
+
+  return true
+}
+
+export const getProxyTypeHash = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<string> => {
+  if (await isDefaultProxy(provider, proxyAddress)) {
+    return ethers.constants.HashZero
+  } else if (await isTransparentProxy(provider, proxyAddress)) {
+    return TRANSPARENT_PROXY_TYPE_HASH
+  } else {
+    throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
+  }
+}
+
+export const setProxiesToReferenceNames = async (
+  provider: providers.Provider,
+  ChugSplashManager: ethers.Contract,
+  contractConfigs: ParsedContractConfigs
+): Promise<void> => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) === '0x') {
+      continue
+    }
+
+    const currProxyTypeHash = await ChugSplashManager.proxyTypes(referenceName)
+    const actualProxyTypeHash = await getProxyTypeHash(
+      provider,
+      contractConfig.proxy
+    )
+    if (currProxyTypeHash !== actualProxyTypeHash) {
+      await ChugSplashManager.setProxyToReferenceName(
+        referenceName,
+        contractConfig.proxy,
+        actualProxyTypeHash
+      )
+    }
+  }
+}
+
+export const assertValidUpgrade = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string,
+  skipStorageCheck: boolean,
+  confirm: boolean,
+  spinner?: ora.Ora
+) => {
+  // Determine if the deployment is an upgrade
+  const projectName = parsedConfig.options.projectName
+  spinner?.start(
+    `Checking if ${projectName} is a fresh deployment or upgrade...`
+  )
+
+  // TODO: test what happens if you insert a random contract that's deployed but isn't a proxy into your user config
+
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let isUpgrade: boolean = false
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+      const proxyAdmin = await getEIP1967ProxyAdminAddress(
+        provider,
+        contractConfig.proxy
+      )
+      if (proxyAdmin !== chugSplashManagerAddress) {
+        requiresOwnershipTransfer.push({
+          name: referenceName,
+          address: contractConfig.proxy,
+        })
+      }
+
+      isUpgrade = true
+    }
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    throw new Error(
+      `Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+To perform an upgrade, you must first transfer ownership of the contract(s) to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+      `
+    )
+  }
+
+  if (isUpgrade) {
+    if (!skipStorageCheck) {
+      await assertStorageSlotCheck(
+        provider,
+        parsedConfig,
+        artifactPaths,
+        integration,
+        remoteExecution,
+        canonicalConfigFolderPath
+      )
+    }
+
+    spinner?.succeed(`${projectName} is a valid upgrade.`)
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(`User denied upgrade.`)
+      }
+    }
+  } else {
+    spinner?.succeed(`${projectName} is not an upgrade.`)
+  }
 }

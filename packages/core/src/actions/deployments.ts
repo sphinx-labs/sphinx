@@ -1,6 +1,5 @@
 import { ethers } from 'ethers'
 import ora from 'ora'
-import yesno from 'yesno'
 
 import { trackProposed } from '../analytics'
 import { ParsedChugSplashConfig, verifyBundle } from '../config'
@@ -9,10 +8,8 @@ import { ArtifactPaths } from '../languages'
 import { resolveNetworkName } from '../messages'
 import { chugsplashCommitAbstractSubtask } from '../tasks'
 import {
-  checkIsUpgrade,
   getProjectOwnerAddress,
   isProposer,
-  checkValidUpgrade,
   getChugSplashManager,
   getGasPriceOverrides,
   computeBundleId,
@@ -53,35 +50,6 @@ export const proposeChugSplashBundle = async (
   }
 
   spinner.succeed(`Caller is a proposer.`)
-
-  // Determine if the deployment is an upgrade
-  spinner.start(
-    `Checking if ${projectName} is a fresh deployment or upgrade...`
-  )
-  const upgradeReferenceName = await checkIsUpgrade(provider, parsedConfig)
-  if (upgradeReferenceName) {
-    // Check if upgrade is valid
-    await checkValidUpgrade(provider, parsedConfig, configPath)
-
-    spinner.succeed(`${projectName} is an upgrade.`)
-
-    if (!confirm) {
-      // Confirm upgrade with user
-      const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${projectName}, would you like to perform an upgrade? (y/n)`,
-      })
-      if (!userConfirmed) {
-        throw new Error(
-          `User denied upgrade. The reference name ${upgradeReferenceName} inside ${projectName} was already used
-  in a previous deployment for this project. To perform a fresh deployment of a new project, you must change the project name to
-  something other than ${projectName}. If you wish to deploy a new contract within this project you must change the
-  reference name to something other than ${upgradeReferenceName}.`
-        )
-      }
-    }
-  } else {
-    spinner.succeed(`${projectName} is not an upgrade.`)
-  }
 
   spinner.start(`Proposing ${projectName}...`)
 

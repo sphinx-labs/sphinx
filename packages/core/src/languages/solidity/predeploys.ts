@@ -24,14 +24,14 @@ import {
   PROXY_INITIALIZER_ADDRESS,
   CHUGSPLASH_SALT,
   ChugSplashRegistryABI,
+  TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
 
 import {
   getChugSplashRegistry,
-  getProxyAt,
-  getProxyAdmin,
+  getEIP1967ProxyAdminAddress,
   isContractDeployed,
   getEIP1967ProxyImplementationAddress,
   getGasPriceOverrides,
@@ -157,8 +157,10 @@ export const initializeChugSplash = async (
   // Check if the ChugSplashRegistry proxy's owner is the ProxyInitializer. This will only be true
   // when the ChugSplashRegistry's proxy hasn't been initialized yet.
   if (
-    (await getProxyAdmin(Proxy__ChugSplashRegistry)) ===
-    PROXY_INITIALIZER_ADDRESS
+    (await getEIP1967ProxyAdminAddress(
+      provider,
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS
+    )) === PROXY_INITIALIZER_ADDRESS
   ) {
     logger?.info('[ChugSplash]: initializing ChugSplashRegistry...')
 
@@ -183,8 +185,10 @@ export const initializeChugSplash = async (
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
-      (await getProxyAdmin(Proxy__ChugSplashRegistry)) ===
-        OWNER_MULTISIG_ADDRESS,
+      (await getEIP1967ProxyAdminAddress(
+        provider,
+        Proxy__ChugSplashRegistry.address
+      )) === OWNER_MULTISIG_ADDRESS,
       'ChugSplashRegistry proxy has incorrect owner'
     )
 
@@ -241,12 +245,36 @@ export const initializeChugSplash = async (
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )
 
+  const ChugSplashRegistry = getChugSplashRegistry(deployer)
+
+  // Set the transparent proxy type on the registry.
+  if (
+    (await ChugSplashRegistry.adapters(TRANSPARENT_PROXY_TYPE_HASH)) !==
+    DefaultAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addProxyType(
+        TRANSPARENT_PROXY_TYPE_HASH,
+        DefaultAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the transparent proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the transparent proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
   // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
   // fact that this is the last transaction to setup ChugSplash. If this changes, we also change
   // `monitorChugSplashSetup` to reflect this.
-  const ChugSplashRegistry = getChugSplashRegistry(deployer)
-  const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
-  if (adapter === ethers.constants.AddressZero) {
+  if (
+    (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
+    DefaultAdapter.address
+  ) {
     await (
       await ChugSplashRegistry.addProxyType(
         ethers.constants.HashZero,
@@ -262,6 +290,8 @@ export const initializeChugSplash = async (
       '[ChugSplash]: the default proxy type was already added to the ChugSplashRegistry'
     )
   }
+
+  // Don't put any transactions here! See note above.
 }
 
 export const getDeterministicFactoryAddress = async (
@@ -371,7 +401,10 @@ export const monitorChugSplashSetup = async (
 
   while (
     OWNER_MULTISIG_ADDRESS !==
-    (await getProxyAdmin(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
+    (await getEIP1967ProxyAdminAddress(
+      provider,
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS
+    ))
   ) {
     await sleep(1000)
   }

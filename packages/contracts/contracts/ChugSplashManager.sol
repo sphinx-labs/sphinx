@@ -106,6 +106,21 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     );
 
     /**
+     * @notice Emitted when a custom proxy is assigned to a target.
+     *
+     * @param targetNameHash Hash of the target's string name.
+     * @param proxy          Address of the proxy.
+     * @param proxyType      The proxy type.
+     * @param targetName     String name of the target.
+     */
+    event ProxySetToTarget(
+        string indexed targetNameHash,
+        address indexed proxy,
+        bytes32 indexed proxyType,
+        string targetName
+    );
+
+    /**
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
@@ -172,13 +187,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 indexed bundleId,
         string target
     );
-
-    /**
-     * @notice The storage slot that holds the address of an EIP-1967 implementation contract.
-     *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-     */
-    bytes32 internal constant EIP1967_IMPLEMENTATION_KEY =
-        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     /**
      * @notice Address of the ChugSplashRegistry.
@@ -529,21 +537,20 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 );
 
                 emit DefaultProxyDeployed(_action.target, proxy, activeBundleId, _action.target);
-                registry.announce("DefaultProxyDeployed");
+                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
             }
         } else {
-            // We intend to support alternative proxy types in the future, but doing so requires
-            // including additional checks to guarantee that actions will always executable. We will
-            // re-enable the ability to use different proxy types once we have implemented those
-            // additional checks.
-            revert("ChugSplashManager: invalid proxy type, must be default proxy");
-            // proxy = proxies[_action.target];
+            // Use the non-standard proxy assigned to this target by the owner.
+            proxy = proxies[_action.target];
         }
 
-        if (_getProxyImplementation(proxy, adapter) != address(0)) {
-            // Set the proxy's implementation to address(0). This ensures that end-users can't
-            // accidentally interact with a proxy that is in the process of being upgraded.
-            _setProxyStorage(proxy, adapter, EIP1967_IMPLEMENTATION_KEY, bytes32(0));
+        if (_getProxyImplementation(proxy, adapter) != registry.reverter()) {
+            // Set the proxy's implementation to be the Reverter. This ensures that end-users can't
+            // accidentally interact with a proxy that is in the process of being upgraded. Note
+            // that we use a Reverter contract instead of address(0) to support OpenZeppelin's
+            // `TransparentUpgradeableProxy`, whose `upgradeTo` call reverts if the implementation
+            // is not a contract.
+            _upgradeProxyTo(proxy, adapter, registry.reverter());
         }
 
         // Mark the action as executed and update the total number of executed actions.
@@ -647,10 +654,18 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 keccak256(abi.encode(activeBundleId, bytes(action.target)))
             ];
 
-            // Get the proxy and adapter that correspond to this target.
-            address payable proxy = getDefaultProxyAddress(action.target);
+            // Get the proxy type and adapter for this target.
             bytes32 proxyType = proxyTypes[action.target];
             address adapter = registry.adapters(proxyType);
+
+            // Get the address of the proxy.
+            address payable proxy;
+            if (proxyType == bytes32(0)) {
+                proxy = getDefaultProxyAddress(action.target);
+            } else {
+                // Use the non-standard proxy assigned to this target by the owner.
+                proxy = proxies[action.target];
+            }
 
             // Upgrade the proxy's implementation contract.
             _upgradeProxyTo(proxy, adapter, implementation);
@@ -757,9 +772,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             // Use a default proxy if no proxy type has been set by the project owner.
             proxy = getDefaultProxyAddress(_target);
         } else {
-            // We revert here since we currently do not support custom proxy types.
-            revert("ChugSplashManager: invalid proxy type, must be default proxy");
-            // proxy = proxies[_name];
+            proxy = proxies[_target];
+
+            // Set the `proxyTypes` and `proxies` mappings back to their default values.
+            proxyTypes[_target] = bytes32(0);
+            proxies[_target] = payable(address(0));
         }
 
         // Get the adapter that corresponds to this proxy type.
@@ -773,6 +790,33 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         emit ProxyOwnershipTransferred(_target, proxy, proxyType, _newOwner, _target);
         registry.announce("ProxyOwnershipTransferred");
+    }
+
+    /**
+     * @notice Assigns a custom proxy to the specified target to replace the default proxy
+     *         used by ChugSplash. This allows project owners to plug their existing proxies into
+     *         ChugSplash in a fully opt-in manner. Only callable by this contract's owner.
+     *
+     * @param _target    Target string name.
+     * @param _proxy     Address of the non-standard proxy.
+     * @param _proxyType The proxy's type.
+     */
+    function setProxyToReferenceName(
+        string memory _target,
+        address payable _proxy,
+        bytes32 _proxyType
+    ) external onlyOwner {
+        require(
+            activeBundleId == bytes32(0),
+            "ChugSplashManager: cannot change proxy while bundle is active"
+        );
+        require(_proxy != address(0), "ChugSplashManager: proxy cannot be address(0)");
+
+        proxies[_target] = _proxy;
+        proxyTypes[_target] = _proxyType;
+
+        emit ProxySetToTarget(_target, _proxy, _proxyType, _target);
+        registry.announceWithData("ProxySetToTarget", abi.encodePacked(_proxy));
     }
 
     /**
@@ -883,15 +927,16 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 _value
     ) internal {
         // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
-        // which has the `setStorage` function.
-        _upgradeProxyTo(_proxy, _adapter, proxyUpdater);
+        // and call `setStorage` on the proxy.
+        _upgradeProxyToAndCall(
+            _proxy,
+            _adapter,
+            proxyUpdater,
+            abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
+        );
 
-        // Call the `setStorage` action on the proxy.
-        (bool success, ) = _proxy.call(abi.encodeCall(ProxyUpdater.setStorage, (_key, _value)));
-        require(success, "ChugSplashManager: call to set proxy storage failed");
-
-        // Delegatecall the adapter to set the proxy's implementation back to address(0).
-        _upgradeProxyTo(_proxy, _adapter, address(0));
+        // Delegatecall the adapter to set the proxy's implementation back to the Reverter.
+        _upgradeProxyTo(_proxy, _adapter, registry.reverter());
     }
 
     /**
@@ -933,6 +978,27 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             abi.encodeCall(IProxyAdapter.upgradeProxyTo, (_proxy, _implementation))
         );
         require(success, "ChugSplashManager: delegatecall to upgrade proxy failed");
+    }
+
+    /**
+     * @notice Upgrade a proxy's implementation contract and delegatecall the proxy with encoded
+     *         function data via an adapter.
+     *
+     * @param _proxy          Address of the proxy to upgrade.
+     * @param _adapter        Address of the adapter to use for the proxy.
+     * @param _implementation Address to set as the proxy's new implementation contract.
+     * @param _data           Calldata to delegatecall the new implementation with.
+     */
+    function _upgradeProxyToAndCall(
+        address payable _proxy,
+        address _adapter,
+        address _implementation,
+        bytes memory _data
+    ) internal {
+        (bool success, ) = _adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.upgradeProxyToAndCall, (_proxy, _implementation, _data))
+        );
+        require(success, "ChugSplashManager: delegatecall to upgrade proxy with data failed");
     }
 
     /**
