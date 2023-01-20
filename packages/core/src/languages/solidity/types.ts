@@ -99,6 +99,7 @@ export interface CompilerOutputSource {
   ast: {
     id: number
     exportedSymbols: { [contractName: string]: number[] }
+    nodes?: any
   }
 }
 
