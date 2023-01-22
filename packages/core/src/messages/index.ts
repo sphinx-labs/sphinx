@@ -33,9 +33,10 @@ npx hardhat chugsplash-register --network <network> --owner <ownerAddress> --con
   } else {
     // TODO - output foundry error
     throw new Error(`This project has not been registered on ${networkName}.
-To register the project on this network...
+To register the project on this network, call the register function from your script:
 
-TODO: Finish foundry error message`)
+chugsplash.register("${configPath}", false);
+`)
   }
 }
 
@@ -52,9 +53,10 @@ npx hardhat chugsplash-cancel --network <network> --config-path ${configPath}
     )
   } else {
     // TODO - output foundry error
-    throw new Error(`Project is currently active. You must cancel the project in order to withdraw funds...
+    throw new Error(`Project is currently active. You must cancel the project in order to withdraw funds:
 
-TODO: Finish foundry error message`)
+chugsplash.cancel("${configPath}");
+`)
   }
 }
 
@@ -79,13 +81,14 @@ npx hardhat chugsplash-approve --network <network> --config-path ${configPath}`
   } else {
     // TODO - output foundry error
     if (amount.gt(0)) {
-      return `Project successfully proposed on ${networkName}. Fund and approve the deployment...
+      return `Project successfully proposed on ${networkName}. To fund and approve the deployment, call the following functions from your script:
 
-TODO: Finish foundry success message`
+chugsplash.fund("${configPath}", ${amount} ether, false);
+chugsplas.approve("${configPath}", false, false);`
     } else {
-      return `Project successfully proposed and funded on ${networkName}. Approve the deployment...
+      return `Project successfully proposed and funded on ${networkName}. To approve the deployment, call the following function from your script:
 
-TODO: Finish foundry success message`
+chugsplas.approve("${configPath}", false, false);`
     }
   }
 }
@@ -111,13 +114,14 @@ npx hardhat chugsplash-approve --network <network> --config-path ${configPath}`
   } else {
     // TODO - output foundry error
     if (amount.gt(0)) {
-      return `Project has already been proposed on ${networkName}. Fund and approve the deployment...
+      return `Project has already been proposed on ${networkName}. To fund and approve the deployment, call the following functions from your script:
 
-TODO: Finish foundry success message`
+      chugsplash.fund("${configPath}", ${amount} ether, false);
+      chugsplas.approve("${configPath}", false, false);`
     } else {
-      return `Project has already been proposed and funded on ${networkName}. Approve the deployment using the command:
+      return `Project has already been proposed and funded on ${networkName}. To approve the deployment, call the following function from your script:
 
-TODO: Finish foundry success message`
+chugsplas.approve("${configPath}", false, false);`
     }
   }
 }
