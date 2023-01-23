@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.4.1
+
+### Patch Changes
+
+- 48088b2: Add timeout on analytics functions
+
 ## 0.4.0
 
 ### Minor Changes
