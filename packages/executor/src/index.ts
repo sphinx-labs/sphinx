@@ -149,7 +149,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
   async main(
     canonicalConfigFolderPath?: string,
     integration?: Integration,
-    remoteExecution: boolean = false
+    remoteExecution: boolean = true
   ) {
     const { provider, wallet, registry } = this.state
 
@@ -211,7 +211,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
         )
 
         this.logger.info('[ChugSplash]: retrieving the bundle...')
-
         // Compile the bundle using either the provided localBundleId (when running the in-process
         // executor), or using the Config URI
         let bundle: ChugSplashActionBundle

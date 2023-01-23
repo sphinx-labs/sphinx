@@ -438,7 +438,7 @@ export const chugsplashApproveAbstractTask = async (
   const signerAddress = await signer.getAddress()
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -587,7 +587,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   }
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   spinner.start(
@@ -849,7 +849,7 @@ export const chugsplashDeployAbstractTask = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(canonicalConfigPath, integration)
+    await executor.main(canonicalConfigPath, integration, false)
     spinner.succeed(`Executed ${projectName}.`)
   } else {
     throw new Error(`Local execution specified but no executor was given.`)
@@ -909,7 +909,7 @@ export const chugsplashMonitorAbstractTask = async (
   remoteExecution: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
-  const networkName = await resolveNetworkName(provider, 'hardhat')
+  const networkName = await resolveNetworkName(provider, integration)
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(`Loading project information...`)
 
@@ -928,7 +928,7 @@ export const chugsplashMonitorAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
@@ -1029,7 +1029,7 @@ export const chugsplashCancelAbstractTask = async (
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -1107,7 +1107,7 @@ export const chugsplashWithdrawAbstractTask = async (
   )
 
   if (!(await isProjectRegistered(signer, projectName))) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
@@ -1265,7 +1265,7 @@ export const chugsplashListProposersAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const ChugSplashManager = getChugSplashManager(
@@ -1342,7 +1342,7 @@ export const chugsplashAddProposersAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const ChugSplashManager = getChugSplashManager(
@@ -1425,7 +1425,7 @@ export const chugsplashClaimProxyAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   const owner = await getProjectOwnerAddress(
@@ -1498,7 +1498,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
     (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
     false
   ) {
-    await errorProjectNotRegistered(provider, configPath, 'hardhat')
+    await errorProjectNotRegistered(provider, configPath, integration)
   }
 
   spinner.succeed('Project registration detected')
