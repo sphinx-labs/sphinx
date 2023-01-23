@@ -1,5 +1,41 @@
 # @chugsplash/demo
 
+## 0.4.0
+
+### Minor Changes
+
+- 8df582d: Fix(pg): Refactor tasks to remove dependencies on hardhat
+
+### Patch Changes
+
+- 1cbd07b: Set `strictNullChecks` to true for TypeScript
+- c379fb6: Use artifact paths object instead of inferring artifacts
+- 8df582d: Feat(core): Add support for local analytics
+- Updated dependencies [ad46bbc]
+- Updated dependencies [042541b]
+- Updated dependencies [c8664a2]
+- Updated dependencies [242c7ca]
+- Updated dependencies [57a367d]
+- Updated dependencies [1cbd07b]
+- Updated dependencies [c379fb6]
+- Updated dependencies [ba517ad]
+- Updated dependencies [2e41b30]
+- Updated dependencies [60d7adc]
+- Updated dependencies [f14cc8d]
+- Updated dependencies [8df582d]
+- Updated dependencies [deca63d]
+- Updated dependencies [cb3a70d]
+- Updated dependencies [d481925]
+- Updated dependencies [2b8af04]
+- Updated dependencies [6c07d41]
+- Updated dependencies [8df582d]
+- Updated dependencies [0443459]
+- Updated dependencies [89fd479]
+- Updated dependencies [40f0d0a]
+- Updated dependencies [2201f3a]
+  - @chugsplash/core@0.4.0
+  - @chugsplash/plugins@0.9.0
+
 ## 0.3.22
 
 ### Patch Changes

@@ -1,5 +1,42 @@
 # @chugsplash/executor
 
+## 0.5.0
+
+### Minor Changes
+
+- 8df582d: Fix(pg): Refactor tasks to remove dependencies on hardhat
+
+### Patch Changes
+
+- 9edf09b: Fix bug where executor wasn't detecting old approvals
+- 57a367d: Fix issue where executor always tries to execute locally
+- 1cbd07b: Set `strictNullChecks` to true for TypeScript
+- c379fb6: Use artifact paths object instead of inferring artifacts
+- 60d7adc: Make executors permissioned
+- 8df582d: Feat(core): Add support for local analytics
+- 40f0d0a: Add OpenZeppelin storage slot checker
+- Updated dependencies [ad46bbc]
+- Updated dependencies [042541b]
+- Updated dependencies [c8664a2]
+- Updated dependencies [57a367d]
+- Updated dependencies [1cbd07b]
+- Updated dependencies [c379fb6]
+- Updated dependencies [ba517ad]
+- Updated dependencies [2e41b30]
+- Updated dependencies [60d7adc]
+- Updated dependencies [f14cc8d]
+- Updated dependencies [8df582d]
+- Updated dependencies [deca63d]
+- Updated dependencies [cb3a70d]
+- Updated dependencies [d481925]
+- Updated dependencies [2b8af04]
+- Updated dependencies [6c07d41]
+- Updated dependencies [8df582d]
+- Updated dependencies [0443459]
+- Updated dependencies [40f0d0a]
+- Updated dependencies [2201f3a]
+  - @chugsplash/core@0.4.0
+
 ## 0.4.14
 
 ### Patch Changes
