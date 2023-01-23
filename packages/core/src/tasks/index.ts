@@ -849,7 +849,7 @@ export const chugsplashDeployAbstractTask = async (
       to: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       value: amountToDeposit,
     })
-    await executor.main(canonicalConfigPath, integration)
+    await executor.main(canonicalConfigPath, integration, false)
     spinner.succeed(`Executed ${projectName}.`)
   } else {
     throw new Error(`Local execution specified but no executor was given.`)
