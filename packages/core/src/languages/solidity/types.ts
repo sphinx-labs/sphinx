@@ -38,6 +38,17 @@ export interface SolidityStorageLayout {
   }
 }
 
+/**
+ * Mapping from a contract to its build info file path and artifact path. Note that each
+ * contract matches the `contract` field in the `UserChugSplashConfig`.
+ */
+export type ArtifactPaths = {
+  [contract: string]: {
+    buildInfoPath: string
+    contractArtifactPath: string
+  }
+}
+
 export interface StorageSlotPair {
   key: string
   val: string
@@ -88,6 +99,7 @@ export interface CompilerOutputSource {
   ast: {
     id: number
     exportedSymbols: { [contractName: string]: number[] }
+    nodes?: any
   }
 }
 

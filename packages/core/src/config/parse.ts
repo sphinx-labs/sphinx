@@ -2,20 +2,26 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { ethers } from 'ethers'
+import { ethers, providers } from 'ethers'
+import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
 
 /* Imports: Internal */
 import {
+  ArtifactPaths,
   computeStorageSlots,
   SolidityStorageLayout,
 } from '../languages/solidity'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
+  readStorageLayout,
   makeBundleFromActions,
+  readContractArtifact,
 } from '../actions'
 import { getDefaultProxyAddress } from '../utils'
 import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
+import { Integration } from '../constants'
+import { getLatestDeployedStorageLayout } from '../deployed'
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -29,7 +35,7 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
+export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
   if (config.contracts === undefined) {
     throw new Error('contracts field must be defined in ChugSplash config')
   }
@@ -67,54 +73,102 @@ export const validateChugSplashConfig = (config: UserChugSplashConfig) => {
     }
 
     // Check for invalid contract references.
-    for (const [varName, varValue] of Object.entries(
-      contractConfig.variables
-    )) {
-      if (
-        typeof varValue === 'string' &&
-        varValue.includes('{{') &&
-        varValue.includes('}}')
-      ) {
-        if (!varValue.startsWith('{{')) {
-          throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
-        } else if (!varValue.endsWith('}}')) {
-          throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
-        }
+    if (contractConfig.variables !== undefined) {
+      for (const [varName, varValue] of Object.entries(
+        contractConfig.variables
+      )) {
+        if (
+          typeof varValue === 'string' &&
+          varValue.includes('{{') &&
+          varValue.includes('}}')
+        ) {
+          if (!varValue.startsWith('{{')) {
+            throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
+                 Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                 `)
+          } else if (!varValue.endsWith('}}')) {
+            throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
+                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                  `)
+          }
 
-        const contractReference = varValue
-          .substring(2, varValue.length - 2)
-          .trim()
+          const contractReference = varValue
+            .substring(2, varValue.length - 2)
+            .trim()
 
-        if (!referenceNames.includes(contractReference)) {
-          throw new Error(`Contract reference cannot be found: ${contractReference}
-Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-          `)
+          if (!referenceNames.includes(contractReference)) {
+            throw new Error(`Contract reference cannot be found: ${contractReference}
+                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
+                  `)
+          }
         }
       }
     }
   }
 }
 
+export const assertStorageSlotCheck = async (
+  provider: providers.Provider,
+  config: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string
+) => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    config.contracts
+  )) {
+    const isProxyDeployed =
+      (await provider.getCode(contractConfig.proxy)) !== '0x'
+    if (isProxyDeployed && config.options.skipStorageCheck !== true) {
+      const currStorageLayout = await getLatestDeployedStorageLayout(
+        provider,
+        referenceName,
+        contractConfig.proxy,
+        remoteExecution,
+        canonicalConfigFolderPath
+      )
+      const newStorageLayout = readStorageLayout(
+        contractConfig.contract,
+        artifactPaths,
+        integration
+      )
+      // Run OpenZeppelin's storage slot checker.
+      assertStorageUpgradeSafe(
+        currStorageLayout as any,
+        newStorageLayout as any,
+        false
+      )
+    }
+  }
+}
+
 /**
- * Parses a ChugSplash config file by replacing template values.
+ * Parses a ChugSplash config file from the config file given by the user.
  *
  * @param config Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const parseChugSplashConfig = (
-  config: UserChugSplashConfig
-): ParsedChugSplashConfig => {
-  validateChugSplashConfig(config)
-
+export const parseChugSplashConfig = async (
+  provider: providers.Provider,
+  config: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ParsedChugSplashConfig> => {
   const contracts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
+    if (
+      contractConfig.proxy !== undefined &&
+      (await provider.getCode(contractConfig.proxy)) === '0x'
+    ) {
+      throw new Error(
+        `User entered a proxy address that does not exist: ${contractConfig.proxy}`
+      )
+    }
+
     // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
     // used by ChugSplash.
     contractConfig.proxy =
@@ -128,6 +182,24 @@ export const parseChugSplashConfig = (
       ...contracts,
     })
   )
+
+  for (const contractConfig of Object.values(parsed.contracts)) {
+    // If the variables field is undefined, change it to an empty object. This simplifies logic that
+    // iterates over the parsed variables later.
+    if (contractConfig.variables === undefined) {
+      contractConfig.variables = {}
+    }
+
+    // Change the `contract` fields to be fully qualified names. This ensures that it's easy for the
+    // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
+    // config.
+    const { sourceName, contractName } = readContractArtifact(
+      artifactPaths,
+      contractConfig.contract,
+      integration
+    )
+    contractConfig.contract = `${sourceName}:${contractName}`
+  }
 
   return parsed
 }

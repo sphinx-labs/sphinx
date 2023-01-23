@@ -7,6 +7,7 @@ import {
   getConstructorArgs,
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
+  getCanonicalConfigArtifacts,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -51,7 +52,6 @@ import {
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
-import { getArtifactsFromCanonicalConfig } from './compile'
 import { etherscanApiKey as apiKey, customChains } from './constants'
 
 export interface EtherscanResponseBody {
@@ -74,7 +74,7 @@ export const verifyChugSplashConfig = async (
   )
 
   const canonicalConfig = await chugsplashFetchSubtask({ configUri })
-  const artifacts = await getArtifactsFromCanonicalConfig(canonicalConfig)
+  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
   const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
     ChugSplashManagerABI,
@@ -214,7 +214,7 @@ export const verifyChugSplash = async (
       etherscanApiKey,
       minimumCompilerInput,
       buildInfo.solcVersion,
-      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
+      CHUGSPLASH_CONSTRUCTOR_ARGS[address]
     )
   }
 

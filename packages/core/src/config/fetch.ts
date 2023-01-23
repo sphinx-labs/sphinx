@@ -1,5 +1,9 @@
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
+import { ChugSplashActionBundle } from '../actions'
+import { Integration } from '../constants'
+import { ArtifactPaths, bundleRemote } from '../languages'
+import { computeBundleId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 
 export const chugsplashFetchSubtask = async (args: {
@@ -44,4 +48,39 @@ export const chugsplashFetchSubtask = async (args: {
   }
 
   return config
+}
+
+export const verifyBundle = async (args: {
+  configUri: string
+  bundleId: string
+  ipfsUrl: string
+  artifactPaths: ArtifactPaths
+  integration: Integration
+}): Promise<{
+  config: CanonicalChugSplashConfig
+  bundle: ChugSplashActionBundle
+}> => {
+  const { configUri, bundleId, ipfsUrl } = args
+
+  const config: CanonicalChugSplashConfig = await chugsplashFetchSubtask({
+    configUri,
+    ipfsUrl,
+  })
+
+  const bundle: ChugSplashActionBundle = await bundleRemote({
+    canonicalConfig: config,
+  })
+
+  if (
+    bundleId !== computeBundleId(bundle.root, bundle.actions.length, configUri)
+  ) {
+    throw new Error(
+      'Bundle ID generated from downloaded config does NOT match given hash. Please report this error.'
+    )
+  }
+
+  return {
+    config,
+    bundle,
+  }
 }

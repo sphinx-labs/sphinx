@@ -1,4 +1,3 @@
-import { EXECUTOR_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -34,8 +33,6 @@ export const executeTask = async (args: {
 
   logger.info(`[ChugSplash]: preparing to execute the project...`)
 
-  const executorAddress = await executor.getAddress()
-
   if (
     bundleState.status !== ChugSplashBundleStatus.APPROVED &&
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
@@ -48,22 +45,6 @@ export const executeTask = async (args: {
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     logger.info(`[ChugSplash]: already executed: ${projectName}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
-    if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
-      logger.info(
-        `[ChugSplash]: claiming the bundle for project: ${projectName}`
-      )
-      await (
-        await chugSplashManager.claimBundle(
-          await getGasPriceOverrides(executor.provider, {
-            value: EXECUTOR_BOND_AMOUNT,
-          })
-        )
-      ).wait()
-      logger.info(`[ChugSplash]: claimed the bundle`)
-    } else if (bundleState.selectedExecutor !== executorAddress) {
-      throw new Error(`another executor has already claimed the bundle`)
-    }
-
     // We execute all actions in batches to reduce the total number of transactions and reduce the
     // cost of a deployment in general. Approaching the maximum block gas limit can cause
     // transactions to be executed slowly as a result of the algorithms that miners use to select

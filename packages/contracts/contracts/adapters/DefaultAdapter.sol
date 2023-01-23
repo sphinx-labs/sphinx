@@ -28,6 +28,24 @@ contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
+    function upgradeProxyToAndCall(
+        address payable _proxy,
+        address _implementation,
+        bytes calldata _data
+    ) external returns (bytes memory) {
+        // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
+        // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
+        // function doesn't return any data.
+        (bool success, bytes memory returndata) = _proxy.call(
+            abi.encodeCall(Proxy.upgradeToAndCall, (_implementation, _data))
+        );
+        require(success, "DefaultAdapter: call to proxy failed");
+        return returndata;
+    }
+
+    /**
+     * @inheritdoc IProxyAdapter
+     */
     function changeProxyAdmin(address payable _proxy, address _newAdmin) external {
         Proxy(_proxy).changeAdmin(_newAdmin);
     }

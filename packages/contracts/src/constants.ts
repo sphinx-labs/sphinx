@@ -12,12 +12,18 @@ import {
   ProxyABI,
   ProxyInitializerArtifact,
   ProxyInitializerABI,
+  ReverterArtifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
   '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
+export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
-export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
+export const TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('transparent')
+)
+
+export const CHUGSPLASH_SALT = ethers.constants.HashZero
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
@@ -28,6 +34,7 @@ const proxyUpdaterSourceName = ProxyUpdaterArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
 const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
 const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
+const reverterSourceName = ReverterArtifact.sourceName
 
 const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -47,8 +54,7 @@ const chugsplashManagerConstructorArgTypes =
 
 export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =
   '0x4e59b44847b379578588920ca78fbf26c0b4956c'
-export const OWNER_BOND_AMOUNT = ethers.utils.parseEther('0.01')
-export const EXECUTOR_BOND_AMOUNT = ethers.utils.parseEther('0.01')
+export const OWNER_BOND_AMOUNT = ethers.utils.parseEther('0.001')
 export const EXECUTION_LOCK_TIME = 15 * 60
 export const EXECUTOR_PAYMENT_PERCENTAGE = 20
 
@@ -65,6 +71,12 @@ export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
   CHUGSPLASH_BOOTLOADER_ADDRESS,
   CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
+)
+
+export const REVERTER_ADDRESS = ethers.utils.getCreate2Address(
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  CHUGSPLASH_SALT,
+  ethers.utils.solidityKeccak256(['bytes'], [ReverterArtifact.bytecode])
 )
 
 export const PROXY_INITIALIZER_ADDRESS = ethers.utils.getCreate2Address(
@@ -125,7 +137,6 @@ const chugsplashManagerConstructorArgValues = [
   'Root Manager',
   OWNER_MULTISIG_ADDRESS,
   PROXY_UPDATER_ADDRESS,
-  EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT,
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -154,11 +165,11 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
     [
       ChugSplashRegistryArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
-        ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'address'],
+        ['address', 'address', 'uint256', 'uint256', 'uint256', 'address'],
         [
           PROXY_UPDATER_ADDRESS,
+          REVERTER_ADDRESS,
           OWNER_BOND_AMOUNT,
-          EXECUTOR_BOND_AMOUNT,
           EXECUTION_LOCK_TIME,
           EXECUTOR_PAYMENT_PERCENTAGE,
           CHUGSPLASH_MANAGER_ADDRESS,
@@ -178,7 +189,6 @@ export const CHUGSPLASH_CONSTRUCTOR_ARGS = {}
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistrySourceName] = [
   PROXY_UPDATER_ADDRESS,
   OWNER_BOND_AMOUNT,
-  EXECUTOR_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
   CHUGSPLASH_MANAGER_ADDRESS,
@@ -196,3 +206,4 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
   registryProxyConstructorArgValues
 CHUGSPLASH_CONSTRUCTOR_ARGS[proxyInitializerSourceName] =
   proxyInitializerConstructorArgValues
+CHUGSPLASH_CONSTRUCTOR_ARGS[reverterSourceName] = []
