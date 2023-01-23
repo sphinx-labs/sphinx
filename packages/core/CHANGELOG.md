@@ -1,5 +1,37 @@
 # @chugsplash/core
 
+## 0.4.0
+
+### Minor Changes
+
+- 8df582d: Fix(pg): Refactor tasks to remove dependencies on hardhat
+- 0443459: Support custom transparent proxies
+
+### Patch Changes
+
+- ad46bbc: Change error messages so that they don't infer network name
+- 042541b: Remove unnecessary TODO
+- c8664a2: Check if proxy is deployed before transferring to ChugSplash
+- 57a367d: Fix issue where executor always tries to execute locally
+- 1cbd07b: Set `strictNullChecks` to true for TypeScript
+- c379fb6: Use artifact paths object instead of inferring artifacts
+- ba517ad: Ensure Array.at() is always supported
+- 2e41b30: Fix bug caused by iterating over empty AST node object
+- 60d7adc: Make executors permissioned
+- f14cc8d: Add flag that allows users to skip the storage slot checker
+- 8df582d: Feat(core): Add support for local analytics
+- deca63d: Use `getNetwork` to retrieve network name
+- cb3a70d: Improve spinner timing
+- d481925: Add foundry specific messages
+- 2b8af04: Change EIP-1967 proxy implementation getter to be compatible with OpenZeppelin contracts
+- 6c07d41: Display contract name instead of fully qualified name in deployment table
+- 40f0d0a: Add OpenZeppelin storage slot checker
+- 2201f3a: Use `resolveNetworkName` everywhere
+- Updated dependencies [60d7adc]
+- Updated dependencies [0443459]
+- Updated dependencies [40f0d0a]
+  - @chugsplash/contracts@0.4.0
+
 ## 0.3.24
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @chugsplash/contracts
 
+## 0.4.0
+
+### Minor Changes
+
+- 0443459: Support custom transparent proxies
+
+### Patch Changes
+
+- 60d7adc: Make executors permissioned
+- 40f0d0a: Add OpenZeppelin storage slot checker
+
 ## 0.3.17
 
 ### Patch Changes
