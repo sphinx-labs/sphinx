@@ -1,5 +1,13 @@
 # @chugsplash/executor
 
+## 0.5.1
+
+### Patch Changes
+
+- 48088b2: Add timeout on analytics functions
+- Updated dependencies [48088b2]
+  - @chugsplash/core@0.4.1
+
 ## 0.5.0
 
 ### Minor Changes
