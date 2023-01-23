@@ -17,7 +17,7 @@ import {
 export const OWNER_MULTISIG_ADDRESS =
   '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
 
-export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
+export const CHUGSPLASH_SALT = ethers.constants.HashZero
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
