@@ -30,6 +30,7 @@ export type ParsedConfigVariable =
 export interface UserChugSplashConfig {
   options: {
     projectName: string
+    skipStorageCheck?: boolean
   }
   contracts: UserContractConfigs
 }
@@ -40,6 +41,7 @@ export interface UserChugSplashConfig {
 export interface ParsedChugSplashConfig {
   options: {
     projectName: string
+    skipStorageCheck?: boolean
   }
   contracts: ParsedContractConfigs
 }
@@ -62,12 +64,14 @@ export type UserConfigVariables = {
 }
 
 /**
- * Parsed contract definition in a ChugSplash config.
+ * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
+ * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
+ * qualified name or the contract name.
  */
 export type ParsedContractConfig = {
   contract: string
   proxy: string
-  variables?: ParsedConfigVariables
+  variables: ParsedConfigVariables
 }
 
 export type ParsedContractConfigs = {

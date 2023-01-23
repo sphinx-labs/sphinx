@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/contracts",
-  "version": "0.3.17",
+  "version": "0.4.0",
   "description": "ChugSplash contracts",
   "main": "dist/index",
   "types": "dist/index",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@eth-optimism/core-utils": "^0.9.0",
+    "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.6.0",
     "dotenv": "^16.0.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#9310e879db8ba3ea6d5c6489a579118fd264a3f5",

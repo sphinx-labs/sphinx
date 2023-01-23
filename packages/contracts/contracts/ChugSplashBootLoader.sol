@@ -5,6 +5,7 @@ import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { ProxyUpdater } from "./ProxyUpdater.sol";
+import { Reverter } from "./Reverter.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { Proxy } from "./libraries/Proxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -20,9 +21,14 @@ contract ChugSplashBootLoader is Initializable {
         0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     /**
-     * @notice Address of the ProxyUpdater.
+     * @notice The ProxyUpdater.
      */
     ProxyUpdater public proxyUpdater;
+
+    /**
+     * @notice The Reverter.
+     */
+    Reverter public reverter;
 
     /**
      * @notice Address of the ChugSplashRegistry implementation contract.
@@ -40,7 +46,6 @@ contract ChugSplashBootLoader is Initializable {
      *         using ChugSplash!
      *
      * @param _owner                     Address of the owner of the ChugSplash contracts.
-     * @param _executorBondAmount        Executor bond amount in ETH.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -54,7 +59,6 @@ contract ChugSplashBootLoader is Initializable {
      */
     function initialize(
         address _owner,
-        uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
@@ -64,6 +68,9 @@ contract ChugSplashBootLoader is Initializable {
     ) external initializer {
         // Deploy the ProxyUpdater.
         proxyUpdater = new ProxyUpdater{ salt: _salt }();
+
+        // Deploy the Reverter.
+        reverter = new Reverter{ salt: _salt }();
 
         // Deploy the root ChugSplashManager's proxy.
         rootManagerProxy = new ChugSplashManagerProxy{ salt: _salt }(
@@ -83,11 +90,13 @@ contract ChugSplashBootLoader is Initializable {
         // Deploy and initialize the ChugSplashRegistry's implementation contract.
         registryImplementation = new ChugSplashRegistry{ salt: _salt }(
             address(proxyUpdater),
+            address(reverter),
             _ownerBondAmount,
-            _executorBondAmount,
             _executionLockTime,
             _executorPaymentPercentage,
             _managerImplementation
         );
+
+        registryImplementation.initialize(_owner, new address[](0));
     }
 }

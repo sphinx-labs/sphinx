@@ -14,12 +14,24 @@ interface IProxyAdapter {
     function getProxyImplementation(address payable _proxy) external returns (address);
 
     /**
-     * @dev Upgrade the implementation of the proxy.
+     * @notice Upgrade the implementation of the proxy.
      *
      * @param _proxy          Address of the proxy.
      * @param _implementation Address of the new implementation.
      */
     function upgradeProxyTo(address payable _proxy, address _implementation) external;
+
+    /**
+     * @notice Set the proxy's implementation and call a function in a single transaction.
+     *
+     * @param _implementation Address of the implementation contract.
+     * @param _data           Calldata to delegatecall the new implementation with.
+     */
+    function upgradeProxyToAndCall(
+        address payable _proxy,
+        address _implementation,
+        bytes calldata _data
+    ) external returns (bytes memory);
 
     /**
      * @notice Changes the admin of the proxy.

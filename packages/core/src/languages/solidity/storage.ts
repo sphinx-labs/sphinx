@@ -201,7 +201,14 @@ export const encodeVariable = (
       ]
     } else if (variableType.label.startsWith('struct')) {
       // Structs are encoded recursively, as defined by their `members` field.
-      let slots = []
+      let slots: Array<StorageSlotPair> = []
+      if (variableType.members === undefined) {
+        // The Solidity compiler prevents defining structs without any members, so this should
+        // never occur.
+        throw new Error(
+          `Could not find any members in ${variableType.label}. Should never happen.`
+        )
+      }
       for (const [varName, varVal] of Object.entries(variable)) {
         const memberStorageObj = variableType.members.find((member) => {
           return member.label === varName
@@ -216,6 +223,10 @@ export const encodeVariable = (
         )
       }
       return slots
+    } else {
+      throw new Error(
+        `Could not encode: ${variableType.label}. Should never happen.`
+      )
     }
   } else if (variableType.encoding === 'bytes') {
     // The Solidity compiler uses the "bytes" encoding for strings and dynamic bytes.
@@ -265,8 +276,20 @@ export const encodeVariable = (
     }
   } else if (variableType.encoding === 'mapping') {
     // Iterate over every key/value in the mapping to get the storage slot pair for each one.
-    let slots = []
+    let slots: Array<StorageSlotPair> = []
     for (const [mappingKey, mappingVal] of Object.entries(variable)) {
+      // Check that a `key` and `value` property exist. The Solidity compiler always includes these
+      // properties for the storage objects of mappings, so these errors should never occur.
+      if (variableType.key === undefined) {
+        throw new Error(
+          `Could not find mapping key in storage object for ${variableType.label}. Should never happen.`
+        )
+      } else if (variableType.value === undefined) {
+        throw new Error(
+          `Could not find mapping key in storage object for ${variableType.label}. Should never happen.`
+        )
+      }
+
       const mappingKeyStorageType = storageTypes[variableType.key]
 
       // Encode the mapping key according to its Solidity compiler encoding. The encoding for the
@@ -303,7 +326,7 @@ export const encodeVariable = (
 
       // Create a new storage object for the mapping value since the Solidity compiler doesn't
       // generate one for us.
-      const mappingValStorageObj = {
+      const mappingValStorageObj: SolidityStorageObj = {
         astId: storageObj.astId,
         contract: storageObj.contract,
         label: '', // The mapping value has no storage label, which is fine since it's unused here.
@@ -373,6 +396,13 @@ export const encodeArrayElements = (
   nestedSlotOffset: string
 ): Array<StorageSlotPair> => {
   const elementType = storageTypes[storageObj.type].base
+
+  if (elementType === undefined) {
+    throw new Error(
+      `Could not encode array elements for: ${storageObj.label}. Should never happen.`
+    )
+  }
+
   const bytesPerElement = Number(storageTypes[elementType].numberOfBytes)
 
   // Calculate the number of slots to increment when iterating over the array elements. This
@@ -384,7 +414,7 @@ export const encodeArrayElements = (
   let bytesOffset = 0
 
   // Iterate over the array and encode each element in it.
-  let slots = []
+  let slots: Array<StorageSlotPair> = []
   for (const element of array) {
     slots = slots.concat(
       encodeVariable(
@@ -435,7 +465,7 @@ export const encodeBytesArrayElements = (
   elementSlotKey: string
 ): Array<StorageSlotPair> => {
   // Iterate over the array and encode each element in it.
-  const slots = []
+  const slots: Array<StorageSlotPair> = []
   for (let i = 0; i <= array.length; i += 32) {
     if (i + 32 <= array.length) {
       // beginning or middle chunk of the array
@@ -472,7 +502,7 @@ export const computeStorageSlots = (
   contractConfig: ParsedContractConfig,
   immutableVariables: string[]
 ): Array<StorageSlotPair> => {
-  const storageEntries = {}
+  const storageEntries: { [storageObjLabel: string]: SolidityStorageObj } = {}
   for (const storageObj of Object.values(storageLayout.storage)) {
     if (contractConfig.variables[storageObj.label] !== undefined) {
       storageEntries[storageObj.label] = storageObj
@@ -513,7 +543,7 @@ but does not exist as a variable in the contract`
   // slots produced by the above encoding have the same key. In this case, we want to merge the two
   // values into a single bytes32 value. We'll throw an error if the two values overlap (have some
   // byte where both values are non-zero).
-  slots = slots.reduce((prevSlots, slot) => {
+  slots = slots.reduce((prevSlots: Array<StorageSlotPair>, slot) => {
     // Find some previous slot where we have the same key.
     const prevSlot = prevSlots.find((otherSlot) => {
       return otherSlot.key === slot.key
@@ -562,4 +592,26 @@ but does not exist as a variable in the contract`
   }, [])
 
   return slots
+}
+
+export const addEnumMembersToStorageLayout = (
+  storageLayout: SolidityStorageLayout,
+  contractName: string,
+  sourceNodes: any
+): SolidityStorageLayout => {
+  for (const layoutType of Object.values(storageLayout.types)) {
+    if (layoutType.label.startsWith('enum')) {
+      const canonicalVarName = layoutType.label.substring(5)
+      for (const contractNode of sourceNodes) {
+        if (contractNode.canonicalName === contractName) {
+          for (const node of contractNode.nodes) {
+            if (node.canonicalName === canonicalVarName) {
+              layoutType.members = node.members.map((member) => member.name)
+            }
+          }
+        }
+      }
+    }
+  }
+  return storageLayout
 }

@@ -19,11 +19,27 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
+  TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
+import { remove0x } from '@eth-optimism/core-utils'
+import ora from 'ora'
+import yesno from 'yesno'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from './config'
+import {
+  assertStorageSlotCheck,
+  assertValidUserConfigFields,
+  CanonicalChugSplashConfig,
+  parseChugSplashConfig,
+  ParsedChugSplashConfig,
+  ParsedContractConfigs,
+  UserChugSplashConfig,
+} from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import { FoundryContractArtifact } from './types'
+import { ArtifactPaths } from './languages'
+import { Integration } from './constants'
+import 'core-js/features/array/at'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -39,14 +55,12 @@ export const computeBundleId = (
 }
 
 export const writeSnapshotId = async (
+  provider: ethers.providers.JsonRpcProvider,
   networkName: string,
-  deploymentFolderPath: string,
-  snapshotId: string
+  deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(
-    path.basename(deploymentFolderPath),
-    networkName
-  )
+  const snapshotId = await provider.send('evm_snapshot', [])
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
@@ -58,10 +72,7 @@ export const createDeploymentFolderForNetwork = (
   networkName: string,
   deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(
-    path.basename(deploymentFolderPath),
-    networkName
-  )
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
@@ -74,7 +85,7 @@ export const writeDeploymentArtifact = (
   referenceName: string
 ) => {
   const artifactPath = path.join(
-    path.basename(deploymentFolderPath),
+    deploymentFolderPath,
     networkName,
     `${referenceName}.json`
   )
@@ -125,66 +136,6 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const checkValidUpgrade = async (
-  provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  configPath: string,
-  networkName: string
-) => {
-  const requiresOwnershipTransfer: {
-    name: string
-    address: string
-  }[] = []
-  let proxyDetected = false
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if (await isContractDeployed(contractConfig.proxy, provider)) {
-      proxyDetected = true
-
-      const contract = new ethers.Contract(
-        contractConfig.proxy,
-        ProxyABI,
-        provider
-      )
-
-      const owner = await getProxyAdmin(contract)
-      const managerProxy = await getChugSplashManagerProxyAddress(
-        parsedConfig.options.projectName
-      )
-      if (owner !== managerProxy) {
-        requiresOwnershipTransfer.push({
-          name: referenceName,
-          address: contractConfig.proxy,
-        })
-      }
-    }
-  }
-
-  if (!proxyDetected) {
-    throw new Error(
-      `Error: No deployed contracts were detected for project ${parsedConfig.options.projectName}.
-
-Run the following command to deploy this project for the first time:
-npx hardhat chugsplash-deploy --network ${networkName} --config-path ${configPath}
-      `
-    )
-  }
-
-  if (requiresOwnershipTransfer.length > 0) {
-    throw new Error(
-      `Error: Detected proxy contracts which are not managed by ChugSplash.
-      ${requiresOwnershipTransfer.map(
-        ({ name, address }) => `${name}, ${address}\n`
-      )}
-
-To upgrade these contracts, you must first transfer ownership of them to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network ${networkName} --config-path ${configPath} --proxy <proxy address>
-      `
-    )
-  }
-}
-
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
   return utils.getCreate2Address(
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
@@ -213,10 +164,11 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
  */
 export const registerChugSplashProject = async (
   provider: providers.JsonRpcProvider,
+  signer: Signer,
+  signerAddress: string,
   projectName: string,
   projectOwner: string
 ): Promise<boolean> => {
-  const signer = provider.getSigner()
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
@@ -232,10 +184,10 @@ export const registerChugSplashProject = async (
     return true
   } else {
     const existingProjectOwner = await getProjectOwnerAddress(
-      provider,
+      signer,
       projectName
     )
-    if (existingProjectOwner !== (await signer.getAddress())) {
+    if (existingProjectOwner !== signerAddress) {
       throw new Error(`Project already owned by: ${existingProjectOwner}.`)
     } else {
       return false
@@ -244,28 +196,37 @@ export const registerChugSplashProject = async (
 }
 
 export const getProjectOwnerAddress = async (
-  provider: providers.JsonRpcProvider,
+  signer: Signer,
   projectName: string
 ): Promise<string> => {
-  const signer = provider.getSigner()
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.OwnershipTransferred()
   )
 
+  const latestEvent = ownershipTransferredEvents.at(-1)
+
+  if (latestEvent === undefined) {
+    throw new Error(`Could not find OwnershipTransferred event.`)
+  } else if (latestEvent.args === undefined) {
+    throw new Error(`No args found for OwnershipTransferred event.`)
+  }
+
   // Get the most recent owner from the list of events
-  const projectOwner = ownershipTransferredEvents.at(-1).args.newOwner
+  const projectOwner = latestEvent.args.newOwner
 
   return projectOwner
 }
 
-export const getChugSplashRegistry = (signer: Signer): Contract => {
+export const getChugSplashRegistry = (
+  signerOrProvider: Signer | providers.Provider
+): Contract => {
   return new Contract(
     // CHUGSPLASH_REGISTRY_ADDRESS,
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ChugSplashRegistryABI,
-    signer
+    signerOrProvider
   )
 }
 
@@ -320,22 +281,45 @@ export const displayDeploymentTable = (
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) =>
-        (deployments[i + 1] = {
+      ([referenceName, contractConfig], i) => {
+        const contractName = contractConfig.contract.includes(':')
+          ? contractConfig.contract.split(':').at(-1)
+          : contractConfig.contract
+        deployments[i + 1] = {
           'Reference Name': referenceName,
-          Contract: contractConfig.contract,
+          Contract: contractName,
           Address: contractConfig.proxy,
-        })
+        }
+      }
     )
     console.table(deployments)
   }
+}
+
+export const generateFoundryTestArtifacts = (
+  parsedConfig: ParsedChugSplashConfig
+): FoundryContractArtifact[] => {
+  const artifacts: {
+    referenceName: string
+    contractName: string
+    contractAddress: string
+  }[] = []
+  Object.entries(parsedConfig.contracts).forEach(
+    ([referenceName, contractConfig], i) =>
+      (artifacts[i] = {
+        referenceName,
+        contractName: contractConfig.contract.split(':')[1],
+        contractAddress: contractConfig.proxy,
+      })
+  )
+  return artifacts
 }
 
 export const claimExecutorPayment = async (
   executor: Wallet,
   ChugSplashManager: Contract
 ) => {
-  const executorDebt = await ChugSplashManager.debt(await executor.getAddress())
+  const executorDebt = await ChugSplashManager.debt()
   if (executorDebt.gt(0)) {
     await (
       await ChugSplashManager.claimExecutorPayment(
@@ -343,12 +327,6 @@ export const claimExecutorPayment = async (
       )
     ).wait()
   }
-}
-
-export const getProxyAdmin = async (Proxy: Contract) => {
-  // Use the latest `AdminChanged` event on the Proxy to get the most recent owner.
-  const { args } = (await Proxy.queryFilter('AdminChanged')).at(-1)
-  return args.newAdmin
 }
 
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
@@ -387,55 +365,75 @@ export const formatEther = (
 
 export const readCanonicalConfig = (
   canonicalConfigFolderPath: string,
-  bundleId: string
+  configUri: string
 ): CanonicalChugSplashConfig => {
+  const ipfsHash = configUri.replace('ipfs://', '')
   // Check that the file containing the canonical config exists.
-  const canonicalConfigPath = path.join(
+  const canonicalConfigFilePath = path.join(
     canonicalConfigFolderPath,
-    `${bundleId}.json`
+    `${ipfsHash}.json`
   )
-  if (!fs.existsSync(canonicalConfigPath)) {
-    throw new Error(
-      `Could not find local bundle ID file. Please report this error.`
-    )
+  if (!fs.existsSync(canonicalConfigFilePath)) {
+    throw new Error(`Could not find cached canonical config file at:
+${canonicalConfigFilePath}`)
   }
 
-  return JSON.parse(fs.readFileSync(canonicalConfigPath, 'utf8'))
+  return JSON.parse(fs.readFileSync(canonicalConfigFilePath, 'utf8'))
 }
 
 export const writeCanonicalConfig = (
   canonicalConfigFolderPath: string,
-  bundleId: string,
+  configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
 ) => {
+  const ipfsHash = configUri.replace('ipfs://', '')
+
   // Create the canonical config folder if it doesn't already exist.
   if (!fs.existsSync(canonicalConfigFolderPath)) {
     fs.mkdirSync(canonicalConfigFolderPath)
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
-  // bundle ID as its name.
+  // config URI as its name.
   fs.writeFileSync(
-    path.join(canonicalConfigFolderPath, `${bundleId}.json`),
+    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
 
-export const getProxyImplementationAddress = async (
+export const getEIP1967ProxyImplementationAddress = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<string> => {
-  const iface = new ethers.utils.Interface(ProxyABI)
-  const encodedImplAddress = await provider.call({
-    to: proxyAddress,
-    from: ethers.constants.AddressZero,
-    data: iface.getSighash('implementation'),
-  })
+  // keccak256('eip1967.proxy.implementation')) - 1
+  // See: https://eips.ethereum.org/EIPS/eip-1967#specification
+  const implStorageKey =
+    '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+
+  const encodedImplAddress = await provider.getStorageAt(
+    proxyAddress,
+    implStorageKey
+  )
   const [decoded] = ethers.utils.defaultAbiCoder.decode(
     ['address'],
     encodedImplAddress
   )
   return decoded
+}
+
+export const getEIP1967ProxyAdminAddress = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<string> => {
+  // See: https://eips.ethereum.org/EIPS/eip-1967#specification
+  const ownerStorageKey =
+    '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+
+  const [ownerAddress] = ethers.utils.defaultAbiCoder.decode(
+    ['address'],
+    await provider.getStorageAt(proxyAddress, ownerStorageKey)
+  )
+  return ownerAddress
 }
 
 /**
@@ -463,4 +461,219 @@ export const getGasPriceOverrides = async (
   }
 
   return overridden
+}
+
+/**
+ * Reads a ChugSplash config file synchronously.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readParsedChugSplashConfig = async (
+  provider: providers.Provider,
+  configPath: string,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ParsedChugSplashConfig> => {
+  const userConfig = readUserChugSplashConfig(configPath)
+  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
+}
+
+export const readUserChugSplashConfig = (
+  configPath: string
+): UserChugSplashConfig => {
+  delete require.cache[require.resolve(path.resolve(configPath))]
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  let config = require(path.resolve(configPath))
+  config = config.default || config
+  assertValidUserConfigFields(config)
+  return config
+}
+
+export const isProjectRegistered = async (
+  signer: Signer,
+  projectName: string
+) => {
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const isRegistered: boolean = await ChugSplashRegistry.managers(
+    chugsplashManagerAddress
+  )
+  return isRegistered
+}
+
+export const isDefaultProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  const ChugSplashRegistry = getChugSplashRegistry(provider)
+
+  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
+      'DefaultProxyDeployed',
+      null,
+      proxyAddress
+    )
+  )
+
+  return actionExecutedEvents.length === 1
+}
+
+export const isTransparentProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  // We don't consider default proxies to be transparent proxies, even though they share the same
+  // interface.
+  if ((await isDefaultProxy(provider, proxyAddress)) === true) {
+    return false
+  }
+
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  const bytecode = await provider.getCode(proxyAddress)
+  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      return false
+    }
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxyAddress)
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    return false
+  }
+
+  return true
+}
+
+export const getProxyTypeHash = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<string> => {
+  if (await isDefaultProxy(provider, proxyAddress)) {
+    return ethers.constants.HashZero
+  } else if (await isTransparentProxy(provider, proxyAddress)) {
+    return TRANSPARENT_PROXY_TYPE_HASH
+  } else {
+    throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
+  }
+}
+
+export const setProxiesToReferenceNames = async (
+  provider: providers.Provider,
+  ChugSplashManager: ethers.Contract,
+  contractConfigs: ParsedContractConfigs
+): Promise<void> => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) === '0x') {
+      continue
+    }
+
+    const currProxyTypeHash = await ChugSplashManager.proxyTypes(referenceName)
+    const actualProxyTypeHash = await getProxyTypeHash(
+      provider,
+      contractConfig.proxy
+    )
+    if (currProxyTypeHash !== actualProxyTypeHash) {
+      await ChugSplashManager.setProxyToReferenceName(
+        referenceName,
+        contractConfig.proxy,
+        actualProxyTypeHash
+      )
+    }
+  }
+}
+
+export const assertValidUpgrade = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string,
+  skipStorageCheck: boolean,
+  confirm: boolean,
+  spinner?: ora.Ora
+) => {
+  // Determine if the deployment is an upgrade
+  const projectName = parsedConfig.options.projectName
+  spinner?.start(
+    `Checking if ${projectName} is a fresh deployment or upgrade...`
+  )
+
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let isUpgrade: boolean = false
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+      const proxyAdmin = await getEIP1967ProxyAdminAddress(
+        provider,
+        contractConfig.proxy
+      )
+      if (proxyAdmin !== chugSplashManagerAddress) {
+        requiresOwnershipTransfer.push({
+          name: referenceName,
+          address: contractConfig.proxy,
+        })
+      }
+
+      isUpgrade = true
+    }
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    throw new Error(
+      `Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+To perform an upgrade, you must first transfer ownership of the contract(s) to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+      `
+    )
+  }
+
+  if (isUpgrade) {
+    if (!skipStorageCheck) {
+      await assertStorageSlotCheck(
+        provider,
+        parsedConfig,
+        artifactPaths,
+        integration,
+        remoteExecution,
+        canonicalConfigFolderPath
+      )
+    }
+
+    spinner?.succeed(`${projectName} is a valid upgrade.`)
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(`User denied upgrade.`)
+      }
+    }
+  } else {
+    spinner?.succeed(`${projectName} is not an upgrade.`)
+  }
 }

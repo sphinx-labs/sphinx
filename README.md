@@ -1,6 +1,8 @@
 # ChugSplash
 
-ChugSplash makes it easy to deploy and upgrade smart contracts **securely**. It's designed for deployments that are complex or high-risk.
+A Hardhat and Foundry plugin for deploying and managing upgradeable smart contracts.
+
+If you're using Foundry, check out out our Foundry plugin [here](https://github.com/chugsplash/chugsplash-foundry). Otherwise, keep reading for the Hardhat plugin.
 
 ## Table of Contents
 
@@ -44,7 +46,7 @@ Test networks:
 
 ## Reach out
 
-If you have questions or want to request a feature, join our [Discord channel](https://discord.gg/4cdTjkax)!
+If you have questions or want to request a feature, join our [Discord channel](https://discord.com/invite/CqUPhgRrxq)!
 
 ## Install
 
