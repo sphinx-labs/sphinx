@@ -885,6 +885,9 @@ export const chugsplashDeployAbstractTask = async (
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, silent)
+    spinner.info(
+      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
+    )
   } else {
     return generateFoundryTestArtifacts(parsedConfig)
   }
