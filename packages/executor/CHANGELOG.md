@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.5.2
+
+### Patch Changes
+
+- 5a135ec: Fix issue verifying ChugSplash contracts
+
 ## 0.5.1
 
 ### Patch Changes
