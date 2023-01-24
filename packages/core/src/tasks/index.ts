@@ -7,7 +7,7 @@ import ora from 'ora'
 import { getChainId } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
-import { EXECUTOR, ProxyABI } from '@chugsplash/contracts'
+import { ProxyABI } from '@chugsplash/contracts'
 
 import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
@@ -31,7 +31,7 @@ import {
   setProxiesToReferenceNames,
   writeCanonicalConfig,
 } from '../utils'
-import { ArtifactPaths, initializeChugSplash } from '../languages'
+import { ArtifactPaths } from '../languages'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import {
   alreadyProposedMessage,
@@ -77,7 +77,6 @@ export const chugsplashRegisterAbstractTask = async (
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
-  await initializeChugSplash(provider, signer, EXECUTOR)
 
   spinner.start(`Registering ${parsedConfig.options.projectName}...`)
 
@@ -129,8 +128,6 @@ export const chugsplashProposeAbstractTask = async (
   if (integration === 'hardhat') {
     spinner.start('Booting up ChugSplash...')
   }
-
-  await initializeChugSplash(provider, signer, EXECUTOR)
 
   await assertValidUpgrade(
     provider,
