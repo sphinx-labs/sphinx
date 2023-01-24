@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.4.1
+
+### Patch Changes
+
+- 5a135ec: Fix issue verifying ChugSplash contracts
+
 ## 0.4.0
 
 ### Minor Changes

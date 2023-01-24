@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/executor",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "ChugSplash deployment execution bot",
   "main": "dist/index",
   "types": "dist/index",
@@ -30,7 +30,7 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "devDependencies": {
-    "@chugsplash/contracts": "^0.4.0",
+    "@chugsplash/contracts": "^0.4.1",
     "@chugsplash/core": "^0.4.1",
     "@eth-optimism/common-ts": "^0.6.0",
     "@eth-optimism/core-utils": "^0.9.3",
