@@ -57,6 +57,11 @@ The `contracts` property in your ChugSplash file contains all of your contract d
 
 Each contract definition is keyed by a **reference name**, which can be any name you choose. In the sample ChugSplash file above, the first contract's reference name is `MyToken`.
 
+Each contract definition has the following fields:
+* `contract`: The contract name in your Solidity source file. For example: `'ERC20'`
+* `variables`: Object containing the contract's state variables and their values.
+* `proxy` (optional): The address of your proxy. This is only required if the proxy was originally deployed using a tool other than ChugSplash. Otherwise, leave it blank.
+
 ### State variables
 
 Inside each contract definition, the `variables` property contains the contract's state variables and their values. For example, the `MyToken` contract has a `symbol` variable with a value of `'MYT'`.
