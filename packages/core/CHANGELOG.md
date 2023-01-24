@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.4.2
+
+### Patch Changes
+
+- 68c1a56: Remove `initializeChugSplash` call in register and propose task
+
 ## 0.4.1
 
 ### Patch Changes
