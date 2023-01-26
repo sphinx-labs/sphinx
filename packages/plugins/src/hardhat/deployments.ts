@@ -18,7 +18,7 @@ import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { initializeExecutor } from '../executor'
-import { getArtifactPaths, getContractArtifact } from './artifacts'
+import { getArtifactPaths } from './artifacts'
 
 /**
  * TODO
@@ -56,6 +56,7 @@ export const deployAllChugSplashConfigs = async (
     const userConfig = readUserChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
+      hre,
       userConfig.contracts,
       hre.config.paths.artifacts,
       path.join(hre.config.paths.artifacts, 'build-info')
@@ -136,7 +137,9 @@ ${configsWithFileNames.map(
   const Proxy = new ethers.Contract(
     proxyAddress,
     new ethers.utils.Interface(
-      getContractArtifact(userCfg.contracts[referenceName].contract).abi
+      hre.artifacts.readArtifactSync(
+        userCfg.contracts[referenceName].contract
+      ).abi
     ),
     provider.getSigner()
   )
