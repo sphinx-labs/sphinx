@@ -4,6 +4,8 @@ A Hardhat and Foundry plugin for deploying and managing upgradeable smart contra
 
 If you're using Foundry, check out out our Foundry plugin [here](https://github.com/chugsplash/chugsplash-foundry). Otherwise, keep reading for the Hardhat plugin.
 
+> **WARNING**: The code and contracts ChugSplash uses to deploy and upgrade your contracts HAVE NOT been audited. ChugSplash is a BETA product undergoing significant active development. ChugSplash's behavior and APIs are subject to change at any time at our discretion. You should not use ChugSplash if you would be very upset with your project breaking without notice. We make no guarantees about the safety of any contract deployments using the ChugSplash system.
+
 ## Table of Contents
 
 - [Features](#key-features)
