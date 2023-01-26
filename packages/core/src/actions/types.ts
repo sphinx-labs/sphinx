@@ -25,7 +25,7 @@ export enum ChugSplashBundleStatus {
  */
 export interface RawChugSplashAction {
   actionType: ChugSplashActionType
-  target: string
+  referenceName: string
   data: string
 }
 
@@ -33,7 +33,7 @@ export interface RawChugSplashAction {
  * SetStorage action data.
  */
 export interface SetStorageAction {
-  target: string
+  referenceName: string
   key: string
   value: string
 }
@@ -42,7 +42,7 @@ export interface SetStorageAction {
  * DeployImplementation action data.
  */
 export interface DeployImplementationAction {
-  target: string
+  referenceName: string
   code: string
 }
 
@@ -50,7 +50,7 @@ export interface DeployImplementationAction {
  * SetImplementation action data.
  */
 export interface SetImplementationAction {
-  target: string
+  referenceName: string
 }
 
 /**
