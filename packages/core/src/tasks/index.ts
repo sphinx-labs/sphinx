@@ -51,7 +51,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
-import { getFinalDeploymentTxnHash } from '../deployments'
+import { getBundleCompletionTxnHash } from '../deployments'
 import { ChugSplashExecutorType, FoundryContractArtifact } from '../types'
 import {
   trackAddProposers,
@@ -532,7 +532,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         provider,
         signer,
         parsedConfig,
-        await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+        await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
         !noWithdraw,
         networkName,
         deploymentFolderPath,
@@ -724,7 +724,7 @@ export const chugsplashDeployAbstractTask = async (
     await createDeploymentArtifacts(
       provider,
       parsedConfig,
-      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+      await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
       artifactPaths,
       integration,
       spinner,
@@ -852,7 +852,7 @@ export const chugsplashDeployAbstractTask = async (
     throw new Error(`Local execution specified but no executor was given.`)
   }
 
-  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+  const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
     ChugSplashManager,
     bundleId
   )
@@ -861,7 +861,7 @@ export const chugsplashDeployAbstractTask = async (
     provider,
     signer,
     parsedConfig,
-    finalDeploymentTxnHash,
+    bundleCompletionTxnHash,
     withdraw,
     networkName,
     deploymentFolder,
@@ -980,7 +980,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     provider,
     signer,
     parsedConfig,
-    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
     !noWithdraw,
     networkName,
     deploymentFolder,
