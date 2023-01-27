@@ -1,39 +1,21 @@
 import path from 'path'
 
-import { BuildInfo } from 'hardhat/types'
-import {
-  ArtifactPaths,
-  ContractArtifact,
-  UserContractConfigs,
-} from '@chugsplash/core'
-
-/**
- * Retrieves an artifact by name.
- *
- * @param Name Name of the contract.
- * @returns Artifact.
- */
-export const getContractArtifact = (name: string): ContractArtifact => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
-  return hre.artifacts.readArtifactSync(name)
-}
+import { BuildInfo, HardhatRuntimeEnvironment } from 'hardhat/types'
+import { ArtifactPaths, UserContractConfigs } from '@chugsplash/core'
 
 /**
  * Retrieves contract build info by name.
  *
  * @param sourceName Source file name.
- * @param contractName Contract name.
+ * @param contractName Contract name within the source file.
  * @returns Contract build info.
  */
 export const getBuildInfo = async (
+  hre: HardhatRuntimeEnvironment,
   sourceName: string,
   contractName: string
 ): Promise<BuildInfo> => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
-
-  let buildInfo: BuildInfo
+  let buildInfo: BuildInfo | undefined
   try {
     buildInfo = await hre.artifacts.getBuildInfo(
       `${sourceName}:${contractName}`
@@ -53,19 +35,37 @@ export const getBuildInfo = async (
     }
   }
 
+  // Shouldn't happen, but might as well be safe.
+  if (buildInfo === undefined) {
+    throw new Error(
+      `unable to find build info for contract ${contractName} in ${sourceName}`
+    )
+  }
+
   return buildInfo
 }
 
+/**
+ * Finds the path to the build info file and the contract artifact file for each contract
+ * referenced in the given contract configurations.
+ *
+ * @param hre Hardhat runtime environment.
+ * @param contractConfigs Contract configurations.
+ * @param artifactFolder Path to the artifact folder.
+ * @param buildInfoFolder Path to the build info folder.
+ * @returns Paths to the build info and contract artifact files.
+ */
 export const getArtifactPaths = async (
+  hre: HardhatRuntimeEnvironment,
   contractConfigs: UserContractConfigs,
   artifactFolder: string,
   buildInfoFolder: string
 ): Promise<ArtifactPaths> => {
   const artifactPaths: ArtifactPaths = {}
-
   for (const { contract } of Object.values(contractConfigs)) {
-    const { sourceName, contractName } = getContractArtifact(contract)
-    const buildInfo = await getBuildInfo(sourceName, contractName)
+    const { sourceName, contractName } =
+      hre.artifacts.readArtifactSync(contract)
+    const buildInfo = await getBuildInfo(hre, sourceName, contractName)
     artifactPaths[contract] = {
       buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
       contractArtifactPath: path.join(
