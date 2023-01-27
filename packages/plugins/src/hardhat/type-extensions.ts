@@ -28,7 +28,10 @@ declare module 'hardhat/types/runtime' {
   export interface HardhatRuntimeEnvironment {
     chugsplash: {
       reset: () => Promise<void>
-      getContract: (name: string) => Promise<ethers.Contract>
+      getContract: (
+        name: string,
+        projectName: string
+      ) => Promise<ethers.Contract>
     }
   }
 }
@@ -48,8 +51,16 @@ extendEnvironment((hre: HardhatRuntimeEnvironment) => {
       reset: async (): Promise<void> => {
         await resetChugSplashDeployments(hre)
       },
-      getContract: async (name: string): Promise<ethers.Contract> => {
-        const contract = await getContract(hre, hre.ethers.provider, name)
+      getContract: async (
+        name: string,
+        projectName: string
+      ): Promise<ethers.Contract> => {
+        const contract = await getContract(
+          hre,
+          hre.ethers.provider,
+          name,
+          projectName
+        )
         return contract
       },
     }

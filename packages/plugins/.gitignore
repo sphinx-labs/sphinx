@@ -1,6 +1,19 @@
-dist/
 .env*
 .deployed
 artifacts
 cache
 deployments/
+
+# Compiler files
+forge-cache/
+out/
+
+# ChugSplash artifacts
+.canonical-configs
+logs/
+
+# Typescript
+dist/
+tsconfig.tsbuildinfo
+
+node_modules/@chugsplash

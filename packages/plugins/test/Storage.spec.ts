@@ -11,8 +11,11 @@ describe('Storage', () => {
     // Reset to the initial deployment state
     await chugsplash.reset()
 
-    MyStorage = await chugsplash.getContract('MyStorage')
-    MySimpleStorage = await chugsplash.getContract('MySimpleStorage')
+    MyStorage = await chugsplash.getContract('MyStorage', 'My First Project')
+    MySimpleStorage = await chugsplash.getContract(
+      'MySimpleStorage',
+      'My First Project'
+    )
   })
 
   it('does set contract reference', async () => {
