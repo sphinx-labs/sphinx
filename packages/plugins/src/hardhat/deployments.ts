@@ -112,7 +112,7 @@ export const getContract = async (
       return Object.keys(userConfig.contracts).includes(referenceName)
     })
 
-  // TODO: Make function `getContract(projectName, target)` and change this error message.
+  // TODO: Make function `getContract(projectName, referenceName)` and change this error message.
   if (configsWithFileNames.length > 1) {
     throw new Error(
       `Multiple config files contain the reference name: ${referenceName}. Reference names

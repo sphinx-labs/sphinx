@@ -38,18 +38,18 @@ contract ChugSplashManager_Test is Test {
     );
 
     event ProxyOwnershipTransferred(
-        string indexed targetHash,
+        string indexed referenceNameHash,
         address indexed proxy,
         bytes32 indexed proxyType,
         address newOwner,
-        string target
+        string referenceName
     );
 
-    event ProxySetToTarget(
-        string indexed targetNameHash,
+    event ProxySetToReferenceName(
+        string indexed referenceNameHash,
         address indexed proxy,
         bytes32 indexed proxyType,
-        string targetName
+        string referenceName
     );
 
     event ChugSplashActionExecuted(
@@ -76,17 +76,17 @@ contract ChugSplashManager_Test is Test {
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     event DefaultProxyDeployed(
-        string indexed targetHash,
+        string indexed referenceNameHash,
         address indexed proxy,
         bytes32 indexed bundleId,
-        string target
+        string referenceName
     );
 
     event ImplementationDeployed(
-        string indexed targetHash,
+        string indexed referenceNameHash,
         address indexed implementation,
         bytes32 indexed bundleId,
-        string target
+        string referenceName
     );
 
     bytes32 constant EIP1967_IMPLEMENTATION_KEY =
@@ -120,7 +120,7 @@ contract ChugSplashManager_Test is Test {
     uint256 initialTimestamp = 1641070800;
     uint256 bundleExecutionCost = 2 ether;
     string projectName = 'TestProject';
-    string target = 'SecondSimpleStorage';
+    string referenceName = 'SecondSimpleStorage';
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
     uint256 executionLockTime = 15 minutes;
     uint256 executorPaymentPercentage = 20;
@@ -146,12 +146,12 @@ contract ChugSplashManager_Test is Test {
         assertGt(tx.gasprice, 0);
 
         firstAction = ChugSplashAction({
-            target: target,
+            referenceName: referenceName,
             actionType: ChugSplashActionType.DEPLOY_IMPLEMENTATION,
             data: hex"60e060405234801561001057600080fd5b506040516105cb3803806105cb8339818101604052810190610032919061015c565b8260ff1660808160ff168152505081151560a0811515815250508073ffffffffffffffffffffffffffffffffffffffff1660c08173ffffffffffffffffffffffffffffffffffffffff16815250505050506101af565b600080fd5b600060ff82169050919050565b6100a38161008d565b81146100ae57600080fd5b50565b6000815190506100c08161009a565b92915050565b60008115159050919050565b6100db816100c6565b81146100e657600080fd5b50565b6000815190506100f8816100d2565b92915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610129826100fe565b9050919050565b6101398161011e565b811461014457600080fd5b50565b60008151905061015681610130565b92915050565b60008060006060848603121561017557610174610088565b5b6000610183868287016100b1565b9350506020610194868287016100e9565b92505060406101a586828701610147565b9150509250925092565b60805160a05160c0516103ed6101de600039600061015f01526000610187015260006101af01526103ed6000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80631ca6cbeb146100515780632277fe821461006f578063ee460c641461008d578063f2c9ecd8146100ab575b600080fd5b6100596100c9565b604051610066919061026c565b60405180910390f35b61007761015b565b60405161008491906102cf565b60405180910390f35b610095610183565b6040516100a29190610305565b60405180910390f35b6100b36101ab565b6040516100c0919061033c565b60405180910390f35b6060600080546100d890610386565b80601f016020809104026020016040519081016040528092919081815260200182805461010490610386565b80156101515780601f1061012657610100808354040283529160200191610151565b820191906000526020600020905b81548152906001019060200180831161013457829003601f168201915b5050505050905090565b60007f0000000000000000000000000000000000000000000000000000000000000000905090565b60007f0000000000000000000000000000000000000000000000000000000000000000905090565b60007f0000000000000000000000000000000000000000000000000000000000000000905090565b600081519050919050565b600082825260208201905092915050565b60005b8381101561020d5780820151818401526020810190506101f2565b8381111561021c576000848401525b50505050565b6000601f19601f8301169050919050565b600061023e826101d3565b61024881856101de565b93506102588185602086016101ef565b61026181610222565b840191505092915050565b600060208201905081810360008301526102868184610233565b905092915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006102b98261028e565b9050919050565b6102c9816102ae565b82525050565b60006020820190506102e460008301846102c0565b92915050565b60008115159050919050565b6102ff816102ea565b82525050565b600060208201905061031a60008301846102f6565b92915050565b600060ff82169050919050565b61033681610320565b82525050565b6000602082019050610351600083018461032d565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000600282049050600182168061039e57607f821691505b6020821081036103b1576103b0610357565b5b5091905056fea26469706673582212201bf5707496ec5c58e6da2f78bf4f13bb8a3e0d2dede540dedb15a521ee12ad3b64736f6c634300080f0033000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000001111111111111111111111111111111111111111"
         });
         secondAction = ChugSplashAction({
-            target: target,
+            referenceName: referenceName,
             actionType: ChugSplashActionType.SET_STORAGE,
             data: hex"00000000000000000000000000000000000000000000000000000000000000005365636f6e64000000000000000000000000000000000000000000000000000c"
         });
@@ -161,7 +161,7 @@ contract ChugSplashManager_Test is Test {
 
         setImplementationActionArray.push(
             ChugSplashAction({
-                target: target,
+                referenceName: referenceName,
                 actionType: ChugSplashActionType.SET_IMPLEMENTATION,
                 data: new bytes(0)
             })
@@ -431,11 +431,11 @@ contract ChugSplashManager_Test is Test {
 
     function test_executeChugSplashAction_success_deployProxyAndImplementation() external {
         helper_proposeThenApproveThenFundBundle();
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
         assertEq(proxyAddress.code.length, 0);
         address implementationAddress = Create2.compute(
             address(manager),
-            keccak256(abi.encode(bundleId, bytes(firstAction.target))),
+            keccak256(abi.encode(bundleId, bytes(firstAction.referenceName))),
             firstAction.data
         );
         assertEq(implementationAddress.code.length, 0);
@@ -463,9 +463,9 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit DefaultProxyDeployed(firstAction.target, proxyAddress, bundleId, firstAction.target);
+        emit DefaultProxyDeployed(firstAction.referenceName, proxyAddress, bundleId, firstAction.referenceName);
         vm.expectEmit(true, true, true, true);
-        emit ImplementationDeployed(firstAction.target, implementationAddress, bundleId, firstAction.target);
+        emit ImplementationDeployed(firstAction.referenceName, implementationAddress, bundleId, firstAction.referenceName);
         vm.expectEmit(true, true, true, true);
         emit ChugSplashActionExecuted(bundleId, proxyAddress, executor, actionIndexes[0]);
 
@@ -480,7 +480,7 @@ contract ChugSplashManager_Test is Test {
         assertGt(implementationAddress.code.length, 0);
         assertEq(bundle.actionsExecuted, 1);
         assertTrue(bundle.executions[actionIndexes[0]]);
-        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         assertEq(manager.implementations(implementationSalt), implementationAddress);
         assertGt(finalDebt, estExecutorPayment + initialDebt);
     }
@@ -489,7 +489,7 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundBundle();
         helper_executeFirstAction();
         uint256 initialDebt = manager.debt();
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
 
         vm.expectCall(
             address(registry),
@@ -524,7 +524,7 @@ contract ChugSplashManager_Test is Test {
         uint256 initialDebt = manager.debt();
 
         vm.startPrank(address(manager));
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
         vm.store(proxyAddress, EIP1967_IMPLEMENTATION_KEY, bytes32(uint256(1)));
         assertEq(Proxy(proxyAddress).implementation(), address(1));
         vm.stopPrank();
@@ -573,7 +573,7 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
         uint256 initialDebt = manager.debt();
         uint256 actionIndex = setImplementationActionIndexArray[0];
         uint256 numActions = actionIndex + 1;
@@ -599,7 +599,7 @@ contract ChugSplashManager_Test is Test {
         helper_completeBundle(executor);
 
         uint256 finalDebt = manager.debt();
-        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         address expectedImplementation = manager.implementations(implementationSalt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 gasUsed = 45472;
@@ -624,7 +624,7 @@ contract ChugSplashManager_Test is Test {
         address payable customProxyAddress = payable(address(customProxy));
         bytes32 proxyType = keccak256(bytes("transparent"));
         registry.addProxyType(proxyType, address(adapter));
-        helper_setProxyToReferenceName(target, customProxyAddress, proxyType);
+        helper_setProxyToReferenceName(referenceName, customProxyAddress, proxyType);
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
@@ -653,7 +653,7 @@ contract ChugSplashManager_Test is Test {
         helper_completeBundle(executor);
 
         uint256 finalDebt = manager.debt();
-        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.target)));
+        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         address expectedImplementation = manager.implementations(implementationSalt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 gasUsed = 45472;
@@ -789,7 +789,7 @@ contract ChugSplashManager_Test is Test {
     function test_transferProxyOwnership_revert_nonOwner() external {
         vm.prank(nonOwner);
         vm.expectRevert('Ownable: caller is not the owner');
-        manager.transferProxyOwnership(firstAction.target, owner);
+        manager.transferProxyOwnership(firstAction.referenceName, owner);
     }
 
     // transferProxyOwnership:
@@ -799,7 +799,7 @@ contract ChugSplashManager_Test is Test {
 
         vm.prank(owner);
         vm.expectRevert("ChugSplashManager: bundle is currently active");
-        manager.transferProxyOwnership(firstAction.target, owner);
+        manager.transferProxyOwnership(firstAction.referenceName, owner);
     }
 
     // transferProxyOwnership:
@@ -810,8 +810,8 @@ contract ChugSplashManager_Test is Test {
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
         helper_completeBundle(executor);
-        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.target);
-        helper_transferProxyOwnership(proxyAddress, nonOwner, firstAction.target, bytes32(0));
+        address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
+        helper_transferProxyOwnership(proxyAddress, nonOwner, firstAction.referenceName, bytes32(0));
     }
 
     function test_transferProxyOwnership_success_customProxy() external {
@@ -821,43 +821,43 @@ contract ChugSplashManager_Test is Test {
             ''
         );
         address payable customProxyAddress = payable(address(customProxy));
-        string memory customProxyTarget = "CustomProxy";
+        string memory customProxyReferenceName = "CustomProxy";
         bytes32 proxyType = keccak256(bytes("transparent"));
         registry.addProxyType(proxyType, address(adapter));
-        helper_setProxyToReferenceName(customProxyTarget, customProxyAddress, proxyType);
+        helper_setProxyToReferenceName(customProxyReferenceName, customProxyAddress, proxyType);
 
-        helper_transferProxyOwnership(customProxyAddress, nonOwner, customProxyTarget, proxyType);
+        helper_transferProxyOwnership(customProxyAddress, nonOwner, customProxyReferenceName, proxyType);
 
-        assertEq(manager.proxies(customProxyTarget), payable(address(0)));
-        assertEq(manager.proxyTypes(customProxyTarget), bytes32(0));
+        assertEq(manager.proxies(customProxyReferenceName), payable(address(0)));
+        assertEq(manager.proxyTypes(customProxyReferenceName), bytes32(0));
     }
 
     function test_setProxyToReferenceName_revert_nonOwner() external {
-        address payable proxyAddress = manager.getDefaultProxyAddress(target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(referenceName);
         vm.expectRevert('Ownable: caller is not the owner');
         vm.prank(nonOwner);
-        manager.setProxyToReferenceName(target, proxyAddress, bytes32(0));
+        manager.setProxyToReferenceName(referenceName, proxyAddress, bytes32(0));
     }
 
     function test_setProxyToReferenceName_revert_noActiveBundle() external {
         helper_proposeThenApproveBundle();
-        address payable proxyAddress = manager.getDefaultProxyAddress(target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(referenceName);
 
         vm.prank(owner);
         vm.expectRevert("ChugSplashManager: cannot change proxy while bundle is active");
-        manager.setProxyToReferenceName(target, proxyAddress, bytes32(0));
+        manager.setProxyToReferenceName(referenceName, proxyAddress, bytes32(0));
     }
 
     function test_setProxyToReferenceName_revert_zeroAddressProxy() external {
         vm.prank(owner);
         vm.expectRevert("ChugSplashManager: proxy cannot be address(0)");
-        manager.setProxyToReferenceName(target, payable(address(0)), bytes32(uint256(64)));
+        manager.setProxyToReferenceName(referenceName, payable(address(0)), bytes32(uint256(64)));
     }
 
     function test_setProxyToReferenceName_success() external {
-        address payable proxyAddress = manager.getDefaultProxyAddress(target);
+        address payable proxyAddress = manager.getDefaultProxyAddress(referenceName);
         bytes32 proxyType = keccak256(bytes("transparent"));
-        helper_setProxyToReferenceName(target, proxyAddress, proxyType);
+        helper_setProxyToReferenceName(referenceName, proxyAddress, proxyType);
     }
 
     function test_addProposer_revert_nonOwner() external {
@@ -1026,7 +1026,7 @@ contract ChugSplashManager_Test is Test {
         manager.executeChugSplashAction(firstAction, actionIndexes[0], proofs[0]);
     }
 
-    function helper_transferProxyOwnership(address payable _proxy, address _newOwner, string memory _target, bytes32 _proxyType) public {
+    function helper_transferProxyOwnership(address payable _proxy, address _newOwner, string memory _referenceName, bytes32 _proxyType) public {
         vm.prank(address(manager));
         assertEq(Proxy(_proxy).admin(), address(manager));
 
@@ -1038,32 +1038,32 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ProxyOwnershipTransferred(_target, _proxy, _proxyType, _newOwner, _target);
+        emit ProxyOwnershipTransferred(_referenceName, _proxy, _proxyType, _newOwner, _referenceName);
         vm.prank(owner);
-        manager.transferProxyOwnership(_target, _newOwner);
+        manager.transferProxyOwnership(_referenceName, _newOwner);
 
         vm.prank(_newOwner);
         assertEq(Proxy(_proxy).admin(), _newOwner);
     }
 
-    function helper_setProxyToReferenceName(string memory _target, address payable _proxyAddress, bytes32 _proxyType) public {
-        assertEq(manager.proxies(_target), payable(address(0)));
-        assertEq(manager.proxyTypes(_target), bytes32(0));
+    function helper_setProxyToReferenceName(string memory _referenceName, address payable _proxyAddress, bytes32 _proxyType) public {
+        assertEq(manager.proxies(_referenceName), payable(address(0)));
+        assertEq(manager.proxyTypes(_referenceName), bytes32(0));
 
         vm.expectCall(
             address(registry),
             abi.encodeCall(
                 ChugSplashRegistry.announceWithData,
-                ("ProxySetToTarget", abi.encodePacked(_proxyAddress))
+                ("ProxySetToReferenceName", abi.encodePacked(_proxyAddress))
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ProxySetToTarget(_target, _proxyAddress, _proxyType, _target);
+        emit ProxySetToReferenceName(_referenceName, _proxyAddress, _proxyType, _referenceName);
 
         vm.prank(owner);
-        manager.setProxyToReferenceName(_target, _proxyAddress, _proxyType);
+        manager.setProxyToReferenceName(_referenceName, _proxyAddress, _proxyType);
 
-        assertEq(manager.proxies(_target), _proxyAddress);
-        assertEq(manager.proxyTypes(_target), _proxyType);
+        assertEq(manager.proxies(_referenceName), _proxyAddress);
+        assertEq(manager.proxyTypes(_referenceName), _proxyType);
     }
 }

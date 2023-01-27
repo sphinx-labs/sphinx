@@ -1,6 +1,11 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { BaseServiceV2, Logger, validators } from '@eth-optimism/common-ts'
+import {
+  BaseServiceV2,
+  StandardOptions,
+  Logger,
+  validators,
+} from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
   ChugSplashManagerABI,
@@ -40,15 +45,17 @@ export class ChugSplashExecutor extends BaseServiceV2<
   ExecutorMetrics,
   ExecutorState
 > {
-  constructor(options?: Partial<ExecutorOptions>) {
+  constructor(options?: Partial<ExecutorOptions & StandardOptions>) {
     super({
       name: 'chugsplash-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
-      loopIntervalMs: 5000,
-      port: parseInt(process.env.EXECUTOR_PORT, 10),
-      options,
+      options: {
+        loopIntervalMs: 5000,
+        port: parseInt(process.env.EXECUTOR_PORT, 10),
+        ...options,
+      },
       optionsSpec: {
         url: {
           desc: 'Target deployment network access url',

@@ -70,7 +70,7 @@ export const estimateExecutionGas = async (
     .filter((action) => isDeployImplementationAction(action))
     .map(async (action) => {
       return (await isContractDeployed(
-        getDefaultProxyAddress(projectName, action.target),
+        getDefaultProxyAddress(projectName, action.referenceName),
         provider
       ))
         ? ethers.BigNumber.from(0)
