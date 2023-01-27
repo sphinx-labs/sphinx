@@ -11,7 +11,7 @@ import {
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
-import { getFinalDeploymentTxnHash } from '../deployments'
+import { getBundleCompletionTxnHash } from '../deployments'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
@@ -121,12 +121,12 @@ export const monitorExecution = async (
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     // Get the `completeChugSplashBundle` transaction.
-    const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+    const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
       ChugSplashManager,
       bundleId
     )
     spinner.succeed('Retrieved deployment info.')
-    return finalDeploymentTxnHash
+    return bundleCompletionTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
