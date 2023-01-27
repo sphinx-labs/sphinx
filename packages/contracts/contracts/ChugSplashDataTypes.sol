@@ -17,7 +17,7 @@ struct ChugSplashBundleState {
  * @notice Struct representing a ChugSplash action.
  */
 struct ChugSplashAction {
-    string target;
+    string referenceName;
     ChugSplashActionType actionType;
     bytes data;
 }

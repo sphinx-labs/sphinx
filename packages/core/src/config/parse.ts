@@ -229,13 +229,13 @@ export const makeActionBundleFromConfig = async (
 
     // Add a DEPLOY_IMPLEMENTATION action for each contract first.
     actions.push({
-      target: referenceName,
+      referenceName,
       code: artifact.creationCode,
     })
 
     // Next, add a SET_IMPLEMENTATION action for each contract.
     actions.push({
-      target: referenceName,
+      referenceName,
     })
 
     // Compute our storage slots.
@@ -249,7 +249,7 @@ export const makeActionBundleFromConfig = async (
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {
       actions.push({
-        target: referenceName,
+        referenceName,
         key: slot.key,
         value: slot.val,
       })

@@ -885,6 +885,9 @@ export const chugsplashDeployAbstractTask = async (
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, silent)
+    spinner.info(
+      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
+    )
   } else {
     return generateFoundryTestArtifacts(parsedConfig)
   }
@@ -1527,10 +1530,10 @@ If you believe this is a mistake, please reach out to the developers or open an 
     throw new Error('Proxy is already owned by ChugSplash')
   }
 
-  // If the signer doesn't own the target proxy, then throw an error
+  // If the signer doesn't own the proxy, then throw an error
   const signerAddress = await signer.getAddress()
   if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
-    throw new Error(`Target proxy is owned by: ${ownerAddress}.
+    throw new Error(`Proxy is owned by: ${ownerAddress}.
   You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
   }
 
