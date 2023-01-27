@@ -9,7 +9,7 @@ export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol
 export const ProxyInitializerArtifact = require('../artifacts/contracts/ProxyInitializer.sol/ProxyInitializer.json')
 export const ReverterArtifact = require('../artifacts/contracts/Reverter.sol/Reverter.json')
 
-export const buildInfo = require('../artifacts/build-info/98de66b1ea5b3eaedece5c99dbced689.json')
+export const buildInfo = require('../artifacts/build-info/b16ddc112c7bdef425b1cd5fc7704562.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
