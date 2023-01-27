@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv'
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@chugsplash/plugins'
+import '@openzeppelin/hardhat-upgrades'
 
 // Load environment variables from .env
 dotenv.config()

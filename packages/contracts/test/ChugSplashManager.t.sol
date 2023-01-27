@@ -615,16 +615,16 @@ contract ChugSplashManager_Test is Test {
         assertGt(finalDebt, estExecutorPayment + initialDebt);
     }
 
-    function test_completeChugSplashBundle_success_customProxy() external {
-        TransparentUpgradeableProxy customProxy = new TransparentUpgradeableProxy(
+    function test_completeChugSplashBundle_success_transparentProxy() external {
+        TransparentUpgradeableProxy transparentProxy = new TransparentUpgradeableProxy(
             address(managerImplementation), // Dummy value so that the OpenZeppelin proxy doesn't revert
             address(manager),
             ''
         );
-        address payable customProxyAddress = payable(address(customProxy));
+        address payable transparentProxyAddress = payable(address(transparentProxy));
         bytes32 proxyType = keccak256(bytes("transparent"));
         registry.addProxyType(proxyType, address(adapter));
-        helper_setProxyToReferenceName(referenceName, customProxyAddress, proxyType);
+        helper_setProxyToReferenceName(referenceName, transparentProxyAddress, proxyType);
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
@@ -636,11 +636,11 @@ contract ChugSplashManager_Test is Test {
             address(registry),
             abi.encodeCall(
                 ChugSplashRegistry.announceWithData,
-                ("ChugSplashActionExecuted", abi.encodePacked(customProxyAddress))
+                ("ChugSplashActionExecuted", abi.encodePacked(transparentProxyAddress))
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, customProxyAddress, executor, actionIndex);
+        emit ChugSplashActionExecuted(bundleId, transparentProxyAddress, executor, actionIndex);
         vm.expectCall(
             address(registry),
             abi.encodeCall(
@@ -659,7 +659,7 @@ contract ChugSplashManager_Test is Test {
         uint256 gasUsed = 45472;
         uint256 estExecutorPayment = tx.gasprice * gasUsed * (100 + executorPaymentPercentage) / 100;
         vm.prank(address(manager));
-        address implementation = customProxy.implementation();
+        address implementation = transparentProxy.implementation();
 
         assertEq(bundle.actionsExecuted, prevBundle.actionsExecuted + 1);
         assertTrue(bundle.executions[actions.length]);
@@ -814,22 +814,40 @@ contract ChugSplashManager_Test is Test {
         helper_transferProxyOwnership(proxyAddress, nonOwner, firstAction.referenceName, bytes32(0));
     }
 
-    function test_transferProxyOwnership_success_customProxy() external {
-        TransparentUpgradeableProxy customProxy = new TransparentUpgradeableProxy(
+    function test_transferProxyOwnership_success_transparentProxy() external {
+        TransparentUpgradeableProxy transparentProxy = new TransparentUpgradeableProxy(
             address(registry), // Dummy value so that the OpenZeppelin proxy doesn't revert
             address(manager),
             ''
         );
-        address payable customProxyAddress = payable(address(customProxy));
-        string memory customProxyReferenceName = "CustomProxy";
+        address payable transparentProxyAddress = payable(address(transparentProxy));
+        string memory transparentProxyReferenceName = "TransparentProxy";
         bytes32 proxyType = keccak256(bytes("transparent"));
         registry.addProxyType(proxyType, address(adapter));
-        helper_setProxyToReferenceName(customProxyReferenceName, customProxyAddress, proxyType);
+        helper_setProxyToReferenceName(transparentProxyReferenceName, transparentProxyAddress, proxyType);
 
-        helper_transferProxyOwnership(customProxyAddress, nonOwner, customProxyReferenceName, proxyType);
+        helper_transferProxyOwnership(transparentProxyAddress, nonOwner, transparentProxyReferenceName, proxyType);
 
-        assertEq(manager.proxies(customProxyReferenceName), payable(address(0)));
-        assertEq(manager.proxyTypes(customProxyReferenceName), bytes32(0));
+        assertEq(manager.proxies(transparentProxyReferenceName), payable(address(0)));
+        assertEq(manager.proxyTypes(transparentProxyReferenceName), bytes32(0));
+    }
+
+    function test_transferProxyOwnership_success_UUPSProxy() external {
+        ERC1967Proxy uupsProxy = new ERC1967Proxy(
+            address(registry), // Dummy value so that the OpenZeppelin proxy doesn't revert
+            address(manager),
+            ''
+        );
+        address payable transparentProxyAddress = payable(address(transparentProxy));
+        string memory transparentProxyReferenceName = "TransparentProxy";
+        bytes32 proxyType = keccak256(bytes("transparent"));
+        registry.addProxyType(proxyType, address(adapter));
+        helper_setProxyToReferenceName(transparentProxyReferenceName, transparentProxyAddress, proxyType);
+
+        helper_transferProxyOwnership(transparentProxyAddress, nonOwner, transparentProxyReferenceName, proxyType);
+
+        assertEq(manager.proxies(transparentProxyReferenceName), payable(address(0)));
+        assertEq(manager.proxyTypes(transparentProxyReferenceName), bytes32(0));
     }
 
     function test_setProxyToReferenceName_revert_nonOwner() external {
