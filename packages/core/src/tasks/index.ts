@@ -588,8 +588,9 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   }
 
   spinner.start(
-    `Depositing ${ethers.utils.formatEther(
-      amount
+    `Depositing ${formatEther(
+      amount,
+      4
     )} ETH for the project: ${projectName}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
@@ -606,9 +607,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   )
 
   spinner.succeed(
-    `Deposited ${ethers.utils.formatEther(
-      amount
-    )} ETH for the project: ${projectName}.`
+    `Deposited ${formatEther(amount, 4)} ETH for the project: ${projectName}.`
   )
 }
 
@@ -1074,8 +1073,9 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   )
 
   spinner.succeed(
-    `Refunded ${ethers.utils.formatEther(
-      refund
+    `Refunded ${formatEther(
+      refund,
+      4
     )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
   )
 }
@@ -1161,8 +1161,9 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     ).wait()
 
     spinner.succeed(
-      `Withdrew ${ethers.utils.formatEther(
-        amountToWithdraw
+      `Withdrew ${formatEther(
+        amountToWithdraw,
+        4
       )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
     )
   } else {
