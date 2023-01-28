@@ -254,7 +254,8 @@ export const bundleLocal = async (
     const immutableVariables = getImmutableVariables(
       compilerOutput,
       sourceName,
-      contractName
+      contractName,
+      parsedConfig.contracts[referenceName]
     )
     artifacts[referenceName] = {
       creationCode,

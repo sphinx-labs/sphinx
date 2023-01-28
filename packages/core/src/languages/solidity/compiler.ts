@@ -122,7 +122,8 @@ export const getCanonicalConfigArtifacts = async (
         const immutableVariables = getImmutableVariables(
           compilerOutput,
           sourceName,
-          contractName
+          contractName,
+          canonicalConfig.contracts[referenceName]
         )
 
         addEnumMembersToStorageLayout(

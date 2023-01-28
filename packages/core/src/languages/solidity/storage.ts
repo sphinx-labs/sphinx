@@ -600,6 +600,11 @@ export const addEnumMembersToStorageLayout = (
   contractName: string,
   sourceNodes: any
 ): SolidityStorageLayout => {
+  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
+  if (storageLayout.types === null) {
+    return storageLayout
+  }
+
   for (const layoutType of Object.values(storageLayout.types)) {
     if (layoutType.label.startsWith('enum')) {
       const canonicalVarName = layoutType.label.substring(5)

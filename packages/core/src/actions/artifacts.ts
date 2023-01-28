@@ -10,6 +10,7 @@ import {
   ChugSplashInputs,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
+  ParsedContractConfig,
 } from '../config'
 import {
   addEnumMembersToStorageLayout,
@@ -215,7 +216,6 @@ export const getConstructorArgs = (
 
   // Maps a constructor argument name to the corresponding variable name in the ChugSplash config
   const constructorArgNamesToImmutableNames = {}
-
   for (const source of Object.values(compilerOutput.sources)) {
     for (const contractNode of (source as any).ast.nodes) {
       if (
@@ -327,7 +327,8 @@ Did you forget to include it in your ChugSplash config file?`
 export const getImmutableVariables = (
   compilerOutput: any,
   sourceName: string,
-  contractName: string
+  contractName: string,
+  parsedContractConfig: ParsedContractConfig
 ): string[] => {
   const immutableReferences: {
     [astId: number]: {
@@ -351,6 +352,15 @@ export const getImmutableVariables = (
       if (contractNode.nodeType === 'ContractDefinition') {
         for (const node of contractNode.nodes) {
           if (node.mutability === 'immutable') {
+            if (
+              node.value !== undefined &&
+              parsedContractConfig.variables.hasOwnProperty(node.name)
+            ) {
+              throw new Error(
+                `Value for immutable variable "${node.name}" was detected in both the contract ${contractName} and your ChugSplash config file. Immutable variable values may be defined in one or the other, but not both.`
+              )
+            }
+
             immutableVariables.push(node.name)
           }
         }
