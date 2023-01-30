@@ -1,5 +1,19 @@
 # @chugsplash/executor
 
+## 0.5.3
+
+### Patch Changes
+
+- fdb9e62: Set executor default port
+- ed17785: Updates the executor to use the latest version of BaseServiceV2.
+- Updated dependencies [8c88808]
+- Updated dependencies [dfa0381]
+- Updated dependencies [1b08f02]
+- Updated dependencies [4029daf]
+- Updated dependencies [a37d5c3]
+- Updated dependencies [b343641]
+  - @chugsplash/core@0.5.0
+
 ## 0.5.2
 
 ### Patch Changes

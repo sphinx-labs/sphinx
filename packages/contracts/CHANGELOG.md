@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.4.2
+
+### Patch Changes
+
+- 4029daf: Change `target` to `referenceName` everywhere
+
 ## 0.4.1
 
 ### Patch Changes

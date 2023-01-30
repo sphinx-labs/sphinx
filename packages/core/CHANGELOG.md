@@ -1,5 +1,21 @@
 # @chugsplash/core
 
+## 0.5.0
+
+### Minor Changes
+
+- b343641: Small rename, getFinalDeploymentTxnHash => getBundleCompletionTxnHash.
+
+### Patch Changes
+
+- 8c88808: Minor improvement to config error string.
+- dfa0381: Throw an error if immutable variable value is defined in both the contract and config file
+- 1b08f02: Updates ether formatting strings to four decimals in most places.
+- 4029daf: Change `target` to `referenceName` everywhere
+- a37d5c3: Add discord link to output
+- Updated dependencies [4029daf]
+  - @chugsplash/contracts@0.4.2
+
 ## 0.4.2
 
 ### Patch Changes
