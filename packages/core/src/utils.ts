@@ -30,6 +30,8 @@ import {
   assertStorageSlotCheck,
   assertValidUserConfigFields,
   CanonicalChugSplashConfig,
+  ExternalProxyType,
+  externalProxyTypes,
   parseChugSplashConfig,
   ParsedChugSplashConfig,
   ParsedContractConfigs,
@@ -676,4 +678,10 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
   } else {
     spinner?.succeed(`${projectName} is not an upgrade.`)
   }
+}
+
+export const isExternalProxyType = (
+  proxyType: string
+): proxyType is ExternalProxyType => {
+  return externalProxyTypes.includes(proxyType)
 }

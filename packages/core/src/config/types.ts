@@ -1,5 +1,10 @@
 import { CompilerInput } from '../languages'
 
+export const externalProxyTypes = ['oz-transparent']
+export type ExternalProxyType = 'oz-transparent'
+
+export type ProxyType = ExternalProxyType | 'default'
+
 /**
  * Allowable types for ChugSplash config variables defined by the user.
  */
@@ -51,8 +56,9 @@ export interface ParsedChugSplashConfig {
  */
 export type UserContractConfig = {
   contract: string
-  proxy?: string
-  variables?: UserConfigVariables
+  externalProxy?: string
+  externalProxyType?: ExternalProxyType
+  variables: UserConfigVariables
 }
 
 export type UserContractConfigs = {
@@ -71,6 +77,7 @@ export type UserConfigVariables = {
 export type ParsedContractConfig = {
   contract: string
   proxy: string
+  proxyType: ProxyType
   variables: ParsedConfigVariables
 }
 
