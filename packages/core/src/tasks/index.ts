@@ -51,7 +51,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
-import { getFinalDeploymentTxnHash } from '../deployments'
+import { getBundleCompletionTxnHash } from '../deployments'
 import { ChugSplashExecutorType, FoundryContractArtifact } from '../types'
 import {
   trackAddProposers,
@@ -532,7 +532,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         provider,
         signer,
         parsedConfig,
-        await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+        await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
         !noWithdraw,
         networkName,
         deploymentFolderPath,
@@ -588,8 +588,9 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   }
 
   spinner.start(
-    `Depositing ${ethers.utils.formatEther(
-      amount
+    `Depositing ${formatEther(
+      amount,
+      4
     )} ETH for the project: ${projectName}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
@@ -606,9 +607,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   )
 
   spinner.succeed(
-    `Deposited ${ethers.utils.formatEther(
-      amount
-    )} ETH for the project: ${projectName}.`
+    `Deposited ${formatEther(amount, 4)} ETH for the project: ${projectName}.`
   )
 }
 
@@ -724,7 +723,7 @@ export const chugsplashDeployAbstractTask = async (
     await createDeploymentArtifacts(
       provider,
       parsedConfig,
-      await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+      await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
       artifactPaths,
       integration,
       spinner,
@@ -852,7 +851,7 @@ export const chugsplashDeployAbstractTask = async (
     throw new Error(`Local execution specified but no executor was given.`)
   }
 
-  const finalDeploymentTxnHash = await getFinalDeploymentTxnHash(
+  const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
     ChugSplashManager,
     bundleId
   )
@@ -861,7 +860,7 @@ export const chugsplashDeployAbstractTask = async (
     provider,
     signer,
     parsedConfig,
-    finalDeploymentTxnHash,
+    bundleCompletionTxnHash,
     withdraw,
     networkName,
     deploymentFolder,
@@ -885,6 +884,9 @@ export const chugsplashDeployAbstractTask = async (
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, silent)
+    spinner.info(
+      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
+    )
   } else {
     return generateFoundryTestArtifacts(parsedConfig)
   }
@@ -980,7 +982,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     provider,
     signer,
     parsedConfig,
-    await getFinalDeploymentTxnHash(ChugSplashManager, bundleId),
+    await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
     !noWithdraw,
     networkName,
     deploymentFolder,
@@ -1071,8 +1073,9 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   )
 
   spinner.succeed(
-    `Refunded ${ethers.utils.formatEther(
-      refund
+    `Refunded ${formatEther(
+      refund,
+      4
     )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
   )
 }
@@ -1158,8 +1161,9 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     ).wait()
 
     spinner.succeed(
-      `Withdrew ${ethers.utils.formatEther(
-        amountToWithdraw
+      `Withdrew ${formatEther(
+        amountToWithdraw,
+        4
       )} ETH on ${networkName} to the project owner: ${await signer.getAddress()}.`
     )
   } else {
@@ -1527,10 +1531,10 @@ If you believe this is a mistake, please reach out to the developers or open an 
     throw new Error('Proxy is already owned by ChugSplash')
   }
 
-  // If the signer doesn't own the target proxy, then throw an error
+  // If the signer doesn't own the proxy, then throw an error
   const signerAddress = await signer.getAddress()
   if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
-    throw new Error(`Target proxy is owned by: ${ownerAddress}.
+    throw new Error(`Proxy is owned by: ${ownerAddress}.
   You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
   }
 

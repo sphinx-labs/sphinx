@@ -18,7 +18,23 @@ import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { initializeExecutor } from '../executor'
-import { getArtifactPaths, getContractArtifact } from './artifacts'
+import { getArtifactPaths } from './artifacts'
+
+export const fetchFilesRecursively = (dir): string[] => {
+  const paths: string[] = []
+  fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      paths.push(...fetchFilesRecursively(fullPath))
+    } else if (entry.isFile()) {
+      paths.push(fullPath)
+    } else {
+      console.error(`unexpected path: ${fullPath}`)
+    }
+  })
+
+  return paths
+}
 
 /**
  * TODO
@@ -31,10 +47,12 @@ export const deployAllChugSplashConfigs = async (
   silent: boolean,
   ipfsUrl: string,
   noCompile: boolean,
-  confirm: boolean
+  confirm: boolean,
+  fileNames?: string[]
 ) => {
   const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
-  const fileNames = fs.readdirSync(hre.config.paths.chugsplash)
+  fileNames =
+    fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
   let executor: ChugSplashExecutorType | undefined
   if (!remoteExecution) {
@@ -46,16 +64,15 @@ export const deployAllChugSplashConfigs = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  for (const fileName of fileNames) {
-    const configPath = path.join(hre.config.paths.chugsplash, fileName)
+  for (const configPath of fileNames) {
     // Skip this config if it's empty.
     if (isEmptyChugSplashConfig(configPath)) {
       return
     }
-
     const userConfig = readUserChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
+      hre,
       userConfig.contracts,
       hre.config.paths.artifacts,
       path.join(hre.config.paths.artifacts, 'build-info')
@@ -88,7 +105,8 @@ export const deployAllChugSplashConfigs = async (
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   provider: ethers.providers.JsonRpcProvider,
-  referenceName: string
+  referenceName: string,
+  projectName: string
 ): Promise<ethers.Contract> => {
   if ((await getChainId(provider)) !== 31337) {
     throw new Error('Only the Hardhat Network is currently supported.')
@@ -96,31 +114,23 @@ export const getContract = async (
   const configsWithFileNames: {
     userConfig: UserChugSplashConfig
     configFileName: string
-  }[] = fs
-    .readdirSync(hre.config.paths.chugsplash)
+  }[] = await fetchFilesRecursively(hre.config.paths.chugsplash)
     .filter((configFileName) => {
-      return !isEmptyChugSplashConfig(path.join('chugsplash', configFileName))
+      return !isEmptyChugSplashConfig(configFileName)
     })
     .map((configFileName) => {
-      const userConfig = readUserChugSplashConfig(
-        path.join('chugsplash', configFileName)
-      )
+      const userConfig = readUserChugSplashConfig(configFileName)
       return { configFileName, userConfig }
     })
     .filter(({ userConfig }) => {
-      return Object.keys(userConfig.contracts).includes(referenceName)
+      return (
+        Object.keys(userConfig.contracts).includes(referenceName) &&
+        userConfig.options.projectName === projectName
+      )
     })
 
-  // TODO: Make function `getContract(projectName, target)` and change this error message.
-  if (configsWithFileNames.length > 1) {
-    throw new Error(
-      `Multiple config files contain the reference name: ${referenceName}. Reference names
-must be unique for now. Config files containing ${referenceName}:
-${configsWithFileNames.map(
-  (cfgWithFileName) => cfgWithFileName.configFileName
-)}\n`
-    )
-  } else if (configsWithFileNames.length === 0) {
+  // TODO: Make function `getContract(projectName, referenceName)` and change this error message.
+  if (configsWithFileNames.length < 1) {
     throw new Error(`Cannot find a config file containing ${referenceName}.`)
   }
 
@@ -136,7 +146,9 @@ ${configsWithFileNames.map(
   const Proxy = new ethers.Contract(
     proxyAddress,
     new ethers.utils.Interface(
-      getContractArtifact(userCfg.contracts[referenceName].contract).abi
+      hre.artifacts.readArtifactSync(
+        userCfg.contracts[referenceName].contract
+      ).abi
     ),
     provider.getSigner()
   )

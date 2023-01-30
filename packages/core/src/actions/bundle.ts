@@ -74,7 +74,7 @@ export const toRawChugSplashAction = (
   if (isSetStorageAction(action)) {
     return {
       actionType: ChugSplashActionType.SET_STORAGE,
-      target: action.target,
+      referenceName: action.referenceName,
       data: ethers.utils.defaultAbiCoder.encode(
         ['bytes32', 'bytes32'],
         [action.key, action.value]
@@ -83,13 +83,13 @@ export const toRawChugSplashAction = (
   } else if (isDeployImplementationAction(action)) {
     return {
       actionType: ChugSplashActionType.DEPLOY_IMPLEMENTATION,
-      target: action.target,
+      referenceName: action.referenceName,
       data: action.code,
     }
   } else {
     return {
       actionType: ChugSplashActionType.SET_IMPLEMENTATION,
-      target: action.target,
+      referenceName: action.referenceName,
       data: '0x',
     }
   }
@@ -110,7 +110,7 @@ export const fromRawChugSplashAction = (
       rawAction.data
     )
     return {
-      target: rawAction.target,
+      referenceName: rawAction.referenceName,
       key,
       value,
     }
@@ -118,12 +118,12 @@ export const fromRawChugSplashAction = (
     rawAction.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
   ) {
     return {
-      target: rawAction.target,
+      referenceName: rawAction.referenceName,
       code: rawAction.data,
     }
   } else {
     return {
-      target: rawAction.target,
+      referenceName: rawAction.referenceName,
     }
   }
 }
@@ -138,7 +138,7 @@ export const getActionHash = (action: RawChugSplashAction): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ['string', 'uint8', 'bytes'],
-      [action.target, action.actionType, action.data]
+      [action.referenceName, action.actionType, action.data]
     )
   )
 }
@@ -254,7 +254,8 @@ export const bundleLocal = async (
     const immutableVariables = getImmutableVariables(
       compilerOutput,
       sourceName,
-      contractName
+      contractName,
+      parsedConfig.contracts[referenceName]
     )
     artifacts[referenceName] = {
       creationCode,

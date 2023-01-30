@@ -166,6 +166,7 @@ export const chugsplashDeployTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -234,6 +235,7 @@ export const chugsplashRegisterTask = async (
   const signer = provider.getSigner()
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -301,6 +303,7 @@ export const chugsplashProposeTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -374,6 +377,7 @@ export const chugsplashApproveTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -636,6 +640,7 @@ export const monitorTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -681,6 +686,7 @@ export const chugsplashFundTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -760,13 +766,22 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
+  .addOptionalParam(
+    'configPath',
+    'Optional path to the ChugSplash config file to test, omit this param to test all configs'
+  )
   .setAction(
     async (
-      args: { show: boolean; noCompile: boolean; confirm: boolean },
+      args: {
+        show: boolean
+        noCompile: boolean
+        confirm: boolean
+        configPath: string
+      },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { show, noCompile } = args
+      const { show, noCompile, configPath } = args
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
       const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
@@ -796,7 +811,14 @@ task(TASK_TEST)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, !show, '', true, true)
+          await deployAllChugSplashConfigs(
+            hre,
+            !show,
+            '',
+            true,
+            true,
+            configPath ? [configPath] : undefined
+          )
         } finally {
           await writeSnapshotId(
             hre.ethers.provider,
@@ -860,6 +882,7 @@ export const chugsplashCancelTask = async (
   const signer = provider.getSigner()
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     readUserChugSplashConfig(configPath).contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -896,6 +919,7 @@ export const chugsplashWithdrawTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
+    hre,
     userConfig.contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -943,6 +967,7 @@ export const listProposersTask = async (
   const signer = provider.getSigner()
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     readUserChugSplashConfig(configPath).contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -979,6 +1004,7 @@ export const addProposerTask = async (
   const signer = provider.getSigner()
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     readUserChugSplashConfig(configPath).contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -1017,6 +1043,7 @@ export const claimProxyTask = async (
   const signer = provider.getSigner()
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     readUserChugSplashConfig(configPath).contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
@@ -1061,6 +1088,7 @@ export const transferOwnershipTask = async (
   const signer = provider.getSigner()
 
   const artifactPaths = await getArtifactPaths(
+    hre,
     readUserChugSplashConfig(configPath).contracts,
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')

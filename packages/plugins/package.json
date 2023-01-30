@@ -10,7 +10,8 @@
   "scripts": {
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts",
-    "build:ts": "tsc -p ./tsconfig.json",
+    "build:ts": "tsc -p ./tsconfig.json && yarn build:contracts",
+    "build:contracts": "mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
     "lint": "yarn lint:fix && yarn lint:check",
