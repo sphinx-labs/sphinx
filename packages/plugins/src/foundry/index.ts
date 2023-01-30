@@ -256,7 +256,7 @@ const command = args[0]
 
       const now = new Date()
       const logWriter = fs.createWriteStream(
-        `${logPath}/deploy-${now.getTime()}` 
+        `${logPath}/deploy-${now.getTime()}`
       )
 
       const {
