@@ -6,7 +6,7 @@ When upgrading contracts, ChugSplash automatically checks that each new contract
 
 It's worth mentioning that these restrictions have their roots in how the Ethereum VM works, and apply to all tools that manage upgradeable contracts, not just ChugSplash.
 
-If you want to disable these checks, see the `SKIP_STORAGE_CHECK` configuration option [here](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/live-network.md#optional-variables).
+If you want to disable these checks, see the `SKIP_STORAGE_CHECK` configuration option [here](https://github.com/chugsplash/chugsplash/blob/develop/docs/live-network.md#optional-variables).
 
 > Note: None of these rules apply to `immutable` and `constant` state variables because the Solidity compiler does not reserve a storage slot for them. [See here](https://solidity.readthedocs.io/en/latest/contracts.html#constant-state-variables) for a further explanation in the Solidity documentation.
 
