@@ -18,8 +18,12 @@ import {
   makeBundleFromActions,
   readContractArtifact,
 } from '../actions'
-import { getDefaultProxyAddress } from '../utils'
-import { UserChugSplashConfig, ParsedChugSplashConfig } from './types'
+import { getDefaultProxyAddress, isExternalProxyType } from '../utils'
+import {
+  UserChugSplashConfig,
+  ParsedChugSplashConfig,
+  ProxyType,
+} from './types'
 import { Integration } from '../constants'
 import { getLatestDeployedStorageLayout } from '../deployed'
 
@@ -64,11 +68,40 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
 
     // Make sure addresses are fixed and are actually addresses.
     if (
-      contractConfig.proxy !== undefined &&
-      !ethers.utils.isAddress(contractConfig.proxy)
+      contractConfig.externalProxy !== undefined &&
+      !ethers.utils.isAddress(contractConfig.externalProxy)
     ) {
       throw new Error(
-        `contract address is not a valid address: ${contractConfig.proxy}`
+        `external proxy address is not a valid address: ${contractConfig.externalProxy}`
+      )
+    }
+
+    // Make sure that the external proxy type is valid.
+    if (
+      contractConfig.externalProxyType !== undefined &&
+      isExternalProxyType(contractConfig.externalProxyType)
+    ) {
+      throw new Error(
+        `External proxy type is not valid: ${contractConfig.externalProxyType}`
+      )
+    }
+
+    // The user must include both an `externalProxy` and `externalProxyType` field, or neither.
+    if (
+      contractConfig.externalProxy !== undefined &&
+      contractConfig.externalProxyType === undefined
+    ) {
+      throw new Error(
+        `User included an 'externalProxy' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
+          `but did not include an 'externalProxyType' field.`
+      )
+    } else if (
+      contractConfig.externalProxy === undefined &&
+      contractConfig.externalProxyType !== undefined
+    ) {
+      throw new Error(
+        `User included an 'externalProxyType' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
+          `but did not include an 'externalProxy' field.`
       )
     }
 
@@ -146,62 +179,70 @@ export const assertStorageSlotCheck = async (
 /**
  * Parses a ChugSplash config file from the config file given by the user.
  *
- * @param config Unparsed config file to parse.
+ * @param userConfig Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
 export const parseChugSplashConfig = async (
   provider: providers.Provider,
-  config: UserChugSplashConfig,
+  userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<ParsedChugSplashConfig> => {
+  const parsedConfig: ParsedChugSplashConfig = {
+    options: userConfig.options,
+    contracts: {},
+  }
+
   const contracts = {}
-  for (const [referenceName, contractConfig] of Object.entries(
-    config.contracts
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
   )) {
     if (
-      contractConfig.proxy !== undefined &&
-      (await provider.getCode(contractConfig.proxy)) === '0x'
+      userContractConfig.externalProxy !== undefined &&
+      (await provider.getCode(userContractConfig.externalProxy)) === '0x'
     ) {
       throw new Error(
-        `User entered a proxy address that does not exist: ${contractConfig.proxy}`
+        `User entered a proxy address that does not exist: ${userContractConfig.externalProxy}`
       )
     }
 
-    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
-    // used by ChugSplash.
-    contractConfig.proxy =
-      contractConfig.proxy ||
-      getDefaultProxyAddress(config.options.projectName, referenceName)
-    contracts[referenceName] = contractConfig.proxy
-  }
+    const { contract, externalProxy, externalProxyType, variables } =
+      userContractConfig
 
-  const parsed: ParsedChugSplashConfig = JSON.parse(
-    Handlebars.compile(JSON.stringify(config))({
-      ...contracts,
-    })
-  )
-
-  for (const contractConfig of Object.values(parsed.contracts)) {
-    // If the variables field is undefined, change it to an empty object. This simplifies logic that
-    // iterates over the parsed variables later.
-    if (contractConfig.variables === undefined) {
-      contractConfig.variables = {}
-    }
-
-    // Change the `contract` fields to be fully qualified names. This ensures that it's easy for the
+    // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
     // config.
     const { sourceName, contractName } = readContractArtifact(
       artifactPaths,
-      contractConfig.contract,
+      contract,
       integration
     )
-    contractConfig.contract = `${sourceName}:${contractName}`
+    const contractFullyQualifiedName = `${sourceName}:${contractName}`
+
+    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
+    // used by ChugSplash.
+    const proxy =
+      externalProxy ||
+      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+
+    const proxyType: ProxyType = externalProxyType ?? 'default'
+
+    parsedConfig.contracts[referenceName] = {
+      contract: contractFullyQualifiedName,
+      proxy,
+      proxyType,
+      variables,
+    }
+
+    contracts[referenceName] = proxy
   }
 
-  return parsed
+  return JSON.parse(
+    Handlebars.compile(JSON.stringify(parsedConfig))({
+      ...contracts,
+    })
+  )
 }
 
 /**
