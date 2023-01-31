@@ -7,32 +7,57 @@ Currently, ChugSplash only integrates with Transparent proxies, which is the def
 ## Prerequisites
 
 * You must own an existing proxy that was deployed using the OpenZeppelin Hardhat Upgrades API
-* Setup the ChugSplash Foundry library (steps 1-4 of the [Getting Started guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md))
+* Have a ChugSplash project set up using either the ChugSplash Foundry Library ([Foundry Getting Started Guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md)) or Hardhat Plugin ([Hardhat Getting Started Guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md))
 
 ## Create a Project Name
 
-Navigate to your Foundry project directory that has ChugSplash set up.
+Navigate to your project directory that has ChugSplash set up.
 
 First, you'll need to decide on a project name. Once you've done this, create a ChugSplash file for your project in the `chugsplash/` folder. Copy and paste the following contents into it:
 
 ```json
 {
   "options": {
-    "projectName": <your project name>
+    "projectName": "<your project name>"
   },
   "contracts": {}
 }
 ```
 
+If you prefer javascript:
+```js
+require('@chugsplash/core')
+
+module.exports = {
+  options: {
+    projectName: "<your project name>",
+  },
+  contracts: {},
+}
+```
+
+
 It's fine to leave the `"contracts"` object empty for now.
 
 ## Register a ChugSplash Project
 
-Next, you'll need to register your new project by using the `chugsplash.register` function. This will create a `ChugSplashManager` contract, which will replace the `ProxyAdmin` contract that OpenZeppelin uses to manage your proxy. The address of the `ChugSplashManager` is deterministically calculated based on your project name via `CREATE2`, so make sure you've chosen a project name that you'll use in the future!
+Next, you'll need to register your new project with ChugSplash. This will create a `ChugSplashManager` contract, which will replace the `ProxyAdmin` contract that OpenZeppelin uses to manage your proxy. You can register your project using either the ChugSplash Foundry Library or Hardhat plugin. The address of the `ChugSplashManager` is deterministically calculated based on your project name via `CREATE2`, so make sure you've chosen a project name that you'll use in the future!
 
 > Note: You own the `ChugSplashManager` contract, so you can transfer ownership of your proxy away from it anytime. However, we recommend keeping it as the proxy's owner unless you stop using ChugSplash entirely. Otherwise, you'll need to repeat these steps every time you perform a new upgrade.
 
-To register a project, create a new Foundry script in the folder that contains your scripts (usually `script/`).
+### Register Using Hardhat Plugin
+To register a project using the ChugSplash Hardhat plugin, run the following command:
+```
+npx hardhat chugsplash-register --network <network> --config-path <path/to/chugsplash/file>
+```
+
+You should see the following output:
+```
+✔ Project successfully registered on <network>. Owner: <your address>
+```
+
+### Register Using Foundry Library
+To register your project using the ChugSplash Foundry library, create a new Foundry script in the folder that contains your scripts (usually `script/`).
 
 In your script, copy and paste the following:
 ```sol
@@ -138,6 +163,6 @@ If you'd like to use ChugSplash's storage layout safety checker, you'll need to 
 
 When you're ready to upgrade your proxy, you'll fill out the ChugSplash file that you created earlier in this guide. You'll need to use the same project name that you selected earlier.
 
-If you haven't already read the [Getting Started guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md) and the [ChugSplash File guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), you should do so next. Note that you'll need to enter a `proxy` field in your contract definition, as explained in [this section](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) of the ChugSplash File guide.
+If you haven't already read the [ChugSplash File guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), you should do so next. Note that you'll need to enter a `proxy` field in your contract definition, as explained in [this section](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) of the ChugSplash File guide.
 
 If you have any questions, let us help you in our [Discord](https://discord.com/invite/CqUPhgRrxq)!
