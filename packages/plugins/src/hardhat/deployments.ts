@@ -137,7 +137,7 @@ export const getContract = async (
   const { userConfig: userCfg } = configsWithFileNames[0]
 
   const proxyAddress =
-    userCfg.contracts[referenceName].proxy ||
+    userCfg.contracts[referenceName].externalProxy ||
     getDefaultProxyAddress(userCfg.options.projectName, referenceName)
   if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`You must first deploy ${referenceName}.`)
