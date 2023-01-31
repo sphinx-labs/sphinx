@@ -510,8 +510,8 @@ export const computeStorageSlots = (
       throw new Error(
         `Could not find variable "${storageObj.label}" from the contract "${contractConfig.contract}" in your ChugSplash config file.\n` +
           `You must configure all variables that are defined in the contract.\n` +
-          `Did you forget to declare it in your ChugSplash config file?` +
-          `You may also need to delete and regenerate your contract compilation artifacts.`
+          `Please define the variable in your ChugSplash config file then run this command again.\n` +
+          `If this problem persists, delete your cache folder then try again.`
       )
     }
   }
@@ -530,8 +530,10 @@ export const computeStorageSlots = (
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `variable "${variableName}" was defined in the ChugSplash config for ${contractConfig.contract}
-but does not exist as a variable in the contract. If you think this is a mistake, you may need to delete and regenerate your contract compilation artifacts.`
+        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract}\n` +
+          `but does not exist as a variable in the contract. Please add the variable in the contract or remove\n` +
+          `the variable definition in the ChugSplash config file.\n` +
+          `If this problem persists, delete your cache folder then try again.`
       )
     }
 
