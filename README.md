@@ -30,9 +30,9 @@ If you want to use ChugSplash in production, ask a question, or request a featur
 
 - [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define your deployments and upgrades.
 - [Variables Reference](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Explains how to assign values to every variable type in a ChugSplash file.
-- [Storage Layout Safety Checker](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/storage-checker.md): Explains the type of storage layout errors that ChugSplash automatically detects.
-- [Using ChugSplash on Live Networks](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/live-network.md): Instructions for using ChugSplash to deploy or upgrade a project on a live network.
-- [Import Contracts from the OpenZeppelin Hardhat Upgrades API](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/import-openzeppelin.md).
+- [Storage Layout Safety Checker](https://github.com/chugsplash/chugsplash/blob/develop/docs/storage-checker.md): Explains the type of storage layout errors that ChugSplash automatically detects.
+- [Using ChugSplash on Live Networks](https://github.com/chugsplash/chugsplash/blob/develop/docs/live-network.md): Instructions for using ChugSplash to deploy or upgrade a project on a live network.
+- [Import Contracts from the OpenZeppelin Hardhat Upgrades API](https://github.com/chugsplash/chugsplash/blob/develop/docs/import-openzeppelin.md).
 
 ## Supported Networks
 
