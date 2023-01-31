@@ -1,5 +1,28 @@
 # @chugsplash/plugins
 
+## 0.10.0
+
+### Minor Changes
+
+- b47a7e5: Merge in ChugSplash Foundry Library
+- 120327d: Small updates to artifacts functions exposed by the hardhat plugin.
+
+### Patch Changes
+
+- 4029daf: Change `target` to `referenceName` everywhere
+- ed17785: Removes a hack for a bug that was fixed in upstream BaseServiceV2.
+- Updated dependencies [8c88808]
+- Updated dependencies [fdb9e62]
+- Updated dependencies [dfa0381]
+- Updated dependencies [1b08f02]
+- Updated dependencies [ed17785]
+- Updated dependencies [4029daf]
+- Updated dependencies [a37d5c3]
+- Updated dependencies [b343641]
+  - @chugsplash/core@0.5.0
+  - @chugsplash/executor@0.5.3
+  - @chugsplash/contracts@0.4.2
+
 ## 0.9.0
 
 ### Minor Changes

@@ -1,41 +1,38 @@
 # ChugSplash
 
-A Hardhat and Foundry plugin for deploying and managing upgradeable smart contracts.
-
-If you're using Foundry, check out out our Foundry plugin [here](https://github.com/chugsplash/chugsplash-foundry). Otherwise, keep reading for the Hardhat plugin.
+A declarative and deterministic framework for deploying and upgrading smart contracts. Available as a Foundry and Hardhat plugin.
 
 > **WARNING**: The code and contracts ChugSplash uses to deploy and upgrade your contracts HAVE NOT been audited. ChugSplash is a BETA product undergoing significant active development. ChugSplash's behavior and APIs are subject to change at any time at our discretion. You should not use ChugSplash if you would be very upset with your project breaking without notice. We make no guarantees about the safety of any contract deployments using the ChugSplash system.
 
-## Table of Contents
+If you want to use ChugSplash in production, ask a question, or request a feature then we'd love to hear from you in the [Discord!](https://discord.com/invite/CqUPhgRrxq)
 
-- [Features](#key-features)
-- [Documentation](#documentation)
-- [Reach out](#reach-out)
-- [Install](#install)
-- [Usage](#usage)
-- [Maintainers](#maintainers)
-- [Contributing](#contributing)
-- [License](#license)
+## Key Features
 
-## Key features
+- Deploy new upgradeable contracts
+- Upgrade existing contracts
+- Fully deterministic and idempotent deployments
+- Declarative syntax for a better developer experience
+- Compatible with contracts deployed using the [OpenZeppelin Hardhat Upgrades API](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-hardhat-upgrades)
+- Built-in storage layout safety checker
+- Automatically verifies contracts on Etherscan
+- Deploys contracts at the same addresses across networks via `CREATE2`
+- Generates deployment artifacts in the same format as hardhat-deploy
 
-* **Less code.** ChugSplash significantly reduces the amount of code it takes to deploy contracts. This is because it lets you define your deployments declaratively inside of a single file instead of writing deployment scripts. It's like [Terraform](https://www.terraform.io/) for smart contracts. [Here's a sample deployment](#usage).
-* **Faster deployments**. ChugSplash deploys your contracts faster than existing tools. It does this by relying on a network of bots that trustlessly and efficiently complete the entire deployment within minutes. All you need to do is approve the deployment with a single tiny transaction. No burner wallets, no worrying about gas prices, and no stop-and-go deployments.
-* **Safe upgrades**. ChugSplash makes it simple to safely upgrade your contracts. It displays the exact variables and lines of code in every modified contract via a git-style diff. Upgrades can be defined in exactly the same declarative format as deployments.
-* **Fully secure.** ChugSplash deployments are not prone to dangerous edge cases like normal deployments, which are vulnerable to random local errors, unexpected bugs, and any number of external attacks. Contracts deployed or upgraded using ChugSplash are immune to these issues because ChugSplash is fully deterministic.
+## Getting Started
 
-### Bonus features
+### Foundry
+[Get started with ChugSplash for Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md)
 
-* Verifies source code on Etherscan automatically.
-* Deploys contracts at the same addresses across networks via `CREATE2`.
-* Generates deployment artifacts in the same format as hardhat-deploy.
+### Hardhat
+[Get started with ChugSplash for Hardhat](https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md)
 
 ## Documentation
 
-1. [Setting up a ChugSplash project](https://github.com/chugsplash/chugsplash/blob/develop/docs/setup-project.md): Take your first steps with ChugSplash.
-2. [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define a deployment or upgrade.
-3. [Defining Variables in a ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Comprehensive reference that explains how to assign values to every variable type in a ChugSplash file.
-4. [Integrating ChugSplash with Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry.md): Explains how to integrate ChugSplash into an existing Foundry test suite.
+- [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define your deployments and upgrades.
+- [Variables Reference](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Explains how to assign values to every variable type in a ChugSplash file.
+- [Storage Layout Safety Checker](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/storage-checker.md): Explains the type of storage layout errors that ChugSplash automatically detects.
+- [Using ChugSplash on Live Networks](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/live-network.md): Instructions for using ChugSplash to deploy or upgrade a project on a live network.
+- [Import Contracts from the OpenZeppelin Hardhat Upgrades API](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/import-openzeppelin.md).
 
 ## Supported Networks
 
@@ -46,84 +43,7 @@ Test networks:
 * Ethereum Goerli
 * Optimism Goerli
 
-## Reach out
-
-If you have questions or want to request a feature, join our [Discord channel](https://discord.com/invite/CqUPhgRrxq)!
-
-## Install
-
-With Yarn:
-```
-yarn add --dev @chugsplash/plugins @chugsplash/core
-```
-
-With NPM:
-```
-npm install --save-dev @chugsplash/plugins @chugsplash/core
-```
-
-## Usage
-
-Define a ChugSplash deployment in `chugsplash.config.ts`:
-```ts
-import { UserChugSplashConfig } from '@chugsplash/core'
-
-const config: UserChugSplashConfig = {
-  contracts: {
-    MyToken: {
-      contract: 'ERC20',
-      variables: {
-        name: 'My Token',
-        symbol: 'MYT',
-        decimals: 18,
-        totalSupply: 1000,
-        balanceOf: {
-          '0x0000000000000000000000000000000000000000': 1000,
-        },
-      },
-    },
-    MyMerkleDistributor: {
-      contract: 'MerkleDistributor',
-      variables: {
-        token: '{{ MyToken }}', // MyToken's address. No keeping track of dependencies!
-        merkleRoot: "0xc24c743268ce26f68cb820c7b58ec4841de32da07de505049b09405e0372cc41"
-      }
-    }
-  },
-}
-export default config
-```
-
-In `hardhat.config.ts`:
-```ts
-import '@chugsplash/plugins'
-
-const config: HardhatUserConfig = {
-  ... // Other Hardhat settings go here
-  solidity: {
-    ... // Other Solidity settings go here
-    compilers: [
-      {
-        version: ... , // Solidity compiler version
-        settings: {
-          outputSelection: {
-            '*': {
-              '*': ['storageLayout'],
-            },
-          },
-        },
-      },
-    ]
-  }
-}
-
-export default config
-```
-
-Deploy:
-```
-npx hardhat chugsplash-deploy --config-path chugsplash.config.ts
-```
+ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
 
 ## Maintainers
 
@@ -134,8 +54,6 @@ npx hardhat chugsplash-deploy --config-path chugsplash.config.ts
 ## Contributing
 
 PRs accepted.
-
-Small note: If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
 
 ## License
 

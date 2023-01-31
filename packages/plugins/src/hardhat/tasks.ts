@@ -766,13 +766,22 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
+  .addOptionalParam(
+    'configPath',
+    'Optional path to the ChugSplash config file to test, omit this param to test all configs'
+  )
   .setAction(
     async (
-      args: { show: boolean; noCompile: boolean; confirm: boolean },
+      args: {
+        show: boolean
+        noCompile: boolean
+        confirm: boolean
+        configPath: string
+      },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { show, noCompile } = args
+      const { show, noCompile, configPath } = args
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
       const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
@@ -802,7 +811,14 @@ task(TASK_TEST)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, !show, '', true, true)
+          await deployAllChugSplashConfigs(
+            hre,
+            !show,
+            '',
+            true,
+            true,
+            configPath ? [configPath] : undefined
+          )
         } finally {
           await writeSnapshotId(
             hre.ethers.provider,
