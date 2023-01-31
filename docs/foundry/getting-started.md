@@ -30,7 +30,7 @@ If you have an existing foundry project, navigate to it then [skip to step #2](#
 If you're starting a new project, run:
 
 ```
-forge init hello_foundry && cd hello_foundry
+forge init hello_foundry && cd hello_foundry && forge install Arachnid/solidity-stringutils
 ```
 
 Then, delete the files that come with the default Foundry project:
