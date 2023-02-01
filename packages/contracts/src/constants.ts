@@ -16,8 +16,8 @@ import {
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
-  '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
-export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+export const EXECUTOR = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
 export const TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('transparent')
@@ -134,8 +134,6 @@ export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
 
 const chugsplashManagerConstructorArgValues = [
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  'Root Manager',
-  OWNER_MULTISIG_ADDRESS,
   PROXY_UPDATER_ADDRESS,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT,

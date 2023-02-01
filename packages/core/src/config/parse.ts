@@ -79,7 +79,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
     // Make sure that the external proxy type is valid.
     if (
       contractConfig.externalProxyType !== undefined &&
-      isExternalProxyType(contractConfig.externalProxyType)
+      isExternalProxyType(contractConfig.externalProxyType) === false
     ) {
       throw new Error(
         `External proxy type is not valid: ${contractConfig.externalProxyType}`

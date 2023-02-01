@@ -39,6 +39,7 @@ contract ChugSplashRegistry_Test is Test {
     address adapter = address(256);
     address executor = address(512);
     address nonOwner = address(1024);
+    address dummyRootManagerProxy = address(2048);
     bytes32 proxyType = bytes32(hex"1337");
     bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
@@ -57,13 +58,12 @@ contract ChugSplashRegistry_Test is Test {
 
         manager = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(dummyRegistryProxyAddress),
-            projectName,
-            owner,
             address(proxyUpdater),
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
         );
+        manager.initialize(projectName, owner);
 
         registry = new ChugSplashRegistry{ salt: salt }(
             address(proxyUpdater),
@@ -74,7 +74,7 @@ contract ChugSplashRegistry_Test is Test {
             address(manager)
         );
 
-        registry.initialize(owner, new address[](0));
+        registry.initialize(owner, dummyRootManagerProxy, new address[](0));
     }
 
     function test_initialize_success() external {
@@ -83,6 +83,7 @@ contract ChugSplashRegistry_Test is Test {
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
         assertEq(registry.managerImplementation(), address(manager));
+        assertEq(address(registry.projects('ChugSplash')), (dummyRootManagerProxy));
 
         assertEq(registry.owner(), owner);
     }

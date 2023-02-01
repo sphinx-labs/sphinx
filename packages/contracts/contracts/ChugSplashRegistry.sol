@@ -170,12 +170,16 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @param _owner Initial owner of this contract.
-     * @param _executors Array of executors to add.
+     * @param _owner            Initial owner of this contract.
+     * @param _rootManagerProxy Address of the root ChugSplashManagerProxy.
+     * @param _executors        Array of executors to add.
      */
-    function initialize(address _owner, address[] memory _executors) public initializer {
+    function initialize(address _owner, address _rootManagerProxy, address[] memory _executors) public initializer {
         __Ownable_init();
         _transferOwnership(_owner);
+
+        projects['ChugSplash'] = ChugSplashManager(payable(_rootManagerProxy));
+        managers[ChugSplashManager(payable(_rootManagerProxy))] = true;
 
         for (uint i = 0; i < _executors.length; i++) {
             _setExecutor(_executors[i], true);

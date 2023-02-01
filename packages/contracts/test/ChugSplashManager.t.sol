@@ -187,13 +187,12 @@ contract ChugSplashManager_Test is Test {
 
         managerImplementation = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(registryProxyAddress),
-            projectName,
-            owner,
             proxyUpdaterAddress,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
         );
+        managerImplementation.initialize(projectName, owner);
 
         bootloader.initialize(
             owner,
@@ -221,7 +220,7 @@ contract ChugSplashManager_Test is Test {
         vm.startPrank(owner);
         address[] memory executors = new address[](1);
         executors[0] = executor;
-        registry.initialize(owner, executors);
+        registry.initialize(owner, address(bootloader.rootManagerProxy()), executors);
         vm.stopPrank();
 
         manager = registry.projects(projectName);

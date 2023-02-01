@@ -163,14 +163,13 @@ export const executeTask = async (args: {
         )
 
         // Execute the batch.
-        await (
-          await chugSplashManager.executeMultipleActions(
-            batch.map((action) => action.action),
-            batch.map((action) => action.proof.actionIndex),
-            batch.map((action) => action.proof.siblings),
-            await getGasPriceOverrides(executor.provider)
-          )
-        ).wait()
+        const txn = await chugSplashManager.executeMultipleActions(
+          batch.map((action) => action.action),
+          batch.map((action) => action.proof.actionIndex),
+          batch.map((action) => action.proof.siblings),
+          { gasLimit: 30_000_000 }
+        )
+        await txn.wait()
 
         // Move on to the next batch if necessary.
         executed += batchSize

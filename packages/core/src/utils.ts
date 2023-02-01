@@ -20,6 +20,7 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   TRANSPARENT_PROXY_TYPE_HASH,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -139,20 +140,27 @@ export const checkIsUpgrade = async (
 }
 
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
-  return utils.getCreate2Address(
-    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    utils.solidityKeccak256(['string'], [projectName]),
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [CHUGSPLASH_REGISTRY_PROXY_ADDRESS, CHUGSPLASH_REGISTRY_PROXY_ADDRESS]
-        ),
-      ]
+  if (projectName === 'ChugSplash') {
+    return ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS
+  } else {
+    return utils.getCreate2Address(
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+      utils.solidityKeccak256(['string'], [projectName]),
+      utils.solidityKeccak256(
+        ['bytes', 'bytes'],
+        [
+          ChugSplashManagerProxyArtifact.bytecode,
+          utils.defaultAbiCoder.encode(
+            ['address', 'address'],
+            [
+              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+            ]
+          ),
+        ]
+      )
     )
-  )
+  }
 }
 
 /**
@@ -617,7 +625,8 @@ export const assertValidUpgrade = async (
 
   const requiresOwnershipTransfer: {
     name: string
-    address: string
+    proxyAddress: string
+    currentAdminAddress: string
   }[] = []
   let isUpgrade: boolean = false
   for (const [referenceName, contractConfig] of Object.entries(
@@ -631,7 +640,8 @@ export const assertValidUpgrade = async (
       if (proxyAdmin !== chugSplashManagerAddress) {
         requiresOwnershipTransfer.push({
           name: referenceName,
-          address: contractConfig.proxy,
+          proxyAddress: contractConfig.proxy,
+          currentAdminAddress: proxyAdmin,
         })
       }
 
@@ -641,10 +651,11 @@ export const assertValidUpgrade = async (
 
   if (requiresOwnershipTransfer.length > 0) {
     throw new Error(
-      `Detected proxy contracts which are not managed by ChugSplash.
-      ${requiresOwnershipTransfer.map(
-        ({ name, address }) => `${name}, ${address}\n`
-      )}
+      `Detected proxy contracts which are not managed by ChugSplash:` +
+        `${requiresOwnershipTransfer.map(
+          ({ name, proxyAddress, currentAdminAddress }) =>
+            `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
+        )}
 
 To perform an upgrade, you must first transfer ownership of the contract(s) to ChugSplash using the following command:
 npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>

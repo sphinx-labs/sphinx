@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+fs
+
 import { ethers } from 'ethers'
 import ora from 'ora'
 
@@ -77,6 +80,7 @@ export const proposeChugSplashBundle = async (
       integration,
     })
   }
+  fs.writeFileSync('proposeBundle.json', JSON.stringify(bundle))
   // Propose the bundle.
   await (
     await ChugSplashManager.proposeChugSplashBundle(

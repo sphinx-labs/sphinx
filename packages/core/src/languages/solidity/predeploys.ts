@@ -25,6 +25,7 @@ import {
   CHUGSPLASH_SALT,
   ChugSplashRegistryABI,
   TRANSPARENT_PROXY_TYPE_HASH,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -45,7 +46,7 @@ export const initializeChugSplash = async (
 ): Promise<void> => {
   logger?.info('[ChugSplash]: deploying ChugSplashManager...')
 
-  // Deploy the root ChugSplashManager.
+  // Deploy the ChugSplashManager implementation.
   const ChugSplashManager = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
@@ -166,12 +167,13 @@ export const initializeChugSplash = async (
 
     // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
     // implementation, calls the ChugSplashRegistry's initializer, and transfers ownership of the proxy to the
-    // multisig owner.
+    // root ChugSplashManagerProxy.
     await (
       await ProxyInitializer.initialize(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryProxy.interface.encodeFunctionData('initialize', [
           await deployer.getAddress(),
+          ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
           [executorAddress],
         ]),
         await getGasPriceOverrides(provider)

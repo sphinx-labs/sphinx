@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import "hardhat/console.sol";
+
 import {
     ChugSplashBundleState,
     ChugSplashAction,
@@ -285,8 +287,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _name                      Name of the project this contract is managing.
-     * @param _owner                     Address of the project owner.
      * @param _proxyUpdater              Address of the ProxyUpdater.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
@@ -297,8 +297,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     constructor(
         ChugSplashRegistry _registry,
-        string memory _name,
-        address _owner,
         address _proxyUpdater,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
@@ -309,8 +307,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
-
-        initialize(_name, _owner);
     }
 
     /**
@@ -461,6 +457,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public onlyExecutor {
+        console.log('a');
         for (uint256 i = 0; i < _actions.length; i++) {
             executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
         }
@@ -483,13 +480,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public nonReentrant onlyExecutor {
         uint256 initialGasLeft = gasleft();
 
+        console.log('b');
         require(
             activeBundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
         );
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
-
+        console.logBytes32(activeBundleId);
+        console.log('executions: ', bundle.executions.length);
         require(
             bundle.executions[_actionIndex] == false,
             "ChugSplashManager: action has already been executed"
@@ -505,6 +504,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             ),
             "ChugSplashManager: invalid bundle action proof"
         );
+
+        console.log('c');
 
         // Get the proxy type and adapter for this reference name.
         bytes32 proxyType = proxyTypes[_action.referenceName];
@@ -552,12 +553,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         if (_getProxyImplementation(proxy, adapter) != registry.reverter()) {
+            console.log('d');
             // Set the proxy's implementation to be the Reverter. This ensures that end-users can't
             // accidentally interact with a proxy that is in the process of being upgraded. Note
             // that we use a Reverter contract instead of address(0) to support OpenZeppelin's
             // `TransparentUpgradeableProxy`, whose `upgradeTo` call reverts if the implementation
             // is not a contract.
             _upgradeProxyTo(proxy, adapter, registry.reverter());
+            console.log('e');
         }
 
         // Mark the action as executed and update the total number of executed actions.
@@ -568,6 +571,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
             _deployImplementation(_action.referenceName, _action.data);
         } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
+            console.log('f');
+            console.log(_action.referenceName);
             (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
             _setProxyStorage(proxy, adapter, key, val);
         } else {
@@ -575,6 +580,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, _actionIndex);
+        console.log('i');
         registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
 
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
@@ -585,6 +591,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // be contributing to the difficulty of getting a good estimate. For now, we err on the side
         // of safety by adding a larger value. TODO: Get a better estimate than 152778.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
+
+        console.log('z');
 
         // Calculate the executor's payment and add it to the debt owed to the executor.
         uint256 executorPayment;
@@ -937,6 +945,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) internal {
         // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
         // and call `setStorage` on the proxy.
+        console.log('g');
         _upgradeProxyToAndCall(
             _proxy,
             _adapter,
@@ -944,6 +953,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
         );
 
+        console.log(registry.reverter());
+        console.log('h');
         // Delegatecall the adapter to set the proxy's implementation back to the Reverter.
         _upgradeProxyTo(_proxy, _adapter, registry.reverter());
     }

@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+fs
+
 import * as dotenv from 'dotenv'
 dotenv.config()
 import {
@@ -238,6 +241,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
         const projectName = canonicalConfig.options.projectName
 
         // ensure compiled bundle matches proposed bundle
+        fs.writeFileSync('compildeBundle.json', JSON.stringify(bundle))
         if (bundle.root !== proposalEvent.args.bundleRoot) {
           // We cannot execute the current bundle, so we remove the corresponding event from the end
           // of the events queue.
