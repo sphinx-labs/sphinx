@@ -1,5 +1,19 @@
 # @chugsplash/plugins
 
+## 0.10.1
+
+### Patch Changes
+
+- e07b90c: Allow user to explicitly define proxy type in ChugSplash file
+- Updated dependencies [4265ae4]
+- Updated dependencies [4554d0c]
+- Updated dependencies [591e7da]
+- Updated dependencies [e56b684]
+- Updated dependencies [a892f24]
+- Updated dependencies [fd70a56]
+  - @chugsplash/contracts@0.4.3
+  - @chugsplash/core@0.5.1
+
 ## 0.10.0
 
 ### Minor Changes
