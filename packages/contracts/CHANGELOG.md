@@ -1,5 +1,13 @@
 # @chugsplash/contracts
 
+## 0.4.3
+
+### Patch Changes
+
+- 4265ae4: Bump chugsplash salt value
+- 4554d0c: Make `ChugSplashManagerProxy` address stable by removing dependency on `ChugSplashRegistry`'s bytecode
+- 591e7da: improve transparent proxy test names
+
 ## 0.4.2
 
 ### Patch Changes
