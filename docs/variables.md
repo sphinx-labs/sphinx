@@ -47,15 +47,23 @@ myAddress: '0x1111111111111111111111111111111111111111'
 
 ## Contracts
 
+You define a contract variable the same way that you define an address.
+
+Say you have a contract variable in Solidity called `MyToken`:
+```sol
+MyToken public myToken;
+```
+
+In your ChugSplash file:
 ```ts
 myContract: '0x2222222222222222222222222222222222222222'
 ```
 
 ## Contract references
 
-You can use a [contract's reference name](#contract-definitions) to refer to its address.
+You can use a [contract's reference name](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) to refer to the contract or its address.
 ```ts
-myToken: {{ 'MyToken' }} // MyToken's address
+myToken: {{ 'MyToken' }} // Reference to the MyToken contract or its address
 ```
 
 ## Fixed-size bytes (`bytes1`, `bytes2`, ..., `bytes32`)

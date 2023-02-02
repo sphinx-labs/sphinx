@@ -2,22 +2,24 @@
 pragma solidity ^0.8.9;
 
 import { Proxy } from "./libraries/Proxy.sol";
-import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
+import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashManagerProxy
+ * @notice BEWARE: This contract should be stable while ChugSplash is upgradeable because its
+ *         bytecode determines the addresses of contracts deployed by ChugSplash (via `CREATE2`).
  */
 contract ChugSplashManagerProxy is Proxy {
     /**
      * @notice Address of the ChugSplashRegistry.
      */
-    ChugSplashRegistry public immutable registryProxy;
+    IChugSplashRegistry public immutable registryProxy;
 
     /**
      * @param _registryProxy The ChugSplashRegistry's proxy.
      * @param _admin         Owner of this contract.
      */
-    constructor(ChugSplashRegistry _registryProxy, address _admin) payable Proxy(_admin) {
+    constructor(IChugSplashRegistry _registryProxy, address _admin) payable Proxy(_admin) {
         registryProxy = _registryProxy;
     }
 

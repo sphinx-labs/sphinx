@@ -8,6 +8,7 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
+import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -16,7 +17,7 @@ import { Proxy } from "./libraries/Proxy.sol";
  *         find and index these deployments. Deployment names are unique and are reserved on a
  *         first-come, first-served basis.
  */
-contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
+contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashRegistry {
     /**
      * @notice Emitted whenever a new project is registered.
      *
