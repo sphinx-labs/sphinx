@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.10.2
+
+### Patch Changes
+
+- 94d65b9: Bump plugins package version
+
 ## 0.10.1
 
 ### Patch Changes
