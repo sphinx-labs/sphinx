@@ -1,5 +1,29 @@
 # @chugsplash/core
 
+## 0.5.3
+
+### Patch Changes
+
+- ecfe984: Bump core and plugins versions
+
+## 0.5.2
+
+### Patch Changes
+
+- f38d444: Bump core package version
+
+## 0.5.1
+
+### Patch Changes
+
+- e56b684: Fix external proxy type validation bug
+- a892f24: Slightly change wording in error messages
+- fd70a56: Add recommendation to clear contract artifacts if variable not found in storage layout
+- Updated dependencies [4265ae4]
+- Updated dependencies [4554d0c]
+- Updated dependencies [591e7da]
+  - @chugsplash/contracts@0.4.3
+
 ## 0.5.0
 
 ### Minor Changes

@@ -23,7 +23,7 @@ export const TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('transparent')
 )
 
-export const CHUGSPLASH_SALT = ethers.constants.HashZero
+export const CHUGSPLASH_SALT = '0x' + '22'.repeat(32)
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName

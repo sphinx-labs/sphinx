@@ -1,5 +1,41 @@
 # @chugsplash/plugins
 
+## 0.10.4
+
+### Patch Changes
+
+- 4cf40e5: Bump plugins and executor versions
+- Updated dependencies [4cf40e5]
+  - @chugsplash/executor@0.5.4
+
+## 0.10.3
+
+### Patch Changes
+
+- ecfe984: Bump core and plugins versions
+- Updated dependencies [ecfe984]
+  - @chugsplash/core@0.5.3
+
+## 0.10.2
+
+### Patch Changes
+
+- 94d65b9: Bump plugins package version
+
+## 0.10.1
+
+### Patch Changes
+
+- e07b90c: Allow user to explicitly define proxy type in ChugSplash file
+- Updated dependencies [4265ae4]
+- Updated dependencies [4554d0c]
+- Updated dependencies [591e7da]
+- Updated dependencies [e56b684]
+- Updated dependencies [a892f24]
+- Updated dependencies [fd70a56]
+  - @chugsplash/contracts@0.4.3
+  - @chugsplash/core@0.5.1
+
 ## 0.10.0
 
 ### Minor Changes
