@@ -1,5 +1,13 @@
 # @chugsplash/plugins
 
+## 0.10.3
+
+### Patch Changes
+
+- ecfe984: Bump core and plugins versions
+- Updated dependencies [ecfe984]
+  - @chugsplash/core@0.5.3
+
 ## 0.10.2
 
 ### Patch Changes
