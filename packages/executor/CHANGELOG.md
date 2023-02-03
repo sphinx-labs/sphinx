@@ -1,5 +1,11 @@
 # @chugsplash/executor
 
+## 0.5.4
+
+### Patch Changes
+
+- 4cf40e5: Bump plugins and executor versions
+
 ## 0.5.3
 
 ### Patch Changes
