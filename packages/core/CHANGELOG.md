@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.5.2
+
+### Patch Changes
+
+- f38d444: Bump core package version
+
 ## 0.5.1
 
 ### Patch Changes
