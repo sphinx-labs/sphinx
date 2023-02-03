@@ -1,5 +1,27 @@
 # @chugsplash/plugins
 
+## 0.10.4
+
+### Patch Changes
+
+- 4cf40e5: Bump plugins and executor versions
+- Updated dependencies [4cf40e5]
+  - @chugsplash/executor@0.5.4
+
+## 0.10.3
+
+### Patch Changes
+
+- ecfe984: Bump core and plugins versions
+- Updated dependencies [ecfe984]
+  - @chugsplash/core@0.5.3
+
+## 0.10.2
+
+### Patch Changes
+
+- 94d65b9: Bump plugins package version
+
 ## 0.10.1
 
 ### Patch Changes
