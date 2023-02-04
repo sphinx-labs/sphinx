@@ -9,7 +9,7 @@ describe('HelloChugSplash', () => {
     // You must reset your ChugSplash deployments to their initial state here
     await chugsplash.reset()
 
-    MyFirstContract = await chugsplash.getContract('MyFirstContract')
+    MyFirstContract = await chugsplash.getContract('Hello ChugSplash', 'MyFirstContract')
   })
 
   it('initializes correctly', async () => {
@@ -34,7 +34,7 @@ describe('HelloChugSplash', () => {
     // You must reset your ChugSplash deployments to their initial state here
     await chugsplash.reset()
 
-    MyFirstContract = await chugsplash.getContract('MyFirstContract')
+    MyFirstContract = await chugsplash.getContract('Hello ChugSplash', 'MyFirstContract')
   })
 
   it('initializes correctly', async () => {
