@@ -1,5 +1,14 @@
 # @chugsplash/plugins
 
+## 0.10.6
+
+### Patch Changes
+
+- 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
+- Updated dependencies [2caf51e]
+  - @chugsplash/executor@0.5.5
+  - @chugsplash/core@0.5.5
+
 ## 0.10.5
 
 ### Patch Changes
