@@ -1,5 +1,13 @@
 # @chugsplash/demo
 
+## 0.4.2
+
+### Patch Changes
+
+- fd98872: Update demo package to reflect latest `getContract` function
+- Updated dependencies [fd98872]
+  - @chugsplash/plugins@0.10.5
+
 ## 0.4.1
 
 ### Patch Changes
