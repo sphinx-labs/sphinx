@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.5.4
+
+### Patch Changes
+
+- ca130bd: Bump @eth-optimism-commonts dependency version
+
 ## 0.5.3
 
 ### Patch Changes
