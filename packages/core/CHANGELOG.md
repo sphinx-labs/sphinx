@@ -1,5 +1,11 @@
 # @chugsplash/core
 
+## 0.5.5
+
+### Patch Changes
+
+- 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
+
 ## 0.5.4
 
 ### Patch Changes
