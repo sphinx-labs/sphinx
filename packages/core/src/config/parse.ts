@@ -292,6 +292,7 @@ export const makeActionBundleFromConfig = async (
       actions.push({
         referenceName,
         key: slot.key,
+        offset: slot.offset,
         value: slot.val,
       })
     }
