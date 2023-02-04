@@ -49,8 +49,9 @@ export type ArtifactPaths = {
   }
 }
 
-export interface StorageSlotPair {
+export interface StorageSlotSegment {
   key: string
+  offset: number
   val: string
 }
 

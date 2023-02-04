@@ -35,6 +35,7 @@ export interface RawChugSplashAction {
 export interface SetStorageAction {
   referenceName: string
   key: string
+  offset: number
   value: string
 }
 
