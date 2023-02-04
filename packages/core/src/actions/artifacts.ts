@@ -132,8 +132,9 @@ export const filterChugSplashInputs = async (
   for (const chugsplashInput of chugsplashInputs) {
     let filteredSources: CompilerInput['sources'] = {}
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      // Split the contract's fully qualified name to get its source name
-      const [sourceName] = contractConfig.contract.split(':')
+      // Split the contract's fully qualified name
+      const [sourceName, contractName] = contractConfig.contract.split(':')
+
       const { solcVersion, output: compilerOutput } = readBuildInfo(
         artifactPaths,
         contractConfig.contract
@@ -141,8 +142,9 @@ export const filterChugSplashInputs = async (
       if (solcVersion === chugsplashInput.solcVersion) {
         const { sources: newSources } = getMinimumCompilerInput(
           chugsplashInput.input,
-          compilerOutput.sources,
-          sourceName
+          compilerOutput.contracts,
+          sourceName,
+          contractName
         )
         // Merge the existing sources with the new sources, which are required to compile the
         // current `sourceName`.

@@ -17,7 +17,13 @@ import {
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
 } from '../../actions'
-import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
+import {
+  CompilerInput,
+  CompilerOutput,
+  CompilerOutputContracts,
+  CompilerOutputMetadata,
+  CompilerOutputSources,
+} from './types'
 import { addEnumMembersToStorageLayout } from './storage'
 
 export const bundleRemote = async (args: {
@@ -95,6 +101,24 @@ export const getCanonicalConfigArtifacts = async (
       const compiler = new NativeCompiler(solcBuild.compilerPath)
       compilerOutput = await compiler.compile(compilerInput.input)
     }
+
+    if (compilerOutput.errors) {
+      const formattedErrorMessages: string[] = []
+      compilerOutput.errors.forEach((error) => {
+        // Ignore warnings thrown by the compiler.
+        if (error.type.toLowerCase() !== 'warning') {
+          formattedErrorMessages.push(error.formattedMessage)
+        }
+      })
+
+      if (formattedErrorMessages.length > 0) {
+        throw new Error(
+          `Failed to compile. Please report this error.\n` +
+            `${formattedErrorMessages}`
+        )
+      }
+    }
+
     compilerOutputs.push(compilerOutput)
   }
 
@@ -179,37 +203,26 @@ export const compileRemoteBundle = async (
  */
 export const getMinimumCompilerInput = (
   fullCompilerInput: CompilerInput,
-  fullOutputSources: CompilerOutputSources,
-  sourceName: string
+  fullOutputContracts: CompilerOutputContracts,
+  sourceName: string,
+  contractName: string
 ): CompilerInput => {
-  const { language, settings, sources: inputSources } = fullCompilerInput
+  const contractOutput = fullOutputContracts[sourceName][contractName]
+  const metadata: CompilerOutputMetadata =
+    typeof contractOutput.metadata === 'string'
+      ? JSON.parse(contractOutput.metadata)
+      : contractOutput.metadata
 
-  const minimumInputSources: CompilerInput['sources'] = {}
+  const minimumSources: CompilerInput['sources'] = {}
+  for (const newSourceName of Object.keys(metadata.sources)) {
+    minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
+  }
+
+  const { language, settings } = fullCompilerInput
   const minimumCompilerInput: CompilerInput = {
     language,
     settings,
-    sources: minimumInputSources,
-  }
-
-  // Each contract name has a unique AST ID in the compiler output. These will
-  // be necessary when we parse the compiler output later.
-  const contractAstIdsToSourceNames =
-    mapContractAstIdsToSourceNames(fullOutputSources)
-
-  // Get the source names that are necessary to compile the given source name.
-  const minimumSourceNames = getMinimumSourceNames(
-    sourceName,
-    fullOutputSources,
-    contractAstIdsToSourceNames,
-    [sourceName]
-  )
-
-  // Filter out any sources that are in the full compiler input but not in the minimum compiler
-  // input.
-  for (const [source, content] of Object.entries(inputSources)) {
-    if (minimumSourceNames.includes(source)) {
-      minimumInputSources[source] = content
-    }
+    sources: minimumSources,
   }
 
   return minimumCompilerInput

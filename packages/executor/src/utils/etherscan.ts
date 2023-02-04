@@ -125,8 +125,9 @@ export const verifyChugSplashConfig = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
-      artifact.compilerOutput.sources,
-      sourceName
+      artifact.compilerOutput.contracts,
+      sourceName,
+      contractName
     )
 
     try {
@@ -199,8 +200,9 @@ export const verifyChugSplash = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       buildInfo.input,
-      buildInfo.output.sources,
-      sourceName
+      buildInfo.output.contracts,
+      sourceName,
+      contractName
     )
 
     await attemptVerification(
