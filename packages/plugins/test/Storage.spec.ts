@@ -11,10 +11,10 @@ describe('Storage', () => {
     // Reset to the initial deployment state
     await chugsplash.reset()
 
-    MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
+    MyStorage = await chugsplash.getContract('MyStorage', 'My First Project')
     MySimpleStorage = await chugsplash.getContract(
-      'My First Project',
-      'MySimpleStorage'
+      'MySimpleStorage',
+      'My First Project'
     )
   })
 

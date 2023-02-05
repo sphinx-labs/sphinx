@@ -25,6 +25,16 @@ import {
   CHUGSPLASH_SALT,
   ChugSplashRegistryABI,
   TRANSPARENT_PROXY_TYPE_HASH,
+  DefaultUpdaterABI,
+  DefaultUpdaterArtifact,
+  UUPSUpdaterABI,
+  UUPSAdapterABI,
+  UUPSUpdaterArtifact,
+  UUPSAdapterArtifact,
+  UUPS_ADAPTER_ADDRESS,
+  DEFAULT_UPDATER_ADDRESS,
+  UUPS_UPDATER_ADDRESS,
+  UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -241,6 +251,24 @@ export const initializeChugSplash = async (
     'DefaultAdapter address mismatch'
   )
 
+  // Deploy the DefaultUpdater.
+  const DefaultUpdater = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: DefaultUpdaterABI,
+      bytecode: DefaultUpdaterArtifact.bytecode,
+    },
+    salt: CHUGSPLASH_SALT,
+  })
+
+  logger?.info('[ChugSplash]: DefaultUpdater deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    DefaultUpdater.address === DEFAULT_UPDATER_ADDRESS,
+    'DefaultUpdater address mismatch'
+  )
+
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )
@@ -256,6 +284,69 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         TRANSPARENT_PROXY_TYPE_HASH,
         DefaultAdapter.address,
+        DefaultUpdater.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the transparent proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the transparent proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Deploy the UUPSAdapter.
+  const UUPSAdapter = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: UUPSAdapterABI,
+      bytecode: UUPSAdapterArtifact.bytecode,
+    },
+    salt: CHUGSPLASH_SALT,
+  })
+
+  logger?.info('[ChugSplash]: UUPSAdapter deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    UUPSAdapter.address === UUPS_ADAPTER_ADDRESS,
+    'UUPSAdapter address mismatch'
+  )
+
+  // Deploy the DefaultUpdater.
+  const UUPSUpdater = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: UUPSUpdaterABI,
+      bytecode: UUPSUpdaterArtifact.bytecode,
+    },
+    salt: CHUGSPLASH_SALT,
+  })
+
+  logger?.info('[ChugSplash]: UUPSUpdater deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    UUPSUpdater.address === UUPS_UPDATER_ADDRESS,
+    'UUPSUpdater address mismatch'
+  )
+
+  logger?.info(
+    '[ChugSplash]: adding the uups proxy type to the ChugSplashRegistry...'
+  )
+
+  // Set the transparent proxy type on the registry.
+  if (
+    (await ChugSplashRegistry.adapters(UUPS_PROXY_TYPE_HASH)) !==
+    UUPSAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addProxyType(
+        UUPS_PROXY_TYPE_HASH,
+        UUPSAdapter.address,
+        UUPSUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -279,6 +370,7 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         ethers.constants.HashZero,
         DefaultAdapter.address,
+        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()

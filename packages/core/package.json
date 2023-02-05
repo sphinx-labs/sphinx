@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@amplitude/node": "^1.10.2",
-    "@chugsplash/contracts": "^0.4.3",
-    "@eth-optimism/common-ts": "^0.7.1",
+    "@chugsplash/contracts": "^0.4.2",
+    "@eth-optimism/common-ts": "^0.6.7",
     "@eth-optimism/contracts-bedrock": "^0.8.0",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethersproject/abstract-provider": "^5.7.0",

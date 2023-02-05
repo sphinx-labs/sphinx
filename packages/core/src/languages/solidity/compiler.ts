@@ -17,13 +17,7 @@ import {
   getCreationCodeWithConstructorArgs,
   getImmutableVariables,
 } from '../../actions'
-import {
-  CompilerInput,
-  CompilerOutput,
-  CompilerOutputContracts,
-  CompilerOutputMetadata,
-  CompilerOutputSources,
-} from './types'
+import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
 import { addEnumMembersToStorageLayout } from './storage'
 
 export const bundleRemote = async (args: {
@@ -203,26 +197,37 @@ export const compileRemoteBundle = async (
  */
 export const getMinimumCompilerInput = (
   fullCompilerInput: CompilerInput,
-  fullOutputContracts: CompilerOutputContracts,
-  sourceName: string,
-  contractName: string
+  fullOutputSources: CompilerOutputSources,
+  sourceName: string
 ): CompilerInput => {
-  const contractOutput = fullOutputContracts[sourceName][contractName]
-  const metadata: CompilerOutputMetadata =
-    typeof contractOutput.metadata === 'string'
-      ? JSON.parse(contractOutput.metadata)
-      : contractOutput.metadata
+  const { language, settings, sources: inputSources } = fullCompilerInput
 
-  const minimumSources: CompilerInput['sources'] = {}
-  for (const newSourceName of Object.keys(metadata.sources)) {
-    minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
-  }
-
-  const { language, settings } = fullCompilerInput
+  const minimumInputSources: CompilerInput['sources'] = {}
   const minimumCompilerInput: CompilerInput = {
     language,
     settings,
-    sources: minimumSources,
+    sources: minimumInputSources,
+  }
+
+  // Each contract name has a unique AST ID in the compiler output. These will
+  // be necessary when we parse the compiler output later.
+  const contractAstIdsToSourceNames =
+    mapContractAstIdsToSourceNames(fullOutputSources)
+
+  // Get the source names that are necessary to compile the given source name.
+  const minimumSourceNames = getMinimumSourceNames(
+    sourceName,
+    fullOutputSources,
+    contractAstIdsToSourceNames,
+    [sourceName]
+  )
+
+  // Filter out any sources that are in the full compiler input but not in the minimum compiler
+  // input.
+  for (const [source, content] of Object.entries(inputSources)) {
+    if (minimumSourceNames.includes(source)) {
+      minimumInputSources[source] = content
+    }
   }
 
   return minimumCompilerInput

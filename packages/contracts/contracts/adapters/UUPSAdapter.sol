@@ -5,12 +5,11 @@ import { IProxyAdapter } from "../IProxyAdapter.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
 /**
- * @title DefaultAdapter
- * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy. This is the adapter used by
- *         default proxies in the ChugSplash system. To learn more about the transparent proxy
- *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @title UUPSAdapter
+ * @notice Adapter for an OpenZeppelin UUPS Upgradeable proxy. To learn more about the transparent proxy
+ *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent-vs-uups
  */
-contract DefaultAdapter is IProxyAdapter {
+contract UUPSAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */

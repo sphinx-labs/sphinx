@@ -232,7 +232,7 @@ export const parseChugSplashConfig = async (
       contract: contractFullyQualifiedName,
       proxy,
       proxyType,
-      variables: variables ?? {},
+      variables,
     }
 
     contracts[referenceName] = proxy

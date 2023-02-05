@@ -117,6 +117,10 @@ export class ChugSplashExecutor extends BaseServiceV2<
       options.privateKey,
       this.state.provider
     )
+  }
+
+  async init() {
+    await this.setup(this.options, true)
 
     this.logger.info('[ChugSplash]: setting up chugsplash...')
 
@@ -131,10 +135,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
     // Verify the ChugSplash contracts if the current network is supported.
-    if (
-      remoteExecution &&
-      isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
-    ) {
+    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
       this.logger.info(
         '[ChugSplash]: attempting to verify the chugsplash contracts...'
       )
@@ -147,10 +148,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
         `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
       )
     }
-  }
-
-  async init() {
-    await this.setup(this.options, true)
   }
 
   async main(
@@ -279,6 +276,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
               logger: this.logger,
             })
           } catch (e) {
+            console.error(e)
             // log error and continue
             this.logger.error(
               '[ChugSplash]: error: execution error',

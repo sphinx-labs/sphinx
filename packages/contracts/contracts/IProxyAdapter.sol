@@ -7,13 +7,6 @@ pragma solidity ^0.8.9;
  */
 interface IProxyAdapter {
     /**
-     * @notice Returns the current implementation of the proxy.
-     *
-     * @param _proxy Address of the proxy.
-     */
-    function getProxyImplementation(address payable _proxy) external returns (address);
-
-    /**
      * @notice Upgrade the implementation of the proxy.
      *
      * @param _proxy          Address of the proxy.

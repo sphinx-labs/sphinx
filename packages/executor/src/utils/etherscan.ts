@@ -35,8 +35,10 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ProxyUpdaterArtifact,
-  PROXY_UPDATER_ADDRESS,
+  DefaultUpdaterArtifact,
+  DEFAULT_UPDATER_ADDRESS,
+  UUPSUpdaterArtifact,
+  UUPS_UPDATER_ADDRESS,
   ProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ChugSplashManagerProxyArtifact,
@@ -45,6 +47,8 @@ import {
   CHUGSPLASH_REGISTRY_ADDRESS,
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
+  UUPSAdapterArtifact,
+  UUPS_ADAPTER_ADDRESS,
   buildInfo,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
@@ -125,9 +129,8 @@ export const verifyChugSplashConfig = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
-      artifact.compilerOutput.contracts,
-      sourceName,
-      contractName
+      artifact.compilerOutput.sources,
+      sourceName
     )
 
     try {
@@ -178,7 +181,8 @@ export const verifyChugSplash = async (
       artifact: ChugSplashBootLoaderArtifact,
       address: CHUGSPLASH_BOOTLOADER_ADDRESS,
     },
-    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
+    { artifact: UUPSUpdaterArtifact, address: UUPS_UPDATER_ADDRESS },
     { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
     {
       artifact: ChugSplashManagerProxyArtifact,
@@ -189,6 +193,7 @@ export const verifyChugSplash = async (
       address: CHUGSPLASH_REGISTRY_ADDRESS,
     },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    { artifact: UUPSAdapterArtifact, address: UUPS_ADAPTER_ADDRESS },
     {
       artifact: ProxyInitializerArtifact,
       address: PROXY_INITIALIZER_ADDRESS,
@@ -200,9 +205,8 @@ export const verifyChugSplash = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       buildInfo.input,
-      buildInfo.output.contracts,
-      sourceName,
-      contractName
+      buildInfo.output.sources,
+      sourceName
     )
 
     await attemptVerification(

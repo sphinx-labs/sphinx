@@ -1,7 +1,7 @@
 import { CompilerInput } from '../languages'
 
-export const externalProxyTypes = ['oz-transparent']
-export type ExternalProxyType = 'oz-transparent'
+export const externalProxyTypes = ['oz-transparent', 'oz-uups']
+export type ExternalProxyType = 'oz-transparent' | 'oz-uups'
 
 export type ProxyType = ExternalProxyType | 'default'
 
@@ -58,7 +58,7 @@ export type UserContractConfig = {
   contract: string
   externalProxy?: string
   externalProxyType?: ExternalProxyType
-  variables?: UserConfigVariables
+  variables: UserConfigVariables
 }
 
 export type UserContractConfigs = {

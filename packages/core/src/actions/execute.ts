@@ -87,6 +87,7 @@ export const executeTask = async (args: {
           // We didn't error so this batch size is valid.
           return true
         } catch (err) {
+          console.error(err)
           return false
         }
       }
