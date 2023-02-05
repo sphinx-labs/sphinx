@@ -5,8 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { ChugSplashManager } from "../contracts/ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "../contracts/ChugSplashManagerProxy.sol";
 import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
-import { ProxyUpdater } from "../contracts/ProxyUpdater.sol";
-import { Reverter } from "../contracts/Reverter.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract ChugSplashRegistry_Test is Test {
@@ -37,8 +35,9 @@ contract ChugSplashRegistry_Test is Test {
 
     address owner = address(128);
     address adapter = address(256);
-    address executor = address(512);
-    address nonOwner = address(1024);
+    address updater = address(512);
+    address executor = address(1024);
+    address nonOwner = address(2048);
     bytes32 proxyType = bytes32(hex"1337");
     bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
@@ -49,25 +48,18 @@ contract ChugSplashRegistry_Test is Test {
 
     ChugSplashRegistry registry;
     ChugSplashManager manager;
-    ProxyUpdater proxyUpdater;
-    Reverter reverter;
 
     function setUp() external {
-        proxyUpdater = new ProxyUpdater();
-
         manager = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(dummyRegistryProxyAddress),
             projectName,
             owner,
-            address(proxyUpdater),
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
         );
 
         registry = new ChugSplashRegistry{ salt: salt }(
-            address(proxyUpdater),
-            address(reverter),
             ownerBondAmount,
             executionLockTime,
             executorPaymentPercentage,
@@ -78,7 +70,6 @@ contract ChugSplashRegistry_Test is Test {
     }
 
     function test_initialize_success() external {
-        assertEq(address(registry.proxyUpdater()), address(proxyUpdater));
         assertEq(registry.executionLockTime(), executionLockTime);
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
@@ -210,15 +201,16 @@ contract ChugSplashRegistry_Test is Test {
     }
 
     function test_addProxyType_revert_existingAdapter() external {
-        registry.addProxyType(proxyType, adapter);
+        registry.addProxyType(proxyType, adapter, updater);
         vm.expectRevert("ChugSplashRegistry: proxy type has an existing adapter");
-        registry.addProxyType(proxyType, adapter);
+        registry.addProxyType(proxyType, adapter, updater);
     }
 
     function test_addProxyType_success() external {
         vm.expectEmit(true, true, true, true);
         emit ProxyTypeAdded(proxyType, adapter);
-        registry.addProxyType(proxyType, adapter);
+        registry.addProxyType(proxyType, adapter, updater);
         assertEq(registry.adapters(proxyType), adapter);
+        assertEq(registry.updaters(proxyType), updater);
     }
 }

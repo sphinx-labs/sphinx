@@ -194,6 +194,10 @@ export const getConstructorArgs = (
             node.mutability === 'immutable' &&
             Object.keys(immutableReferences).includes(node.id.toString(10))
           ) {
+            if (node.value !== undefined) {
+              continue
+            }
+
             if (contractConfig.variables[node.name] === undefined) {
               throw new Error(
                 `Could not find immutable variable "${node.name}" in ${referenceName}.
