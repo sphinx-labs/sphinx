@@ -108,19 +108,14 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     mapping(bytes32 => address) public adapters;
 
     /**
+     * @notice Mapping of proxy types to updaters.
+     */
+    mapping(bytes32 => address) public updaters;
+
+    /**
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
-
-    /**
-     * @notice Address of the ProxyUpdater.
-     */
-    address public immutable proxyUpdater;
-
-    /**
-     * @notice Address of the Reverter.
-     */
-    address public immutable reverter;
 
     /**
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
@@ -144,8 +139,6 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     address public immutable managerImplementation;
 
     /**
-     * @param _proxyUpdater              Address of the ProxyUpdater.
-     * @param _reverter                  Address of the Reverter.
      * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
      *                                   order to execute a bundle.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
@@ -155,15 +148,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
      * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      */
     constructor(
-        address _proxyUpdater,
-        address _reverter,
         uint256 _ownerBondAmount,
         uint256 _executionLockTime,
         uint256 _executorPaymentPercentage,
         address _managerImplementation
     ) {
-        proxyUpdater = _proxyUpdater;
-        reverter = _reverter;
         ownerBondAmount = _ownerBondAmount;
         executionLockTime = _executionLockTime;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -248,18 +237,24 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     }
 
     /**
-     * @notice Adds a new proxy type with a corresponding adapter, which can be used to upgrade a
-     *         custom proxy.
+     * @notice Adds a new proxy type with a corresponding adapter and updater, which
+     *         can be used to upgrade a custom proxy.
      *
      * @param _proxyType Hash representing the proxy type
      * @param _adapter   Address of the adapter for this proxy type.
+     * @param _updater   Address of the updater for this proxy type.
      */
-    function addProxyType(bytes32 _proxyType, address _adapter) external {
+    function addProxyType(bytes32 _proxyType, address _adapter, address _updater) external {
         require(
             adapters[_proxyType] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
+        require(
+            updaters[_proxyType] == address(0),
+            "ChugSplashRegistry: proxy type has an existing updater"
+        );
         adapters[_proxyType] = _adapter;
+        updaters[_proxyType] = _updater;
 
         emit ProxyTypeAdded(_proxyType, _adapter);
     }

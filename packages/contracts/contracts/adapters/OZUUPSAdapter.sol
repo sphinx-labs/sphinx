@@ -2,35 +2,36 @@
 pragma solidity ^0.8.9;
 
 import { IProxyAdapter } from "../IProxyAdapter.sol";
-import { IProxyUpdater } from "../IProxyUpdater.sol";
+import { OZUUPSUpdater } from "../updaters/OZUUPSUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
 /**
- * @title DefaultAdapter
- * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy. This is the adapter used by
- *         default proxies in the ChugSplash system. To learn more about the transparent proxy
- *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @title UUPSAdapter
+ * @notice Adapter for an OpenZeppelin UUPS Upgradeable proxy. To learn more about the transparent
+ *         proxy pattern, see:
+ *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent-vs-uups
  */
-contract DefaultAdapter is IProxyAdapter {
+contract OZUUPSAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
     function initiateExecution(address payable _proxy, address _implementation) external {
-        Proxy(_proxy).upgradeTo(_implementation);
+        OZUUPSUpdater(_proxy).upgradeTo(_implementation);
+        OZUUPSUpdater(_proxy).setup();
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
     function completeExecution(address payable _proxy, address _implementation) external {
-        Proxy(_proxy).upgradeTo(_implementation);
+        OZUUPSUpdater(_proxy).teardown(_implementation);
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
     function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external {
-        IProxyUpdater(_proxy).setStorage(_key, _value);
+        OZUUPSUpdater(_proxy).setStorage(_key, _value);
     }
 
     /**

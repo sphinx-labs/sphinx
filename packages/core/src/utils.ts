@@ -19,7 +19,8 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
-  TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -522,6 +523,14 @@ export const isDefaultProxy = async (
   return actionExecutedEvents.length === 1
 }
 
+/**
+ * Since both UUPS and Transparent proxies use the same interface we use a helper function to check that. This wrapper is intended to
+ * keep the code clear by providing separate functions for checking UUPS and Transparent proxies.
+ *
+ * @param provider JSON RPC provider corresponding to the current project owner.
+ * @param contractAddress Address of the contract to check the interface of
+ * @returns
+ */
 export const isTransparentProxy = async (
   provider: providers.Provider,
   proxyAddress: string
@@ -532,15 +541,10 @@ export const isTransparentProxy = async (
     return false
   }
 
-  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
-  const iface = new ethers.utils.Interface(ProxyABI)
+  // Check if the contract bytecode contains the expected interface
   const bytecode = await provider.getCode(proxyAddress)
-  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
-  for (const func of checkFunctions) {
-    const sigHash = remove0x(iface.getSighash(func))
-    if (!bytecode.includes(sigHash)) {
-      return false
-    }
+  if (!(await bytecodeContainsEIP1967Interface(bytecode))) {
+    return false
   }
 
   // Fetch proxy owner address from storage slot defined by EIP-1967
@@ -554,14 +558,95 @@ export const isTransparentProxy = async (
   return true
 }
 
+/**
+ * Checks if the passed in proxy contract points to an implementation address which implements the minimum requirements to be
+ * a ChugSplash compatible UUPS proxy.
+ *
+ * @param provider JSON RPC provider corresponding to the current project owner.
+ * @param proxyAddress Address of the proxy contract. Since this is a UUPS proxy, we check the interface of the implementation function.
+ * @returns
+ */
+export const isUUPSProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  const implementationAddress = await getEIP1967ProxyImplementationAddress(
+    provider,
+    proxyAddress
+  )
+
+  // We don't consider default proxies to be ERC proxies, even though they share the same
+  // interface.
+  if ((await isDefaultProxy(provider, implementationAddress)) === true) {
+    return false
+  }
+
+  // Check if the contract bytecode contains the expected interface
+  const bytecode = await provider.getCode(implementationAddress)
+  if (!(await bytecodeContainsUUPSInterface(bytecode))) {
+    return false
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = await getEIP1967ProxyAdminAddress(
+    provider,
+    implementationAddress
+  )
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    return false
+  }
+
+  return true
+}
+
+const bytecodeContainsUUPSInterface = async (
+  bytecode: string
+): Promise<boolean> => {
+  return bytecodeContainsInterface(bytecode, ['upgradeTo'])
+}
+
+const bytecodeContainsEIP1967Interface = async (
+  bytecode: string
+): Promise<boolean> => {
+  return bytecodeContainsInterface(bytecode, [
+    'implementation',
+    'admin',
+    'upgradeTo',
+    'changeAdmin',
+  ])
+}
+
+/**
+ * @param bytecode The bytecode of the contract to check the interface of.
+ * @returns True if the contract contains the expected interface and false if not.
+ */
+const bytecodeContainsInterface = async (
+  bytecode: string,
+  checkFunctions: string[]
+): Promise<boolean> => {
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      return false
+    }
+  }
+  return true
+}
+
 export const getProxyTypeHash = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<string> => {
   if (await isDefaultProxy(provider, proxyAddress)) {
     return ethers.constants.HashZero
+  } else if (await isUUPSProxy(provider, proxyAddress)) {
+    return OZ_UUPS_PROXY_TYPE_HASH
   } else if (await isTransparentProxy(provider, proxyAddress)) {
-    return TRANSPARENT_PROXY_TYPE_HASH
+    return OZ_TRANSPARENT_PROXY_TYPE_HASH
   } else {
     throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
   }
@@ -628,7 +713,23 @@ export const assertValidUpgrade = async (
         provider,
         contractConfig.proxy
       )
-      if (proxyAdmin !== chugSplashManagerAddress) {
+
+      let managerIsValidUpgrader = true
+      const signer = new ethers.VoidSigner(chugSplashManagerAddress, provider)
+      const contract = new ethers.Contract(
+        contractConfig.proxy,
+        ProxyABI,
+        signer
+      )
+      try {
+        await contract.callStatic.upgradeTo(
+          '0x1111111111111111111111111111111111111111'
+        )
+      } catch (e) {
+        managerIsValidUpgrader = false
+      }
+
+      if (proxyAdmin !== chugSplashManagerAddress && !managerIsValidUpgrader) {
         requiresOwnershipTransfer.push({
           name: referenceName,
           address: contractConfig.proxy,
@@ -648,6 +749,9 @@ export const assertValidUpgrade = async (
 
 To perform an upgrade, you must first transfer ownership of the contract(s) to ChugSplash using the following command:
 npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+
+If you are using an external UUPS proxy, you'll need to give your ChugSplashManager address ${chugSplashManagerAddress}
+permission to upgrade them.
       `
     )
   }
@@ -662,6 +766,19 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
         remoteExecution,
         canonicalConfigFolderPath
       )
+    }
+
+    // Check new implementations include the UUPS interface if the proxy type is marked as UUPS
+    for (const [referenceName] of Object.entries(parsedConfig.contracts)) {
+      const contractConfig = parsedConfig.contracts[referenceName]
+      if (contractConfig.proxyType === 'oz-uups') {
+        if (!bytecodeContainsUUPSInterface(contractConfig.contract)) {
+          // throw error
+          throw new Error(
+            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation no longer implements the UUPS interface. You must include the expected interface or you will no longer be able to upgrade this contract.`
+          )
+        }
+      }
     }
 
     spinner?.succeed(`${projectName} is a valid upgrade.`)

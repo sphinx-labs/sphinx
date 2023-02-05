@@ -7,31 +7,29 @@ pragma solidity ^0.8.9;
  */
 interface IProxyAdapter {
     /**
-     * @notice Returns the current implementation of the proxy.
+     * @notice Upgrade the implementation of the proxy.
      *
-     * @param _proxy Address of the proxy.
+     * @param _proxy          Address of the proxy.
+     * @param _implementation Address of the updater implementation.
      */
-    function getProxyImplementation(address payable _proxy) external returns (address);
+    function initiateExecution(address payable _proxy, address _implementation) external;
 
     /**
      * @notice Upgrade the implementation of the proxy.
      *
      * @param _proxy          Address of the proxy.
-     * @param _implementation Address of the new implementation.
+     * @param _implementation Address of the final implementation.
      */
-    function upgradeProxyTo(address payable _proxy, address _implementation) external;
+    function completeExecution(address payable _proxy, address _implementation) external;
 
     /**
-     * @notice Set the proxy's implementation and call a function in a single transaction.
+     * @notice Modifies some storage slot within the proxy contract. Gives us a lot of power to
+     *         perform upgrades in a more transparent way.
      *
-     * @param _implementation Address of the implementation contract.
-     * @param _data           Calldata to delegatecall the new implementation with.
+     * @param _key   Storage key to modify.
+     * @param _value New value for the storage key.
      */
-    function upgradeProxyToAndCall(
-        address payable _proxy,
-        address _implementation,
-        bytes calldata _data
-    ) external returns (bytes memory);
+    function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external;
 
     /**
      * @notice Changes the admin of the proxy.

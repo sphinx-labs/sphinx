@@ -17,7 +17,6 @@ import {
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { initializeExecutor } from '../executor'
 import { getArtifactPaths } from './artifacts'
 
 export const fetchFilesRecursively = (dir): string[] => {
@@ -56,7 +55,7 @@ export const deployAllChugSplashConfigs = async (
 
   let executor: ChugSplashExecutorType | undefined
   if (!remoteExecution) {
-    executor = await initializeExecutor(hre.ethers.provider)
+    executor = hre.chugsplash.executor
   }
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs

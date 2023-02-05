@@ -33,6 +33,7 @@ contract ChugSplash is Script, Test {
 
     constructor() {
         vm.makePersistent(address(this));
+        _initializeChugSplash();
     }
 
     function fetchPaths() private view returns (string memory outPath, string memory buildInfoPath) {
@@ -54,6 +55,19 @@ contract ChugSplash is Script, Test {
                 buildInfoPath = line.rsplit("=".toSlice()).toString();
             }
         }
+    }
+
+    function _initializeChugSplash() private {
+        string[] memory cmds = new string[](7);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "initializeChugSplash";
+        cmds[4] = rpcUrl;
+        cmds[5] = network;
+        cmds[6] = privateKey;
+
+        vm.ffi(cmds);
     }
 
     function register(string memory configPath) public returns (bytes memory) {
