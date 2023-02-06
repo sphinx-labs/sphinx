@@ -1,5 +1,14 @@
 # @chugsplash/plugins
 
+## 0.10.7
+
+### Patch Changes
+
+- c30b8ef: Fix bug caused by logic that gets the minimum compiler input for a bundle
+- Updated dependencies [c30b8ef]
+- Updated dependencies [90e5c0b]
+  - @chugsplash/core@0.5.6
+
 ## 0.10.6
 
 ### Patch Changes
