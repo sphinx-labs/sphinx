@@ -1,5 +1,12 @@
 # @chugsplash/core
 
+## 0.5.6
+
+### Patch Changes
+
+- c30b8ef: Fix bug caused by logic that gets the minimum compiler input for a bundle
+- 90e5c0b: Move the 'missing storage layout error' from `getStorageLayout` to `getBuildInfo`
+
 ## 0.5.5
 
 ### Patch Changes
