@@ -7,7 +7,6 @@ import ora from 'ora'
 import { Fragment } from 'ethers/lib/utils'
 
 import {
-  ChugSplashInputs,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
   ParsedContractConfig,
@@ -15,8 +14,6 @@ import {
 import {
   addEnumMembersToStorageLayout,
   ArtifactPaths,
-  CompilerInput,
-  getMinimumCompilerInput,
   SolidityStorageObj,
 } from '../languages'
 import { Integration } from '../constants'
@@ -131,57 +128,6 @@ https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
   )
 
   return buildInfo
-}
-
-/**
- * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
- * config.
- *
- * @param chugsplashInputs ChugSplash input array.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns Filtered ChugSplash input array.
- */
-export const filterChugSplashInputs = async (
-  chugsplashInputs: ChugSplashInputs,
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths
-): Promise<ChugSplashInputs> => {
-  const filteredChugSplashInputs: ChugSplashInputs = []
-  for (const chugsplashInput of chugsplashInputs) {
-    let filteredSources: CompilerInput['sources'] = {}
-    for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      // Split the contract's fully qualified name
-      const [sourceName, contractName] = contractConfig.contract.split(':')
-
-      const { solcVersion, output: compilerOutput } = readBuildInfo(
-        artifactPaths,
-        contractConfig.contract
-      )
-      if (solcVersion === chugsplashInput.solcVersion) {
-        const { sources: newSources } = getMinimumCompilerInput(
-          chugsplashInput.input,
-          compilerOutput.contracts,
-          sourceName,
-          contractName
-        )
-        // Merge the existing sources with the new sources, which are required to compile the
-        // current `sourceName`.
-        filteredSources = { ...filteredSources, ...newSources }
-      }
-    }
-    const filteredCompilerInput: CompilerInput = {
-      language: chugsplashInput.input.language,
-      settings: chugsplashInput.input.settings,
-      sources: filteredSources,
-    }
-    filteredChugSplashInputs.push({
-      solcVersion: chugsplashInput.solcVersion,
-      solcLongVersion: chugsplashInput.solcLongVersion,
-      input: filteredCompilerInput,
-    })
-  }
-
-  return filteredChugSplashInputs
 }
 
 export const getCreationCodeWithConstructorArgs = (

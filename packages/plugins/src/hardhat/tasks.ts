@@ -159,8 +159,6 @@ export const chugsplashDeployTask = async (
 
   spinner.succeed('ChugSplash is ready to go.')
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -184,8 +182,6 @@ export const chugsplashDeployTask = async (
     !noWithdraw,
     newOwner ?? signerAddress,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
@@ -298,8 +294,6 @@ export const chugsplashProposeTask = async (
 
   const userConfig = readUserChugSplashConfig(configPath)
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const artifactPaths = await getArtifactPaths(
@@ -327,8 +321,6 @@ export const chugsplashProposeTask = async (
     confirm,
     'hardhat',
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     skipStorageCheck
   )
@@ -367,9 +359,6 @@ export const chugsplashApproveTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
-
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -392,8 +381,6 @@ export const chugsplashApproveTask = async (
     skipMonitorStatus,
     artifactPaths,
     'hardhat',
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     remoteExecution
@@ -467,8 +454,6 @@ export const chugsplashCommitSubtask = async (
     })
   }
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const provider = hre.ethers.provider
@@ -479,7 +464,6 @@ export const chugsplashCommitSubtask = async (
     ipfsUrl,
     commitToIpfs,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     'hardhat',
     spinner
@@ -631,8 +615,6 @@ export const monitorTask = async (
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -654,8 +636,6 @@ export const monitorTask = async (
     silent,
     newOwner,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
@@ -913,8 +893,6 @@ export const chugsplashWithdrawTask = async (
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const userConfig = readUserChugSplashConfig(configPath)
@@ -931,8 +909,6 @@ export const chugsplashWithdrawTask = async (
     configPath,
     silent,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     'hardhat'
   )
