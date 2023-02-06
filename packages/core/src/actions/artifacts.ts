@@ -107,10 +107,28 @@ export const readBuildInfo = (
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
-  const { storageLayout } = buildInfo.output.contracts[sourceName][contractName]
+  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
   const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
 
-  addEnumMembersToStorageLayout(storageLayout, contractName, sourceNodes)
+  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
+  }
+
+  if (!('storageLayout' in contractOutput)) {
+    throw new Error(
+      `Storage layout for ${fullyQualifiedName} not found. Did you forget to set the storage layout
+compiler option in your hardhat config? Read more:
+https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+    )
+  }
+
+  addEnumMembersToStorageLayout(
+    contractOutput.storageLayout,
+    contractName,
+    sourceNodes
+  )
 
   return buildInfo
 }
@@ -392,20 +410,6 @@ export const readStorageLayout = (
   )
   const buildInfo = readBuildInfo(artifactPaths, fullyQualifiedName)
   const output = buildInfo.output.contracts[sourceName][contractName]
-
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  if (!('storageLayout' in output)) {
-    throw new Error(
-      `Storage layout for ${name} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
-    )
-  }
 
   return (output as any).storageLayout
 }
