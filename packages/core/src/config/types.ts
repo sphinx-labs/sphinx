@@ -94,10 +94,8 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
-  inputs: ChugSplashInputs
+  inputs: Array<ChugSplashInput>
 }
-
-export type ChugSplashInputs = Array<ChugSplashInput>
 
 export type ChugSplashInput = {
   solcVersion: string

@@ -1,5 +1,3 @@
-import * as fs from 'fs'
-import * as path from 'path'
 import process from 'process'
 
 import { ethers } from 'ethers'
@@ -9,7 +7,11 @@ import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
+import {
+  CanonicalChugSplashConfig,
+  ChugSplashInput,
+  ParsedChugSplashConfig,
+} from '../config'
 import {
   assertValidUpgrade,
   computeBundleId,
@@ -31,7 +33,7 @@ import {
   setProxiesToReferenceNames,
   writeCanonicalConfig,
 } from '../utils'
-import { ArtifactPaths } from '../languages'
+import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import {
   alreadyProposedMessage,
@@ -46,8 +48,8 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   createDeploymentArtifacts,
-  filterChugSplashInputs,
   proposeChugSplashBundle,
+  readBuildInfo,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
@@ -118,8 +120,6 @@ export const chugsplashProposeAbstractTask = async (
   confirm: boolean,
   integration: Integration,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   skipStorageCheck: boolean,
   stream: NodeJS.WritableStream = process.stderr
@@ -177,7 +177,6 @@ export const chugsplashProposeAbstractTask = async (
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -232,8 +231,6 @@ with a name other than ${parsedConfig.options.projectName}`
         spinner,
         confirm,
         artifactPaths,
-        buildInfoFolder,
-        artifactFolder,
         canonicalConfigPath,
         silent,
         integration
@@ -266,7 +263,6 @@ export const chugsplashCommitAbstractSubtask = async (
   ipfsUrl: string,
   commitToIpfs: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -284,58 +280,46 @@ export const chugsplashCommitAbstractSubtask = async (
       : spinner.start('Building the project...')
   }
 
-  // Get unique source names for the contracts in the ChugSplash config
-  let configSourceNames = Object.values(parsedConfig.contracts).map(
-    (contractConfig) => {
-      // Split the contract's fully qualified name to get its source name
-      const [sourceName] = contractConfig.contract.split(':')
-      return sourceName
-    }
-  )
-  configSourceNames = Array.from(new Set(configSourceNames))
+  const chugsplashInputs: Array<ChugSplashInput> = []
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
 
-  // Get the inputs from the build info folder. This also filters out build info
-  // files that aren't used in this deployment.
-  const inputs = fs
-    .readdirSync(buildInfoFolder)
-    .filter((file) => {
-      return file.endsWith('.json')
-    })
-    .map((file) => {
-      return JSON.parse(
-        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
-      )
-    })
-    .filter((buildInfo) => {
-      // Get an array of the source names for the current build info file
-      const inputSourceNames = Object.keys(buildInfo.input.sources)
-      // Get the intersection of source names between the current build info file
-      // and the ChugSplash config file
-      const intersection = configSourceNames.filter((name) =>
-        inputSourceNames.includes(name)
-      )
-      // Keep this build info file if the arrays share at least one source name in common
-      return intersection.length > 0
-    })
-    .map((compilerInput) => {
-      return {
-        solcVersion: compilerInput.solcVersion,
-        solcLongVersion: compilerInput.solcLongVersion,
-        input: compilerInput.input,
-        output: compilerInput.output,
+    const prevChugSplashInput = chugsplashInputs.find(
+      (input) => input.solcLongVersion === buildInfo.solcLongVersion
+    )
+
+    // Split the contract's fully qualified name
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    const { language, settings, sources } = getMinimumCompilerInput(
+      buildInfo.input,
+      buildInfo.output.contracts,
+      sourceName,
+      contractName
+    )
+
+    if (prevChugSplashInput === undefined) {
+      const chugsplashInput: ChugSplashInput = {
+        solcVersion: buildInfo.solcVersion,
+        solcLongVersion: buildInfo.solcLongVersion,
+        input: {
+          language,
+          settings,
+          sources,
+        },
       }
-    })
-
-  // Filter out any sources in the ChugSplash inputs that aren't needed in this deployment.
-  const filteredInputs = await filterChugSplashInputs(
-    inputs,
-    parsedConfig,
-    artifactPaths
-  )
+      chugsplashInputs.push(chugsplashInput)
+    } else {
+      prevChugSplashInput.input.sources = {
+        ...prevChugSplashInput.input.sources,
+        ...sources,
+      }
+    }
+  }
 
   const canonicalConfig: CanonicalChugSplashConfig = {
     ...parsedConfig,
-    inputs: filteredInputs,
+    inputs: chugsplashInputs,
   }
 
   const ipfsData = JSON.stringify(canonicalConfig, null, 2)
@@ -410,8 +394,6 @@ export const chugsplashApproveAbstractTask = async (
   skipMonitorStatus: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolderPath: string,
   remoteExecution: boolean,
@@ -454,7 +436,6 @@ Owner's address: ${projectOwnerAddress}`)
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration,
     spinner
@@ -537,8 +518,6 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         networkName,
         deploymentFolderPath,
         artifactPaths,
-        artifactFolder,
-        buildInfoFolder,
         integration,
         remoteExecution,
         undefined,
@@ -623,8 +602,6 @@ export const chugsplashDeployAbstractTask = async (
   withdraw: boolean,
   newOwner: string,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
@@ -707,7 +684,6 @@ export const chugsplashDeployAbstractTask = async (
     ipfsUrl,
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -761,8 +737,6 @@ export const chugsplashDeployAbstractTask = async (
       spinner,
       confirm,
       artifactPaths,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       silent,
       integration
@@ -809,8 +783,6 @@ export const chugsplashDeployAbstractTask = async (
       true,
       artifactPaths,
       integration,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       deploymentFolder,
       remoteExecution,
@@ -865,8 +837,6 @@ export const chugsplashDeployAbstractTask = async (
     networkName,
     deploymentFolder,
     artifactPaths,
-    artifactFolder,
-    buildInfoFolder,
     integration,
     remoteExecution,
     newOwner,
@@ -900,8 +870,6 @@ export const chugsplashMonitorAbstractTask = async (
   silent: boolean,
   newOwner: string,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
@@ -940,7 +908,6 @@ export const chugsplashMonitorAbstractTask = async (
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -987,8 +954,6 @@ project with a name other than ${parsedConfig.options.projectName}`
     networkName,
     deploymentFolder,
     artifactPaths,
-    artifactFolder,
-    buildInfoFolder,
     'hardhat',
     remoteExecution,
     newOwner,
@@ -1086,8 +1051,6 @@ export const chugsplashWithdrawAbstractTask = async (
   configPath: string,
   silent: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
@@ -1126,7 +1089,6 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )

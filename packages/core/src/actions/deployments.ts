@@ -28,8 +28,6 @@ export const proposeChugSplashBundle = async (
   spinner: ora.Ora = ora({ isSilent: true }),
   confirm: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   silent: boolean,
   integration: Integration
@@ -63,7 +61,6 @@ export const proposeChugSplashBundle = async (
       ipfsUrl,
       true,
       artifactPaths,
-      buildInfoFolder,
       canonicalConfigPath,
       integration,
       spinner

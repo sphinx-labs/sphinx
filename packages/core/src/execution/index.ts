@@ -157,8 +157,6 @@ export const postExecutionActions = async (
   networkName: string,
   deploymentfolderPath: string,
   artifactPaths: ArtifactPaths,
-  artifactFolder: string,
-  buildInfoFolder: string,
   integration: Integration,
   remoteExecution: boolean,
   newProjectOwner?: string,

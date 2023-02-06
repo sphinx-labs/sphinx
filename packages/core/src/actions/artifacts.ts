@@ -7,7 +7,6 @@ import ora from 'ora'
 import { Fragment } from 'ethers/lib/utils'
 
 import {
-  ChugSplashInputs,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
   ParsedContractConfig,
@@ -15,8 +14,6 @@ import {
 import {
   addEnumMembersToStorageLayout,
   ArtifactPaths,
-  CompilerInput,
-  getMinimumCompilerInput,
   SolidityStorageObj,
 } from '../languages'
 import { Integration } from '../constants'
@@ -107,63 +104,30 @@ export const readBuildInfo = (
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
-  const { storageLayout } = buildInfo.output.contracts[sourceName][contractName]
+  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
   const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
 
-  addEnumMembersToStorageLayout(storageLayout, contractName, sourceNodes)
-
-  return buildInfo
-}
-
-/**
- * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
- * config.
- *
- * @param chugsplashInputs ChugSplash input array.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns Filtered ChugSplash input array.
- */
-export const filterChugSplashInputs = async (
-  chugsplashInputs: ChugSplashInputs,
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths
-): Promise<ChugSplashInputs> => {
-  const filteredChugSplashInputs: ChugSplashInputs = []
-  for (const chugsplashInput of chugsplashInputs) {
-    let filteredSources: CompilerInput['sources'] = {}
-    for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      // Split the contract's fully qualified name
-      const [sourceName, contractName] = contractConfig.contract.split(':')
-
-      const { solcVersion, output: compilerOutput } = readBuildInfo(
-        artifactPaths,
-        contractConfig.contract
-      )
-      if (solcVersion === chugsplashInput.solcVersion) {
-        const { sources: newSources } = getMinimumCompilerInput(
-          chugsplashInput.input,
-          compilerOutput.contracts,
-          sourceName,
-          contractName
-        )
-        // Merge the existing sources with the new sources, which are required to compile the
-        // current `sourceName`.
-        filteredSources = { ...filteredSources, ...newSources }
-      }
-    }
-    const filteredCompilerInput: CompilerInput = {
-      language: chugsplashInput.input.language,
-      settings: chugsplashInput.input.settings,
-      sources: filteredSources,
-    }
-    filteredChugSplashInputs.push({
-      solcVersion: chugsplashInput.solcVersion,
-      solcLongVersion: chugsplashInput.solcLongVersion,
-      input: filteredCompilerInput,
-    })
+  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
   }
 
-  return filteredChugSplashInputs
+  if (!('storageLayout' in contractOutput)) {
+    throw new Error(
+      `Storage layout for ${fullyQualifiedName} not found. Did you forget to set the storage layout
+compiler option in your hardhat config? Read more:
+https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+    )
+  }
+
+  addEnumMembersToStorageLayout(
+    contractOutput.storageLayout,
+    contractName,
+    sourceNodes
+  )
+
+  return buildInfo
 }
 
 export const getCreationCodeWithConstructorArgs = (
@@ -392,20 +356,6 @@ export const readStorageLayout = (
   )
   const buildInfo = readBuildInfo(artifactPaths, fullyQualifiedName)
   const output = buildInfo.output.contracts[sourceName][contractName]
-
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  if (!('storageLayout' in output)) {
-    throw new Error(
-      `Storage layout for ${name} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
-    )
-  }
 
   return (output as any).storageLayout
 }
