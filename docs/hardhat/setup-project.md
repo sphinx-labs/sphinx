@@ -7,7 +7,8 @@ If your repository has an existing Hardhat project, you can skip to [here](#inst
 ## Table of Contents
 
 - [Initialize Node.js](#initialize-nodejs)
-- [Setup Hardhat](#setup-hardhat)
+- [Install Hardhat](#install-hardhat)
+- [Initialize Hardhat](#initialize-hardhat)
 - [Install ChugSplash](#install-chugsplash)
 - Setup ChugSplash:
   - [In a JavaScript Project](#setup-chugsplash-using-javascript)
@@ -28,7 +29,7 @@ With npm:
 npm init -y
 ```
 
-## Setup Hardhat
+## Install Hardhat
 
 Install Hardhat in your repository if it isn't already installed.
 
@@ -42,7 +43,7 @@ With npm:
 npm install --save-dev hardhat
 ```
 
-Then, initialize Hardhat:
+## Initialize Hardhat
 
 ```
 npx hardhat
@@ -52,11 +53,11 @@ npx hardhat
 
 With Yarn:
 ```
-yarn add --dev @chugsplash/plugins @chugsplash/core
+yarn add --dev @chugsplash/plugins
 ```
 With npm:
 ```
-npm install --save-dev @chugsplash/plugins @chugsplash/core
+npm install --save-dev @chugsplash/plugins
 ```
 
 ## Setup ChugSplash using JavaScript
@@ -171,4 +172,6 @@ npx hardhat test test/HelloChugSplash.spec.ts
 
 ## Learn More
 
-Once you've set up a ChugSplash project, the next step is to learn about the [ChugSplash file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where you define deployments and upgrades.
+Once you've set up a ChugSplash project, the next step is to learn about the [ChugSplash
+file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where
+you define deployments and upgrades.
