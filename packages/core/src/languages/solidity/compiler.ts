@@ -113,7 +113,7 @@ export const getCanonicalConfigArtifacts = async (
 
       if (formattedErrorMessages.length > 0) {
         throw new Error(
-          `Failed to compile. Please report this error.\n` +
+          `Failed to compile. Please report this error to ChugSplash.\n` +
             `${formattedErrorMessages}`
         )
       }

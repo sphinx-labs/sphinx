@@ -59,8 +59,6 @@ export const deployAllChugSplashConfigs = async (
     executor = await initializeExecutor(hre.ethers.provider)
   }
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -91,8 +89,6 @@ export const deployAllChugSplashConfigs = async (
       true,
       await signer.getAddress(),
       artifactPaths,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
