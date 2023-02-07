@@ -58,7 +58,7 @@ export type UserContractConfig = {
   contract: string
   externalProxy?: string
   externalProxyType?: ExternalProxyType
-  variables: UserConfigVariables
+  variables?: UserConfigVariables
 }
 
 export type UserContractConfigs = {

@@ -73,13 +73,9 @@ contract Proxy {
     }
 
     // slither-disable-next-line locked-ether
-    fallback() external virtual payable {
+    fallback() external payable {
         // Proxy call by default.
         _doProxyCall();
-    }
-
-    function proxiableUUID() external view virtual returns (bytes32) {
-        return 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     }
 
     /**
@@ -88,7 +84,7 @@ contract Proxy {
      *
      * @param _implementation Address of the implementation contract.
      */
-    function upgradeTo(address _implementation) external {
+    function upgradeTo(address _implementation) external proxyCallIfNotAdmin {
         _setImplementation(_implementation);
     }
 

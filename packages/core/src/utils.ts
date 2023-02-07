@@ -535,7 +535,7 @@ export const isTransparentProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  // We don't consider default proxies to be ERC proxies, even though they share the same
+  // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
   if ((await isDefaultProxy(provider, proxyAddress)) === true) {
     return false

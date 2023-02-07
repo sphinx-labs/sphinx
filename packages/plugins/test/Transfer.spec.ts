@@ -109,8 +109,8 @@ describe('Transfer', () => {
     )
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
-      'Token',
-      'Transparent Upgradable Token'
+      'Transparent Upgradable Token',
+      'Token'
     )
 
     // check upgrade completed successfully
@@ -211,8 +211,8 @@ describe('Transfer', () => {
     )
 
     const UUPSUpgradableTokenV2 = await hre.chugsplash.getContract(
-      'Token',
-      'UUPS Upgradable Token'
+      'UUPS Upgradable Token',
+      'Token'
     )
 
     // check upgrade completed successfully

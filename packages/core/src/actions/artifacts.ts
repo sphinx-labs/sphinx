@@ -77,7 +77,6 @@ export const readContractArtifact = (
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
 
-  console.log(`integration is: ${integration}`)
   if (integration === 'hardhat') {
     return artifact
   } else if (integration === 'foundry') {

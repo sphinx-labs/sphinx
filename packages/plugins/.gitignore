@@ -17,3 +17,4 @@ dist/
 tsconfig.tsbuildinfo
 
 node_modules/@chugsplash
+.openzeppelin/*
