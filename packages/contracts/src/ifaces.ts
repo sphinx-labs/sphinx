@@ -6,19 +6,21 @@ export const ChugSplashManagerArtifact = require('../artifacts/contracts/ChugSpl
 export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol/Proxy.json')
 export const ProxyInitializerArtifact = require('../artifacts/contracts/ProxyInitializer.sol/ProxyInitializer.json')
 export const DefaultUpdaterArtifact = require('../artifacts/contracts/updaters/DefaultUpdater.sol/DefaultUpdater.json')
-export const UUPSUpdaterArtifact = require('../artifacts/contracts/updaters/UUPSUpdater.sol/UUPSUpdater.json')
+export const OZUUPSUpdaterArtifact = require('../artifacts/contracts/updaters/OZUUPSUpdater.sol/OZUUPSUpdater.json')
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')
-export const UUPSAdapterArtifact = require('../artifacts/contracts/adapters/UUPSAdapter.sol/UUPSAdapter.json')
+export const OZUUPSAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAdapter.sol/OZUUPSAdapter.json')
+export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 
-export const buildInfo = require('../artifacts/build-info/62ef9ff6a6a2c893b656f5fc65a94fbc.json')
+export const buildInfo = require('../artifacts/build-info/bfc2060f433c6b4c5dc9dfc2b7ca92d2.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
 export const ChugSplashManagerProxyABI = ChugSplashManagerProxyArtifact.abi
 export const ChugSplashManagerABI = ChugSplashManagerArtifact.abi
-export const DefaultAdapterABI = DefaultAdapterArtifact.abi
 export const ProxyABI = ProxyArtifact.abi
 export const ProxyInitializerABI = ProxyInitializerArtifact.abi
 export const DefaultUpdaterABI = DefaultUpdaterArtifact.abi
-export const UUPSUpdaterABI = UUPSUpdaterArtifact.abi
-export const UUPSAdapterABI = UUPSAdapterArtifact.abi
+export const DefaultAdapterABI = DefaultAdapterArtifact.abi
+export const OZUUPSUpdaterABI = OZUUPSUpdaterArtifact.abi
+export const OZUUPSAdapterABI = OZUUPSAdapterArtifact.abi
+export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi

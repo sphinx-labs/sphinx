@@ -19,8 +19,8 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
-  TRANSPARENT_PROXY_TYPE_HASH,
-  UUPS_PROXY_TYPE_HASH,
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -644,9 +644,9 @@ export const getProxyTypeHash = async (
   if (await isDefaultProxy(provider, proxyAddress)) {
     return ethers.constants.HashZero
   } else if (await isUUPSProxy(provider, proxyAddress)) {
-    return UUPS_PROXY_TYPE_HASH
+    return OZ_UUPS_PROXY_TYPE_HASH
   } else if (await isTransparentProxy(provider, proxyAddress)) {
-    return TRANSPARENT_PROXY_TYPE_HASH
+    return OZ_TRANSPARENT_PROXY_TYPE_HASH
   } else {
     throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
   }

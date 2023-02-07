@@ -17,8 +17,9 @@ import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { ChugSplashBootLoader } from "../contracts/ChugSplashBootLoader.sol";
 import { DefaultAdapter } from "../contracts/adapters/DefaultAdapter.sol";
 import { DefaultUpdater } from "../contracts/updaters/DefaultUpdater.sol";
-import { UUPSAdapter } from "../contracts/adapters/UUPSAdapter.sol";
-import { UUPSUpdater } from "../contracts/updaters/UUPSUpdater.sol";
+import { OZUUPSAdapter } from "../contracts/adapters/OZUUPSAdapter.sol";
+import { OZUUPSUpdater } from "../contracts/updaters/OZUUPSUpdater.sol";
+import { OZTransparentAdapter } from "../contracts/adapters/OZTransparentAdapter.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract ChugSplashManager_Test is Test {
@@ -138,8 +139,9 @@ contract ChugSplashManager_Test is Test {
     ChugSplashRegistry registry;
     DefaultAdapter defaultAdapter;
     DefaultUpdater defaultUpdater;
-    UUPSAdapter uupsAdapter;
-    UUPSUpdater uupsUpdater;
+    OZUUPSAdapter ozUUPSAdapter;
+    OZUUPSUpdater ozUUPSUpdater;
+    OZTransparentAdapter ozTransparentAdapter;
     ChugSplashManager managerImplementation;
 
     function setUp() external {
@@ -221,11 +223,11 @@ contract ChugSplashManager_Test is Test {
         manager = registry.projects(projectName);
         defaultAdapter = new DefaultAdapter();
         defaultUpdater = new DefaultUpdater();
-        uupsAdapter = new UUPSAdapter();
-        uupsUpdater = new UUPSUpdater();
+        ozUUPSAdapter = new OZUUPSAdapter();
+        ozUUPSUpdater = new OZUUPSUpdater();
+        ozTransparentAdapter = new OZTransparentAdapter();
 
         registry.addProxyType(bytes32(0), address(defaultAdapter), address(defaultUpdater));
-        registry.addProxyType(keccak256('uups'), address(uupsAdapter), address(uupsUpdater));
     }
 
     // constructor:
@@ -619,8 +621,8 @@ contract ChugSplashManager_Test is Test {
             ''
         );
         address payable transparentProxyAddress = payable(address(transparentProxy));
-        bytes32 proxyType = keccak256(bytes("transparent"));
-        registry.addProxyType(proxyType, address(defaultAdapter), address(defaultUpdater));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
         helper_setProxyToReferenceName(referenceName, transparentProxyAddress, proxyType);
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
@@ -819,8 +821,8 @@ contract ChugSplashManager_Test is Test {
         );
         address payable transparentProxyAddress = payable(address(transparentProxy));
         string memory transparentProxyReferenceName = "TransparentProxy";
-        bytes32 proxyType = keccak256(bytes("transparent"));
-        registry.addProxyType(proxyType, address(defaultAdapter), address(defaultUpdater));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
         helper_setProxyToReferenceName(transparentProxyReferenceName, transparentProxyAddress, proxyType);
 
         helper_transferProxyOwnership(transparentProxyAddress, nonOwner, transparentProxyReferenceName, proxyType);
@@ -853,7 +855,7 @@ contract ChugSplashManager_Test is Test {
 
     function test_setProxyToReferenceName_success() external {
         address payable proxyAddress = manager.getDefaultProxyAddress(referenceName);
-        bytes32 proxyType = keccak256(bytes("transparent"));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
         helper_setProxyToReferenceName(referenceName, proxyAddress, proxyType);
     }
 

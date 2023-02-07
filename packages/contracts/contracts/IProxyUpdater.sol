@@ -15,10 +15,5 @@ interface IProxyUpdater {
      */
     function setStorage(bytes32 _key, bytes32 _value) external;
 
-    /**
-     * @notice Sets up the proxy updater. In this case, there is no setup required.
-     */
-    function setup() external;
-
     fallback() external;
 }

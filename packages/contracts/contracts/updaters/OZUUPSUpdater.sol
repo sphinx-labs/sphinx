@@ -9,7 +9,7 @@ import { IProxyUpdater } from "../IProxyUpdater.sol";
  *         default proxies in the ChugSplash system. To learn more about the transparent proxy
  *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
-contract UUPSUpdater is IProxyUpdater {
+contract OZUUPSUpdater is IProxyUpdater {
     /**
      * @notice The storage slot that holds the address of the implementation.
      *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
@@ -157,6 +157,14 @@ contract UUPSUpdater is IProxyUpdater {
         if (_getChugSplashAdmin() == address(0)) {
             _setChugSplashAdmin(msg.sender);
         }
+    }
+
+    /**
+     * @notice Tears down the proxy updater. In this case, there is no setup required.
+     */
+    function teardown(address _implementation) external ifChugSplashAdmin {
+        _setChugSplashAdmin(address(0));
+        _setImplementation(_implementation);
     }
 
     fallback() external {

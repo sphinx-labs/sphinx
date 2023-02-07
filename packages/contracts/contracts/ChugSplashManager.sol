@@ -549,11 +549,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // ChugSplashManager can interact with a proxy that is in the process of being updated.
         // Note that we use the Updater contract to provide a generic interface for updating a
         // variety of proxy types.
-        _upgradeProxyToAndCall(
-            proxy,
-            adapter,
-            updater,
-            abi.encodeCall(IProxyUpdater.setup, ())
+        adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.initiateExecution, (proxy, updater))
         );
 
         // Mark the action as executed and update the total number of executed actions.
@@ -670,7 +667,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             }
 
             // Upgrade the proxy's implementation contract.
-            _upgradeProxyTo(proxy, adapter, implementation);
+            (bool success, bytes memory result) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation))
+            );
+            if (success == false) {
+                assembly {
+                revert(add(result,32),mload(result))
+                }
+            }
 
             emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
@@ -932,53 +936,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 _key,
         bytes32 _value
     ) internal {
-        // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
-        // and call `setStorage` on the proxy.
-        _upgradeProxyToAndCall(
-            _proxy,
-            _adapter,
-            _updater,
-            abi.encodeCall(IProxyUpdater.setStorage, (_key, _value))
+        // Delegatecall the adapter to call `setStorage` on the proxy.
+        _adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _value))
         );
-    }
-
-    /**
-     * @notice Delegatecalls an adapter to upgrade a proxy's implementation contract.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     */
-    function _upgradeProxyTo(
-        address payable _proxy,
-        address _adapter,
-        address _implementation
-    ) internal {
-        (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyTo, (_proxy, _implementation))
-        );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy failed");
-    }
-
-    /**
-     * @notice Upgrade a proxy's implementation contract and delegatecall the proxy with encoded
-     *         function data via an adapter.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     * @param _data           Calldata to delegatecall the new implementation with.
-     */
-    function _upgradeProxyToAndCall(
-        address payable _proxy,
-        address _adapter,
-        address _implementation,
-        bytes memory _data
-    ) internal {
-        (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyToAndCall, (_proxy, _implementation, _data))
-        );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy with data failed");
     }
 
     /**

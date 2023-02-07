@@ -32,10 +32,6 @@ describe('Transfer', () => {
     )
     await TransparentUpgradableTokenV1.deployed()
 
-    // console.log(
-    //   `TransparentUpgradableTokenV1 address: ${TransparentUpgradableTokenV1.address}`
-    // )
-
     const provider = hre.ethers.provider
     const signer = hre.ethers.provider.getSigner()
     const signerAddress = await signer.getAddress()
@@ -134,10 +130,6 @@ describe('Transfer', () => {
     const UUPSUpgradableTokenV1 = await hre.upgrades.deployProxy(MyTokenV1, {
       kind: 'uups',
     })
-
-    // console.log(
-    //   `UUPSUpgradableTokenV1 address: ${UUPSUpgradableTokenV1.address}`
-    // )
 
     const provider = hre.ethers.provider
     const signer = hre.ethers.provider.getSigner()

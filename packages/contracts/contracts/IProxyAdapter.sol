@@ -10,21 +10,26 @@ interface IProxyAdapter {
      * @notice Upgrade the implementation of the proxy.
      *
      * @param _proxy          Address of the proxy.
-     * @param _implementation Address of the new implementation.
+     * @param _implementation Address of the updater implementation.
      */
-    function upgradeProxyTo(address payable _proxy, address _implementation) external;
+    function initiateExecution(address payable _proxy, address _implementation) external;
 
     /**
-     * @notice Set the proxy's implementation and call a function in a single transaction.
+     * @notice Upgrade the implementation of the proxy.
      *
-     * @param _implementation Address of the implementation contract.
-     * @param _data           Calldata to delegatecall the new implementation with.
+     * @param _proxy          Address of the proxy.
+     * @param _implementation Address of the final implementation.
      */
-    function upgradeProxyToAndCall(
-        address payable _proxy,
-        address _implementation,
-        bytes calldata _data
-    ) external returns (bytes memory);
+    function completeExecution(address payable _proxy, address _implementation) external;
+
+    /**
+     * @notice Modifies some storage slot within the proxy contract. Gives us a lot of power to
+     *         perform upgrades in a more transparent way.
+     *
+     * @param _key   Storage key to modify.
+     * @param _value New value for the storage key.
+     */
+    function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external;
 
     /**
      * @notice Changes the admin of the proxy.

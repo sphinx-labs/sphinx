@@ -57,11 +57,6 @@ contract DefaultUpdater is IProxyUpdater {
         }
     }
 
-    /**
-     * @notice Sets up the proxy updater. In this case, there is no setup required.
-     */
-    function setup() public view {}
-
     fallback() external {
         revert();
     }
