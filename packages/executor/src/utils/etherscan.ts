@@ -35,10 +35,6 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  DefaultUpdaterArtifact,
-  DEFAULT_UPDATER_ADDRESS,
-  OZUUPSUpdaterArtifact,
-  OZ_UUPS_UPDATER_ADDRESS,
   ProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ChugSplashManagerProxyArtifact,
@@ -47,12 +43,18 @@ import {
   CHUGSPLASH_REGISTRY_ADDRESS,
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
-  OZUUPSAdapterArtifact,
-  OZ_UUPS_ADAPTER_ADDRESS,
   buildInfo,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
   ProxyInitializerArtifact,
+  DefaultUpdaterArtifact,
+  DEFAULT_UPDATER_ADDRESS,
+  OZTransparentAdapterArtifact,
+  OZ_TRANSPARENT_ADAPTER_ADDRESS,
+  OZUUPSUpdaterArtifact,
+  OZ_UUPS_UPDATER_ADDRESS,
+  OZUUPSAdapterArtifact,
+  OZ_UUPS_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
@@ -129,8 +131,9 @@ export const verifyChugSplashConfig = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
-      artifact.compilerOutput.sources,
-      sourceName
+      artifact.compilerOutput.contracts,
+      sourceName,
+      contractName
     )
 
     try {
@@ -182,7 +185,13 @@ export const verifyChugSplash = async (
       address: CHUGSPLASH_BOOTLOADER_ADDRESS,
     },
     { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    {
+      artifact: OZTransparentAdapterArtifact,
+      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
+    },
     { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
+    { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
     { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
     {
       artifact: ChugSplashManagerProxyArtifact,
@@ -193,7 +202,6 @@ export const verifyChugSplash = async (
       address: CHUGSPLASH_REGISTRY_ADDRESS,
     },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
-    { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
     {
       artifact: ProxyInitializerArtifact,
       address: PROXY_INITIALIZER_ADDRESS,
@@ -205,8 +213,9 @@ export const verifyChugSplash = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       buildInfo.input,
-      buildInfo.output.sources,
-      sourceName
+      buildInfo.output.contracts,
+      sourceName,
+      contractName
     )
 
     await attemptVerification(

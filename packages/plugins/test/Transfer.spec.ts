@@ -60,12 +60,14 @@ describe('Transfer', () => {
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
+    console.log('parsing in test')
     const parsedConfig = await parseChugSplashConfig(
       provider,
       transparentRegisterConfig,
       artifactPaths,
       'hardhat'
     )
+    console.log('done parsing in test')
 
     await chugsplashRegisterAbstractTask(
       provider,
