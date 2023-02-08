@@ -20,6 +20,7 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_UUPS_UPDATER_ADDRESS,
   OZ_UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
@@ -38,7 +39,11 @@ import {
   ParsedContractConfigs,
   UserChugSplashConfig,
 } from './config'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import {
+  ChugSplashActionBundle,
+  ChugSplashActionType,
+  readContractArtifact,
+} from './actions'
 import { FoundryContractArtifact } from './types'
 import { ArtifactPaths } from './languages'
 import { Integration } from './constants'
@@ -709,34 +714,54 @@ export const assertValidUpgrade = async (
     parsedConfig.contracts
   )) {
     if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
-      const proxyAdmin = await getEIP1967ProxyAdminAddress(
-        provider,
-        contractConfig.proxy
-      )
-
-      let managerIsValidUpgrader = true
-      const signer = new ethers.VoidSigner(chugSplashManagerAddress, provider)
-      const contract = new ethers.Contract(
-        contractConfig.proxy,
-        ProxyABI,
-        signer
-      )
-      try {
-        await contract.callStatic.upgradeTo(
-          '0x1111111111111111111111111111111111111111'
-        )
-      } catch (e) {
-        managerIsValidUpgrader = false
-      }
-
-      if (proxyAdmin !== chugSplashManagerAddress && !managerIsValidUpgrader) {
-        requiresOwnershipTransfer.push({
-          name: referenceName,
-          address: contractConfig.proxy,
-        })
-      }
-
       isUpgrade = true
+
+      if (contractConfig.proxyType === 'oz-uups') {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const chugsplashManager = new ethers.VoidSigner(
+          chugSplashManagerAddress,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          contractConfig.proxy,
+          ProxyABI,
+          chugsplashManager
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      } else {
+        const proxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          contractConfig.proxy
+        )
+
+        if (proxyAdmin !== chugSplashManagerAddress) {
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      }
     }
   }
 
@@ -768,14 +793,28 @@ permission to upgrade them.
       )
     }
 
-    // Check new implementations include the UUPS interface if the proxy type is marked as UUPS
-    for (const [referenceName] of Object.entries(parsedConfig.contracts)) {
-      const contractConfig = parsedConfig.contracts[referenceName]
+    // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
+    // user will be able to upgrade the proxy in the future.
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
       if (contractConfig.proxyType === 'oz-uups') {
-        if (!bytecodeContainsUUPSInterface(contractConfig.contract)) {
-          // throw error
+        const artifact = readContractArtifact(
+          artifactPaths,
+          contractConfig.contract,
+          integration
+        )
+        const containsPublicUpgradeTo = artifact.abi.some(
+          (fragment) =>
+            fragment.name === 'upgradeTo' &&
+            fragment.inputs.length === 1 &&
+            fragment.inputs[0].type === 'address'
+        )
+        if (!containsPublicUpgradeTo) {
           throw new Error(
-            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation no longer implements the UUPS interface. You must include the expected interface or you will no longer be able to upgrade this contract.`
+            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
+              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
+              `or you will no longer be able to upgrade this contract.`
           )
         }
       }
