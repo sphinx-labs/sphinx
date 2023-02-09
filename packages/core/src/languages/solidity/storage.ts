@@ -2,6 +2,7 @@ import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
 
 import { ParsedContractConfig } from '../../config'
+import { isPreserveKeyword } from '../../utils'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
@@ -69,6 +70,17 @@ export const encodeVariable = (
 ): Array<StorageSlotSegment> => {
   // The current slot key is the slot key of the current storage object plus the `nestedSlotOffset`.
   const slotKey = addStorageSlotKeys(storageObj.slot, nestedSlotOffset)
+
+  // Return an empty storage slot segment if the variable is the 'preserve' keyword
+  if (isPreserveKeyword(variable)) {
+    return [
+      {
+        key: slotKey,
+        offset: storageObj.offset,
+        val: '0x',
+      },
+    ]
+  }
 
   const variableType = storageTypes[storageObj.type]
 

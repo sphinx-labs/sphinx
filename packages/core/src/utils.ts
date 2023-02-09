@@ -34,13 +34,14 @@ import {
   externalProxyTypes,
   parseChugSplashConfig,
   ParsedChugSplashConfig,
+  ParsedConfigVariable,
   ParsedContractConfigs,
   UserChugSplashConfig,
 } from './config'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 import { FoundryContractArtifact } from './types'
 import { ArtifactPaths } from './languages'
-import { Integration } from './constants'
+import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
 
 export const computeBundleId = (
@@ -594,7 +595,7 @@ export const setProxiesToReferenceNames = async (
   }
 }
 
-export const assertValidUpgrade = async (
+export const assertValidParsedChugSplashFile = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
@@ -677,6 +678,14 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
     }
   } else {
     spinner?.succeed(`${projectName} is not an upgrade.`)
+
+    for (const contractConfig of Object.values(parsedConfig.contracts)) {
+      for (const variable of Object.values(contractConfig.variables)) {
+        // Throw an error if the 'preserve' keyword is set to a variable's value in the
+        // ChugSplash file. This keyword is only allowed for upgrades.
+        assertVariableDoesNotContainPreserveKeyword(variable)
+      }
+    }
   }
 }
 
@@ -684,4 +693,47 @@ export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
   return externalProxyTypes.includes(proxyType)
+}
+
+export const isPreserveKeyword = (
+  variableValue: ParsedConfigVariable
+): boolean => {
+  if (
+    typeof variableValue === 'string' &&
+    // Remove whitespaces from the variable, then lowercase it
+    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
+  ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+export const assertVariableDoesNotContainPreserveKeyword = (
+  variable: ParsedConfigVariable
+) => {
+  if (isPreserveKeyword(variable)) {
+    throw new Error(
+      `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
+        `upgrades only. Please remove all instances of it in your ChugSplash file.`
+    )
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertVariableDoesNotContainPreserveKeyword(element)
+    }
+  } else if (typeof variable === 'object') {
+    for (const varValue of Object.values(variable)) {
+      assertVariableDoesNotContainPreserveKeyword(varValue)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
 }

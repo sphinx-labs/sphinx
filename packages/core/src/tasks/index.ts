@@ -13,7 +13,7 @@ import {
   ParsedChugSplashConfig,
 } from '../config'
 import {
-  assertValidUpgrade,
+  assertValidParsedChugSplashFile,
   computeBundleId,
   displayDeploymentTable,
   displayProposerTable,
@@ -129,7 +129,7 @@ export const chugsplashProposeAbstractTask = async (
     spinner.start('Booting up ChugSplash...')
   }
 
-  await assertValidUpgrade(
+  await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     artifactPaths,
@@ -638,7 +638,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.succeed(`Parsed ${projectName}.`)
 
-  await assertValidUpgrade(
+  await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     artifactPaths,
