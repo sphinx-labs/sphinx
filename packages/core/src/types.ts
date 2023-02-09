@@ -10,10 +10,11 @@ export type FoundryContractArtifact = {
 }
 
 export type ExecutorOptions = {
-  url: string
+  provider: ethers.providers.JsonRpcProvider
   network: string
   privateKey: string
   logLevel: LogLevel
+  initChugSplash: boolean
 }
 export type ExecutorMetrics = {}
 export type ExecutorState = {

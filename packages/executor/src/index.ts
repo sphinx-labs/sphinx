@@ -57,10 +57,12 @@ export class ChugSplashExecutor extends BaseServiceV2<
         ...options,
       },
       optionsSpec: {
-        url: {
-          desc: 'Target deployment network access url',
-          validator: validators.str,
-          default: 'http://localhost:8545',
+        provider: {
+          desc: 'Target deployment network access provider',
+          validator: validators.jsonRpcProvider,
+          default: new ethers.providers.JsonRpcProvider(
+            'http://localhost:8545'
+          ),
         },
         network: {
           desc: 'Target deployment network name',
@@ -73,6 +75,11 @@ export class ChugSplashExecutor extends BaseServiceV2<
           default:
             '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
         },
+        initChugSplash: {
+          desc: 'Whether or not to initialize ChugSplash',
+          validator: validators.bool,
+          default: true,
+        },
         logLevel: {
           desc: 'Executor log level',
           validator: validators.str,
@@ -83,70 +90,61 @@ export class ChugSplashExecutor extends BaseServiceV2<
     })
   }
 
-  /**
-   * Passing options into BaseServiceV2 when running programmatically does not work as expected.
-   *
-   * So this setup function is shared between the init() and main() functions and allows the user
-   * to pass options into the main() function, or run the executor as a service and pass in options using
-   * environment variables.
-   **/
-  async setup(
-    options: Partial<ExecutorOptions>,
-    remoteExecution: boolean,
-    provider?: ethers.providers.JsonRpcProvider
-  ) {
+  async init() {
     this.logger = new Logger({
       name: 'Logger',
-      level: options.logLevel,
+      level: this.options.logLevel,
     })
 
-    const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-    this.state.provider =
-      provider ?? new ethers.providers.JsonRpcProvider(options.url)
+    // Set up the registry contract.
     this.state.registry = new ethers.Contract(
-      reg,
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
       ChugSplashRegistryABI,
+      this.options.provider
+    )
+
+    // Set up the wallet to execute txns with.
+    this.state.wallet = new ethers.Wallet(
+      this.options.privateKey,
       this.state.provider
     )
+
+    // Initialize last block number that we've synced to.
     this.state.lastBlockNumber = 0
 
-    // This represents a queue of "BundleApproved" events to execute.
+    // Set up the queue of events that we've received.
     this.state.eventsQueue = []
 
-    this.state.wallet = new ethers.Wallet(
-      options.privateKey,
-      this.state.provider
-    )
-  }
+    // Initialize ChugSplash if necessary.
+    if (this.options.initChugSplash) {
+      this.logger.info('[ChugSplash]: setting up chugsplash...')
 
-  async init() {
-    await this.setup(this.options, true)
-
-    this.logger.info('[ChugSplash]: setting up chugsplash...')
-
-    // Deploy the ChugSplash contracts.
-    await initializeChugSplash(
-      this.state.provider,
-      this.state.wallet,
-      this.state.wallet.address,
-      this.logger
-    )
-
-    this.logger.info('[ChugSplash]: finished setting up chugsplash')
-
-    // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
-      this.logger.info(
-        '[ChugSplash]: attempting to verify the chugsplash contracts...'
+      // Deploy the ChugSplash contracts.
+      await initializeChugSplash(
+        this.state.provider,
+        this.state.wallet,
+        this.state.wallet.address,
+        this.logger
       )
-      await verifyChugSplash(this.state.provider, this.options.network)
-      this.logger.info(
-        '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-      )
-    } else {
-      this.logger.info(
-        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
-      )
+
+      this.logger.info('[ChugSplash]: finished setting up chugsplash')
+
+      // Verify the ChugSplash contracts if the current network is supported.
+      if (
+        isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
+      ) {
+        this.logger.info(
+          '[ChugSplash]: attempting to verify the chugsplash contracts...'
+        )
+        await verifyChugSplash(this.state.provider, this.options.network)
+        this.logger.info(
+          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
+        )
+      } else {
+        this.logger.info(
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
+        )
+      }
     }
   }
 
