@@ -8,6 +8,7 @@ export const initializeExecutor = async (
   // Instantiate the executor.
   const executor = new ChugSplashExecutor({
     useArgv: false,
+    logLevel: 'error',
   })
 
   // Setup the executor.
@@ -15,7 +16,6 @@ export const initializeExecutor = async (
     {
       privateKey:
         '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      logLevel: 'error',
     },
     false,
     provider
