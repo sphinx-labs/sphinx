@@ -111,7 +111,7 @@ contract OZUUPSUpdater is IProxyUpdater {
     }
 
     /**
-     * @notice Sets up the proxy updater. In this case, there is no setup required.
+     * @notice Sets up the proxy updater when execution is being initiated.
      */
     function initiate() public {
         if (_getChugSplashAdmin() == address(0)) {
@@ -120,7 +120,7 @@ contract OZUUPSUpdater is IProxyUpdater {
     }
 
     /**
-     * @notice Tears down the proxy updater. In this case, there is no setup required.
+     * @notice Tears down the proxy updater when execution is being completed.
      */
     function complete(address _implementation) external ifChugSplashAdmin {
         _setChugSplashAdmin(address(0));
