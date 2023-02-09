@@ -12,8 +12,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
-import { IProxyAdapter } from "./IProxyAdapter.sol";
-import { ProxyUpdater } from "./ProxyUpdater.sol";
+import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 import {
@@ -195,11 +195,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ChugSplashRegistry public immutable registry;
 
     /**
-     * @notice Address of the ProxyUpdater.
-     */
-    address public immutable proxyUpdater;
-
-    /**
      * @notice Amount that must be deposited in this contract in order to execute a bundle. The
      *         project owner can withdraw this amount whenever a bundle is not active. This bond
      *         will be forfeited if the project owner cancels a bundle that is in progress, which is
@@ -287,7 +282,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _registry                  Address of the ChugSplashRegistry.
      * @param _name                      Name of the project this contract is managing.
      * @param _owner                     Address of the project owner.
-     * @param _proxyUpdater              Address of the ProxyUpdater.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -299,13 +293,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashRegistry _registry,
         string memory _name,
         address _owner,
-        address _proxyUpdater,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage
     ) {
         registry = _registry;
-        proxyUpdater = _proxyUpdater;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -509,8 +501,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Get the proxy type and adapter for this reference name.
         bytes32 proxyType = proxyTypes[_action.referenceName];
         address adapter = registry.adapters(proxyType);
+        address updater = registry.updaters(proxyType);
 
         require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+        require(updater != address(0), "ChugSplashManager: proxy type has no updater");
 
         // Get the proxy to use for this reference name. The proxy can either be the default proxy
         // used by ChugSplash or a non-standard proxy that has previously been set by the project
@@ -551,14 +545,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proxy = proxies[_action.referenceName];
         }
 
-        if (_getProxyImplementation(proxy, adapter) != registry.reverter()) {
-            // Set the proxy's implementation to be the Reverter. This ensures that end-users can't
-            // accidentally interact with a proxy that is in the process of being upgraded. Note
-            // that we use a Reverter contract instead of address(0) to support OpenZeppelin's
-            // `TransparentUpgradeableProxy`, whose `upgradeTo` call reverts if the implementation
-            // is not a contract.
-            _upgradeProxyTo(proxy, adapter, registry.reverter());
-        }
+        // Set the proxy's implementation to be the Updater. Updaters ensure that only the
+        // ChugSplashManager can interact with a proxy that is in the process of being updated.
+        // Note that we use the Updater contract to provide a generic interface for updating a
+        // variety of proxy types.
+        (bool success, ) = adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.initiateExecution, (proxy, updater))
+        );
+        require(success, "ChugSplashManager: delegatecall to set storage failed");
 
         // Mark the action as executed and update the total number of executed actions.
         bundle.actionsExecuted++;
@@ -674,7 +668,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             }
 
             // Upgrade the proxy's implementation contract.
-            _upgradeProxyTo(proxy, adapter, implementation);
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation))
+            );
+            require(success, "ChugSplashManager: delegatecall to complete execution failed");
 
             emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
@@ -935,79 +932,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 _key,
         bytes32 _value
     ) internal {
-        // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
-        // and call `setStorage` on the proxy.
-        _upgradeProxyToAndCall(
-            _proxy,
-            _adapter,
-            proxyUpdater,
-            abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
-        );
-
-        // Delegatecall the adapter to set the proxy's implementation back to the Reverter.
-        _upgradeProxyTo(_proxy, _adapter, registry.reverter());
-    }
-
-    /**
-     * @notice Delegatecalls an adapter to get the address of the proxy's implementation contract.
-     *
-     * @param _proxy   Address of the proxy.
-     * @param _adapter Address of the adapter to use for the proxy.
-     */
-    function _getProxyImplementation(
-        address payable _proxy,
-        address _adapter
-    ) internal returns (address) {
-        (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
-        );
-        require(success, "ChugSplashManager: delegatecall to get proxy implementation failed");
-
-        // Convert the implementation's type from bytes to address.
-        address implementation;
-        assembly {
-            implementation := mload(add(implementationBytes, 32))
-        }
-        return implementation;
-    }
-
-    /**
-     * @notice Delegatecalls an adapter to upgrade a proxy's implementation contract.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     */
-    function _upgradeProxyTo(
-        address payable _proxy,
-        address _adapter,
-        address _implementation
-    ) internal {
+        // Delegatecall the adapter to call `setStorage` on the proxy.
         (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyTo, (_proxy, _implementation))
+            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _value))
         );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy failed");
-    }
-
-    /**
-     * @notice Upgrade a proxy's implementation contract and delegatecall the proxy with encoded
-     *         function data via an adapter.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     * @param _data           Calldata to delegatecall the new implementation with.
-     */
-    function _upgradeProxyToAndCall(
-        address payable _proxy,
-        address _adapter,
-        address _implementation,
-        bytes memory _data
-    ) internal {
-        (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyToAndCall, (_proxy, _implementation, _data))
-        );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy with data failed");
+        require(success, "ChugSplashManager: delegatecall to set storage failed");
     }
 
     /**

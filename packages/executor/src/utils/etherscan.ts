@@ -35,8 +35,6 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ProxyUpdaterArtifact,
-  PROXY_UPDATER_ADDRESS,
   ProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ChugSplashManagerProxyArtifact,
@@ -49,6 +47,14 @@ import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
   ProxyInitializerArtifact,
+  DefaultUpdaterArtifact,
+  DEFAULT_UPDATER_ADDRESS,
+  OZTransparentAdapterArtifact,
+  OZ_TRANSPARENT_ADAPTER_ADDRESS,
+  OZUUPSUpdaterArtifact,
+  OZ_UUPS_UPDATER_ADDRESS,
+  OZUUPSAdapterArtifact,
+  OZ_UUPS_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
@@ -178,7 +184,14 @@ export const verifyChugSplash = async (
       artifact: ChugSplashBootLoaderArtifact,
       address: CHUGSPLASH_BOOTLOADER_ADDRESS,
     },
-    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    {
+      artifact: OZTransparentAdapterArtifact,
+      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
+    },
+    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
+    { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
     { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
     {
       artifact: ChugSplashManagerProxyArtifact,

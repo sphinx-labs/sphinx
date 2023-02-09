@@ -11,7 +11,7 @@ import { Proxy } from "../libraries/Proxy.sol";
  *         default proxies in the ChugSplash system. To learn more about the transparent proxy
  *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
-contract DefaultAdapter is IProxyAdapter {
+contract OZTransparentAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
@@ -30,7 +30,19 @@ contract DefaultAdapter is IProxyAdapter {
      * @inheritdoc IProxyAdapter
      */
     function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external {
-        IProxyUpdater(_proxy).setStorage(_key, _value);
+        // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
+        // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
+        // function doesn't return any data.
+        (bool success, ) = _proxy.call(
+            abi.encodeCall(
+                Proxy.upgradeToAndCall,
+                (
+                    Proxy(_proxy).implementation(),
+                    abi.encodeCall(IProxyUpdater.setStorage, (_key, _value))
+                )
+            )
+        );
+        require(success, "OZTransparentAdapter: call to set storage failed");
     }
 
     /**

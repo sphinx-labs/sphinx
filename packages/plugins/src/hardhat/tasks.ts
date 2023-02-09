@@ -52,7 +52,6 @@ import {
   sampleChugSplashFileTypeScript,
 } from '../sample-project'
 import { deployAllChugSplashConfigs } from './deployments'
-import { initializeExecutor } from '../executor'
 import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
@@ -154,7 +153,7 @@ export const chugsplashDeployTask = async (
     await monitorChugSplashSetup(provider, signer)
   } else {
     spinner.start('Booting up ChugSplash...')
-    executor = await initializeExecutor(provider)
+    executor = hre.chugsplash.executor
   }
 
   spinner.succeed('ChugSplash is ready to go.')

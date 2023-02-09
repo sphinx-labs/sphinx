@@ -28,6 +28,7 @@ import {
   isDefaultProxy,
   isProjectRegistered,
   isTransparentProxy,
+  isUUPSProxy,
   readParsedChugSplashConfig,
   registerChugSplashProject,
   setProxiesToReferenceNames,
@@ -1474,10 +1475,11 @@ export const chugsplashTransferOwnershipAbstractTask = async (
 
   if (
     (await isDefaultProxy(provider, proxy)) === false &&
-    (await isTransparentProxy(provider, proxy)) === false
+    (await isTransparentProxy(provider, proxy)) === false &&
+    (await isUUPSProxy(provider, proxy)) === false
   ) {
     throw new Error(`ChugSplash does not support your proxy type.
-Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
 If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
   }
 

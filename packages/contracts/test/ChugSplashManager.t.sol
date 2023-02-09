@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {
     ChugSplashAction,
@@ -14,9 +15,11 @@ import { Proxy } from "../contracts/libraries/Proxy.sol";
 import { ChugSplashManager } from "../contracts/ChugSplashManager.sol";
 import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { ChugSplashBootLoader } from "../contracts/ChugSplashBootLoader.sol";
-import { ProxyUpdater } from "../contracts/ProxyUpdater.sol";
-import { Reverter } from "../contracts/Reverter.sol";
 import { DefaultAdapter } from "../contracts/adapters/DefaultAdapter.sol";
+import { DefaultUpdater } from "../contracts/updaters/DefaultUpdater.sol";
+import { OZUUPSAdapter } from "../contracts/adapters/OZUUPSAdapter.sol";
+import { OZUUPSUpdater } from "../contracts/updaters/OZUUPSUpdater.sol";
+import { OZTransparentAdapter } from "../contracts/adapters/OZTransparentAdapter.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract ChugSplashManager_Test is Test {
@@ -134,9 +137,11 @@ contract ChugSplashManager_Test is Test {
     ChugSplashBootLoader bootloader;
     ChugSplashManager manager;
     ChugSplashRegistry registry;
-    ProxyUpdater proxyUpdater;
-    Reverter reverter;
-    DefaultAdapter adapter;
+    DefaultAdapter defaultAdapter;
+    DefaultUpdater defaultUpdater;
+    OZUUPSAdapter ozUUPSAdapter;
+    OZUUPSUpdater ozUUPSUpdater;
+    OZTransparentAdapter ozTransparentAdapter;
     ChugSplashManager managerImplementation;
 
     function setUp() external {
@@ -179,17 +184,10 @@ contract ChugSplashManager_Test is Test {
             abi.encodePacked(type(Proxy).creationCode, abi.encode(address(owner)))
         );
 
-        address proxyUpdaterAddress = Create2.compute(
-            address(bootloader),
-            salt,
-            type(ProxyUpdater).creationCode
-        );
-
         managerImplementation = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(registryProxyAddress),
             projectName,
             owner,
-            proxyUpdaterAddress,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
@@ -204,8 +202,6 @@ contract ChugSplashManager_Test is Test {
             registryProxyAddress,
             salt
         );
-
-        reverter = bootloader.reverter();
 
         Proxy registryProxy = new Proxy{ salt: salt}(owner);
 
@@ -225,16 +221,19 @@ contract ChugSplashManager_Test is Test {
         vm.stopPrank();
 
         manager = registry.projects(projectName);
-        adapter = new DefaultAdapter();
+        defaultAdapter = new DefaultAdapter();
+        defaultUpdater = new DefaultUpdater();
+        ozUUPSAdapter = new OZUUPSAdapter();
+        ozUUPSUpdater = new OZUUPSUpdater();
+        ozTransparentAdapter = new OZTransparentAdapter();
 
-        registry.addProxyType(bytes32(0), address(adapter));
+        registry.addProxyType(bytes32(0), address(defaultAdapter), address(defaultUpdater));
     }
 
     // constructor:
     // - initializes variables correctly
     function test_constructor_success() external {
         assertEq(address(manager.registry()), address(registry));
-        assertEq(address(manager.proxyUpdater()), address(bootloader.proxyUpdater()));
         assertEq(manager.executionLockTime(), executionLockTime);
         assertEq(manager.ownerBondAmount(), ownerBondAmount);
         assertEq(manager.executorPaymentPercentage(), executorPaymentPercentage);
@@ -513,12 +512,12 @@ contract ChugSplashManager_Test is Test {
 
         assertEq(bundle.actionsExecuted, 2);
         assertTrue(bundle.executions[actionIndexes[1]]);
-        assertEq(implementationAddress, address(reverter));
+        assertEq(implementationAddress, address(defaultUpdater));
         assertEq(storageValue, expectedStorageValue);
         assertGt(finalDebt, estExecutorPayment + initialDebt);
     }
 
-    function test_executeChugSplashAction_success_setImplementationToReverter() external {
+    function test_executeChugSplashAction_success_setImplementationToDefaultUpdater() external {
         helper_proposeThenApproveThenFundBundle();
         helper_executeFirstAction();
         uint256 initialDebt = manager.debt();
@@ -540,7 +539,7 @@ contract ChugSplashManager_Test is Test {
 
         assertEq(bundle.actionsExecuted, 2);
         assertTrue(bundle.executions[actionIndexes[1]]);
-        assertEq(newImplementationBytes, bytes32(uint256(uint160(address(reverter)))));
+        assertEq(newImplementationBytes, bytes32(uint256(uint160(address(defaultUpdater)))));
         assertEq(storageValue, expectedStorageValue);
         assertGt(finalDebt, estExecutorPayment + initialDebt);
     }
@@ -622,8 +621,8 @@ contract ChugSplashManager_Test is Test {
             ''
         );
         address payable transparentProxyAddress = payable(address(transparentProxy));
-        bytes32 proxyType = keccak256(bytes("transparent"));
-        registry.addProxyType(proxyType, address(adapter));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
         helper_setProxyToReferenceName(referenceName, transparentProxyAddress, proxyType);
         helper_proposeThenApproveThenFundBundle();
         helper_executeMultipleActions();
@@ -822,8 +821,8 @@ contract ChugSplashManager_Test is Test {
         );
         address payable transparentProxyAddress = payable(address(transparentProxy));
         string memory transparentProxyReferenceName = "TransparentProxy";
-        bytes32 proxyType = keccak256(bytes("transparent"));
-        registry.addProxyType(proxyType, address(adapter));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
         helper_setProxyToReferenceName(transparentProxyReferenceName, transparentProxyAddress, proxyType);
 
         helper_transferProxyOwnership(transparentProxyAddress, nonOwner, transparentProxyReferenceName, proxyType);
@@ -856,7 +855,7 @@ contract ChugSplashManager_Test is Test {
 
     function test_setProxyToReferenceName_success() external {
         address payable proxyAddress = manager.getDefaultProxyAddress(referenceName);
-        bytes32 proxyType = keccak256(bytes("transparent"));
+        bytes32 proxyType = keccak256(bytes("oz-transparent"));
         helper_setProxyToReferenceName(referenceName, proxyAddress, proxyType);
     }
 
