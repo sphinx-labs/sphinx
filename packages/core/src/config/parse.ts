@@ -18,11 +18,16 @@ import {
   makeBundleFromActions,
   readContractArtifact,
 } from '../actions'
-import { getDefaultProxyAddress, isExternalProxyType } from '../utils'
+import {
+  assertValidContractReferences,
+  getDefaultProxyAddress,
+  isExternalProxyType,
+} from '../utils'
 import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
   ProxyType,
+  UserConfigVariable,
 } from './types'
 import { Integration } from '../constants'
 import { getLatestDeployedStorageLayout } from '../deployed'
@@ -105,73 +110,9 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       )
     }
 
-    // Check for invalid contract references.
     if (contractConfig.variables !== undefined) {
-      for (const [varName, varValue] of Object.entries(
-        contractConfig.variables
-      )) {
-        if (
-          typeof varValue === 'string' &&
-          varValue.includes('{{') &&
-          varValue.includes('}}')
-        ) {
-          if (!varValue.startsWith('{{')) {
-            throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
-                 Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                 `)
-          } else if (!varValue.endsWith('}}')) {
-            throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
-                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                  `)
-          }
-
-          const contractReference = varValue
-            .substring(2, varValue.length - 2)
-            .trim()
-
-          if (!referenceNames.includes(contractReference)) {
-            throw new Error(`Contract reference cannot be found: ${contractReference}
-                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                  `)
-          }
-        }
-      }
-    }
-  }
-}
-
-export const assertStorageSlotCheck = async (
-  provider: providers.Provider,
-  config: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration,
-  remoteExecution: boolean,
-  canonicalConfigFolderPath: string
-) => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    config.contracts
-  )) {
-    const isProxyDeployed =
-      (await provider.getCode(contractConfig.proxy)) !== '0x'
-    if (isProxyDeployed && config.options.skipStorageCheck !== true) {
-      const currStorageLayout = await getLatestDeployedStorageLayout(
-        provider,
-        referenceName,
-        contractConfig.proxy,
-        remoteExecution,
-        canonicalConfigFolderPath
-      )
-      const newStorageLayout = readStorageLayout(
-        contractConfig.contract,
-        artifactPaths,
-        integration
-      )
-      // Run OpenZeppelin's storage slot checker.
-      assertStorageUpgradeSafe(
-        currStorageLayout as any,
-        newStorageLayout as any,
-        false
-      )
+      // Check that all contract references are valid.
+      assertValidContractReferences(contractConfig.variables, referenceNames)
     }
   }
 }

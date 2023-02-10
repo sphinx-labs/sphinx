@@ -37,12 +37,15 @@ import {
   ParsedConfigVariable,
   ParsedContractConfigs,
   UserChugSplashConfig,
+  UserConfigVariable,
 } from './config'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import { ChugSplashActionBundle, ChugSplashActionType, readStorageLayout } from './actions'
 import { FoundryContractArtifact } from './types'
 import { ArtifactPaths } from './languages'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
+import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
+import { getLatestDeployedStorageLayout } from './deployed'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -654,15 +657,33 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
   }
 
   if (isUpgrade) {
-    if (!skipStorageCheck) {
-      await assertStorageSlotCheck(
-        provider,
-        parsedConfig,
-        artifactPaths,
-        integration,
-        remoteExecution,
-        canonicalConfigFolderPath
-      )
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      const isProxyDeployed =
+        (await provider.getCode(contractConfig.proxy)) !== '0x'
+      // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
+      // support more granular storage layout config options in the future.
+      if (isProxyDeployed && parsedConfig.options.skipStorageCheck !== true) {
+        const currStorageLayout = await getLatestDeployedStorageLayout(
+          provider,
+          referenceName,
+          contractConfig.proxy,
+          remoteExecution,
+          canonicalConfigFolderPath
+        )
+        const newStorageLayout = readStorageLayout(
+          contractConfig.contract,
+          artifactPaths,
+          integration
+        )
+        // Run OpenZeppelin's storage slot checker.
+        assertStorageUpgradeSafe(
+          currStorageLayout as any,
+          newStorageLayout as any,
+          false
+        )
+      }
     }
 
     spinner?.succeed(`${projectName} is a valid upgrade.`)
@@ -677,14 +698,12 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
       }
     }
   } else {
-    spinner?.succeed(`${projectName} is not an upgrade.`)
+    spinner?.succeed(`${projectName} is a fresh deployment.`)
 
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      for (const variable of Object.values(contractConfig.variables)) {
-        // Throw an error if the 'preserve' keyword is set to a variable's value in the
-        // ChugSplash file. This keyword is only allowed for upgrades.
-        assertVariableDoesNotContainPreserveKeyword(variable)
-      }
+      // Throw an error if the 'preserve' keyword is set to a variable's value in the
+      // ChugSplash file. This keyword is only allowed for upgrades.
+      assertVariableDoesNotContainPreserveKeyword(contractConfig.variables)
     }
   }
 }
@@ -724,6 +743,69 @@ export const assertVariableDoesNotContainPreserveKeyword = (
   } else if (typeof variable === 'object') {
     for (const varValue of Object.values(variable)) {
       assertVariableDoesNotContainPreserveKeyword(varValue)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
+}
+
+/**
+ * Throws an error if the given variable contains any invalid contract references. Specifically,
+ * it'll throw an error if any of the following conditions occur:
+ *
+ * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
+ * template string converts into a valid address when it's parsed. If there are any leading or
+ * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ *
+ * 2. The contract reference is not included in the array of valid contract references.
+ *
+ * @param variable Config variable defined by the user.
+ * @param referenceNames Valid reference names for this ChugSplash file.
+ */
+export const assertValidContractReferences = (
+  variable: UserConfigVariable,
+  referenceNames: string[]
+) => {
+  if (
+    typeof variable === 'string' &&
+    variable.includes('{{') &&
+    variable.includes('}}')
+  ) {
+    if (!variable.startsWith('{{')) {
+      throw new Error(
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`
+      )
+    }
+    if (!variable.endsWith('}}')) {
+      throw new Error(
+        `Contract reference cannot contain trailing spaces: ${variable}`
+      )
+    }
+
+    const contractReference = variable.substring(2, variable.length - 2).trim()
+
+    if (!referenceNames.includes(contractReference)) {
+      throw new Error(
+        `Invalid contract reference: ${variable}.\n` +
+          `Did you misspell this contract reference, or forget to define a contract with this reference name?`
+      )
+    }
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertValidContractReferences(element, referenceNames)
+    }
+  } else if (typeof variable === 'object') {
+    for (const [varName, varValue] of Object.entries(variable)) {
+      assertValidContractReferences(varName, referenceNames)
+      assertValidContractReferences(varValue, referenceNames)
     }
   } else if (
     typeof variable === 'boolean' ||
