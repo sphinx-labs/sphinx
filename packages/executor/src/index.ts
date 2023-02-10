@@ -53,7 +53,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
       loop: true,
       options: {
         loopIntervalMs: 5000,
-        port: parseInt(process.env.EXECUTOR_PORT ?? '7300', 10),
         ...options,
       },
       optionsSpec: {
