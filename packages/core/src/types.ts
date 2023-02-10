@@ -1,4 +1,4 @@
-import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
+import { BaseServiceV2 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 
 import { Integration } from './constants'
@@ -13,7 +13,6 @@ export type ExecutorOptions = {
   url: string
   network: string
   privateKey: string
-  logLevel: LogLevel
 }
 export type ExecutorMetrics = {}
 export type ExecutorState = {
