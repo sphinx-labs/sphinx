@@ -14,7 +14,7 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "hardhat clean && hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "echo 'no tests'",
+    "test:coverage": "forge test",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:contracts:check && yarn lint:ts:check",
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
