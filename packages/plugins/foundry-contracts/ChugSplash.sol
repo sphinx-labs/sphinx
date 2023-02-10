@@ -140,11 +140,12 @@ contract ChugSplash is Script, Test {
     function fund(
         string memory configPath,
         uint amount,
+        bool autoEstimate,
         bool silent
     ) external returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](12);
+        string[] memory cmds = new string[](13);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
@@ -157,6 +158,7 @@ contract ChugSplash is Script, Test {
         cmds[9] = outPath;
         cmds[10] = buildInfoPath;
         cmds[11] = vm.toString(amount);
+        cmds[12] = autoEstimate == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
 
