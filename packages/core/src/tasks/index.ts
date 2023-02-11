@@ -2,7 +2,6 @@ import process from 'process'
 
 import { ethers } from 'ethers'
 import ora from 'ora'
-import { getChainId } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
@@ -218,15 +217,13 @@ with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} has not been proposed before.`
       )
 
-      const chainId = await getChainId(provider)
-
       await proposeChugSplashBundle(
         provider,
         signer,
         parsedConfig,
         bundle,
         configUri,
-        remoteExecution || chainId !== 31337,
+        remoteExecution,
         ipfsUrl,
         configPath,
         spinner,
@@ -763,14 +760,13 @@ export const chugsplashDeployAbstractTask = async (
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
     spinner.start(`Proposing ${projectName}...`)
-    const chainId = await getChainId(provider)
     await proposeChugSplashBundle(
       provider,
       signer,
       parsedConfig,
       bundle,
       configUri,
-      remoteExecution || chainId !== 31337,
+      remoteExecution,
       ipfsUrl,
       configPath,
       spinner,
