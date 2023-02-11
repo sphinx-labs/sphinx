@@ -143,8 +143,10 @@ export const chugsplashDeployTask = async (
   const spinner = ora({ isSilent: silent })
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
   const remoteExecution =
     (await getChainId(provider)) !== hre.network.config.chainId
 
@@ -228,7 +230,10 @@ export const chugsplashRegisterTask = async (
   const { configPath, silent, owner } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
     hre,
@@ -290,7 +295,9 @@ export const chugsplashProposeTask = async (
   }
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const userConfig = readUserChugSplashConfig(configPath)
 
@@ -357,7 +364,9 @@ export const chugsplashApproveTask = async (
   const { configPath, noWithdraw, silent, skipMonitorStatus } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -401,6 +410,10 @@ task(TASK_CHUGSPLASH_APPROVE)
 subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setDescription('Lists all existing ChugSplash projects')
   .setAction(async (_, hre) => {
+    const signer = hre.ethers.provider.getSigner()
+    const signerAddress = await signer.getAddress()
+    await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
     const ChugSplashRegistry = getChugSplashRegistry(
       hre.ethers.provider.getSigner()
     )
@@ -490,6 +503,9 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       hre
     ) => {
       const signer = hre.ethers.provider.getSigner()
+      const signerAddress = await signer.getAddress()
+      await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
@@ -615,7 +631,10 @@ export const monitorTask = async (
   const { configPath, noWithdraw, silent, newOwner } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -666,7 +685,9 @@ export const chugsplashFundTask = async (
   const { amount, silent, configPath, autoEstimate } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
