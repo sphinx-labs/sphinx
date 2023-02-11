@@ -52,6 +52,7 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   )
 
   if (!isCompilerDownloaded) {
+    console.log(`Downloading compiler version ${solcVersion}`)
     await downloader.downloadCompiler(solcVersion)
   }
 
@@ -71,6 +72,7 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   )
 
   if (!isWasmCompilerDownloader) {
+    console.log(`Downloading compiler version ${solcVersion}`)
     await wasmDownloader.downloadCompiler(solcVersion)
   }
 

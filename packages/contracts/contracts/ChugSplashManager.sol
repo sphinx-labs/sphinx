@@ -381,11 +381,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _bundleSize,
         string memory _configUri
     ) public {
-        require(
-            msg.sender == owner() || proposers[msg.sender] == true,
-            "ChugSplashManager: caller must be proposer or owner"
-        );
-
         bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
