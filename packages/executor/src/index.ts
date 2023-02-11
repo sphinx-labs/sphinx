@@ -3,6 +3,7 @@ dotenv.config()
 import {
   BaseServiceV2,
   StandardOptions,
+  Logger,
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -71,6 +72,11 @@ export class ChugSplashExecutor extends BaseServiceV2<
           default:
             '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
         },
+        logLevel: {
+          desc: 'Executor log level',
+          validator: validators.str,
+          default: 'error',
+        },
       },
       metricsSpec: {},
     })
@@ -88,6 +94,11 @@ export class ChugSplashExecutor extends BaseServiceV2<
     remoteExecution: boolean,
     provider?: ethers.providers.JsonRpcProvider
   ) {
+    this.logger = new Logger({
+      name: 'Logger',
+      level: options.logLevel,
+    })
+
     const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
