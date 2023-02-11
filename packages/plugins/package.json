@@ -16,7 +16,7 @@
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
     "test:hardhat": "npx hardhat test --config-path ./chugsplash/Storage.config.ts",
-    "test:coverage": "echo 'no tests'",
+    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && yarn test",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
