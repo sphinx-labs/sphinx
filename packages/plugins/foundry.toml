@@ -11,7 +11,7 @@ libs = ['node_modules', 'lib']
 test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
-allow_paths = ["../contracts"]
+allow_paths = ["node_modules/@chugsplash/contracts"]
 
 
 [rpc_endpoints]
