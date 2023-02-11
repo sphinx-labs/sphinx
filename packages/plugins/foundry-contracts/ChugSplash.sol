@@ -24,6 +24,7 @@ contract ChugSplash is Script, Test {
 
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
+    bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
     struct ChugSplashContract {
         string referenceName;
@@ -232,7 +233,14 @@ contract ChugSplash is Script, Test {
         cmds[14] = skipStorageCheck == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
+        if (isChugSplashTest) {
+            emit log("Attempting to decode deploy command results:");
+            emit log_bytes(result);
+        }
         ChugSplashContract[] memory deployedContracts = abi.decode(result, (ChugSplashContract[]));
+        if (isChugSplashTest) {
+            emit log("Successfully decoded");
+        }
 
         if (silent == false) {
             emit log("Success!");

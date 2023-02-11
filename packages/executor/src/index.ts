@@ -2,8 +2,8 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 import {
   BaseServiceV2,
-  StandardOptions,
   Logger,
+  StandardOptions,
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -108,6 +108,14 @@ export class ChugSplashExecutor extends BaseServiceV2<
       this.state.provider
     )
     this.state.lastBlockNumber = 0
+
+    // Passing the log level in when creating executor still does not work as expected.
+    // If you attempt to remove this, the foundry library will fail due to incorrect output to the console.
+    // This is because the foundry library parses stdout and expects a very specific format.
+    this.logger = new Logger({
+      name: 'Logger',
+      level: options.logLevel,
+    })
 
     // This represents a queue of "BundleApproved" events to execute.
     this.state.eventsQueue = []
