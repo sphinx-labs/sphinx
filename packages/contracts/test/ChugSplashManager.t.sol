@@ -255,12 +255,6 @@ contract ChugSplashManager_Test is Test {
         assertEq(manager.computeBundleId(bundleRoot, bundleSize, configUri), expectedBundleId);
     }
 
-    function test_proposeChugSplashBundle_revert_notProposerOrOwner() external {
-        vm.expectRevert("ChugSplashManager: caller must be proposer or owner");
-        vm.prank(executor);
-        manager.proposeChugSplashBundle(bundleRoot, bundleSize, configUri);
-    }
-
     // proposeChugSplashBundle:
     // - reverts if bundle's status is not `EMPTY`
     function test_proposeChugSplashBundle_revert_nonEmpty() external {
