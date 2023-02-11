@@ -145,7 +145,8 @@ export const chugsplashDeployTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
   const signerAddress = await signer.getAddress()
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.network.config.chainId
 
   let executor: ChugSplashExecutorType | undefined
   if (remoteExecution) {
@@ -361,7 +362,8 @@ export const chugsplashApproveTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.network.config.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -617,7 +619,8 @@ export const monitorTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.network.config.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -770,12 +773,15 @@ task(TASK_TEST)
       const { show, noCompile, configPath } = args
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
-      const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
+      const executor =
+        chainId === hre.network.config.chainId
+          ? await signer.getAddress()
+          : EXECUTOR
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (chainId === 31337) {
+      if (chainId === hre.network.config.chainId) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -841,9 +847,12 @@ task(TASK_RUN)
         const signer = hre.ethers.provider.getSigner()
         const chainId = await getChainId(hre.ethers.provider)
 
-        const confirm = chainId === 31337 ? true : args.confirm
+        const confirm =
+          chainId === hre.network.config.chainId ? true : args.confirm
         const executor =
-          chainId === 31337 ? await signer.getAddress() : EXECUTOR
+          chainId === hre.network.config.chainId
+            ? await signer.getAddress()
+            : EXECUTOR
         await initializeChugSplash(hre.ethers.provider, signer, executor)
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {
