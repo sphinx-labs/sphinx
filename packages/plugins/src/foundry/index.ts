@@ -142,6 +142,7 @@ const command = args[0]
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
       const amount = BigNumber.from(args[8])
+      const autoEstimate = args[9] === 'true'
 
       const { artifactFolder, buildInfoFolder } = fetchPaths(
         outPath,
@@ -166,6 +167,7 @@ const command = args[0]
         wallet,
         configPath,
         amount,
+        autoEstimate,
         silent,
         artifactPaths,
         'foundry',
