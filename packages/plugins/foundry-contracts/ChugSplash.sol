@@ -230,6 +230,7 @@ contract ChugSplash is Script, Test {
         cmds[14] = skipStorageCheck == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
+        emit log_bytes(result);
         ChugSplashContract[] memory deployedContracts = abi.decode(result, (ChugSplashContract[]));
 
         if (silent == false) {
