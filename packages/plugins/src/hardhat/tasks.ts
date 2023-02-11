@@ -654,12 +654,14 @@ task(TASK_CHUGSPLASH_MONITOR)
 export const chugsplashFundTask = async (
   args: {
     configPath: string
-    amount: ethers.BigNumber
+    amount: string | undefined
     silent: boolean
+    autoEstimate: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { amount, silent, configPath } = args
+  const { amount, silent, configPath, autoEstimate } = args
+
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
@@ -675,7 +677,8 @@ export const chugsplashFundTask = async (
     provider,
     signer,
     configPath,
-    amount,
+    amount ? ethers.BigNumber.from(amount) : ethers.BigNumber.from(0),
+    autoEstimate,
     silent,
     artifactPaths,
     'hardhat'
@@ -684,9 +687,13 @@ export const chugsplashFundTask = async (
 
 task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
-  .addParam('amount', 'Amount to send in wei')
+  .addOptionalParam('amount', 'Amount to send in wei')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addParam('configPath', 'Path to the ChugSplash config file')
+  .addFlag(
+    'autoEstimate',
+    'Automatically estimate the amount necessary to fund the deployment'
+  )
   .setAction(chugsplashFundTask)
 
 task(TASK_NODE)

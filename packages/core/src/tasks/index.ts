@@ -536,11 +536,25 @@ export const chugsplashFundAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   amount: ethers.BigNumber,
+  autoEstimate: boolean,
   silent: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
+  if (amount.eq(0) && autoEstimate !== true) {
+    throw new Error(
+      `User must either include an amount to send by specifying '--amount <amountInWei>' or including\n` +
+        `the '--auto-estimate' flag to automatically estimate the amount necessary to fund the deployment.`
+    )
+  }
+
+  if (amount.gt(0) && autoEstimate) {
+    throw new Error(
+      `User specified an '--amount' flag and an '--auto-estimate' flag. Please choose one.`
+    )
+  }
+
   const spinner = ora({ isSilent: silent, stream })
 
   const parsedConfig = await readParsedChugSplashConfig(
@@ -554,27 +568,48 @@ export const chugsplashFundAbstractTask = async (
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
-  if (signerBalance.lt(amount)) {
-    throw new Error(`Signer's balance is less than the amount required to fund your project.
-
-Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
-Amount: ${ethers.utils.formatEther(amount)} ETH
-
-Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
-  }
-
   if (!(await isProjectRegistered(signer, projectName))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
+  const amountToDeposit = autoEstimate
+    ? await getAmountToDeposit(
+        provider,
+        await bundleLocal(parsedConfig, artifactPaths, integration),
+        0,
+        parsedConfig.options.projectName,
+        true
+      )
+    : amount
+
+  if (amountToDeposit.eq(0)) {
+    spinner.fail(
+      `No funds were sent. Reason: ${
+        autoEstimate
+          ? `Project already has sufficient funds.`
+          : `User specified an amount of 0.`
+      }`
+    )
+    return
+  }
+
+  if (signerBalance.lt(amountToDeposit)) {
+    throw new Error(`Signer's balance is less than the amount required to fund your project.
+
+Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
+Amount: ${ethers.utils.formatEther(amountToDeposit)} ETH
+
+Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
+  }
+
   spinner.start(
     `Depositing ${formatEther(
-      amount,
+      amountToDeposit,
       4
     )} ETH for the project: ${projectName}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
-    value: amount,
+    value: amountToDeposit,
     to: chugsplashManagerAddress,
   })
   await (await signer.sendTransaction(txnRequest)).wait()
@@ -587,7 +622,10 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   )
 
   spinner.succeed(
-    `Deposited ${formatEther(amount, 4)} ETH for the project: ${projectName}.`
+    `Deposited ${formatEther(
+      amountToDeposit,
+      4
+    )} ETH for the project: ${projectName}.`
   )
 }
 
@@ -765,6 +803,7 @@ export const chugsplashDeployAbstractTask = async (
         signer,
         configPath,
         amountToDeposit,
+        false,
         silent,
         artifactPaths,
         integration,
