@@ -67,6 +67,7 @@ import {
   trackListProposers,
   trackRegistered,
   trackTransferProxy,
+  trackValidated,
   trackWithdraw,
 } from '../analytics'
 
@@ -689,6 +690,18 @@ export const chugsplashDeployAbstractTask = async (
     spinner
   )
 
+  // Get the bundle ID without publishing anything to IPFS.
+  const { bundleId, bundle, configUri } = await chugsplashCommitAbstractSubtask(
+    provider,
+    signer,
+    parsedConfig,
+    ipfsUrl,
+    false,
+    artifactPaths,
+    canonicalConfigPath,
+    integration
+  )
+
   if (projectPreviouslyRegistered === false) {
     spinner.start(`Registering ${projectName}...`)
     // Register the project with the signer as the owner. Once we've completed the deployment, we'll
@@ -714,18 +727,6 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.succeed('Set proxies to reference names.')
-
-  // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri } = await chugsplashCommitAbstractSubtask(
-    provider,
-    signer,
-    parsedConfig,
-    ipfsUrl,
-    false,
-    artifactPaths,
-    canonicalConfigPath,
-    integration
-  )
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -1562,4 +1563,64 @@ If you believe this is a mistake, please reach out to the developers or open an 
   )
 
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
+}
+
+export const chugsplashValidateAbstractTask = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer,
+  configPath: string,
+  integration: Integration,
+  artifactPaths: ArtifactPaths,
+  remoteExecution: boolean,
+  canonicalConfigPath: string,
+  skipStorageCheck: boolean,
+  ipfsUrl: string,
+  stream: NodeJS.WritableStream = process.stderr
+) => {
+  const spinner = ora({ stream })
+
+  const networkName = await resolveNetworkName(provider, integration)
+
+  spinner.start(`Validating project on ${networkName}...`)
+
+  const parsedConfig = await readParsedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    integration
+  )
+  const projectName = parsedConfig.options.projectName
+
+  await assertValidUpgrade(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration,
+    remoteExecution,
+    canonicalConfigPath,
+    skipStorageCheck,
+    true,
+    spinner
+  )
+
+  // Perform the validation that occurs in the commit subtask without publishing anything to IPFS.
+  await chugsplashCommitAbstractSubtask(
+    provider,
+    signer,
+    parsedConfig,
+    ipfsUrl,
+    false,
+    artifactPaths,
+    canonicalConfigPath,
+    integration
+  )
+
+  await trackValidated(
+    await getProjectOwnerAddress(signer, projectName),
+    projectName,
+    networkName,
+    integration
+  )
+
+  spinner.succeed(`Validated ${projectName} on ${networkName}!`)
 }

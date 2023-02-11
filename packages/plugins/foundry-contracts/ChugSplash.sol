@@ -137,6 +137,35 @@ contract ChugSplash is Script, Test {
         return result;
     }
 
+    function propose(
+        string memory configPath,
+        bool remoteExecution
+    ) external returns (bytes memory) {
+        (string memory outPath, string memory buildInfoPath) = fetchPaths();
+
+        string[] memory cmds = new string[](14);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "propose";
+        cmds[4] = configPath;
+        cmds[5] = rpcUrl;
+        cmds[6] = network;
+        cmds[7] = privateKey;
+        cmds[8] = outPath;
+        cmds[9] = buildInfoPath;
+        cmds[10] = ipfsUrl;
+        cmds[11] = remoteExecution == true ? "true" : "false";
+        cmds[12] = skipStorageCheck == true ? "true" : "false";
+
+        bytes memory result = vm.ffi(cmds);
+
+        emit log(string(result));
+        emit log(string("\n"));
+
+        return result;
+    }
+
     function fund(
         string memory configPath,
         uint amount,

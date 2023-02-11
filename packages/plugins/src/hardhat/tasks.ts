@@ -40,6 +40,7 @@ import {
   ArtifactPaths,
   bundleRemote,
   readUserChugSplashConfig,
+  chugsplashValidateAbstractTask,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, EXECUTOR } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -87,6 +88,7 @@ export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
   'chugsplash-transfer-ownership'
 export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
+export const TASK_CHUGSPLASH_VALIDATE = 'chugsplash-validate'
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -1187,3 +1189,60 @@ task(TASK_CHUGSPLASH_INIT)
   .setDescription('Sets up a ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's output")
   .setAction(chugsplashInitTask)
+
+export const chugsplashValidateTask = async (
+  args: {
+    configPath: string
+    ipfsUrl: string
+    noCompile: boolean
+    skipStorageCheck: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { configPath, ipfsUrl, noCompile, skipStorageCheck } = args
+
+  if (!noCompile) {
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
+  }
+
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  const userConfig = readUserChugSplashConfig(configPath)
+
+  const remoteExecution = (await getChainId(provider)) !== 31337
+
+  const artifactPaths = await getArtifactPaths(
+    hre,
+    userConfig.contracts,
+    hre.config.paths.artifacts,
+    path.join(hre.config.paths.artifacts, 'build-info')
+  )
+
+  await chugsplashValidateAbstractTask(
+    provider,
+    signer,
+    configPath,
+    'hardhat',
+    artifactPaths,
+    remoteExecution,
+    hre.config.paths.canonicalConfigs,
+    skipStorageCheck,
+    ipfsUrl
+  )
+}
+
+task(TASK_CHUGSPLASH_VALIDATE)
+  .setDescription(
+    'Validate that a ChugSplash project can be executed on the specified network'
+  )
+  .addParam('configPath', 'Path to the ChugSplash config file to validate')
+  .addFlag('noCompile', 'Disable compiling contracts before running this task')
+  .addFlag(
+    'skipStorageCheck',
+    "Validate your contracts without checking for storage layout compatibility. Only use option this when you're confident that the upgrade won't lead to storage layout issues."
+  )
+  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
+  .setAction(chugsplashProposeTask)

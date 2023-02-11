@@ -20,6 +20,7 @@ import {
   readUserChugSplashConfig,
   getEIP1967ProxyAdminAddress,
   initializeChugSplash,
+  chugsplashValidateAbstractTask,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
@@ -610,6 +611,44 @@ const command = args[0]
         artifactPaths,
         'foundry',
         process.stdout
+      )
+      break
+    }
+    case 'validate': {
+      const configPath = args[1]
+      const rpcUrl = args[2]
+      const network = args[3] !== 'localhost' ? args[3] : undefined
+      const privateKey = args[4]
+      const outPath = cleanPath(args[5])
+      const buildInfoPath = cleanPath(args[6])
+      const ipfsUrl = args[7] !== 'none' ? args[8] : ''
+      const remoteExecution = args[8] === 'true'
+      const skipStorageCheck = args[9] === 'true'
+
+      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+        fetchPaths(outPath, buildInfoPath)
+      const userConfig = readUserChugSplashConfig(configPath)
+      const artifactPaths = await getArtifactPaths(
+        userConfig.contracts,
+        artifactFolder,
+        buildInfoFolder
+      )
+
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
+      const wallet = new ethers.Wallet(privateKey, provider)
+
+      console.log('-- ChugSplash Validate --')
+
+      await chugsplashValidateAbstractTask(
+        provider,
+        wallet,
+        configPath,
+        'foundry',
+        artifactPaths,
+        remoteExecution,
+        canonicalConfigPath,
+        skipStorageCheck,
+        ipfsUrl
       )
       break
     }

@@ -333,3 +333,26 @@ export const trackTransferProxy = async (
     10000
   )
 }
+
+export const trackValidated = async (
+  user_id: string,
+  projectName: string,
+  networkName: string,
+  integration: Integration
+) => {
+  if (disableAnalytics) {
+    return
+  }
+  timeout(
+    await amplitudeClient.logEvent({
+      event_type: 'chugsplash validate',
+      user_id,
+      event_properties: {
+        projectName,
+        network: networkName,
+        integration,
+      },
+    }),
+    10000
+  )
+}
