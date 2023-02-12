@@ -148,7 +148,7 @@ export const chugsplashDeployTask = async (
   await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const remoteExecution =
-    (await getChainId(provider)) !== hre.network.config.chainId
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   let executor: ChugSplashExecutorType | undefined
   if (remoteExecution) {
@@ -372,7 +372,7 @@ export const chugsplashApproveTask = async (
   const deploymentFolder = hre.config.paths.deployments
 
   const remoteExecution =
-    (await getChainId(provider)) !== hre.network.config.chainId
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -639,7 +639,7 @@ export const monitorTask = async (
   const deploymentFolder = hre.config.paths.deployments
 
   const remoteExecution =
-    (await getChainId(provider)) !== hre.network.config.chainId
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -795,14 +795,14 @@ task(TASK_TEST)
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
       const executor =
-        chainId === hre.network.config.chainId
+        chainId === hre.config.networks.hardhat.chainId
           ? await signer.getAddress()
           : EXECUTOR
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (chainId === hre.network.config.chainId) {
+      if (chainId === hre.config.networks.hardhat.chainId) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -869,9 +869,9 @@ task(TASK_RUN)
         const chainId = await getChainId(hre.ethers.provider)
 
         const confirm =
-          chainId === hre.network.config.chainId ? true : args.confirm
+          chainId === hre.config.networks.hardhat.chainId ? true : args.confirm
         const executor =
-          chainId === hre.network.config.chainId
+          chainId === hre.config.networks.hardhat.chainId
             ? await signer.getAddress()
             : EXECUTOR
         await initializeChugSplash(hre.ethers.provider, signer, executor)

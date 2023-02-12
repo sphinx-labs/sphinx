@@ -50,7 +50,8 @@ export const deployAllChugSplashConfigs = async (
   fileNames?: string[]
 ) => {
   const remoteExecution =
-    (await getChainId(hre.ethers.provider)) !== hre.network.config.chainId
+    (await getChainId(hre.ethers.provider)) !==
+    hre.config.networks.hardhat.chainId
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
@@ -103,7 +104,10 @@ export const getContract = async (
   projectName: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if ((await getChainId(hre.ethers.provider)) !== hre.network.config.chainId) {
+  if (
+    (await getChainId(hre.ethers.provider)) !==
+    hre.config.networks.hardhat.chainId
+  ) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const userConfigs: UserChugSplashConfig[] = fetchFilesRecursively(
