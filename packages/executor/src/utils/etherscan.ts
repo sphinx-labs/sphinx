@@ -106,14 +106,11 @@ export const verifyChugSplashConfig = async (
     canonicalConfig.contracts
   )) {
     const artifact = artifacts[referenceName]
-    const { abi, contractName, sourceName, compilerOutput } = artifact
+    const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig,
       referenceName,
-      abi,
-      compilerOutput,
-      sourceName,
-      contractName
+      abi
     )
     const implementationAddress = await ChugSplashManager.implementations(
       ethers.utils.keccak256(
@@ -281,6 +278,7 @@ export const attemptVerification = async (
 
   const solcFullVersion = await getLongVersion(solcVersion)
 
+  // TODO: We can replace this by ABI-encoding the result of our `getConstructorArgs` function.
   const constructorArgsAbiEncoded = await encodeArguments(
     abi,
     sourceName,

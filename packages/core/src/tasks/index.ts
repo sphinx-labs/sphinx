@@ -12,6 +12,7 @@ import {
   ParsedChugSplashConfig,
 } from '../config'
 import {
+  assertValidContracts,
   assertValidUpgrade,
   computeBundleId,
   displayDeploymentTable,
@@ -128,6 +129,8 @@ export const chugsplashProposeAbstractTask = async (
   if (integration === 'hardhat') {
     spinner.start('Booting up ChugSplash...')
   }
+
+  assertValidContracts(parsedConfig, artifactPaths)
 
   await assertValidUpgrade(
     provider,
@@ -673,6 +676,8 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.succeed(`Parsed ${projectName}.`)
+
+  assertValidContracts(parsedConfig, artifactPaths)
 
   await assertValidUpgrade(
     provider,

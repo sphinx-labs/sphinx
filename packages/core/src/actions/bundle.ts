@@ -9,8 +9,6 @@ import {
   readContractArtifact,
   readStorageLayout,
   getCreationCodeWithConstructorArgs,
-  getImmutableVariables,
-  readBuildInfo,
 } from './artifacts'
 import {
   ChugSplashAction,
@@ -233,34 +231,20 @@ export const bundleLocal = async (
       integration
     )
 
-    const { abi, sourceName, contractName, bytecode } = readContractArtifact(
+    const { abi, bytecode } = readContractArtifact(
       artifactPaths,
       contractConfig.contract,
       integration
-    )
-    const { output: compilerOutput } = readBuildInfo(
-      artifactPaths,
-      contractConfig.contract
     )
     const creationCode = getCreationCodeWithConstructorArgs(
       bytecode,
       parsedConfig,
       referenceName,
-      abi,
-      compilerOutput,
-      sourceName,
-      contractName
-    )
-    const immutableVariables = getImmutableVariables(
-      compilerOutput,
-      sourceName,
-      contractName,
-      parsedConfig.contracts[referenceName]
+      abi
     )
     artifacts[referenceName] = {
       creationCode,
       storageLayout,
-      immutableVariables,
     }
   }
 

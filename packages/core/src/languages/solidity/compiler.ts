@@ -15,7 +15,6 @@ import {
 import {
   ChugSplashActionBundle,
   getCreationCodeWithConstructorArgs,
-  getImmutableVariables,
 } from '../../actions'
 import {
   CompilerInput,
@@ -136,16 +135,7 @@ export const getCanonicalConfigArtifacts = async (
           add0x(contractOutput.evm.bytecode.object),
           canonicalConfig,
           referenceName,
-          contractOutput.abi,
-          compilerOutput,
-          sourceName,
-          contractName
-        )
-        const immutableVariables = getImmutableVariables(
-          compilerOutput,
-          sourceName,
-          contractName,
-          canonicalConfig.contracts[referenceName]
+          contractOutput.abi
         )
 
         addEnumMembersToStorageLayout(
@@ -157,7 +147,6 @@ export const getCanonicalConfigArtifacts = async (
         artifacts[referenceName] = {
           creationCode,
           storageLayout: contractOutput.storageLayout,
-          immutableVariables,
           abi: contractOutput.abi,
           compilerOutput,
           sourceName,
@@ -265,20 +254,4 @@ export const getMinimumSourceNames = (
     }
   }
   return minimumSourceNames
-}
-
-export const mapContractAstIdsToSourceNames = (
-  outputSources: CompilerOutputSources
-): { [astId: number]: string } => {
-  const contractAstIdsToSourceNames: { [astId: number]: string } = {}
-  for (const [sourceName, { ast }] of Object.entries(outputSources)) {
-    if (ast.nodes !== undefined) {
-      for (const node of ast.nodes) {
-        if (node.name !== undefined) {
-          contractAstIdsToSourceNames[node.id] = sourceName
-        }
-      }
-    }
-  }
-  return contractAstIdsToSourceNames
 }
