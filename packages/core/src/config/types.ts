@@ -59,6 +59,7 @@ export type UserContractConfig = {
   externalProxy?: string
   externalProxyType?: ExternalProxyType
   variables?: UserConfigVariables
+  constructorArgs?: UserConfigVariables
 }
 
 export type UserContractConfigs = {
@@ -79,6 +80,7 @@ export type ParsedContractConfig = {
   proxy: string
   proxyType: ProxyType
   variables: ParsedConfigVariables
+  constructorArgs: ParsedConfigVariables
 }
 
 export type ParsedContractConfigs = {

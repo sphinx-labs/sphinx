@@ -42,10 +42,12 @@ import {
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
+  ContractASTNode,
+  readBuildInfo,
   readContractArtifact,
 } from './actions'
 import { FoundryContractArtifact } from './types'
-import { ArtifactPaths } from './languages'
+import { ArtifactPaths, CompilerOutputSources } from './languages'
 import { Integration } from './constants'
 import 'core-js/features/array/at'
 
@@ -834,4 +836,146 @@ export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
   return externalProxyTypes.includes(proxyType)
+}
+
+export const assertValidContracts = (
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths
+) => {
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
+
+    const sourceOutput = buildInfo.output.sources[sourceName]
+    const childContractNode = sourceOutput.ast.nodes.find(
+      (node) =>
+        node.nodeType === 'ContractDefinition' && node.name === contractName
+    )
+
+    const parentContractNodeAstIds =
+      childContractNode.linearizedBaseContracts.filter(
+        (astId) => astId !== childContractNode.id
+      )
+    const parentContractNodes = getParentContractASTNodes(
+      buildInfo.output.sources,
+      parentContractNodeAstIds
+    )
+
+    // TODO: type
+    const constructorNodes: Array<any> = []
+    const immutableVarAstIds: { [astId: number]: boolean } = {}
+    // Create a mapping of constructor node AST IDs to the corresponding contract's name. This is only used
+    // for error messages when we parse the constructor nodes later.
+    const constructorNodeContractNames: { [astId: number]: string } = {}
+    for (const contractNode of parentContractNodes.concat([
+      childContractNode,
+    ])) {
+      for (const node of contractNode.nodes) {
+        if (node.kind === 'constructor') {
+          constructorNodes.push(node)
+          constructorNodeContractNames[node.id] = contractNode.name
+        } else if (node.nodeType === 'VariableDeclaration') {
+          if (node.mutability === 'mutable' && node.value !== undefined) {
+            throw new Error(
+              `User attempted to assign a value to a non-immutable state variable '${node.name}' in\n` +
+                `the contract: ${contractNode.name}. This is not allowed because the value will not exist in\n` +
+                `the upgradeable contract. Please remove the value in the contract and define it in your ChugSplash\n` +
+                `file instead. You can also set '${node.name} to be a constant or immutable variable instead.`
+            )
+          }
+
+          if (
+            node.mutability === 'immutable' &&
+            node.value !== undefined &&
+            node.value.kind === 'functionCall'
+          ) {
+            throw new Error(
+              `User attempted to assign the immutable variable '${node.name}' to the return value of a function call in\n` +
+                `the contract: ${contractNode.name}. This is not allowed to ensure that ChugSplash is\n` +
+                `deterministic. Please remove the function call.`
+            )
+          }
+
+          if (node.mutability === 'immutable' && node.value === undefined) {
+            immutableVarAstIds[node.id] = true
+          }
+        }
+      }
+    }
+
+    for (const node of constructorNodes) {
+      for (const statement of node.body.statements) {
+        if (statement.nodeType !== 'ExpressionStatement') {
+          throw new Error(
+            `Detected an unallowed expression, '${statement.nodeType}', in the constructor of the\n` +
+              `contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (statement.expression.nodeType !== 'Assignment') {
+          const unallowedOperation: string =
+            statement.expression.expression.name ?? statement.expression.kind
+          throw new Error(
+            `Detected an unallowed operation, '${unallowedOperation}', in the constructor of the\n` +
+              `contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (
+          immutableVarAstIds[
+            statement.expression.leftHandSide.referencedDeclaration
+          ] !== true
+        ) {
+          throw new Error(
+            `Detected an assignment to a non-immutable variable, '${statement.expression.leftHandSide.name}', in the\n` +
+              `constructor of the contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (statement.expression.rightHandSide.kind === 'functionCall') {
+          throw new Error(
+            `User attempted to assign the immutable variable '${statement.expression.leftHandSide.name}' to the return \n` +
+              `value of a function call in the contract: ${
+                constructorNodeContractNames[node.id]
+              }. This is not allowed to ensure that\n` +
+              `ChugSplash is deterministic. Please remove the function call.`
+          )
+        }
+      }
+    }
+  }
+}
+
+export const getParentContractASTNodes = (
+  compilerOutputSources: CompilerOutputSources,
+  parentContractNodeAstIds: Array<number>
+): Array<ContractASTNode> => {
+  const parentContractNodes: Array<ContractASTNode> = []
+  for (const source of Object.values(compilerOutputSources)) {
+    for (const node of source.ast.nodes) {
+      if (parentContractNodeAstIds.includes(node.id)) {
+        parentContractNodes.push(node)
+      }
+    }
+  }
+
+  // Should never happen.
+  if (parentContractNodes.length !== parentContractNodeAstIds.length) {
+    throw new Error(
+      `Expected ${parentContractNodeAstIds.length} parent contract AST nodes, but got ${parentContractNodes.length}.\n` +
+        `Please report this error to ChugSplash.`
+    )
+  }
+
+  return parentContractNodes
 }
