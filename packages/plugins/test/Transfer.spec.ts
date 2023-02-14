@@ -12,8 +12,11 @@ import {
   chugsplashRegisterAbstractTask,
   parseChugSplashConfig,
   chugsplashDeployAbstractTask,
+  getEIP1967ProxyAdminAddress,
 } from '@chugsplash/core'
 import { BigNumber } from 'ethers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 
 import { getArtifactPaths } from '../src/hardhat/artifacts'
 import uupsRegisterConfig from '../chugsplash/hardhat/UUPSUpgradableRegister.config'
@@ -22,9 +25,20 @@ import transparentRegisterConfig from '../chugsplash/hardhat/TransparentUpgradab
 import transparentUpgradeConfig from '../chugsplash/hardhat/TransparentUpgradableUpgrade.config'
 
 describe('Transfer', () => {
+  let signer: SignerWithAddress
+  before(async () => {
+    const signers = await hre.ethers.getSigners()
+    // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
+    // consistent nonce, which prevents a situation where the addresses of the proxies in this test
+    // file don't match the addresses defined in the `externalProxy` field of the relevant
+    // ChugSplash files.
+    signer = signers[signers.length - 1]
+  })
+
   it('did upgrade transparent proxy', async () => {
     const MyTokenV1 = await hre.ethers.getContractFactory(
-      'TransparentUpgradableV1'
+      'TransparentUpgradableV1',
+      signer
     )
     hre.upgrades.silenceWarnings()
     const TransparentUpgradableTokenV1 = await hre.upgrades.deployProxy(
@@ -33,12 +47,10 @@ describe('Transfer', () => {
     await TransparentUpgradableTokenV1.deployed()
 
     const provider = hre.ethers.provider
-    const signer = hre.ethers.provider.getSigner()
-    const signerAddress = await signer.getAddress()
 
     // check owner is signer
     expect(await TransparentUpgradableTokenV1.owner()).to.equal(
-      signerAddress,
+      signer.address,
       'proxy owner is not signer'
     )
 
@@ -69,7 +81,7 @@ describe('Transfer', () => {
       provider,
       signer,
       parsedConfig,
-      signerAddress,
+      signer.address,
       true,
       'hardhat'
     )
@@ -78,7 +90,15 @@ describe('Transfer', () => {
       transparentRegisterConfig.options.projectName
     )
 
-    await hre.upgrades.admin.changeProxyAdmin(
+    const ProxyAdmin = await hre.ethers.getContractAt(
+      ProxyAdminArtifact.abi,
+      await getEIP1967ProxyAdminAddress(
+        provider,
+        TransparentUpgradableTokenV1.address
+      ),
+      signer
+    )
+    await ProxyAdmin.changeProxyAdmin(
       TransparentUpgradableTokenV1.address,
       managerProxyAddress
     )
@@ -93,7 +113,7 @@ describe('Transfer', () => {
       true,
       true,
       true,
-      signerAddress,
+      signer.address,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
@@ -121,19 +141,20 @@ describe('Transfer', () => {
   })
 
   it('did upgrade UUPS proxy', async () => {
-    const MyTokenV1 = await hre.ethers.getContractFactory('UUPSUpgradableV1')
+    const MyTokenV1 = await hre.ethers.getContractFactory(
+      'UUPSUpgradableV1',
+      signer
+    )
     hre.upgrades.silenceWarnings()
     const UUPSUpgradableTokenV1 = await hre.upgrades.deployProxy(MyTokenV1, {
       kind: 'uups',
     })
 
     const provider = hre.ethers.provider
-    const signer = hre.ethers.provider.getSigner()
-    const signerAddress = await signer.getAddress()
 
     // check owner is signer
     expect(await UUPSUpgradableTokenV1.owner()).to.equal(
-      signerAddress,
+      signer.address,
       'proxy owner is not signer'
     )
 
@@ -164,7 +185,7 @@ describe('Transfer', () => {
       provider,
       signer,
       parsedConfig,
-      signerAddress,
+      signer.address,
       true,
       'hardhat'
     )
@@ -191,7 +212,7 @@ describe('Transfer', () => {
       true,
       true,
       true,
-      signerAddress,
+      signer.address,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
