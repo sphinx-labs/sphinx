@@ -28,8 +28,8 @@ export const availableFundsForExecution = async (
   const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
-  const debt = await ChugSplashManager.debt()
-  return managerBalance.sub(debt).sub(OWNER_BOND_AMOUNT)
+  const totalDebt = await ChugSplashManager.totalDebt()
+  return managerBalance.sub(totalDebt).sub(OWNER_BOND_AMOUNT)
 }
 
 export const getOwnerWithdrawableAmount = async (
@@ -45,8 +45,8 @@ export const getOwnerWithdrawableAmount = async (
   }
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
-  const debt = await ChugSplashManager.debt()
-  return managerBalance.sub(debt)
+  const totalDebt = await ChugSplashManager.totalDebt()
+  return managerBalance.sub(totalDebt)
 }
 
 export const estimateExecutionGas = async (

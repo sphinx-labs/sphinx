@@ -48,6 +48,8 @@ contract ChugSplashManager_Test is Test {
         string referenceName
     );
 
+    event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
+
     event ProxySetToReferenceName(
         string indexed referenceNameHash,
         address indexed proxy,
@@ -118,7 +120,8 @@ contract ChugSplashManager_Test is Test {
     address proposer = address(64);
     address owner = address(128);
     address nonOwner = address(256);
-    address executor = address(512);
+    address executor1 = address(512);
+    address executor2 = address(1024);
     bytes32 salt = bytes32(hex"11");
     uint256 initialTimestamp = 1641070800;
     uint256 bundleExecutionCost = 2 ether;
@@ -215,8 +218,9 @@ contract ChugSplashManager_Test is Test {
         registry.register(projectName, owner);
 
         vm.startPrank(owner);
-        address[] memory executors = new address[](1);
-        executors[0] = executor;
+        address[] memory executors = new address[](2);
+        executors[0] = executor1;
+        executors[1] = executor2;
         registry.initialize(owner, executors);
         vm.stopPrank();
 
@@ -253,6 +257,11 @@ contract ChugSplashManager_Test is Test {
     function test_computeBundleId_success() external {
         bytes32 expectedBundleId = keccak256(abi.encode(bundleRoot, bundleSize, configUri));
         assertEq(manager.computeBundleId(bundleRoot, bundleSize, configUri), expectedBundleId);
+    }
+
+    function test_getSelectedExecutor_success() external {
+        helper_proposeThenApproveThenFundThenClaimBundle();
+        assertEq(manager.getSelectedExecutor(bundleId), executor1);
     }
 
     // proposeChugSplashBundle:
@@ -310,13 +319,13 @@ contract ChugSplashManager_Test is Test {
     // - reverts if the manager's balance minus the debt is less than the owner bond amount
     function test_approveChugSplashBundle_revert_balance() external {
         assertEq(address(manager).balance, 0);
-        uint256 debt = 1 gwei;
-        uint256 insufficientAmount = ownerBondAmount + debt - 1;
+        uint256 totalDebt = 1 gwei;
+        uint256 insufficientAmount = ownerBondAmount + totalDebt - 1;
 
         stdstore
             .target(address(manager))
-            .sig("debt()")
-            .checked_write(debt);
+            .sig("totalDebt()")
+            .checked_write(totalDebt);
 
         (bool success, ) = address(manager).call{ value: insufficientAmount }(new bytes(0));
         assertTrue(success);
@@ -377,53 +386,48 @@ contract ChugSplashManager_Test is Test {
         assertEq(uint8(manager.bundles(bundleId).status), uint8(ChugSplashBundleStatus.APPROVED));
     }
 
-    function test_executeChugSplashAction_revert_noActiveBundle() external {
-        vm.expectRevert("ChugSplashManager: no bundle has been approved for execution");
-        vm.prank(executor);
+    function test_executeChugSplashAction_revert_onlySelectedExecutor() external {
+        helper_proposeThenApproveThenFundThenClaimBundle();
+        vm.expectRevert("ChugSplashManager: caller is not approved executor for active bundle ID");
+        vm.prank(executor2);
         manager.executeChugSplashAction(
             firstAction, actionIndexes[0], proofs[0]
         );
     }
 
     function test_executeChugSplashAction_revert_alreadyExecuted() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
 
         vm.expectRevert("ChugSplashManager: action has already been executed");
-        vm.prank(executor);
-        manager.executeChugSplashAction(firstAction, actionIndexes[0], proofs[0]);
-    }
-
-    function test_executeChugSplashAction_revert_onlyExecutor() external {
-        vm.prank(owner);
-        vm.expectRevert("ChugSplashManager: caller is not an executor");
+        vm.prank(executor1);
         manager.executeChugSplashAction(firstAction, actionIndexes[0], proofs[0]);
     }
 
     function test_executeChugSplashAction_revert_invalidProof() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
 
         uint256 incorrectActionIndex = actionIndexes[0] + 1;
-        hoax(executor);
+        hoax(executor1);
         vm.expectRevert("ChugSplashManager: invalid bundle action proof");
         manager.executeChugSplashAction(firstAction, incorrectActionIndex, proofs[0]);
     }
 
     function test_executeChugSplashAction_revert_noAdapter() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
 
         vm.mockCall(
             address(registry),
             abi.encodeWithSelector(registry.adapters.selector, bytes32(0)),
             abi.encode(address(0))
         );
-        hoax(executor);
+        hoax(executor1);
         vm.expectRevert("ChugSplashManager: proxy type has no adapter");
         manager.executeChugSplashAction(firstAction, actionIndexes[0], proofs[0]);
     }
 
     function test_executeChugSplashAction_success_deployProxyAndImplementation() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
         assertEq(proxyAddress.code.length, 0);
         address implementationAddress = Create2.compute(
@@ -432,7 +436,8 @@ contract ChugSplashManager_Test is Test {
             firstAction.data
         );
         assertEq(implementationAddress.code.length, 0);
-        uint256 initialDebt = manager.debt();
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorDebt = manager.debt(executor1);
 
         vm.expectCall(
             address(registry),
@@ -460,10 +465,11 @@ contract ChugSplashManager_Test is Test {
         vm.expectEmit(true, true, true, true);
         emit ImplementationDeployed(firstAction.referenceName, implementationAddress, bundleId, firstAction.referenceName);
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor, actionIndexes[0]);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndexes[0]);
 
         helper_executeFirstAction();
-        uint256 finalDebt = manager.debt();
+        uint256 finalTotalDebt = manager.totalDebt();
+        uint256 finalExecutorDebt = manager.debt(executor1);
 
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         uint256 executionGasUsed = 760437;
@@ -475,13 +481,15 @@ contract ChugSplashManager_Test is Test {
         assertTrue(bundle.executions[actionIndexes[0]]);
         bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         assertEq(manager.implementations(implementationSalt), implementationAddress);
-        assertGt(finalDebt, estExecutorPayment + initialDebt);
+        assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
     function test_executeChugSplashAction_success_setStorage() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
-        uint256 initialDebt = manager.debt();
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorDebt = manager.debt(executor1);
         address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
 
         vm.expectCall(
@@ -492,9 +500,10 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor, actionIndexes[1]);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndexes[1]);
         helper_executeSecondAction();
-        uint256 finalDebt = manager.debt();
+        uint256 finalTotalDebt = manager.totalDebt();
+        uint256 finalExecutorDebt = manager.debt(executor1);
 
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
         vm.prank(address(manager));
@@ -508,13 +517,15 @@ contract ChugSplashManager_Test is Test {
         assertTrue(bundle.executions[actionIndexes[1]]);
         assertEq(implementationAddress, address(defaultUpdater));
         assertEq(storageValue, expectedStorageValue);
-        assertGt(finalDebt, estExecutorPayment + initialDebt);
+        assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
     function test_executeChugSplashAction_success_setImplementationToDefaultUpdater() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
-        uint256 initialDebt = manager.debt();
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorDebt = manager.debt(executor1);
 
         vm.startPrank(address(manager));
         address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
@@ -527,7 +538,8 @@ contract ChugSplashManager_Test is Test {
         bytes32 newImplementationBytes = vm.load(proxyAddress, EIP1967_IMPLEMENTATION_KEY);
         (bytes32 storageKey, bytes32 expectedStorageValue) = abi.decode(secondAction.data, (bytes32, bytes32));
         bytes32 storageValue = vm.load(proxyAddress, storageKey);
-        uint256 finalDebt = manager.debt();
+        uint256 finalTotalDebt = manager.totalDebt();
+        uint256 finalExecutorDebt = manager.debt(executor1);
         uint256 executionGasUsed = 72301;
         uint256 estExecutorPayment = tx.gasprice * executionGasUsed * (100 + executorPaymentPercentage) / 100;
 
@@ -535,39 +547,36 @@ contract ChugSplashManager_Test is Test {
         assertTrue(bundle.executions[actionIndexes[1]]);
         assertEq(newImplementationBytes, bytes32(uint256(uint160(address(defaultUpdater)))));
         assertEq(storageValue, expectedStorageValue);
-        assertGt(finalDebt, estExecutorPayment + initialDebt);
+        assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
-    function test_completeChugSplashBundle_revert_noActiveBundle() external {
-        vm.expectRevert("ChugSplashManager: no bundle has been approved for execution");
-        helper_completeBundle(executor);
-    }
-
-    function test_completeChugSplashBundle_revert_onlyExecutor() external {
-        vm.expectRevert("ChugSplashManager: caller is not an executor");
-        helper_completeBundle(owner);
+    function test_completeChugSplashBundle_revert_onlySelectedExecutor() external {
+        vm.expectRevert("ChugSplashManager: caller is not approved executor for active bundle ID");
+        helper_completeBundle(executor2);
     }
 
     function test_completeChugSplashBundle_revert_invalidProof() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         setImplementationProofArray[0][0] = bytes32(0);
         vm.expectRevert("ChugSplashManager: invalid bundle action proof");
-        helper_completeBundle(executor);
+        helper_completeBundle(executor1);
     }
 
     function test_completeChugSplashBundle_revert_incompleteBundle() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
         vm.expectRevert("ChugSplashManager: bundle was not completed");
-        helper_completeBundle(executor);
+        helper_completeBundle(executor1);
     }
 
     function test_completeChugSplashBundle_success_defaultProxy() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
         address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
-        uint256 initialDebt = manager.debt();
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorDebt = manager.debt(executor1);
         uint256 actionIndex = setImplementationActionIndexArray[0];
         uint256 numActions = actionIndex + 1;
 
@@ -579,7 +588,7 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor, actionIndex);
+        emit ChugSplashActionExecuted(bundleId, proxyAddress, executor1, actionIndex);
         vm.expectCall(
             address(registry),
             abi.encodeCall(
@@ -588,10 +597,11 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashBundleCompleted(bundleId, executor, numActions);
-        helper_completeBundle(executor);
+        emit ChugSplashBundleCompleted(bundleId, executor1, numActions);
+        helper_completeBundle(executor1);
 
-        uint256 finalDebt = manager.debt();
+        uint256 finalTotalDebt = manager.totalDebt();
+        uint256 finalExecutorDebt = manager.debt(executor1);
         bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         address expectedImplementation = manager.implementations(implementationSalt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
@@ -605,7 +615,8 @@ contract ChugSplashManager_Test is Test {
         assertEq(implementation, expectedImplementation);
         assertEq(uint8(bundle.status), uint8(ChugSplashBundleStatus.COMPLETED));
         assertEq(manager.activeBundleId(), bytes32(0));
-        assertGt(finalDebt, estExecutorPayment + initialDebt);
+        assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
     function test_completeChugSplashBundle_success_transparentProxy() external {
@@ -618,10 +629,11 @@ contract ChugSplashManager_Test is Test {
         bytes32 proxyType = keccak256(bytes("oz-transparent"));
         registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
         helper_setProxyToReferenceName(referenceName, transparentProxyAddress, proxyType);
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeMultipleActions();
         ChugSplashBundleState memory prevBundle = manager.bundles(bundleId);
-        uint256 initialDebt = manager.debt();
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorDebt = manager.debt(executor1);
         uint256 actionIndex = setImplementationActionIndexArray[0];
         uint256 numActions = actionIndex + 1;
 
@@ -633,7 +645,7 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashActionExecuted(bundleId, transparentProxyAddress, executor, actionIndex);
+        emit ChugSplashActionExecuted(bundleId, transparentProxyAddress, executor1, actionIndex);
         vm.expectCall(
             address(registry),
             abi.encodeCall(
@@ -642,10 +654,11 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ChugSplashBundleCompleted(bundleId, executor, numActions);
-        helper_completeBundle(executor);
+        emit ChugSplashBundleCompleted(bundleId, executor1, numActions);
+        helper_completeBundle(executor1);
 
-        uint256 finalDebt = manager.debt();
+        uint256 finalTotalDebt = manager.totalDebt();
+        uint256 finalExecutorDebt = manager.debt(executor1);
         bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(firstAction.referenceName)));
         address expectedImplementation = manager.implementations(implementationSalt);
         ChugSplashBundleState memory bundle = manager.bundles(bundleId);
@@ -659,7 +672,8 @@ contract ChugSplashManager_Test is Test {
         assertEq(implementation, expectedImplementation);
         assertEq(uint8(bundle.status), uint8(ChugSplashBundleStatus.COMPLETED));
         assertEq(manager.activeBundleId(), bytes32(0));
-        assertGt(finalDebt, estExecutorPayment + initialDebt);
+        assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
+        assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }
 
     // cancelActiveChugSplashBundle:
@@ -679,11 +693,11 @@ contract ChugSplashManager_Test is Test {
     }
 
     function test_cancelActiveChugSplashBundle_success_withinExecutionLockTime() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
         uint256 timeClaimed = manager.bundles(bundleId).timeClaimed;
         uint256 actionsExecuted = manager.bundles(bundleId).actionsExecuted;
-        uint256 initialDebt = manager.debt();
+        uint256 initialDebt = manager.totalDebt();
 
         vm.warp(executionLockTime + timeClaimed);
         vm.expectCall(
@@ -698,7 +712,7 @@ contract ChugSplashManager_Test is Test {
         vm.prank(owner);
         manager.cancelActiveChugSplashBundle();
 
-        assertEq(manager.debt(), initialDebt + ownerBondAmount);
+        assertEq(manager.totalDebt(), initialDebt + ownerBondAmount);
         assertEq(manager.activeBundleId(), bytes32(0));
         assertEq(uint8(manager.bundles(bundleId).status), uint8(ChugSplashBundleStatus.CANCELLED));
     }
@@ -711,11 +725,11 @@ contract ChugSplashManager_Test is Test {
     // - emits ChugSplashBundleCancelled
     // - calls registry.announce with ChugSplashBundleCancelled
     function test_cancelActiveChugSplashBundle_success_afterExecutionLockTime() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
         uint256 timeClaimed = manager.bundles(bundleId).timeClaimed;
         uint256 actionsExecuted = manager.bundles(bundleId).actionsExecuted;
-        uint256 initialDebt = manager.debt();
+        uint256 initialDebt = manager.totalDebt();
 
         vm.warp(executionLockTime + timeClaimed + 1);
         vm.expectCall(
@@ -730,20 +744,92 @@ contract ChugSplashManager_Test is Test {
         vm.prank(owner);
         manager.cancelActiveChugSplashBundle();
 
-        assertEq(manager.debt(), initialDebt);
+        assertEq(manager.totalDebt(), initialDebt);
         assertEq(manager.activeBundleId(), bytes32(0));
         assertEq(uint8(manager.bundles(bundleId).status), uint8(ChugSplashBundleStatus.CANCELLED));
+    }
+
+    // claimBundle:
+    // - reverts if there is no active bundle
+    function test_claimBundle_revert_onlyExecutor() external {
+        vm.expectRevert("ChugSplashManager: caller is not an executor");
+        vm.prank(owner);
+        manager.claimBundle();
+    }
+
+    // claimBundle:
+    // - reverts if there is no active bundle
+    function test_claimBundle_revert_noActiveBundle() external {
+        vm.expectRevert('ChugSplashManager: no bundle is currently active');
+        vm.prank(executor1);
+        manager.claimBundle();
+    }
+
+    // claimBundle:
+    // - reverts if bundle is currently claimed by another executor
+    function test_claimBundle_revert_alreadyClaimed() external {
+        helper_proposeThenApproveBundle();
+        helper_claimBundle(executor1);
+
+        vm.warp(initialTimestamp + executionLockTime);
+        vm.expectRevert("ChugSplashManager: bundle is currently claimed by an executor");
+        helper_claimBundle(executor2);
+    }
+
+    // claimBundle:
+    // - see helper_claimBundle
+    // - if there was no previous executor:
+    //   - increases `totalDebt` by `executorBondAmount`
+    function test_claimBundle_success_noPreviousExecutor() external {
+        helper_proposeThenApproveBundle();
+
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ChugSplashBundleClaimed")
+            )
+        );
+        vm.expectEmit(true, true, true, true);
+        emit ChugSplashBundleClaimed(bundleId, executor1);
+        helper_claimBundle(executor1);
+
+        ChugSplashBundleState memory bundle = manager.bundles(bundleId);
+
+        assertEq(bundle.timeClaimed, block.timestamp);
+        assertEq(bundle.selectedExecutor, executor1);
+    }
+
+    // claimBundle:
+    // - see helper_claimBundle
+    // - if there was a previous executor:
+    //   - `totalDebt` remains the same
+    function test_claimBundle_success_withPreviousExecutor() external {
+        helper_proposeThenApproveBundle();
+        helper_claimBundle(executor1);
+        uint256 secondClaimedBundleTimestamp = initialTimestamp + executionLockTime + 1;
+        vm.warp(secondClaimedBundleTimestamp);
+
+        vm.expectCall(
+            address(registry),
+            abi.encodeCall(
+                ChugSplashRegistry.announce,
+                ("ChugSplashBundleClaimed")
+            )
+        );
+        vm.expectEmit(true, true, true, true);
+        emit ChugSplashBundleClaimed(bundleId, executor2);
+        helper_claimBundle(executor2);
+
+        ChugSplashBundleState memory bundle = manager.bundles(bundleId);
+
+        assertEq(bundle.timeClaimed, secondClaimedBundleTimestamp);
+        assertEq(bundle.selectedExecutor, executor2);
     }
 
     function test_claimExecutorPayment_revert_onlyExecutor() external {
         vm.expectRevert("ChugSplashManager: caller is not an executor");
         vm.prank(owner);
-        manager.claimExecutorPayment();
-    }
-
-    function test_claimExecutorPayment_revert_noDebt() external {
-        vm.expectRevert("ChugSplashManager: no debt to withdraw");
-        vm.prank(executor);
         manager.claimExecutorPayment();
     }
 
@@ -754,11 +840,11 @@ contract ChugSplashManager_Test is Test {
     // - emits ExecutorPaymentClaimed
     // - calls registry.announce with ExecutorPaymentClaimed
     function test_claimExecutorPayment_success() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeFirstAction();
-        uint256 debt = manager.debt();
-        uint256 initialExecutorBalance = address(executor).balance;
-        uint256 initialManagerBalance = address(manager).balance;
+        uint256 executorDebt = manager.debt(executor1);
+        uint256 initialTotalDebt = manager.totalDebt();
+        uint256 initialExecutorBalance = address(executor1).balance;
 
         vm.expectCall(
             address(registry),
@@ -768,13 +854,13 @@ contract ChugSplashManager_Test is Test {
             )
         );
         vm.expectEmit(true, true, true, true);
-        emit ExecutorPaymentClaimed(executor, debt);
-        vm.prank(executor);
+        emit ExecutorPaymentClaimed(executor1, executorDebt);
+        vm.prank(executor1);
         manager.claimExecutorPayment();
 
-        assertEq(manager.debt(), 0);
-        assertEq(address(manager).balance, initialManagerBalance - debt);
-        assertEq(address(executor).balance, debt + initialExecutorBalance);
+        assertEq(address(executor1).balance, executorDebt + initialExecutorBalance);
+        assertEq(manager.debt(executor1), 0);
+        assertEq(manager.totalDebt(), initialTotalDebt - executorDebt);
     }
 
     // transferProxyOwnership:
@@ -800,9 +886,9 @@ contract ChugSplashManager_Test is Test {
     // - emits ProxyOwnershipTransferred
     // - calls registry.announce with ProxyOwnershipTransferred
     function test_transferProxyOwnership_success_defaultProxy() external {
-        helper_proposeThenApproveThenFundBundle();
+        helper_proposeThenApproveThenFundThenClaimBundle();
         helper_executeMultipleActions();
-        helper_completeBundle(executor);
+        helper_completeBundle(executor1);
         address payable proxyAddress = manager.getDefaultProxyAddress(firstAction.referenceName);
         helper_transferProxyOwnership(proxyAddress, nonOwner, firstAction.referenceName, bytes32(0));
     }
@@ -936,13 +1022,13 @@ contract ChugSplashManager_Test is Test {
 
     function test_withdrawOwnerETH_success() external {
         uint256 managerBalance = 1 ether;
-        uint256 debt = 1 gwei;
-        uint256 amountWithdrawn = managerBalance - debt;
+        uint256 totalDebt = 1 gwei;
+        uint256 amountWithdrawn = managerBalance - totalDebt;
         helper_fundChugSplashManager(managerBalance);
         stdstore
             .target(address(manager))
-            .sig("debt()")
-            .checked_write(debt);
+            .sig("totalDebt()")
+            .checked_write(totalDebt);
         uint256 prevOwnerBalance = address(owner).balance;
 
         vm.expectEmit(true, true, true, true);
@@ -989,7 +1075,7 @@ contract ChugSplashManager_Test is Test {
     }
 
     function helper_executeMultipleActions() internal {
-        startHoax(executor);
+        startHoax(executor1);
         manager.executeMultipleActions(actions, actionIndexes, proofs);
         vm.stopPrank();
     }
@@ -1000,13 +1086,14 @@ contract ChugSplashManager_Test is Test {
     }
 
     function helper_executeSecondAction() internal {
-        hoax(executor);
+        hoax(executor1);
         manager.executeChugSplashAction(secondAction, actionIndexes[1], proofs[1]);
     }
 
-    function helper_proposeThenApproveThenFundBundle() internal {
+    function helper_proposeThenApproveThenFundThenClaimBundle() internal {
         helper_proposeThenApproveBundle();
         helper_fundChugSplashManager(bundleExecutionCost);
+        helper_claimBundle(executor1);
     }
 
     function helper_fundChugSplashManager(uint256 _amount) internal {
@@ -1015,7 +1102,7 @@ contract ChugSplashManager_Test is Test {
     }
 
     function helper_executeFirstAction() internal {
-        hoax(executor);
+        hoax(executor1);
         manager.executeChugSplashAction(firstAction, actionIndexes[0], proofs[0]);
     }
 
@@ -1058,5 +1145,10 @@ contract ChugSplashManager_Test is Test {
 
         assertEq(manager.proxies(_referenceName), _proxyAddress);
         assertEq(manager.proxyTypes(_referenceName), _proxyType);
+    }
+
+    function helper_claimBundle(address _executor) internal {
+        vm.prank(_executor);
+        manager.claimBundle();
     }
 }

@@ -29,6 +29,7 @@ import {
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
+  getGasPriceOverrides,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 
@@ -256,12 +257,50 @@ export class ChugSplashExecutor extends BaseServiceV2<
         }
 
         this.logger.info(
-          `[ChugSplash]: compiled ${projectName} on: ${this.options.network}. checking that the project is funded...`
+          `[ChugSplash]: compiled ${projectName} on: ${this.options.network}.`
         )
 
         const bundleState: ChugSplashBundleState = await manager.bundles(
           activeBundleId
         )
+
+        if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+          try {
+            await (
+              await manager.claimBundle(await getGasPriceOverrides(provider))
+            ).wait()
+          } catch (err) {
+            if (
+              err.message.includes(
+                'ChugSplashManager: bundle is currently claimed by an executor'
+              )
+            ) {
+              this.logger.info(
+                '[ChugSplash]: a different executor claimed the bundle right before this executor'
+              )
+            } else {
+              // A different error occurred. This most likely means the owner cancelled the bundle
+              // before it could be claimed. We'll log the error message.
+              this.logger.error(
+                '[ChugSplash]: error: claiming bundle error',
+                err,
+                canonicalConfig.options
+              )
+            }
+            // Since we can't execute the bundle, we'll remove the current event from the events
+            // queue and move to the next bundle.
+            this.state.eventsQueue.pop()
+            continue
+          }
+        } else if (bundleState.selectedExecutor !== wallet.address) {
+          this.logger.info(
+            '[ChugSplash]: a different executor has already claimed the bundle'
+          )
+        }
+
+        // If we make it to the point, we know that this executor is selected to claim the bundle.
+
+        this.logger.info(`[ChugSplash]: checking that the project is funded...`)
 
         if (
           await hasSufficientFundsForExecution(
@@ -339,21 +378,21 @@ export class ChugSplashExecutor extends BaseServiceV2<
           // subsequent iterations of the BaseService.
           continue
         }
+
+        this.logger.info(`[ChugSplash]: claiming executor's payment...`)
+
+        // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
+        // project owner during execution, the executor will still be able to claim funds here.
+        await claimExecutorPayment(wallet, manager)
+
+        this.logger.info(`[ChugSplash]: claimed executor's payment`)
+
+        // If we make it to this point, we know that the executor has executed the bundle (or that it
+        // has been cancelled by the owner), and that the executor has claimed its payment.
+
+        // Remove the current event from the events queue.
+        this.state.eventsQueue.pop()
       }
-
-      this.logger.info(`[ChugSplash]: claiming executor's payment...`)
-
-      // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
-      // project owner during execution, the executor will still be able to claim funds here.
-      await claimExecutorPayment(wallet, manager)
-
-      this.logger.info(`[ChugSplash]: claimed executor's payment`)
-
-      // If we make it to this point, we know that the executor has executed the bundle (or that it
-      // has been cancelled by the owner), and that the executor has claimed its payment.
-
-      // Remove the current event from the events queue.
-      this.state.eventsQueue.pop()
     }
   }
 }

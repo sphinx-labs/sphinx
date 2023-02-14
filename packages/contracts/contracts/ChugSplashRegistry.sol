@@ -168,7 +168,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
         _transferOwnership(_owner);
 
         for (uint i = 0; i < _executors.length; i++) {
-            _setExecutor(_executors[i], true);
+            executors[_executors[i]] = true;
         }
     }
 
@@ -267,7 +267,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
      */
     function addExecutor(address _executor) external onlyOwner {
         require(executors[_executor] == false, "ChugSplashRegistry: executor already added");
-        _setExecutor(_executor, true);
+        executors[_executor] = true;
         emit ExecutorAdded(_executor);
     }
 
@@ -278,17 +278,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
      */
     function removeExecutor(address _executor) external onlyOwner {
         require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
-        _setExecutor(_executor, false);
+        executors[_executor] = false;
         emit ExecutorRemoved(_executor);
-    }
-
-    /**
-     * @notice Internal function that adds or removes an executor.
-     *
-     * @param _executor   Address of the executor to add or remove.
-     * @param _isExecutor Boolean indicating if the executor is being added or removed.
-     */
-    function _setExecutor(address _executor, bool _isExecutor) internal {
-        executors[_executor] = _isExecutor;
     }
 }
