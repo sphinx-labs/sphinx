@@ -49,6 +49,7 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
+    "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "chai": "^4.3.7",
     "hardhat": "^2.10.0"
