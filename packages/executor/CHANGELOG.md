@@ -1,5 +1,23 @@
 # @chugsplash/executor
 
+## 0.6.0
+
+### Minor Changes
+
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- a76efad: Removes an unnecessary environment variable in the ChugSplashExecutor.
+- 263b34d: Add logic for claiming bundles
+- Updated dependencies [3b13db4]
+- Updated dependencies [04dba20]
+- Updated dependencies [5c6846e]
+- Updated dependencies [263b34d]
+- Updated dependencies [fa3f420]
+- Updated dependencies [57a327d]
+  - @chugsplash/core@0.6.0
+
 ## 0.5.5
 
 ### Patch Changes

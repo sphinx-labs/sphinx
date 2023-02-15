@@ -1,5 +1,23 @@
 # @chugsplash/core
 
+## 0.6.0
+
+### Minor Changes
+
+- 3b13db4: Set immutable variables in the ChugSplash file via the 'constructorArgs' field
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- 04dba20: Update fund task to optionally automatically calculate the amount of funds to send
+- 5c6846e: Remove hard-coded chain id 31337
+- 263b34d: Add logic for claiming bundles
+- 57a327d: Temporarily allow anyone to propose bundles
+- Updated dependencies [263b34d]
+- Updated dependencies [fa3f420]
+- Updated dependencies [57a327d]
+  - @chugsplash/contracts@0.5.0
+
 ## 0.5.6
 
 ### Patch Changes
