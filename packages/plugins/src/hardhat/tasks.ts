@@ -106,7 +106,7 @@ export const bundleLocalSubtask = async (args: {
   return bundleLocal(parsedConfig, artifactPaths, 'hardhat')
 }
 
-subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
+task(TASK_CHUGSPLASH_BUNDLE_LOCAL)
   .addParam('parsedConfig', undefined, undefined)
   .setAction(bundleLocalSubtask)
 
