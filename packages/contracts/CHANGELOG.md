@@ -1,5 +1,16 @@
 # @chugsplash/contracts
 
+## 0.5.0
+
+### Minor Changes
+
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- 263b34d: Add logic for claiming bundles
+- 57a327d: Temporarily allow anyone to propose bundles
+
 ## 0.4.3
 
 ### Patch Changes

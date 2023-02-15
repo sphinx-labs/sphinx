@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@chugsplash/demo",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "ChugSplash demo",
   "main": "dist/index",
   "types": "dist/index",
@@ -45,8 +45,8 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
-    "@chugsplash/core": "^0.5.0",
-    "@chugsplash/plugins": "^0.10.5",
+    "@chugsplash/core": "^0.6.0",
+    "@chugsplash/plugins": "^0.11.0",
     "@types/node": "^18.0.0"
   }
 }
