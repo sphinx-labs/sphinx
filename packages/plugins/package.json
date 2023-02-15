@@ -5,7 +5,8 @@
   "main": "dist/index",
   "types": "dist/index",
   "files": [
-    "dist/*"
+    "dist/*",
+    "!dist/internal-tasks.*"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
