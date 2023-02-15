@@ -14,7 +14,6 @@ import {
   ParsedChugSplashConfig,
   ChugSplashActionBundle,
   getChugSplashRegistry,
-  chugsplashFetchSubtask,
   initializeChugSplash,
   monitorChugSplashSetup,
   chugsplashRegisterAbstractTask,
@@ -87,28 +86,6 @@ export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
   'chugsplash-transfer-ownership'
 export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
-
-subtask(TASK_CHUGSPLASH_FETCH)
-  .addParam('configUri', undefined, undefined, types.string)
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(chugsplashFetchSubtask)
-
-subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
-  .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(bundleRemote)
-
-export const bundleLocalSubtask = async (args: {
-  parsedConfig: ParsedChugSplashConfig
-  artifactPaths: ArtifactPaths
-}) => {
-  const { parsedConfig, artifactPaths } = args
-
-  return bundleLocal(parsedConfig, artifactPaths, 'hardhat')
-}
-
-task(TASK_CHUGSPLASH_BUNDLE_LOCAL)
-  .addParam('parsedConfig', undefined, undefined)
-  .setAction(bundleLocalSubtask)
 
 export const chugsplashDeployTask = async (
   args: {
