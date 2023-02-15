@@ -5,7 +5,8 @@
   "main": "dist/index",
   "types": "dist/index",
   "files": [
-    "dist/*"
+    "dist/*",
+    "!dist/internal-tasks.*"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
@@ -13,7 +14,10 @@
     "build:ts": "tsc -p ./tsconfig.json && yarn build:contracts",
     "build:contracts": "mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "echo 'no tests'",
+    "test": "yarn test:forge && yarn test:hardhat",
+    "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
+    "test:hardhat": "npx hardhat test --config-path ./chugsplash/Storage.config.ts",
+    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && IS_CHUGSPLASH_TEST=true && yarn test",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
@@ -46,7 +50,9 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
-    "chai": "^4.3.6",
+    "@openzeppelin/contracts": "^4.8.1",
+    "@openzeppelin/hardhat-upgrades": "^1.22.1",
+    "chai": "^4.3.7",
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {

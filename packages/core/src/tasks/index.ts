@@ -2,7 +2,6 @@ import process from 'process'
 
 import { ethers } from 'ethers'
 import ora from 'ora'
-import { getChainId } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
@@ -13,6 +12,7 @@ import {
   ParsedChugSplashConfig,
 } from '../config'
 import {
+  assertValidContracts,
   assertValidUpgrade,
   computeBundleId,
   displayDeploymentTable,
@@ -28,6 +28,7 @@ import {
   isDefaultProxy,
   isProjectRegistered,
   isTransparentProxy,
+  isUUPSProxy,
   readParsedChugSplashConfig,
   registerChugSplashProject,
   setProxiesToReferenceNames,
@@ -129,6 +130,8 @@ export const chugsplashProposeAbstractTask = async (
     spinner.start('Booting up ChugSplash...')
   }
 
+  assertValidContracts(parsedConfig, artifactPaths)
+
   await assertValidUpgrade(
     provider,
     parsedConfig,
@@ -217,15 +220,13 @@ with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} has not been proposed before.`
       )
 
-      const chainId = await getChainId(provider)
-
       await proposeChugSplashBundle(
         provider,
         signer,
         parsedConfig,
         bundle,
         configUri,
-        remoteExecution || chainId !== 31337,
+        remoteExecution,
         ipfsUrl,
         configPath,
         spinner,
@@ -535,11 +536,25 @@ export const chugsplashFundAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   amount: ethers.BigNumber,
+  autoEstimate: boolean,
   silent: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
+  if (amount.eq(0) && autoEstimate !== true) {
+    throw new Error(
+      `User must either include an amount to send by specifying '--amount <amountInWei>' or including\n` +
+        `the '--auto-estimate' flag to automatically estimate the amount necessary to fund the deployment.`
+    )
+  }
+
+  if (amount.gt(0) && autoEstimate) {
+    throw new Error(
+      `User specified an '--amount' flag and an '--auto-estimate' flag. Please choose one.`
+    )
+  }
+
   const spinner = ora({ isSilent: silent, stream })
 
   const parsedConfig = await readParsedChugSplashConfig(
@@ -553,27 +568,48 @@ export const chugsplashFundAbstractTask = async (
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
-  if (signerBalance.lt(amount)) {
-    throw new Error(`Signer's balance is less than the amount required to fund your project.
-
-Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
-Amount: ${ethers.utils.formatEther(amount)} ETH
-
-Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
-  }
-
   if (!(await isProjectRegistered(signer, projectName))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
+  const amountToDeposit = autoEstimate
+    ? await getAmountToDeposit(
+        provider,
+        await bundleLocal(parsedConfig, artifactPaths, integration),
+        0,
+        parsedConfig.options.projectName,
+        true
+      )
+    : amount
+
+  if (amountToDeposit.eq(0)) {
+    spinner.fail(
+      `No funds were sent. Reason: ${
+        autoEstimate
+          ? `Project already has sufficient funds.`
+          : `User specified an amount of 0.`
+      }`
+    )
+    return
+  }
+
+  if (signerBalance.lt(amountToDeposit)) {
+    throw new Error(`Signer's balance is less than the amount required to fund your project.
+
+Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
+Amount: ${ethers.utils.formatEther(amountToDeposit)} ETH
+
+Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
+  }
+
   spinner.start(
     `Depositing ${formatEther(
-      amount,
+      amountToDeposit,
       4
     )} ETH for the project: ${projectName}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
-    value: amount,
+    value: amountToDeposit,
     to: chugsplashManagerAddress,
   })
   await (await signer.sendTransaction(txnRequest)).wait()
@@ -586,7 +622,10 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   )
 
   spinner.succeed(
-    `Deposited ${formatEther(amount, 4)} ETH for the project: ${projectName}.`
+    `Deposited ${formatEther(
+      amountToDeposit,
+      4
+    )} ETH for the project: ${projectName}.`
   )
 }
 
@@ -637,6 +676,8 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.succeed(`Parsed ${projectName}.`)
+
+  assertValidContracts(parsedConfig, artifactPaths)
 
   await assertValidUpgrade(
     provider,
@@ -724,14 +765,13 @@ export const chugsplashDeployAbstractTask = async (
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
     spinner.start(`Proposing ${projectName}...`)
-    const chainId = await getChainId(provider)
     await proposeChugSplashBundle(
       provider,
       signer,
       parsedConfig,
       bundle,
       configUri,
-      remoteExecution || chainId !== 31337,
+      remoteExecution,
       ipfsUrl,
       configPath,
       spinner,
@@ -764,6 +804,7 @@ export const chugsplashDeployAbstractTask = async (
         signer,
         configPath,
         amountToDeposit,
+        false,
         silent,
         artifactPaths,
         integration,
@@ -1474,10 +1515,11 @@ export const chugsplashTransferOwnershipAbstractTask = async (
 
   if (
     (await isDefaultProxy(provider, proxy)) === false &&
-    (await isTransparentProxy(provider, proxy)) === false
+    (await isTransparentProxy(provider, proxy)) === false &&
+    (await isUUPSProxy(provider, proxy)) === false
   ) {
     throw new Error(`ChugSplash does not support your proxy type.
-Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
 If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
   }
 

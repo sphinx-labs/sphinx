@@ -19,6 +19,7 @@ import {
   chugsplashTransferOwnershipAbstractTask,
   readUserChugSplashConfig,
   getEIP1967ProxyAdminAddress,
+  initializeChugSplash,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
@@ -65,13 +66,6 @@ const command = args[0]
       await provider.getNetwork()
       const address = await wallet.getAddress()
       owner = owner !== 'self' ? owner : address
-
-      const remoteExecution = args[3] !== 'localhost'
-      if (remoteExecution) {
-        await monitorChugSplashSetup(provider, wallet)
-      } else {
-        await initializeExecutor(provider)
-      }
 
       if (!silent) {
         console.log('-- ChugSplash Register --')
@@ -148,6 +142,7 @@ const command = args[0]
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
       const amount = BigNumber.from(args[8])
+      const autoEstimate = args[9] === 'true'
 
       const { artifactFolder, buildInfoFolder } = fetchPaths(
         outPath,
@@ -172,6 +167,7 @@ const command = args[0]
         wallet,
         configPath,
         amount,
+        autoEstimate,
         silent,
         artifactPaths,
         'foundry',
@@ -660,6 +656,17 @@ const command = args[0]
       )
 
       process.stdout.write(adminAddress)
+      break
+    }
+    case 'initializeChugSplash': {
+      const rpcUrl = args[1]
+      const network = args[2] !== 'localhost' ? args[2] : undefined
+      const privateKey = args[3]
+
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
+      const wallet = new ethers.Wallet(privateKey, provider)
+      const walletAddress = await wallet.getAddress()
+      await initializeChugSplash(provider, wallet, walletAddress)
       break
     }
   }

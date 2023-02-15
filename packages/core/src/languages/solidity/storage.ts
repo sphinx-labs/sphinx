@@ -499,8 +499,7 @@ export const encodeBytesArrayElements = (
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  contractConfig: ParsedContractConfig,
-  immutableVariables: string[]
+  contractConfig: ParsedContractConfig
 ): Array<StorageSlotPair> => {
   const storageEntries: { [storageObjLabel: string]: SolidityStorageObj } = {}
   for (const storageObj of Object.values(storageLayout.storage)) {
@@ -508,8 +507,9 @@ export const computeStorageSlots = (
       storageEntries[storageObj.label] = storageObj
     } else {
       throw new Error(
-        `Could not find variable "${storageObj.label}" from the contract "${contractConfig.contract}" in your ChugSplash config file.\n` +
-          `You must configure all variables that are defined in the contract.\n` +
+        `Detected a variable "${storageObj.label}" from the contract "${contractConfig.contract}" (or one\n` +
+          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash file.\n` +
+          `Every variable defined in your contracts must be assigned a value in your ChugSplash file.\n` +
           `Please define the variable in your ChugSplash config file then run this command again.\n` +
           `If this problem persists, delete your cache folder then try again.`
       )
@@ -520,20 +520,18 @@ export const computeStorageSlots = (
   for (const [variableName, variableValue] of Object.entries(
     contractConfig.variables
   )) {
-    if (immutableVariables.includes(variableName)) {
-      continue
-    }
-
     // Find the entry in the storage layout that corresponds to this variable name.
     const storageObj = storageEntries[variableName]
 
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract}\n` +
-          `but does not exist as a variable in the contract. Please add the variable in the contract or remove\n` +
-          `the variable definition in the ChugSplash config file.\n` +
-          `If this problem persists, delete your cache folder then try again.`
+        `Variable "${variableName}" was defined in the ChugSplash file for ${contractConfig.contract} but\n` +
+          `does not exist as a mutable variable in the contract. If "${variableName}" is immutable, please remove\n` +
+          `its definition in the 'variables' section of the ChugSplash file and use the 'constructorArgs' field\n` +
+          `instead. If this variable is not meant to be immutable, you can fix this error by defining a mutable\n` +
+          `variable in the contract with the name "${variableName}", or by removing its variable definition in the\n` +
+          `ChugSplash file. If this problem persists, delete your cache folder then try again.`
       )
     }
 

@@ -24,6 +24,7 @@ contract ChugSplash is Script, Test {
 
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
+    bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
     struct ChugSplashContract {
         string referenceName;
@@ -33,6 +34,7 @@ contract ChugSplash is Script, Test {
 
     constructor() {
         vm.makePersistent(address(this));
+        _initializeChugSplash();
     }
 
     function fetchPaths() private view returns (string memory outPath, string memory buildInfoPath) {
@@ -54,6 +56,19 @@ contract ChugSplash is Script, Test {
                 buildInfoPath = line.rsplit("=".toSlice()).toString();
             }
         }
+    }
+
+    function _initializeChugSplash() private {
+        string[] memory cmds = new string[](7);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "initializeChugSplash";
+        cmds[4] = rpcUrl;
+        cmds[5] = network;
+        cmds[6] = privateKey;
+
+        vm.ffi(cmds);
     }
 
     function register(string memory configPath) public returns (bytes memory) {
@@ -126,11 +141,12 @@ contract ChugSplash is Script, Test {
     function fund(
         string memory configPath,
         uint amount,
+        bool autoEstimate,
         bool silent
     ) external returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](12);
+        string[] memory cmds = new string[](13);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
@@ -143,6 +159,7 @@ contract ChugSplash is Script, Test {
         cmds[9] = outPath;
         cmds[10] = buildInfoPath;
         cmds[11] = vm.toString(amount);
+        cmds[12] = autoEstimate == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
 
@@ -216,7 +233,14 @@ contract ChugSplash is Script, Test {
         cmds[14] = skipStorageCheck == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
+        if (isChugSplashTest) {
+            emit log("Attempting to decode deploy command results:");
+            emit log_bytes(result);
+        }
         ChugSplashContract[] memory deployedContracts = abi.decode(result, (ChugSplashContract[]));
+        if (isChugSplashTest) {
+            emit log("Successfully decoded");
+        }
 
         if (silent == false) {
             emit log("Success!");

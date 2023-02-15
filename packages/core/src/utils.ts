@@ -19,7 +19,9 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
-  TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  OZ_UUPS_UPDATER_ADDRESS,
+  OZ_UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -37,9 +39,15 @@ import {
   ParsedContractConfigs,
   UserChugSplashConfig,
 } from './config'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
+import {
+  ChugSplashActionBundle,
+  ChugSplashActionType,
+  ContractASTNode,
+  readBuildInfo,
+  readContractArtifact,
+} from './actions'
 import { FoundryContractArtifact } from './types'
-import { ArtifactPaths } from './languages'
+import { ArtifactPaths, CompilerOutputSources } from './languages'
 import { Integration } from './constants'
 import 'core-js/features/array/at'
 
@@ -321,7 +329,7 @@ export const claimExecutorPayment = async (
   executor: Wallet,
   ChugSplashManager: Contract
 ) => {
-  const executorDebt = await ChugSplashManager.debt()
+  const executorDebt = await ChugSplashManager.debt(executor.address)
   if (executorDebt.gt(0)) {
     await (
       await ChugSplashManager.claimExecutorPayment(
@@ -522,6 +530,14 @@ export const isDefaultProxy = async (
   return actionExecutedEvents.length === 1
 }
 
+/**
+ * Since both UUPS and Transparent proxies use the same interface we use a helper function to check that. This wrapper is intended to
+ * keep the code clear by providing separate functions for checking UUPS and Transparent proxies.
+ *
+ * @param provider JSON RPC provider corresponding to the current project owner.
+ * @param contractAddress Address of the contract to check the interface of
+ * @returns
+ */
 export const isTransparentProxy = async (
   provider: providers.Provider,
   proxyAddress: string
@@ -532,15 +548,10 @@ export const isTransparentProxy = async (
     return false
   }
 
-  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
-  const iface = new ethers.utils.Interface(ProxyABI)
+  // Check if the contract bytecode contains the expected interface
   const bytecode = await provider.getCode(proxyAddress)
-  const checkFunctions = ['implementation', 'admin', 'upgradeTo', 'changeAdmin']
-  for (const func of checkFunctions) {
-    const sigHash = remove0x(iface.getSighash(func))
-    if (!bytecode.includes(sigHash)) {
-      return false
-    }
+  if (!(await bytecodeContainsEIP1967Interface(bytecode))) {
+    return false
   }
 
   // Fetch proxy owner address from storage slot defined by EIP-1967
@@ -554,14 +565,89 @@ export const isTransparentProxy = async (
   return true
 }
 
+/**
+ * Checks if the passed in proxy contract points to an implementation address which implements the minimum requirements to be
+ * a ChugSplash compatible UUPS proxy.
+ *
+ * @param provider JSON RPC provider corresponding to the current project owner.
+ * @param proxyAddress Address of the proxy contract. Since this is a UUPS proxy, we check the interface of the implementation function.
+ * @returns
+ */
+export const isUUPSProxy = async (
+  provider: providers.Provider,
+  proxyAddress: string
+): Promise<boolean> => {
+  const implementationAddress = await getEIP1967ProxyImplementationAddress(
+    provider,
+    proxyAddress
+  )
+
+  // Check if the contract bytecode contains the expected interface
+  const bytecode = await provider.getCode(implementationAddress)
+  if (!(await bytecodeContainsUUPSInterface(bytecode))) {
+    return false
+  }
+
+  // Fetch proxy owner address from storage slot defined by EIP-1967
+  const ownerAddress = await getEIP1967ProxyAdminAddress(
+    provider,
+    implementationAddress
+  )
+
+  // If proxy owner is not a valid address, then proxy type is incompatible
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    return false
+  }
+
+  return true
+}
+
+const bytecodeContainsUUPSInterface = async (
+  bytecode: string
+): Promise<boolean> => {
+  return bytecodeContainsInterface(bytecode, ['upgradeTo'])
+}
+
+const bytecodeContainsEIP1967Interface = async (
+  bytecode: string
+): Promise<boolean> => {
+  return bytecodeContainsInterface(bytecode, [
+    'implementation',
+    'admin',
+    'upgradeTo',
+    'changeAdmin',
+  ])
+}
+
+/**
+ * @param bytecode The bytecode of the contract to check the interface of.
+ * @returns True if the contract contains the expected interface and false if not.
+ */
+const bytecodeContainsInterface = async (
+  bytecode: string,
+  checkFunctions: string[]
+): Promise<boolean> => {
+  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
+  const iface = new ethers.utils.Interface(ProxyABI)
+  for (const func of checkFunctions) {
+    const sigHash = remove0x(iface.getSighash(func))
+    if (!bytecode.includes(sigHash)) {
+      return false
+    }
+  }
+  return true
+}
+
 export const getProxyTypeHash = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<string> => {
   if (await isDefaultProxy(provider, proxyAddress)) {
     return ethers.constants.HashZero
+  } else if (await isUUPSProxy(provider, proxyAddress)) {
+    return OZ_UUPS_PROXY_TYPE_HASH
   } else if (await isTransparentProxy(provider, proxyAddress)) {
-    return TRANSPARENT_PROXY_TYPE_HASH
+    return OZ_TRANSPARENT_PROXY_TYPE_HASH
   } else {
     throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
   }
@@ -624,18 +710,54 @@ export const assertValidUpgrade = async (
     parsedConfig.contracts
   )) {
     if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
-      const proxyAdmin = await getEIP1967ProxyAdminAddress(
-        provider,
-        contractConfig.proxy
-      )
-      if (proxyAdmin !== chugSplashManagerAddress) {
-        requiresOwnershipTransfer.push({
-          name: referenceName,
-          address: contractConfig.proxy,
-        })
-      }
-
       isUpgrade = true
+
+      if (contractConfig.proxyType === 'oz-uups') {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const chugsplashManager = new ethers.VoidSigner(
+          chugSplashManagerAddress,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          contractConfig.proxy,
+          ProxyABI,
+          chugsplashManager
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      } else {
+        const proxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          contractConfig.proxy
+        )
+
+        if (proxyAdmin !== chugSplashManagerAddress) {
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      }
     }
   }
 
@@ -646,8 +768,11 @@ export const assertValidUpgrade = async (
         ({ name, address }) => `${name}, ${address}\n`
       )}
 
-To perform an upgrade, you must first transfer ownership of the contract(s) to ChugSplash using the following command:
+If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
 npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+
+If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
+permission to call the 'upgradeTo' function on each of them.
       `
     )
   }
@@ -662,6 +787,33 @@ npx hardhat chugsplash-transfer-ownership --network <network> --config-path <pat
         remoteExecution,
         canonicalConfigFolderPath
       )
+    }
+
+    // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
+    // user will be able to upgrade the proxy in the future.
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      if (contractConfig.proxyType === 'oz-uups') {
+        const artifact = readContractArtifact(
+          artifactPaths,
+          contractConfig.contract,
+          integration
+        )
+        const containsPublicUpgradeTo = artifact.abi.some(
+          (fragment) =>
+            fragment.name === 'upgradeTo' &&
+            fragment.inputs.length === 1 &&
+            fragment.inputs[0].type === 'address'
+        )
+        if (!containsPublicUpgradeTo) {
+          throw new Error(
+            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
+              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
+              `or you will no longer be able to upgrade this contract.`
+          )
+        }
+      }
     }
 
     spinner?.succeed(`${projectName} is a valid upgrade.`)
@@ -684,4 +836,146 @@ export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
   return externalProxyTypes.includes(proxyType)
+}
+
+export const assertValidContracts = (
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths
+) => {
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
+
+    const sourceOutput = buildInfo.output.sources[sourceName]
+    const childContractNode = sourceOutput.ast.nodes.find(
+      (node) =>
+        node.nodeType === 'ContractDefinition' && node.name === contractName
+    )
+
+    const parentContractNodeAstIds =
+      childContractNode.linearizedBaseContracts.filter(
+        (astId) => astId !== childContractNode.id
+      )
+    const parentContractNodes = getParentContractASTNodes(
+      buildInfo.output.sources,
+      parentContractNodeAstIds
+    )
+
+    // TODO: type
+    const constructorNodes: Array<any> = []
+    const immutableVarAstIds: { [astId: number]: boolean } = {}
+    // Create a mapping of constructor node AST IDs to the corresponding contract's name. This is only used
+    // for error messages when we parse the constructor nodes later.
+    const constructorNodeContractNames: { [astId: number]: string } = {}
+    for (const contractNode of parentContractNodes.concat([
+      childContractNode,
+    ])) {
+      for (const node of contractNode.nodes) {
+        if (node.kind === 'constructor') {
+          constructorNodes.push(node)
+          constructorNodeContractNames[node.id] = contractNode.name
+        } else if (node.nodeType === 'VariableDeclaration') {
+          if (node.mutability === 'mutable' && node.value !== undefined) {
+            throw new Error(
+              `User attempted to assign a value to a non-immutable state variable '${node.name}' in\n` +
+                `the contract: ${contractNode.name}. This is not allowed because the value will not exist in\n` +
+                `the upgradeable contract. Please remove the value in the contract and define it in your ChugSplash\n` +
+                `file instead. You can also set '${node.name} to be a constant or immutable variable instead.`
+            )
+          }
+
+          if (
+            node.mutability === 'immutable' &&
+            node.value !== undefined &&
+            node.value.kind === 'functionCall'
+          ) {
+            throw new Error(
+              `User attempted to assign the immutable variable '${node.name}' to the return value of a function call in\n` +
+                `the contract: ${contractNode.name}. This is not allowed to ensure that ChugSplash is\n` +
+                `deterministic. Please remove the function call.`
+            )
+          }
+
+          if (node.mutability === 'immutable' && node.value === undefined) {
+            immutableVarAstIds[node.id] = true
+          }
+        }
+      }
+    }
+
+    for (const node of constructorNodes) {
+      for (const statement of node.body.statements) {
+        if (statement.nodeType !== 'ExpressionStatement') {
+          throw new Error(
+            `Detected an unallowed expression, '${statement.nodeType}', in the constructor of the\n` +
+              `contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (statement.expression.nodeType !== 'Assignment') {
+          const unallowedOperation: string =
+            statement.expression.expression.name ?? statement.expression.kind
+          throw new Error(
+            `Detected an unallowed operation, '${unallowedOperation}', in the constructor of the\n` +
+              `contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (
+          immutableVarAstIds[
+            statement.expression.leftHandSide.referencedDeclaration
+          ] !== true
+        ) {
+          throw new Error(
+            `Detected an assignment to a non-immutable variable, '${statement.expression.leftHandSide.name}', in the\n` +
+              `constructor of the contract: ${
+                constructorNodeContractNames[node.id]
+              }. Only immutable variable assignments are allowed in\n` +
+              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
+          )
+        }
+
+        if (statement.expression.rightHandSide.kind === 'functionCall') {
+          throw new Error(
+            `User attempted to assign the immutable variable '${statement.expression.leftHandSide.name}' to the return \n` +
+              `value of a function call in the contract: ${
+                constructorNodeContractNames[node.id]
+              }. This is not allowed to ensure that\n` +
+              `ChugSplash is deterministic. Please remove the function call.`
+          )
+        }
+      }
+    }
+  }
+}
+
+export const getParentContractASTNodes = (
+  compilerOutputSources: CompilerOutputSources,
+  parentContractNodeAstIds: Array<number>
+): Array<ContractASTNode> => {
+  const parentContractNodes: Array<ContractASTNode> = []
+  for (const source of Object.values(compilerOutputSources)) {
+    for (const node of source.ast.nodes) {
+      if (parentContractNodeAstIds.includes(node.id)) {
+        parentContractNodes.push(node)
+      }
+    }
+  }
+
+  // Should never happen.
+  if (parentContractNodes.length !== parentContractNodeAstIds.length) {
+    throw new Error(
+      `Expected ${parentContractNodeAstIds.length} parent contract AST nodes, but got ${parentContractNodes.length}.\n` +
+        `Please report this error to ChugSplash.`
+    )
+  }
+
+  return parentContractNodes
 }
