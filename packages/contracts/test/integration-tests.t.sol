@@ -11,11 +11,10 @@ import { MockChugSplashRegistry } from "./MockChugSplashRegistry.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract Integration_Tests is Test {
-
     address owner = address(128);
     address executor = address(256);
     bytes32 salt = bytes32(hex"11");
-    string projectName = 'TestProject';
+    string projectName = "TestProject";
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
     uint256 executionLockTime = 15 minutes;
     uint256 executorPaymentPercentage = 20;
@@ -24,7 +23,7 @@ contract Integration_Tests is Test {
     Proxy registryProxy;
 
     function setUp() external {
-        bootloader = new ChugSplashBootLoader{salt: salt }();
+        bootloader = new ChugSplashBootLoader{ salt: salt }();
 
         address registryProxyAddress = Create2.compute(
             address(this),
@@ -55,15 +54,22 @@ contract Integration_Tests is Test {
     }
 
     function test_upgrade_managerAndRegistryImplementations() external {
-        ChugSplashManager newManagerImplementation = ChugSplashManager(payable(address(new MockChugSplashManager())));
-        ChugSplashRegistry newRegistryImplementation = ChugSplashRegistry(address(new MockChugSplashRegistry(address(newManagerImplementation))));
+        ChugSplashManager newManagerImplementation = ChugSplashManager(
+            payable(address(new MockChugSplashManager()))
+        );
+        ChugSplashRegistry newRegistryImplementation = ChugSplashRegistry(
+            address(new MockChugSplashRegistry(address(newManagerImplementation)))
+        );
 
         vm.startPrank(owner);
         registryProxy.upgradeTo(address(newRegistryImplementation));
 
         assertEq(registryProxy.implementation(), address(newRegistryImplementation));
         vm.stopPrank();
-        assertEq(ChugSplashRegistry(address(registryProxy)).managerImplementation(), address(newManagerImplementation));
-        assertEq(manager.computeBundleId(bytes32(0), 0, ''), bytes32(uint256(1)));
+        assertEq(
+            ChugSplashRegistry(address(registryProxy)).managerImplementation(),
+            address(newManagerImplementation)
+        );
+        assertEq(manager.computeBundleId(bytes32(0), 0, ""), bytes32(uint256(1)));
     }
 }

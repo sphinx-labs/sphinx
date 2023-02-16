@@ -8,7 +8,6 @@ import { ChugSplashRegistry } from "../contracts/ChugSplashRegistry.sol";
 import { Create2 } from "../contracts/libraries/Create2.sol";
 
 contract ChugSplashRegistry_Test is Test {
-
     event ChugSplashProjectRegistered(
         string indexed projectNameHash,
         address indexed creator,
@@ -41,7 +40,7 @@ contract ChugSplashRegistry_Test is Test {
     bytes32 proxyType = bytes32(hex"1337");
     bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
-    string projectName = 'TestProject';
+    string projectName = "TestProject";
     uint256 ownerBondAmount = 10e8 gwei; // 0.1 ETH
     uint256 executionLockTime = 15 minutes;
     uint256 executorPaymentPercentage = 20;
@@ -89,7 +88,10 @@ contract ChugSplashRegistry_Test is Test {
         address newManagerAddress = Create2.compute(
             address(registry),
             keccak256(bytes(projectName)),
-            abi.encodePacked(type(ChugSplashManagerProxy).creationCode, abi.encode(address(registry), address(registry)))
+            abi.encodePacked(
+                type(ChugSplashManagerProxy).creationCode,
+                abi.encode(address(registry), address(registry))
+            )
         );
 
         vm.prank(owner);
@@ -112,8 +114,10 @@ contract ChugSplashRegistry_Test is Test {
 
     function test_announce_revert_onlyManager() external {
         vm.prank(owner);
-        vm.expectRevert("ChugSplashRegistry: events can only be announced by ChugSplashManager contracts");
-        registry.announce('ChugSplashBundleProposed');
+        vm.expectRevert(
+            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+        );
+        registry.announce("ChugSplashBundleProposed");
     }
 
     function test_announce_success() external {
@@ -129,8 +133,10 @@ contract ChugSplashRegistry_Test is Test {
 
     function test_announceWithData_revert_onlyManager() external {
         vm.prank(owner);
-        vm.expectRevert("ChugSplashRegistry: events can only be announced by ChugSplashManager contracts");
-        registry.announceWithData('ChugSplashActionExecuted', abi.encodePacked(owner));
+        vm.expectRevert(
+            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+        );
+        registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(owner));
     }
 
     function test_announceWithData_success() external {
@@ -153,14 +159,14 @@ contract ChugSplashRegistry_Test is Test {
 
     function test_addExecutor_revert_nonOwner() external {
         vm.prank(nonOwner);
-        vm.expectRevert('Ownable: caller is not the owner');
+        vm.expectRevert("Ownable: caller is not the owner");
         registry.addExecutor(executor);
     }
 
     function test_addExecutor_revert_alreadyAdded() external {
         vm.startPrank(owner);
         registry.addExecutor(executor);
-        vm.expectRevert('ChugSplashRegistry: executor already added');
+        vm.expectRevert("ChugSplashRegistry: executor already added");
         registry.addExecutor(executor);
     }
 
@@ -177,13 +183,13 @@ contract ChugSplashRegistry_Test is Test {
 
     function test_removeExecutor_revert_nonOwner() external {
         vm.prank(nonOwner);
-        vm.expectRevert('Ownable: caller is not the owner');
+        vm.expectRevert("Ownable: caller is not the owner");
         registry.removeExecutor(executor);
     }
 
     function test_removeExecutor_revert_alreadyRemoved() external {
         vm.prank(owner);
-        vm.expectRevert('ChugSplashRegistry: executor already removed');
+        vm.expectRevert("ChugSplashRegistry: executor already removed");
         registry.removeExecutor(executor);
     }
 

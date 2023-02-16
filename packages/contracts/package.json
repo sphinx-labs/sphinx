@@ -20,8 +20,8 @@
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
-    "lint:contracts:check": "yarn solhint -f table 'contracts/**/*.sol'",
-    "lint:contracts:fix": "prettier --write 'contracts/**/*.sol'",
+    "lint:contracts:check": "yarn solhint -f table '{contracts,test}/**/*.sol'",
+    "lint:contracts:fix": "prettier --write '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/contracts#readme",

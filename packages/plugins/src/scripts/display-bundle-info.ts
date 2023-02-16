@@ -4,7 +4,7 @@ import { argv } from 'node:process'
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import {
-  bundleLocal,
+  chugsplashCommitAbstractSubtask,
   readParsedChugSplashConfig,
   readUserChugSplashConfig,
 } from '@chugsplash/core'
@@ -18,11 +18,13 @@ if (typeof chugsplashFilePath !== 'string') {
 }
 
 /**
- * Display a ChugSplash bundle. This can be The output can be written to a file by appending the CLI arguments
- * with: `> fileName.json'. This makes it easy to generate bundles to be used when unit testing the
- * ChugSplashManager.
+ * Display a ChugSplash bundle. This script can be called by running:
+ * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/chugsplash/file>
+ *
+ * The output can be written to a file by appending this CLI command with: `> fileName.json`.
+ * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
-const displayBundle = async () => {
+const displayBundleInfo = async () => {
   const userConfig = readUserChugSplashConfig(chugsplashFilePath)
   const artifactPaths = await getArtifactPaths(
     hre,
@@ -38,7 +40,16 @@ const displayBundle = async () => {
     'hardhat'
   )
 
-  const bundle = await bundleLocal(parsedConfig, artifactPaths, 'hardhat')
+  const { configUri, bundle } = await chugsplashCommitAbstractSubtask(
+    hre.ethers.provider,
+    hre.ethers.provider.getSigner(),
+    parsedConfig,
+    '',
+    false,
+    artifactPaths,
+    hre.config.paths.canonicalConfigs,
+    'hardhat'
+  )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.
   for (const action of bundle.actions) {
@@ -47,7 +58,9 @@ const displayBundle = async () => {
     )
   }
 
-  process.stdout.write(JSON.stringify(bundle, null, 2))
+  const bundleInfo = { configUri, bundle }
+
+  process.stdout.write(JSON.stringify(bundleInfo, null, 2))
 }
 
-displayBundle()
+displayBundleInfo()
