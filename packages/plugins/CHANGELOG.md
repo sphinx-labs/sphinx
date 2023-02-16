@@ -1,5 +1,16 @@
 # @chugsplash/plugins
 
+## 0.11.1
+
+### Patch Changes
+
+- d30ebdf: Change the task for displaying bundles into a script
+- ca6d384: Bump contracts
+- Updated dependencies [ca6d384]
+  - @chugsplash/contracts@0.5.1
+  - @chugsplash/core@0.6.1
+  - @chugsplash/executor@0.6.1
+
 ## 0.11.0
 
 ### Minor Changes
