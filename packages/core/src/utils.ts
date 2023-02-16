@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import * as semver from 'semver'
 import {
   utils,
   constants,
@@ -20,36 +21,33 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_UPDATER_ADDRESS,
   OZ_UUPS_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
-import ora from 'ora'
-import yesno from 'yesno'
 
 import {
-  assertStorageSlotCheck,
-  assertValidUserConfigFields,
   CanonicalChugSplashConfig,
   ExternalProxyType,
   externalProxyTypes,
-  parseChugSplashConfig,
   ParsedChugSplashConfig,
   ParsedContractConfigs,
-  UserChugSplashConfig,
-} from './config'
+} from './config/types'
 import {
+  BuildInfo,
   ChugSplashActionBundle,
   ChugSplashActionType,
+  ContractArtifact,
   ContractASTNode,
-  readBuildInfo,
-  readContractArtifact,
-} from './actions'
+} from './actions/types'
 import { FoundryContractArtifact } from './types'
-import { ArtifactPaths, CompilerOutputSources } from './languages'
-import { Integration } from './constants'
+import {
+  ArtifactPaths,
+  CompilerOutputSources,
+  SolidityStorageLayout,
+} from './languages/solidity/types'
 import 'core-js/features/array/at'
+import { Integration } from './constants'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -473,34 +471,6 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-/**
- * Reads a ChugSplash config file synchronously.
- *
- * @param configPath Path to the ChugSplash config file.
- * @returns The parsed ChugSplash config file.
- */
-export const readParsedChugSplashConfig = async (
-  provider: providers.Provider,
-  configPath: string,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
-): Promise<ParsedChugSplashConfig> => {
-  const userConfig = readUserChugSplashConfig(configPath)
-  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
-}
-
-export const readUserChugSplashConfig = (
-  configPath: string
-): UserChugSplashConfig => {
-  delete require.cache[require.resolve(path.resolve(configPath))]
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configPath))
-  config = config.default || config
-  assertValidUserConfigFields(config)
-  return config
-}
-
 export const isProjectRegistered = async (
   signer: Signer,
   projectName: string
@@ -680,158 +650,6 @@ export const setProxiesToReferenceNames = async (
   }
 }
 
-export const assertValidUpgrade = async (
-  provider: providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration,
-  remoteExecution: boolean,
-  canonicalConfigFolderPath: string,
-  skipStorageCheck: boolean,
-  confirm: boolean,
-  spinner?: ora.Ora
-) => {
-  // Determine if the deployment is an upgrade
-  const projectName = parsedConfig.options.projectName
-  spinner?.start(
-    `Checking if ${projectName} is a fresh deployment or upgrade...`
-  )
-
-  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
-    parsedConfig.options.projectName
-  )
-
-  const requiresOwnershipTransfer: {
-    name: string
-    address: string
-  }[] = []
-  let isUpgrade: boolean = false
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
-      isUpgrade = true
-
-      if (contractConfig.proxyType === 'oz-uups') {
-        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
-        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
-        // mechanisms.
-        const chugsplashManager = new ethers.VoidSigner(
-          chugSplashManagerAddress,
-          provider
-        )
-        const UUPSProxy = new ethers.Contract(
-          contractConfig.proxy,
-          ProxyABI,
-          chugsplashManager
-        )
-        try {
-          // Attempt to staticcall the `upgradeTo` function on the proxy from the
-          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
-          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
-          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
-          //    due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
-          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
-          //    will revert due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
-        } catch (e) {
-          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
-          // proxy, which means the user must grant it permission via whichever access control
-          // mechanism the UUPS proxy uses.
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            address: contractConfig.proxy,
-          })
-        }
-      } else {
-        const proxyAdmin = await getEIP1967ProxyAdminAddress(
-          provider,
-          contractConfig.proxy
-        )
-
-        if (proxyAdmin !== chugSplashManagerAddress) {
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            address: contractConfig.proxy,
-          })
-        }
-      }
-    }
-  }
-
-  if (requiresOwnershipTransfer.length > 0) {
-    throw new Error(
-      `Detected proxy contracts which are not managed by ChugSplash.
-      ${requiresOwnershipTransfer.map(
-        ({ name, address }) => `${name}, ${address}\n`
-      )}
-
-If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
-
-If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
-permission to call the 'upgradeTo' function on each of them.
-      `
-    )
-  }
-
-  if (isUpgrade) {
-    if (!skipStorageCheck) {
-      await assertStorageSlotCheck(
-        provider,
-        parsedConfig,
-        artifactPaths,
-        integration,
-        remoteExecution,
-        canonicalConfigFolderPath
-      )
-    }
-
-    // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
-    // user will be able to upgrade the proxy in the future.
-    for (const [referenceName, contractConfig] of Object.entries(
-      parsedConfig.contracts
-    )) {
-      if (contractConfig.proxyType === 'oz-uups') {
-        const artifact = readContractArtifact(
-          artifactPaths,
-          contractConfig.contract,
-          integration
-        )
-        const containsPublicUpgradeTo = artifact.abi.some(
-          (fragment) =>
-            fragment.name === 'upgradeTo' &&
-            fragment.inputs.length === 1 &&
-            fragment.inputs[0].type === 'address'
-        )
-        if (!containsPublicUpgradeTo) {
-          throw new Error(
-            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
-              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
-              `or you will no longer be able to upgrade this contract.`
-          )
-        }
-      }
-    }
-
-    spinner?.succeed(`${projectName} is a valid upgrade.`)
-
-    if (!confirm) {
-      // Confirm upgrade with user
-      const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
-      })
-      if (!userConfirmed) {
-        throw new Error(`User denied upgrade.`)
-      }
-    }
-  } else {
-    spinner?.succeed(`${projectName} is not an upgrade.`)
-  }
-}
-
 export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
@@ -978,4 +796,161 @@ export const getParentContractASTNodes = (
   }
 
   return parentContractNodes
+}
+
+/**
+ * Grabs the transaction hash of the transaction that completed the given bundle.
+ *
+ * @param ChugSplashManager ChugSplashManager contract instance.
+ * @param bundleId ID of the bundle to look up.
+ * @returns Transaction hash of the transaction that completed the bundle.
+ */
+export const getBundleCompletionTxnHash = async (
+  ChugSplashManager: ethers.Contract,
+  bundleId: string
+): Promise<string> => {
+  const events = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+  )
+
+  // Might happen if we're asking for the event too quickly after completing the bundle.
+  if (events.length === 0) {
+    throw new Error(
+      `no ChugSplashBundleCompleted event found for bundle ${bundleId}`
+    )
+  }
+
+  // Shouldn't happen.
+  if (events.length > 1) {
+    throw new Error(
+      `multiple ChugSplashBundleCompleted events found for bundle ${bundleId}`
+    )
+  }
+
+  return events[0].transactionHash
+}
+
+/**
+ * Retrieves an artifact by name from the local file system.
+ *
+ * @param name Contract name or fully qualified name.
+ * @returns Artifact.
+ */
+export const readContractArtifact = (
+  artifactPaths: ArtifactPaths,
+  contract: string,
+  integration: Integration
+): ContractArtifact => {
+  let contractArtifactPath: string
+  if (artifactPaths[contract]) {
+    contractArtifactPath = artifactPaths[contract].contractArtifactPath
+  } else {
+    // The contract must be a fully qualified name.
+    const contractName = contract.split(':').at(-1)
+    if (contractName === undefined) {
+      throw new Error('Could not use contract name to get build info')
+    } else {
+      contractArtifactPath = artifactPaths[contractName].contractArtifactPath
+    }
+  }
+
+  const artifact: ContractArtifact = JSON.parse(
+    fs.readFileSync(contractArtifactPath, 'utf8')
+  )
+
+  if (integration === 'hardhat') {
+    return artifact
+  } else if (integration === 'foundry') {
+    return parseFoundryArtifact(artifact)
+  } else {
+    throw new Error('Unknown integration')
+  }
+}
+
+/**
+ * Reads the build info from the local file system.
+ *
+ * @param artifactPaths ArtifactPaths object.
+ * @param fullyQualifiedName Fully qualified name of the contract.
+ * @returns BuildInfo object.
+ */
+export const readBuildInfo = (
+  artifactPaths: ArtifactPaths,
+  fullyQualifiedName: string
+): BuildInfo => {
+  const [sourceName, contractName] = fullyQualifiedName.split(':')
+  const { buildInfoPath } =
+    artifactPaths[fullyQualifiedName] ?? artifactPaths[contractName]
+  const buildInfo: BuildInfo = JSON.parse(
+    fs.readFileSync(buildInfoPath, 'utf8')
+  )
+
+  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
+  const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
+
+  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
+  }
+
+  if (!('storageLayout' in contractOutput)) {
+    throw new Error(
+      `Storage layout for ${fullyQualifiedName} not found. Did you forget to set the storage layout
+compiler option in your hardhat config? Read more:
+https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+    )
+  }
+
+  addEnumMembersToStorageLayout(
+    contractOutput.storageLayout,
+    contractName,
+    sourceNodes
+  )
+
+  return buildInfo
+}
+
+export const addEnumMembersToStorageLayout = (
+  storageLayout: SolidityStorageLayout,
+  contractName: string,
+  sourceNodes: any
+): SolidityStorageLayout => {
+  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
+  if (storageLayout.types === null) {
+    return storageLayout
+  }
+
+  for (const layoutType of Object.values(storageLayout.types)) {
+    if (layoutType.label.startsWith('enum')) {
+      const canonicalVarName = layoutType.label.substring(5)
+      for (const contractNode of sourceNodes) {
+        if (contractNode.canonicalName === contractName) {
+          for (const node of contractNode.nodes) {
+            if (node.canonicalName === canonicalVarName) {
+              layoutType.members = node.members.map((member) => member.name)
+            }
+          }
+        }
+      }
+    }
+  }
+  return storageLayout
+}
+
+/**
+ * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
+ *
+ * @param artifact Raw artifact object.
+ * @returns ContractArtifact
+ */
+export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
+  const abi = artifact.abi
+  const bytecode = artifact.bytecode.object
+
+  const compilationTarget = artifact.metadata.settings.compilationTarget
+  const sourceName = Object.keys(compilationTarget)[0]
+  const contractName = compilationTarget[sourceName]
+
+  return { abi, bytecode, sourceName, contractName }
 }

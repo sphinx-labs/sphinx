@@ -11,11 +11,11 @@ import {
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
-import { getBundleCompletionTxnHash } from '../deployments'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
   formatEther,
+  getBundleCompletionTxnHash,
   getChugSplashManager,
   getCurrentChugSplashActionType,
   getGasPriceOverrides,

@@ -4,21 +4,19 @@ import * as path from 'path'
 import * as Handlebars from 'handlebars'
 import { ethers, providers } from 'ethers'
 import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
+import { OZ_UUPS_UPDATER_ADDRESS, ProxyABI } from '@chugsplash/contracts'
+import ora from 'ora'
+import yesno from 'yesno'
 
-/* Imports: Internal */
+import { ArtifactPaths } from '../languages/solidity/types'
+import { readStorageLayout } from '../actions'
 import {
-  ArtifactPaths,
-  computeStorageSlots,
-  SolidityStorageLayout,
-} from '../languages/solidity'
-import {
-  ChugSplashAction,
-  ChugSplashActionBundle,
-  readStorageLayout,
-  makeBundleFromActions,
+  getChugSplashManagerProxyAddress,
+  getDefaultProxyAddress,
+  getEIP1967ProxyAdminAddress,
+  isExternalProxyType,
   readContractArtifact,
-} from '../actions'
-import { getDefaultProxyAddress, isExternalProxyType } from '../utils'
+} from '../utils'
 import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
@@ -26,6 +24,34 @@ import {
 } from './types'
 import { Integration } from '../constants'
 import { getLatestDeployedStorageLayout } from '../deployed'
+
+/**
+ * Reads a ChugSplash config file synchronously.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readParsedChugSplashConfig = async (
+  provider: providers.Provider,
+  configPath: string,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ParsedChugSplashConfig> => {
+  const userConfig = readUserChugSplashConfig(configPath)
+  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
+}
+
+export const readUserChugSplashConfig = (
+  configPath: string
+): UserChugSplashConfig => {
+  delete require.cache[require.resolve(path.resolve(configPath))]
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  let config = require(path.resolve(configPath))
+  config = config.default || config
+  assertValidUserConfigFields(config)
+  return config
+}
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -251,54 +277,154 @@ export const parseChugSplashConfig = async (
   )
 }
 
-/**
- * Generates a ChugSplash action bundle from a config file.
- *
- * @param config Config file to convert into a bundle.
- * @param env Environment variables to inject into the config file.
- * @returns Action bundle generated from the parsed config file.
- */
-export const makeActionBundleFromConfig = async (
+export const assertValidUpgrade = async (
+  provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: {
-    [name: string]: {
-      creationCode: string
-      storageLayout: SolidityStorageLayout
-    }
-  }
-): Promise<ChugSplashActionBundle> => {
-  const actions: ChugSplashAction[] = []
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string,
+  skipStorageCheck: boolean,
+  confirm: boolean,
+  spinner?: ora.Ora
+) => {
+  // Determine if the deployment is an upgrade
+  const projectName = parsedConfig.options.projectName
+  spinner?.start(
+    `Checking if ${projectName} is a fresh deployment or upgrade...`
+  )
+
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let isUpgrade: boolean = false
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const artifact = artifacts[referenceName]
+    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+      isUpgrade = true
 
-    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
-    actions.push({
-      referenceName,
-      code: artifact.creationCode,
-    })
+      if (contractConfig.proxyType === 'oz-uups') {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const chugsplashManager = new ethers.VoidSigner(
+          chugSplashManagerAddress,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          contractConfig.proxy,
+          ProxyABI,
+          chugsplashManager
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      } else {
+        const proxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          contractConfig.proxy
+        )
 
-    // Next, add a SET_IMPLEMENTATION action for each contract.
-    actions.push({
-      referenceName,
-    })
-
-    // Compute our storage slots.
-    // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(artifact.storageLayout, contractConfig)
-
-    // Add SET_STORAGE actions for each storage slot that we want to modify.
-    for (const slot of slots) {
-      actions.push({
-        referenceName,
-        key: slot.key,
-        offset: slot.offset,
-        value: slot.val,
-      })
+        if (proxyAdmin !== chugSplashManagerAddress) {
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      }
     }
   }
 
-  // Generate a bundle from the list of actions.
-  return makeBundleFromActions(actions)
+  if (requiresOwnershipTransfer.length > 0) {
+    throw new Error(
+      `Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+
+If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
+permission to call the 'upgradeTo' function on each of them.
+      `
+    )
+  }
+
+  if (isUpgrade) {
+    if (!skipStorageCheck) {
+      await assertStorageSlotCheck(
+        provider,
+        parsedConfig,
+        artifactPaths,
+        integration,
+        remoteExecution,
+        canonicalConfigFolderPath
+      )
+    }
+
+    // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
+    // user will be able to upgrade the proxy in the future.
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      if (contractConfig.proxyType === 'oz-uups') {
+        const artifact = readContractArtifact(
+          artifactPaths,
+          contractConfig.contract,
+          integration
+        )
+        const containsPublicUpgradeTo = artifact.abi.some(
+          (fragment) =>
+            fragment.name === 'upgradeTo' &&
+            fragment.inputs.length === 1 &&
+            fragment.inputs[0].type === 'address'
+        )
+        if (!containsPublicUpgradeTo) {
+          throw new Error(
+            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
+              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
+              `or you will no longer be able to upgrade this contract.`
+          )
+        }
+      }
+    }
+
+    spinner?.succeed(`${projectName} is a valid upgrade.`)
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(`User denied upgrade.`)
+      }
+    }
+  } else {
+    spinner?.succeed(`${projectName} is not an upgrade.`)
+  }
 }

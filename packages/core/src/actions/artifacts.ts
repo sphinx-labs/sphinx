@@ -1,131 +1,18 @@
-import * as fs from 'fs'
-
-import * as semver from 'semver'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import ora from 'ora'
 import { Fragment } from 'ethers/lib/utils'
 
-import { ParsedChugSplashConfig, ParsedConfigVariable } from '../config'
-import {
-  addEnumMembersToStorageLayout,
-  ArtifactPaths,
-  SolidityStorageObj,
-} from '../languages'
+import { ParsedChugSplashConfig, ParsedConfigVariable } from '../config/types'
+import { ArtifactPaths, SolidityStorageObj } from '../languages/solidity/types'
 import { Integration } from '../constants'
 import {
   createDeploymentFolderForNetwork,
+  readBuildInfo,
+  readContractArtifact,
   writeDeploymentArtifact,
   writeSnapshotId,
 } from '../utils'
-
-// TODO
-export type BuildInfo = any
-export type ContractArtifact = {
-  abi: Array<Fragment>
-  sourceName: string
-  contractName: string
-  bytecode: string
-}
-export type ContractASTNode = any
-
-/**
- * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
- *
- * @param artifact Raw artifact object.
- * @returns ContractArtifact
- */
-export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
-  const abi = artifact.abi
-  const bytecode = artifact.bytecode.object
-
-  const compilationTarget = artifact.metadata.settings.compilationTarget
-  const sourceName = Object.keys(compilationTarget)[0]
-  const contractName = compilationTarget[sourceName]
-
-  return { abi, bytecode, sourceName, contractName }
-}
-
-/**
- * Retrieves an artifact by name from the local file system.
- *
- * @param name Contract name or fully qualified name.
- * @returns Artifact.
- */
-export const readContractArtifact = (
-  artifactPaths: ArtifactPaths,
-  contract: string,
-  integration: Integration
-): ContractArtifact => {
-  let contractArtifactPath: string
-  if (artifactPaths[contract]) {
-    contractArtifactPath = artifactPaths[contract].contractArtifactPath
-  } else {
-    // The contract must be a fully qualified name.
-    const contractName = contract.split(':').at(-1)
-    if (contractName === undefined) {
-      throw new Error('Could not use contract name to get build info')
-    } else {
-      contractArtifactPath = artifactPaths[contractName].contractArtifactPath
-    }
-  }
-
-  const artifact: ContractArtifact = JSON.parse(
-    fs.readFileSync(contractArtifactPath, 'utf8')
-  )
-
-  if (integration === 'hardhat') {
-    return artifact
-  } else if (integration === 'foundry') {
-    return parseFoundryArtifact(artifact)
-  } else {
-    throw new Error('Unknown integration')
-  }
-}
-
-/**
- * Reads the build info from the local file system.
- *
- * @param artifactPaths ArtifactPaths object.
- * @param fullyQualifiedName Fully qualified name of the contract.
- * @returns BuildInfo object.
- */
-export const readBuildInfo = (
-  artifactPaths: ArtifactPaths,
-  fullyQualifiedName: string
-): BuildInfo => {
-  const [sourceName, contractName] = fullyQualifiedName.split(':')
-  const { buildInfoPath } =
-    artifactPaths[fullyQualifiedName] ?? artifactPaths[contractName]
-  const buildInfo: BuildInfo = JSON.parse(
-    fs.readFileSync(buildInfoPath, 'utf8')
-  )
-
-  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
-  const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
-
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  if (!('storageLayout' in contractOutput)) {
-    throw new Error(
-      `Storage layout for ${fullyQualifiedName} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
-    )
-  }
-
-  addEnumMembersToStorageLayout(
-    contractOutput.storageLayout,
-    contractName,
-    sourceNodes
-  )
-
-  return buildInfo
-}
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
