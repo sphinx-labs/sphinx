@@ -1,5 +1,13 @@
 # @chugsplash/core
 
+## 0.6.1
+
+### Patch Changes
+
+- ca6d384: Bump contracts
+- Updated dependencies [ca6d384]
+  - @chugsplash/contracts@0.5.1
+
 ## 0.6.0
 
 ### Minor Changes
