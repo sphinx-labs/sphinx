@@ -9,7 +9,6 @@ import { resolveNetworkName } from '../messages'
 import { chugsplashCommitAbstractSubtask } from '../tasks'
 import {
   getProjectOwnerAddress,
-  isProposer,
   getChugSplashManager,
   getGasPriceOverrides,
   computeBundleId,
@@ -28,26 +27,13 @@ export const proposeChugSplashBundle = async (
   spinner: ora.Ora = ora({ isSilent: true }),
   confirm: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   silent: boolean,
   integration: Integration
 ) => {
-  const signerAddress = await signer.getAddress()
   const projectName = parsedConfig.options.projectName
 
   spinner.start(`Checking if the caller is a proposer...`)
-
-  // Throw an error if the caller isn't the project owner or a proposer.
-  if (
-    signerAddress !== (await getProjectOwnerAddress(signer, projectName)) &&
-    !(await isProposer(provider, projectName, signerAddress))
-  ) {
-    throw new Error(
-      `Caller is not a proposer or the project owner. Caller's address: ${signerAddress}`
-    )
-  }
 
   spinner.succeed(`Caller is a proposer.`)
 
@@ -63,7 +49,6 @@ export const proposeChugSplashBundle = async (
       ipfsUrl,
       true,
       artifactPaths,
-      buildInfoFolder,
       canonicalConfigPath,
       integration,
       spinner

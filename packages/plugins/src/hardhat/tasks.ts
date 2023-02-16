@@ -52,7 +52,6 @@ import {
   sampleChugSplashFileTypeScript,
 } from '../sample-project'
 import { deployAllChugSplashConfigs } from './deployments'
-import { initializeExecutor } from '../executor'
 import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
@@ -144,9 +143,12 @@ export const chugsplashDeployTask = async (
   const spinner = ora({ isSilent: silent })
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   let executor: ChugSplashExecutorType | undefined
   if (remoteExecution) {
@@ -154,13 +156,11 @@ export const chugsplashDeployTask = async (
     await monitorChugSplashSetup(provider, signer)
   } else {
     spinner.start('Booting up ChugSplash...')
-    executor = await initializeExecutor(provider)
+    executor = hre.chugsplash.executor
   }
 
   spinner.succeed('ChugSplash is ready to go.')
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -184,8 +184,6 @@ export const chugsplashDeployTask = async (
     !noWithdraw,
     newOwner ?? signerAddress,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
@@ -232,7 +230,10 @@ export const chugsplashRegisterTask = async (
   const { configPath, silent, owner } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
     hre,
@@ -294,12 +295,12 @@ export const chugsplashProposeTask = async (
   }
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const userConfig = readUserChugSplashConfig(configPath)
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const artifactPaths = await getArtifactPaths(
@@ -327,8 +328,6 @@ export const chugsplashProposeTask = async (
     confirm,
     'hardhat',
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     skipStorageCheck
   )
@@ -365,15 +364,15 @@ export const chugsplashApproveTask = async (
   const { configPath, noWithdraw, silent, skipMonitorStatus } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -392,8 +391,6 @@ export const chugsplashApproveTask = async (
     skipMonitorStatus,
     artifactPaths,
     'hardhat',
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     remoteExecution
@@ -413,6 +410,10 @@ task(TASK_CHUGSPLASH_APPROVE)
 subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setDescription('Lists all existing ChugSplash projects')
   .setAction(async (_, hre) => {
+    const signer = hre.ethers.provider.getSigner()
+    const signerAddress = await signer.getAddress()
+    await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
     const ChugSplashRegistry = getChugSplashRegistry(
       hre.ethers.provider.getSigner()
     )
@@ -467,8 +468,6 @@ export const chugsplashCommitSubtask = async (
     })
   }
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const provider = hre.ethers.provider
@@ -479,7 +478,6 @@ export const chugsplashCommitSubtask = async (
     ipfsUrl,
     commitToIpfs,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     'hardhat',
     spinner
@@ -505,6 +503,9 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       hre
     ) => {
       const signer = hre.ethers.provider.getSigner()
+      const signerAddress = await signer.getAddress()
+      await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
@@ -630,13 +631,15 @@ export const monitorTask = async (
   const { configPath, noWithdraw, silent, newOwner } = args
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution = (await getChainId(provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -654,8 +657,6 @@ export const monitorTask = async (
     silent,
     newOwner,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
@@ -675,14 +676,18 @@ task(TASK_CHUGSPLASH_MONITOR)
 export const chugsplashFundTask = async (
   args: {
     configPath: string
-    amount: ethers.BigNumber
+    amount: string | undefined
     silent: boolean
+    autoEstimate: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { amount, silent, configPath } = args
+  const { amount, silent, configPath, autoEstimate } = args
+
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = hre.ethers.provider.getSigner()
+  const signerAddress = await signer.getAddress()
+  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -696,7 +701,8 @@ export const chugsplashFundTask = async (
     provider,
     signer,
     configPath,
-    amount,
+    amount ? ethers.BigNumber.from(amount) : ethers.BigNumber.from(0),
+    autoEstimate,
     silent,
     artifactPaths,
     'hardhat'
@@ -705,9 +711,13 @@ export const chugsplashFundTask = async (
 
 task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
-  .addParam('amount', 'Amount to send in wei')
+  .addOptionalParam('amount', 'Amount to send in wei')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .addParam('configPath', 'Path to the ChugSplash config file')
+  .addFlag(
+    'autoEstimate',
+    'Automatically estimate the amount necessary to fund the deployment'
+  )
   .setAction(chugsplashFundTask)
 
 task(TASK_NODE)
@@ -784,12 +794,15 @@ task(TASK_TEST)
       const { show, noCompile, configPath } = args
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
-      const executor = chainId === 31337 ? await signer.getAddress() : EXECUTOR
+      const executor =
+        chainId === hre.config.networks.hardhat.chainId
+          ? await signer.getAddress()
+          : EXECUTOR
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (chainId === 31337) {
+      if (chainId === hre.config.networks.hardhat.chainId) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -855,9 +868,12 @@ task(TASK_RUN)
         const signer = hre.ethers.provider.getSigner()
         const chainId = await getChainId(hre.ethers.provider)
 
-        const confirm = chainId === 31337 ? true : args.confirm
+        const confirm =
+          chainId === hre.config.networks.hardhat.chainId ? true : args.confirm
         const executor =
-          chainId === 31337 ? await signer.getAddress() : EXECUTOR
+          chainId === hre.config.networks.hardhat.chainId
+            ? await signer.getAddress()
+            : EXECUTOR
         await initializeChugSplash(hre.ethers.provider, signer, executor)
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {
@@ -913,8 +929,6 @@ export const chugsplashWithdrawTask = async (
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
   const userConfig = readUserChugSplashConfig(configPath)
@@ -931,8 +945,6 @@ export const chugsplashWithdrawTask = async (
     configPath,
     silent,
     artifactPaths,
-    buildInfoFolder,
-    artifactFolder,
     canonicalConfigPath,
     'hardhat'
   )

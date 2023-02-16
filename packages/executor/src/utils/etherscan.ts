@@ -35,8 +35,6 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ProxyUpdaterArtifact,
-  PROXY_UPDATER_ADDRESS,
   ProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ChugSplashManagerProxyArtifact,
@@ -49,6 +47,14 @@ import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
   ProxyInitializerArtifact,
+  DefaultUpdaterArtifact,
+  DEFAULT_UPDATER_ADDRESS,
+  OZTransparentAdapterArtifact,
+  OZ_TRANSPARENT_ADAPTER_ADDRESS,
+  OZUUPSUpdaterArtifact,
+  OZ_UUPS_UPDATER_ADDRESS,
+  OZUUPSAdapterArtifact,
+  OZ_UUPS_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 
@@ -100,14 +106,11 @@ export const verifyChugSplashConfig = async (
     canonicalConfig.contracts
   )) {
     const artifact = artifacts[referenceName]
-    const { abi, contractName, sourceName, compilerOutput } = artifact
+    const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig,
       referenceName,
-      abi,
-      compilerOutput,
-      sourceName,
-      contractName
+      abi
     )
     const implementationAddress = await ChugSplashManager.implementations(
       ethers.utils.keccak256(
@@ -125,8 +128,9 @@ export const verifyChugSplashConfig = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
-      artifact.compilerOutput.sources,
-      sourceName
+      artifact.compilerOutput.contracts,
+      sourceName,
+      contractName
     )
 
     try {
@@ -177,7 +181,14 @@ export const verifyChugSplash = async (
       artifact: ChugSplashBootLoaderArtifact,
       address: CHUGSPLASH_BOOTLOADER_ADDRESS,
     },
-    { artifact: ProxyUpdaterArtifact, address: PROXY_UPDATER_ADDRESS },
+    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
+    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    {
+      artifact: OZTransparentAdapterArtifact,
+      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
+    },
+    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
+    { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
     { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
     {
       artifact: ChugSplashManagerProxyArtifact,
@@ -199,8 +210,9 @@ export const verifyChugSplash = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       buildInfo.input,
-      buildInfo.output.sources,
-      sourceName
+      buildInfo.output.contracts,
+      sourceName,
+      contractName
     )
 
     await attemptVerification(
@@ -266,6 +278,7 @@ export const attemptVerification = async (
 
   const solcFullVersion = await getLongVersion(solcVersion)
 
+  // TODO: We can replace this by ABI-encoding the result of our `getConstructorArgs` function.
   const constructorArgsAbiEncoded = await encodeArguments(
     abi,
     sourceName,

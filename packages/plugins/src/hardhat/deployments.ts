@@ -17,7 +17,6 @@ import {
 import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { initializeExecutor } from '../executor'
 import { getArtifactPaths } from './artifacts'
 
 export const fetchFilesRecursively = (dir): string[] => {
@@ -50,17 +49,17 @@ export const deployAllChugSplashConfigs = async (
   confirm: boolean,
   fileNames?: string[]
 ) => {
-  const remoteExecution = (await getChainId(hre.ethers.provider)) !== 31337
+  const remoteExecution =
+    (await getChainId(hre.ethers.provider)) !==
+    hre.config.networks.hardhat.chainId
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
   let executor: ChugSplashExecutorType | undefined
   if (!remoteExecution) {
-    executor = await initializeExecutor(hre.ethers.provider)
+    executor = hre.chugsplash.executor
   }
 
-  const buildInfoFolder = path.join(hre.config.paths.artifacts, 'build-info')
-  const artifactFolder = path.join(hre.config.paths.artifacts, 'contracts')
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
@@ -91,8 +90,6 @@ export const deployAllChugSplashConfigs = async (
       true,
       await signer.getAddress(),
       artifactPaths,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -107,7 +104,10 @@ export const getContract = async (
   projectName: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if ((await getChainId(hre.ethers.provider)) !== 31337) {
+  if (
+    (await getChainId(hre.ethers.provider)) !==
+    hre.config.networks.hardhat.chainId
+  ) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const userConfigs: UserChugSplashConfig[] = fetchFilesRecursively(

@@ -1,7 +1,7 @@
 import { CompilerInput } from '../languages'
 
-export const externalProxyTypes = ['oz-transparent']
-export type ExternalProxyType = 'oz-transparent'
+export const externalProxyTypes = ['oz-transparent', 'oz-uups']
+export type ExternalProxyType = 'oz-transparent' | 'oz-uups'
 
 export type ProxyType = ExternalProxyType | 'default'
 
@@ -59,6 +59,7 @@ export type UserContractConfig = {
   externalProxy?: string
   externalProxyType?: ExternalProxyType
   variables?: UserConfigVariables
+  constructorArgs?: UserConfigVariables
 }
 
 export type UserContractConfigs = {
@@ -79,6 +80,7 @@ export type ParsedContractConfig = {
   proxy: string
   proxyType: ProxyType
   variables: ParsedConfigVariables
+  constructorArgs: ParsedConfigVariables
 }
 
 export type ParsedContractConfigs = {
@@ -94,10 +96,8 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
-  inputs: ChugSplashInputs
+  inputs: Array<ChugSplashInput>
 }
-
-export type ChugSplashInputs = Array<ChugSplashInput>
 
 export type ChugSplashInput = {
   solcVersion: string

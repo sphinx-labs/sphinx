@@ -15,9 +15,14 @@ import {
 import {
   ChugSplashActionBundle,
   getCreationCodeWithConstructorArgs,
-  getImmutableVariables,
 } from '../../actions'
-import { CompilerInput, CompilerOutput, CompilerOutputSources } from './types'
+import {
+  CompilerInput,
+  CompilerOutput,
+  CompilerOutputContracts,
+  CompilerOutputMetadata,
+  CompilerOutputSources,
+} from './types'
 import { addEnumMembersToStorageLayout } from './storage'
 
 export const bundleRemote = async (args: {
@@ -46,7 +51,6 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   )
 
   if (!isCompilerDownloaded) {
-    console.log(`Downloading compiler version ${solcVersion}`)
     await downloader.downloadCompiler(solcVersion)
   }
 
@@ -66,7 +70,6 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   )
 
   if (!isWasmCompilerDownloader) {
-    console.log(`Downloading compiler version ${solcVersion}`)
     await wasmDownloader.downloadCompiler(solcVersion)
   }
 
@@ -95,6 +98,24 @@ export const getCanonicalConfigArtifacts = async (
       const compiler = new NativeCompiler(solcBuild.compilerPath)
       compilerOutput = await compiler.compile(compilerInput.input)
     }
+
+    if (compilerOutput.errors) {
+      const formattedErrorMessages: string[] = []
+      compilerOutput.errors.forEach((error) => {
+        // Ignore warnings thrown by the compiler.
+        if (error.type.toLowerCase() !== 'warning') {
+          formattedErrorMessages.push(error.formattedMessage)
+        }
+      })
+
+      if (formattedErrorMessages.length > 0) {
+        throw new Error(
+          `Failed to compile. Please report this error to ChugSplash.\n` +
+            `${formattedErrorMessages}`
+        )
+      }
+    }
+
     compilerOutputs.push(compilerOutput)
   }
 
@@ -114,16 +135,7 @@ export const getCanonicalConfigArtifacts = async (
           add0x(contractOutput.evm.bytecode.object),
           canonicalConfig,
           referenceName,
-          contractOutput.abi,
-          compilerOutput,
-          sourceName,
-          contractName
-        )
-        const immutableVariables = getImmutableVariables(
-          compilerOutput,
-          sourceName,
-          contractName,
-          canonicalConfig.contracts[referenceName]
+          contractOutput.abi
         )
 
         addEnumMembersToStorageLayout(
@@ -135,7 +147,6 @@ export const getCanonicalConfigArtifacts = async (
         artifacts[referenceName] = {
           creationCode,
           storageLayout: contractOutput.storageLayout,
-          immutableVariables,
           abi: contractOutput.abi,
           compilerOutput,
           sourceName,
@@ -179,37 +190,26 @@ export const compileRemoteBundle = async (
  */
 export const getMinimumCompilerInput = (
   fullCompilerInput: CompilerInput,
-  fullOutputSources: CompilerOutputSources,
-  sourceName: string
+  fullOutputContracts: CompilerOutputContracts,
+  sourceName: string,
+  contractName: string
 ): CompilerInput => {
-  const { language, settings, sources: inputSources } = fullCompilerInput
+  const contractOutput = fullOutputContracts[sourceName][contractName]
+  const metadata: CompilerOutputMetadata =
+    typeof contractOutput.metadata === 'string'
+      ? JSON.parse(contractOutput.metadata)
+      : contractOutput.metadata
 
-  const minimumInputSources: CompilerInput['sources'] = {}
+  const minimumSources: CompilerInput['sources'] = {}
+  for (const newSourceName of Object.keys(metadata.sources)) {
+    minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
+  }
+
+  const { language, settings } = fullCompilerInput
   const minimumCompilerInput: CompilerInput = {
     language,
     settings,
-    sources: minimumInputSources,
-  }
-
-  // Each contract name has a unique AST ID in the compiler output. These will
-  // be necessary when we parse the compiler output later.
-  const contractAstIdsToSourceNames =
-    mapContractAstIdsToSourceNames(fullOutputSources)
-
-  // Get the source names that are necessary to compile the given source name.
-  const minimumSourceNames = getMinimumSourceNames(
-    sourceName,
-    fullOutputSources,
-    contractAstIdsToSourceNames,
-    [sourceName]
-  )
-
-  // Filter out any sources that are in the full compiler input but not in the minimum compiler
-  // input.
-  for (const [source, content] of Object.entries(inputSources)) {
-    if (minimumSourceNames.includes(source)) {
-      minimumInputSources[source] = content
-    }
+    sources: minimumSources,
   }
 
   return minimumCompilerInput
@@ -254,20 +254,4 @@ export const getMinimumSourceNames = (
     }
   }
   return minimumSourceNames
-}
-
-export const mapContractAstIdsToSourceNames = (
-  outputSources: CompilerOutputSources
-): { [astId: number]: string } => {
-  const contractAstIdsToSourceNames: { [astId: number]: string } = {}
-  for (const [sourceName, { ast }] of Object.entries(outputSources)) {
-    if (ast.nodes !== undefined) {
-      for (const node of ast.nodes) {
-        if (node.name !== undefined) {
-          contractAstIdsToSourceNames[node.id] = sourceName
-        }
-      }
-    }
-  }
-  return contractAstIdsToSourceNames
 }

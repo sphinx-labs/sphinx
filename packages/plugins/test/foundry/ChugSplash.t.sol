@@ -69,18 +69,18 @@ contract ChugSplashTest is Test {
         // Setup register, propose, fund, approve process test
         chugsplash.register(registerConfig, true);
         chugsplash.propose(registerConfig, false, true);
-        chugsplash.fund(registerConfig, 1 ether, true);
+        chugsplash.fund(registerConfig, 1 ether, false, true);
         chugsplash.approve(registerConfig, true, true);
 
         // Setup withdraw test
         chugsplash.register(withdrawConfig, true);
-        chugsplash.fund(withdrawConfig, 1 ether, true);
+        chugsplash.fund(withdrawConfig, 1 ether, false, true);
         chugsplash.withdraw(withdrawConfig, true);
 
         // Setup cancel test
         chugsplash.register(cancelConfig, true);
         chugsplash.propose(cancelConfig, false, true);
-        chugsplash.fund(cancelConfig, 1 ether, true);
+        chugsplash.fund(cancelConfig, 1 ether, false, true);
         chugsplash.approve(cancelConfig, true, true);
         chugsplash.cancel(cancelConfig, true);
 

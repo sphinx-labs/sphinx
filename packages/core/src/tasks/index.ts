@@ -1,16 +1,18 @@
-import * as fs from 'fs'
-import * as path from 'path'
 import process from 'process'
 
 import { ethers } from 'ethers'
 import ora from 'ora'
-import { getChainId } from '@eth-optimism/core-utils'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
 
-import { CanonicalChugSplashConfig, ParsedChugSplashConfig } from '../config'
 import {
+  CanonicalChugSplashConfig,
+  ChugSplashInput,
+  ParsedChugSplashConfig,
+} from '../config'
+import {
+  assertValidContracts,
   assertValidUpgrade,
   computeBundleId,
   displayDeploymentTable,
@@ -26,12 +28,13 @@ import {
   isDefaultProxy,
   isProjectRegistered,
   isTransparentProxy,
+  isUUPSProxy,
   readParsedChugSplashConfig,
   registerChugSplashProject,
   setProxiesToReferenceNames,
   writeCanonicalConfig,
 } from '../utils'
-import { ArtifactPaths } from '../languages'
+import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
 import {
   alreadyProposedMessage,
@@ -46,8 +49,8 @@ import {
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   createDeploymentArtifacts,
-  filterChugSplashInputs,
   proposeChugSplashBundle,
+  readBuildInfo,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
@@ -118,8 +121,6 @@ export const chugsplashProposeAbstractTask = async (
   confirm: boolean,
   integration: Integration,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   skipStorageCheck: boolean,
   stream: NodeJS.WritableStream = process.stderr
@@ -128,6 +129,8 @@ export const chugsplashProposeAbstractTask = async (
   if (integration === 'hardhat') {
     spinner.start('Booting up ChugSplash...')
   }
+
+  assertValidContracts(parsedConfig, artifactPaths)
 
   await assertValidUpgrade(
     provider,
@@ -177,7 +180,6 @@ export const chugsplashProposeAbstractTask = async (
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -218,22 +220,18 @@ with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} has not been proposed before.`
       )
 
-      const chainId = await getChainId(provider)
-
       await proposeChugSplashBundle(
         provider,
         signer,
         parsedConfig,
         bundle,
         configUri,
-        remoteExecution || chainId !== 31337,
+        remoteExecution,
         ipfsUrl,
         configPath,
         spinner,
         confirm,
         artifactPaths,
-        buildInfoFolder,
-        artifactFolder,
         canonicalConfigPath,
         silent,
         integration
@@ -266,7 +264,6 @@ export const chugsplashCommitAbstractSubtask = async (
   ipfsUrl: string,
   commitToIpfs: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -284,58 +281,46 @@ export const chugsplashCommitAbstractSubtask = async (
       : spinner.start('Building the project...')
   }
 
-  // Get unique source names for the contracts in the ChugSplash config
-  let configSourceNames = Object.values(parsedConfig.contracts).map(
-    (contractConfig) => {
-      // Split the contract's fully qualified name to get its source name
-      const [sourceName] = contractConfig.contract.split(':')
-      return sourceName
-    }
-  )
-  configSourceNames = Array.from(new Set(configSourceNames))
+  const chugsplashInputs: Array<ChugSplashInput> = []
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
 
-  // Get the inputs from the build info folder. This also filters out build info
-  // files that aren't used in this deployment.
-  const inputs = fs
-    .readdirSync(buildInfoFolder)
-    .filter((file) => {
-      return file.endsWith('.json')
-    })
-    .map((file) => {
-      return JSON.parse(
-        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
-      )
-    })
-    .filter((buildInfo) => {
-      // Get an array of the source names for the current build info file
-      const inputSourceNames = Object.keys(buildInfo.input.sources)
-      // Get the intersection of source names between the current build info file
-      // and the ChugSplash config file
-      const intersection = configSourceNames.filter((name) =>
-        inputSourceNames.includes(name)
-      )
-      // Keep this build info file if the arrays share at least one source name in common
-      return intersection.length > 0
-    })
-    .map((compilerInput) => {
-      return {
-        solcVersion: compilerInput.solcVersion,
-        solcLongVersion: compilerInput.solcLongVersion,
-        input: compilerInput.input,
-        output: compilerInput.output,
+    const prevChugSplashInput = chugsplashInputs.find(
+      (input) => input.solcLongVersion === buildInfo.solcLongVersion
+    )
+
+    // Split the contract's fully qualified name
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    const { language, settings, sources } = getMinimumCompilerInput(
+      buildInfo.input,
+      buildInfo.output.contracts,
+      sourceName,
+      contractName
+    )
+
+    if (prevChugSplashInput === undefined) {
+      const chugsplashInput: ChugSplashInput = {
+        solcVersion: buildInfo.solcVersion,
+        solcLongVersion: buildInfo.solcLongVersion,
+        input: {
+          language,
+          settings,
+          sources,
+        },
       }
-    })
-
-  // Filter out any sources in the ChugSplash inputs that aren't needed in this deployment.
-  const filteredInputs = await filterChugSplashInputs(
-    inputs,
-    parsedConfig,
-    artifactPaths
-  )
+      chugsplashInputs.push(chugsplashInput)
+    } else {
+      prevChugSplashInput.input.sources = {
+        ...prevChugSplashInput.input.sources,
+        ...sources,
+      }
+    }
+  }
 
   const canonicalConfig: CanonicalChugSplashConfig = {
     ...parsedConfig,
-    inputs: filteredInputs,
+    inputs: chugsplashInputs,
   }
 
   const ipfsData = JSON.stringify(canonicalConfig, null, 2)
@@ -410,8 +395,6 @@ export const chugsplashApproveAbstractTask = async (
   skipMonitorStatus: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolderPath: string,
   remoteExecution: boolean,
@@ -454,7 +437,6 @@ Owner's address: ${projectOwnerAddress}`)
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration,
     spinner
@@ -537,8 +519,6 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         networkName,
         deploymentFolderPath,
         artifactPaths,
-        artifactFolder,
-        buildInfoFolder,
         integration,
         remoteExecution,
         undefined,
@@ -556,11 +536,25 @@ export const chugsplashFundAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   amount: ethers.BigNumber,
+  autoEstimate: boolean,
   silent: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
 ) => {
+  if (amount.eq(0) && autoEstimate !== true) {
+    throw new Error(
+      `User must either include an amount to send by specifying '--amount <amountInWei>' or including\n` +
+        `the '--auto-estimate' flag to automatically estimate the amount necessary to fund the deployment.`
+    )
+  }
+
+  if (amount.gt(0) && autoEstimate) {
+    throw new Error(
+      `User specified an '--amount' flag and an '--auto-estimate' flag. Please choose one.`
+    )
+  }
+
   const spinner = ora({ isSilent: silent, stream })
 
   const parsedConfig = await readParsedChugSplashConfig(
@@ -574,27 +568,48 @@ export const chugsplashFundAbstractTask = async (
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
-  if (signerBalance.lt(amount)) {
-    throw new Error(`Signer's balance is less than the amount required to fund your project.
-
-Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
-Amount: ${ethers.utils.formatEther(amount)} ETH
-
-Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
-  }
-
   if (!(await isProjectRegistered(signer, projectName))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
+  const amountToDeposit = autoEstimate
+    ? await getAmountToDeposit(
+        provider,
+        await bundleLocal(parsedConfig, artifactPaths, integration),
+        0,
+        parsedConfig.options.projectName,
+        true
+      )
+    : amount
+
+  if (amountToDeposit.eq(0)) {
+    spinner.fail(
+      `No funds were sent. Reason: ${
+        autoEstimate
+          ? `Project already has sufficient funds.`
+          : `User specified an amount of 0.`
+      }`
+    )
+    return
+  }
+
+  if (signerBalance.lt(amountToDeposit)) {
+    throw new Error(`Signer's balance is less than the amount required to fund your project.
+
+Signer's balance: ${ethers.utils.formatEther(signerBalance)} ETH
+Amount: ${ethers.utils.formatEther(amountToDeposit)} ETH
+
+Please send more ETH to ${await signer.getAddress()} on ${networkName} then try again.`)
+  }
+
   spinner.start(
     `Depositing ${formatEther(
-      amount,
+      amountToDeposit,
       4
     )} ETH for the project: ${projectName}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
-    value: amount,
+    value: amountToDeposit,
     to: chugsplashManagerAddress,
   })
   await (await signer.sendTransaction(txnRequest)).wait()
@@ -607,7 +622,10 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   )
 
   spinner.succeed(
-    `Deposited ${formatEther(amount, 4)} ETH for the project: ${projectName}.`
+    `Deposited ${formatEther(
+      amountToDeposit,
+      4
+    )} ETH for the project: ${projectName}.`
   )
 }
 
@@ -623,8 +641,6 @@ export const chugsplashDeployAbstractTask = async (
   withdraw: boolean,
   newOwner: string,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
@@ -660,6 +676,8 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   spinner.succeed(`Parsed ${projectName}.`)
+
+  assertValidContracts(parsedConfig, artifactPaths)
 
   await assertValidUpgrade(
     provider,
@@ -707,7 +725,6 @@ export const chugsplashDeployAbstractTask = async (
     ipfsUrl,
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -748,21 +765,18 @@ export const chugsplashDeployAbstractTask = async (
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
     spinner.start(`Proposing ${projectName}...`)
-    const chainId = await getChainId(provider)
     await proposeChugSplashBundle(
       provider,
       signer,
       parsedConfig,
       bundle,
       configUri,
-      remoteExecution || chainId !== 31337,
+      remoteExecution,
       ipfsUrl,
       configPath,
       spinner,
       confirm,
       artifactPaths,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       silent,
       integration
@@ -790,6 +804,7 @@ export const chugsplashDeployAbstractTask = async (
         signer,
         configPath,
         amountToDeposit,
+        false,
         silent,
         artifactPaths,
         integration,
@@ -809,8 +824,6 @@ export const chugsplashDeployAbstractTask = async (
       true,
       artifactPaths,
       integration,
-      buildInfoFolder,
-      artifactFolder,
       canonicalConfigPath,
       deploymentFolder,
       remoteExecution,
@@ -865,8 +878,6 @@ export const chugsplashDeployAbstractTask = async (
     networkName,
     deploymentFolder,
     artifactPaths,
-    artifactFolder,
-    buildInfoFolder,
     integration,
     remoteExecution,
     newOwner,
@@ -900,8 +911,6 @@ export const chugsplashMonitorAbstractTask = async (
   silent: boolean,
   newOwner: string,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
@@ -940,7 +949,6 @@ export const chugsplashMonitorAbstractTask = async (
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -987,8 +995,6 @@ project with a name other than ${parsedConfig.options.projectName}`
     networkName,
     deploymentFolder,
     artifactPaths,
-    artifactFolder,
-    buildInfoFolder,
     'hardhat',
     remoteExecution,
     newOwner,
@@ -1086,8 +1092,6 @@ export const chugsplashWithdrawAbstractTask = async (
   configPath: string,
   silent: boolean,
   artifactPaths: ArtifactPaths,
-  buildInfoFolder: string,
-  artifactFolder: string,
   canonicalConfigPath: string,
   integration: Integration,
   stream: NodeJS.WritableStream = process.stderr
@@ -1126,7 +1130,6 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     '',
     false,
     artifactPaths,
-    buildInfoFolder,
     canonicalConfigPath,
     integration
   )
@@ -1512,10 +1515,11 @@ export const chugsplashTransferOwnershipAbstractTask = async (
 
   if (
     (await isDefaultProxy(provider, proxy)) === false &&
-    (await isTransparentProxy(provider, proxy)) === false
+    (await isTransparentProxy(provider, proxy)) === false &&
+    (await isUUPSProxy(provider, proxy)) === false
   ) {
     throw new Error(`ChugSplash does not support your proxy type.
-Currently ChugSplash only supports proxies that implement EIP-1967 which yours does not appear to do.
+Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
 If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
   }
 

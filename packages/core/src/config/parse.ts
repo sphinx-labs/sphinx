@@ -207,8 +207,13 @@ export const parseChugSplashConfig = async (
       )
     }
 
-    const { contract, externalProxy, externalProxyType, variables } =
-      userContractConfig
+    const {
+      contract,
+      externalProxy,
+      externalProxyType,
+      variables,
+      constructorArgs,
+    } = userContractConfig
 
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
@@ -233,6 +238,7 @@ export const parseChugSplashConfig = async (
       proxy,
       proxyType,
       variables: variables ?? {},
+      constructorArgs: constructorArgs ?? {},
     }
 
     contracts[referenceName] = proxy
@@ -258,7 +264,6 @@ export const makeActionBundleFromConfig = async (
     [name: string]: {
       creationCode: string
       storageLayout: SolidityStorageLayout
-      immutableVariables: string[]
     }
   }
 ): Promise<ChugSplashActionBundle> => {
@@ -281,11 +286,7 @@ export const makeActionBundleFromConfig = async (
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(
-      artifact.storageLayout,
-      contractConfig,
-      artifact.immutableVariables
-    )
+    const slots = computeStorageSlots(artifact.storageLayout, contractConfig)
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {

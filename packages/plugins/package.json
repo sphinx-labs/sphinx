@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/plugins",
-  "version": "0.10.4",
+  "version": "0.11.1",
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
@@ -11,9 +11,12 @@
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json && yarn build:contracts",
-    "build:contracts": "mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
+    "build:contracts": "npx hardhat compile && mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "echo 'no tests'",
+    "test": "yarn test:forge && yarn test:hardhat",
+    "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
+    "test:hardhat": "npx hardhat test --config-path ./chugsplash/Storage.config.ts",
+    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && IS_CHUGSPLASH_TEST=true && yarn test",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
@@ -29,9 +32,9 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
-    "@chugsplash/contracts": "^0.4.3",
-    "@chugsplash/core": "^0.5.3",
-    "@chugsplash/executor": "^0.5.4",
+    "@chugsplash/contracts": "^0.5.1",
+    "@chugsplash/core": "^0.6.1",
+    "@chugsplash/executor": "^0.6.1",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
@@ -46,7 +49,9 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
-    "chai": "^4.3.6",
+    "@openzeppelin/contracts": "^4.8.1",
+    "@openzeppelin/hardhat-upgrades": "^1.22.1",
+    "chai": "^4.3.7",
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {
