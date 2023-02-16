@@ -29,8 +29,13 @@ contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external {
-        IProxyUpdater(_proxy).setStorage(_key, _value);
+    function setStorage(
+        address payable _proxy,
+        bytes32 _key,
+        uint8 _offset,
+        bytes memory _segment
+    ) external {
+        IProxyUpdater(_proxy).setStorage(_key, _offset, _segment);
     }
 
     /**

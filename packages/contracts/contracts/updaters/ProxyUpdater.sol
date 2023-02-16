@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
+
 /**
  * @title ProxyUpdater
- * @notice The ProxyUpdater contains the logic that sets storage slots within the proxy contract
- *         when an action is executed in the ChugSplashManager. When execution is being initiated,
- *         the ChugSplashManager sets each proxy to have a ProxyUpdater as its implementation. Then,
- *         during execution, the ChugSplashManager triggers `setStorage` actions on the proxy by
- *         calling the proxy, which then delegatecalls into this contract.
+ * @notice An abstract contract that contains the logic which sets storage slots within the proxy
+ *         contract when an action is executed in the ChugSplashManager. When execution is being
+ *         initiated, the ChugSplashManager sets each proxy to have a ProxyUpdater as its
+ *         implementation. Then, during execution, the ChugSplashManager triggers `setStorage`
+ *         actions on the proxy by calling the proxy, which then delegatecalls into a ProxyUpdater
+ *         contract.
  */
-contract ProxyUpdater {
+abstract contract ProxyUpdater is IProxyUpdater {
     /**
      * @notice Replaces a segment of a proxy's storage slot value at a given key and offset. The
      *         storage value outside of this segment remains the same. Note that it's crucial for
@@ -40,7 +43,7 @@ contract ProxyUpdater {
      *         0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC22222222CCCC
      *
      * @param _key     Storage key to modify.
-     * @param _offset  Offset of the new storage slot value to write. Denominated in bytes.
+     * @param _offset  Bytes offset of the new segment from the right side of the storage slot.
      * @param _segment New value for the segment of the storage slot. The length of this value is a
      *                 bytesN value, where N is in the range [1, 32] (inclusive).
      */

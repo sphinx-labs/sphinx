@@ -593,7 +593,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
             _deployImplementation(_action.referenceName, _action.data);
         } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
-            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(_action.data, (bytes32, uint8, bytes));
+            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+                _action.data,
+                (bytes32, uint8, bytes)
+            );
             _setProxyStorage(proxy, adapter, key, offset, val);
         } else {
             revert("ChugSplashManager: attemped setImplementation action in wrong function");
