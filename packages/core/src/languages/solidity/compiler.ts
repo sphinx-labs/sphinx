@@ -7,14 +7,11 @@ import {
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { add0x } from '@eth-optimism/core-utils'
 
-import {
-  CanonicalChugSplashConfig,
-  chugsplashFetchSubtask,
-  makeActionBundleFromConfig,
-} from '../../config'
+import { CanonicalChugSplashConfig } from '../../config/types'
 import {
   ChugSplashActionBundle,
   getCreationCodeWithConstructorArgs,
+  makeActionBundleFromConfig,
 } from '../../actions'
 import {
   CompilerInput,
@@ -23,7 +20,7 @@ import {
   CompilerOutputMetadata,
   CompilerOutputSources,
 } from './types'
-import { addEnumMembersToStorageLayout } from './storage'
+import { addEnumMembersToStorageLayout } from '../../utils'
 
 export const bundleRemote = async (args: {
   canonicalConfig: CanonicalChugSplashConfig
@@ -156,27 +153,6 @@ export const getCanonicalConfigArtifacts = async (
     }
   }
   return artifacts
-}
-
-/**
- * Compiles a remote ChugSplashBundle from a uri.
- *
- * @param configUri URI of the ChugSplashBundle to compile.
- * @param provider JSON RPC provider.
- * @returns Compiled ChugSplashBundle.
- */
-export const compileRemoteBundle = async (
-  configUri: string
-): Promise<{
-  bundle: ChugSplashActionBundle
-  canonicalConfig: CanonicalChugSplashConfig
-}> => {
-  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
-
-  const bundle = await bundleRemote({
-    canonicalConfig,
-  })
-  return { bundle, canonicalConfig }
 }
 
 /**

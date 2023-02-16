@@ -2,11 +2,15 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
-import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
+import { ParsedChugSplashConfig } from '../config/types'
 import { Integration } from '../constants'
-import { ArtifactPaths } from '../languages'
+import { computeStorageSlots } from '../languages/solidity/storage'
 import {
-  readContractArtifact,
+  ArtifactPaths,
+  SolidityStorageLayout,
+} from '../languages/solidity/types'
+import { readContractArtifact } from '../utils'
+import {
   readStorageLayout,
   getCreationCodeWithConstructorArgs,
 } from './artifacts'
@@ -251,4 +255,56 @@ export const bundleLocal = async (
   }
 
   return makeActionBundleFromConfig(parsedConfig, artifacts)
+}
+
+/**
+ * Generates a ChugSplash action bundle from a config file.
+ *
+ * @param config Config file to convert into a bundle.
+ * @param env Environment variables to inject into the config file.
+ * @returns Action bundle generated from the parsed config file.
+ */
+export const makeActionBundleFromConfig = async (
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: {
+    [name: string]: {
+      creationCode: string
+      storageLayout: SolidityStorageLayout
+    }
+  }
+): Promise<ChugSplashActionBundle> => {
+  const actions: ChugSplashAction[] = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const artifact = artifacts[referenceName]
+
+    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
+    actions.push({
+      referenceName,
+      code: artifact.creationCode,
+    })
+
+    // Next, add a SET_IMPLEMENTATION action for each contract.
+    actions.push({
+      referenceName,
+    })
+
+    // Compute our storage slots.
+    // TODO: One day we'll need to refactor this to support Vyper.
+    const slots = computeStorageSlots(artifact.storageLayout, contractConfig)
+
+    // Add SET_STORAGE actions for each storage slot that we want to modify.
+    for (const slot of slots) {
+      actions.push({
+        referenceName,
+        key: slot.key,
+        offset: slot.offset,
+        value: slot.val,
+      })
+    }
+  }
+
+  // Generate a bundle from the list of actions.
+  return makeBundleFromActions(actions)
 }

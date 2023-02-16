@@ -1,4 +1,4 @@
-import { CompilerInput } from '../languages'
+import { CompilerInput } from '../languages/solidity/types'
 
 export const externalProxyTypes = ['oz-transparent', 'oz-uups']
 export type ExternalProxyType = 'oz-transparent' | 'oz-uups'
