@@ -593,8 +593,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
             _deployImplementation(_action.referenceName, _action.data);
         } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
-            (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
-            _setProxyStorage(proxy, adapter, key, val);
+            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+                _action.data,
+                (bytes32, uint8, bytes)
+            );
+            _setProxyStorage(proxy, adapter, key, offset, val);
         } else {
             revert("ChugSplashManager: attemped setImplementation action in wrong function");
         }
@@ -983,11 +986,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address payable _proxy,
         address _adapter,
         bytes32 _key,
-        bytes32 _value
+        uint8 _offset,
+        bytes memory _value
     ) internal {
         // Delegatecall the adapter to call `setStorage` on the proxy.
         (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _value))
+            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
         require(success, "ChugSplashManager: delegatecall to set storage failed");
     }

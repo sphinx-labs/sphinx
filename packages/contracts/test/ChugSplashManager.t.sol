@@ -507,7 +507,15 @@ contract ChugSplashManager_Test is Test {
         address payable proxyAddress = manager.getDefaultProxyAddress(
             bundle.actions[0].action.referenceName
         );
+        (bytes32 storageKey, uint8 offset, bytes memory segment) = abi.decode(
+            action.data,
+            (bytes32, uint8, bytes)
+        );
 
+        vm.expectCall(
+            address(defaultUpdater),
+            abi.encodeCall(defaultUpdater.setStorage, (storageKey, offset, segment))
+        );
         vm.expectCall(
             address(registry),
             abi.encodeCall(
@@ -527,11 +535,6 @@ contract ChugSplashManager_Test is Test {
         ChugSplashBundleState memory bundleState = manager.bundles(bundleId);
         vm.prank(address(manager));
         address implementationAddress = Proxy(proxyAddress).implementation();
-        (bytes32 storageKey, bytes32 expectedStorageValue) = abi.decode(
-            action.data,
-            (bytes32, bytes32)
-        );
-        bytes32 storageValue = vm.load(proxyAddress, storageKey);
         uint256 executionGasUsed = 67190;
         uint256 estExecutorPayment = (tx.gasprice *
             executionGasUsed *
@@ -540,7 +543,6 @@ contract ChugSplashManager_Test is Test {
         assertEq(bundleState.actionsExecuted, 1);
         assertTrue(bundleState.executions[actionIndex]);
         assertEq(implementationAddress, address(defaultUpdater));
-        assertEq(storageValue, expectedStorageValue);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
         assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
     }

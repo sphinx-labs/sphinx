@@ -29,7 +29,12 @@ contract OZTransparentAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function setStorage(address payable _proxy, bytes32 _key, bytes32 _value) external {
+    function setStorage(
+        address payable _proxy,
+        bytes32 _key,
+        uint8 _offset,
+        bytes memory _segment
+    ) external {
         // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
         // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
         // function doesn't return any data.
@@ -38,7 +43,7 @@ contract OZTransparentAdapter is IProxyAdapter {
                 Proxy.upgradeToAndCall,
                 (
                     Proxy(_proxy).implementation(),
-                    abi.encodeCall(IProxyUpdater.setStorage, (_key, _value))
+                    abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _segment))
                 )
             )
         );

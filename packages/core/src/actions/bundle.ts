@@ -31,7 +31,8 @@ export const isSetStorageAction = (
 ): action is SetStorageAction => {
   return (
     (action as SetStorageAction).key !== undefined &&
-    (action as SetStorageAction).value !== undefined
+    (action as SetStorageAction).value !== undefined &&
+    (action as SetStorageAction).offset !== undefined
   )
 }
 
@@ -74,8 +75,8 @@ export const toRawChugSplashAction = (
       actionType: ChugSplashActionType.SET_STORAGE,
       referenceName: action.referenceName,
       data: ethers.utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes32'],
-        [action.key, action.value]
+        ['bytes32', 'uint8', 'bytes'],
+        [action.key, action.offset, action.value]
       ),
     }
   } else if (isDeployImplementationAction(action)) {
@@ -103,13 +104,14 @@ export const fromRawChugSplashAction = (
   rawAction: RawChugSplashAction
 ): ChugSplashAction => {
   if (rawAction.actionType === ChugSplashActionType.SET_STORAGE) {
-    const [key, value] = ethers.utils.defaultAbiCoder.decode(
-      ['bytes32', 'bytes32'],
+    const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
+      ['bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
     return {
       referenceName: rawAction.referenceName,
       key,
+      offset,
       value,
     }
   } else if (
