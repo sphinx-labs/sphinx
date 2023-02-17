@@ -173,20 +173,14 @@ export const parseChugSplashConfig = async (
       )
     }
 
-    const {
-      contract,
-      externalProxy,
-      externalProxyType,
-      variables,
-      constructorArgs,
-    } = userContractConfig
+    const { externalProxy, externalProxyType, variables, constructorArgs } =
+      userContractConfig
 
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
     // config.
     const { sourceName, contractName } = readContractArtifact(
-      artifactPaths,
-      contract,
+      artifactPaths[referenceName].contractArtifactPath,
       integration
     )
     const contractFullyQualifiedName = `${sourceName}:${contractName}`

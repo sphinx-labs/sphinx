@@ -1,3 +1,5 @@
+import { Fragment } from 'ethers/lib/utils'
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the structure of
  * state within the contract. See
@@ -39,11 +41,10 @@ export interface SolidityStorageLayout {
 }
 
 /**
- * Mapping from a contract to its build info file path and artifact path. Note that each
- * contract matches the `contract` field in the `UserChugSplashConfig`.
+ * Mapping from a contract's reference name to its build info file path and artifact path.
  */
 export type ArtifactPaths = {
-  [contract: string]: {
+  [referenceName: string]: {
     buildInfoPath: string
     contractArtifactPath: string
   }
@@ -73,6 +74,17 @@ export interface CompilerInput {
       }
     }
   }
+}
+
+// TODO
+export type BuildInfo = any
+export type ContractASTNode = any
+
+export type ContractArtifact = {
+  abi: Array<Fragment>
+  sourceName: string
+  contractName: string
+  bytecode: string
 }
 
 export interface CompilerOutputMetadata {
