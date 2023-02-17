@@ -4,11 +4,16 @@ import { Manifest } from '@openzeppelin/upgrades-core'
 import { Contract, providers } from 'ethers'
 
 import { chugsplashFetchSubtask } from './config/fetch'
-import { CanonicalChugSplashConfig } from './config/types'
-import { getCanonicalConfigArtifacts, SolidityStorageLayout } from './languages'
+import { CanonicalChugSplashConfig, UserChugSplashConfig } from './config/types'
+import {
+  ArtifactPaths,
+  getCanonicalConfigArtifacts,
+  SolidityStorageLayout,
+} from './languages'
 import {
   getChugSplashRegistry,
   getEIP1967ProxyImplementationAddress,
+  readBuildInfo,
   readCanonicalConfig,
 } from './utils'
 import 'core-js/features/array/at'
@@ -96,9 +101,20 @@ export const getLatestDeployedStorageLayout = async (
   provider: providers.Provider,
   referenceName: string,
   proxyAddress: string,
+  userConfig: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
   remoteExecution: boolean,
   canonicalConfigFolderPath: string
 ): Promise<SolidityStorageLayout> => {
+  const { deployedFullyQualifiedName, deployedStorageLayout } =
+    userConfig.contracts[referenceName]
+  if (
+    deployedFullyQualifiedName !== undefined &&
+    deployedStorageLayout !== undefined
+  ) {
+    const buildInfo = readBuildInfo(artifactPaths, deployedFullyQualifiedName)
+  }
+
   const deployedCanonicalConfig = await getLatestDeployedCanonicalConfig(
     provider,
     proxyAddress,

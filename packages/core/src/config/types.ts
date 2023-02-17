@@ -58,6 +58,8 @@ export type UserContractConfig = {
   contract: string
   externalProxy?: string
   externalProxyType?: ExternalProxyType
+  deployedStorageLayout?: string
+  deployedFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
 }

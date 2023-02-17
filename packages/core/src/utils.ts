@@ -38,6 +38,7 @@ import {
   ParsedConfigVariable,
   ParsedContractConfig,
   ParsedContractConfigs,
+  UserChugSplashConfig,
   UserConfigVariable,
 } from './config/types'
 import {
@@ -662,6 +663,7 @@ export const setProxiesToReferenceNames = async (
 export const assertValidParsedChugSplashFile = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   remoteExecution: boolean,
@@ -769,6 +771,8 @@ permission to call the 'upgradeTo' function on each of them.
           provider,
           referenceName,
           contractConfig.proxy,
+          userConfig,
+          artifactPaths,
           remoteExecution,
           canonicalConfigFolderPath
         )
@@ -818,7 +822,7 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
 
-    spinner?.succeed(`${projectName} is a valid upgrade.`)
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
 
     if (!confirm) {
       // Confirm upgrade with user
@@ -830,8 +834,6 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
   } else {
-    spinner?.succeed(`${projectName} is a fresh deployment.`)
-
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
       // Throw an error if the 'preserve' keyword is set to a variable's value in the
       // ChugSplash file. This keyword is only allowed for upgrades.
@@ -842,6 +844,8 @@ permission to call the 'upgradeTo' function on each of them.
         )
       }
     }
+
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
   }
 }
 

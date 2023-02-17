@@ -11,6 +11,7 @@ import {
   ChugSplashInput,
   ParsedChugSplashConfig,
   readParsedChugSplashConfig,
+  readUserChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -133,9 +134,11 @@ export const chugsplashProposeAbstractTask = async (
 
   assertValidContracts(parsedConfig, artifactPaths)
 
+  const userConfig = readUserChugSplashConfig(configPath)
   await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
+    userConfig,
     artifactPaths,
     integration,
     remoteExecution,
@@ -662,6 +665,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
+  const userConfig = readUserChugSplashConfig(configPath)
   const parsedConfig = await readParsedChugSplashConfig(
     provider,
     configPath,
@@ -683,6 +687,7 @@ export const chugsplashDeployAbstractTask = async (
   await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
+    userConfig,
     artifactPaths,
     integration,
     remoteExecution,
