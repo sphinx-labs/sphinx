@@ -283,8 +283,10 @@ export const chugsplashCommitAbstractSubtask = async (
   }
 
   const chugsplashInputs: Array<ChugSplashInput> = []
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion

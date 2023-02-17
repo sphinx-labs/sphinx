@@ -62,11 +62,14 @@ export const getArtifactPaths = async (
   buildInfoFolder: string
 ): Promise<ArtifactPaths> => {
   const artifactPaths: ArtifactPaths = {}
-  for (const { contract } of Object.values(contractConfigs)) {
-    const { sourceName, contractName } =
-      hre.artifacts.readArtifactSync(contract)
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    const { sourceName, contractName } = hre.artifacts.readArtifactSync(
+      contractConfig.contract
+    )
     const buildInfo = await getBuildInfo(hre, sourceName, contractName)
-    artifactPaths[contract] = {
+    artifactPaths[referenceName] = {
       buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
       contractArtifactPath: path.join(
         artifactFolder,

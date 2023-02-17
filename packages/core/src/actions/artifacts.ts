@@ -10,6 +10,7 @@ import {
 } from '../languages/solidity/types'
 import { Integration } from '../constants'
 import {
+  addEnumMembersToStorageLayout,
   createDeploymentFolderForNetwork,
   readBuildInfo,
   readContractArtifact,
@@ -104,24 +105,26 @@ export const getConstructorArgs = (
  * Reads the storageLayout portion of the compiler artifact for a given contract. Reads the
  * artifact from the local file system.
  *
- * @param fullyQualifiedName Fully qualified name of the contract.
+ * @param contractFullyQualifiedName Fully qualified name of the contract.
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const readStorageLayout = (
-  fullyQualifiedName: string,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
+export const getStorageLayout = (
+  buildInfoPath: string,
+  contractFullyQualifiedName: string
 ): SolidityStorageLayout => {
-  const { sourceName, contractName } = readContractArtifact(
-    artifactPaths,
-    fullyQualifiedName,
-    integration
-  )
-  const buildInfo = readBuildInfo(artifactPaths, fullyQualifiedName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
+  const buildInfo = readBuildInfo(buildInfoPath)
+  const [sourceName, contractName] = contractFullyQualifiedName.split(':')
+  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
+  const outputSource = buildInfo.output.sources[sourceName]
 
-  return (output as any).storageLayout
+  addEnumMembersToStorageLayout(
+    contractOutput.storageLayout,
+    contractName,
+    outputSource.ast.nodes
+  )
+
+  return contractOutput.storageLayout
 }
 
 export const getDeployedBytecode = async (
@@ -156,13 +159,12 @@ export const createDeploymentArtifacts = async (
     parsedConfig.contracts
   )) {
     const artifact = readContractArtifact(
-      artifactPaths,
-      contractConfig.contract,
+      artifactPaths[referenceName].contractArtifactPath,
       integration
     )
     const { sourceName, contractName, bytecode, abi } = artifact
 
-    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
+    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const { constructorArgValues } = getConstructorArgs(
       parsedConfig,
@@ -203,10 +205,9 @@ export const createDeploymentArtifacts = async (
       deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
-      storageLayout: readStorageLayout(
-        contractConfig.contract,
-        artifactPaths,
-        integration
+      storageLayout: getStorageLayout(
+        artifactPaths[referenceName].buildInfoPath,
+        contractConfig.contract
       ),
     }
 
