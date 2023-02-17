@@ -113,7 +113,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
     ) {
       throw new Error(
         `User included an 'externalProxy' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
-          `but did not include an 'externalProxyType' field.`
+          `but did not include an 'externalProxyType' field. Please include both or neither.`
       )
     } else if (
       contractConfig.externalProxy === undefined &&
@@ -121,7 +121,25 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
     ) {
       throw new Error(
         `User included an 'externalProxyType' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
-          `but did not include an 'externalProxy' field.`
+          `but did not include an 'externalProxy' field. Please include both or neither.`
+      )
+    }
+
+    if (
+      contractConfig.previousBuildInfo !== undefined &&
+      contractConfig.previousFullyQualifiedName === undefined
+    ) {
+      throw new Error(
+        `User included a 'previousBuildInfo' field in the ChugSplash file for ${contractConfig.contract}, but\n` +
+          `did not include a 'previousFullyQualifiedName' field. Please include both or neither.`
+      )
+    } else if (
+      contractConfig.previousBuildInfo === undefined &&
+      contractConfig.previousFullyQualifiedName !== undefined
+    ) {
+      throw new Error(
+        `User included a 'previousFullyQualifiedName' field in the ChugSplash file for ${contractConfig.contract}, but\n` +
+          `did not include a 'previousBuildInfo' field. Please include both or neither.`
       )
     }
 
