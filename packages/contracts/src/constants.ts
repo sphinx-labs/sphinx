@@ -3,7 +3,6 @@ import { ethers } from 'ethers'
 import {
   ProxyArtifact,
   DefaultAdapterArtifact,
-  ProxyUpdaterArtifact,
   ChugSplashBootLoaderArtifact,
   ChugSplashRegistryArtifact,
   ChugSplashManagerArtifact,
@@ -12,29 +11,42 @@ import {
   ProxyABI,
   ProxyInitializerArtifact,
   ProxyInitializerABI,
-  ReverterArtifact,
+  OZUUPSAdapterArtifact,
+  DefaultUpdaterArtifact,
+  OZUUPSUpdaterArtifact,
+  OZTransparentAdapterArtifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
   '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
 export const EXECUTOR = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
-export const TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('transparent')
+export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('chugsplash.proxy.admin')
 )
 
-export const CHUGSPLASH_SALT = '0x' + '22'.repeat(32)
+export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('oz-transparent')
+)
+
+export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('oz-uups')
+)
+
+export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
 const chugsplashManagerProxySourceName =
   ChugSplashManagerProxyArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
-const proxyUpdaterSourceName = ProxyUpdaterArtifact.sourceName
-const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
 const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
 const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
-const reverterSourceName = ReverterArtifact.sourceName
+const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
+const OZUUPSAdapterSourceName = OZUUPSAdapterArtifact.sourceName
+const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
+const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
+const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
 
 const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -67,16 +79,37 @@ export const CHUGSPLASH_BOOTLOADER_ADDRESS = ethers.utils.getCreate2Address(
   )
 )
 
-export const PROXY_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
-  CHUGSPLASH_BOOTLOADER_ADDRESS,
+export const DEFAULT_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [ProxyUpdaterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(['bytes'], [DefaultUpdaterArtifact.bytecode])
 )
 
-export const REVERTER_ADDRESS = ethers.utils.getCreate2Address(
-  CHUGSPLASH_BOOTLOADER_ADDRESS,
+export const DEFAULT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [ReverterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(['bytes'], [DefaultAdapterArtifact.bytecode])
+)
+
+export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CHUGSPLASH_SALT,
+  ethers.utils.solidityKeccak256(['bytes'], [OZUUPSUpdaterArtifact.bytecode])
+)
+
+export const OZ_UUPS_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CHUGSPLASH_SALT,
+  ethers.utils.solidityKeccak256(['bytes'], [OZUUPSAdapterArtifact.bytecode])
+)
+
+export const OZ_TRANSPARENT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  CHUGSPLASH_SALT,
+  ethers.utils.solidityKeccak256(
+    ['bytes'],
+    [OZTransparentAdapterArtifact.bytecode]
+  )
 )
 
 export const PROXY_INITIALIZER_ADDRESS = ethers.utils.getCreate2Address(
@@ -134,7 +167,6 @@ export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
 
 const chugsplashManagerConstructorArgValues = [
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  PROXY_UPDATER_ADDRESS,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT,
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -163,10 +195,8 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
     [
       ChugSplashRegistryArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
-        ['address', 'address', 'uint256', 'uint256', 'uint256', 'address'],
+        ['uint256', 'uint256', 'uint256', 'address'],
         [
-          PROXY_UPDATER_ADDRESS,
-          REVERTER_ADDRESS,
           OWNER_BOND_AMOUNT,
           EXECUTION_LOCK_TIME,
           EXECUTOR_PAYMENT_PERCENTAGE,
@@ -177,16 +207,8 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
   )
 )
 
-export const DEFAULT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [DefaultAdapterArtifact.bytecode])
-)
-
 export const CHUGSPLASH_CONSTRUCTOR_ARGS = {}
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistrySourceName] = [
-  PROXY_UPDATER_ADDRESS,
-  REVERTER_ADDRESS,
   OWNER_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -199,10 +221,12 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerProxySourceName] = [
 ]
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] =
   chugsplashManagerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[proxyUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = []
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = []
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName]
+CHUGSPLASH_CONSTRUCTOR_ARGS[defaultUpdaterSourceName] = []
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
   registryProxyConstructorArgValues
 CHUGSPLASH_CONSTRUCTOR_ARGS[proxyInitializerSourceName] =
   proxyInitializerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[reverterSourceName] = []

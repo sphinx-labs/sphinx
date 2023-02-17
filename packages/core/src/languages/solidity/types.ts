@@ -49,8 +49,9 @@ export type ArtifactPaths = {
   }
 }
 
-export interface StorageSlotPair {
+export interface StorageSlotSegment {
   key: string
+  offset: number
   val: string
 }
 
@@ -74,6 +75,16 @@ export interface CompilerInput {
   }
 }
 
+export interface CompilerOutputMetadata {
+  sources: {
+    [sourceName: string]: {
+      keccak256: string
+      license: string
+      urls: string[]
+    }
+  }
+}
+
 export interface CompilerOutputContract {
   abi: any
   evm: {
@@ -83,15 +94,19 @@ export interface CompilerOutputContract {
       [methodSignature: string]: string
     }
   }
+  metadata?: string | CompilerOutputMetadata
+}
+
+export interface CompilerOutputContracts {
+  [sourceName: string]: {
+    [contractName: string]: CompilerOutputContract
+  }
 }
 
 export interface CompilerOutput {
   sources: CompilerOutputSources
-  contracts: {
-    [sourceName: string]: {
-      [contractName: string]: CompilerOutputContract
-    }
-  }
+  contracts: CompilerOutputContracts
+  errors?: any[]
 }
 
 export interface CompilerOutputSource {

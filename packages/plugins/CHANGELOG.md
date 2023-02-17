@@ -1,5 +1,65 @@
 # @chugsplash/plugins
 
+## 0.11.1
+
+### Patch Changes
+
+- d30ebdf: Change the task for displaying bundles into a script
+- ca6d384: Bump contracts
+- Updated dependencies [ca6d384]
+  - @chugsplash/contracts@0.5.1
+  - @chugsplash/core@0.6.1
+  - @chugsplash/executor@0.6.1
+
+## 0.11.0
+
+### Minor Changes
+
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- 04dba20: Update fund task to optionally automatically calculate the amount of funds to send
+- 5c6846e: Remove hard-coded chain id 31337
+- 07860e6: Add internal task for displaying bundles
+- 5ffd3cc: Fix issue where ChugSplash not initialized when executing locally
+- 1a22e72: Make OpenZeppelin proxy addresses consistent in tests
+- a9d3337: Fix bug where Hardhat chain ID wasn't being detected on localhost
+- Updated dependencies [a76efad]
+- Updated dependencies [3b13db4]
+- Updated dependencies [04dba20]
+- Updated dependencies [5c6846e]
+- Updated dependencies [263b34d]
+- Updated dependencies [fa3f420]
+- Updated dependencies [57a327d]
+  - @chugsplash/executor@0.6.0
+  - @chugsplash/core@0.6.0
+  - @chugsplash/contracts@0.5.0
+
+## 0.10.7
+
+### Patch Changes
+
+- c30b8ef: Fix bug caused by logic that gets the minimum compiler input for a bundle
+- Updated dependencies [c30b8ef]
+- Updated dependencies [90e5c0b]
+  - @chugsplash/core@0.5.6
+
+## 0.10.6
+
+### Patch Changes
+
+- 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
+- Updated dependencies [2caf51e]
+  - @chugsplash/executor@0.5.5
+  - @chugsplash/core@0.5.5
+
+## 0.10.5
+
+### Patch Changes
+
+- fd98872: Update demo package to reflect latest `getContract` function
+
 ## 0.10.4
 
 ### Patch Changes

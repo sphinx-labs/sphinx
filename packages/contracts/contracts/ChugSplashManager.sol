@@ -14,8 +14,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
-import { IProxyAdapter } from "./IProxyAdapter.sol";
-import { ProxyUpdater } from "./ProxyUpdater.sol";
+import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 import {
@@ -53,7 +53,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *
      * @param bundleId    Unique ID for the bundle.
      * @param proxy       Address of the proxy on which the event was executed.
-     * @param executor    Address of the executor.
+     * @param executor    Address of the executor that executed the action.
      * @param actionIndex Index within the bundle hash of the action that was executed.
      */
     event ChugSplashActionExecuted(
@@ -67,7 +67,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Emitted when a ChugSplash bundle is completed.
      *
      * @param bundleId        Unique ID for the bundle.
-     * @param executor        Address of the executor.
+     * @param executor        Address of the executor that completed the bundle.
      * @param actionsExecuted Total number of completed actions.
      */
     event ChugSplashBundleCompleted(
@@ -107,6 +107,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address newOwner,
         string referenceName
     );
+
+    /**
+     * @notice Emitted when a bundle is claimed by an executor.
+     *
+     * @param bundleId ID of the bundle that was claimed.
+     * @param executor Address of the executor that claimed the bundle ID for the project.
+     */
+    event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
 
     /**
      * @notice Emitted when a custom proxy is assigned to a reference name.
@@ -197,11 +205,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ChugSplashRegistry public immutable registry;
 
     /**
-     * @notice Address of the ProxyUpdater.
-     */
-    address public immutable proxyUpdater;
-
-    /**
      * @notice Amount that must be deposited in this contract in order to execute a bundle. The
      *         project owner can withdraw this amount whenever a bundle is not active. This bond
      *         will be forfeited if the project owner cancels a bundle that is in progress, which is
@@ -212,8 +215,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @notice Amount of time for an executor to finish executing a bundle once they have claimed
-     *         it. If the executor fails to completely execute the bundle in this amount of time,
-     *         their bond is forfeited to the ChugSplashManager.
+     *         it. If the owner cancels an active bundle within this time period, their bond is
+     *         forfeited to the executor. This prevents users from trolling executors by immediately
+     *         cancelling active bundles.
      */
     uint256 public immutable executionLockTime;
 
@@ -229,6 +233,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         default proxy, then its value in this mapping is the zero-address.
      */
     mapping(string => address payable) public proxies;
+
+    /**
+     * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
+     *         owed to them.
+     */
+    mapping(address => uint256) public debt;
 
     /**
      * @notice Mapping of reference names to proxy types. If a reference name is using the default
@@ -272,7 +282,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
      * @notice ETH amount that is owed to the executor.
      */
-    uint256 public debt;
+    uint256 public totalDebt;
 
     /**
      * @notice Modifier that restricts access to the executor.
@@ -286,8 +296,21 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
+     * @notice Modifier that restricts access to the selected executor for the active bundle.
+     *         Note that this modifier also prevents executors from attempting to execute
+     *         an empty bundle, `bytes32(0)`, because the executor can only claim a non-empty
+     *         bundle when calling `claimBundle`.
+     */
+    modifier onlySelectedExecutor() {
+        require(
+            getSelectedExecutor(activeBundleId) == msg.sender,
+            "ChugSplashManager: caller is not approved executor for active bundle ID"
+        );
+        _;
+    }
+
+    /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _proxyUpdater              Address of the ProxyUpdater.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -297,13 +320,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     constructor(
         ChugSplashRegistry _registry,
-        address _proxyUpdater,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage
     ) {
         registry = _registry;
-        proxyUpdater = _proxyUpdater;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -335,6 +356,18 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         string memory _configUri
     ) public pure returns (bytes32) {
         return keccak256(abi.encode(_bundleRoot, _bundleSize, _configUri));
+    }
+
+    /**
+     * @notice Queries the selected executor for a given project/bundle.
+     *
+     * @param _bundleId ID of the bundle currently being executed.
+     *
+     * @return Address of the selected executor.
+     */
+    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
+        ChugSplashBundleState storage bundle = _bundles[_bundleId];
+        return bundle.selectedExecutor;
     }
 
     /**
@@ -385,11 +418,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _bundleSize,
         string memory _configUri
     ) public {
-        require(
-            msg.sender == owner() || proposers[msg.sender] == true,
-            "ChugSplashManager: caller must be proposer or owner"
-        );
-
         bytes32 bundleId = computeBundleId(_bundleRoot, _bundleSize, _configUri);
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
@@ -417,7 +445,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
         require(
-            address(this).balance - debt >= ownerBondAmount,
+            address(this).balance - totalDebt >= ownerBondAmount,
             "ChugSplashManager: insufficient balance in manager"
         );
 
@@ -456,8 +484,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public onlyExecutor {
-        console.log('a');
+    ) public onlySelectedExecutor {
         for (uint256 i = 0; i < _actions.length; i++) {
             executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
         }
@@ -467,7 +494,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Executes a specific action within the current active bundle for a project. Actions
      *         can only be executed once. A re-entrancy guard is added to prevent an implementation
      *         contract's constructor from calling another contract which in turn calls back into
-     *         this function. Only callable by the executor
+     *         this function. Only callable by the executor.
      *
      * @param _action      Action to execute.
      * @param _actionIndex Index of the action in the bundle.
@@ -477,14 +504,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction memory _action,
         uint256 _actionIndex,
         bytes32[] memory _proof
-    ) public nonReentrant onlyExecutor {
+    ) public nonReentrant onlySelectedExecutor {
         uint256 initialGasLeft = gasleft();
-
-        console.log('b');
-        require(
-            activeBundleId != bytes32(0),
-            "ChugSplashManager: no bundle has been approved for execution"
-        );
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
         console.logBytes32(activeBundleId);
@@ -510,8 +531,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Get the proxy type and adapter for this reference name.
         bytes32 proxyType = proxyTypes[_action.referenceName];
         address adapter = registry.adapters(proxyType);
+        address updater = registry.updaters(proxyType);
 
         require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+        require(updater != address(0), "ChugSplashManager: proxy type has no updater");
 
         // Get the proxy to use for this reference name. The proxy can either be the default proxy
         // used by ChugSplash or a non-standard proxy that has previously been set by the project
@@ -552,16 +575,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proxy = proxies[_action.referenceName];
         }
 
-        if (_getProxyImplementation(proxy, adapter) != registry.reverter()) {
-            console.log('d');
-            // Set the proxy's implementation to be the Reverter. This ensures that end-users can't
-            // accidentally interact with a proxy that is in the process of being upgraded. Note
-            // that we use a Reverter contract instead of address(0) to support OpenZeppelin's
-            // `TransparentUpgradeableProxy`, whose `upgradeTo` call reverts if the implementation
-            // is not a contract.
-            _upgradeProxyTo(proxy, adapter, registry.reverter());
-            console.log('e');
-        }
+        // Set the proxy's implementation to be the Updater. Updaters ensure that only the
+        // ChugSplashManager can interact with a proxy that is in the process of being updated. Note
+        // that we use the Updater contract to provide a generic interface for updating a variety of
+        // proxy types.
+        (bool success, ) = adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.initiateExecution, (proxy, updater))
+        );
+        require(success, "ChugSplashManager: delegatecall to set storage failed");
 
         // Mark the action as executed and update the total number of executed actions.
         bundle.actionsExecuted++;
@@ -571,10 +592,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
             _deployImplementation(_action.referenceName, _action.data);
         } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
-            console.log('f');
-            console.log(_action.referenceName);
-            (bytes32 key, bytes32 val) = abi.decode(_action.data, (bytes32, bytes32));
-            _setProxyStorage(proxy, adapter, key, val);
+            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+                _action.data,
+                (bytes32, uint8, bytes)
+            );
+            _setProxyStorage(proxy, adapter, key, offset, val);
         } else {
             revert("ChugSplashManager: attemped setImplementation action in wrong function");
         }
@@ -586,10 +608,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
         // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
-        // executorPayment to the debt and debt. Unfortunately, there is a wide variance in the gas
-        // costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds might
-        // be contributing to the difficulty of getting a good estimate. For now, we err on the side
-        // of safety by adding a larger value. TODO: Get a better estimate than 152778.
+        // executorPayment to the debt and total debt. Unfortunately, there is a wide variance in
+        // the gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
+        // might be contributing to the difficulty of getting a good estimate. For now, we err on
+        // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
 
         console.log('z');
@@ -609,7 +631,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
         }
 
-        debt += executorPayment;
+        totalDebt += executorPayment;
+        debt[msg.sender] += executorPayment;
     }
 
     /**
@@ -628,13 +651,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public onlyExecutor {
+    ) public onlySelectedExecutor {
         uint256 initialGasLeft = gasleft();
-
-        require(
-            activeBundleId != bytes32(0),
-            "ChugSplashManager: no bundle has been approved for execution"
-        );
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
@@ -682,7 +700,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             }
 
             // Upgrade the proxy's implementation contract.
-            _upgradeProxyTo(proxy, adapter, implementation);
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation))
+            );
+            require(success, "ChugSplashManager: delegatecall to complete execution failed");
 
             emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
@@ -721,7 +742,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         // Add the executor's payment to the debt.
-        debt += executorPayment;
+        totalDebt += executorPayment;
+        debt[msg.sender] += executorPayment;
     }
 
     /**
@@ -742,7 +764,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
             // Give the owner's bond to the executor if the bundle is cancelled within the
             // `executionLockTime` window.
-            debt += ownerBondAmount;
+            totalDebt += ownerBondAmount;
         }
 
         bytes32 cancelledBundleId = activeBundleId;
@@ -754,19 +776,44 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Allows the executor to claim their ETH payments and bond. The executor may only
-     *         withdraw ETH that is owed to it by this contract.
+     * @notice Allows an executor to post a bond of `executorBondAmount` to claim the sole right to
+     *         execute actions for a bundle over a period of `executionLockTime`. Only the first
+     *         executor to post a bond gains this right. Executors must finish executing the bundle
+     *         within `executionLockTime` or else another executor may claim the bundle. Note that
+     *         this strategy creates a PGA for the transaction to claim the bundle but removes PGAs
+     *         during the execution process.
+     */
+    function claimBundle() external onlyExecutor {
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
+
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        require(
+            block.timestamp > bundle.timeClaimed + executionLockTime,
+            "ChugSplashManager: bundle is currently claimed by an executor"
+        );
+
+        bundle.timeClaimed = block.timestamp;
+        bundle.selectedExecutor = msg.sender;
+
+        emit ChugSplashBundleClaimed(activeBundleId, msg.sender);
+        registry.announce("ChugSplashBundleClaimed");
+    }
+
+    /**
+     * @notice Allows executors to claim their ETH payments and bond. Executors may only withdraw
+     *         ETH that is owed to them by this contract.
      */
     function claimExecutorPayment() external onlyExecutor {
-        require(debt > 0, "ChugSplashManager: no debt to withdraw");
+        uint256 amount = debt[msg.sender];
 
-        uint256 amountToWithdraw = debt;
-        debt = 0;
+        debt[msg.sender] -= amount;
+        totalDebt -= amount;
 
-        (bool success, ) = payable(msg.sender).call{ value: amountToWithdraw }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw executor funds failed");
+        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw owner funds failed");
 
-        emit ExecutorPaymentClaimed(msg.sender, amountToWithdraw);
+        emit ExecutorPaymentClaimed(msg.sender, amount);
         registry.announce("ExecutorPaymentClaimed");
     }
 
@@ -846,7 +893,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: cannot withdraw funds while bundle is active"
         );
 
-        uint256 amount = address(this).balance - debt;
+        uint256 amount = address(this).balance - totalDebt;
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw owner funds failed");
 
@@ -941,84 +988,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address payable _proxy,
         address _adapter,
         bytes32 _key,
-        bytes32 _value
+        uint8 _offset,
+        bytes memory _value
     ) internal {
-        // Delegatecall the adapter to upgrade the proxy's implementation to be the ProxyUpdater,
-        // and call `setStorage` on the proxy.
-        console.log('g');
-        _upgradeProxyToAndCall(
-            _proxy,
-            _adapter,
-            proxyUpdater,
-            abi.encodeCall(ProxyUpdater.setStorage, (_key, _value))
-        );
-
-        console.log(registry.reverter());
-        console.log('h');
-        // Delegatecall the adapter to set the proxy's implementation back to the Reverter.
-        _upgradeProxyTo(_proxy, _adapter, registry.reverter());
-    }
-
-    /**
-     * @notice Delegatecalls an adapter to get the address of the proxy's implementation contract.
-     *
-     * @param _proxy   Address of the proxy.
-     * @param _adapter Address of the adapter to use for the proxy.
-     */
-    function _getProxyImplementation(
-        address payable _proxy,
-        address _adapter
-    ) internal returns (address) {
-        (bool success, bytes memory implementationBytes) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.getProxyImplementation, (_proxy))
-        );
-        require(success, "ChugSplashManager: delegatecall to get proxy implementation failed");
-
-        // Convert the implementation's type from bytes to address.
-        address implementation;
-        assembly {
-            implementation := mload(add(implementationBytes, 32))
-        }
-        return implementation;
-    }
-
-    /**
-     * @notice Delegatecalls an adapter to upgrade a proxy's implementation contract.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     */
-    function _upgradeProxyTo(
-        address payable _proxy,
-        address _adapter,
-        address _implementation
-    ) internal {
+        // Delegatecall the adapter to call `setStorage` on the proxy.
         (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyTo, (_proxy, _implementation))
+            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy failed");
-    }
-
-    /**
-     * @notice Upgrade a proxy's implementation contract and delegatecall the proxy with encoded
-     *         function data via an adapter.
-     *
-     * @param _proxy          Address of the proxy to upgrade.
-     * @param _adapter        Address of the adapter to use for the proxy.
-     * @param _implementation Address to set as the proxy's new implementation contract.
-     * @param _data           Calldata to delegatecall the new implementation with.
-     */
-    function _upgradeProxyToAndCall(
-        address payable _proxy,
-        address _adapter,
-        address _implementation,
-        bytes memory _data
-    ) internal {
-        (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.upgradeProxyToAndCall, (_proxy, _implementation, _data))
-        );
-        require(success, "ChugSplashManager: delegatecall to upgrade proxy with data failed");
+        require(success, "ChugSplashManager: delegatecall to set storage failed");
     }
 
     /**

@@ -3,29 +3,49 @@ import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
 import { ethers, providers } from 'ethers'
-import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
 
-/* Imports: Internal */
+import { ArtifactPaths } from '../languages/solidity/types'
 import {
-  ArtifactPaths,
-  computeStorageSlots,
-  SolidityStorageLayout,
-} from '../languages/solidity'
-import {
-  ChugSplashAction,
-  ChugSplashActionBundle,
-  readStorageLayout,
-  makeBundleFromActions,
+  getDefaultProxyAddress,
+  isExternalProxyType,
   readContractArtifact,
-} from '../actions'
-import { getDefaultProxyAddress, isExternalProxyType } from '../utils'
+  assertValidContractReferences,
+  variableContainsPreserveKeyword,
+} from '../utils'
 import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
   ProxyType,
 } from './types'
 import { Integration } from '../constants'
-import { getLatestDeployedStorageLayout } from '../deployed'
+
+/**
+ * Reads a ChugSplash config file synchronously.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readParsedChugSplashConfig = async (
+  provider: providers.Provider,
+  configPath: string,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ParsedChugSplashConfig> => {
+  const userConfig = readUserChugSplashConfig(configPath)
+  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
+}
+
+export const readUserChugSplashConfig = (
+  configPath: string
+): UserChugSplashConfig => {
+  delete require.cache[require.resolve(path.resolve(configPath))]
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  let config = require(path.resolve(configPath))
+  config = config.default || config
+  assertValidUserConfigFields(config)
+  return config
+}
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
@@ -105,73 +125,19 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       )
     }
 
-    // Check for invalid contract references.
     if (contractConfig.variables !== undefined) {
-      for (const [varName, varValue] of Object.entries(
-        contractConfig.variables
-      )) {
-        if (
-          typeof varValue === 'string' &&
-          varValue.includes('{{') &&
-          varValue.includes('}}')
-        ) {
-          if (!varValue.startsWith('{{')) {
-            throw new Error(`Contract reference cannot contain leading spaces: ${varValue}
-                 Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                 `)
-          } else if (!varValue.endsWith('}}')) {
-            throw new Error(`Contract reference cannot contain trailing spaces: ${varValue}
-                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                  `)
-          }
-
-          const contractReference = varValue
-            .substring(2, varValue.length - 2)
-            .trim()
-
-          if (!referenceNames.includes(contractReference)) {
-            throw new Error(`Contract reference cannot be found: ${contractReference}
-                  Location: ${config.options.projectName} -> ${referenceName} -> ${varName}
-                  `)
-          }
-        }
-      }
+      // Check that all contract references are valid.
+      assertValidContractReferences(contractConfig.variables, referenceNames)
     }
-  }
-}
 
-export const assertStorageSlotCheck = async (
-  provider: providers.Provider,
-  config: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration,
-  remoteExecution: boolean,
-  canonicalConfigFolderPath: string
-) => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    config.contracts
-  )) {
-    const isProxyDeployed =
-      (await provider.getCode(contractConfig.proxy)) !== '0x'
-    if (isProxyDeployed && config.options.skipStorageCheck !== true) {
-      const currStorageLayout = await getLatestDeployedStorageLayout(
-        provider,
-        referenceName,
-        contractConfig.proxy,
-        remoteExecution,
-        canonicalConfigFolderPath
-      )
-      const newStorageLayout = readStorageLayout(
-        contractConfig.contract,
-        artifactPaths,
-        integration
-      )
-      // Run OpenZeppelin's storage slot checker.
-      assertStorageUpgradeSafe(
-        currStorageLayout as any,
-        newStorageLayout as any,
-        false
-      )
+    if (contractConfig.constructorArgs !== undefined) {
+      // Check that the user did not use the 'preserve' keyword for constructor args.
+      if (variableContainsPreserveKeyword(contractConfig.constructorArgs)) {
+        throw new Error(
+          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash file. This \n` +
+            `keyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`
+        )
+      }
     }
   }
 }
@@ -207,8 +173,13 @@ export const parseChugSplashConfig = async (
       )
     }
 
-    const { contract, externalProxy, externalProxyType, variables } =
-      userContractConfig
+    const {
+      contract,
+      externalProxy,
+      externalProxyType,
+      variables,
+      constructorArgs,
+    } = userContractConfig
 
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
@@ -233,6 +204,7 @@ export const parseChugSplashConfig = async (
       proxy,
       proxyType,
       variables: variables ?? {},
+      constructorArgs: constructorArgs ?? {},
     }
 
     contracts[referenceName] = proxy
@@ -243,60 +215,4 @@ export const parseChugSplashConfig = async (
       ...contracts,
     })
   )
-}
-
-/**
- * Generates a ChugSplash action bundle from a config file.
- *
- * @param config Config file to convert into a bundle.
- * @param env Environment variables to inject into the config file.
- * @returns Action bundle generated from the parsed config file.
- */
-export const makeActionBundleFromConfig = async (
-  parsedConfig: ParsedChugSplashConfig,
-  artifacts: {
-    [name: string]: {
-      creationCode: string
-      storageLayout: SolidityStorageLayout
-      immutableVariables: string[]
-    }
-  }
-): Promise<ChugSplashActionBundle> => {
-  const actions: ChugSplashAction[] = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const artifact = artifacts[referenceName]
-
-    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
-    actions.push({
-      referenceName,
-      code: artifact.creationCode,
-    })
-
-    // Next, add a SET_IMPLEMENTATION action for each contract.
-    actions.push({
-      referenceName,
-    })
-
-    // Compute our storage slots.
-    // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(
-      artifact.storageLayout,
-      contractConfig,
-      artifact.immutableVariables
-    )
-
-    // Add SET_STORAGE actions for each storage slot that we want to modify.
-    for (const slot of slots) {
-      actions.push({
-        referenceName,
-        key: slot.key,
-        value: slot.val,
-      })
-    }
-  }
-
-  // Generate a bundle from the list of actions.
-  return makeBundleFromActions(actions)
 }

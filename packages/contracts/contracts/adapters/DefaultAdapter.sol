@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { IProxyAdapter } from "../IProxyAdapter.sol";
+import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
 /**
@@ -14,33 +15,27 @@ contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function getProxyImplementation(address payable _proxy) external returns (address) {
-        return Proxy(_proxy).implementation();
-    }
-
-    /**
-     * @inheritdoc IProxyAdapter
-     */
-    function upgradeProxyTo(address payable _proxy, address _implementation) external {
+    function initiateExecution(address payable _proxy, address _implementation) external {
         Proxy(_proxy).upgradeTo(_implementation);
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
-    function upgradeProxyToAndCall(
+    function completeExecution(address payable _proxy, address _implementation) external {
+        Proxy(_proxy).upgradeTo(_implementation);
+    }
+
+    /**
+     * @inheritdoc IProxyAdapter
+     */
+    function setStorage(
         address payable _proxy,
-        address _implementation,
-        bytes calldata _data
-    ) external returns (bytes memory) {
-        // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
-        // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
-        // function doesn't return any data.
-        (bool success, bytes memory returndata) = _proxy.call(
-            abi.encodeCall(Proxy.upgradeToAndCall, (_implementation, _data))
-        );
-        require(success, "DefaultAdapter: call to proxy failed");
-        return returndata;
+        bytes32 _key,
+        uint8 _offset,
+        bytes memory _segment
+    ) external {
+        IProxyUpdater(_proxy).setStorage(_key, _offset, _segment);
     }
 
     /**

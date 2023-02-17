@@ -3,13 +3,15 @@ import { getChainId } from '@eth-optimism/core-utils'
 import { Manifest } from '@openzeppelin/upgrades-core'
 import { Contract, providers } from 'ethers'
 
-import { CanonicalChugSplashConfig, chugsplashFetchSubtask } from './config'
+import { chugsplashFetchSubtask } from './config/fetch'
+import { CanonicalChugSplashConfig } from './config/types'
 import { getCanonicalConfigArtifacts, SolidityStorageLayout } from './languages'
 import {
   getChugSplashRegistry,
   getEIP1967ProxyImplementationAddress,
   readCanonicalConfig,
 } from './utils'
+import 'core-js/features/array/at'
 
 export const getLatestDeployedCanonicalConfig = async (
   provider: providers.Provider,

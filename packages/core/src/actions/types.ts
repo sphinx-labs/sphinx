@@ -1,4 +1,15 @@
 import { BigNumber } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
+
+// TODO
+export type BuildInfo = any
+export type ContractArtifact = {
+  abi: Array<Fragment>
+  sourceName: string
+  contractName: string
+  bytecode: string
+}
+export type ContractASTNode = any
 
 /**
  * Possible action types.
@@ -35,6 +46,7 @@ export interface RawChugSplashAction {
 export interface SetStorageAction {
   referenceName: string
   key: string
+  offset: number
   value: string
 }
 

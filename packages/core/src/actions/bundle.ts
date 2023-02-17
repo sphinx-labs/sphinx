@@ -2,15 +2,17 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
-import { makeActionBundleFromConfig, ParsedChugSplashConfig } from '../config'
+import { ParsedChugSplashConfig } from '../config/types'
 import { Integration } from '../constants'
-import { ArtifactPaths } from '../languages'
+import { computeStorageSlots } from '../languages/solidity/storage'
 import {
-  readContractArtifact,
+  ArtifactPaths,
+  SolidityStorageLayout,
+} from '../languages/solidity/types'
+import { readContractArtifact } from '../utils'
+import {
   readStorageLayout,
   getCreationCodeWithConstructorArgs,
-  getImmutableVariables,
-  readBuildInfo,
 } from './artifacts'
 import {
   ChugSplashAction,
@@ -33,7 +35,8 @@ export const isSetStorageAction = (
 ): action is SetStorageAction => {
   return (
     (action as SetStorageAction).key !== undefined &&
-    (action as SetStorageAction).value !== undefined
+    (action as SetStorageAction).value !== undefined &&
+    (action as SetStorageAction).offset !== undefined
   )
 }
 
@@ -76,8 +79,8 @@ export const toRawChugSplashAction = (
       actionType: ChugSplashActionType.SET_STORAGE,
       referenceName: action.referenceName,
       data: ethers.utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes32'],
-        [action.key, action.value]
+        ['bytes32', 'uint8', 'bytes'],
+        [action.key, action.offset, action.value]
       ),
     }
   } else if (isDeployImplementationAction(action)) {
@@ -105,13 +108,14 @@ export const fromRawChugSplashAction = (
   rawAction: RawChugSplashAction
 ): ChugSplashAction => {
   if (rawAction.actionType === ChugSplashActionType.SET_STORAGE) {
-    const [key, value] = ethers.utils.defaultAbiCoder.decode(
-      ['bytes32', 'bytes32'],
+    const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
+      ['bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
     return {
       referenceName: rawAction.referenceName,
       key,
+      offset,
       value,
     }
   } else if (
@@ -233,36 +237,74 @@ export const bundleLocal = async (
       integration
     )
 
-    const { abi, sourceName, contractName, bytecode } = readContractArtifact(
+    const { abi, bytecode } = readContractArtifact(
       artifactPaths,
       contractConfig.contract,
       integration
-    )
-    const { output: compilerOutput } = readBuildInfo(
-      artifactPaths,
-      contractConfig.contract
     )
     const creationCode = getCreationCodeWithConstructorArgs(
       bytecode,
       parsedConfig,
       referenceName,
-      abi,
-      compilerOutput,
-      sourceName,
-      contractName
-    )
-    const immutableVariables = getImmutableVariables(
-      compilerOutput,
-      sourceName,
-      contractName,
-      parsedConfig.contracts[referenceName]
+      abi
     )
     artifacts[referenceName] = {
       creationCode,
       storageLayout,
-      immutableVariables,
     }
   }
 
   return makeActionBundleFromConfig(parsedConfig, artifacts)
+}
+
+/**
+ * Generates a ChugSplash action bundle from a config file.
+ *
+ * @param config Config file to convert into a bundle.
+ * @param env Environment variables to inject into the config file.
+ * @returns Action bundle generated from the parsed config file.
+ */
+export const makeActionBundleFromConfig = async (
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: {
+    [name: string]: {
+      creationCode: string
+      storageLayout: SolidityStorageLayout
+    }
+  }
+): Promise<ChugSplashActionBundle> => {
+  const actions: ChugSplashAction[] = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const artifact = artifacts[referenceName]
+
+    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
+    actions.push({
+      referenceName,
+      code: artifact.creationCode,
+    })
+
+    // Next, add a SET_IMPLEMENTATION action for each contract.
+    actions.push({
+      referenceName,
+    })
+
+    // Compute our storage slots.
+    // TODO: One day we'll need to refactor this to support Vyper.
+    const slots = computeStorageSlots(artifact.storageLayout, contractConfig)
+
+    // Add SET_STORAGE actions for each storage slot that we want to modify.
+    for (const slot of slots) {
+      actions.push({
+        referenceName,
+        key: slot.key,
+        offset: slot.offset,
+        value: slot.val,
+      })
+    }
+  }
+
+  // Generate a bundle from the list of actions.
+  return makeBundleFromActions(actions)
 }
