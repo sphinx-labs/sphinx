@@ -38,15 +38,13 @@ import {
   ParsedConfigVariable,
   ParsedContractConfig,
   ParsedContractConfigs,
+  UserChugSplashConfig,
   UserConfigVariable,
 } from './config/types'
 import {
-  BuildInfo,
   ChugSplashActionBundle,
   ChugSplashActionType,
-  ContractArtifact,
-  ContractASTNode,
-  readStorageLayout,
+  getStorageLayout,
 } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
@@ -54,6 +52,9 @@ import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
+  BuildInfo,
+  ContractArtifact,
+  ContractASTNode,
   CompilerOutputSources,
   SolidityStorageLayout,
 } from './languages/solidity/types'
@@ -662,6 +663,7 @@ export const setProxiesToReferenceNames = async (
 export const assertValidParsedChugSplashFile = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   remoteExecution: boolean,
@@ -769,13 +771,14 @@ permission to call the 'upgradeTo' function on each of them.
           provider,
           referenceName,
           contractConfig.proxy,
+          userConfig,
+          artifactPaths,
           remoteExecution,
           canonicalConfigFolderPath
         )
-        const newStorageLayout = readStorageLayout(
-          contractConfig.contract,
-          artifactPaths,
-          integration
+        const newStorageLayout = getStorageLayout(
+          artifactPaths[referenceName].buildInfoPath,
+          contractConfig.contract
         )
 
         assertStorageCompatiblePreserveKeywords(
@@ -798,8 +801,7 @@ permission to call the 'upgradeTo' function on each of them.
       // user will be able to upgrade the proxy in the future.
       if (contractConfig.proxyType === 'oz-uups') {
         const artifact = readContractArtifact(
-          artifactPaths,
-          contractConfig.contract,
+          artifactPaths[referenceName].contractArtifactPath,
           integration
         )
         const containsPublicUpgradeTo = artifact.abi.some(
@@ -818,7 +820,7 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
 
-    spinner?.succeed(`${projectName} is a valid upgrade.`)
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
 
     if (!confirm) {
       // Confirm upgrade with user
@@ -830,8 +832,6 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
   } else {
-    spinner?.succeed(`${projectName} is a fresh deployment.`)
-
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
       // Throw an error if the 'preserve' keyword is set to a variable's value in the
       // ChugSplash file. This keyword is only allowed for upgrades.
@@ -842,6 +842,8 @@ permission to call the 'upgradeTo' function on each of them.
         )
       }
     }
+
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
   }
 }
 
@@ -964,13 +966,17 @@ export const assertValidContracts = (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths
 ) => {
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    // Split the contract's fully qualified name into its source name and contract name.
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    // Get the source name and contract name from its fully qualified name
     const [sourceName, contractName] = contractConfig.contract.split(':')
-    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
 
-    const sourceOutput = buildInfo.output.sources[sourceName]
-    const childContractNode = sourceOutput.ast.nodes.find(
+    const buildInfoPath = artifactPaths[referenceName].buildInfoPath
+    const buildInfo = readBuildInfo(buildInfoPath)
+    const outputSource = buildInfo.output.sources[sourceName]
+
+    const childContractNode = outputSource.ast.nodes.find(
       (node) =>
         node.nodeType === 'ContractDefinition' && node.name === contractName
     )
@@ -1003,7 +1009,7 @@ export const assertValidContracts = (
               `User attempted to assign a value to a non-immutable state variable '${node.name}' in\n` +
                 `the contract: ${contractNode.name}. This is not allowed because the value will not exist in\n` +
                 `the upgradeable contract. Please remove the value in the contract and define it in your ChugSplash\n` +
-                `file instead. You can also set '${node.name} to be a constant or immutable variable instead.`
+                `file instead. Alternatively, can also set '${node.name} to be a constant or immutable variable.`
             )
           }
 
@@ -1136,28 +1142,11 @@ export const getBundleCompletionTxnHash = async (
 
 /**
  * Retrieves an artifact by name from the local file system.
- *
- * @param name Contract name or fully qualified name.
- * @returns Artifact.
  */
 export const readContractArtifact = (
-  artifactPaths: ArtifactPaths,
-  contract: string,
+  contractArtifactPath: string,
   integration: Integration
 ): ContractArtifact => {
-  let contractArtifactPath: string
-  if (artifactPaths[contract]) {
-    contractArtifactPath = artifactPaths[contract].contractArtifactPath
-  } else {
-    // The contract must be a fully qualified name.
-    const contractName = contract.split(':').at(-1)
-    if (contractName === undefined) {
-      throw new Error('Could not use contract name to get build info')
-    } else {
-      contractArtifactPath = artifactPaths[contractName].contractArtifactPath
-    }
-  }
-
   const artifact: ContractArtifact = JSON.parse(
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
@@ -1174,23 +1163,13 @@ export const readContractArtifact = (
 /**
  * Reads the build info from the local file system.
  *
- * @param artifactPaths ArtifactPaths object.
- * @param fullyQualifiedName Fully qualified name of the contract.
+ * @param buildInfoPath Path to the build info file.
  * @returns BuildInfo object.
  */
-export const readBuildInfo = (
-  artifactPaths: ArtifactPaths,
-  fullyQualifiedName: string
-): BuildInfo => {
-  const [sourceName, contractName] = fullyQualifiedName.split(':')
-  const { buildInfoPath } =
-    artifactPaths[fullyQualifiedName] ?? artifactPaths[contractName]
+export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
   const buildInfo: BuildInfo = JSON.parse(
     fs.readFileSync(buildInfoPath, 'utf8')
   )
-
-  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
-  const sourceNodes = buildInfo.output.sources[sourceName].ast.nodes
 
   if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
     throw new Error(
@@ -1198,19 +1177,20 @@ export const readBuildInfo = (
     )
   }
 
-  if (!('storageLayout' in contractOutput)) {
+  if (
+    !buildInfo.input.settings.outputSelection['*']['*'].includes(
+      'storageLayout'
+    )
+  ) {
     throw new Error(
-      `Storage layout for ${fullyQualifiedName} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
+      `Storage layout not found. Did you forget to set the "storageLayout" compiler option in your\n` +
+        `Hardhat/Foundry config file?\n\n` +
+        `If you're using Hardhat, see how to configure your project here:\n` +
+        `https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md#setup-chugsplash-using-typescript\n\n` +
+        `If you're using Foundry, see how to configure your project here:\n` +
+        `https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md#3-configure-your-foundrytoml-file`
     )
   }
-
-  addEnumMembersToStorageLayout(
-    contractOutput.storageLayout,
-    contractName,
-    sourceNodes
-  )
 
   return buildInfo
 }

@@ -68,9 +68,11 @@ export const getArtifactPaths = async (
 ): Promise<ArtifactPaths> => {
   const artifactPaths: ArtifactPaths = {}
 
-  for (const { contract } of Object.values(contractConfigs)) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
     const { sourceName, contractName } = getContractArtifact(
-      contract,
+      contractConfig.contract,
       artifactFolder
     )
     const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
@@ -79,7 +81,7 @@ export const getArtifactPaths = async (
     const fileName = `${contractName}.json`
     const contractArtifactPath = path.join(artifactFolder, folderName, fileName)
 
-    artifactPaths[contract] = {
+    artifactPaths[referenceName] = {
       buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
       contractArtifactPath,
     }

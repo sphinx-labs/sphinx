@@ -11,6 +11,7 @@ import {
   ChugSplashInput,
   ParsedChugSplashConfig,
   readParsedChugSplashConfig,
+  readUserChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -133,9 +134,11 @@ export const chugsplashProposeAbstractTask = async (
 
   assertValidContracts(parsedConfig, artifactPaths)
 
+  const userConfig = readUserChugSplashConfig(configPath)
   await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
+    userConfig,
     artifactPaths,
     integration,
     remoteExecution,
@@ -283,8 +286,10 @@ export const chugsplashCommitAbstractSubtask = async (
   }
 
   const chugsplashInputs: Array<ChugSplashInput> = []
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -662,6 +667,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
+  const userConfig = readUserChugSplashConfig(configPath)
   const parsedConfig = await readParsedChugSplashConfig(
     provider,
     configPath,
@@ -683,6 +689,7 @@ export const chugsplashDeployAbstractTask = async (
   await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
+    userConfig,
     artifactPaths,
     integration,
     remoteExecution,

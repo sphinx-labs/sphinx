@@ -4,14 +4,19 @@ import { Manifest } from '@openzeppelin/upgrades-core'
 import { Contract, providers } from 'ethers'
 
 import { chugsplashFetchSubtask } from './config/fetch'
-import { CanonicalChugSplashConfig } from './config/types'
-import { getCanonicalConfigArtifacts, SolidityStorageLayout } from './languages'
+import { CanonicalChugSplashConfig, UserChugSplashConfig } from './config/types'
+import {
+  ArtifactPaths,
+  getCanonicalConfigArtifacts,
+  SolidityStorageLayout,
+} from './languages'
 import {
   getChugSplashRegistry,
   getEIP1967ProxyImplementationAddress,
   readCanonicalConfig,
 } from './utils'
 import 'core-js/features/array/at'
+import { getStorageLayout } from './actions/artifacts'
 
 export const getLatestDeployedCanonicalConfig = async (
   provider: providers.Provider,
@@ -89,13 +94,22 @@ export const getLatestDeployedCanonicalConfig = async (
   }
 }
 
-// TODO: When you add support for artifacts from sources other than OZ upgrades (e.g. hardhat,
-// hardhat-deploy), remember to call `addEnumMembersToStorageLayout`. This isn't necessary for OZ
-// artifacts.
+/**
+ * Get the most recent storage layout for a given reference name. The order of priority (from
+ * highest to lowest) is:
+ * 1. The storage layout at the path specified by the user via 'previousBuildInfo'
+ * 2. The latest deployment in the ChugSplash system for the corresponding proxy
+ * 3. OpenZeppelin's Network File (if the proxy is an OpenZeppelin proxy type)
+ *
+ * If we detect a 'previousBuildInfo' path as well as a previous deployment using ChugSplash, we log
+ * a warning to the user and use the storage layout at 'previousBuildInfo'.
+ */
 export const getLatestDeployedStorageLayout = async (
   provider: providers.Provider,
   referenceName: string,
   proxyAddress: string,
+  userConfig: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
   remoteExecution: boolean,
   canonicalConfigFolderPath: string
 ): Promise<SolidityStorageLayout> => {
@@ -106,12 +120,37 @@ export const getLatestDeployedStorageLayout = async (
     canonicalConfigFolderPath
   )
 
+  const userContractConfig = userConfig.contracts[referenceName]
+  if (
+    userContractConfig.previousFullyQualifiedName !== undefined &&
+    userContractConfig.previousBuildInfo !== undefined
+  ) {
+    const storageLayout = getStorageLayout(
+      userContractConfig.previousBuildInfo,
+      userContractConfig.previousFullyQualifiedName
+    )
+
+    if (deployedCanonicalConfig !== undefined) {
+      console.warn(
+        '\x1b[33m%s\x1b[0m', // Display message in yellow
+        `\nUsing the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
+          `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash file.`
+      )
+    }
+
+    return storageLayout
+  }
+
   if (deployedCanonicalConfig !== undefined) {
     const deployedCanonicalConfigArtifacts = await getCanonicalConfigArtifacts(
       deployedCanonicalConfig
     )
     return deployedCanonicalConfigArtifacts[referenceName].storageLayout
-  } else {
+  } else if (
+    userContractConfig.externalProxyType === 'oz-transparent' ||
+    userContractConfig.externalProxyType === 'oz-uups'
+  ) {
     const manifest = new Manifest(await getChainId(provider))
     const currImplAddress = await getEIP1967ProxyImplementationAddress(
       provider,
@@ -130,12 +169,12 @@ export const getLatestDeployedStorageLayout = async (
         )
       }
       return implDeployment.layout as unknown as SolidityStorageLayout
-    } else {
-      throw new Error(
-        `Could not find the most recent storage layout to use for the storage slot checker.
-If you are confident that there are no storage slot conflicts, call this task again with the flag: --skip-storage-check
-Otherwise, please report this error.`
-      )
     }
   }
+
+  throw new Error(
+    `Could not find the most recent storage layout to use for the storage slot checker.
+If you are confident that there are no storage slot conflicts, call this task again with the flag: --skip-storage-check
+Otherwise, please report this error.`
+  )
 }
