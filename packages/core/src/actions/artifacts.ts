@@ -4,7 +4,10 @@ import ora from 'ora'
 import { Fragment } from 'ethers/lib/utils'
 
 import { ParsedChugSplashConfig, ParsedConfigVariable } from '../config/types'
-import { ArtifactPaths, SolidityStorageObj } from '../languages/solidity/types'
+import {
+  ArtifactPaths,
+  SolidityStorageLayout,
+} from '../languages/solidity/types'
 import { Integration } from '../constants'
 import {
   createDeploymentFolderForNetwork,
@@ -13,6 +16,7 @@ import {
   writeDeploymentArtifact,
   writeSnapshotId,
 } from '../utils'
+import 'core-js/features/array/at'
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
@@ -108,7 +112,7 @@ export const readStorageLayout = (
   fullyQualifiedName: string,
   artifactPaths: ArtifactPaths,
   integration: Integration
-): SolidityStorageObj => {
+): SolidityStorageLayout => {
   const { sourceName, contractName } = readContractArtifact(
     artifactPaths,
     fullyQualifiedName,
