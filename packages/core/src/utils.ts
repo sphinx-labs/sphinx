@@ -730,7 +730,8 @@ export const assertValidParsedChugSplashFile = async (
           // mechanism the UUPS proxy uses.
           requiresOwnershipTransfer.push({
             name: referenceName,
-            address: contractConfig.proxy,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: 'unknown',
           })
         }
       } else {
@@ -742,7 +743,8 @@ export const assertValidParsedChugSplashFile = async (
         if (proxyAdmin !== chugSplashManagerAddress) {
           requiresOwnershipTransfer.push({
             name: referenceName,
-            address: contractConfig.proxy,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: proxyAdmin,
           })
         }
       }
@@ -954,6 +956,7 @@ export const assertValidContractReferences = (
     }
   } else if (typeof variable === 'object') {
     for (const [varName, varValue] of Object.entries(variable)) {
+      console.log(varName)
       assertValidContractReferences(varName, referenceNames)
       assertValidContractReferences(varValue, referenceNames)
     }
