@@ -7,7 +7,6 @@ import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
 
 import {
-  assertValidUpgrade,
   CanonicalChugSplashConfig,
   ChugSplashInput,
   ParsedChugSplashConfig,
@@ -15,6 +14,7 @@ import {
   verifyBundle,
 } from '../config'
 import {
+  assertValidParsedChugSplashFile,
   assertValidContracts,
   computeBundleId,
   displayDeploymentTable,
@@ -133,7 +133,7 @@ export const chugsplashProposeAbstractTask = async (
 
   assertValidContracts(parsedConfig, artifactPaths)
 
-  await assertValidUpgrade(
+  await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     artifactPaths,
@@ -680,7 +680,7 @@ export const chugsplashDeployAbstractTask = async (
 
   assertValidContracts(parsedConfig, artifactPaths)
 
-  await assertValidUpgrade(
+  await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     artifactPaths,

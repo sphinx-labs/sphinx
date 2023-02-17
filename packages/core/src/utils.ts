@@ -22,16 +22,23 @@ import {
   ProxyABI,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   OZ_UUPS_PROXY_TYPE_HASH,
+  OZ_UUPS_UPDATER_ADDRESS,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
+import yesno from 'yesno'
+import ora from 'ora'
+import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
 
 import {
   CanonicalChugSplashConfig,
   ExternalProxyType,
   externalProxyTypes,
   ParsedChugSplashConfig,
+  ParsedConfigVariable,
+  ParsedContractConfig,
   ParsedContractConfigs,
+  UserConfigVariable,
 } from './config/types'
 import {
   BuildInfo,
@@ -39,15 +46,17 @@ import {
   ChugSplashActionType,
   ContractArtifact,
   ContractASTNode,
-} from './actions/types'
+  readStorageLayout,
+} from './actions'
+import { Integration, keywords } from './constants'
+import 'core-js/features/array/at'
+import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
   CompilerOutputSources,
   SolidityStorageLayout,
 } from './languages/solidity/types'
-import 'core-js/features/array/at'
-import { Integration } from './constants'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -650,10 +659,305 @@ export const setProxiesToReferenceNames = async (
   }
 }
 
+export const assertValidParsedChugSplashFile = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string,
+  skipStorageCheck: boolean,
+  confirm: boolean,
+  spinner?: ora.Ora
+) => {
+  // Determine if the deployment is an upgrade
+  const projectName = parsedConfig.options.projectName
+  spinner?.start(
+    `Checking if ${projectName} is a fresh deployment or upgrade...`
+  )
+
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+
+  const requiresOwnershipTransfer: {
+    name: string
+    address: string
+  }[] = []
+  let isUpgrade: boolean = false
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+      isUpgrade = true
+
+      if (contractConfig.proxyType === 'oz-uups') {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const chugsplashManager = new ethers.VoidSigner(
+          chugSplashManagerAddress,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          contractConfig.proxy,
+          ProxyABI,
+          chugsplashManager
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      } else {
+        const proxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          contractConfig.proxy
+        )
+
+        if (proxyAdmin !== chugSplashManagerAddress) {
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            address: contractConfig.proxy,
+          })
+        }
+      }
+    }
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    throw new Error(
+      `Detected proxy contracts which are not managed by ChugSplash.
+      ${requiresOwnershipTransfer.map(
+        ({ name, address }) => `${name}, ${address}\n`
+      )}
+
+If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+
+If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
+permission to call the 'upgradeTo' function on each of them.
+      `
+    )
+  }
+
+  if (isUpgrade) {
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      const isProxyDeployed =
+        (await provider.getCode(contractConfig.proxy)) !== '0x'
+      // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
+      // support more granular storage layout config options in the future.
+      if (isProxyDeployed) {
+        const currStorageLayout = await getLatestDeployedStorageLayout(
+          provider,
+          referenceName,
+          contractConfig.proxy,
+          remoteExecution,
+          canonicalConfigFolderPath
+        )
+        const newStorageLayout = readStorageLayout(
+          contractConfig.contract,
+          artifactPaths,
+          integration
+        )
+
+        assertStorageCompatiblePreserveKeywords(
+          contractConfig,
+          currStorageLayout,
+          newStorageLayout
+        )
+
+        if (parsedConfig.options.skipStorageCheck !== true) {
+          // Run OpenZeppelin's storage slot checker.
+          assertStorageUpgradeSafe(
+            currStorageLayout as any,
+            newStorageLayout as any,
+            false
+          )
+        }
+      }
+
+      // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
+      // user will be able to upgrade the proxy in the future.
+      if (contractConfig.proxyType === 'oz-uups') {
+        const artifact = readContractArtifact(
+          artifactPaths,
+          contractConfig.contract,
+          integration
+        )
+        const containsPublicUpgradeTo = artifact.abi.some(
+          (fragment) =>
+            fragment.name === 'upgradeTo' &&
+            fragment.inputs.length === 1 &&
+            fragment.inputs[0].type === 'address'
+        )
+        if (!containsPublicUpgradeTo) {
+          throw new Error(
+            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
+              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
+              `or you will no longer be able to upgrade this contract.`
+          )
+        }
+      }
+    }
+
+    spinner?.succeed(`${projectName} is a valid upgrade.`)
+
+    if (!confirm) {
+      // Confirm upgrade with user
+      const userConfirmed = await yesno({
+        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+      })
+      if (!userConfirmed) {
+        throw new Error(`User denied upgrade.`)
+      }
+    }
+  } else {
+    spinner?.succeed(`${projectName} is a fresh deployment.`)
+
+    for (const contractConfig of Object.values(parsedConfig.contracts)) {
+      // Throw an error if the 'preserve' keyword is set to a variable's value in the
+      // ChugSplash file. This keyword is only allowed for upgrades.
+      if (variableContainsPreserveKeyword(contractConfig.variables)) {
+        throw new Error(
+          `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
+            `upgrades only. Please remove all instances of it in your ChugSplash file.`
+        )
+      }
+    }
+  }
+}
+
 export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
   return externalProxyTypes.includes(proxyType)
+}
+
+export const isPreserveKeyword = (
+  variableValue: ParsedConfigVariable
+): boolean => {
+  if (
+    typeof variableValue === 'string' &&
+    // Remove whitespaces from the variable, then lowercase it
+    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
+  ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+export const variableContainsPreserveKeyword = (
+  variable: ParsedConfigVariable
+): boolean => {
+  if (isPreserveKeyword(variable)) {
+    return true
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      if (variableContainsPreserveKeyword(element)) {
+        return true
+      }
+    }
+    return false
+  } else if (typeof variable === 'object') {
+    for (const varValue of Object.values(variable)) {
+      if (variableContainsPreserveKeyword(varValue)) {
+        return true
+      }
+    }
+    return false
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return false
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
+}
+
+/**
+ * Throws an error if the given variable contains any invalid contract references. Specifically,
+ * it'll throw an error if any of the following conditions occur:
+ *
+ * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
+ * template string converts into a valid address when it's parsed. If there are any leading or
+ * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ *
+ * 2. The contract reference is not included in the array of valid contract references.
+ *
+ * @param variable Config variable defined by the user.
+ * @param referenceNames Valid reference names for this ChugSplash file.
+ */
+export const assertValidContractReferences = (
+  variable: UserConfigVariable,
+  referenceNames: string[]
+) => {
+  if (
+    typeof variable === 'string' &&
+    variable.includes('{{') &&
+    variable.includes('}}')
+  ) {
+    if (!variable.startsWith('{{')) {
+      throw new Error(
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`
+      )
+    }
+    if (!variable.endsWith('}}')) {
+      throw new Error(
+        `Contract reference cannot contain trailing spaces: ${variable}`
+      )
+    }
+
+    const contractReference = variable.substring(2, variable.length - 2).trim()
+
+    if (!referenceNames.includes(contractReference)) {
+      throw new Error(
+        `Invalid contract reference: ${variable}.\n` +
+          `Did you misspell this contract reference, or forget to define a contract with this reference name?`
+      )
+    }
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertValidContractReferences(element, referenceNames)
+    }
+  } else if (typeof variable === 'object') {
+    for (const [varName, varValue] of Object.entries(variable)) {
+      assertValidContractReferences(varName, referenceNames)
+      assertValidContractReferences(varValue, referenceNames)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
 }
 
 export const assertValidContracts = (
@@ -953,4 +1257,50 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const contractName = compilationTarget[sourceName]
 
   return { abi, bytecode, sourceName, contractName }
+}
+
+export const assertStorageCompatiblePreserveKeywords = (
+  contractConfig: ParsedContractConfig,
+  currStorageLayout: SolidityStorageLayout,
+  newStorageLayout: SolidityStorageLayout
+) => {
+  for (const newStorageObj of newStorageLayout.storage) {
+    const varName = newStorageObj.label
+    if (variableContainsPreserveKeyword(contractConfig.variables[varName])) {
+      const currStorageObj = currStorageLayout.storage.find(
+        (storageObj) => storageObj.label === varName
+      )
+
+      if (currStorageObj === undefined) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" does not exist in \n` +
+            `the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.slot !== currStorageObj.slot) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
+            `storage slot position in the previous storage layout. Please put "${varName}" at the same storage \n` +
+            `position or remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.offset !== currStorageObj.offset) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
+            `storage slot offset in the previous storage layout. Please put "${varName}" at the same storage \n` +
+            `position or remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.type !== currStorageObj.type) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists as a different \n` +
+            `type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
+            `change its type back to: ${currStorageObj.type}.`
+        )
+      }
+    }
+  }
 }

@@ -11,6 +11,7 @@ import {
   getEIP1967ProxyImplementationAddress,
   readCanonicalConfig,
 } from './utils'
+import 'core-js/features/array/at'
 
 export const getLatestDeployedCanonicalConfig = async (
   provider: providers.Provider,
