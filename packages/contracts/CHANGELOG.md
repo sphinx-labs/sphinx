@@ -1,5 +1,13 @@
 # @chugsplash/contracts
 
+## 0.5.2
+
+### Patch Changes
+
+- 20f1a7e: Use JSON bundle in contract unit tests
+- c8af97c: Update `setStorage` function to set only a segment of a storage slot
+- 736b859: Update contract unit tests to reflect new storage slot segment setter
+
 ## 0.5.1
 
 ### Patch Changes

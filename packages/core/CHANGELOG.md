@@ -1,5 +1,24 @@
 # @chugsplash/core
 
+## 0.7.0
+
+### Minor Changes
+
+- 9dca319: Integrate Executor with ChugSplash Managed
+
+### Patch Changes
+
+- 5dcb7d3: Allow user to specify a previous storage layout in their ChugSplash file
+- c8af97c: Update `setStorage` function to set only a segment of a storage slot
+- 44e592e: Add the 'preserve' keyword that allows variables to be maintained across upgrades
+- 80b1a53: Refactor functions that get build info and storage layout
+- 6a48dd7: Remove circular dependencies
+- 736b859: Update contract unit tests to reflect new storage slot segment setter
+- Updated dependencies [20f1a7e]
+- Updated dependencies [c8af97c]
+- Updated dependencies [736b859]
+  - @chugsplash/contracts@0.5.2
+
 ## 0.6.1
 
 ### Patch Changes
