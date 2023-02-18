@@ -33,7 +33,7 @@ export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-uups')
 )
 
-export const CHUGSPLASH_SALT = '0x' + '11'.repeat(32)
+export const CHUGSPLASH_SALT = '0x' + '12'.repeat(32)
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
