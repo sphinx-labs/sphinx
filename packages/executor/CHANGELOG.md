@@ -1,5 +1,22 @@
 # @chugsplash/executor
 
+## 0.7.0
+
+### Minor Changes
+
+- 9dca319: Integrate Executor with ChugSplash Managed
+
+### Patch Changes
+
+- Updated dependencies [5dcb7d3]
+- Updated dependencies [c8af97c]
+- Updated dependencies [44e592e]
+- Updated dependencies [9dca319]
+- Updated dependencies [80b1a53]
+- Updated dependencies [6a48dd7]
+- Updated dependencies [736b859]
+  - @chugsplash/core@0.7.0
+
 ## 0.6.1
 
 ### Patch Changes

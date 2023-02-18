@@ -1,5 +1,29 @@
 # @chugsplash/plugins
 
+## 0.12.0
+
+### Minor Changes
+
+- 9dca319: Integrate Executor with ChugSplash Managed
+
+### Patch Changes
+
+- 5dcb7d3: Allow user to specify a previous storage layout in their ChugSplash file
+- 20f1a7e: Use JSON bundle in contract unit tests
+- 80b1a53: Refactor functions that get build info and storage layout
+- 736b859: Update contract unit tests to reflect new storage slot segment setter
+- Updated dependencies [5dcb7d3]
+- Updated dependencies [20f1a7e]
+- Updated dependencies [c8af97c]
+- Updated dependencies [44e592e]
+- Updated dependencies [9dca319]
+- Updated dependencies [80b1a53]
+- Updated dependencies [6a48dd7]
+- Updated dependencies [736b859]
+  - @chugsplash/core@0.7.0
+  - @chugsplash/contracts@0.5.2
+  - @chugsplash/executor@0.7.0
+
 ## 0.11.1
 
 ### Patch Changes
