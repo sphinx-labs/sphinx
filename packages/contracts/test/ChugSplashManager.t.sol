@@ -106,7 +106,7 @@ contract ChugSplashManager_Test is Test {
     address nonOwner = address(256);
     address executor1 = address(512);
     address executor2 = address(1024);
-    bytes32 salt = bytes32(hex"11");
+    bytes32 salt = bytes32(hex"12");
     uint256 initialTimestamp = 1641070800;
     uint256 bundleExecutionCost = 2 ether;
     string projectName = "TestProject";
