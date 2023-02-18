@@ -20,7 +20,6 @@ export const initializeExecutor = async (
       // This is because the foundry library parses stdout and expects a very specific format.
       logLevel: 'error',
     },
-    false,
     provider
   )
 

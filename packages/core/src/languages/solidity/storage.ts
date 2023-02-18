@@ -1,13 +1,15 @@
 import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
 
-import { ParsedContractConfig } from '../../config'
+import { isPreserveKeyword } from '../../utils'
+import { ParsedContractConfig } from '../../config/types'
 import {
   SolidityStorageLayout,
   SolidityStorageObj,
   SolidityStorageType,
-  StorageSlotPair,
+  StorageSlotSegment,
 } from './types'
+import 'core-js/features/array/at'
 
 /**
  * Takes a slot value (in hex), left-pads it with zeros, and displaces it by a given offset.
@@ -66,9 +68,20 @@ export const encodeVariable = (
     [name: string]: SolidityStorageType
   },
   nestedSlotOffset: string
-): Array<StorageSlotPair> => {
+): Array<StorageSlotSegment> => {
   // The current slot key is the slot key of the current storage object plus the `nestedSlotOffset`.
   const slotKey = addStorageSlotKeys(storageObj.slot, nestedSlotOffset)
+
+  // Return an empty storage slot segment if the variable is the 'preserve' keyword
+  if (isPreserveKeyword(variable)) {
+    return [
+      {
+        key: slotKey,
+        offset: storageObj.offset,
+        val: '0x',
+      },
+    ]
+  }
 
   const variableType = storageTypes[storageObj.type]
 
@@ -104,7 +117,8 @@ export const encodeVariable = (
       return [
         {
           key: slotKey,
-          val: padHexSlotValue(variable, storageObj.offset),
+          offset: storageObj.offset,
+          val: ethers.utils.getAddress(variable), // Ensures the address is hex-encoded
         },
       ]
     } else if (variableType.label === 'bool') {
@@ -125,27 +139,38 @@ export const encodeVariable = (
       return [
         {
           key: slotKey,
-          val: padHexSlotValue(variable ? '1' : '0', storageObj.offset),
+          offset: storageObj.offset,
+          val: variable ? '0x01' : '0x00',
         },
       ]
     } else if (variableType.label.startsWith('bytes')) {
-      // Since this variable's encoding is `inplace`, it is a bytesN, where N is in the range
-      // [1, 32]. Dynamic bytes have an encoding of `bytes`, and are handled elsewhere in this
-      // function.
+      // Since this variable's encoding is `inplace`, it is a bytesN, where N is in the range [1,
+      // 32]. Dynamic bytes have an encoding of `bytes`, and are handled elsewhere in this function.
 
-      if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
+      // Check that the user entered a valid bytes array or string
+      if (!ethers.utils.isBytesLike(variable)) {
         throw new Error(
-          `invalid bytes${variableType.numberOfBytes} variable: ${variable}`
+          `invalid bytes object for bytes${variableType.numberOfBytes} variable: ${variable}`
+        )
+      }
+
+      // Convert the bytes object, which may be an array, into a hex-encoded string
+      const hexStringVariable = ethers.utils.hexlify(variable)
+
+      // Check that the hex string is the correct length
+      if (
+        !ethers.utils.isHexString(hexStringVariable, variableType.numberOfBytes)
+      ) {
+        throw new Error(
+          `invalid length for bytes${variableType.numberOfBytes} variable: ${variable}`
         )
       }
 
       return [
         {
           key: slotKey,
-          val: padHexSlotValue(
-            remove0x(variable).padEnd(variableType.numberOfBytes * 2, '0'),
-            storageObj.offset
-          ),
+          offset: storageObj.offset,
+          val: hexStringVariable,
         },
       ]
     } else if (
@@ -161,13 +186,16 @@ export const encodeVariable = (
         )
       }
 
+      // Convert enum types to uint8 because the `solidityPack` function doesn't support enum types.
+      const uintType = variableType.label.startsWith('enum')
+        ? 'uint8'
+        : variableType.label
+
       return [
         {
           key: slotKey,
-          val: padHexSlotValue(
-            BigNumber.from(variable).toHexString(),
-            storageObj.offset
-          ),
+          offset: storageObj.offset,
+          val: utils.solidityPack([uintType], [variable]),
         },
       ]
     } else if (variableType.label.startsWith('int')) {
@@ -193,15 +221,13 @@ export const encodeVariable = (
       return [
         {
           key: slotKey,
-          val: padHexSlotValue(
-            ethers.utils.solidityPack([variableType.label], [variable]),
-            storageObj.offset
-          ),
+          offset: storageObj.offset,
+          val: utils.solidityPack([variableType.label], [variable]),
         },
       ]
     } else if (variableType.label.startsWith('struct')) {
       // Structs are encoded recursively, as defined by their `members` field.
-      let slots: Array<StorageSlotPair> = []
+      let slots: Array<StorageSlotSegment> = []
       if (variableType.members === undefined) {
         // The Solidity compiler prevents defining structs without any members, so this should
         // never occur.
@@ -249,6 +275,7 @@ export const encodeVariable = (
       return [
         {
           key: slotKey,
+          offset: storageObj.offset,
           val: ethers.utils.hexlify(
             ethers.utils.concat([
               ethers.utils
@@ -263,9 +290,11 @@ export const encodeVariable = (
       let slots = [
         {
           key: slotKey,
+          offset: storageObj.offset,
           val: padHexSlotValue((bytes.length * 2 + 1).toString(16), 0),
         },
       ]
+
       slots = slots.concat(
         encodeBytesArrayElements(
           bytes,
@@ -276,7 +305,7 @@ export const encodeVariable = (
     }
   } else if (variableType.encoding === 'mapping') {
     // Iterate over every key/value in the mapping to get the storage slot pair for each one.
-    let slots: Array<StorageSlotPair> = []
+    let slots: Array<StorageSlotSegment> = []
     for (const [mappingKey, mappingVal] of Object.entries(variable)) {
       // Check that a `key` and `value` property exist. The Solidity compiler always includes these
       // properties for the storage objects of mappings, so these errors should never occur.
@@ -349,6 +378,7 @@ export const encodeVariable = (
     let slots = [
       {
         key: slotKey,
+        offset: storageObj.offset,
         val: padHexSlotValue(variable.length.toString(16), 0),
       },
     ]
@@ -394,7 +424,7 @@ export const encodeArrayElements = (
   },
   elementSlotKey: string,
   nestedSlotOffset: string
-): Array<StorageSlotPair> => {
+): Array<StorageSlotSegment> => {
   const elementType = storageTypes[storageObj.type].base
 
   if (elementType === undefined) {
@@ -414,7 +444,7 @@ export const encodeArrayElements = (
   let bytesOffset = 0
 
   // Iterate over the array and encode each element in it.
-  let slots: Array<StorageSlotPair> = []
+  let slots: Array<StorageSlotSegment> = []
   for (const element of array) {
     slots = slots.concat(
       encodeVariable(
@@ -453,9 +483,6 @@ export const encodeArrayElements = (
  * Encodes a bytes/string value of length > 31 bytes as a series of key/value storage slot pairs
  * using the Solidity storage layout.
  *
- * TODO - Refactor long bytes/string encoding to instead use the encodeArrayElements and treat the
- * variable as a fixed size array of bytes1.
- *
  * @param array Bytes array to encode.
  * @param elementSlotKey The key of the slot where the beginning of the array is stored.
  * @returns Array encoded as a series of key/value slot pairs.
@@ -463,14 +490,15 @@ export const encodeArrayElements = (
 export const encodeBytesArrayElements = (
   array: Uint8Array | Buffer,
   elementSlotKey: string
-): Array<StorageSlotPair> => {
+): Array<StorageSlotSegment> => {
   // Iterate over the array and encode each element in it.
-  const slots: Array<StorageSlotPair> = []
+  const slots: Array<StorageSlotSegment> = []
   for (let i = 0; i <= array.length; i += 32) {
     if (i + 32 <= array.length) {
       // beginning or middle chunk of the array
       slots.push({
         key: elementSlotKey,
+        offset: 0,
         val: ethers.utils.hexlify(array.subarray(i, i + 32)),
       })
 
@@ -482,6 +510,7 @@ export const encodeBytesArrayElements = (
       // end chunk of the array
       slots.push({
         key: elementSlotKey,
+        offset: 0, // Always 0 because the storage value spans the entire slot regardless of size
         val: ethers.utils.hexlify(arr),
       })
     }
@@ -500,8 +529,9 @@ export const encodeBytesArrayElements = (
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
   contractConfig: ParsedContractConfig
-): Array<StorageSlotPair> => {
+): Array<StorageSlotSegment> => {
   const storageEntries: { [storageObjLabel: string]: SolidityStorageObj } = {}
+
   for (const storageObj of Object.values(storageLayout.storage)) {
     if (contractConfig.variables[storageObj.label] !== undefined) {
       storageEntries[storageObj.label] = storageObj
@@ -516,7 +546,7 @@ export const computeStorageSlots = (
     }
   }
 
-  let slots: StorageSlotPair[] = []
+  let segments: StorageSlotSegment[] = []
   for (const [variableName, variableValue] of Object.entries(
     contractConfig.variables
   )) {
@@ -536,89 +566,62 @@ export const computeStorageSlots = (
     }
 
     // Encode this variable as series of storage slot key/value pairs and save it.
-    slots = slots.concat(
+    segments = segments.concat(
       encodeVariable(variableValue, storageObj, storageLayout.types, '0')
     )
   }
 
-  // Dealing with packed storage slots now. We know that a storage slot is packed when two storage
-  // slots produced by the above encoding have the same key. In this case, we want to merge the two
-  // values into a single bytes32 value. We'll throw an error if the two values overlap (have some
-  // byte where both values are non-zero).
-  slots = slots.reduce((prevSlots: Array<StorageSlotPair>, slot) => {
-    // Find some previous slot where we have the same key.
-    const prevSlot = prevSlots.find((otherSlot) => {
-      return otherSlot.key === slot.key
+  const slotKeyToSegmentArray: {
+    [slotKey: string]: Array<StorageSlotSegment>
+  } = {}
+
+  for (const segment of segments) {
+    if (slotKeyToSegmentArray[segment.key] === undefined) {
+      slotKeyToSegmentArray[segment.key] = [segment]
+    } else {
+      slotKeyToSegmentArray[segment.key].push(segment)
+    }
+  }
+
+  let combinedSegments: Array<StorageSlotSegment> = []
+  for (const groupedSegments of Object.values(slotKeyToSegmentArray)) {
+    const sortedSegments = groupedSegments.sort((seg1, seg2) => {
+      return seg1.offset - seg2.offset
     })
 
-    if (prevSlot === undefined) {
-      // Slot doesn't share a key with any other slot so we can just push it and continue.
-      prevSlots.push(slot)
-    } else {
-      // Slot shares a key with some previous slot.
-      // First, we remove the previous slot from the list of slots since we'll be modifying it.
-      prevSlots = prevSlots.filter((otherSlot) => {
-        return otherSlot.key !== prevSlot.key
-      })
-
-      // Now we'll generate a merged value by taking the non-zero bytes from both values. There's
-      // probably a more efficient way to do this, but this is relatively easy and straightforward.
-      let mergedVal = '0x'
-      const valA = remove0x(slot.val)
-      const valB = remove0x(prevSlot.val)
-      for (let i = 0; i < 64; i += 2) {
-        const byteA = valA.slice(i, i + 2)
-        const byteB = valB.slice(i, i + 2)
-
-        if (byteA === '00' && byteB === '00') {
-          mergedVal += '00'
-        } else if (byteA === '00' && byteB !== '00') {
-          mergedVal += byteB
-        } else if (byteA !== '00' && byteB === '00') {
-          mergedVal += byteA
+    const combined: Array<StorageSlotSegment> = sortedSegments.reduce(
+      (prevSegments: Array<StorageSlotSegment>, segment) => {
+        const prevSegment = prevSegments.at(-1)
+        if (prevSegment === undefined) {
+          prevSegments.push(segment)
         } else {
-          // Should never happen, means our encoding is broken. Values should *never* overlap.
-          throw new Error(
-            'detected badly encoded packed value, should not happen'
-          )
-        }
-      }
+          const numBytes = ethers.utils.arrayify(prevSegment.val).length
+          if (prevSegment.offset + numBytes > segment.offset) {
+            // Should never happen, means our encoding is broken. Values should *never* overlap.
+            throw new Error(
+              `Detected overlapping storage slot values. Please report this error.`
+            )
+          } else if (segment.offset === prevSegment.offset + numBytes) {
+            // First, we remove the previous slot from the list of slots since we'll be modifying it.
+            prevSegments.pop()
 
-      prevSlots.push({
-        key: slot.key,
-        val: mergedVal,
-      })
-    }
-
-    return prevSlots
-  }, [])
-
-  return slots
-}
-
-export const addEnumMembersToStorageLayout = (
-  storageLayout: SolidityStorageLayout,
-  contractName: string,
-  sourceNodes: any
-): SolidityStorageLayout => {
-  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
-  if (storageLayout.types === null) {
-    return storageLayout
-  }
-
-  for (const layoutType of Object.values(storageLayout.types)) {
-    if (layoutType.label.startsWith('enum')) {
-      const canonicalVarName = layoutType.label.substring(5)
-      for (const contractNode of sourceNodes) {
-        if (contractNode.canonicalName === contractName) {
-          for (const node of contractNode.nodes) {
-            if (node.canonicalName === canonicalVarName) {
-              layoutType.members = node.members.map((member) => member.name)
-            }
+            prevSegments.push({
+              key: prevSegment.key,
+              offset: prevSegment.offset,
+              val: utils.hexConcat([segment.val, prevSegment.val]),
+            })
+          } else {
+            prevSegments.push(segment)
           }
         }
-      }
-    }
+
+        return prevSegments
+      },
+      []
+    )
+
+    combinedSegments = combinedSegments.concat(combined)
   }
-  return storageLayout
+
+  return segments
 }

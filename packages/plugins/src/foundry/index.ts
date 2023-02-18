@@ -124,7 +124,7 @@ const command = args[0]
         ipfsUrl,
         silent,
         remoteExecution,
-        false,
+        true,
         'foundry',
         artifactPaths,
         canonicalConfigPath,

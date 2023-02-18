@@ -1,4 +1,4 @@
-import { CompilerInput } from '../languages'
+import { CompilerInput } from '../languages/solidity/types'
 
 export const externalProxyTypes = ['oz-transparent', 'oz-uups']
 export type ExternalProxyType = 'oz-transparent' | 'oz-uups'
@@ -58,6 +58,8 @@ export type UserContractConfig = {
   contract: string
   externalProxy?: string
   externalProxyType?: ExternalProxyType
+  previousBuildInfo?: string
+  previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
 }

@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import * as semver from 'semver'
 import {
   utils,
   constants,
@@ -20,36 +21,43 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_UPDATER_ADDRESS,
   OZ_UUPS_PROXY_TYPE_HASH,
+  OZ_UUPS_UPDATER_ADDRESS,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
-import ora from 'ora'
 import yesno from 'yesno'
+import ora from 'ora'
+import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
 
 import {
-  assertStorageSlotCheck,
-  assertValidUserConfigFields,
   CanonicalChugSplashConfig,
   ExternalProxyType,
   externalProxyTypes,
-  parseChugSplashConfig,
   ParsedChugSplashConfig,
+  ParsedConfigVariable,
+  ParsedContractConfig,
   ParsedContractConfigs,
   UserChugSplashConfig,
-} from './config'
+  UserConfigVariable,
+} from './config/types'
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
-  ContractASTNode,
-  readBuildInfo,
-  readContractArtifact,
+  getStorageLayout,
 } from './actions'
-import { FoundryContractArtifact } from './types'
-import { ArtifactPaths, CompilerOutputSources } from './languages'
-import { Integration } from './constants'
+import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
+import { getLatestDeployedStorageLayout } from './deployed'
+import { FoundryContractArtifact } from './types'
+import {
+  ArtifactPaths,
+  BuildInfo,
+  ContractArtifact,
+  ContractASTNode,
+  CompilerOutputSources,
+  SolidityStorageLayout,
+} from './languages/solidity/types'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -473,34 +481,6 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-/**
- * Reads a ChugSplash config file synchronously.
- *
- * @param configPath Path to the ChugSplash config file.
- * @returns The parsed ChugSplash config file.
- */
-export const readParsedChugSplashConfig = async (
-  provider: providers.Provider,
-  configPath: string,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
-): Promise<ParsedChugSplashConfig> => {
-  const userConfig = readUserChugSplashConfig(configPath)
-  return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
-}
-
-export const readUserChugSplashConfig = (
-  configPath: string
-): UserChugSplashConfig => {
-  delete require.cache[require.resolve(path.resolve(configPath))]
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configPath))
-  config = config.default || config
-  assertValidUserConfigFields(config)
-  return config
-}
-
 export const isProjectRegistered = async (
   signer: Signer,
   projectName: string
@@ -680,9 +660,10 @@ export const setProxiesToReferenceNames = async (
   }
 }
 
-export const assertValidUpgrade = async (
+export const assertValidParsedChugSplashFile = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   remoteExecution: boolean,
@@ -778,26 +759,49 @@ permission to call the 'upgradeTo' function on each of them.
   }
 
   if (isUpgrade) {
-    if (!skipStorageCheck) {
-      await assertStorageSlotCheck(
-        provider,
-        parsedConfig,
-        artifactPaths,
-        integration,
-        remoteExecution,
-        canonicalConfigFolderPath
-      )
-    }
-
-    // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
-    // user will be able to upgrade the proxy in the future.
     for (const [referenceName, contractConfig] of Object.entries(
       parsedConfig.contracts
     )) {
+      const isProxyDeployed =
+        (await provider.getCode(contractConfig.proxy)) !== '0x'
+      // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
+      // support more granular storage layout config options in the future.
+      if (isProxyDeployed) {
+        const currStorageLayout = await getLatestDeployedStorageLayout(
+          provider,
+          referenceName,
+          contractConfig.proxy,
+          userConfig,
+          artifactPaths,
+          remoteExecution,
+          canonicalConfigFolderPath
+        )
+        const newStorageLayout = getStorageLayout(
+          artifactPaths[referenceName].buildInfoPath,
+          contractConfig.contract
+        )
+
+        assertStorageCompatiblePreserveKeywords(
+          contractConfig,
+          currStorageLayout,
+          newStorageLayout
+        )
+
+        if (parsedConfig.options.skipStorageCheck !== true) {
+          // Run OpenZeppelin's storage slot checker.
+          assertStorageUpgradeSafe(
+            currStorageLayout as any,
+            newStorageLayout as any,
+            false
+          )
+        }
+      }
+
+      // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
+      // user will be able to upgrade the proxy in the future.
       if (contractConfig.proxyType === 'oz-uups') {
         const artifact = readContractArtifact(
-          artifactPaths,
-          contractConfig.contract,
+          artifactPaths[referenceName].contractArtifactPath,
           integration
         )
         const containsPublicUpgradeTo = artifact.abi.some(
@@ -816,7 +820,7 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
 
-    spinner?.succeed(`${projectName} is a valid upgrade.`)
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
 
     if (!confirm) {
       // Confirm upgrade with user
@@ -828,7 +832,18 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
   } else {
-    spinner?.succeed(`${projectName} is not an upgrade.`)
+    for (const contractConfig of Object.values(parsedConfig.contracts)) {
+      // Throw an error if the 'preserve' keyword is set to a variable's value in the
+      // ChugSplash file. This keyword is only allowed for upgrades.
+      if (variableContainsPreserveKeyword(contractConfig.variables)) {
+        throw new Error(
+          `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
+            `upgrades only. Please remove all instances of it in your ChugSplash file.`
+        )
+      }
+    }
+
+    spinner?.succeed(`Validated the contracts in ${projectName}.`)
   }
 }
 
@@ -838,17 +853,130 @@ export const isExternalProxyType = (
   return externalProxyTypes.includes(proxyType)
 }
 
+export const isPreserveKeyword = (
+  variableValue: ParsedConfigVariable
+): boolean => {
+  if (
+    typeof variableValue === 'string' &&
+    // Remove whitespaces from the variable, then lowercase it
+    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
+  ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+export const variableContainsPreserveKeyword = (
+  variable: ParsedConfigVariable
+): boolean => {
+  if (isPreserveKeyword(variable)) {
+    return true
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      if (variableContainsPreserveKeyword(element)) {
+        return true
+      }
+    }
+    return false
+  } else if (typeof variable === 'object') {
+    for (const varValue of Object.values(variable)) {
+      if (variableContainsPreserveKeyword(varValue)) {
+        return true
+      }
+    }
+    return false
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return false
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
+}
+
+/**
+ * Throws an error if the given variable contains any invalid contract references. Specifically,
+ * it'll throw an error if any of the following conditions occur:
+ *
+ * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
+ * template string converts into a valid address when it's parsed. If there are any leading or
+ * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ *
+ * 2. The contract reference is not included in the array of valid contract references.
+ *
+ * @param variable Config variable defined by the user.
+ * @param referenceNames Valid reference names for this ChugSplash file.
+ */
+export const assertValidContractReferences = (
+  variable: UserConfigVariable,
+  referenceNames: string[]
+) => {
+  if (
+    typeof variable === 'string' &&
+    variable.includes('{{') &&
+    variable.includes('}}')
+  ) {
+    if (!variable.startsWith('{{')) {
+      throw new Error(
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`
+      )
+    }
+    if (!variable.endsWith('}}')) {
+      throw new Error(
+        `Contract reference cannot contain trailing spaces: ${variable}`
+      )
+    }
+
+    const contractReference = variable.substring(2, variable.length - 2).trim()
+
+    if (!referenceNames.includes(contractReference)) {
+      throw new Error(
+        `Invalid contract reference: ${variable}.\n` +
+          `Did you misspell this contract reference, or forget to define a contract with this reference name?`
+      )
+    }
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertValidContractReferences(element, referenceNames)
+    }
+  } else if (typeof variable === 'object') {
+    for (const [varName, varValue] of Object.entries(variable)) {
+      assertValidContractReferences(varName, referenceNames)
+      assertValidContractReferences(varValue, referenceNames)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    throw new Error(
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    )
+  }
+}
+
 export const assertValidContracts = (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths
 ) => {
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    // Split the contract's fully qualified name into its source name and contract name.
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    // Get the source name and contract name from its fully qualified name
     const [sourceName, contractName] = contractConfig.contract.split(':')
-    const buildInfo = readBuildInfo(artifactPaths, contractConfig.contract)
 
-    const sourceOutput = buildInfo.output.sources[sourceName]
-    const childContractNode = sourceOutput.ast.nodes.find(
+    const buildInfoPath = artifactPaths[referenceName].buildInfoPath
+    const buildInfo = readBuildInfo(buildInfoPath)
+    const outputSource = buildInfo.output.sources[sourceName]
+
+    const childContractNode = outputSource.ast.nodes.find(
       (node) =>
         node.nodeType === 'ContractDefinition' && node.name === contractName
     )
@@ -881,7 +1009,7 @@ export const assertValidContracts = (
               `User attempted to assign a value to a non-immutable state variable '${node.name}' in\n` +
                 `the contract: ${contractNode.name}. This is not allowed because the value will not exist in\n` +
                 `the upgradeable contract. Please remove the value in the contract and define it in your ChugSplash\n` +
-                `file instead. You can also set '${node.name} to be a constant or immutable variable instead.`
+                `file instead. Alternatively, can also set '${node.name} to be a constant or immutable variable.`
             )
           }
 
@@ -978,4 +1106,181 @@ export const getParentContractASTNodes = (
   }
 
   return parentContractNodes
+}
+
+/**
+ * Grabs the transaction hash of the transaction that completed the given bundle.
+ *
+ * @param ChugSplashManager ChugSplashManager contract instance.
+ * @param bundleId ID of the bundle to look up.
+ * @returns Transaction hash of the transaction that completed the bundle.
+ */
+export const getBundleCompletionTxnHash = async (
+  ChugSplashManager: ethers.Contract,
+  bundleId: string
+): Promise<string> => {
+  const events = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+  )
+
+  // Might happen if we're asking for the event too quickly after completing the bundle.
+  if (events.length === 0) {
+    throw new Error(
+      `no ChugSplashBundleCompleted event found for bundle ${bundleId}`
+    )
+  }
+
+  // Shouldn't happen.
+  if (events.length > 1) {
+    throw new Error(
+      `multiple ChugSplashBundleCompleted events found for bundle ${bundleId}`
+    )
+  }
+
+  return events[0].transactionHash
+}
+
+/**
+ * Retrieves an artifact by name from the local file system.
+ */
+export const readContractArtifact = (
+  contractArtifactPath: string,
+  integration: Integration
+): ContractArtifact => {
+  const artifact: ContractArtifact = JSON.parse(
+    fs.readFileSync(contractArtifactPath, 'utf8')
+  )
+
+  if (integration === 'hardhat') {
+    return artifact
+  } else if (integration === 'foundry') {
+    return parseFoundryArtifact(artifact)
+  } else {
+    throw new Error('Unknown integration')
+  }
+}
+
+/**
+ * Reads the build info from the local file system.
+ *
+ * @param buildInfoPath Path to the build info file.
+ * @returns BuildInfo object.
+ */
+export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
+  const buildInfo: BuildInfo = JSON.parse(
+    fs.readFileSync(buildInfoPath, 'utf8')
+  )
+
+  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
+  }
+
+  if (
+    !buildInfo.input.settings.outputSelection['*']['*'].includes(
+      'storageLayout'
+    )
+  ) {
+    throw new Error(
+      `Storage layout not found. Did you forget to set the "storageLayout" compiler option in your\n` +
+        `Hardhat/Foundry config file?\n\n` +
+        `If you're using Hardhat, see how to configure your project here:\n` +
+        `https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md#setup-chugsplash-using-typescript\n\n` +
+        `If you're using Foundry, see how to configure your project here:\n` +
+        `https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md#3-configure-your-foundrytoml-file`
+    )
+  }
+
+  return buildInfo
+}
+
+export const addEnumMembersToStorageLayout = (
+  storageLayout: SolidityStorageLayout,
+  contractName: string,
+  sourceNodes: any
+): SolidityStorageLayout => {
+  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
+  if (storageLayout.types === null) {
+    return storageLayout
+  }
+
+  for (const layoutType of Object.values(storageLayout.types)) {
+    if (layoutType.label.startsWith('enum')) {
+      const canonicalVarName = layoutType.label.substring(5)
+      for (const contractNode of sourceNodes) {
+        if (contractNode.canonicalName === contractName) {
+          for (const node of contractNode.nodes) {
+            if (node.canonicalName === canonicalVarName) {
+              layoutType.members = node.members.map((member) => member.name)
+            }
+          }
+        }
+      }
+    }
+  }
+  return storageLayout
+}
+
+/**
+ * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
+ *
+ * @param artifact Raw artifact object.
+ * @returns ContractArtifact
+ */
+export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
+  const abi = artifact.abi
+  const bytecode = artifact.bytecode.object
+
+  const compilationTarget = artifact.metadata.settings.compilationTarget
+  const sourceName = Object.keys(compilationTarget)[0]
+  const contractName = compilationTarget[sourceName]
+
+  return { abi, bytecode, sourceName, contractName }
+}
+
+export const assertStorageCompatiblePreserveKeywords = (
+  contractConfig: ParsedContractConfig,
+  currStorageLayout: SolidityStorageLayout,
+  newStorageLayout: SolidityStorageLayout
+) => {
+  for (const newStorageObj of newStorageLayout.storage) {
+    const varName = newStorageObj.label
+    if (variableContainsPreserveKeyword(contractConfig.variables[varName])) {
+      const currStorageObj = currStorageLayout.storage.find(
+        (storageObj) => storageObj.label === varName
+      )
+
+      if (currStorageObj === undefined) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" does not exist in \n` +
+            `the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.slot !== currStorageObj.slot) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
+            `storage slot position in the previous storage layout. Please put "${varName}" at the same storage \n` +
+            `position or remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.offset !== currStorageObj.offset) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
+            `storage slot offset in the previous storage layout. Please put "${varName}" at the same storage \n` +
+            `position or remove the '{preserve}' keyword from this variable.`
+        )
+      }
+
+      if (newStorageObj.type !== currStorageObj.type) {
+        throw new Error(
+          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists as a different \n` +
+            `type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
+            `change its type back to: ${currStorageObj.type}.`
+        )
+      }
+    }
+  }
 }

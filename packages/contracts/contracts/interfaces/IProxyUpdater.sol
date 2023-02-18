@@ -7,13 +7,14 @@ pragma solidity ^0.8.9;
  */
 interface IProxyUpdater {
     /**
-     * @notice Modifies some storage slot within the proxy contract. Gives us a lot of power to
-     *         perform upgrades in a more transparent way.
+     * @notice Replaces a segment of a proxy's storage slot value at a given key and offset. The
+     *         storage value outside of this segment remains the same.
      *
-     * @param _key   Storage key to modify.
-     * @param _value New value for the storage key.
+     * @param _key     Storage key to modify.
+     * @param _offset  Bytes offset of the new segment from the right side of the storage slot.
+     * @param _segment New value for the segment of the storage slot.
      */
-    function setStorage(bytes32 _key, bytes32 _value) external;
+    function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external;
 
     receive() external payable;
 

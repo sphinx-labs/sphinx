@@ -272,21 +272,13 @@ export const chugsplashProposeTask = async (
     ipfsUrl: string
     silent: boolean
     noCompile: boolean
-    remoteExecution: boolean
     confirm: boolean
     skipStorageCheck: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    ipfsUrl,
-    silent,
-    noCompile,
-    remoteExecution,
-    confirm,
-    skipStorageCheck,
-  } = args
+  const { configPath, ipfsUrl, silent, noCompile, confirm, skipStorageCheck } =
+    args
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -316,6 +308,11 @@ export const chugsplashProposeTask = async (
     artifactPaths,
     'hardhat'
   )
+
+  const remoteExecution =
+    process.env.FORCE_REMOTE_EXECUTION === 'true'
+      ? true
+      : (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
 
   await chugsplashProposeAbstractTask(
     provider,

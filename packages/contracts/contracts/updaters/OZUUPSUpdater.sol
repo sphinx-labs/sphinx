@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
+import { ProxyUpdater } from "./ProxyUpdater.sol";
 
 /**
  * @title DefaultUpdater
@@ -10,7 +10,7 @@ import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
  *         transparent proxy pattern, see:
  *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
-contract OZUUPSUpdater is IProxyUpdater {
+contract OZUUPSUpdater is ProxyUpdater {
     /**
      * @notice The storage slot that holds the address of the implementation.
      *         bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
@@ -94,19 +94,6 @@ contract OZUUPSUpdater is IProxyUpdater {
             _;
         } else {
             revert("OZUUPSUpdater: caller is not admin");
-        }
-    }
-
-    /**
-     * @notice Modifies some storage slot within the proxy contract. Gives us a lot of power to
-     *         perform upgrades in a more transparent way.
-     *
-     * @param _key   Storage key to modify.
-     * @param _value New value for the storage key.
-     */
-    function setStorage(bytes32 _key, bytes32 _value) external ifChugSplashAdmin {
-        assembly {
-            sstore(_key, _value)
         }
     }
 
