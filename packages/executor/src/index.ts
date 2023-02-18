@@ -32,19 +32,23 @@ import {
   getGasPriceOverrides,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
+import { GraphQLClient } from 'graphql-request'
 
 import {
   verifyChugSplash,
   verifyChugSplashConfig,
   isSupportedNetworkOnEtherscan,
 } from './utils'
+import { updateDeployment } from './gql'
 
 export * from './utils'
 
 export class ChugSplashExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
-  ExecutorState
+  ExecutorState & {
+    graphQLClient: GraphQLClient
+  }
 > {
   constructor(options?: Partial<ExecutorOptions & StandardOptions>) {
     super({
@@ -78,6 +82,11 @@ export class ChugSplashExecutor extends BaseServiceV2<
           validator: validators.str,
           default: 'error',
         },
+        managedApiUrl: {
+          desc: 'ChugSplash Managed GraphQL API',
+          validator: validators.str,
+          default: '',
+        },
       },
       metricsSpec: {},
     })
@@ -92,7 +101,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
    **/
   async setup(
     options: Partial<ExecutorOptions>,
-    remoteExecution: boolean,
     provider?: ethers.providers.JsonRpcProvider
   ) {
     this.logger = new Logger({
@@ -128,7 +136,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
   }
 
   async init() {
-    await this.setup(this.options, true)
+    await this.setup(this.options)
 
     this.logger.info('[ChugSplash]: setting up chugsplash...')
 
@@ -155,6 +163,13 @@ export class ChugSplashExecutor extends BaseServiceV2<
       this.logger.info(
         `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
       )
+    }
+
+    // Setup GraphQL Client if the api url and public key are specified
+    if (this.options.managedApiUrl !== '' && process.env.MANAGED_PUBLIC_KEY) {
+      this.state.graphQLClient = new GraphQLClient(this.options.managedApiUrl, {
+        headers: {},
+      })
     }
   }
 
@@ -331,6 +346,23 @@ export class ChugSplashExecutor extends BaseServiceV2<
             continue
           }
 
+          // Update status in the ChugSplash managed database
+          if (this.state.graphQLClient) {
+            try {
+              await updateDeployment(
+                this.state.graphQLClient,
+                activeBundleId,
+                'executed',
+                []
+              )
+            } catch (error) {
+              this.logger.error(
+                '[ChugSplash]: error: deployment update error',
+                error
+              )
+            }
+          }
+
           // verify on etherscan
           try {
             if (
@@ -361,6 +393,38 @@ export class ChugSplashExecutor extends BaseServiceV2<
               e,
               canonicalConfig.options
             )
+          }
+
+          // Update status in the ChugSplash managed database
+          if (this.state.graphQLClient) {
+            const contracts: {
+              referenceName: string
+              contractName: string
+              address: string
+            }[] = []
+            Object.entries(canonicalConfig.contracts).forEach(
+              ([referenceName, contractConfig]) => {
+                contracts.push({
+                  referenceName,
+                  contractName: contractConfig.contract,
+                  address: contractConfig.proxy,
+                })
+              }
+            )
+
+            try {
+              await updateDeployment(
+                this.state.graphQLClient,
+                activeBundleId,
+                'verified',
+                contracts
+              )
+            } catch (error) {
+              this.logger.error(
+                '[ChugSplash]: error: deployment update error',
+                error
+              )
+            }
           }
 
           trackExecuted(
