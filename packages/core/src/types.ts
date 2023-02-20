@@ -17,8 +17,16 @@ export type ExecutorOptions = {
   managedApiUrl: string
 }
 export type ExecutorMetrics = {}
+
+export type ExecutorEvent = {
+  retry: number
+  waitingPeriodMs: number
+  nextTry: Date
+  event: ethers.Event
+}
+
 export type ExecutorState = {
-  eventsQueue: ethers.Event[]
+  eventsQueue: ExecutorEvent[]
   registry: ethers.Contract
   provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
