@@ -38,6 +38,7 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZ_UUPS_PROXY_TYPE_HASH,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
@@ -238,13 +239,14 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: deploying OZTransparentAdapter...')
 
-  // Deploy the DefaultAdapter.
+  // Deploy the OpenZeppelin Transparent Adapter.
   const OZTransparentAdapter = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
       abi: OZTransparentAdapterABI,
       bytecode: OZTransparentAdapterArtifact.bytecode,
     },
+    args: [DEFAULT_UPDATER_ADDRESS],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -309,6 +311,7 @@ export const initializeChugSplash = async (
       abi: OZUUPSAdapterABI,
       bytecode: OZUUPSAdapterArtifact.bytecode,
     },
+    args: [OZ_UUPS_UPDATER_ADDRESS],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -373,14 +376,36 @@ export const initializeChugSplash = async (
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
+    args: [DEFAULT_UPDATER_ADDRESS],
     salt: CHUGSPLASH_SALT,
   })
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
-  // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
-  // fact that this is the last transaction to setup ChugSplash. If this changes, we also change
-  // `monitorChugSplashSetup` to reflect this.
+  if (
+    (await ChugSplashRegistry.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
+    DefaultAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addProxyType(
+        EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+        DefaultAdapter.address,
+        DefaultUpdater.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the external default proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the internal default proxy type on the registry. Note that `monitorChugSplashSetup` relies
+  // on the fact that this is the last transaction to setup ChugSplash. If this changes, we also
+  // change `monitorChugSplashSetup` to reflect this.
   if (
     (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
     DefaultAdapter.address
@@ -394,11 +419,11 @@ export const initializeChugSplash = async (
       )
     ).wait()
     logger?.info(
-      '[ChugSplash]: added the default proxy type to the ChugSplashRegistry'
+      '[ChugSplash]: added the internal default proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[ChugSplash]: the default proxy type was already added to the ChugSplashRegistry'
+      '[ChugSplash]: the internal default proxy type was already added to the ChugSplashRegistry'
     )
   }
 

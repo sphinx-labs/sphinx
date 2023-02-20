@@ -25,10 +25,12 @@ export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('chugsplash.proxy.admin')
 )
 
+export const EXTERNAL_DEFAULT_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('external-default')
+)
 export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-transparent')
 )
-
 export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-uups')
 )
@@ -88,7 +90,16 @@ export const DEFAULT_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
 export const DEFAULT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [DefaultAdapterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      DefaultAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [DEFAULT_UPDATER_ADDRESS]
+      ),
+    ]
+  )
 )
 
 export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
@@ -100,15 +111,30 @@ export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
 export const OZ_UUPS_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [OZUUPSAdapterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      OZUUPSAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [OZ_UUPS_UPDATER_ADDRESS]
+      ),
+    ]
+  )
 )
 
 export const OZ_TRANSPARENT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
-    ['bytes'],
-    [OZTransparentAdapterArtifact.bytecode]
+    ['bytes', 'bytes'],
+    [
+      OZTransparentAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [DEFAULT_UPDATER_ADDRESS]
+      ),
+    ]
   )
 )
 

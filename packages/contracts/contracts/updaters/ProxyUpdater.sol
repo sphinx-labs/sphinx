@@ -3,6 +3,8 @@ pragma solidity ^0.8.9;
 
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title ProxyUpdater
  * @notice An abstract contract that contains the logic which sets storage slots within the proxy
@@ -49,6 +51,8 @@ abstract contract ProxyUpdater is IProxyUpdater {
      */
     function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external {
         bytes32 segmentBytes32 = bytes32(_segment);
+        console.log('updating!');
+        console.log('address', address(this));
 
         // If the length of the new segment equals the size of the storage slot, we can just replace
         // the entire slot value.

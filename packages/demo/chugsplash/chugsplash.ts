@@ -11,12 +11,17 @@ import { ethers } from 'ethers'
 const config: UserChugSplashConfig = {
   options: {
     projectName: 'ChugSplash',
+    skipStorageCheck: true,
   },
   contracts: {
     RootChugSplashManager: {
       contract: 'ChugSplashManager',
       externalProxy: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
       externalProxyType: 'oz-transparent',
+      previousBuildInfo:
+        '../contracts/artifacts/build-info/a457b2a6053dd0a5e1e0c24d6d422873.json',
+      previousFullyQualifiedName:
+        'contracts/ChugSplashManager.sol:ChugSplashManager',
       variables: {
         _owner: '{preserve}',
         _status: '{preserve}',
@@ -28,7 +33,7 @@ const config: UserChugSplashConfig = {
         implementations: {},
         proposers: {},
         _bundles: {},
-        name: '{preserve}',
+        name: 'New Name',
         totalDebt: '{preserve}',
         activeBundleId: '{preserve}',
         debt: {},
@@ -38,7 +43,7 @@ const config: UserChugSplashConfig = {
         _executionLockTime: EXECUTION_LOCK_TIME,
         _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
         _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,
-      }
+      },
     },
     // ChugSplashRegistry: {
     //   contract: 'ChugSplashRegistry',

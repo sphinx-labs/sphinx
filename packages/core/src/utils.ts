@@ -29,7 +29,11 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
 import yesno from 'yesno'
 import ora from 'ora'
-import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
+import {
+  assertStorageUpgradeSafe,
+  getStorageUpgradeReport,
+  ProxyDeployment,
+} from '@openzeppelin/upgrades-core'
 
 import {
   CanonicalChugSplashConfig,
@@ -39,6 +43,8 @@ import {
   ParsedConfigVariable,
   ParsedContractConfig,
   ParsedContractConfigs,
+  ProxyType,
+  proxyTypeHashes,
   UserChugSplashConfig,
   UserConfigVariable,
 } from './config/types'
@@ -58,6 +64,7 @@ import {
   ContractASTNode,
   CompilerOutputSources,
   SolidityStorageLayout,
+  SolidityStorageObj,
 } from './languages/solidity/types'
 
 export const computeBundleId = (
@@ -501,7 +508,7 @@ export const isProjectRegistered = async (
   return isRegistered
 }
 
-export const isDefaultProxy = async (
+export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
@@ -532,7 +539,7 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  if ((await isDefaultProxy(provider, proxyAddress)) === true) {
+  if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
     return false
   }
 
@@ -626,21 +633,6 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const getProxyTypeHash = async (
-  provider: providers.Provider,
-  proxyAddress: string
-): Promise<string> => {
-  if (await isDefaultProxy(provider, proxyAddress)) {
-    return ethers.constants.HashZero
-  } else if (await isUUPSProxy(provider, proxyAddress)) {
-    return OZ_UUPS_PROXY_TYPE_HASH
-  } else if (await isTransparentProxy(provider, proxyAddress)) {
-    return OZ_TRANSPARENT_PROXY_TYPE_HASH
-  } else {
-    throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
-  }
-}
-
 export const setProxiesToReferenceNames = async (
   provider: providers.Provider,
   ChugSplashManager: ethers.Contract,
@@ -654,10 +646,7 @@ export const setProxiesToReferenceNames = async (
     }
 
     const currProxyTypeHash = await ChugSplashManager.proxyTypes(referenceName)
-    const actualProxyTypeHash = await getProxyTypeHash(
-      provider,
-      contractConfig.proxy
-    )
+    const actualProxyTypeHash = proxyTypeHashes[contractConfig.proxyType]
     if (currProxyTypeHash !== actualProxyTypeHash) {
       await ChugSplashManager.setProxyToReferenceName(
         referenceName,
@@ -901,7 +890,8 @@ export const variableContainsPreserveKeyword = (
   } else if (
     typeof variable === 'boolean' ||
     typeof variable === 'number' ||
-    typeof variable === 'string'
+    typeof variable === 'string' ||
+    variable === undefined
   ) {
     return false
   } else {
@@ -1257,43 +1247,87 @@ export const assertStorageCompatiblePreserveKeywords = (
   currStorageLayout: SolidityStorageLayout,
   newStorageLayout: SolidityStorageLayout
 ) => {
+  const errorMessages: Array<string> = []
+  const currPreservedStorage: Array<SolidityStorageObj> = []
+  const newPreservedStorage: Array<SolidityStorageObj> = []
   for (const newStorageObj of newStorageLayout.storage) {
-    const varName = newStorageObj.label
-    if (variableContainsPreserveKeyword(contractConfig.variables[varName])) {
+    if (
+      variableContainsPreserveKeyword(
+        contractConfig.variables[newStorageObj.label]
+      )
+    ) {
       const currStorageObj = currStorageLayout.storage.find(
-        (storageObj) => storageObj.label === varName
+        (currObj) => currObj.label === newStorageObj.label
       )
 
       if (currStorageObj === undefined) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" does not exist in \n` +
-            `the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
+        errorMessages.push(
+          `The variable "${newStorageObj.label}" contains the '{preserve}' keyword, but "${newStorageObj.label}" does\n` +
+            `not exist in the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
         )
-      }
-
-      if (newStorageObj.slot !== currStorageObj.slot) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
-            `storage slot position in the previous storage layout. Please put "${varName}" at the same storage \n` +
-            `position or remove the '{preserve}' keyword from this variable.`
-        )
-      }
-
-      if (newStorageObj.offset !== currStorageObj.offset) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
-            `storage slot offset in the previous storage layout. Please put "${varName}" at the same storage \n` +
-            `position or remove the '{preserve}' keyword from this variable.`
-        )
-      }
-
-      if (newStorageObj.type !== currStorageObj.type) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists as a different \n` +
-            `type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
-            `change its type back to: ${currStorageObj.type}.`
-        )
+      } else {
+        currPreservedStorage.push(currStorageObj)
+        newPreservedStorage.push(newStorageObj)
       }
     }
+  }
+
+  // TODO: mv
+  const toOpenZeppelinProxyType = (
+    proxyType: ProxyType
+  ): ProxyDeployment['kind'] => {
+    if (
+      proxyType === 'internal-default' ||
+      proxyType === 'external-default' ||
+      proxyType === 'oz-transparent'
+    ) {
+      return 'transparent'
+    } else if (proxyType === 'oz-uups') {
+      return 'uups'
+    } else {
+      throw new Error(
+        `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
+      )
+    }
+  }
+
+  // TODO: types
+  const report = getStorageUpgradeReport(
+    {
+      storage: currPreservedStorage,
+      types: currStorageLayout.types,
+    } as any,
+    {
+      storage: newPreservedStorage,
+      types: newStorageLayout.types,
+    } as any,
+    {
+      kind: toOpenZeppelinProxyType(contractConfig.proxyType),
+      unsafeAllow: [],
+      unsafeAllowCustomTypes: false,
+      unsafeAllowLinkedLibraries: false,
+      unsafeAllowRenames: false,
+      unsafeSkipStorageCheck: false,
+    }
+  )
+
+  report.ops.forEach((op) => {
+    if (op.kind === 'typechange') {
+      errorMessages.push(
+        `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists as a \n` +
+          `different type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
+          `change its type back to: ${op.original.type.id}.`
+      )
+    } else if (op.kind === 'layoutchange') {
+      errorMessages.push(
+        `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists at a different \n` +
+          `storage slot position in the previous storage layout. Please put "${op.updated.label}" at the same storage \n` +
+          `position or remove the '{preserve}' keyword from this variable.`
+      )
+    }
+  })
+
+  if (errorMessages.length > 0) {
+    throw new Error(`${errorMessages.join('\n\n')}`)
   }
 }

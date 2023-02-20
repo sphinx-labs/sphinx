@@ -49,7 +49,7 @@ ChugSplash files can be defined in TypeScript, JavaScript, or JSON. A sample Chu
 
 ### Configuration settings
 
-The `options` property in your ChugSplash file contains only a single field, `projectName`. The project name can be any name you choose, but they're reserved on a first-come, first-served basis. Once you've deployed a project using ChugSplash, you must keep the same `projectName` for subsequent upgrades.
+The `options` property in your ChugSplash file contains only a single field, `projectName`. The project name can be any name you choose, but they're reserved on a first-come, first-served basis. Once you've deployed a project using ChugSplash, you must keep the same `projectName` for subsequent upgrades. Note that 
 
 ### Contract definitions
 
