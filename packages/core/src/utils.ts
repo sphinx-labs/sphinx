@@ -1272,26 +1272,7 @@ export const assertStorageCompatiblePreserveKeywords = (
     }
   }
 
-  // TODO: mv
-  const toOpenZeppelinProxyType = (
-    proxyType: ProxyType
-  ): ProxyDeployment['kind'] => {
-    if (
-      proxyType === 'internal-default' ||
-      proxyType === 'external-default' ||
-      proxyType === 'oz-transparent'
-    ) {
-      return 'transparent'
-    } else if (proxyType === 'oz-uups') {
-      return 'uups'
-    } else {
-      throw new Error(
-        `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
-      )
-    }
-  }
-
-  // TODO: types
+  // TODO: Use OpenZeppelin's `StorageLayout` type instead of our own `SolidityStorageLayout` type
   const report = getStorageUpgradeReport(
     {
       storage: currPreservedStorage,
@@ -1329,5 +1310,23 @@ export const assertStorageCompatiblePreserveKeywords = (
 
   if (errorMessages.length > 0) {
     throw new Error(`${errorMessages.join('\n\n')}`)
+  }
+}
+
+export const toOpenZeppelinProxyType = (
+  proxyType: ProxyType
+): ProxyDeployment['kind'] => {
+  if (
+    proxyType === 'internal-default' ||
+    proxyType === 'external-default' ||
+    proxyType === 'oz-transparent'
+  ) {
+    return 'transparent'
+  } else if (proxyType === 'oz-uups') {
+    return 'uups'
+  } else {
+    throw new Error(
+      `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
+    )
   }
 }
