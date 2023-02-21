@@ -109,7 +109,7 @@ export const getConstructorArgs = (
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const getStorageLayout = (
+export const readStorageLayout = (
   buildInfoPath: string,
   contractFullyQualifiedName: string
 ): SolidityStorageLayout => {
@@ -200,7 +200,7 @@ export const createDeploymentArtifacts = async (
       deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
-      storageLayout: getStorageLayout(
+      storageLayout: readStorageLayout(
         artifactPaths[referenceName].buildInfoPath,
         contractConfig.contract
       ),

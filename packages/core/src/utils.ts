@@ -33,6 +33,7 @@ import {
   assertStorageUpgradeSafe,
   getStorageUpgradeReport,
   ProxyDeployment,
+  UpgradeableContract,
 } from '@openzeppelin/upgrades-core'
 import { astDereferencer } from 'solidity-ast/utils'
 
@@ -52,11 +53,14 @@ import {
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
-  getStorageLayout,
+  readStorageLayout,
 } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
-import { getLatestDeployedStorageLayout } from './deployed'
+import {
+  getLatestDeployedCanonicalConfig,
+  getLatestDeployedStorageLayout,
+} from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
@@ -67,6 +71,20 @@ import {
   SolidityStorageLayout,
   SolidityStorageObj,
 } from './languages/solidity/types'
+
+import {
+  StorageField,
+  StorageLayoutComparator,
+  stripContractSubstrings,
+} from '@openzeppelin/upgrades-core/dist/storage/compare'
+import {
+  getDetailedLayout,
+  ParsedTypeDetailed,
+  StorageItem,
+  StorageLayout,
+} from '@openzeppelin/upgrades-core/dist/storage/layout'
+
+import { getCanonicalConfigArtifacts } from './languages'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -766,8 +784,6 @@ permission to call the 'upgradeTo' function on each of them.
     )) {
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
-      // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
-      // support more granular storage layout config options in the future.
       if (isProxyDeployed) {
         const currStorageLayout = await getLatestDeployedStorageLayout(
           provider,
@@ -778,17 +794,45 @@ permission to call the 'upgradeTo' function on each of them.
           remoteExecution,
           canonicalConfigFolderPath
         )
-        const newStorageLayout = getStorageLayout(
+        const newStorageLayout = readStorageLayout(
           artifactPaths[referenceName].buildInfoPath,
           contractConfig.contract
         )
 
-        assertStorageCompatiblePreserveKeywords(
-          contractConfig,
-          currStorageLayout,
-          newStorageLayout
+        const prevBuildInfo = await getLatestDeployedBuildInfo()
+        const newBuildInfo = readBuildInfo(
+          artifactPaths[referenceName].buildInfoPath
         )
 
+        const opts = {
+          kind: toOpenZeppelinProxyType(contractConfig.proxyType),
+          unsafeAllow: [],
+          unsafeAllowCustomTypes: false,
+          unsafeAllowLinkedLibraries: false,
+          unsafeAllowRenames: false,
+          unsafeSkipStorageCheck: false,
+        }
+        const prevContract = new UpgradeableContract(
+          _,
+          prevBuildInfo.input,
+          prevBuildInfo.output,
+          opts
+        )
+        const updatedContract = new UpgradeableContract(
+          contractConfig.contract,
+          newBuildInfo.input,
+          newBuildInfo.output,
+          opts
+        )
+
+        assertStorageCompatiblePreserveKeywords(
+          contractConfig,
+          prevContract.layout,
+          updatedContract.layout
+        )
+
+        // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
+        // support more granular storage layout config options in the future.
         if (parsedConfig.options.skipStorageCheck !== true) {
           // Run OpenZeppelin's storage slot checker.
           assertStorageUpgradeSafe(
@@ -1244,83 +1288,64 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   return { abi, bytecode, sourceName, contractName }
 }
 
+export const isEqualType = (
+  prevStorageObj: StorageItem<ParsedTypeDetailed>,
+  newStorageObj: StorageItem<ParsedTypeDetailed>
+): boolean => {
+  // TODO: c/p oz link
+  const isRetypedFromOriginal = (
+    original: StorageField,
+    updated: StorageField
+  ): boolean => {
+    const originalLabel = stripContractSubstrings(original.type.item.label)
+    const updatedLabel = stripContractSubstrings(updated.retypedFrom?.trim())
+
+    return originalLabel === updatedLabel
+  }
+
+  // TODO: StorageLayoutComparator(opts.unsafeAllowCustomTypes, opts.unsafeAllowRenames)
+  const layoutComparator = new StorageLayoutComparator()
+
+  const isEqual =
+    !isRetypedFromOriginal(prevStorageObj, newStorageObj) &&
+    !layoutComparator.getTypeChange(prevStorageObj.type, newStorageObj.type, {
+      allowAppend: false,
+    })
+
+  return isEqual
+}
+
 export const assertStorageCompatiblePreserveKeywords = (
   contractConfig: ParsedContractConfig,
-  currStorageLayout: SolidityStorageLayout,
-  newStorageLayout: SolidityStorageLayout
+  prevStorageLayout: StorageLayout,
+  newStorageLayout: StorageLayout
 ) => {
+  const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
+  const newDetailedLayout = getDetailedLayout(newStorageLayout)
+
   const errorMessages: Array<string> = []
-  const currPreservedStorage: Array<SolidityStorageObj> = []
-  const newPreservedStorage: Array<SolidityStorageObj> = []
-  for (const newStorageObj of newStorageLayout.storage) {
+  for (const newStorageObj of newDetailedLayout) {
     if (
       variableContainsPreserveKeyword(
         contractConfig.variables[newStorageObj.label]
       )
     ) {
-      const currStorageObj = currStorageLayout.storage.find(
-        (currObj) => currObj.label === newStorageObj.label
+      const validPreserveKeyword = prevDetailedLayout.some(
+        (prevObj) =>
+          prevObj.label === newStorageObj.label &&
+          prevObj.slot === newStorageObj.slot &&
+          prevObj.offset === newStorageObj.offset &&
+          isEqualType(prevObj, newStorageObj)
       )
 
-      if (currStorageObj === undefined) {
+      if (!validPreserveKeyword) {
         errorMessages.push(
-          `The variable "${newStorageObj.label}" contains the '{preserve}' keyword, but "${newStorageObj.label}" does\n` +
+          `TODO: update. The variable "${newStorageObj.label}" contains the '{preserve}' keyword, but "${newStorageObj.label}" does\n` +
             `not exist in the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
         )
-      } else {
-        // TODO: rm?
-        currPreservedStorage.push(currStorageObj)
-        newPreservedStorage.push(newStorageObj)
       }
     }
   }
-
-  const report = getStorageUpgradeReport(
-    currStorageLayout as any,
-    newStorageLayout as any,
-    // {
-    //   storage: currPreservedStorage,
-    //   types: currStorageLayout.types,
-    // } as any,
-    // {
-    //   storage: newPreservedStorage,
-    //   types: newStorageLayout.types,
-    // } as any,
-    {
-      kind: toOpenZeppelinProxyType(contractConfig.proxyType),
-      unsafeAllow: [],
-      unsafeAllowCustomTypes: false,
-      unsafeAllowLinkedLibraries: false,
-      unsafeAllowRenames: false,
-      unsafeSkipStorageCheck: false,
-    }
-  )
-
-  report.ops.forEach((op) => {
-    if (
-      op.kind === 'typechange' &&
-      variableContainsPreserveKeyword(
-        contractConfig.variables[op.updated.label]
-      )
-    ) {
-      errorMessages.push(
-        `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists as a \n` +
-          `different type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
-          `change its type back to: ${op.original.type.id}.`
-      )
-    } else if (
-      (op.kind === 'layoutchange' || op.kind === 'insert') &&
-      variableContainsPreserveKeyword(
-        contractConfig.variables[op.updated.label]
-      )
-    ) {
-      errorMessages.push(
-        `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists at a different \n` +
-          `storage slot position in the previous storage layout. Please put "${op.updated.label}" at the same storage \n` +
-          `position or remove the '{preserve}' keyword from this variable.`
-      )
-    }
-  })
 
   if (errorMessages.length > 0) {
     throw new Error(`${errorMessages.join('\n\n')}`)
