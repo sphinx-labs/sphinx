@@ -309,8 +309,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _name                      Name of the project this contract is managing.
-     * @param _owner                     Address of the project owner.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -320,8 +318,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     constructor(
         ChugSplashRegistry _registry,
-        string memory _name,
-        address _owner,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage
@@ -330,8 +326,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
-
-        initialize(_name, _owner);
     }
 
     /**
@@ -512,7 +506,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
-
         require(
             bundle.executions[_actionIndex] == false,
             "ChugSplashManager: action has already been executed"
@@ -532,10 +525,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Get the proxy type and adapter for this reference name.
         bytes32 proxyType = proxyTypes[_action.referenceName];
         address adapter = registry.adapters(proxyType);
-        address updater = registry.updaters(proxyType);
 
         require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
-        require(updater != address(0), "ChugSplashManager: proxy type has no updater");
 
         // Get the proxy to use for this reference name. The proxy can either be the default proxy
         // used by ChugSplash or a non-standard proxy that has previously been set by the project
@@ -576,14 +567,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proxy = proxies[_action.referenceName];
         }
 
-        // Set the proxy's implementation to be the Updater. Updaters ensure that only the
+        // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
         // ChugSplashManager can interact with a proxy that is in the process of being updated. Note
         // that we use the Updater contract to provide a generic interface for updating a variety of
         // proxy types.
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.initiateExecution, (proxy, updater))
+            abi.encodeCall(IProxyAdapter.initiateExecution, (proxy))
         );
-        require(success, "ChugSplashManager: delegatecall to set storage failed");
+        require(success, "ChugSplashManager: failed to set implementation to an updater");
 
         // Mark the action as executed and update the total number of executed actions.
         bundle.actionsExecuted++;

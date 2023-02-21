@@ -137,8 +137,7 @@ export const getCanonicalConfigArtifacts = async (
 
         addEnumMembersToStorageLayout(
           contractOutput.storageLayout,
-          contractName,
-          compilerOutput.sources[sourceName].ast.nodes
+          compilerOutput
         )
 
         artifacts[referenceName] = {

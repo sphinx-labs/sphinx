@@ -209,7 +209,7 @@ export const parseChugSplashConfig = async (
       externalProxy ||
       getDefaultProxyAddress(userConfig.options.projectName, referenceName)
 
-    const proxyType: ProxyType = externalProxyType ?? 'default'
+    const proxyType: ProxyType = externalProxyType ?? 'internal-default'
 
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,

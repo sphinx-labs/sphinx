@@ -106,7 +106,7 @@ contract ChugSplashManager_Test is Test {
     address nonOwner = address(256);
     address executor1 = address(512);
     address executor2 = address(1024);
-    bytes32 salt = bytes32(hex"12");
+    bytes32 salt = bytes32(hex"11");
     uint256 initialTimestamp = 1641070800;
     uint256 bundleExecutionCost = 2 ether;
     string projectName = "TestProject";
@@ -148,12 +148,11 @@ contract ChugSplashManager_Test is Test {
 
         managerImplementation = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(registryProxyAddress),
-            projectName,
-            owner,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
         );
+        managerImplementation.initialize(projectName, owner);
 
         bootloader.initialize(
             owner,
@@ -180,17 +179,17 @@ contract ChugSplashManager_Test is Test {
         address[] memory executors = new address[](2);
         executors[0] = executor1;
         executors[1] = executor2;
-        registry.initialize(owner, executors);
+        registry.initialize(owner, address(bootloader.rootManagerProxy()), executors);
         vm.stopPrank();
 
         manager = registry.projects(projectName);
-        defaultAdapter = new DefaultAdapter();
         defaultUpdater = new DefaultUpdater();
-        ozUUPSAdapter = new OZUUPSAdapter();
+        defaultAdapter = new DefaultAdapter(address(defaultUpdater));
         ozUUPSUpdater = new OZUUPSUpdater();
-        ozTransparentAdapter = new OZTransparentAdapter();
+        ozUUPSAdapter = new OZUUPSAdapter(address(ozUUPSUpdater));
+        ozTransparentAdapter = new OZTransparentAdapter(address(defaultUpdater));
 
-        registry.addProxyType(bytes32(0), address(defaultAdapter), address(defaultUpdater));
+        registry.addProxyType(bytes32(0), address(defaultAdapter));
     }
 
     // constructor:
@@ -908,7 +907,7 @@ contract ChugSplashManager_Test is Test {
         address payable transparentProxyAddress = payable(address(transparentProxy));
         string memory transparentProxyReferenceName = "TransparentProxy";
         bytes32 proxyType = keccak256(bytes("oz-transparent"));
-        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter));
         helper_setProxyToReferenceName(
             transparentProxyReferenceName,
             transparentProxyAddress,

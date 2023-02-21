@@ -23,6 +23,7 @@ import {
   PROXY_INITIALIZER_ADDRESS,
   CHUGSPLASH_SALT,
   ChugSplashRegistryABI,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   DefaultUpdaterABI,
   DefaultUpdaterArtifact,
   OZUUPSUpdaterABI,
@@ -37,6 +38,7 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZ_UUPS_PROXY_TYPE_HASH,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
@@ -58,7 +60,7 @@ export const initializeChugSplash = async (
 ): Promise<void> => {
   logger?.info('[ChugSplash]: deploying ChugSplashManager...')
 
-  // Deploy the root ChugSplashManager.
+  // Deploy the ChugSplashManager implementation.
   const ChugSplashManager = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
@@ -179,12 +181,13 @@ export const initializeChugSplash = async (
 
     // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
     // implementation, calls the ChugSplashRegistry's initializer, and transfers ownership of the proxy to the
-    // multisig owner.
+    // root ChugSplashManagerProxy.
     await (
       await ProxyInitializer.initialize(
         CHUGSPLASH_REGISTRY_ADDRESS,
         ChugSplashRegistryProxy.interface.encodeFunctionData('initialize', [
           await deployer.getAddress(),
+          ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
           [executorAddress],
         ]),
         await getGasPriceOverrides(provider)
@@ -236,13 +239,14 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: deploying OZTransparentAdapter...')
 
-  // Deploy the DefaultAdapter.
+  // Deploy the OpenZeppelin Transparent Adapter.
   const OZTransparentAdapter = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
       abi: OZTransparentAdapterABI,
       bytecode: OZTransparentAdapterArtifact.bytecode,
     },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -287,7 +291,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         OZTransparentAdapter.address,
-        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -307,6 +310,7 @@ export const initializeChugSplash = async (
       abi: OZUUPSAdapterABI,
       bytecode: OZUUPSAdapterArtifact.bytecode,
     },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -349,7 +353,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         OZ_UUPS_PROXY_TYPE_HASH,
         OZUUPSAdapter.address,
-        OZUUPSUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -371,14 +374,35 @@ export const initializeChugSplash = async (
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[DefaultAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
-  // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
-  // fact that this is the last transaction to setup ChugSplash. If this changes, we also change
-  // `monitorChugSplashSetup` to reflect this.
+  if (
+    (await ChugSplashRegistry.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
+    DefaultAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addProxyType(
+        EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+        DefaultAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the external default proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the internal default proxy type on the registry. Note that `monitorChugSplashSetup` relies
+  // on the fact that this is the last transaction to setup ChugSplash. If this changes, we also
+  // change `monitorChugSplashSetup` to reflect this.
   if (
     (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
     DefaultAdapter.address
@@ -387,16 +411,15 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         ethers.constants.HashZero,
         DefaultAdapter.address,
-        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[ChugSplash]: added the default proxy type to the ChugSplashRegistry'
+      '[ChugSplash]: added the internal default proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[ChugSplash]: the default proxy type was already added to the ChugSplashRegistry'
+      '[ChugSplash]: the internal default proxy type was already added to the ChugSplashRegistry'
     )
   }
 
