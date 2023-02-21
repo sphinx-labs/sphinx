@@ -18,17 +18,19 @@ import {
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
-  '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
-export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+export const EXECUTOR = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
 export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('chugsplash.proxy.admin')
 )
 
+export const EXTERNAL_DEFAULT_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('external-default')
+)
 export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-transparent')
 )
-
 export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-uups')
 )
@@ -88,7 +90,16 @@ export const DEFAULT_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
 export const DEFAULT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [DefaultAdapterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      DefaultAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [DEFAULT_UPDATER_ADDRESS]
+      ),
+    ]
+  )
 )
 
 export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
@@ -100,15 +111,30 @@ export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
 export const OZ_UUPS_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(['bytes'], [OZUUPSAdapterArtifact.bytecode])
+  ethers.utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      OZUUPSAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [OZ_UUPS_UPDATER_ADDRESS]
+      ),
+    ]
+  )
 )
 
 export const OZ_TRANSPARENT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
-    ['bytes'],
-    [OZTransparentAdapterArtifact.bytecode]
+    ['bytes', 'bytes'],
+    [
+      OZTransparentAdapterArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address'],
+        [DEFAULT_UPDATER_ADDRESS]
+      ),
+    ]
   )
 )
 
@@ -167,8 +193,6 @@ export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
 
 const chugsplashManagerConstructorArgValues = [
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  'Root Manager',
-  OWNER_MULTISIG_ADDRESS,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT,
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -223,9 +247,13 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerProxySourceName] = [
 ]
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] =
   chugsplashManagerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName]
+CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = [
+  DEFAULT_UPDATER_ADDRESS,
+]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = [OZ_UUPS_UPDATER_ADDRESS]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName] = [
+  DEFAULT_UPDATER_ADDRESS,
+]
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =

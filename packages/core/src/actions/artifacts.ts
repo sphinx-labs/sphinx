@@ -116,13 +116,8 @@ export const getStorageLayout = (
   const buildInfo = readBuildInfo(buildInfoPath)
   const [sourceName, contractName] = contractFullyQualifiedName.split(':')
   const contractOutput = buildInfo.output.contracts[sourceName][contractName]
-  const outputSource = buildInfo.output.sources[sourceName]
 
-  addEnumMembersToStorageLayout(
-    contractOutput.storageLayout,
-    contractName,
-    outputSource.ast.nodes
-  )
+  addEnumMembersToStorageLayout(contractOutput.storageLayout, buildInfo.output)
 
   return contractOutput.storageLayout
 }

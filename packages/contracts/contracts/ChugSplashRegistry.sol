@@ -108,11 +108,6 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     mapping(bytes32 => address) public adapters;
 
     /**
-     * @notice Mapping of proxy types to updaters.
-     */
-    mapping(bytes32 => address) public updaters;
-
-    /**
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
@@ -160,12 +155,18 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     }
 
     /**
-     * @param _owner Initial owner of this contract.
-     * @param _executors Array of executors to add.
+     * @param _owner            Initial owner of this contract.
+     * @param _rootManagerProxy Address of the root ChugSplashManagerProxy.
+     * @param _executors        Array of executors to add.
      */
-    function initialize(address _owner, address[] memory _executors) public initializer {
+    function initialize(address _owner, address _rootManagerProxy, address[] memory _executors) public initializer {
         __Ownable_init();
         _transferOwnership(_owner);
+
+        // Add the root ChugSplashManager to projects and managers mappings. Will be removed once
+        // ChugSplash is non-upgradeable.
+        projects['ChugSplash'] = ChugSplashManager(payable(_rootManagerProxy));
+        managers[ChugSplashManager(payable(_rootManagerProxy))] = true;
 
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
@@ -237,24 +238,18 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     }
 
     /**
-     * @notice Adds a new proxy type with a corresponding adapter and updater, which
-     *         can be used to upgrade a custom proxy.
+     * @notice Adds a new proxy type with a corresponding adapter.
      *
      * @param _proxyType Hash representing the proxy type
      * @param _adapter   Address of the adapter for this proxy type.
-     * @param _updater   Address of the updater for this proxy type.
      */
-    function addProxyType(bytes32 _proxyType, address _adapter, address _updater) external {
+    function addProxyType(bytes32 _proxyType, address _adapter) external {
         require(
             adapters[_proxyType] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
-        require(
-            updaters[_proxyType] == address(0),
-            "ChugSplashRegistry: proxy type has an existing updater"
-        );
+
         adapters[_proxyType] = _adapter;
-        updaters[_proxyType] = _updater;
 
         emit ProxyTypeAdded(_proxyType, _adapter);
     }

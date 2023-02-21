@@ -14,7 +14,6 @@ export type ExecutorOptions = {
   network: string
   privateKey: string
   logLevel: LogLevel
-  managedApiUrl: string
 }
 export type ExecutorMetrics = {}
 export type ExecutorState = {

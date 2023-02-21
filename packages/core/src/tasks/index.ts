@@ -29,7 +29,7 @@ import {
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
   getProjectOwnerAddress,
-  isDefaultProxy,
+  isInternalDefaultProxy,
   isProjectRegistered,
   isTransparentProxy,
   isUUPSProxy,
@@ -1522,7 +1522,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   }
 
   if (
-    (await isDefaultProxy(provider, proxy)) === false &&
+    (await isInternalDefaultProxy(provider, proxy)) === false &&
     (await isTransparentProxy(provider, proxy)) === false &&
     (await isUUPSProxy(provider, proxy)) === false
   ) {
