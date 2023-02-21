@@ -11,10 +11,7 @@ import {
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { Contract, Signer } from 'ethers'
-import {
-  chugsplashDeployAbstractTask,
-  getChugSplashManager,
-} from '@chugsplash/core'
+import { chugsplashDeployAbstractTask } from '@chugsplash/core'
 
 import { getArtifactPaths } from '../dist/hardhat/artifacts'
 import metaUpgradeConfig from '../chugsplash/meta-upgrade'

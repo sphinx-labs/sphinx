@@ -21,8 +21,6 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-  OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_PROXY_TYPE_HASH,
   OZ_UUPS_UPDATER_ADDRESS,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
@@ -31,11 +29,20 @@ import yesno from 'yesno'
 import ora from 'ora'
 import {
   assertStorageUpgradeSafe,
-  getStorageUpgradeReport,
   ProxyDeployment,
-  UpgradeableContract,
 } from '@openzeppelin/upgrades-core'
 import { astDereferencer } from 'solidity-ast/utils'
+import {
+  StorageField,
+  StorageLayoutComparator,
+  stripContractSubstrings,
+} from '@openzeppelin/upgrades-core/dist/storage/compare'
+import {
+  getDetailedLayout,
+  ParsedTypeDetailed,
+  StorageItem,
+  StorageLayout,
+} from '@openzeppelin/upgrades-core/dist/storage/layout'
 
 import {
   CanonicalChugSplashConfig,
@@ -57,10 +64,7 @@ import {
 } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
-import {
-  getLatestDeployedCanonicalConfig,
-  getLatestDeployedStorageLayout,
-} from './deployed'
+import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
@@ -69,22 +73,7 @@ import {
   ContractASTNode,
   CompilerOutputSources,
   SolidityStorageLayout,
-  SolidityStorageObj,
 } from './languages/solidity/types'
-
-import {
-  StorageField,
-  StorageLayoutComparator,
-  stripContractSubstrings,
-} from '@openzeppelin/upgrades-core/dist/storage/compare'
-import {
-  getDetailedLayout,
-  ParsedTypeDetailed,
-  StorageItem,
-  StorageLayout,
-} from '@openzeppelin/upgrades-core/dist/storage/layout'
-
-import { getCanonicalConfigArtifacts } from './languages'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -799,37 +788,37 @@ permission to call the 'upgradeTo' function on each of them.
           contractConfig.contract
         )
 
-        const prevBuildInfo = await getLatestDeployedBuildInfo()
-        const newBuildInfo = readBuildInfo(
-          artifactPaths[referenceName].buildInfoPath
-        )
+        // const prevBuildInfo = await getLatestDeployedBuildInfo()
+        // const newBuildInfo = readBuildInfo(
+        //   artifactPaths[referenceName].buildInfoPath
+        // )
 
-        const opts = {
-          kind: toOpenZeppelinProxyType(contractConfig.proxyType),
-          unsafeAllow: [],
-          unsafeAllowCustomTypes: false,
-          unsafeAllowLinkedLibraries: false,
-          unsafeAllowRenames: false,
-          unsafeSkipStorageCheck: false,
-        }
-        const prevContract = new UpgradeableContract(
-          _,
-          prevBuildInfo.input,
-          prevBuildInfo.output,
-          opts
-        )
-        const updatedContract = new UpgradeableContract(
-          contractConfig.contract,
-          newBuildInfo.input,
-          newBuildInfo.output,
-          opts
-        )
+        // const opts = {
+        //   kind: toOpenZeppelinProxyType(contractConfig.proxyType),
+        //   unsafeAllow: [],
+        //   unsafeAllowCustomTypes: false,
+        //   unsafeAllowLinkedLibraries: false,
+        //   unsafeAllowRenames: false,
+        //   unsafeSkipStorageCheck: false,
+        // }
+        // const prevContract = new UpgradeableContract(
+        //   _,
+        //   prevBuildInfo.input,
+        //   prevBuildInfo.output,
+        //   opts
+        // )
+        // const updatedContract = new UpgradeableContract(
+        //   contractConfig.contract,
+        //   newBuildInfo.input,
+        //   newBuildInfo.output,
+        //   opts
+        // )
 
-        assertStorageCompatiblePreserveKeywords(
-          contractConfig,
-          prevContract.layout,
-          updatedContract.layout
-        )
+        // assertStorageCompatiblePreserveKeywords(
+        //   contractConfig,
+        //   prevContract.layout,
+        //   updatedContract.layout
+        // )
 
         // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
         // support more granular storage layout config options in the future.

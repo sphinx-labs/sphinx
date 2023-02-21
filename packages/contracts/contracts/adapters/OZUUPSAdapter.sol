@@ -12,7 +12,6 @@ import { Proxy } from "../libraries/Proxy.sol";
  *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent-vs-uups
  */
 contract OZUUPSAdapter is IProxyAdapter {
-
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {

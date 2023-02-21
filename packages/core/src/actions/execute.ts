@@ -163,12 +163,13 @@ export const executeTask = async (args: {
         )
 
         // Execute the batch.
-        const txn = await chugSplashManager.executeMultipleActions(
-          batch.map((action) => action.action),
-          batch.map((action) => action.proof.actionIndex),
-          batch.map((action) => action.proof.siblings)
-        )
-        await txn.wait()
+        await (
+          await chugSplashManager.executeMultipleActions(
+            batch.map((action) => action.action),
+            batch.map((action) => action.proof.actionIndex),
+            batch.map((action) => action.proof.siblings)
+          )
+        ).wait()
 
         // Move on to the next batch if necessary.
         executed += batchSize

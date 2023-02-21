@@ -10,7 +10,6 @@ import { Proxy } from "../libraries/Proxy.sol";
  * @notice Adapter for the default EIP-1967 proxy used by ChugSplash.
  */
 contract DefaultAdapter is IProxyAdapter {
-
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {

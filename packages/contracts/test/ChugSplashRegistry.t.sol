@@ -72,7 +72,7 @@ contract ChugSplashRegistry_Test is Test {
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
         assertEq(registry.managerImplementation(), address(manager));
-        assertEq(address(registry.projects('ChugSplash')), (dummyRootManagerProxy));
+        assertEq(address(registry.projects("ChugSplash")), (dummyRootManagerProxy));
 
         assertEq(registry.owner(), owner);
     }
