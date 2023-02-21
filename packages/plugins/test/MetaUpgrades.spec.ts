@@ -23,8 +23,15 @@ describe('Meta Upgrade', () => {
   before(async () => {
     await hre.chugsplash.reset()
 
-    owner = await hre.ethers.getImpersonatedSigner(OWNER_MULTISIG_ADDRESS)
     nonOwner = hre.ethers.provider.getSigner()
+    owner = await hre.ethers.getImpersonatedSigner(OWNER_MULTISIG_ADDRESS)
+
+    // Send funds to the owner's address, since its balance is zero on the Hardhat network
+    await nonOwner.sendTransaction({
+      to: await owner.getAddress(),
+      value: hre.ethers.utils.parseEther('10'), // 10 ETH
+    })
+
     RootChugSplashManager = await hre.ethers.getContractAt(
       ChugSplashManagerABI,
       ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS

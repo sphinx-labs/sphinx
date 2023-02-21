@@ -167,7 +167,8 @@ export const executeTask = async (args: {
           await chugSplashManager.executeMultipleActions(
             batch.map((action) => action.action),
             batch.map((action) => action.proof.actionIndex),
-            batch.map((action) => action.proof.siblings)
+            batch.map((action) => action.proof.siblings),
+            await getGasPriceOverrides(executor.provider)
           )
         ).wait()
 

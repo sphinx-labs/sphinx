@@ -16,7 +16,7 @@ const config: UserChugSplashConfig = {
         __gap: [],
         _owner: '0x1111111111111111111111111111111111111111',
       },
-      externalProxy: '0xC92B72ecf468D2642992b195bea99F9B9BB4A838',
+      externalProxy: '0x391342f5acAcaaC9DE1dC4eC3E03f2678f7c78F1',
       externalProxyType: 'oz-uups',
     },
   },

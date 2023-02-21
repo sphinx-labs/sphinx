@@ -982,7 +982,6 @@ export const assertValidContractReferences = (
     }
   } else if (typeof variable === 'object') {
     for (const [varName, varValue] of Object.entries(variable)) {
-      console.log(varName)
       assertValidContractReferences(varName, referenceNames)
       assertValidContractReferences(varValue, referenceNames)
     }
