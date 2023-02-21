@@ -247,9 +247,13 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerProxySourceName] = [
 ]
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] =
   chugsplashManagerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName]
+CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = [
+  DEFAULT_UPDATER_ADDRESS,
+]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = [OZ_UUPS_UPDATER_ADDRESS]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName] = [
+  DEFAULT_UPDATER_ADDRESS,
+]
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSUpdaterSourceName] = []
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =

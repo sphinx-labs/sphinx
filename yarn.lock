@@ -443,11 +443,6 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
-"@chugsplash/contracts@^0.5.2":
-  version "0.5.2"
-  resolved "https://registry.yarnpkg.com/@chugsplash/contracts/-/contracts-0.5.2.tgz#d40e4968ed740c73d5ca32f954ecf8f269145757"
-  integrity sha512-Kf92zyMdoprmADrqIyaP/KhR4/ViNMpAcBaGLDgDOEQHzcLHCbbMNITuP3xpLoF2R6OOBKccEBNBfiRPN3lszQ==
-
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
@@ -7859,7 +7854,7 @@ solhint@^3.3.6:
   optionalDependencies:
     prettier "^1.14.3"
 
-solidity-ast@^0.4.15:
+solidity-ast@^0.4.15, solidity-ast@^0.4.45:
   version "0.4.45"
   resolved "https://registry.yarnpkg.com/solidity-ast/-/solidity-ast-0.4.45.tgz#37c1c17bd79123106fc69d94b4a8e9237ae8c625"
   integrity sha512-N6uqfaDulVZqjpjru+KvMLjV89M3hesyr/1/t8nkjohRagFSDmDxZvb9viKV98pdwpMzs61Nt2JAApgh0fkL0g==

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import "hardhat/console.sol";
-
 /**
  * @title Proxy
  * @notice Proxy is a transparent proxy that passes through the call if the caller is the owner or
@@ -88,7 +86,6 @@ contract Proxy {
      */
     function upgradeTo(address _implementation) external proxyCallIfNotAdmin {
         _setImplementation(_implementation);
-        console.log('settt');
     }
 
     /**
@@ -102,11 +99,9 @@ contract Proxy {
         address _implementation,
         bytes calldata _data
     ) external payable proxyCallIfNotAdmin returns (bytes memory) {
-        console.log('entered upgradeToandCall');
         _setImplementation(_implementation);
-        console.log('upgradeToAndCall: set impl');
+
         (bool success, bytes memory returndata) = _implementation.delegatecall(_data);
-        console.log('upgradeToAndCall: success', success);
         require(success, "Proxy: delegatecall to new implementation contract failed");
         return returndata;
     }
@@ -147,7 +142,6 @@ contract Proxy {
         assembly {
             sstore(IMPLEMENTATION_KEY, _implementation)
         }
-        console.log('set to impl');
         emit Upgraded(_implementation);
     }
 

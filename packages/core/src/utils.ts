@@ -34,6 +34,7 @@ import {
   getStorageUpgradeReport,
   ProxyDeployment,
 } from '@openzeppelin/upgrades-core'
+import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   CanonicalChugSplashConfig,
@@ -1200,26 +1201,27 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
 
 export const addEnumMembersToStorageLayout = (
   storageLayout: SolidityStorageLayout,
-  contractName: string,
-  sourceNodes: any
+  outputSources: any
 ): SolidityStorageLayout => {
   // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
   if (storageLayout.types === null) {
     return storageLayout
   }
 
-  for (const layoutType of Object.values(storageLayout.types)) {
-    if (layoutType.label.startsWith('enum')) {
-      const canonicalVarName = layoutType.label.substring(5)
-      for (const contractNode of sourceNodes) {
-        if (contractNode.canonicalName === contractName) {
-          for (const node of contractNode.nodes) {
-            if (node.canonicalName === canonicalVarName) {
-              layoutType.members = node.members.map((member) => member.name)
-            }
-          }
-        }
+  const deref = astDereferencer(outputSources)
+
+  for (const [typeName, typeDefinition] of Object.entries(
+    storageLayout.types
+  )) {
+    if (typeDefinition.label.startsWith('enum')) {
+      const astId = typeName.split(')').at(-1)
+      if (!astId) {
+        throw new Error(`Could not find AST ID for variable: ${typeName}`)
       }
+      const enumDefinition = deref('EnumDefinition', parseInt(astId, 10))
+      typeDefinition.members = enumDefinition.members.map(
+        (member) => member.name
+      )
     }
   }
   return storageLayout
@@ -1266,22 +1268,24 @@ export const assertStorageCompatiblePreserveKeywords = (
             `not exist in the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
         )
       } else {
+        // TODO: rm?
         currPreservedStorage.push(currStorageObj)
         newPreservedStorage.push(newStorageObj)
       }
     }
   }
 
-  // TODO: Use OpenZeppelin's `StorageLayout` type instead of our own `SolidityStorageLayout` type
   const report = getStorageUpgradeReport(
-    {
-      storage: currPreservedStorage,
-      types: currStorageLayout.types,
-    } as any,
-    {
-      storage: newPreservedStorage,
-      types: newStorageLayout.types,
-    } as any,
+    currStorageLayout as any,
+    newStorageLayout as any,
+    // {
+    //   storage: currPreservedStorage,
+    //   types: currStorageLayout.types,
+    // } as any,
+    // {
+    //   storage: newPreservedStorage,
+    //   types: newStorageLayout.types,
+    // } as any,
     {
       kind: toOpenZeppelinProxyType(contractConfig.proxyType),
       unsafeAllow: [],
@@ -1293,13 +1297,23 @@ export const assertStorageCompatiblePreserveKeywords = (
   )
 
   report.ops.forEach((op) => {
-    if (op.kind === 'typechange') {
+    if (
+      op.kind === 'typechange' &&
+      variableContainsPreserveKeyword(
+        contractConfig.variables[op.updated.label]
+      )
+    ) {
       errorMessages.push(
         `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists as a \n` +
           `different type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
           `change its type back to: ${op.original.type.id}.`
       )
-    } else if (op.kind === 'layoutchange') {
+    } else if (
+      (op.kind === 'layoutchange' || op.kind === 'insert') &&
+      variableContainsPreserveKeyword(
+        contractConfig.variables[op.updated.label]
+      )
+    ) {
       errorMessages.push(
         `The variable "${op.updated.label}" contains the '{preserve}' keyword, but "${op.updated.label}" exists at a different \n` +
           `storage slot position in the previous storage layout. Please put "${op.updated.label}" at the same storage \n` +

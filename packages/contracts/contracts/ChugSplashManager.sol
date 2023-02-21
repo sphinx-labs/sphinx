@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
-
 import {
     ChugSplashBundleState,
     ChugSplashAction,
@@ -524,8 +522,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: invalid bundle action proof"
         );
 
-        console.log('c');
-
         // Get the proxy type and adapter for this reference name.
         bytes32 proxyType = proxyTypes[_action.referenceName];
         address adapter = registry.adapters(proxyType);
@@ -575,8 +571,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // ChugSplashManager can interact with a proxy that is in the process of being updated. Note
         // that we use the Updater contract to provide a generic interface for updating a variety of
         // proxy types.
-        console.log('actionsExecuted', bundle.actionsExecuted);
-        console.log('total actions in bundle', bundle.executions.length);
         (bool success, ) = adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.initiateExecution, (proxy))
         );
@@ -600,7 +594,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, _actionIndex);
-        console.log('i');
         registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
 
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
@@ -611,8 +604,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // might be contributing to the difficulty of getting a good estimate. For now, we err on
         // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        console.log('z');
 
         // Calculate the executor's payment and add it to the debt owed to the executor.
         uint256 executorPayment;
@@ -650,19 +641,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public onlySelectedExecutor {
-        console.log('attempting complete');
         uint256 initialGasLeft = gasleft();
 
-        console.log('a');
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        console.log('b');
         for (uint256 i = 0; i < _actions.length; i++) {
-            console.log('a');
             ChugSplashAction memory action = _actions[i];
             uint256 actionIndex = _actionIndexes[i];
             bytes32[] memory proof = _proofs[i];
-            console.log('c');
 
             require(
                 bundle.executions[actionIndex] == false,
@@ -680,53 +666,38 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 "ChugSplashManager: invalid bundle action proof"
             );
 
-            console.log('d');
-
             // Mark the action as executed and update the total number of executed actions.
             bundle.actionsExecuted++;
             bundle.executions[actionIndex] = true;
-
-            console.log('e');
 
             // Get the implementation address using the salt as its key.
             address implementation = implementations[
                 keccak256(abi.encode(activeBundleId, bytes(action.referenceName)))
             ];
 
-            console.log('f');
-
             // Get the proxy type and adapter for this reference name.
             bytes32 proxyType = proxyTypes[action.referenceName];
             address adapter = registry.adapters(proxyType);
 
-            console.log('g');
-
             // Get the address of the proxy.
             address payable proxy;
             if (proxyType == bytes32(0)) {
-                console.log('g1');
                 proxy = getDefaultProxyAddress(action.referenceName);
             } else {
-                console.log('g2');
                 // Use the non-standard proxy assigned to this reference name by the owner.
                 proxy = proxies[action.referenceName];
             }
 
-            console.log('h');
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
                 abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation))
             );
-            console.log('i');
             require(success, "ChugSplashManager: delegatecall to complete execution failed");
 
-            console.log('j');
             emit ChugSplashActionExecuted(activeBundleId, proxy, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(proxy));
-            console.log('k');
         }
 
-        console.log('l');
         require(
             bundle.actionsExecuted == bundle.executions.length,
             "ChugSplashManager: bundle was not completed"
@@ -738,7 +709,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 completedBundleId = activeBundleId;
         activeBundleId = bytes32(0);
 
-        console.log('m');
         emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
         registry.announce("ChugSplashBundleCompleted");
 
@@ -763,7 +733,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Add the executor's payment to the debt.
         totalDebt += executorPayment;
         debt[msg.sender] += executorPayment;
-        console.log('z');
     }
 
     /**

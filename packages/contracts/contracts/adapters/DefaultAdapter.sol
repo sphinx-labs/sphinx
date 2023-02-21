@@ -5,8 +5,6 @@ import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title DefaultAdapter
  * @notice Adapter for the default EIP-1967 proxy used by ChugSplash.
@@ -42,9 +40,7 @@ contract DefaultAdapter is IProxyAdapter {
         uint8 _offset,
         bytes memory _segment
     ) external {
-        console.log('entered setstorage');
         IProxyUpdater(_proxy).setStorage(_key, _offset, _segment);
-        console.log('finished setstorage');
     }
 
     /**

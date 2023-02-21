@@ -183,13 +183,13 @@ contract ChugSplashManager_Test is Test {
         vm.stopPrank();
 
         manager = registry.projects(projectName);
-        defaultAdapter = new DefaultAdapter();
         defaultUpdater = new DefaultUpdater();
-        ozUUPSAdapter = new OZUUPSAdapter();
+        defaultAdapter = new DefaultAdapter(address(defaultUpdater));
         ozUUPSUpdater = new OZUUPSUpdater();
-        ozTransparentAdapter = new OZTransparentAdapter();
+        ozUUPSAdapter = new OZUUPSAdapter(address(ozUUPSUpdater));
+        ozTransparentAdapter = new OZTransparentAdapter(address(defaultUpdater));
 
-        registry.addProxyType(bytes32(0), address(defaultAdapter), address(defaultUpdater));
+        registry.addProxyType(bytes32(0), address(defaultAdapter));
     }
 
     // constructor:
@@ -907,7 +907,7 @@ contract ChugSplashManager_Test is Test {
         address payable transparentProxyAddress = payable(address(transparentProxy));
         string memory transparentProxyReferenceName = "TransparentProxy";
         bytes32 proxyType = keccak256(bytes("oz-transparent"));
-        registry.addProxyType(proxyType, address(ozTransparentAdapter), address(defaultUpdater));
+        registry.addProxyType(proxyType, address(ozTransparentAdapter));
         helper_setProxyToReferenceName(
             transparentProxyReferenceName,
             transparentProxyAddress,

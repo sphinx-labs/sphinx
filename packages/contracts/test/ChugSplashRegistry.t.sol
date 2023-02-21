@@ -207,16 +207,15 @@ contract ChugSplashRegistry_Test is Test {
     }
 
     function test_addProxyType_revert_existingAdapter() external {
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
         vm.expectRevert("ChugSplashRegistry: proxy type has an existing adapter");
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
     }
 
     function test_addProxyType_success() external {
         vm.expectEmit(true, true, true, true);
         emit ProxyTypeAdded(proxyType, adapter);
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
         assertEq(registry.adapters(proxyType), adapter);
-        assertEq(registry.updaters(proxyType), updater);
     }
 }

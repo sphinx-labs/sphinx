@@ -246,7 +246,7 @@ export const initializeChugSplash = async (
       abi: OZTransparentAdapterABI,
       bytecode: OZTransparentAdapterArtifact.bytecode,
     },
-    args: [DEFAULT_UPDATER_ADDRESS],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -291,7 +291,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         OZTransparentAdapter.address,
-        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -311,7 +310,7 @@ export const initializeChugSplash = async (
       abi: OZUUPSAdapterABI,
       bytecode: OZUUPSAdapterArtifact.bytecode,
     },
-    args: [OZ_UUPS_UPDATER_ADDRESS],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -354,7 +353,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         OZ_UUPS_PROXY_TYPE_HASH,
         OZUUPSAdapter.address,
-        OZUUPSUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -376,7 +374,7 @@ export const initializeChugSplash = async (
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
-    args: [DEFAULT_UPDATER_ADDRESS],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[DefaultAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -390,7 +388,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
         DefaultAdapter.address,
-        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -414,7 +411,6 @@ export const initializeChugSplash = async (
       await ChugSplashRegistry.addProxyType(
         ethers.constants.HashZero,
         DefaultAdapter.address,
-        DefaultUpdater.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()

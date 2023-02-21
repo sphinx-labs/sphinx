@@ -5,8 +5,6 @@ import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { OZUUPSUpdater } from "../updaters/OZUUPSUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title UUPSAdapter
  * @notice Adapter for an OpenZeppelin UUPS Upgradeable proxy. To learn more about the transparent
@@ -25,7 +23,6 @@ contract OZUUPSAdapter is IProxyAdapter {
      * @inheritdoc IProxyAdapter
      */
     function initiateExecution(address payable _proxy) external {
-        console.log('entered transparent');
         OZUUPSUpdater(_proxy).upgradeTo(proxyUpdater);
         OZUUPSUpdater(_proxy).initiate();
     }

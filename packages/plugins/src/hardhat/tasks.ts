@@ -776,6 +776,10 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .addFlag('show', 'Show ChugSplash deployment information')
+  .addFlag(
+    'skipDeploy',
+    'Skip deploying any ChugSplash config files before running the test(s)'
+  )
   .addOptionalParam(
     'configPath',
     'Optional path to the ChugSplash config file to test, omit this param to test all configs'
@@ -787,11 +791,12 @@ task(TASK_TEST)
         noCompile: boolean
         confirm: boolean
         configPath: string
+        skipDeploy: string
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { show, noCompile, configPath } = args
+      const { show, noCompile, configPath, skipDeploy } = args
       const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
       const executor =
@@ -824,21 +829,22 @@ task(TASK_TEST)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(
-            hre,
-            !show,
-            '',
-            true,
-            true,
-            configPath ? [configPath] : undefined
-          )
-        } finally {
-          await writeSnapshotId(
-            hre.ethers.provider,
-            networkName,
-            hre.config.paths.deployments
-          )
+          if (!skipDeploy) {
+            await deployAllChugSplashConfigs(
+              hre,
+              !show,
+              '',
+              true,
+              true,
+              configPath ? [configPath] : undefined
+            )
+          }
         }
+        await writeSnapshotId(
+          hre.ethers.provider,
+          networkName,
+          hre.config.paths.deployments
+        )
       }
       await runSuper(args)
     }
