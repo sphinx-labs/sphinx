@@ -25,7 +25,7 @@ import {
   trackExecuted,
   Integration,
   compileRemoteBundle,
-  bundleRemote,
+  bundleRemoteSubtask,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
@@ -244,6 +244,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
         let canonicalConfig: CanonicalChugSplashConfig
         if (remoteExecution) {
           ;({ bundle, canonicalConfig } = await compileRemoteBundle(
+            provider,
             proposalEvent.args.configUri
           ))
         } else {
@@ -251,9 +252,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
             canonicalConfigFolderPath,
             proposalEvent.args.configUri
           )
-          bundle = await bundleRemote({
-            canonicalConfig,
-          })
+          bundle = await bundleRemoteSubtask({ provider, canonicalConfig })
         }
         const projectName = canonicalConfig.options.projectName
 

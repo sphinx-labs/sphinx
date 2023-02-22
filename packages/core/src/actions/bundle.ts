@@ -1,5 +1,5 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers } from 'ethers'
+import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
 import { ParsedChugSplashConfig } from '../config/types'
@@ -9,7 +9,7 @@ import {
   ArtifactPaths,
   SolidityStorageLayout,
 } from '../languages/solidity/types'
-import { readContractArtifact } from '../utils'
+import { getImplAddress, readContractArtifact } from '../utils'
 import {
   readStorageLayout,
   getCreationCodeWithConstructorArgs,
@@ -223,6 +223,7 @@ export const makeBundleFromActions = (
 }
 
 export const bundleLocal = async (
+  provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration
@@ -240,19 +241,19 @@ export const bundleLocal = async (
       artifactPaths[referenceName].contractArtifactPath,
       integration
     )
-    const creationCode = getCreationCodeWithConstructorArgs(
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
       bytecode,
       parsedConfig,
       referenceName,
       abi
     )
     artifacts[referenceName] = {
-      creationCode,
+      creationCodeWithConstructorArgs,
       storageLayout,
     }
   }
 
-  return makeActionBundleFromConfig(parsedConfig, artifacts)
+  return makeActionBundleFromConfig(provider, parsedConfig, artifacts)
 }
 
 /**
@@ -263,10 +264,11 @@ export const bundleLocal = async (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = async (
+  provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifacts: {
     [name: string]: {
-      creationCode: string
+      creationCodeWithConstructorArgs: string
       storageLayout: SolidityStorageLayout
     }
   }
@@ -275,13 +277,25 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const artifact = artifacts[referenceName]
+    const { storageLayout, creationCodeWithConstructorArgs } =
+      artifacts[referenceName]
 
-    // Add a DEPLOY_IMPLEMENTATION action for each contract first.
-    actions.push({
-      referenceName,
-      code: artifact.creationCode,
-    })
+    // Skip adding a `DEPLOY_IMPLEMENTATION` action if the implementation has already been deployed.
+    if (
+      (await provider.getCode(
+        getImplAddress(
+          parsedConfig.options.projectName,
+          referenceName,
+          creationCodeWithConstructorArgs
+        )
+      )) === '0x'
+    ) {
+      // Add a DEPLOY_IMPLEMENTATION action.
+      actions.push({
+        referenceName,
+        code: creationCodeWithConstructorArgs,
+      })
+    }
 
     // Next, add a SET_IMPLEMENTATION action for each contract.
     actions.push({
@@ -290,7 +304,7 @@ export const makeActionBundleFromConfig = async (
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(artifact.storageLayout, contractConfig)
+    const slots = computeStorageSlots(storageLayout, contractConfig)
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {

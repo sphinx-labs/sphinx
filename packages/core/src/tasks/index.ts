@@ -365,7 +365,12 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundle = await bundleLocal(parsedConfig, artifactPaths, integration)
+  const bundle = await bundleLocal(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration
+  )
 
   const configUri = `ipfs://${ipfsHash}`
   const bundleId = computeBundleId(
@@ -581,7 +586,7 @@ export const chugsplashFundAbstractTask = async (
   const amountToDeposit = autoEstimate
     ? await getAmountToDeposit(
         provider,
-        await bundleLocal(parsedConfig, artifactPaths, integration),
+        await bundleLocal(provider, parsedConfig, artifactPaths, integration),
         0,
         parsedConfig.options.projectName,
         true
@@ -1613,6 +1618,7 @@ export const proposeChugSplashBundle = async (
     )
     // Verify that the bundle has been committed to IPFS with the correct bundle hash.
     await verifyBundle({
+      provider,
       configUri,
       bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
       ipfsUrl,

@@ -429,7 +429,7 @@ contract ChugSplashManager_Test is Test {
         assertEq(proxyAddress.code.length, 0);
         address implementationAddress = Create2.compute(
             address(manager),
-            keccak256(abi.encode(bundleId, bytes(action.referenceName))),
+            keccak256(bytes(action.referenceName)),
             action.data
         );
         assertEq(implementationAddress.code.length, 0);
@@ -486,7 +486,7 @@ contract ChugSplashManager_Test is Test {
         assertGt(implementationAddress.code.length, 0);
         assertEq(bundleState.actionsExecuted, 1);
         assertTrue(bundleState.executions[actionIndex]);
-        bytes32 implementationSalt = keccak256(abi.encode(bundleId, bytes(action.referenceName)));
+        bytes32 implementationSalt = keccak256(bytes(action.referenceName));
         assertEq(manager.implementations(implementationSalt), implementationAddress);
         assertGt(finalTotalDebt, estExecutorPayment + initialTotalDebt);
         assertGt(finalExecutorDebt, estExecutorPayment + initialExecutorDebt);
@@ -605,6 +605,7 @@ contract ChugSplashManager_Test is Test {
 
     //     uint256 finalTotalDebt = manager.totalDebt();
     //     uint256 finalExecutorDebt = manager.debt(executor1);
+    //     Outdated salt:
     //     bytes32 implementationSalt = keccak256(
     //         abi.encode(bundleId, bytes(setImplActionArray[0].referenceName))
     //     );
@@ -663,6 +664,7 @@ contract ChugSplashManager_Test is Test {
 
     //     uint256 finalTotalDebt = manager.totalDebt();
     //     uint256 finalExecutorDebt = manager.debt(executor1);
+    //     Outdated salt:
     //     bytes32 implementationSalt = keccak256(
     //         abi.encode(bundleId, bytes(firstAction.referenceName))
     //     );

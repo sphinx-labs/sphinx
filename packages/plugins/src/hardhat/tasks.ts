@@ -38,7 +38,7 @@ import {
   chugsplashTransferOwnershipAbstractTask,
   ChugSplashExecutorType,
   ArtifactPaths,
-  bundleRemote,
+  bundleRemoteSubtask,
   readUserChugSplashConfig,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, EXECUTOR } from '@chugsplash/contracts'
@@ -95,15 +95,23 @@ subtask(TASK_CHUGSPLASH_FETCH)
 
 subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
   .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(bundleRemote)
+  .setAction(bundleRemoteSubtask)
 
-export const bundleLocalSubtask = async (args: {
-  parsedConfig: ParsedChugSplashConfig
-  artifactPaths: ArtifactPaths
-}) => {
+export const bundleLocalSubtask = async (
+  args: {
+    parsedConfig: ParsedChugSplashConfig
+    artifactPaths: ArtifactPaths
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
   const { parsedConfig, artifactPaths } = args
 
-  return bundleLocal(parsedConfig, artifactPaths, 'hardhat')
+  return bundleLocal(
+    hre.ethers.provider,
+    parsedConfig,
+    artifactPaths,
+    'hardhat'
+  )
 }
 
 subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)

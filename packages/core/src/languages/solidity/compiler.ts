@@ -6,6 +6,7 @@ import {
 } from 'hardhat/internal/solidity/compiler/downloader'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { add0x } from '@eth-optimism/core-utils'
+import { providers } from 'ethers'
 
 import { CanonicalChugSplashConfig } from '../../config/types'
 import {
@@ -22,14 +23,15 @@ import {
 } from './types'
 import { addEnumMembersToStorageLayout } from '../../utils'
 
-export const bundleRemote = async (args: {
+export const bundleRemoteSubtask = async (args: {
+  provider: providers.Provider
   canonicalConfig: CanonicalChugSplashConfig
 }): Promise<ChugSplashActionBundle> => {
-  const { canonicalConfig } = args
+  const { provider, canonicalConfig } = args
 
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
 
-  return makeActionBundleFromConfig(canonicalConfig, artifacts)
+  return makeActionBundleFromConfig(provider, canonicalConfig, artifacts)
 }
 
 // Credit: NomicFoundation
@@ -128,12 +130,13 @@ export const getCanonicalConfigArtifacts = async (
       const contractOutput =
         compilerOutput.contracts?.[sourceName]?.[contractName]
       if (contractOutput !== undefined) {
-        const creationCode = getCreationCodeWithConstructorArgs(
-          add0x(contractOutput.evm.bytecode.object),
-          canonicalConfig,
-          referenceName,
-          contractOutput.abi
-        )
+        const creationCodeWithConstructorArgs =
+          getCreationCodeWithConstructorArgs(
+            add0x(contractOutput.evm.bytecode.object),
+            canonicalConfig,
+            referenceName,
+            contractOutput.abi
+          )
 
         addEnumMembersToStorageLayout(
           contractOutput.storageLayout,
@@ -141,7 +144,7 @@ export const getCanonicalConfigArtifacts = async (
         )
 
         artifacts[referenceName] = {
-          creationCode,
+          creationCodeWithConstructorArgs,
           storageLayout: contractOutput.storageLayout,
           abi: contractOutput.abi,
           compilerOutput,
