@@ -936,10 +936,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _code          Creation bytecode of the implementation contract.
      */
     function _deployImplementation(string memory _referenceName, bytes memory _code) internal {
-        // Calculate the salt for the Create2 call. This salt ensures that there are no address
-        // collisions since each bundle ID can only be executed once, and each reference name is
-        // unique within that bundle.
-        bytes32 salt = keccak256(abi.encode(activeBundleId, bytes(_referenceName)));
+        // Calculate the salt for the Create2 call. Note that there can be address collisions
+        // between implementations if their reference names are the same, but this is avoided with
+        // off-chain tooling by versioning the reference names.
+        bytes32 salt = keccak256(bytes(_referenceName));
 
         // Get the expected address of the implementation contract.
         address expectedImplementation = Create2.compute(address(this), salt, _code);

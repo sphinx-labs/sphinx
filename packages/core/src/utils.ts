@@ -274,8 +274,8 @@ export const getChugSplashManagerReadOnly = (
   )
 }
 
-export const getChugSplashManagerImplementationAddress = async (
-  signer: Signer
+export const getChugSplashManagerImplAddress = async (
+  signer: string
 ): Promise<string> => {
   const ChugSplashRegistryProxy = getChugSplashRegistry(signer)
   const managerImplementationAddress =
@@ -1226,4 +1226,34 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const contractName = compilationTarget[sourceName]
 
   return { abi, bytecode, sourceName, contractName }
+}
+
+/**
+ * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
+ * the projectName and the corresponding contract's reference name. Note that a default proxy will
+ * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
+ * attribute.
+ *
+ * @param projectName Name of the ChugSplash project.
+ * @param referenceName Reference name of the contract that corresponds to the proxy.
+ * @returns Address of the default EIP-1967 proxy used by ChugSplash.
+ */
+export const getImplAddress = (
+  projectName: string,
+  referenceName: string,
+  contractNameOrFQN: string
+): string => {
+
+
+  return utils.getCreate2Address(
+    chugSplashManagerAddress,
+    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [chugSplashManagerAddress]),
+      ]
+    )
+  )
 }
