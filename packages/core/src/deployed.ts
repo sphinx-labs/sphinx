@@ -17,7 +17,7 @@ import {
   readCanonicalConfig,
 } from './utils'
 import 'core-js/features/array/at'
-import { getStorageLayout } from './actions/artifacts'
+import { readStorageLayout } from './actions/artifacts'
 
 export const getLatestDeployedCanonicalConfig = async (
   provider: providers.Provider,
@@ -128,7 +128,7 @@ export const getLatestDeployedStorageLayout = async (
     userContractConfig.previousFullyQualifiedName !== undefined &&
     userContractConfig.previousBuildInfo !== undefined
   ) {
-    const storageLayout = getStorageLayout(
+    const storageLayout = readStorageLayout(
       userContractConfig.previousBuildInfo,
       userContractConfig.previousFullyQualifiedName
     )
@@ -176,8 +176,7 @@ export const getLatestDeployedStorageLayout = async (
   }
 
   throw new Error(
-    `Could not find the most recent storage layout to use for the storage slot checker.
-If you are confident that there are no storage slot conflicts, call this task again with the flag: --skip-storage-check
-Otherwise, please report this error.`
+    `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
+      `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash file.`
   )
 }
