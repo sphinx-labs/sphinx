@@ -1227,3 +1227,27 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
 
   return { abi, bytecode, sourceName, contractName }
 }
+
+/**
+ *
+ * @param promise A promise to wrap in a timeout
+ * @param timeLimit The amount of time to wait for the promise to resolve
+ * @returns The result of the promise, or an error due to the timeout being reached
+ */
+export const callWithTimeout = async <T>(
+  promise: Promise<T>,
+  timeout: number,
+  errorMessage: string
+): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout
+
+  const timeoutPromise = new Promise<T>((_resolve, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeout)
+  })
+
+  return Promise.race([promise, timeoutPromise]).then((result) => {
+    clearTimeout(timeoutHandle)
+    return result
+  })
+}
+
