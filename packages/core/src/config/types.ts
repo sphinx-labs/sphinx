@@ -2,6 +2,7 @@ import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_PROXY_TYPE_HASH,
+  REGISTRY_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { constants } from 'ethers'
 
@@ -21,9 +22,13 @@ export const proxyTypeHashes: { [proxyType: string]: string } = {
   'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-uups': OZ_UUPS_PROXY_TYPE_HASH,
+  'internal-registry': REGISTRY_PROXY_TYPE_HASH,
 }
 
-export type ProxyType = ExternalProxyType | 'internal-default'
+export type ProxyType =
+  | ExternalProxyType
+  | 'internal-default'
+  | 'internal-registry' // Will be removed when ChugSplash is non-upgradeable
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.

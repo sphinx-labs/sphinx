@@ -15,15 +15,24 @@ import {
   DefaultUpdaterArtifact,
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
+  ChugSplashRegistryProxyArtifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
   '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
-export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('chugsplash.proxy.admin')
+export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.BigNumber.from(
+  ethers.utils.keccak256(ethers.utils.toUtf8Bytes('chugsplash.proxy.admin'))
 )
+  .sub(1)
+  .toHexString()
+
+export const CHUGSPLASH_MANAGER_IMPL_SLOT_KEY = ethers.BigNumber.from(
+  ethers.utils.keccak256(ethers.utils.toUtf8Bytes('chugsplash.manager.impl'))
+)
+  .sub(1)
+  .toHexString()
 
 export const EXTERNAL_DEFAULT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('external-default')
@@ -34,37 +43,21 @@ export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-uups')
 )
+export const REGISTRY_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('internal-registry')
+)
 
 export const CHUGSPLASH_SALT = '0x' + '12'.repeat(32)
-
-const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
-const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
-const chugsplashManagerProxySourceName =
-  ChugSplashManagerProxyArtifact.sourceName
-const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
-const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
-const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
-const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
-const OZUUPSAdapterSourceName = OZUUPSAdapterArtifact.sourceName
-const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
-const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
-const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
 
 const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 const proxyInitializerConstructorArgTypes =
   proxyInitializerConstructorFragment.inputs.map((input) => input.type)
-const proxyInitializerConstructorArgValues = [
+export const proxyInitializerConstructorArgValues = [
   OWNER_MULTISIG_ADDRESS,
   CHUGSPLASH_SALT,
 ]
-
-const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
-  (fragment) => fragment.type === 'constructor'
-)
-const chugsplashManagerConstructorArgTypes =
-  chugsplashManagerConstructorFragment.inputs.map((input) => input.type)
 
 export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =
   '0x4e59b44847b379578588920ca78fbf26c0b4956c'
@@ -158,7 +151,7 @@ const [registryProxyConstructorFragment] = ProxyABI.filter(
 )
 const registryProxyConstructorArgTypes =
   registryProxyConstructorFragment.inputs.map((input) => input.type)
-const registryProxyConstructorArgValues = [PROXY_INITIALIZER_ADDRESS]
+export const registryProxyConstructorArgValues = [PROXY_INITIALIZER_ADDRESS]
 
 export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
   PROXY_INITIALIZER_ADDRESS,
@@ -166,7 +159,7 @@ export const CHUGSPLASH_REGISTRY_PROXY_ADDRESS = ethers.utils.getCreate2Address(
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      ProxyArtifact.bytecode,
+      ChugSplashRegistryProxyArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
         registryProxyConstructorArgTypes,
         registryProxyConstructorArgValues
@@ -191,28 +184,6 @@ export const ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
     )
   )
 
-const chugsplashManagerConstructorArgValues = [
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-]
-
-export const CHUGSPLASH_MANAGER_ADDRESS = ethers.utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  CHUGSPLASH_SALT,
-  ethers.utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ChugSplashManagerArtifact.bytecode,
-      ethers.utils.defaultAbiCoder.encode(
-        chugsplashManagerConstructorArgTypes,
-        chugsplashManagerConstructorArgValues
-      ),
-    ]
-  )
-)
-
 export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
   CHUGSPLASH_BOOTLOADER_ADDRESS,
   CHUGSPLASH_SALT,
@@ -221,42 +192,9 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
     [
       ChugSplashRegistryArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
-        ['uint256', 'uint256', 'uint256', 'address'],
-        [
-          OWNER_BOND_AMOUNT,
-          EXECUTION_LOCK_TIME,
-          EXECUTOR_PAYMENT_PERCENTAGE,
-          CHUGSPLASH_MANAGER_ADDRESS,
-        ]
+        ['uint256', 'uint256', 'uint256'],
+        [OWNER_BOND_AMOUNT, EXECUTION_LOCK_TIME, EXECUTOR_PAYMENT_PERCENTAGE]
       ),
     ]
   )
 )
-
-export const CHUGSPLASH_CONSTRUCTOR_ARGS = {}
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistrySourceName] = [
-  OWNER_BOND_AMOUNT,
-  EXECUTION_LOCK_TIME,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  CHUGSPLASH_MANAGER_ADDRESS,
-]
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashBootLoaderSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerProxySourceName] = [
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  CHUGSPLASH_BOOTLOADER_ADDRESS,
-]
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] =
-  chugsplashManagerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = [
-  DEFAULT_UPDATER_ADDRESS,
-]
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = [OZ_UUPS_UPDATER_ADDRESS]
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName] = [
-  DEFAULT_UPDATER_ADDRESS,
-]
-CHUGSPLASH_CONSTRUCTOR_ARGS[defaultUpdaterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSUpdaterSourceName] = []
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
-  registryProxyConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[proxyInitializerSourceName] =
-  proxyInitializerConstructorArgValues

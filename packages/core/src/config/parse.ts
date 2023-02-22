@@ -3,6 +3,7 @@ import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
 import { ethers, providers } from 'ethers'
+import { CHUGSPLASH_REGISTRY_PROXY_ADDRESS } from '@chugsplash/contracts'
 
 import { ArtifactPaths } from '../languages/solidity/types'
 import {
@@ -16,6 +17,8 @@ import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
   ProxyType,
+  UserConfigVariables,
+  ParsedConfigVariables,
 } from './types'
 import { Integration } from '../constants'
 
@@ -209,14 +212,22 @@ export const parseChugSplashConfig = async (
       externalProxy ||
       getDefaultProxyAddress(userConfig.options.projectName, referenceName)
 
-    const proxyType: ProxyType = externalProxyType ?? 'internal-default'
+    let proxyType: ProxyType
+    if (externalProxyType) {
+      proxyType = externalProxyType
+    } else if (proxy === CHUGSPLASH_REGISTRY_PROXY_ADDRESS) {
+      // Will be removed when ChugSplash is non-upgradeable.
+      proxyType = 'internal-registry'
+    } else {
+      proxyType = 'internal-default'
+    }
 
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
       proxy,
       proxyType,
-      variables: variables ?? {},
-      constructorArgs: constructorArgs ?? {},
+      variables: parseConfigVariables(variables),
+      constructorArgs: parseConfigVariables(constructorArgs),
     }
 
     contracts[referenceName] = proxy
@@ -227,4 +238,14 @@ export const parseChugSplashConfig = async (
       ...contracts,
     })
   )
+}
+
+// TODO: rm
+export const parseConfigVariables = (
+  userConfigVariable: UserConfigVariables | undefined
+): ParsedConfigVariables => {
+  if (!userConfigVariable) {
+    return {}
+  }
+  return userConfigVariable
 }

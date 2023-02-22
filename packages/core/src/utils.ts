@@ -13,6 +13,7 @@ import {
   PayableOverrides,
   BigNumber,
 } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,
@@ -22,6 +23,7 @@ import {
   ProxyABI,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   OZ_UUPS_UPDATER_ADDRESS,
+  ChugSplashManagerArtifact,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -36,6 +38,8 @@ import {
   externalProxyTypes,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
+  ParsedConfigVariables,
+  ParsedContractConfig,
   ParsedContractConfigs,
   proxyTypeHashes,
   UserChugSplashConfig,
@@ -46,7 +50,7 @@ import {
   ChugSplashActionType,
   readStorageLayout,
 } from './actions'
-import { Integration, keywords } from './constants'
+import { chugsplashManagerConstructorArgs, Integration, keywords } from './constants'
 import 'core-js/features/array/at'
 import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
@@ -272,15 +276,6 @@ export const getChugSplashManagerReadOnly = (
     ChugSplashManagerABI,
     provider
   )
-}
-
-export const getChugSplashManagerImplAddress = async (
-  signer: string
-): Promise<string> => {
-  const ChugSplashRegistryProxy = getChugSplashRegistry(signer)
-  const managerImplementationAddress =
-    await ChugSplashRegistryProxy.managerImplementation()
-  return managerImplementationAddress
 }
 
 export const chugsplashLog = (text: string, silent: boolean) => {
@@ -1229,31 +1224,118 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
 }
 
 /**
- * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
- * the projectName and the corresponding contract's reference name. Note that a default proxy will
- * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
- * attribute.
+ * Returns the Create2 address of an implementation contract deployed by ChugSplash, which is
+ * calculated as a function of the projectName and the corresponding contract's reference name. Note
+ * that the contract may not yet be deployed at this address since it's calculated via Create2.
  *
  * @param projectName Name of the ChugSplash project.
  * @param referenceName Reference name of the contract that corresponds to the proxy.
- * @returns Address of the default EIP-1967 proxy used by ChugSplash.
+ * @returns Address of the implementation contract.
  */
 export const getImplAddress = (
   projectName: string,
   referenceName: string,
-  contractNameOrFQN: string
+  creationCodeWithConstructorArgs: string
 ): string => {
-
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
     utils.keccak256(utils.toUtf8Bytes(referenceName)),
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [chugSplashManagerAddress]),
-      ]
+    utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
+  )
+}
+
+export const getConstructorArgs = (
+  constructorArgs: ParsedConfigVariables,
+  referenceName: string,
+  abi: Array<Fragment>
+): {
+  constructorArgTypes: Array<string>
+  constructorArgValues: ParsedConfigVariable[]
+} => {
+  const constructorArgTypes: Array<string> = []
+  const constructorArgValues: Array<ParsedConfigVariable> = []
+
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+
+  if (constructorFragment === undefined) {
+    if (Object.keys(constructorArgs).length > 0) {
+      throw new Error(
+        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
+          `no constructor exists in the contract.`
+      )
+    } else {
+      return { constructorArgTypes, constructorArgValues }
+    }
+  }
+
+  if (Object.keys(constructorArgs).length > constructorFragment.inputs.length) {
+    const constructorArgNames = constructorFragment.inputs.map(
+      (input) => input.name
+    )
+    const incorrectConstructorArgNames = Object.keys(constructorArgs).filter(
+      (argName) => !constructorArgNames.includes(argName)
+    )
+    throw new Error(
+      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
+        `Please remove the following variables from the 'constructorArgs' field:` +
+        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
+    )
+  }
+
+  constructorFragment.inputs.forEach((input) => {
+    const constructorArgValue = constructorArgs[input.name]
+    if (constructorArgValue === undefined) {
+      throw new Error(
+        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
+          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
+      )
+    }
+    constructorArgTypes.push(input.type)
+    constructorArgValues.push(constructorArgValue)
+  })
+
+  return { constructorArgTypes, constructorArgValues }
+}
+
+export const getChugSplashManagerImplAddress = (
+  projectName: string,
+  managerReferenceName: string
+): string => {
+  const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+    ChugSplashManagerArtifact.bytecode,
+    chugsplashManagerConstructorArgs,
+    managerReferenceName,
+    ChugSplashManagerABI
+  )
+  const managerImplAddress = getImplAddress(
+    projectName,
+    managerReferenceName,
+    creationCodeWithConstructorArgs
+  )
+  return managerImplAddress
+}
+
+export const getCreationCodeWithConstructorArgs = (
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  referenceName: string,
+  abi: any
+): string => {
+  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
+    constructorArgs,
+    referenceName,
+    abi
+  )
+
+  const creationCodeWithConstructorArgs = bytecode.concat(
+    remove0x(
+      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
     )
   )
+
+  return creationCodeWithConstructorArgs
 }

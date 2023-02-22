@@ -13,9 +13,7 @@ import {
   DefaultAdapterArtifact,
   ChugSplashBootLoaderABI,
   ChugSplashBootLoaderArtifact,
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  ProxyABI,
   ProxyInitializerABI,
   ProxyInitializerArtifact,
   CHUGSPLASH_REGISTRY_ADDRESS,
@@ -40,6 +38,10 @@ import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
+  RegistryAdapterABI,
+  RegistryAdapterArtifact,
+  REGISTRY_PROXY_TYPE_HASH,
+  ChugSplashRegistryProxyABI,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -51,6 +53,7 @@ import {
   getEIP1967ProxyImplementationAddress,
   getGasPriceOverrides,
 } from '../../utils'
+import { CHUGSPLASH_CONSTRUCTOR_ARGS } from '../../constants'
 
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -160,13 +163,41 @@ export const initializeChugSplash = async (
   // other with the ChugSplashRegistry ABI.
   const Proxy__ChugSplashRegistry = new Contract(
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    ProxyABI,
-    provider
+    ChugSplashRegistryProxyABI,
+    deployer
   )
   const ChugSplashRegistryProxy = new Contract(
     CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
     ChugSplashRegistryABI,
     deployer
+  )
+
+  try {
+    await (
+      await Proxy__ChugSplashRegistry.initialize(
+        ChugSplashManager.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: Set ChugSplashManager implementation in registry proxy'
+    )
+  } catch (err) {
+    if (
+      err.message.includes('Initializable: contract is already initialized')
+    ) {
+      logger?.info(
+        '[ChugSplash]: manager implementation was already initialized in registry'
+      )
+    } else {
+      throw err
+    }
+  }
+
+  assert(
+    (await Proxy__ChugSplashRegistry.managerImplementation()) ===
+      ChugSplashManager.address,
+    'ChugSplashManager implementation address mismatch'
   )
 
   // Check if the ChugSplashRegistry proxy's owner is the ProxyInitializer. This will only be true
@@ -380,6 +411,21 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
+  logger?.info('[ChugSplash]: deploying RegistryAdapter...')
+
+  // Deploy the RegistryAdapter.
+  const RegistryAdapter = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: RegistryAdapterABI,
+      bytecode: RegistryAdapterArtifact.bytecode,
+    },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[RegistryAdapterArtifact.sourceName],
+    salt: CHUGSPLASH_SALT,
+  })
+
+  logger?.info('[ChugSplash]: RegistryAdapter deployed')
+
   if (
     (await ChugSplashRegistry.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
     DefaultAdapter.address
@@ -397,6 +443,27 @@ export const initializeChugSplash = async (
   } else {
     logger?.info(
       '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the registry proxy type. This will be removed when ChugSplash is non-upgradeable.
+  if (
+    (await ChugSplashRegistry.adapters(REGISTRY_PROXY_TYPE_HASH)) !==
+    RegistryAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addProxyType(
+        REGISTRY_PROXY_TYPE_HASH,
+        RegistryAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the registry proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the registry proxy type was already added to the ChugSplashRegistry'
     )
   }
 

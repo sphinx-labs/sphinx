@@ -8,6 +8,8 @@ import {
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
   getCanonicalConfigArtifacts,
+  CHUGSPLASH_MANAGER_ADDRESS,
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -31,7 +33,6 @@ import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncode
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
   ChugSplashManagerABI,
-  CHUGSPLASH_MANAGER_ADDRESS,
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
@@ -44,7 +45,6 @@ import {
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
   buildInfo,
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
   ProxyInitializerArtifact,
   DefaultUpdaterArtifact,
@@ -108,7 +108,7 @@ export const verifyChugSplashConfig = async (
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
-      canonicalConfig,
+      canonicalConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )

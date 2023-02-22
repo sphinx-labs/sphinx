@@ -60,8 +60,7 @@ contract ChugSplashRegistry_Test is Test {
         registry = new ChugSplashRegistry{ salt: salt }(
             ownerBondAmount,
             executionLockTime,
-            executorPaymentPercentage,
-            address(manager)
+            executorPaymentPercentage
         );
 
         registry.initialize(owner, dummyRootManagerProxy, new address[](0));
@@ -71,7 +70,6 @@ contract ChugSplashRegistry_Test is Test {
         assertEq(registry.executionLockTime(), executionLockTime);
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
-        assertEq(registry.managerImplementation(), address(manager));
         assertEq(address(registry.projects("ChugSplash")), (dummyRootManagerProxy));
 
         assertEq(registry.owner(), owner);

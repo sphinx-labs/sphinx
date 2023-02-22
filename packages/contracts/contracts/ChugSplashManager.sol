@@ -671,9 +671,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             bundle.executions[actionIndex] = true;
 
             // Get the implementation address using the salt as its key.
-            address implementation = implementations[
-                keccak256(abi.encode(activeBundleId, bytes(action.referenceName)))
-            ];
+            address implementation = implementations[keccak256(bytes(action.referenceName))];
 
             // Get the proxy type and adapter for this reference name.
             bytes32 proxyType = proxyTypes[action.referenceName];
@@ -690,7 +688,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation))
+                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation, action.data))
             );
             require(success, "ChugSplashManager: delegatecall to complete execution failed");
 
@@ -938,7 +936,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function _deployImplementation(string memory _referenceName, bytes memory _code) internal {
         // Calculate the salt for the Create2 call. Note that there can be address collisions
         // between implementations if their reference names are the same, but this is avoided with
-        // off-chain tooling by versioning the reference names.
+        // off-chain tooling by skipping implementations that have the same reference name and
+        // creation bytecode.
         bytes32 salt = keccak256(bytes(_referenceName));
 
         // Get the expected address of the implementation contract.

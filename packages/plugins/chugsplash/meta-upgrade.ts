@@ -1,4 +1,8 @@
-import { UserChugSplashConfig, UserContractConfig } from '@chugsplash/core'
+import {
+  UserChugSplashConfig,
+  UserContractConfig,
+  chugsplashManagerConstructorArgs,
+} from '@chugsplash/core'
 import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   EXECUTION_LOCK_TIME,
@@ -37,38 +41,14 @@ const rootManagerConfig: UserContractConfig = {
     activeBundleId: '{preserve}',
     debt: '{preserve}',
   },
-  constructorArgs: {
-    _registry: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    _executionLockTime: EXECUTION_LOCK_TIME,
-    _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
-    _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,
-  },
+  constructorArgs: chugsplashManagerConstructorArgs,
 }
 
-// TODO: mv
-const getChugSplashManagerImplAddress = (
-  managerConfig: UserContractConfig
-): string => {
-  return utils.getCreate2Address(
-    ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [chugSplashManagerAddress]),
-      ]
-    )
-  )
-}
-
-// TODO: explain
-const managerImplAddress = getChugSplashManagerImplAddress(rootManagerConfig)
+// TODO: merge
 
 const config: UserChugSplashConfig = {
   options: {
     projectName,
-    // skipStorageCheck: true,
   },
   contracts: {
     RootChugSplashManager: rootManagerConfig,
@@ -90,7 +70,6 @@ const config: UserChugSplashConfig = {
         executors: '{preserve}',
       },
       constructorArgs: {
-        _managerImplementation: managerImplAddress,
         _executionLockTime: EXECUTION_LOCK_TIME,
         _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
         _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,

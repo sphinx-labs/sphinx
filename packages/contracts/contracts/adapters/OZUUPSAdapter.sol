@@ -29,7 +29,7 @@ contract OZUUPSAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation) external {
+    function completeExecution(address payable _proxy, address _implementation, bytes memory) external {
         OZUUPSUpdater(_proxy).complete(_implementation);
     }
 

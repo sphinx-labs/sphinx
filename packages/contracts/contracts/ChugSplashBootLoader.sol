@@ -56,7 +56,7 @@ contract ChugSplashBootLoader is Initializable {
     ) external initializer {
         // Deploy the root ChugSplashManager's proxy.
         rootManagerProxy = new ChugSplashManagerProxy{ salt: _salt }(
-            ChugSplashRegistry(_registryProxy),
+            _registryProxy,
             address(this)
         );
         // Initialize the proxy. Note that we initialize it in a different call from the deployment
@@ -74,8 +74,7 @@ contract ChugSplashBootLoader is Initializable {
         registryImplementation = new ChugSplashRegistry{ salt: _salt }(
             _ownerBondAmount,
             _executionLockTime,
-            _executorPaymentPercentage,
-            _managerImplementation
+            _executorPaymentPercentage
         );
 
         registryImplementation.initialize(_owner, address(rootManagerProxy), new address[](0));

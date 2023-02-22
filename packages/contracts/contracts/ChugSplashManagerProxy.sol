@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import { Proxy } from "./libraries/Proxy.sol";
-import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
+import { ChugSplashRegistryProxy } from "./ChugSplashRegistryProxy.sol";
 
 /**
  * @title ChugSplashManagerProxy
@@ -13,14 +13,14 @@ contract ChugSplashManagerProxy is Proxy {
     /**
      * @notice Address of the ChugSplashRegistry.
      */
-    IChugSplashRegistry public immutable registryProxy;
+    ChugSplashRegistryProxy public immutable registryProxy;
 
     /**
      * @param _registryProxy The ChugSplashRegistry's proxy.
      * @param _admin         Owner of this contract.
      */
-    constructor(IChugSplashRegistry _registryProxy, address _admin) payable Proxy(_admin) {
-        registryProxy = _registryProxy;
+    constructor(address _registryProxy, address _admin) payable Proxy(_admin) {
+        registryProxy = ChugSplashRegistryProxy(payable(_registryProxy));
     }
 
     /**
