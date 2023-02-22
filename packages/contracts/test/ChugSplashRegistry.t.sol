@@ -34,9 +34,9 @@ contract ChugSplashRegistry_Test is Test {
 
     address owner = address(128);
     address adapter = address(256);
-    address updater = address(512);
-    address executor = address(1024);
-    address nonOwner = address(2048);
+    address executor = address(512);
+    address nonOwner = address(1024);
+    address dummyRootManagerProxy = address(2048);
     bytes32 proxyType = bytes32(hex"1337");
     bytes32 salt = bytes32(hex"11");
     address dummyRegistryProxyAddress = address(1);
@@ -51,12 +51,11 @@ contract ChugSplashRegistry_Test is Test {
     function setUp() external {
         manager = new ChugSplashManager{ salt: salt }(
             ChugSplashRegistry(dummyRegistryProxyAddress),
-            projectName,
-            owner,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage
         );
+        manager.initialize(projectName, owner);
 
         registry = new ChugSplashRegistry{ salt: salt }(
             ownerBondAmount,
@@ -65,7 +64,7 @@ contract ChugSplashRegistry_Test is Test {
             address(manager)
         );
 
-        registry.initialize(owner, new address[](0));
+        registry.initialize(owner, dummyRootManagerProxy, new address[](0));
     }
 
     function test_initialize_success() external {
@@ -73,6 +72,7 @@ contract ChugSplashRegistry_Test is Test {
         assertEq(registry.ownerBondAmount(), ownerBondAmount);
         assertEq(registry.executorPaymentPercentage(), executorPaymentPercentage);
         assertEq(registry.managerImplementation(), address(manager));
+        assertEq(address(registry.projects("ChugSplash")), (dummyRootManagerProxy));
 
         assertEq(registry.owner(), owner);
     }
@@ -207,16 +207,15 @@ contract ChugSplashRegistry_Test is Test {
     }
 
     function test_addProxyType_revert_existingAdapter() external {
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
         vm.expectRevert("ChugSplashRegistry: proxy type has an existing adapter");
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
     }
 
     function test_addProxyType_success() external {
         vm.expectEmit(true, true, true, true);
         emit ProxyTypeAdded(proxyType, adapter);
-        registry.addProxyType(proxyType, adapter, updater);
+        registry.addProxyType(proxyType, adapter);
         assertEq(registry.adapters(proxyType), adapter);
-        assertEq(registry.updaters(proxyType), updater);
     }
 }

@@ -66,8 +66,9 @@ contract ChugSplashBootLoader is Initializable {
             _managerImplementation,
             abi.encodeCall(ChugSplashManager.initialize, ("Root Manager", _owner))
         );
-        // Transfer ownership of the ChugSplashManagerProxy to the specified owner.
-        rootManagerProxy.changeAdmin(_owner);
+        // Change the admin of the root ChugSplashManagerProxy to itself, since it will be upgrading
+        // itself during meta-upgradeability (i.e. ChugSplash upgrading itself).
+        rootManagerProxy.changeAdmin(address(rootManagerProxy));
 
         // Deploy and initialize the ChugSplashRegistry's implementation contract.
         registryImplementation = new ChugSplashRegistry{ salt: _salt }(
@@ -77,6 +78,6 @@ contract ChugSplashBootLoader is Initializable {
             _managerImplementation
         );
 
-        registryImplementation.initialize(_owner, new address[](0));
+        registryImplementation.initialize(_owner, address(rootManagerProxy), new address[](0));
     }
 }

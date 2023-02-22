@@ -26,7 +26,7 @@ export interface SolidityStorageType {
   key?: string
   value?: string
   base?: string
-  members?: SolidityStorageObj[]
+  members?: any[]
 }
 
 /**

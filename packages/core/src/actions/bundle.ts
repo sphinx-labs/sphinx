@@ -11,7 +11,7 @@ import {
 } from '../languages/solidity/types'
 import { readContractArtifact } from '../utils'
 import {
-  getStorageLayout,
+  readStorageLayout,
   getCreationCodeWithConstructorArgs,
 } from './artifacts'
 import {
@@ -231,7 +231,7 @@ export const bundleLocal = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const storageLayout = getStorageLayout(
+    const storageLayout = readStorageLayout(
       artifactPaths[referenceName].buildInfoPath,
       contractConfig.contract
     )

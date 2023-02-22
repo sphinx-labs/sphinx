@@ -12,11 +12,17 @@ import { Proxy } from "../libraries/Proxy.sol";
  *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
 contract OZTransparentAdapter is IProxyAdapter {
+    address public immutable proxyUpdater;
+
+    constructor(address _proxyUpdater) {
+        proxyUpdater = _proxyUpdater;
+    }
+
     /**
      * @inheritdoc IProxyAdapter
      */
-    function initiateExecution(address payable _proxy, address _implementation) external {
-        Proxy(_proxy).upgradeTo(_implementation);
+    function initiateExecution(address payable _proxy) external {
+        Proxy(_proxy).upgradeTo(proxyUpdater);
     }
 
     /**
@@ -41,10 +47,7 @@ contract OZTransparentAdapter is IProxyAdapter {
         (bool success, ) = _proxy.call(
             abi.encodeCall(
                 Proxy.upgradeToAndCall,
-                (
-                    Proxy(_proxy).implementation(),
-                    abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _segment))
-                )
+                (proxyUpdater, abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _segment)))
             )
         );
         require(success, "OZTransparentAdapter: call to set storage failed");

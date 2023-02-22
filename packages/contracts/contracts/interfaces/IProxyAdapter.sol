@@ -7,12 +7,11 @@ pragma solidity ^0.8.9;
  */
 interface IProxyAdapter {
     /**
-     * @notice Upgrade the implementation of the proxy.
+     * @notice Update the proxy to be in a state where it can be upgraded by ChugSplash.
      *
-     * @param _proxy          Address of the proxy.
-     * @param _implementation Address of the updater implementation.
+     * @param _proxy Address of the proxy.
      */
-    function initiateExecution(address payable _proxy, address _implementation) external;
+    function initiateExecution(address payable _proxy) external;
 
     /**
      * @notice Upgrade the implementation of the proxy.
