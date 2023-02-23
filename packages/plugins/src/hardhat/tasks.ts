@@ -153,7 +153,7 @@ export const chugsplashDeployTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const remoteExecution =
     (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
@@ -240,7 +240,7 @@ export const chugsplashRegisterTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -297,7 +297,7 @@ export const chugsplashProposeTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const userConfig = readUserChugSplashConfig(configPath)
 
@@ -371,7 +371,7 @@ export const chugsplashApproveTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -417,7 +417,7 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setAction(async (_, hre) => {
     const signer = hre.ethers.provider.getSigner()
     const signerAddress = await signer.getAddress()
-    await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+    await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
     const ChugSplashRegistry = getChugSplashRegistry(
       hre.ethers.provider.getSigner()
@@ -509,7 +509,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
     ) => {
       const signer = hre.ethers.provider.getSigner()
       const signerAddress = await signer.getAddress()
-      await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+      await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
@@ -638,7 +638,7 @@ export const monitorTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -692,7 +692,7 @@ export const chugsplashFundTask = async (
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
-  await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+  await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -753,7 +753,7 @@ task(TASK_NODE)
 
         const signer = hre.ethers.provider.getSigner()
         const signerAddress = await signer.getAddress()
-        await initializeChugSplash(hre.ethers.provider, signer, signerAddress)
+        await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
         spinner.succeed('ChugSplash has been initialized.')
 
@@ -828,7 +828,7 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await initializeChugSplash(hre.ethers.provider, signer, executor)
+          await initializeChugSplash(hre.ethers.provider, signer, [executor])
           if (!noCompile) {
             await hre.run(TASK_COMPILE, {
               quiet: true,
@@ -885,7 +885,7 @@ task(TASK_RUN)
           chainId === hre.config.networks.hardhat.chainId
             ? await signer.getAddress()
             : EXECUTOR
-        await initializeChugSplash(hre.ethers.provider, signer, executor)
+        await initializeChugSplash(hre.ethers.provider, signer, [executor])
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {
             quiet: true,
