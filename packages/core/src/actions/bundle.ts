@@ -1,3 +1,5 @@
+import * as fs from 'fs'
+
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
@@ -9,11 +11,12 @@ import {
   ArtifactPaths,
   SolidityStorageLayout,
 } from '../languages/solidity/types'
-import { getImplAddress, readContractArtifact } from '../utils'
 import {
-  readStorageLayout,
+  getImplAddress,
+  readContractArtifact,
   getCreationCodeWithConstructorArgs,
-} from './artifacts'
+} from '../utils'
+import { readStorageLayout } from './artifacts'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -93,7 +96,7 @@ export const toRawChugSplashAction = (
     return {
       actionType: ChugSplashActionType.SET_IMPLEMENTATION,
       referenceName: action.referenceName,
-      data: '0x',
+      data: action.extraData,
     }
   }
 }
@@ -128,6 +131,7 @@ export const fromRawChugSplashAction = (
   } else {
     return {
       referenceName: rawAction.referenceName,
+      extraData: rawAction.data,
     }
   }
 }
@@ -243,7 +247,7 @@ export const bundleLocal = async (
     )
     const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
       bytecode,
-      parsedConfig,
+      contractConfig.constructorArgs,
       referenceName,
       abi
     )
@@ -290,6 +294,9 @@ export const makeActionBundleFromConfig = async (
         )
       )) === '0x'
     ) {
+      if (referenceName === 'RootChugSplashManager') {
+        fs.writeFileSync('deploy.md', creationCodeWithConstructorArgs)
+      }
       // Add a DEPLOY_IMPLEMENTATION action.
       actions.push({
         referenceName,
@@ -298,9 +305,31 @@ export const makeActionBundleFromConfig = async (
     }
 
     // Next, add a SET_IMPLEMENTATION action for each contract.
-    actions.push({
-      referenceName,
-    })
+    if (contractConfig.proxyType === 'internal-registry') {
+      // If the proxy's type is `internal-registry`, we will add the ChugSplashManager's implementation
+      // address as `extraData`. This logic will be removed when ChugSplash is non-upgradeable.
+      const managerCreationCodeWithArgs =
+        artifacts['RootChugSplashManager'].creationCodeWithConstructorArgs
+      if (!managerCreationCodeWithArgs) {
+        throw new Error(
+          'Could not find ChugSplashManager creation code from the ChugSplash file.'
+        )
+      }
+      const managerImplAddress = getImplAddress(
+        parsedConfig.options.projectName,
+        'RootChugSplashManager',
+        managerCreationCodeWithArgs
+      )
+      actions.push({
+        referenceName,
+        extraData: managerImplAddress,
+      })
+    } else {
+      actions.push({
+        referenceName,
+        extraData: '0x',
+      })
+    }
 
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.

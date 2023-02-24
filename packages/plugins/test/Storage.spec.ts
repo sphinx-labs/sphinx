@@ -8,9 +8,6 @@ describe('Storage', () => {
   let MyStorage: Contract
   let MySimpleStorage: Contract
   beforeEach(async () => {
-    // Reset to the initial deployment state
-    await chugsplash.reset()
-
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',

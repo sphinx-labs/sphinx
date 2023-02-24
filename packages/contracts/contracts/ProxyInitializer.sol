@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { Proxy } from "./libraries/Proxy.sol";
+import { ChugSplashRegistryProxy } from "./ChugSplashRegistryProxy.sol";
 
 /**
  * @title ProxyInitializer
@@ -10,13 +10,14 @@ import { Proxy } from "./libraries/Proxy.sol";
  *         in its initializer. This allows the proxy's address to be deterministically calculated
  *         based on the address that *will* receive ownership, without the new owner needing to
  *         initialize it. This is useful for generating the proxy's address based on a multisig
- *         owner's address via Create2.
+ *         owner's address via Create2. Note that this will be removed when ChugSplash is
+ *         non-upgradeable.
  */
 contract ProxyInitializer is Initializable {
     /**
      * @notice Address of the proxy.
      */
-    Proxy public immutable proxy;
+    ChugSplashRegistryProxy public immutable proxy;
 
     /**
      * @notice Address that will receive ownership of the proxy in the initializer.
@@ -34,7 +35,7 @@ contract ProxyInitializer is Initializable {
         newOwner = _newOwner;
 
         // Deploy the proxy.
-        proxy = new Proxy{ salt: _salt }(
+        proxy = new ChugSplashRegistryProxy{ salt: _salt }(
             // The owner must initially be this contract so that it can set the proxy's
             // implementation contract in the initializer.
             address(this)

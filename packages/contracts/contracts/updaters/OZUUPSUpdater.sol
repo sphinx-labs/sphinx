@@ -23,7 +23,7 @@ contract OZUUPSUpdater is ProxyUpdater {
      *         bytes32(uint256(keccak256('chugsplash.proxy.admin')) - 1)
      */
     bytes32 internal constant CHUGSPLASH_ADMIN_KEY =
-        0xadf644ee9e2068b2c186f6b9a2f688d3450c4110b8018da281fbbd8aa6c34996;
+        0xadf644ee9e2068b2c186f6b9a2f688d3450c4110b8018da281fbbd8aa6c34995;
 
     /**
      * @notice An event that is emitted each time the implementation is changed. This event is part

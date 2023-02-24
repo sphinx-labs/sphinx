@@ -23,6 +23,8 @@ import {
   ProxyABI,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   OZ_UUPS_UPDATER_ADDRESS,
+  CHUGSPLASH_RECORDER_ADDRESS,
+  ChugSplashRecorderABI,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -37,7 +39,7 @@ import {
   externalProxyTypes,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
-  ParsedContractConfig,
+  ParsedConfigVariables,
   ParsedContractConfigs,
   proxyTypeHashes,
   UserChugSplashConfig,
@@ -276,15 +278,6 @@ export const getChugSplashManagerReadOnly = (
   )
 }
 
-export const getChugSplashManagerImplementationAddress = async (
-  signer: Signer
-): Promise<string> => {
-  const ChugSplashRegistryProxy = getChugSplashRegistry(signer)
-  const managerImplementationAddress =
-    await ChugSplashRegistryProxy.managerImplementation()
-  return managerImplementationAddress
-}
-
 export const chugsplashLog = (text: string, silent: boolean) => {
   if (!silent) {
     console.log(text)
@@ -494,9 +487,13 @@ export const isProjectRegistered = async (
   signer: Signer,
   projectName: string
 ) => {
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const ChugSplashRecorder = new ethers.Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    signer
+  )
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
-  const isRegistered: boolean = await ChugSplashRegistry.managers(
+  const isRegistered: boolean = await ChugSplashRecorder.managers(
     chugsplashManagerAddress
   )
   return isRegistered
@@ -506,10 +503,14 @@ export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  const ChugSplashRegistry = getChugSplashRegistry(provider)
+  const ChugSplashRecorder = new Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    provider
+  )
 
-  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
+    ChugSplashRecorder.filters.EventAnnouncedWithData(
       'DefaultProxyDeployed',
       null,
       proxyAddress
@@ -1246,6 +1247,9 @@ export const getImplAddress = (
 ): string => {
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
+  if (referenceName === 'RootChugSplashManager') {
+    fs.writeFileSync('create2.md', creationCodeWithConstructorArgs)
+  }
   return utils.getCreate2Address(
     chugSplashManagerAddress,
     utils.keccak256(utils.toUtf8Bytes(referenceName)),
@@ -1254,15 +1258,13 @@ export const getImplAddress = (
 }
 
 export const getConstructorArgs = (
-  contractConfig: ParsedContractConfig,
+  constructorArgs: ParsedConfigVariables,
   referenceName: string,
   abi: Array<Fragment>
 ): {
   constructorArgTypes: Array<string>
   constructorArgValues: ParsedConfigVariable[]
 } => {
-  const constructorArgs = contractConfig.constructorArgs
-
   const constructorArgTypes: Array<string> = []
   const constructorArgValues: Array<ParsedConfigVariable> = []
 
@@ -1308,6 +1310,27 @@ export const getConstructorArgs = (
   })
 
   return { constructorArgTypes, constructorArgValues }
+}
+
+export const getCreationCodeWithConstructorArgs = (
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  referenceName: string,
+  abi: any
+): string => {
+  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
+    constructorArgs,
+    referenceName,
+    abi
+  )
+
+  const creationCodeWithConstructorArgs = bytecode.concat(
+    remove0x(
+      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
+    )
+  )
+
+  return creationCodeWithConstructorArgs
 }
 
 /**
