@@ -30,6 +30,7 @@ import {
   ExecutorMetrics,
   ExecutorState,
   getGasPriceOverrides,
+  ExecutorEvent,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { GraphQLClient } from 'graphql-request'
@@ -42,6 +43,31 @@ import {
 import { updateDeployment } from './gql'
 
 export * from './utils'
+
+const generateRetryEvent = (
+  event: ExecutorEvent,
+  timesToRetry: number = 5,
+  waitingPeriodMs?: number
+): ExecutorEvent | undefined => {
+  if (event.retry >= timesToRetry) {
+    return undefined
+  }
+
+  let eventWaitingPeriodMs = waitingPeriodMs
+  if (!eventWaitingPeriodMs) {
+    eventWaitingPeriodMs = 2 * event.waitingPeriodMs
+  }
+
+  const now = new Date().getMilliseconds()
+  const nextTryMs = now + eventWaitingPeriodMs
+  const nextTryDate = new Date(nextTryMs)
+  return {
+    nextTry: nextTryDate,
+    retry: event.retry + 1,
+    waitingPeriodMs: eventWaitingPeriodMs,
+    event: event.event,
+  }
+}
 
 export class ChugSplashExecutor extends BaseServiceV2<
   ExecutorOptions,
@@ -150,18 +176,28 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
-    // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
-      this.logger.info(
-        '[ChugSplash]: attempting to verify the chugsplash contracts...'
-      )
-      await verifyChugSplash(this.state.provider, this.options.network)
-      this.logger.info(
-        '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-      )
-    } else {
-      this.logger.info(
-        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
+    // verify ChugSplash contracts on etherscan
+    try {
+      // Verify the ChugSplash contracts if the current network is supported.
+      if (
+        isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
+      ) {
+        this.logger.info(
+          '[ChugSplash]: attempting to verify the chugsplash contracts...'
+        )
+        await verifyChugSplash(this.state.provider, this.options.network)
+        this.logger.info(
+          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
+        )
+      } else {
+        this.logger.info(
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
+        )
+      }
+    } catch (e) {
+      this.logger.error(
+        `[ChugSplash]: error: failed to verify chugsplash contracts on ${this.options.network}`,
+        e
       )
     }
 
@@ -182,6 +218,13 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     const latestBlockNumber = await provider.getBlockNumber()
 
+    // Handles an edge case with retries that can only occur
+    // when running the executor against a local network that
+    // does not use interval mining (i.e the default hardhat network)
+    if (this.state.lastBlockNumber > latestBlockNumber) {
+      return
+    }
+
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
       registry.filters.EventAnnounced('ChugSplashBundleApproved'),
@@ -189,8 +232,20 @@ export class ChugSplashExecutor extends BaseServiceV2<
       latestBlockNumber
     )
 
+    const currentTime = new Date()
+    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents.map(
+      (event) => {
+        return {
+          retry: 1,
+          nextTry: currentTime,
+          waitingPeriodMs: 15000,
+          event,
+        }
+      }
+    )
+
     // Concatenate the new approval events to the array
-    this.state.eventsQueue = this.state.eventsQueue.concat(newApprovalEvents)
+    this.state.eventsQueue = this.state.eventsQueue.concat(newExecutorEvents)
 
     // store last block number
     this.state.lastBlockNumber = latestBlockNumber
@@ -211,18 +266,23 @@ export class ChugSplashExecutor extends BaseServiceV2<
     const eventsCopy = this.state.eventsQueue.slice()
 
     // execute all approved bundles
-    for (const approvalAnnouncementEvent of eventsCopy) {
+    for (const executorEvent of eventsCopy) {
       this.logger.info('[ChugSplash]: detected a project...')
+
+      // If still waiting on retry, then continue
+      if (executorEvent.nextTry > currentTime) {
+        continue
+      }
 
       // Remove the current event from the front of the events queue and place it at the end of the
       // array. This ensures that the current event won't block the execution of other events if
       // we're unable to execute it.
       this.state.eventsQueue.shift()
-      this.state.eventsQueue.push(approvalAnnouncementEvent)
+      this.state.eventsQueue.push(executorEvent)
 
       // fetch manager for relevant project
       const manager = new ethers.Contract(
-        approvalAnnouncementEvent.args.manager,
+        executorEvent.event.args.manager,
         ChugSplashManagerABI,
         wallet
       )
@@ -242,6 +302,8 @@ export class ChugSplashExecutor extends BaseServiceV2<
         // executor), or using the Config URI
         let bundle: ChugSplashActionBundle
         let canonicalConfig: CanonicalChugSplashConfig
+
+        // Handle if the config cannot be fetched
         if (remoteExecution) {
           ;({ bundle, canonicalConfig } = await compileRemoteBundle(
             provider,
@@ -292,6 +354,9 @@ export class ChugSplashExecutor extends BaseServiceV2<
               this.logger.info(
                 '[ChugSplash]: a different executor claimed the bundle right before this executor'
               )
+
+              // Do not retry the bundle since it will be handled by another executor
+              this.state.eventsQueue.pop()
             } else {
               // A different error occurred. This most likely means the owner cancelled the bundle
               // before it could be claimed. We'll log the error message.
@@ -300,10 +365,16 @@ export class ChugSplashExecutor extends BaseServiceV2<
                 err,
                 canonicalConfig.options
               )
+
+              // retry events which failed due to other errors
+              const event = this.state.eventsQueue.pop()
+              const retryEvent = generateRetryEvent(event)
+              if (retryEvent !== undefined) {
+                this.state.eventsQueue.push(retryEvent)
+              }
             }
-            // Since we can't execute the bundle, we'll remove the current event from the events
-            // queue and move to the next bundle.
-            this.state.eventsQueue.pop()
+
+            // Since we can't execute the bundle, continue
             continue
           }
         } else if (bundleState.selectedExecutor !== wallet.address) {
@@ -336,12 +407,19 @@ export class ChugSplashExecutor extends BaseServiceV2<
               logger: this.logger,
             })
           } catch (e) {
-            // log error and continue
+            // log error
             this.logger.error(
               '[ChugSplash]: error: execution error',
               e,
               canonicalConfig.options
             )
+
+            // create retry event and add to the queue
+            const event = this.state.eventsQueue.pop()
+            const retryEvent = generateRetryEvent(event)
+            if (retryEvent !== undefined) {
+              this.state.eventsQueue.push(retryEvent)
+            }
             continue
           }
 
@@ -436,9 +514,15 @@ export class ChugSplashExecutor extends BaseServiceV2<
           this.logger.info(
             `[ChugSplash]: ${projectName} has insufficient funds`
           )
+
           // Continue to the next bundle if there is an insufficient amount of funds in the
-          // ChugSplashManager. We will continue to make attempts to execute the bundle on
-          // subsequent iterations of the BaseService.
+          // ChugSplashManager. We will make attempts to execute the bundle on
+          // subsequent iterations of the BaseService for up to 30 minutes.
+          const event = this.state.eventsQueue.pop()
+          const retryEvent = generateRetryEvent(event, 100, 30000)
+          if (retryEvent !== undefined) {
+            this.state.eventsQueue.push(retryEvent)
+          }
           continue
         }
 
@@ -452,10 +536,10 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
         // If we make it to this point, we know that the executor has executed the bundle (or that it
         // has been cancelled by the owner), and that the executor has claimed its payment.
-
-        // Remove the current event from the events queue.
-        this.state.eventsQueue.pop()
       }
+
+      // Remove the current event from the events queue.
+      this.state.eventsQueue.pop()
     }
   }
 }

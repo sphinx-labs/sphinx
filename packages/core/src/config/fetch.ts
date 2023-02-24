@@ -4,7 +4,7 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { ChugSplashActionBundle } from '../actions'
 import { Integration } from '../constants'
 import { ArtifactPaths, bundleRemoteSubtask } from '../languages'
-import { computeBundleId } from '../utils'
+import { callWithTimeout, computeBundleId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 
 export const chugsplashFetchSubtask = async (args: {
@@ -64,10 +64,11 @@ export const verifyBundle = async (args: {
 }> => {
   const { provider, configUri, bundleId, ipfsUrl } = args
 
-  const config: CanonicalChugSplashConfig = await chugsplashFetchSubtask({
-    configUri,
-    ipfsUrl,
-  })
+  const config = await callWithTimeout<CanonicalChugSplashConfig>(
+    chugsplashFetchSubtask({ configUri, ipfsUrl }),
+    30000,
+    'Failed to fetch config file from IPFS'
+  )
 
   const bundle: ChugSplashActionBundle = await bundleRemoteSubtask({
     provider,
@@ -102,7 +103,11 @@ export const compileRemoteBundle = async (
   bundle: ChugSplashActionBundle
   canonicalConfig: CanonicalChugSplashConfig
 }> => {
-  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
+    chugsplashFetchSubtask({ configUri }),
+    30000,
+    'Failed to fetch config file from IPFS'
+  )
 
   const bundle = await bundleRemoteSubtask({ provider, canonicalConfig })
   return { bundle, canonicalConfig }
