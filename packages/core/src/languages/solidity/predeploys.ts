@@ -63,7 +63,7 @@ import {
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
-  executorAddress: string,
+  executors: string[],
   logger?: Logger
 ): Promise<void> => {
   logger?.info('[ChugSplash]: deploying ChugSplashManager...')
@@ -242,16 +242,18 @@ export const initializeChugSplash = async (
           ChugSplashRecorder.address,
           await deployer.getAddress(),
           ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-          [executorAddress],
+          executors,
         ]),
         await getGasPriceOverrides(provider)
       )
     ).wait()
 
-    assert(
-      (await ChugSplashRegistryProxy.executors(executorAddress)) === true,
-      'Failed to add executor to ChugSplashRegistry'
-    )
+    for (const executorAddress of executors) {
+      assert(
+        (await ChugSplashRegistryProxy.executors(executorAddress)) === true,
+        'Failed to add executor to ChugSplashRegistry'
+      )
+    }
 
     // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
     assert(
