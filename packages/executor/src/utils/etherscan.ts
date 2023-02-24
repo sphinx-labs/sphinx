@@ -10,6 +10,8 @@ import {
   getCanonicalConfigArtifacts,
   INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  callWithTimeout,
+  CanonicalChugSplashConfig,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -79,7 +81,11 @@ export const verifyChugSplashConfig = async (
     networkName
   )
 
-  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
+    chugsplashFetchSubtask({ configUri }),
+    30000,
+    'Failed to fetch config file from IPFS'
+  )
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
   const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),

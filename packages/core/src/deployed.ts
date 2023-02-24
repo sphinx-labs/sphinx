@@ -11,6 +11,7 @@ import {
   SolidityStorageLayout,
 } from './languages'
 import {
+  callWithTimeout,
   getChugSplashRegistry,
   getEIP1967ProxyImplementationAddress,
   readCanonicalConfig,
@@ -87,9 +88,11 @@ export const getLatestDeployedCanonicalConfig = async (
   }
 
   if (remoteExecution) {
-    return chugsplashFetchSubtask({
-      configUri: latestProposalEvent.args.configUri,
-    })
+    return callWithTimeout<CanonicalChugSplashConfig>(
+      chugsplashFetchSubtask({ configUri: latestProposalEvent.args.configUri }),
+      30000,
+      'Failed to fetch config file from IPFS'
+    )
   } else {
     return readCanonicalConfig(
       canonicalConfigFolderPath,
