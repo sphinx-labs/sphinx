@@ -1319,20 +1319,6 @@ export const getConstructorArgs = (
   return { constructorArgTypes, constructorArgValues }
 }
 
-// TODO: this is redundant basically
-export const getChugSplashManagerImplAddress = (
-  projectName: string,
-  managerReferenceName: string,
-  creationCodeWithConstructorArgs: string
-): string => {
-  const managerImplAddress = getImplAddress(
-    projectName,
-    managerReferenceName,
-    creationCodeWithConstructorArgs
-  )
-  return managerImplAddress
-}
-
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
   constructorArgs: ParsedConfigVariables,

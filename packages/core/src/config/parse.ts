@@ -226,8 +226,8 @@ export const parseChugSplashConfig = async (
       contract: contractFullyQualifiedName,
       proxy,
       proxyType,
-      variables: parseConfigVariables(variables),
-      constructorArgs: parseConfigVariables(constructorArgs),
+      variables: variables ?? {},
+      constructorArgs: constructorArgs ?? {},
     }
 
     contracts[referenceName] = proxy
@@ -238,14 +238,4 @@ export const parseChugSplashConfig = async (
       ...contracts,
     })
   )
-}
-
-// TODO: rm
-export const parseConfigVariables = (
-  userConfigVariable: UserConfigVariables | undefined
-): ParsedConfigVariables => {
-  if (!userConfigVariable) {
-    return {}
-  }
-  return userConfigVariable
 }

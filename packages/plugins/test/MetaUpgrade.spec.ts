@@ -19,6 +19,7 @@ import {
   chugsplashTransferOwnershipAbstractTask,
   getChugSplashManagerImplAddress,
   getCreationCodeWithConstructorArgs,
+  getImplAddress,
 } from '@chugsplash/core'
 
 import { getArtifactPaths } from '../dist/hardhat/artifacts'
@@ -77,7 +78,7 @@ describe('Meta Upgrade', () => {
   it('upgrades the ChugSplashRegistry and ChugSplashManager', async () => {
     const { bytecode: managerBytecode, abi: managerAbi } =
       hre.artifacts.readArtifactSync('ChugSplashManager')
-    const expectedManagerImplAddress = getChugSplashManagerImplAddress(
+    const expectedManagerImplAddress = getImplAddress(
       'ChugSplash',
       'RootChugSplashManager',
       getCreationCodeWithConstructorArgs(

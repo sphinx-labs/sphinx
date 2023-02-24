@@ -316,7 +316,7 @@ export const makeActionBundleFromConfig = async (
           'Could not find ChugSplashManager creation code from the ChugSplash file.'
         )
       }
-      const managerImplAddress = getChugSplashManagerImplAddress(
+      const managerImplAddress = getImplAddress(
         parsedConfig.options.projectName,
         'RootChugSplashManager',
         managerCreationCodeWithArgs
