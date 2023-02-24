@@ -9,10 +9,16 @@ export type FoundryContractArtifact = {
   contractAddress: string
 }
 
+export type ExecutorKey = {
+  id: number
+  privateKey: string
+  locked: boolean
+}
+
 export type ExecutorOptions = {
   url: string
   network: string
-  privateKey: string
+  privateKeys: string
   logLevel: LogLevel
   managedApiUrl: string
 }
@@ -27,10 +33,11 @@ export type ExecutorEvent = {
 
 export type ExecutorState = {
   eventsQueue: ExecutorEvent[]
+  executionCache: ExecutorEvent[]
   registry: ethers.Contract
   provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
-  wallet: ethers.Wallet
+  keys: ExecutorKey[]
 }
 
 export declare class ChugSplashExecutorType extends BaseServiceV2<
