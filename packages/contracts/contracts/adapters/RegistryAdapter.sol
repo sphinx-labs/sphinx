@@ -6,6 +6,7 @@ import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 import { ChugSplashRegistryProxy } from "../ChugSplashRegistryProxy.sol";
 
+
 /**
  * @title RegistryAdapter
  * @notice Adapter for the ChugSplashRegistry. Will be removed once ChugSplash is non-upgradeable.

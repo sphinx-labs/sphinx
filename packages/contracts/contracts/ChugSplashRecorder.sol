@@ -67,18 +67,22 @@ contract ChugSplashRecorder {
 
     address public immutable registryProxy;
 
+    address public immutable registryImpl;
+
     /**
      * @param _registryProxy Address of the ChugSplashRegistry proxy.
      */
     constructor(
-        address _registryProxy
+        address _registryProxy,
+        address _registryImpl
     ) {
         registryProxy = _registryProxy;
+        registryImpl = _registryImpl;
     }
 
     function addManager(address _manager) external {
-        require(msg.sender == registryProxy, "ChugSplashRecorder: caller must be registry proxy");
-        managers[ChugSplashManager(payable(address(manager)))] = true;
+        require(msg.sender == registryProxy || msg.sender == registryImpl, "ChugSplashRecorder: caller must be registry proxy or impl");
+        managers[ChugSplashManager(payable(address(_manager)))] = true;
     }
 
     /**

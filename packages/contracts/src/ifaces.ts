@@ -12,8 +12,9 @@ export const OZUUPSAdapterArtifact = require('../artifacts/contracts/adapters/OZ
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const RegistryAdapterArtifact = require('../artifacts/contracts/adapters/RegistryAdapter.sol/RegistryAdapter.json')
 export const ChugSplashRegistryProxyArtifact = require('../artifacts/contracts/ChugSplashRegistryProxy.sol/ChugSplashRegistryProxy.json')
+export const ChugSplashRecorderArtifact = require('../artifacts/contracts/ChugSplashRecorder.sol/ChugSplashRecorder.json')
 
-export const buildInfo = require('../artifacts/build-info/70ff01d0bfa4973f074eeaafccc14cbd.json')
+export const buildInfo = require('../artifacts/build-info/03cac1590c0edb3206a482987402b7dc.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
@@ -28,3 +29,4 @@ export const OZUUPSAdapterABI = OZUUPSAdapterArtifact.abi
 export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
 export const RegistryAdapterABI = RegistryAdapterArtifact.abi
 export const ChugSplashRegistryProxyABI = ChugSplashRegistryProxyArtifact.abi
+export const ChugSplashRecorderABI = ChugSplashRecorderArtifact.abi

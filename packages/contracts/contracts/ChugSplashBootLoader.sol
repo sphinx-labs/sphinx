@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
@@ -27,6 +28,8 @@ contract ChugSplashBootLoader is Initializable {
      * @notice Address of the root ChugSplashManagerProxy.
      */
     ChugSplashManagerProxy public rootManagerProxy;
+
+    ChugSplashRecorder public recorder;
 
     /**
      * @notice Boots an upgradeable version of ChugSplash with a root ChugSplashManager that owns
@@ -77,6 +80,11 @@ contract ChugSplashBootLoader is Initializable {
             _executorPaymentPercentage
         );
 
-        registryImplementation.initialize(_owner, address(rootManagerProxy), new address[](0));
+        recorder = new ChugSplashRecorder{ salt: _salt }(
+            _registryProxy,
+            address(registryImplementation)
+        );
+
+        registryImplementation.initialize(recorder, _owner, address(rootManagerProxy), new address[](0));
     }
 }

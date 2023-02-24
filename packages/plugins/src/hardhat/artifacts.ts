@@ -2,6 +2,11 @@ import path from 'path'
 
 import { BuildInfo, HardhatRuntimeEnvironment } from 'hardhat/types'
 import { ArtifactPaths, UserContractConfigs } from '@chugsplash/core'
+import {
+  ChugSplashManagerArtifact,
+  buildInfo as chugsplashBuildInfo,
+  ChugSplashRegistryArtifact,
+} from '@chugsplash/contracts'
 
 /**
  * Retrieves contract build info by name.

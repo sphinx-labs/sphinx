@@ -232,11 +232,6 @@ export const postExecutionActions = async (
     }
   }
 
-  // Save the snapshot ID if we're on the hardhat network.
-  if (!remoteExecution) {
-    await writeSnapshotId(provider, networkName, deploymentfolderPath)
-  }
-
   await createDeploymentArtifacts(
     provider,
     parsedConfig,

@@ -8,7 +8,7 @@ import {
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
   getCanonicalConfigArtifacts,
-  CHUGSPLASH_MANAGER_ADDRESS,
+  INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
@@ -95,7 +95,7 @@ export const verifyChugSplashConfig = async (
       etherscanApiEndpoints,
       etherscanApiKey,
       chugsplashManagerProxyAddress,
-      CHUGSPLASH_MANAGER_ADDRESS,
+      INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
       'ChugSplashManager'
     )
   } catch (err) {
@@ -175,7 +175,7 @@ export const verifyChugSplash = async (
   const contracts = [
     {
       artifact: ChugSplashManagerArtifact,
-      address: CHUGSPLASH_MANAGER_ADDRESS,
+      address: INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
     },
     {
       artifact: ChugSplashBootLoaderArtifact,
@@ -244,7 +244,7 @@ export const verifyChugSplash = async (
     etherscanApiEndpoints,
     etherscanApiKey,
     ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-    CHUGSPLASH_MANAGER_ADDRESS,
+    INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
     'ChugSplashManager'
   )
 }

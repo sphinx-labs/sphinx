@@ -1,4 +1,4 @@
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import { ChugSplashManagerABI, ChugSplashRecorderABI, CHUGSPLASH_RECORDER_ADDRESS } from '@chugsplash/contracts'
 import { getChainId } from '@eth-optimism/core-utils'
 import { Manifest } from '@openzeppelin/upgrades-core'
 import { Contract, providers } from 'ethers'
@@ -24,10 +24,14 @@ export const getLatestDeployedCanonicalConfig = async (
   remoteExecution: boolean,
   canonicalConfigFolderPath: string
 ): Promise<CanonicalChugSplashConfig | undefined> => {
-  const ChugSplashRegistry = getChugSplashRegistry(provider)
+  const ChugSplashRecorder = new Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    provider
+  )
 
-  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
+    ChugSplashRecorder.filters.EventAnnouncedWithData(
       'ChugSplashActionExecuted',
       null,
       proxyAddress

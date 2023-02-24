@@ -67,11 +67,6 @@ export const createDeploymentArtifacts = async (
 
   createDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
-  // Save the snapshot ID if we're on the hardhat network.
-  if (!remoteExecution) {
-    await writeSnapshotId(provider, networkName, deploymentFolderPath)
-  }
-
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {

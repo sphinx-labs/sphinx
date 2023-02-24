@@ -12,11 +12,14 @@ export const externalProxyTypes = [
   'oz-transparent',
   'oz-uups',
   'external-default',
+  'internal-registry', // Will be removed when ChugSplash is non-upgradeable
 ]
 export type ExternalProxyType =
   | 'oz-transparent'
   | 'oz-uups'
   | 'external-default'
+  | 'internal-registry' // Will be removed when ChugSplash is non-upgradeable
+
 export const proxyTypeHashes: { [proxyType: string]: string } = {
   'internal-default': constants.HashZero,
   'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
@@ -25,10 +28,7 @@ export const proxyTypeHashes: { [proxyType: string]: string } = {
   'internal-registry': REGISTRY_PROXY_TYPE_HASH,
 }
 
-export type ProxyType =
-  | ExternalProxyType
-  | 'internal-default'
-  | 'internal-registry' // Will be removed when ChugSplash is non-upgradeable
+export type ProxyType = ExternalProxyType | 'internal-default'
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.

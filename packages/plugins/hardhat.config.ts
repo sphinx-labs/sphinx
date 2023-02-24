@@ -24,6 +24,9 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      metadata: {
+        bytecodeHash: 'none',
+      },
     },
   },
   networks: {
@@ -57,6 +60,9 @@ const config: HardhatUserConfig = {
       url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
+  },
+  mocha: {
+    timeout: 500_000,
   },
 }
 

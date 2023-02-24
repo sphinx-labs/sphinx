@@ -1,3 +1,5 @@
+import * as fs from 'fs'
+
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
@@ -10,10 +12,10 @@ import {
   SolidityStorageLayout,
 } from '../languages/solidity/types'
 import {
-  getChugSplashManagerImplAddress,
   getImplAddress,
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
+  getChugSplashManagerImplAddress,
 } from '../utils'
 import { readStorageLayout } from './artifacts'
 import {
@@ -293,6 +295,9 @@ export const makeActionBundleFromConfig = async (
         )
       )) === '0x'
     ) {
+      if (referenceName === 'RootChugSplashManager') {
+        fs.writeFileSync('deploy.md', creationCodeWithConstructorArgs)
+      }
       // Add a DEPLOY_IMPLEMENTATION action.
       actions.push({
         referenceName,
@@ -302,11 +307,19 @@ export const makeActionBundleFromConfig = async (
 
     // Next, add a SET_IMPLEMENTATION action for each contract.
     if (contractConfig.proxyType === 'internal-registry') {
-      // If the proxy's type is `internal-meta`, we will add the ChugSplashManager's implementation
+      // If the proxy's type is `internal-registry`, we will add the ChugSplashManager's implementation
       // address as `extraData`. This logic will be removed when ChugSplash is non-upgradeable.
+      const managerCreationCodeWithArgs =
+        artifacts['RootChugSplashManager'].creationCodeWithConstructorArgs
+      if (!managerCreationCodeWithArgs) {
+        throw new Error(
+          'Could not find ChugSplashManager creation code from the ChugSplash file.'
+        )
+      }
       const managerImplAddress = getChugSplashManagerImplAddress(
         parsedConfig.options.projectName,
-        'RootChugSplashManager'
+        'RootChugSplashManager',
+        managerCreationCodeWithArgs
       )
       actions.push({
         referenceName,

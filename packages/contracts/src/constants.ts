@@ -8,6 +8,7 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashManagerProxyArtifact,
   ChugSplashManagerABI,
+  ChugSplashRecorderArtifact,
   ProxyABI,
   ProxyInitializerArtifact,
   ProxyInitializerABI,
@@ -22,7 +23,7 @@ export const OWNER_MULTISIG_ADDRESS =
   '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
-export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_HASH = ethers.BigNumber.from(
+export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(
   ethers.utils.keccak256(ethers.utils.toUtf8Bytes('chugsplash.proxy.admin'))
 )
   .sub(1)
@@ -194,6 +195,21 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = ethers.utils.getCreate2Address(
       ethers.utils.defaultAbiCoder.encode(
         ['uint256', 'uint256', 'uint256'],
         [OWNER_BOND_AMOUNT, EXECUTION_LOCK_TIME, EXECUTOR_PAYMENT_PERCENTAGE]
+      ),
+    ]
+  )
+)
+
+export const CHUGSPLASH_RECORDER_ADDRESS = ethers.utils.getCreate2Address(
+  CHUGSPLASH_BOOTLOADER_ADDRESS,
+  CHUGSPLASH_SALT,
+  ethers.utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashRecorderArtifact.bytecode,
+      ethers.utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [CHUGSPLASH_REGISTRY_PROXY_ADDRESS, CHUGSPLASH_REGISTRY_ADDRESS]
       ),
     ]
   )

@@ -23,6 +23,8 @@ import {
   ChugSplashManagerABI,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
+  CHUGSPLASH_RECORDER_ADDRESS,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { utils } from 'ethers'
 
@@ -52,6 +54,7 @@ const registryAdapterSourceName = RegistryAdapterArtifact.sourceName
 // easy to do meta-upgrades on them later.
 export const chugsplashManagerConstructorArgs = {
   _registry: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  _recorder: CHUGSPLASH_RECORDER_ADDRESS,
   _executionLockTime: EXECUTION_LOCK_TIME,
   _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
   _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,
@@ -93,7 +96,7 @@ const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
 )
 const chugsplashManagerConstructorArgTypes =
   chugsplashManagerConstructorFragment.inputs.map((input) => input.type)
-export const CHUGSPLASH_MANAGER_ADDRESS = utils.getCreate2Address(
+export const INITIAL_CHUGSPLASH_MANAGER_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   utils.solidityKeccak256(

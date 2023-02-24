@@ -38,6 +38,12 @@ contract ChugSplashRegistryProxy is Proxy {
         assembly {
             sstore(CHUGSPLASH_MANAGER_IMPL_SLOT_KEY, _managerImpl)
         }
+
+        address mi = managerImplementation();
+        uint256 implCodeSize;
+        assembly {
+            implCodeSize := extcodesize(mi)
+        }
     }
 
     function managerImplementation() public view returns (address) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -46,45 +47,6 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     );
 
     /**
-     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
-     *         registry. We use this to avoid needing a complex indexing system when we're trying
-     *         to find events emitted by the various manager contracts.
-     *
-     * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
-     * @param eventName     Name of the event being announced.
-     */
-    event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
-
-    /**
-     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
-     *         registry, including a field for arbitrary data. We use this to avoid needing a
-     *         complex indexing system when we're trying to find events emitted by the various
-     *         manager contracts.
-     *
-     * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
-     * @param dataHash      Hash of the extra data.
-     * @param eventName     Name of the event being announced.
-     * @param data          The extra data.
-     */
-    event EventAnnouncedWithData(
-        string indexed eventNameHash,
-        address indexed manager,
-        bytes indexed dataHash,
-        string eventName,
-        bytes data
-    );
-
-    /**
-     * @notice Emitted whenever a new proxy type is added.
-     *
-     * @param proxyType Hash representing the proxy type.
-     * @param adapter   Address of the adapter for the proxy.
-     */
-    event ProxyTypeAdded(bytes32 proxyType, address adapter);
-
-    /**
      * @notice Emitted when an executor is added.
      *
      * @param executor Address of the added executor.
@@ -104,19 +66,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     mapping(string => ChugSplashManager) public projects;
 
     /**
-     * @notice Mapping of created manager contracts.
-     */
-    mapping(ChugSplashManager => bool) public managers;
-
-    /**
-     * @notice Mapping of proxy types to adapters.
-     */
-    mapping(bytes32 => address) public adapters;
-
-    /**
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
+
+    ChugSplashRecorder public recorder;
 
     /**
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
@@ -152,22 +106,26 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     }
 
     /**
+     * @param _recorder         Address of the ChugSplashRecorder.
      * @param _owner            Initial owner of this contract.
      * @param _rootManagerProxy Address of the root ChugSplashManagerProxy.
      * @param _executors        Array of executors to add.
      */
     function initialize(
+        ChugSplashRecorder _recorder,
         address _owner,
         address _rootManagerProxy,
         address[] memory _executors
     ) public initializer {
+        recorder = _recorder;
+
         __Ownable_init();
         _transferOwnership(_owner);
 
         // Add the root ChugSplashManager to projects and managers mappings. Will be removed once
         // ChugSplash is non-upgradeable.
         projects["ChugSplash"] = ChugSplashManager(payable(_rootManagerProxy));
-        managers[ChugSplashManager(payable(_rootManagerProxy))] = true;
+        recorder.addManager(_rootManagerProxy);
 
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
@@ -203,56 +161,9 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
-        managers[ChugSplashManager(payable(address(manager)))] = true;
+        recorder.addManager(address(manager));
 
         emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
-    }
-
-    /**
-     * @notice Allows ChugSplashManager contracts to announce events.
-     *
-     * @param _event Name of the event to announce.
-     */
-    function announce(string memory _event) public {
-        require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
-        );
-
-        emit EventAnnounced(_event, msg.sender, _event);
-    }
-
-    /**
-     * @notice Allows ChugSplashManager contracts to announce events, including a field for
-     *         arbitrary data.
-     *
-     * @param _event Name of the event to announce.
-     * @param _data  Arbitrary data to include in the announced event.
-     */
-    function announceWithData(string memory _event, bytes memory _data) public {
-        require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
-        );
-
-        emit EventAnnouncedWithData(_event, msg.sender, _data, _event, _data);
-    }
-
-    /**
-     * @notice Adds a new proxy type with a corresponding adapter.
-     *
-     * @param _proxyType Hash representing the proxy type
-     * @param _adapter   Address of the adapter for this proxy type.
-     */
-    function addProxyType(bytes32 _proxyType, address _adapter) external {
-        require(
-            adapters[_proxyType] == address(0),
-            "ChugSplashRegistry: proxy type has an existing adapter"
-        );
-
-        adapters[_proxyType] = _adapter;
-
-        emit ProxyTypeAdded(_proxyType, _adapter);
     }
 
     /**
