@@ -1,9 +1,8 @@
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import ora from 'ora'
-import { Fragment } from 'ethers/lib/utils'
 
-import { ParsedChugSplashConfig, ParsedConfigVariable } from '../config/types'
+import { ParsedChugSplashConfig } from '../config/types'
 import {
   ArtifactPaths,
   SolidityStorageLayout,
@@ -12,6 +11,7 @@ import { Integration } from '../constants'
 import {
   addEnumMembersToStorageLayout,
   createDeploymentFolderForNetwork,
+  getConstructorArgs,
   readBuildInfo,
   readContractArtifact,
   writeDeploymentArtifact,
@@ -26,7 +26,7 @@ export const getCreationCodeWithConstructorArgs = (
   abi: any
 ): string => {
   const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
-    parsedConfig,
+    parsedConfig.contracts[referenceName],
     referenceName,
     abi
   )
@@ -38,67 +38,6 @@ export const getCreationCodeWithConstructorArgs = (
   )
 
   return creationCodeWithConstructorArgs
-}
-
-export const getConstructorArgs = (
-  parsedConfig: ParsedChugSplashConfig,
-  referenceName: string,
-  abi: Array<Fragment>
-): {
-  constructorArgTypes: Array<string>
-  constructorArgValues: ParsedConfigVariable[]
-} => {
-  const parsedConstructorArgs =
-    parsedConfig.contracts[referenceName].constructorArgs
-
-  const constructorArgTypes: Array<string> = []
-  const constructorArgValues: Array<ParsedConfigVariable> = []
-
-  const constructorFragment = abi.find(
-    (fragment) => fragment.type === 'constructor'
-  )
-
-  if (constructorFragment === undefined) {
-    if (Object.keys(parsedConstructorArgs).length > 0) {
-      throw new Error(
-        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
-          `no constructor exists in the contract.`
-      )
-    } else {
-      return { constructorArgTypes, constructorArgValues }
-    }
-  }
-
-  if (
-    Object.keys(parsedConstructorArgs).length >
-    constructorFragment.inputs.length
-  ) {
-    const constructorArgNames = constructorFragment.inputs.map(
-      (input) => input.name
-    )
-    const incorrectConstructorArgNames = Object.keys(
-      parsedConstructorArgs
-    ).filter((argName) => !constructorArgNames.includes(argName))
-    throw new Error(
-      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
-        `Please remove the following variables from the 'constructorArgs' field:` +
-        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
-    )
-  }
-
-  constructorFragment.inputs.forEach((input) => {
-    const constructorArgValue = parsedConstructorArgs[input.name]
-    if (constructorArgValue === undefined) {
-      throw new Error(
-        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
-          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
-      )
-    }
-    constructorArgTypes.push(input.type)
-    constructorArgValues.push(constructorArgValue)
-  })
-
-  return { constructorArgTypes, constructorArgValues }
 }
 
 /**
@@ -162,7 +101,7 @@ export const createDeploymentArtifacts = async (
     const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const { constructorArgValues } = getConstructorArgs(
-      parsedConfig,
+      parsedConfig.contracts[referenceName],
       referenceName,
       abi
     )

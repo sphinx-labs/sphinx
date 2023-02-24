@@ -114,7 +114,7 @@ export const verifyChugSplashConfig = async (
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
-      canonicalConfig,
+      canonicalConfig.contracts[referenceName],
       referenceName,
       abi
     )

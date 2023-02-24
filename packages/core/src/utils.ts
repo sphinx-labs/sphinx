@@ -13,6 +13,7 @@ import {
   PayableOverrides,
   BigNumber,
 } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,
@@ -36,6 +37,7 @@ import {
   externalProxyTypes,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
+  ParsedContractConfig,
   ParsedContractConfigs,
   proxyTypeHashes,
   UserChugSplashConfig,
@@ -1226,6 +1228,86 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const contractName = compilationTarget[sourceName]
 
   return { abi, bytecode, sourceName, contractName }
+}
+
+/**
+ * Returns the Create2 address of an implementation contract deployed by ChugSplash, which is
+ * calculated as a function of the projectName and the corresponding contract's reference name. Note
+ * that the contract may not yet be deployed at this address since it's calculated via Create2.
+ *
+ * @param projectName Name of the ChugSplash project.
+ * @param referenceName Reference name of the contract that corresponds to the proxy.
+ * @returns Address of the implementation contract.
+ */
+export const getImplAddress = (
+  projectName: string,
+  referenceName: string,
+  creationCodeWithConstructorArgs: string
+): string => {
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+
+  return utils.getCreate2Address(
+    chugSplashManagerAddress,
+    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
+  )
+}
+
+export const getConstructorArgs = (
+  contractConfig: ParsedContractConfig,
+  referenceName: string,
+  abi: Array<Fragment>
+): {
+  constructorArgTypes: Array<string>
+  constructorArgValues: ParsedConfigVariable[]
+} => {
+  const constructorArgs = contractConfig.constructorArgs
+
+  const constructorArgTypes: Array<string> = []
+  const constructorArgValues: Array<ParsedConfigVariable> = []
+
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+
+  if (constructorFragment === undefined) {
+    if (Object.keys(constructorArgs).length > 0) {
+      throw new Error(
+        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
+          `no constructor exists in the contract.`
+      )
+    } else {
+      return { constructorArgTypes, constructorArgValues }
+    }
+  }
+
+  if (Object.keys(constructorArgs).length > constructorFragment.inputs.length) {
+    const constructorArgNames = constructorFragment.inputs.map(
+      (input) => input.name
+    )
+    const incorrectConstructorArgNames = Object.keys(constructorArgs).filter(
+      (argName) => !constructorArgNames.includes(argName)
+    )
+    throw new Error(
+      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
+        `Please remove the following variables from the 'constructorArgs' field:` +
+        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
+    )
+  }
+
+  constructorFragment.inputs.forEach((input) => {
+    const constructorArgValue = constructorArgs[input.name]
+    if (constructorArgValue === undefined) {
+      throw new Error(
+        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
+          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
+      )
+    }
+    constructorArgTypes.push(input.type)
+    constructorArgValues.push(constructorArgValue)
+  })
+
+  return { constructorArgTypes, constructorArgValues }
 }
 
 /**

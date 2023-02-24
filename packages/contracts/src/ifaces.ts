@@ -11,7 +11,7 @@ export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/D
 export const OZUUPSAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAdapter.sol/OZUUPSAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 
-export const buildInfo = require('../artifacts/build-info/35f609b83473e9ebe2749ed849beafe1.json')
+export const buildInfo = require('../artifacts/build-info/101129cfc611d987358483276e9a9726.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
