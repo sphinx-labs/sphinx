@@ -1,12 +1,7 @@
-import { remove0x } from '@eth-optimism/core-utils'
-import { ethers, utils } from 'ethers'
+import { ethers } from 'ethers'
 import ora from 'ora'
 
-import {
-  ParsedChugSplashConfig,
-  ParsedConfigVariables,
-  ParsedContractConfig,
-} from '../config/types'
+import { ParsedChugSplashConfig } from '../config/types'
 import {
   ArtifactPaths,
   SolidityStorageLayout,
@@ -19,7 +14,6 @@ import {
   readBuildInfo,
   readContractArtifact,
   writeDeploymentArtifact,
-  writeSnapshotId,
 } from '../utils'
 import 'core-js/features/array/at'
 
@@ -60,8 +54,7 @@ export const createDeploymentArtifacts = async (
   integration: Integration,
   spinner: ora.Ora,
   networkName: string,
-  deploymentFolderPath: string,
-  remoteExecution: boolean
+  deploymentFolderPath: string
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 

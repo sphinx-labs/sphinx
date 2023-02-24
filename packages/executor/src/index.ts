@@ -10,11 +10,8 @@ import {
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
-  ChugSplashManagerABI,
   ChugSplashRecorderABI,
   CHUGSPLASH_RECORDER_ADDRESS,
-  ChugSplashRegistryABI,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import {
   initializeChugSplash,

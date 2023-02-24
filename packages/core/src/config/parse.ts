@@ -17,8 +17,6 @@ import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
   ProxyType,
-  UserConfigVariables,
-  ParsedConfigVariables,
 } from './types'
 import { Integration } from '../constants'
 

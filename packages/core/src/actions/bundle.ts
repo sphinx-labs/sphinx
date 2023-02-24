@@ -15,7 +15,6 @@ import {
   getImplAddress,
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
-  getChugSplashManagerImplAddress,
 } from '../utils'
 import { readStorageLayout } from './artifacts'
 import {

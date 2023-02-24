@@ -11,9 +11,9 @@ import { Proxy } from "./libraries/Proxy.sol";
 
 /**
  * @title ChugSplashRecorder
- * @notice The ChugSplashRecorder announces events emitted by the ChugSplash system and also keeps a record
- *         of ProxyAdapter and ChugSplashManager contracts. This functionality will be merged into the ChugSplashRegistry when
- *         ChugSplash becomes non-upgradeable.
+ * @notice The ChugSplashRecorder announces events emitted by the ChugSplash system and also keeps a
+ *         record of ProxyAdapter and ChugSplashManager contracts. This functionality will be merged
+ *         into the ChugSplashRegistry when ChugSplash becomes non-upgradeable.
  */
 contract ChugSplashRecorder {
     /**
@@ -72,16 +72,16 @@ contract ChugSplashRecorder {
     /**
      * @param _registryProxy Address of the ChugSplashRegistry proxy.
      */
-    constructor(
-        address _registryProxy,
-        address _registryImpl
-    ) {
+    constructor(address _registryProxy, address _registryImpl) {
         registryProxy = _registryProxy;
         registryImpl = _registryImpl;
     }
 
     function addManager(address _manager) external {
-        require(msg.sender == registryProxy || msg.sender == registryImpl, "ChugSplashRecorder: caller must be registry proxy or impl");
+        require(
+            msg.sender == registryProxy || msg.sender == registryImpl,
+            "ChugSplashRecorder: caller must be registry proxy or impl"
+        );
         managers[ChugSplashManager(payable(address(_manager)))] = true;
     }
 

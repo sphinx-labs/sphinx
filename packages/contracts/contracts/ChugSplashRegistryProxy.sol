@@ -27,7 +27,10 @@ contract ChugSplashRegistryProxy is Proxy {
      * @param _managerImpl Address of the initial ChugSplashManager implementation.
      */
     function initialize(address _managerImpl) public {
-        require(managerImplementation() == address(0), "ChugSplashRegistryProxy: manager impl already initialized");
+        require(
+            managerImplementation() == address(0),
+            "ChugSplashRegistryProxy: manager impl already initialized"
+        );
         assembly {
             sstore(CHUGSPLASH_MANAGER_IMPL_SLOT_KEY, _managerImpl)
         }

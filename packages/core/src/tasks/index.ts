@@ -758,8 +758,7 @@ export const chugsplashDeployAbstractTask = async (
       integration,
       spinner,
       networkName,
-      deploymentFolder,
-      remoteExecution
+      deploymentFolder
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {

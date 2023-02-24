@@ -21,7 +21,11 @@ interface IProxyAdapter {
      * @param _extraData      Extra data to pass to the ProxyUpdater. Will be removed once
      *                        ChugSplash is non-upgradeable.
      */
-    function completeExecution(address payable _proxy, address _implementation, bytes memory _extraData) external;
+    function completeExecution(
+        address payable _proxy,
+        address _implementation,
+        bytes memory _extraData
+    ) external;
 
     /**
      * @notice Replaces a segment of a proxy's storage slot value at a given key and offset. The

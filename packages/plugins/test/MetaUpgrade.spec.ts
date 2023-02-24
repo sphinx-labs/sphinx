@@ -17,7 +17,6 @@ import {
   chugsplashDeployAbstractTask,
   chugsplashManagerConstructorArgs,
   chugsplashTransferOwnershipAbstractTask,
-  getChugSplashManagerImplAddress,
   getCreationCodeWithConstructorArgs,
   getImplAddress,
 } from '@chugsplash/core'

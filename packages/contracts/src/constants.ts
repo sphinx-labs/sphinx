@@ -1,13 +1,10 @@
 import { ethers } from 'ethers'
 
 import {
-  ProxyArtifact,
   DefaultAdapterArtifact,
   ChugSplashBootLoaderArtifact,
   ChugSplashRegistryArtifact,
-  ChugSplashManagerArtifact,
   ChugSplashManagerProxyArtifact,
-  ChugSplashManagerABI,
   ChugSplashRecorderArtifact,
   ProxyABI,
   ProxyInitializerArtifact,

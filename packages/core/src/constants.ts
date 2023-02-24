@@ -24,7 +24,6 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   CHUGSPLASH_RECORDER_ADDRESS,
-  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
 } from '@chugsplash/contracts'
 import { utils } from 'ethers'
 

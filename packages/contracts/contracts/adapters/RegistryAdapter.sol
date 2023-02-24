@@ -6,7 +6,6 @@ import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 import { ChugSplashRegistryProxy } from "../ChugSplashRegistryProxy.sol";
 
-
 /**
  * @title RegistryAdapter
  * @notice Adapter for the ChugSplashRegistry. Will be removed once ChugSplash is non-upgradeable.
@@ -28,7 +27,11 @@ contract RegistryAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation, bytes memory _extraData) external {
+    function completeExecution(
+        address payable _proxy,
+        address _implementation,
+        bytes memory _extraData
+    ) external {
         ChugSplashRegistryProxy(_proxy).upgradeTo(_implementation);
 
         address managerImpl;

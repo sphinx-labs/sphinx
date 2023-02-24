@@ -697,7 +697,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.completeExecution, (proxy, implementation, action.data))
+                abi.encodeCall(
+                    IProxyAdapter.completeExecution,
+                    (proxy, implementation, action.data)
+                )
             );
             require(success, "ChugSplashManager: delegatecall to complete execution failed");
 

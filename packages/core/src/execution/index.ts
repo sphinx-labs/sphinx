@@ -20,7 +20,6 @@ import {
   getCurrentChugSplashActionType,
   getGasPriceOverrides,
   getProjectOwnerAddress,
-  writeSnapshotId,
 } from '../utils'
 
 export const getNumDeployedImplementations = (
@@ -240,7 +239,6 @@ export const postExecutionActions = async (
     integration,
     spinner,
     networkName,
-    deploymentfolderPath,
-    remoteExecution
+    deploymentfolderPath
   )
 }

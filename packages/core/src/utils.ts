@@ -23,7 +23,6 @@ import {
   ProxyABI,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   OZ_UUPS_UPDATER_ADDRESS,
-  ChugSplashManagerArtifact,
   CHUGSPLASH_RECORDER_ADDRESS,
   ChugSplashRecorderABI,
 } from '@chugsplash/contracts'
@@ -41,7 +40,6 @@ import {
   ParsedChugSplashConfig,
   ParsedConfigVariable,
   ParsedConfigVariables,
-  ParsedContractConfig,
   ParsedContractConfigs,
   proxyTypeHashes,
   UserChugSplashConfig,
@@ -52,11 +50,7 @@ import {
   ChugSplashActionType,
   readStorageLayout,
 } from './actions'
-import {
-  chugsplashManagerConstructorArgs,
-  Integration,
-  keywords,
-} from './constants'
+import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
 import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
@@ -206,7 +200,6 @@ export const registerChugSplashProject = async (
 ): Promise<boolean> => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
-  const expectedManager = await ChugSplashRegistry.projects(projectName)
   if (
     (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
   ) {
