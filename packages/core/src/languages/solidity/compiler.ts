@@ -11,7 +11,6 @@ import { providers } from 'ethers'
 import { CanonicalChugSplashConfig } from '../../config/types'
 import {
   ChugSplashActionBundle,
-  getCreationCodeWithConstructorArgs,
   makeActionBundleFromConfig,
 } from '../../actions'
 import {
@@ -21,7 +20,10 @@ import {
   CompilerOutputMetadata,
   CompilerOutputSources,
 } from './types'
-import { addEnumMembersToStorageLayout } from '../../utils'
+import {
+  addEnumMembersToStorageLayout,
+  getCreationCodeWithConstructorArgs,
+} from '../../utils'
 
 export const bundleRemoteSubtask = async (args: {
   provider: providers.Provider
@@ -133,7 +135,7 @@ export const getCanonicalConfigArtifacts = async (
         const creationCodeWithConstructorArgs =
           getCreationCodeWithConstructorArgs(
             add0x(contractOutput.evm.bytecode.object),
-            canonicalConfig,
+            contractConfig.constructorArgs,
             referenceName,
             contractOutput.abi
           )

@@ -10,8 +10,8 @@ import {
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import {
-  ChugSplashRegistryABI,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  ChugSplashRecorderABI,
+  CHUGSPLASH_RECORDER_ADDRESS,
 } from '@chugsplash/contracts'
 import {
   initializeChugSplash,
@@ -98,12 +98,11 @@ export class ChugSplashExecutor extends BaseServiceV2<
       level: options.logLevel,
     })
 
-    const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
-    this.state.registry = new ethers.Contract(
-      reg,
-      ChugSplashRegistryABI,
+    this.state.recorder = new ethers.Contract(
+      CHUGSPLASH_RECORDER_ADDRESS,
+      ChugSplashRecorderABI,
       this.state.provider
     )
     this.state.lastBlockNumber = 0
@@ -188,7 +187,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     integration?: Integration,
     remoteExecution: boolean = true
   ) {
-    const { provider, registry } = this.state
+    const { provider, recorder } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
 
@@ -200,8 +199,8 @@ export class ChugSplashExecutor extends BaseServiceV2<
     }
 
     // Get approval events in blocks after the stored block number
-    const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnounced('ChugSplashBundleApproved'),
+    const newApprovalEvents = await recorder.queryFilter(
+      recorder.filters.EventAnnounced('ChugSplashBundleApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )

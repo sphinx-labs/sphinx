@@ -1,11 +1,14 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
 import {
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  EXECUTION_LOCK_TIME,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  OWNER_BOND_AMOUNT,
+  UserChugSplashConfig,
+  chugsplashManagerConstructorArgs,
+} from '@chugsplash/core'
+import {
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   buildInfo,
+  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+  EXECUTION_LOCK_TIME,
+  OWNER_BOND_AMOUNT,
+  EXECUTOR_PAYMENT_PERCENTAGE,
 } from '@chugsplash/contracts'
 
 const buildInfoPath = `../contracts/artifacts/build-info/${buildInfo.id}.json`
@@ -13,7 +16,6 @@ const buildInfoPath = `../contracts/artifacts/build-info/${buildInfo.id}.json`
 const config: UserChugSplashConfig = {
   options: {
     projectName: 'ChugSplash',
-    // skipStorageCheck: true,
   },
   contracts: {
     RootChugSplashManager: {
@@ -41,8 +43,25 @@ const config: UserChugSplashConfig = {
         activeBundleId: '{preserve}',
         debt: '{preserve}',
       },
+      constructorArgs: chugsplashManagerConstructorArgs,
+    },
+    ChugSplashRegistry: {
+      contract: 'ChugSplashRegistry',
+      externalProxy: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+      externalProxyType: 'internal-registry',
+      previousBuildInfo: buildInfoPath,
+      previousFullyQualifiedName:
+        'contracts/ChugSplashRegistry.sol:ChugSplashRegistry',
+      variables: {
+        _owner: '{preserve}',
+        _initialized: '{preserve}',
+        _initializing: '{preserve}',
+        __gap: '{preserve}',
+        projects: '{preserve}',
+        executors: '{preserve}',
+        recorder: '{preserve}',
+      },
       constructorArgs: {
-        _registry: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
         _executionLockTime: EXECUTION_LOCK_TIME,
         _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
         _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,

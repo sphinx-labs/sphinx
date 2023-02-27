@@ -17,6 +17,9 @@ const config: HardhatUserConfig = {
           '*': ['storageLayout'],
         },
       },
+      metadata: {
+        bytecodeHash: 'none',
+      },
     },
   },
 }

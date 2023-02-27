@@ -1,5 +1,4 @@
-import { remove0x } from '@eth-optimism/core-utils'
-import { ethers, utils } from 'ethers'
+import { ethers } from 'ethers'
 import ora from 'ora'
 
 import { ParsedChugSplashConfig } from '../config/types'
@@ -15,30 +14,8 @@ import {
   readBuildInfo,
   readContractArtifact,
   writeDeploymentArtifact,
-  writeSnapshotId,
 } from '../utils'
 import 'core-js/features/array/at'
-
-export const getCreationCodeWithConstructorArgs = (
-  bytecode: string,
-  parsedConfig: ParsedChugSplashConfig,
-  referenceName: string,
-  abi: any
-): string => {
-  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
-    parsedConfig.contracts[referenceName],
-    referenceName,
-    abi
-  )
-
-  const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(
-      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
-    )
-  )
-
-  return creationCodeWithConstructorArgs
-}
 
 /**
  * Reads the storageLayout portion of the compiler artifact for a given contract. Reads the
@@ -77,17 +54,11 @@ export const createDeploymentArtifacts = async (
   integration: Integration,
   spinner: ora.Ora,
   networkName: string,
-  deploymentFolderPath: string,
-  remoteExecution: boolean
+  deploymentFolderPath: string
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
   createDeploymentFolderForNetwork(networkName, deploymentFolderPath)
-
-  // Save the snapshot ID if we're on the hardhat network.
-  if (!remoteExecution) {
-    await writeSnapshotId(provider, networkName, deploymentFolderPath)
-  }
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -101,7 +72,7 @@ export const createDeploymentArtifacts = async (
     const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const { constructorArgValues } = getConstructorArgs(
-      parsedConfig.contracts[referenceName],
+      parsedConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )

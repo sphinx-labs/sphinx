@@ -4,12 +4,13 @@ pragma solidity ^0.8.9;
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
+import { ChugSplashRegistryProxy } from "../ChugSplashRegistryProxy.sol";
 
 /**
- * @title DefaultAdapter
- * @notice Adapter for the default EIP-1967 proxy used by ChugSplash.
+ * @title RegistryAdapter
+ * @notice Adapter for the ChugSplashRegistry. Will be removed once ChugSplash is non-upgradeable.
  */
-contract DefaultAdapter is IProxyAdapter {
+contract RegistryAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
@@ -26,8 +27,18 @@ contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation) external {
-        Proxy(_proxy).upgradeTo(_implementation);
+    function completeExecution(
+        address payable _proxy,
+        address _implementation,
+        bytes memory _extraData
+    ) external {
+        ChugSplashRegistryProxy(_proxy).upgradeTo(_implementation);
+
+        address managerImpl;
+        assembly {
+            managerImpl := mload(add(_extraData, 20))
+        }
+        ChugSplashRegistryProxy(_proxy).setManagerImpl(managerImpl);
     }
 
     /**

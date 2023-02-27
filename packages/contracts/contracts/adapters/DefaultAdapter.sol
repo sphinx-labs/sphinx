@@ -26,7 +26,11 @@ contract DefaultAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation) external {
+    function completeExecution(
+        address payable _proxy,
+        address _implementation,
+        bytes memory
+    ) external {
         Proxy(_proxy).upgradeTo(_implementation);
     }
 

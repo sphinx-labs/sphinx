@@ -52,6 +52,7 @@ export interface DeployImplementationAction {
  */
 export interface SetImplementationAction {
   referenceName: string
+  extraData: string
 }
 
 /**
