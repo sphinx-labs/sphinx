@@ -20,7 +20,6 @@ import {
   getCurrentChugSplashActionType,
   getGasPriceOverrides,
   getProjectOwnerAddress,
-  writeSnapshotId,
 } from '../utils'
 
 export const getNumDeployedImplementations = (
@@ -232,11 +231,6 @@ export const postExecutionActions = async (
     }
   }
 
-  // Save the snapshot ID if we're on the hardhat network.
-  if (!remoteExecution) {
-    await writeSnapshotId(provider, networkName, deploymentfolderPath)
-  }
-
   await createDeploymentArtifacts(
     provider,
     parsedConfig,
@@ -245,7 +239,6 @@ export const postExecutionActions = async (
     integration,
     spinner,
     networkName,
-    deploymentfolderPath,
-    remoteExecution
+    deploymentfolderPath
   )
 }

@@ -13,6 +13,7 @@ import {
   PayableOverrides,
   BigNumber,
 } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
   ChugSplashRegistryABI,
@@ -20,15 +21,17 @@ import {
   ChugSplashManagerProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
-  OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  OZ_UUPS_PROXY_TYPE_HASH,
+  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   OZ_UUPS_UPDATER_ADDRESS,
+  CHUGSPLASH_RECORDER_ADDRESS,
+  ChugSplashRecorderABI,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
 import yesno from 'yesno'
 import ora from 'ora'
 import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
+import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   CanonicalChugSplashConfig,
@@ -36,15 +39,16 @@ import {
   externalProxyTypes,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
-  ParsedContractConfig,
+  ParsedConfigVariables,
   ParsedContractConfigs,
+  proxyTypeHashes,
   UserChugSplashConfig,
   UserConfigVariable,
 } from './config/types'
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
-  getStorageLayout,
+  readStorageLayout,
 } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
@@ -155,20 +159,27 @@ export const checkIsUpgrade = async (
 }
 
 export const getChugSplashManagerProxyAddress = (projectName: string) => {
-  return utils.getCreate2Address(
-    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    utils.solidityKeccak256(['string'], [projectName]),
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [CHUGSPLASH_REGISTRY_PROXY_ADDRESS, CHUGSPLASH_REGISTRY_PROXY_ADDRESS]
-        ),
-      ]
+  if (projectName === 'ChugSplash') {
+    return ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS
+  } else {
+    return utils.getCreate2Address(
+      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+      utils.solidityKeccak256(['string'], [projectName]),
+      utils.solidityKeccak256(
+        ['bytes', 'bytes'],
+        [
+          ChugSplashManagerProxyArtifact.bytecode,
+          utils.defaultAbiCoder.encode(
+            ['address', 'address'],
+            [
+              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+            ]
+          ),
+        ]
+      )
     )
-  )
+  }
 }
 
 /**
@@ -265,15 +276,6 @@ export const getChugSplashManagerReadOnly = (
     ChugSplashManagerABI,
     provider
   )
-}
-
-export const getChugSplashManagerImplementationAddress = async (
-  signer: Signer
-): Promise<string> => {
-  const ChugSplashRegistryProxy = getChugSplashRegistry(signer)
-  const managerImplementationAddress =
-    await ChugSplashRegistryProxy.managerImplementation()
-  return managerImplementationAddress
 }
 
 export const chugsplashLog = (text: string, silent: boolean) => {
@@ -485,22 +487,30 @@ export const isProjectRegistered = async (
   signer: Signer,
   projectName: string
 ) => {
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const ChugSplashRecorder = new ethers.Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    signer
+  )
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
-  const isRegistered: boolean = await ChugSplashRegistry.managers(
+  const isRegistered: boolean = await ChugSplashRecorder.managers(
     chugsplashManagerAddress
   )
   return isRegistered
 }
 
-export const isDefaultProxy = async (
+export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  const ChugSplashRegistry = getChugSplashRegistry(provider)
+  const ChugSplashRecorder = new Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    provider
+  )
 
-  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
+    ChugSplashRecorder.filters.EventAnnouncedWithData(
       'DefaultProxyDeployed',
       null,
       proxyAddress
@@ -524,7 +534,7 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  if ((await isDefaultProxy(provider, proxyAddress)) === true) {
+  if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
     return false
   }
 
@@ -618,21 +628,6 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const getProxyTypeHash = async (
-  provider: providers.Provider,
-  proxyAddress: string
-): Promise<string> => {
-  if (await isDefaultProxy(provider, proxyAddress)) {
-    return ethers.constants.HashZero
-  } else if (await isUUPSProxy(provider, proxyAddress)) {
-    return OZ_UUPS_PROXY_TYPE_HASH
-  } else if (await isTransparentProxy(provider, proxyAddress)) {
-    return OZ_TRANSPARENT_PROXY_TYPE_HASH
-  } else {
-    throw new Error(`Unsupported proxy type for proxy: ${proxyAddress}`)
-  }
-}
-
 export const setProxiesToReferenceNames = async (
   provider: providers.Provider,
   ChugSplashManager: ethers.Contract,
@@ -646,10 +641,7 @@ export const setProxiesToReferenceNames = async (
     }
 
     const currProxyTypeHash = await ChugSplashManager.proxyTypes(referenceName)
-    const actualProxyTypeHash = await getProxyTypeHash(
-      provider,
-      contractConfig.proxy
-    )
+    const actualProxyTypeHash = proxyTypeHashes[contractConfig.proxyType]
     if (currProxyTypeHash !== actualProxyTypeHash) {
       await ChugSplashManager.setProxyToReferenceName(
         referenceName,
@@ -684,7 +676,8 @@ export const assertValidParsedChugSplashFile = async (
 
   const requiresOwnershipTransfer: {
     name: string
-    address: string
+    proxyAddress: string
+    currentAdminAddress: string
   }[] = []
   let isUpgrade: boolean = false
   for (const [referenceName, contractConfig] of Object.entries(
@@ -723,7 +716,8 @@ export const assertValidParsedChugSplashFile = async (
           // mechanism the UUPS proxy uses.
           requiresOwnershipTransfer.push({
             name: referenceName,
-            address: contractConfig.proxy,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: 'unknown',
           })
         }
       } else {
@@ -735,7 +729,8 @@ export const assertValidParsedChugSplashFile = async (
         if (proxyAdmin !== chugSplashManagerAddress) {
           requiresOwnershipTransfer.push({
             name: referenceName,
-            address: contractConfig.proxy,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: proxyAdmin,
           })
         }
       }
@@ -744,10 +739,11 @@ export const assertValidParsedChugSplashFile = async (
 
   if (requiresOwnershipTransfer.length > 0) {
     throw new Error(
-      `Detected proxy contracts which are not managed by ChugSplash.
-      ${requiresOwnershipTransfer.map(
-        ({ name, address }) => `${name}, ${address}\n`
-      )}
+      `Detected proxy contracts which are not managed by ChugSplash:` +
+        `${requiresOwnershipTransfer.map(
+          ({ name, proxyAddress, currentAdminAddress }) =>
+            `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
+        )}
 
 If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
 npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
@@ -764,8 +760,6 @@ permission to call the 'upgradeTo' function on each of them.
     )) {
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
-      // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
-      // support more granular storage layout config options in the future.
       if (isProxyDeployed) {
         const currStorageLayout = await getLatestDeployedStorageLayout(
           provider,
@@ -776,17 +770,13 @@ permission to call the 'upgradeTo' function on each of them.
           remoteExecution,
           canonicalConfigFolderPath
         )
-        const newStorageLayout = getStorageLayout(
+        const newStorageLayout = readStorageLayout(
           artifactPaths[referenceName].buildInfoPath,
           contractConfig.contract
         )
 
-        assertStorageCompatiblePreserveKeywords(
-          contractConfig,
-          currStorageLayout,
-          newStorageLayout
-        )
-
+        // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
+        // support more granular storage layout config options in the future.
         if (parsedConfig.options.skipStorageCheck !== true) {
           // Run OpenZeppelin's storage slot checker.
           assertStorageUpgradeSafe(
@@ -889,7 +879,8 @@ export const variableContainsPreserveKeyword = (
   } else if (
     typeof variable === 'boolean' ||
     typeof variable === 'number' ||
-    typeof variable === 'string'
+    typeof variable === 'string' ||
+    variable === undefined
   ) {
     return false
   } else {
@@ -1197,26 +1188,27 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
 
 export const addEnumMembersToStorageLayout = (
   storageLayout: SolidityStorageLayout,
-  contractName: string,
-  sourceNodes: any
+  outputSources: any
 ): SolidityStorageLayout => {
   // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
   if (storageLayout.types === null) {
     return storageLayout
   }
 
-  for (const layoutType of Object.values(storageLayout.types)) {
-    if (layoutType.label.startsWith('enum')) {
-      const canonicalVarName = layoutType.label.substring(5)
-      for (const contractNode of sourceNodes) {
-        if (contractNode.canonicalName === contractName) {
-          for (const node of contractNode.nodes) {
-            if (node.canonicalName === canonicalVarName) {
-              layoutType.members = node.members.map((member) => member.name)
-            }
-          }
-        }
+  const deref = astDereferencer(outputSources)
+
+  for (const [typeName, typeDefinition] of Object.entries(
+    storageLayout.types
+  )) {
+    if (typeDefinition.label.startsWith('enum')) {
+      const astId = typeName.split(')').at(-1)
+      if (!astId) {
+        throw new Error(`Could not find AST ID for variable: ${typeName}`)
       }
+      const enumDefinition = deref('EnumDefinition', parseInt(astId, 10))
+      typeDefinition.members = enumDefinition.members.map(
+        (member) => member.name
+      )
     }
   }
   return storageLayout
@@ -1239,48 +1231,124 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   return { abi, bytecode, sourceName, contractName }
 }
 
-export const assertStorageCompatiblePreserveKeywords = (
-  contractConfig: ParsedContractConfig,
-  currStorageLayout: SolidityStorageLayout,
-  newStorageLayout: SolidityStorageLayout
-) => {
-  for (const newStorageObj of newStorageLayout.storage) {
-    const varName = newStorageObj.label
-    if (variableContainsPreserveKeyword(contractConfig.variables[varName])) {
-      const currStorageObj = currStorageLayout.storage.find(
-        (storageObj) => storageObj.label === varName
+/**
+ * Returns the Create2 address of an implementation contract deployed by ChugSplash, which is
+ * calculated as a function of the projectName and the corresponding contract's reference name. Note
+ * that the contract may not yet be deployed at this address since it's calculated via Create2.
+ *
+ * @param projectName Name of the ChugSplash project.
+ * @param referenceName Reference name of the contract that corresponds to the proxy.
+ * @returns Address of the implementation contract.
+ */
+export const getImplAddress = (
+  projectName: string,
+  referenceName: string,
+  creationCodeWithConstructorArgs: string
+): string => {
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+
+  return utils.getCreate2Address(
+    chugSplashManagerAddress,
+    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
+  )
+}
+
+export const getConstructorArgs = (
+  constructorArgs: ParsedConfigVariables,
+  referenceName: string,
+  abi: Array<Fragment>
+): {
+  constructorArgTypes: Array<string>
+  constructorArgValues: ParsedConfigVariable[]
+} => {
+  const constructorArgTypes: Array<string> = []
+  const constructorArgValues: Array<ParsedConfigVariable> = []
+
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+
+  if (constructorFragment === undefined) {
+    if (Object.keys(constructorArgs).length > 0) {
+      throw new Error(
+        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
+          `no constructor exists in the contract.`
       )
-
-      if (currStorageObj === undefined) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" does not exist in \n` +
-            `the previous storage layout. Please remove the '{preserve}' keyword from this variable.`
-        )
-      }
-
-      if (newStorageObj.slot !== currStorageObj.slot) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
-            `storage slot position in the previous storage layout. Please put "${varName}" at the same storage \n` +
-            `position or remove the '{preserve}' keyword from this variable.`
-        )
-      }
-
-      if (newStorageObj.offset !== currStorageObj.offset) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists at a different \n` +
-            `storage slot offset in the previous storage layout. Please put "${varName}" at the same storage \n` +
-            `position or remove the '{preserve}' keyword from this variable.`
-        )
-      }
-
-      if (newStorageObj.type !== currStorageObj.type) {
-        throw new Error(
-          `The variable "${varName}" contains the '{preserve}' keyword, but "${varName}" exists as a different \n` +
-            `type in the previous storage layout. Please remove the '{preserve}' keyword from this variable or \n` +
-            `change its type back to: ${currStorageObj.type}.`
-        )
-      }
+    } else {
+      return { constructorArgTypes, constructorArgValues }
     }
   }
+
+  if (Object.keys(constructorArgs).length > constructorFragment.inputs.length) {
+    const constructorArgNames = constructorFragment.inputs.map(
+      (input) => input.name
+    )
+    const incorrectConstructorArgNames = Object.keys(constructorArgs).filter(
+      (argName) => !constructorArgNames.includes(argName)
+    )
+    throw new Error(
+      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
+        `Please remove the following variables from the 'constructorArgs' field:` +
+        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
+    )
+  }
+
+  constructorFragment.inputs.forEach((input) => {
+    const constructorArgValue = constructorArgs[input.name]
+    if (constructorArgValue === undefined) {
+      throw new Error(
+        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
+          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
+      )
+    }
+    constructorArgTypes.push(input.type)
+    constructorArgValues.push(constructorArgValue)
+  })
+
+  return { constructorArgTypes, constructorArgValues }
+}
+
+export const getCreationCodeWithConstructorArgs = (
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  referenceName: string,
+  abi: any
+): string => {
+  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
+    constructorArgs,
+    referenceName,
+    abi
+  )
+
+  const creationCodeWithConstructorArgs = bytecode.concat(
+    remove0x(
+      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
+    )
+  )
+
+  return creationCodeWithConstructorArgs
+}
+
+/**
+ *
+ * @param promise A promise to wrap in a timeout
+ * @param timeLimit The amount of time to wait for the promise to resolve
+ * @returns The result of the promise, or an error due to the timeout being reached
+ */
+export const callWithTimeout = async <T>(
+  promise: Promise<T>,
+  timeout: number,
+  errorMessage: string
+): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout
+
+  const timeoutPromise = new Promise<T>((_resolve, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeout)
+  })
+
+  return Promise.race([promise, timeoutPromise]).then((result) => {
+    clearTimeout(timeoutHandle)
+    return result
+  })
 }

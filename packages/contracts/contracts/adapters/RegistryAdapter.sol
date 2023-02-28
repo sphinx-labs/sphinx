@@ -4,14 +4,13 @@ pragma solidity ^0.8.9;
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
+import { ChugSplashRegistryProxy } from "../ChugSplashRegistryProxy.sol";
 
 /**
- * @title DefaultAdapter
- * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy. This is the adapter used by
- *         default proxies in the ChugSplash system. To learn more about the transparent proxy
- *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @title RegistryAdapter
+ * @notice Adapter for the ChugSplashRegistry. Will be removed once ChugSplash is non-upgradeable.
  */
-contract OZTransparentAdapter is IProxyAdapter {
+contract RegistryAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
@@ -31,9 +30,15 @@ contract OZTransparentAdapter is IProxyAdapter {
     function completeExecution(
         address payable _proxy,
         address _implementation,
-        bytes memory
+        bytes memory _extraData
     ) external {
-        Proxy(_proxy).upgradeTo(_implementation);
+        ChugSplashRegistryProxy(_proxy).upgradeTo(_implementation);
+
+        address managerImpl;
+        assembly {
+            managerImpl := mload(add(_extraData, 20))
+        }
+        ChugSplashRegistryProxy(_proxy).setManagerImpl(managerImpl);
     }
 
     /**
@@ -45,16 +50,7 @@ contract OZTransparentAdapter is IProxyAdapter {
         uint8 _offset,
         bytes memory _segment
     ) external {
-        // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
-        // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
-        // function doesn't return any data.
-        (bool success, ) = _proxy.call(
-            abi.encodeCall(
-                Proxy.upgradeToAndCall,
-                (proxyUpdater, abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _segment)))
-            )
-        );
-        require(success, "OZTransparentAdapter: call to set storage failed");
+        IProxyUpdater(_proxy).setStorage(_key, _offset, _segment);
     }
 
     /**

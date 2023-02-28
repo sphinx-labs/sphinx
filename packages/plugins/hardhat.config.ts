@@ -20,6 +20,13 @@ const config: HardhatUserConfig = {
           '*': ['storageLayout'],
         },
       },
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      metadata: {
+        bytecodeHash: 'none',
+      },
     },
   },
   networks: {

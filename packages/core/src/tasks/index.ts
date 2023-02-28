@@ -29,7 +29,7 @@ import {
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
   getProjectOwnerAddress,
-  isDefaultProxy,
+  isInternalDefaultProxy,
   isProjectRegistered,
   isTransparentProxy,
   isUUPSProxy,
@@ -365,7 +365,12 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundle = await bundleLocal(parsedConfig, artifactPaths, integration)
+  const bundle = await bundleLocal(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    integration
+  )
 
   const configUri = `ipfs://${ipfsHash}`
   const bundleId = computeBundleId(
@@ -581,7 +586,7 @@ export const chugsplashFundAbstractTask = async (
   const amountToDeposit = autoEstimate
     ? await getAmountToDeposit(
         provider,
-        await bundleLocal(parsedConfig, artifactPaths, integration),
+        await bundleLocal(provider, parsedConfig, artifactPaths, integration),
         0,
         parsedConfig.options.projectName,
         true
@@ -753,8 +758,7 @@ export const chugsplashDeployAbstractTask = async (
       integration,
       spinner,
       networkName,
-      deploymentFolder,
-      remoteExecution
+      deploymentFolder
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
@@ -1522,7 +1526,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   }
 
   if (
-    (await isDefaultProxy(provider, proxy)) === false &&
+    (await isInternalDefaultProxy(provider, proxy)) === false &&
     (await isTransparentProxy(provider, proxy)) === false &&
     (await isUUPSProxy(provider, proxy)) === false
   ) {
@@ -1613,6 +1617,7 @@ export const proposeChugSplashBundle = async (
     )
     // Verify that the bundle has been committed to IPFS with the correct bundle hash.
     await verifyBundle({
+      provider,
       configUri,
       bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
       ipfsUrl,

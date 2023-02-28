@@ -12,6 +12,14 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      outputSelection: {
+        '*': {
+          '*': ['storageLayout'],
+        },
+      },
+      metadata: {
+        bytecodeHash: 'none',
+      },
     },
   },
 }

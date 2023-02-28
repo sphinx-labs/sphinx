@@ -1,9 +1,7 @@
-import { remove0x } from '@eth-optimism/core-utils'
-import { ethers, utils } from 'ethers'
+import { ethers } from 'ethers'
 import ora from 'ora'
-import { Fragment } from 'ethers/lib/utils'
 
-import { ParsedChugSplashConfig, ParsedConfigVariable } from '../config/types'
+import { ParsedChugSplashConfig } from '../config/types'
 import {
   ArtifactPaths,
   SolidityStorageLayout,
@@ -12,94 +10,12 @@ import { Integration } from '../constants'
 import {
   addEnumMembersToStorageLayout,
   createDeploymentFolderForNetwork,
+  getConstructorArgs,
   readBuildInfo,
   readContractArtifact,
   writeDeploymentArtifact,
-  writeSnapshotId,
 } from '../utils'
 import 'core-js/features/array/at'
-
-export const getCreationCodeWithConstructorArgs = (
-  bytecode: string,
-  parsedConfig: ParsedChugSplashConfig,
-  referenceName: string,
-  abi: any
-): string => {
-  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
-    parsedConfig,
-    referenceName,
-    abi
-  )
-
-  const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(
-      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
-    )
-  )
-
-  return creationCodeWithConstructorArgs
-}
-
-export const getConstructorArgs = (
-  parsedConfig: ParsedChugSplashConfig,
-  referenceName: string,
-  abi: Array<Fragment>
-): {
-  constructorArgTypes: Array<string>
-  constructorArgValues: ParsedConfigVariable[]
-} => {
-  const parsedConstructorArgs =
-    parsedConfig.contracts[referenceName].constructorArgs
-
-  const constructorArgTypes: Array<string> = []
-  const constructorArgValues: Array<ParsedConfigVariable> = []
-
-  const constructorFragment = abi.find(
-    (fragment) => fragment.type === 'constructor'
-  )
-
-  if (constructorFragment === undefined) {
-    if (Object.keys(parsedConstructorArgs).length > 0) {
-      throw new Error(
-        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
-          `no constructor exists in the contract.`
-      )
-    } else {
-      return { constructorArgTypes, constructorArgValues }
-    }
-  }
-
-  if (
-    Object.keys(parsedConstructorArgs).length >
-    constructorFragment.inputs.length
-  ) {
-    const constructorArgNames = constructorFragment.inputs.map(
-      (input) => input.name
-    )
-    const incorrectConstructorArgNames = Object.keys(
-      parsedConstructorArgs
-    ).filter((argName) => !constructorArgNames.includes(argName))
-    throw new Error(
-      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
-        `Please remove the following variables from the 'constructorArgs' field:` +
-        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
-    )
-  }
-
-  constructorFragment.inputs.forEach((input) => {
-    const constructorArgValue = parsedConstructorArgs[input.name]
-    if (constructorArgValue === undefined) {
-      throw new Error(
-        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
-          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
-      )
-    }
-    constructorArgTypes.push(input.type)
-    constructorArgValues.push(constructorArgValue)
-  })
-
-  return { constructorArgTypes, constructorArgValues }
-}
 
 /**
  * Reads the storageLayout portion of the compiler artifact for a given contract. Reads the
@@ -109,20 +25,15 @@ export const getConstructorArgs = (
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const getStorageLayout = (
+export const readStorageLayout = (
   buildInfoPath: string,
   contractFullyQualifiedName: string
 ): SolidityStorageLayout => {
   const buildInfo = readBuildInfo(buildInfoPath)
   const [sourceName, contractName] = contractFullyQualifiedName.split(':')
   const contractOutput = buildInfo.output.contracts[sourceName][contractName]
-  const outputSource = buildInfo.output.sources[sourceName]
 
-  addEnumMembersToStorageLayout(
-    contractOutput.storageLayout,
-    contractName,
-    outputSource.ast.nodes
-  )
+  addEnumMembersToStorageLayout(contractOutput.storageLayout, buildInfo.output)
 
   return contractOutput.storageLayout
 }
@@ -143,17 +54,11 @@ export const createDeploymentArtifacts = async (
   integration: Integration,
   spinner: ora.Ora,
   networkName: string,
-  deploymentFolderPath: string,
-  remoteExecution: boolean
+  deploymentFolderPath: string
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
   createDeploymentFolderForNetwork(networkName, deploymentFolderPath)
-
-  // Save the snapshot ID if we're on the hardhat network.
-  if (!remoteExecution) {
-    await writeSnapshotId(provider, networkName, deploymentFolderPath)
-  }
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -167,7 +72,7 @@ export const createDeploymentArtifacts = async (
     const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const { constructorArgValues } = getConstructorArgs(
-      parsedConfig,
+      parsedConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )
@@ -205,7 +110,7 @@ export const createDeploymentArtifacts = async (
       deployedBytecode: await provider.getCode(contractConfig.proxy),
       devdoc,
       userdoc,
-      storageLayout: getStorageLayout(
+      storageLayout: readStorageLayout(
         artifactPaths[referenceName].buildInfoPath,
         contractConfig.contract
       ),

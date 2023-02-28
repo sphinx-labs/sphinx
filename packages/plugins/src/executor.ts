@@ -13,7 +13,7 @@ export const initializeExecutor = async (
   // Setup the executor.
   await executor.setup(
     {
-      privateKey:
+      privateKeys:
         '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       // Passing the log level in when creating executor still does not work as expected.
       // If you attempt to remove this option, the foundry library will fail due to incorrect output to the console.

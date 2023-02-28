@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
@@ -27,6 +28,8 @@ contract ChugSplashBootLoader is Initializable {
      * @notice Address of the root ChugSplashManagerProxy.
      */
     ChugSplashManagerProxy public rootManagerProxy;
+
+    ChugSplashRecorder public recorder;
 
     /**
      * @notice Boots an upgradeable version of ChugSplash with a root ChugSplashManager that owns
@@ -55,10 +58,7 @@ contract ChugSplashBootLoader is Initializable {
         bytes32 _salt
     ) external initializer {
         // Deploy the root ChugSplashManager's proxy.
-        rootManagerProxy = new ChugSplashManagerProxy{ salt: _salt }(
-            ChugSplashRegistry(_registryProxy),
-            address(this)
-        );
+        rootManagerProxy = new ChugSplashManagerProxy{ salt: _salt }(_registryProxy, address(this));
         // Initialize the proxy. Note that we initialize it in a different call from the deployment
         // because this makes it easy to calculate the Create2 address off-chain before it is
         // deployed.
@@ -66,17 +66,27 @@ contract ChugSplashBootLoader is Initializable {
             _managerImplementation,
             abi.encodeCall(ChugSplashManager.initialize, ("Root Manager", _owner))
         );
-        // Transfer ownership of the ChugSplashManagerProxy to the specified owner.
-        rootManagerProxy.changeAdmin(_owner);
+        // Change the admin of the root ChugSplashManagerProxy to itself, since it will be upgrading
+        // itself during meta-upgradeability (i.e. ChugSplash upgrading itself).
+        rootManagerProxy.changeAdmin(address(rootManagerProxy));
 
         // Deploy and initialize the ChugSplashRegistry's implementation contract.
         registryImplementation = new ChugSplashRegistry{ salt: _salt }(
             _ownerBondAmount,
             _executionLockTime,
-            _executorPaymentPercentage,
-            _managerImplementation
+            _executorPaymentPercentage
         );
 
-        registryImplementation.initialize(_owner, new address[](0));
+        recorder = new ChugSplashRecorder{ salt: _salt }(
+            _registryProxy,
+            address(registryImplementation)
+        );
+
+        registryImplementation.initialize(
+            recorder,
+            _owner,
+            address(rootManagerProxy),
+            new address[](0)
+        );
     }
 }

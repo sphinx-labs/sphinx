@@ -8,6 +8,10 @@ import {
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
   getCanonicalConfigArtifacts,
+  INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
+  callWithTimeout,
+  CanonicalChugSplashConfig,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -31,7 +35,6 @@ import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncode
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
   ChugSplashManagerABI,
-  CHUGSPLASH_MANAGER_ADDRESS,
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
@@ -44,7 +47,6 @@ import {
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
   buildInfo,
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
   PROXY_INITIALIZER_ADDRESS,
   ProxyInitializerArtifact,
   DefaultUpdaterArtifact,
@@ -79,7 +81,11 @@ export const verifyChugSplashConfig = async (
     networkName
   )
 
-  const canonicalConfig = await chugsplashFetchSubtask({ configUri })
+  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
+    chugsplashFetchSubtask({ configUri }),
+    30000,
+    'Failed to fetch config file from IPFS'
+  )
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
   const ChugSplashManager = new ethers.Contract(
     getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
@@ -95,7 +101,7 @@ export const verifyChugSplashConfig = async (
       etherscanApiEndpoints,
       etherscanApiKey,
       chugsplashManagerProxyAddress,
-      CHUGSPLASH_MANAGER_ADDRESS,
+      INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
       'ChugSplashManager'
     )
   } catch (err) {
@@ -108,7 +114,7 @@ export const verifyChugSplashConfig = async (
     const artifact = artifacts[referenceName]
     const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
-      canonicalConfig,
+      canonicalConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )
@@ -175,7 +181,7 @@ export const verifyChugSplash = async (
   const contracts = [
     {
       artifact: ChugSplashManagerArtifact,
-      address: CHUGSPLASH_MANAGER_ADDRESS,
+      address: INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
     },
     {
       artifact: ChugSplashBootLoaderArtifact,
@@ -244,7 +250,7 @@ export const verifyChugSplash = async (
     etherscanApiEndpoints,
     etherscanApiKey,
     ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-    CHUGSPLASH_MANAGER_ADDRESS,
+    INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
     'ChugSplashManager'
   )
 }

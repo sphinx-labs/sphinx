@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -8,7 +9,6 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
-import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -17,7 +17,14 @@ import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
  *         find and index these deployments. Deployment names are unique and are reserved on a
  *         first-come, first-served basis.
  */
-contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashRegistry {
+contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
+    /**
+     * @notice The storage slot that holds the address of the ChugSplashManager implementation.
+     *         bytes32(uint256(keccak256('chugsplash.manager.impl')) - 1)
+     */
+    bytes32 internal constant CHUGSPLASH_MANAGER_IMPL_SLOT_KEY =
+        0x7b0358d93596f559fb0a8295e803eca8ad9478a0e8c810ef8867dd1bd7a1cbb1;
+
     /**
      * @notice Emitted whenever a new project is registered.
      *
@@ -40,45 +47,6 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     );
 
     /**
-     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
-     *         registry. We use this to avoid needing a complex indexing system when we're trying
-     *         to find events emitted by the various manager contracts.
-     *
-     * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
-     * @param eventName     Name of the event being announced.
-     */
-    event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
-
-    /**
-     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
-     *         registry, including a field for arbitrary data. We use this to avoid needing a
-     *         complex indexing system when we're trying to find events emitted by the various
-     *         manager contracts.
-     *
-     * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
-     * @param dataHash      Hash of the extra data.
-     * @param eventName     Name of the event being announced.
-     * @param data          The extra data.
-     */
-    event EventAnnouncedWithData(
-        string indexed eventNameHash,
-        address indexed manager,
-        bytes indexed dataHash,
-        string eventName,
-        bytes data
-    );
-
-    /**
-     * @notice Emitted whenever a new proxy type is added.
-     *
-     * @param proxyType Hash representing the proxy type.
-     * @param adapter   Address of the adapter for the proxy.
-     */
-    event ProxyTypeAdded(bytes32 proxyType, address adapter);
-
-    /**
      * @notice Emitted when an executor is added.
      *
      * @param executor Address of the added executor.
@@ -98,24 +66,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     mapping(string => ChugSplashManager) public projects;
 
     /**
-     * @notice Mapping of created manager contracts.
-     */
-    mapping(ChugSplashManager => bool) public managers;
-
-    /**
-     * @notice Mapping of proxy types to adapters.
-     */
-    mapping(bytes32 => address) public adapters;
-
-    /**
-     * @notice Mapping of proxy types to updaters.
-     */
-    mapping(bytes32 => address) public updaters;
-
-    /**
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
+
+    ChugSplashRecorder public recorder;
 
     /**
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
@@ -133,39 +88,44 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
     uint256 public immutable executorPaymentPercentage;
 
     /**
-     * @notice Address of the ChugSplashManager implementation contract.
-     */
-    // TODO: Remove once this contract is not upgradeable anymore.
-    address public immutable managerImplementation;
-
-    /**
      * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
      *                                   order to execute a bundle.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
      *                                   denominated as a percentage.
-     * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      */
     constructor(
         uint256 _ownerBondAmount,
         uint256 _executionLockTime,
-        uint256 _executorPaymentPercentage,
-        address _managerImplementation
+        uint256 _executorPaymentPercentage
     ) {
         ownerBondAmount = _ownerBondAmount;
         executionLockTime = _executionLockTime;
         executorPaymentPercentage = _executorPaymentPercentage;
-        managerImplementation = _managerImplementation;
     }
 
     /**
-     * @param _owner Initial owner of this contract.
-     * @param _executors Array of executors to add.
+     * @param _recorder         Address of the ChugSplashRecorder.
+     * @param _owner            Initial owner of this contract.
+     * @param _rootManagerProxy Address of the root ChugSplashManagerProxy.
+     * @param _executors        Array of executors to add.
      */
-    function initialize(address _owner, address[] memory _executors) public initializer {
+    function initialize(
+        ChugSplashRecorder _recorder,
+        address _owner,
+        address _rootManagerProxy,
+        address[] memory _executors
+    ) public initializer {
+        recorder = _recorder;
+
         __Ownable_init();
         _transferOwnership(_owner);
+
+        // Add the root ChugSplashManager to projects and managers mappings. Will be removed once
+        // ChugSplash is non-upgradeable.
+        projects["ChugSplash"] = ChugSplashManager(payable(_rootManagerProxy));
+        recorder.addManager(_rootManagerProxy);
 
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
@@ -188,7 +148,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
         ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
             salt: keccak256(bytes(_name))
         }(
-            this, // This will be the Registry's proxy address since the Registry will be
+            address(this), // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
             address(this)
         );
@@ -196,67 +156,14 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
         // because this makes it easy to calculate the Create2 address off-chain before it is
         // deployed.
         manager.upgradeToAndCall(
-            managerImplementation,
+            _getManagerImpl(),
             abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
         );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
-        managers[ChugSplashManager(payable(address(manager)))] = true;
+        recorder.addManager(address(manager));
 
         emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
-    }
-
-    /**
-     * @notice Allows ChugSplashManager contracts to announce events.
-     *
-     * @param _event Name of the event to announce.
-     */
-    function announce(string memory _event) public {
-        require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
-        );
-
-        emit EventAnnounced(_event, msg.sender, _event);
-    }
-
-    /**
-     * @notice Allows ChugSplashManager contracts to announce events, including a field for
-     *         arbitrary data.
-     *
-     * @param _event Name of the event to announce.
-     * @param _data  Arbitrary data to include in the announced event.
-     */
-    function announceWithData(string memory _event, bytes memory _data) public {
-        require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
-        );
-
-        emit EventAnnouncedWithData(_event, msg.sender, _data, _event, _data);
-    }
-
-    /**
-     * @notice Adds a new proxy type with a corresponding adapter and updater, which
-     *         can be used to upgrade a custom proxy.
-     *
-     * @param _proxyType Hash representing the proxy type
-     * @param _adapter   Address of the adapter for this proxy type.
-     * @param _updater   Address of the updater for this proxy type.
-     */
-    function addProxyType(bytes32 _proxyType, address _adapter, address _updater) external {
-        require(
-            adapters[_proxyType] == address(0),
-            "ChugSplashRegistry: proxy type has an existing adapter"
-        );
-        require(
-            updaters[_proxyType] == address(0),
-            "ChugSplashRegistry: proxy type has an existing updater"
-        );
-        adapters[_proxyType] = _adapter;
-        updaters[_proxyType] = _updater;
-
-        emit ProxyTypeAdded(_proxyType, _adapter);
     }
 
     /**
@@ -280,5 +187,19 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable, IChugSplashReg
         require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
         executors[_executor] = false;
         emit ExecutorRemoved(_executor);
+    }
+
+    /**
+     * @notice Internal function that gets the ChugSplashManager implementation address. Will only
+     *         return a valid value when this contract is delegatecalled by the
+     *         ChugSplashRegistryProxy. Note that this will be removed when ChugSplash is
+     *         non-upgradeable.
+     */
+    function _getManagerImpl() internal view returns (address) {
+        address impl;
+        assembly {
+            impl := sload(CHUGSPLASH_MANAGER_IMPL_SLOT_KEY)
+        }
+        return impl;
     }
 }

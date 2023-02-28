@@ -18,6 +18,13 @@ const config: UserChugSplashConfig = {
       },
       externalProxy: '0xC469e7aE4aD962c30c7111dc580B4adbc7E914DD',
       externalProxyType: 'oz-transparent',
+      // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
+      // don't create the Network file in the `.openzeppelin/` folder anymore:
+      // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
+      previousBuildInfo:
+        'artifacts/build-info/642a65c7994e24b06b245ad973ffe592.json',
+      previousFullyQualifiedName:
+        'contracts/TransparentUpgradableV1.sol:TransparentUpgradableV1',
     },
   },
 }
