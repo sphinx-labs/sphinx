@@ -1,5 +1,3 @@
-import * as fs from 'fs'
-
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
@@ -294,9 +292,6 @@ export const makeActionBundleFromConfig = async (
         )
       )) === '0x'
     ) {
-      if (referenceName === 'RootChugSplashManager') {
-        fs.writeFileSync('deploy.md', creationCodeWithConstructorArgs)
-      }
       // Add a DEPLOY_IMPLEMENTATION action.
       actions.push({
         referenceName,

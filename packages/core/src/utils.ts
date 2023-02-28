@@ -1247,9 +1247,6 @@ export const getImplAddress = (
 ): string => {
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
-  if (referenceName === 'RootChugSplashManager') {
-    fs.writeFileSync('create2.md', creationCodeWithConstructorArgs)
-  }
   return utils.getCreate2Address(
     chugSplashManagerAddress,
     utils.keccak256(utils.toUtf8Bytes(referenceName)),
