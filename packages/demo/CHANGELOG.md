@@ -1,5 +1,18 @@
 # @chugsplash/demo
 
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies [3b382d9]
+- Updated dependencies [3da5ee8]
+- Updated dependencies [ecef09e]
+- Updated dependencies [3e923a0]
+- Updated dependencies [22c24d2]
+- Updated dependencies [35c7a63]
+  - @chugsplash/core@0.8.0
+  - @chugsplash/plugins@0.13.0
+
 ## 0.4.4
 
 ### Patch Changes

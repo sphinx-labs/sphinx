@@ -1,5 +1,24 @@
 # @chugsplash/executor
 
+## 0.8.0
+
+### Minor Changes
+
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
+
+### Patch Changes
+
+- ecef09e: Improve executor retry policy
+- 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
+- 22c24d2: Add support for parallel execution
+- Updated dependencies [3b382d9]
+- Updated dependencies [3da5ee8]
+- Updated dependencies [ecef09e]
+- Updated dependencies [3e923a0]
+- Updated dependencies [22c24d2]
+- Updated dependencies [35c7a63]
+  - @chugsplash/core@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
