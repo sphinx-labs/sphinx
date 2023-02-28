@@ -14,7 +14,7 @@ You don't need to create a variable definition in your ChugSplash file if you do
 
 ## 2. Define `constructorArgs` in your ChugSplash file
 
-The other option is to define a `constructorArgs` field in your ChugSplash file. For example, say you have the following contract:
+The other option is to define a `constructorArgs` field in your ChugSplash file. This field contains the constructor arguments that correspond to your immutable variables. For example, say you have the following contract:
 
 ```sol
 contract MyContract {
@@ -44,6 +44,8 @@ Your ChugSplash file would be:
 ```
 
 Notice that we assign a value to the constructor argument, `_num`, instead of the variable `myNum`.
+
+The `constructorArgs` field can only be used for immutable variables.
 
 ### Why not use the `variables` field in the ChugSplash file to define immutable variables?
 
