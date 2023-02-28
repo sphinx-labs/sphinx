@@ -1,5 +1,17 @@
 # @chugsplash/contracts
 
+## 0.6.0
+
+### Minor Changes
+
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
+
+### Patch Changes
+
+- 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
+- c76142e: Remove contract unit tests until ChugSplash contracts stabilize
+- 35c7a63: Add meta upgrades for root ChugSplashManager
+
 ## 0.5.2
 
 ### Patch Changes

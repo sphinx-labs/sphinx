@@ -1,22 +1,34 @@
 # ChugSplash
 
-A declarative and deterministic framework for deploying and upgrading smart contracts. Available as a Foundry and Hardhat plugin.
+A declarative and deterministic framework for deploying and upgrading smart contracts. Available for both Hardhat and Foundry.
+
+Powers the [ChugSplash Managed Service](https://www.chugsplash.io).
 
 > **WARNING**: The code and contracts ChugSplash uses to deploy and upgrade your contracts HAVE NOT been audited. ChugSplash is a BETA product undergoing significant active development. ChugSplash's behavior and APIs are subject to change at any time at our discretion. You should not use ChugSplash if you would be very upset with your project breaking without notice. We make no guarantees about the safety of any contract deployments using the ChugSplash system.
 
 If you want to use ChugSplash in production, ask a question, or request a feature then we'd love to hear from you in the [Discord!](https://discord.com/invite/CqUPhgRrxq)
 
-## Key Features
+## Features
 
-- Deploy new upgradeable contracts
-- Upgrade existing contracts
-- Fully deterministic and idempotent deployments
-- Declarative syntax for a better developer experience
-- Compatible with contracts deployed using the [OpenZeppelin Hardhat Upgrades API](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-hardhat-upgrades)
+### ChugSplash Core Protocol
+The Core Protocol includes smart contracts as well as Hardhat and Foundry plugins. All of the code is MIT licensed and is located inside this repository.
+- Define deployments and upgrades [declaratively](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#layout-of-a-chugsplash-file) in a single file, inspired by [Terraform](https://www.terraform.io/).
+- Deployments are fully atomic, deterministic, and idempotent. Deployments cannot be halted for any reason and are finalized in a single transaction.
 - Built-in storage layout safety checker
-- Automatically verifies contracts on Etherscan
-- Deploys contracts at the same addresses across networks via `CREATE2`
+- Deploys contracts at consistent addresses across networks using `CREATE2`
+- Keep track of contract dependencies using simple template syntax (i.e. `{{ MyContract }}`).
 - Generates deployment artifacts in the same format as hardhat-deploy
+- Compatible with contracts deployed using the [OpenZeppelin Hardhat Upgrades API](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-hardhat-upgrades) including both Transparent and UUPS proxies.
+
+### [ChugSplash Managed Service](https://www.chugsplash.io)
+The ChugSplash Managed Service is an optional product built on top of the ChugSplash Core Protocol designed to provide more advanced DevOps functionality for smart contract development teams.
+- Manage projects, contracts, and deployments in a UI
+- Approve deployments/upgrades with a single transaction through the UI
+- No code Github integration. Automatically propose an upgrade to your contracts whenever you push to main. Upgrades are executed after your approval.
+- Automatic Etherscan verification
+- Gasless deployments/upgrades on test networks*
+
+*A small amount of gas is required to approve deployments/upgrades
 
 ## Getting Started
 
@@ -37,15 +49,13 @@ If you want to use ChugSplash in production, ask a question, or request a featur
 - [Importing Contracts from the OpenZeppelin Hardhat Upgrades API](https://github.com/chugsplash/chugsplash/blob/develop/docs/import-openzeppelin.md): Upgrade your existing OpenZeppelin proxies using ChugSplash.
 
 ## Supported Networks
-
-* Ethereum
-* Optimism
-
-Test networks:
 * Ethereum Goerli
 * Optimism Goerli
+* Base Goerli (Etherscan verification not currently supported)
 
 ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
+
+ChugSplash is an experimental product and currently only supports test networks. If you would like to use ChugSplash in production, we'd love to work with you. Please feel free to [join the Discord](https://discord.com/invite/CqUPhgRrxq) and shoot us a message!
 
 ## Maintainers
 
