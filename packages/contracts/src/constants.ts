@@ -45,7 +45,7 @@ export const REGISTRY_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('internal-registry')
 )
 
-export const CHUGSPLASH_SALT = '0x' + '12'.repeat(32)
+export const CHUGSPLASH_SALT = '0x' + '13'.repeat(32)
 
 const [proxyInitializerConstructorFragment] = ProxyInitializerABI.filter(
   (fragment) => fragment.type === 'constructor'
