@@ -9,7 +9,6 @@ This is a reference that explains how to assign values to every variable type in
 - [Signed Integers](#signed-integers-int)
 - [Addresses](#addresses)
 - [Contracts](#contracts)
-- [Contract references](#contract-references)
 - [Fixed-size bytes](#fixed-size-bytes-bytes1-bytes2--bytes32)
 - [Dynamically-sized bytes](#dynamically-sized-bytes)
 - [Strings](#strings)
@@ -57,13 +56,6 @@ MyToken public myToken;
 In your ChugSplash file:
 ```ts
 myContract: '0x2222222222222222222222222222222222222222'
-```
-
-## Contract references
-
-You can use a [contract's reference name](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) to refer to the contract or its address.
-```ts
-myToken: {{ 'MyToken' }} // Reference to the MyToken contract or its address
 ```
 
 ## Fixed-size bytes (`bytes1`, `bytes2`, ..., `bytes32`)
