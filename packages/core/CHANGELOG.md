@@ -1,5 +1,24 @@
 # @chugsplash/core
 
+## 0.8.0
+
+### Minor Changes
+
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
+
+### Patch Changes
+
+- 3b382d9: Remove filesystem calls that were used during debugging
+- ecef09e: Improve executor retry policy
+- 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
+- 22c24d2: Add support for parallel execution
+- 35c7a63: Add meta upgrades for root ChugSplashManager
+- Updated dependencies [3da5ee8]
+- Updated dependencies [3e923a0]
+- Updated dependencies [c76142e]
+- Updated dependencies [35c7a63]
+  - @chugsplash/contracts@0.6.0
+
 ## 0.7.0
 
 ### Minor Changes
