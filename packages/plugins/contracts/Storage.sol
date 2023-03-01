@@ -17,6 +17,7 @@ contract Storage {
     string public longStringTest;
     bytes public bytesTest;
     bytes public longBytesTest;
+    bytes32 public bytes32Test;
     Storage public contractTest;
     TestEnum public enumTest;
     SimpleStruct public simpleStruct;

@@ -2,7 +2,6 @@ import assert from 'assert'
 
 import { ethers } from 'ethers'
 import {
-  CompilerInput,
   getChugSplashManagerProxyAddress,
   getConstructorArgs,
   chugsplashFetchSubtask,
@@ -59,6 +58,7 @@ import {
   OZ_UUPS_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
+import { CompilerInput } from 'hardhat/types'
 
 import { etherscanApiKey as apiKey, customChains } from './constants'
 

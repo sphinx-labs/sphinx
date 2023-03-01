@@ -9,7 +9,6 @@ import {
   TASK_RUN,
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
-import { getChainId } from '@eth-optimism/core-utils'
 import {
   ParsedChugSplashConfig,
   ChugSplashActionBundle,
@@ -56,7 +55,8 @@ import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
-import { getArtifactPaths } from './artifacts'
+import { getArtifactPaths, importOpenZeppelinStorageLayouts } from './artifacts'
+import { isRemoteExecution } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -155,8 +155,7 @@ export const chugsplashDeployTask = async (
   const signerAddress = await signer.getAddress()
   await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
 
-  const remoteExecution =
-    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
+  const remoteExecution = await isRemoteExecution(hre)
 
   let executor: ChugSplashExecutorType | undefined
   if (remoteExecution) {
@@ -180,6 +179,19 @@ export const chugsplashDeployTask = async (
     path.join(hre.config.paths.artifacts, 'build-info')
   )
 
+  const parsedConfig = await readParsedChugSplashConfig(
+    hre.ethers.provider,
+    configPath,
+    artifactPaths,
+    'hardhat'
+  )
+
+  const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
+    hre,
+    parsedConfig,
+    userConfig
+  )
+
   await chugsplashDeployAbstractTask(
     provider,
     signer,
@@ -196,7 +208,8 @@ export const chugsplashDeployTask = async (
     deploymentFolder,
     'hardhat',
     skipStorageCheck,
-    executor
+    executor,
+    openzeppelinStorageLayouts
   )
 }
 
@@ -317,15 +330,19 @@ export const chugsplashProposeTask = async (
     'hardhat'
   )
 
-  const remoteExecution =
-    process.env.FORCE_REMOTE_EXECUTION === 'true'
-      ? true
-      : (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
+  const remoteExecution = await isRemoteExecution(hre)
+
+  const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
+    hre,
+    parsedConfig,
+    userConfig
+  )
 
   await chugsplashProposeAbstractTask(
     provider,
     signer,
     parsedConfig,
+    userConfig,
     configPath,
     ipfsUrl,
     silent,
@@ -334,7 +351,8 @@ export const chugsplashProposeTask = async (
     'hardhat',
     artifactPaths,
     canonicalConfigPath,
-    skipStorageCheck
+    skipStorageCheck,
+    openzeppelinStorageLayouts
   )
 }
 
@@ -376,8 +394,7 @@ export const chugsplashApproveTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution =
-    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
+  const remoteExecution = await isRemoteExecution(hre)
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -643,8 +660,7 @@ export const monitorTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const remoteExecution =
-    (await getChainId(provider)) !== hre.config.networks.hardhat.chainId
+  const remoteExecution = await isRemoteExecution(hre)
 
   const userConfig = readUserChugSplashConfig(configPath)
   const artifactPaths = await getArtifactPaths(
@@ -802,17 +818,14 @@ task(TASK_TEST)
       runSuper
     ) => {
       const { show, noCompile, configPath, skipDeploy } = args
-      const chainId = await getChainId(hre.ethers.provider)
       const signer = hre.ethers.provider.getSigner()
-      const executor =
-        chainId === hre.config.networks.hardhat.chainId
-          ? await signer.getAddress()
-          : EXECUTOR
+      const remoteExecution = await isRemoteExecution(hre)
+      const executor = remoteExecution ? EXECUTOR : await signer.getAddress()
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (chainId === hre.config.networks.hardhat.chainId) {
+      if (!remoteExecution) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -877,14 +890,10 @@ task(TASK_RUN)
       const { deployAll, noCompile } = args
       if (deployAll) {
         const signer = hre.ethers.provider.getSigner()
-        const chainId = await getChainId(hre.ethers.provider)
 
-        const confirm =
-          chainId === hre.config.networks.hardhat.chainId ? true : args.confirm
-        const executor =
-          chainId === hre.config.networks.hardhat.chainId
-            ? await signer.getAddress()
-            : EXECUTOR
+        const remoteExecution = await isRemoteExecution(hre)
+        const confirm = remoteExecution ? args.confirm : true
+        const executor = remoteExecution ? EXECUTOR : await signer.getAddress()
         await initializeChugSplash(hre.ethers.provider, signer, [executor])
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {

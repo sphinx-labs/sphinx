@@ -2,19 +2,19 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 
-import { ParsedChugSplashConfig } from '../config/types'
+import {
+  CanonicalConfigArtifacts,
+  ParsedChugSplashConfig,
+} from '../config/types'
 import { Integration } from '../constants'
 import { computeStorageSlots } from '../languages/solidity/storage'
-import {
-  ArtifactPaths,
-  SolidityStorageLayout,
-} from '../languages/solidity/types'
+import { ArtifactPaths } from '../languages/solidity/types'
 import {
   getImplAddress,
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
+  readBuildInfo,
 } from '../utils'
-import { readStorageLayout } from './artifacts'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -230,16 +230,15 @@ export const bundleLocal = async (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<ChugSplashActionBundle> => {
-  const artifacts = {}
+  const artifacts: CanonicalConfigArtifacts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const storageLayout = readStorageLayout(
-      artifactPaths[referenceName].buildInfoPath,
-      contractConfig.contract
+    const { input, output } = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath
     )
 
-    const { abi, bytecode } = readContractArtifact(
+    const { abi, bytecode, sourceName, contractName } = readContractArtifact(
       artifactPaths[referenceName].contractArtifactPath,
       integration
     )
@@ -250,8 +249,12 @@ export const bundleLocal = async (
       abi
     )
     artifacts[referenceName] = {
+      compilerInput: input,
+      compilerOutput: output,
       creationCodeWithConstructorArgs,
-      storageLayout,
+      abi,
+      sourceName,
+      contractName,
     }
   }
 
@@ -268,19 +271,21 @@ export const bundleLocal = async (
 export const makeActionBundleFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: {
-    [name: string]: {
-      creationCodeWithConstructorArgs: string
-      storageLayout: SolidityStorageLayout
-    }
-  }
+  artifacts: CanonicalConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { storageLayout, creationCodeWithConstructorArgs } =
-      artifacts[referenceName]
+    const {
+      creationCodeWithConstructorArgs,
+      compilerOutput,
+      sourceName,
+      contractName,
+    } = artifacts[referenceName]
+
+    const storageLayout =
+      compilerOutput.contracts[sourceName][contractName].storageLayout
 
     // Skip adding a `DEPLOY_IMPLEMENTATION` action if the implementation has already been deployed.
     if (

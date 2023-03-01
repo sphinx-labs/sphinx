@@ -53,6 +53,10 @@ describe('Storage', () => {
     expect(await MyStorage.longBytesTest()).equals(variables.longBytesTest)
   })
 
+  it('does set bytes32', async () => {
+    expect(await MyStorage.bytes32Test()).equals(variables.bytes32Test)
+  })
+
   it('does set contract', async () => {
     expect(await MyStorage.contractTest()).equals(variables.contractTest)
   })

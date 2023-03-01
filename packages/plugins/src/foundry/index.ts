@@ -120,6 +120,7 @@ const command = args[0]
         provider,
         wallet,
         config,
+        userConfig,
         configPath,
         ipfsUrl,
         silent,
@@ -129,6 +130,7 @@ const command = args[0]
         artifactPaths,
         canonicalConfigPath,
         skipStorageCheck,
+        undefined,
         process.stdout
       )
       break
@@ -304,6 +306,7 @@ const command = args[0]
         'foundry',
         skipStorageCheck,
         executor,
+        undefined,
         logWriter
       )
 

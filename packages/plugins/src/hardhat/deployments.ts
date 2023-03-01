@@ -13,11 +13,12 @@ import {
   readUserChugSplashConfig,
   UserChugSplashConfig,
   getDefaultProxyAddress,
+  readParsedChugSplashConfig,
 } from '@chugsplash/core'
-import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getArtifactPaths } from './artifacts'
+import { getArtifactPaths, importOpenZeppelinStorageLayouts } from './artifacts'
+import { isRemoteExecution } from './utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -49,9 +50,7 @@ export const deployAllChugSplashConfigs = async (
   confirm: boolean,
   fileNames?: string[]
 ) => {
-  const remoteExecution =
-    (await getChainId(hre.ethers.provider)) !==
-    hre.config.networks.hardhat.chainId
+  const remoteExecution = await isRemoteExecution(hre)
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
@@ -77,6 +76,19 @@ export const deployAllChugSplashConfigs = async (
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
+    const parsedConfig = await readParsedChugSplashConfig(
+      hre.ethers.provider,
+      configPath,
+      artifactPaths,
+      'hardhat'
+    )
+
+    const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
+      hre,
+      parsedConfig,
+      userConfig
+    )
+
     const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
       hre.ethers.provider,
@@ -94,7 +106,8 @@ export const deployAllChugSplashConfigs = async (
       deploymentFolder,
       'hardhat',
       true,
-      executor
+      executor,
+      openzeppelinStorageLayouts
     )
   }
 }
@@ -104,10 +117,7 @@ export const getContract = async (
   projectName: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if (
-    (await getChainId(hre.ethers.provider)) !==
-    hre.config.networks.hardhat.chainId
-  ) {
+  if (await isRemoteExecution(hre)) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
   const userConfigs: UserChugSplashConfig[] = fetchFilesRecursively(

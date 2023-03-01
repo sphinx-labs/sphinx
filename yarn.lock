@@ -1493,7 +1493,7 @@
     debug "^4.1.1"
     proper-lockfile "^4.1.1"
 
-"@openzeppelin/upgrades-core@^1.20.0", "@openzeppelin/upgrades-core@^1.20.6":
+"@openzeppelin/upgrades-core@^1.20.0", "@openzeppelin/upgrades-core@^1.20.6", "@openzeppelin/upgrades-core@^1.24.0":
   version "1.24.0"
   resolved "https://registry.yarnpkg.com/@openzeppelin/upgrades-core/-/upgrades-core-1.24.0.tgz#4273a6d77922d0b3d20e09267bd9d2648ccb5cc0"
   integrity sha512-lXf1tUrCZ3Q/YmWhw0cuSSOHMp0OAsmeOg1fhSGEM6nQQ6cIVlFvq2pCV5hZMb7xkOm5pmmzV8JW1W3kfW6Lfw==
