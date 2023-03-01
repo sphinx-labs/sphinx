@@ -39,10 +39,6 @@ const generateRetryEvent = (
   timesToRetry: number = 5,
   waitingPeriodMs?: number
 ): ExecutorEvent | undefined => {
-  if (event.retry >= timesToRetry) {
-    return undefined
-  }
-
   let eventWaitingPeriodMs = waitingPeriodMs
   if (!eventWaitingPeriodMs) {
     eventWaitingPeriodMs = 2 * event.waitingPeriodMs
@@ -53,7 +49,7 @@ const generateRetryEvent = (
   const nextTryDate = new Date(nextTryMs)
   return {
     nextTry: nextTryDate,
-    retry: event.retry + 1,
+    retry: event.retry >= timesToRetry ? -1 : event.retry + 1,
     waitingPeriodMs: eventWaitingPeriodMs,
     event: event.event,
   }
@@ -259,7 +255,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
           activeBundleId
         )
         if (errorBundleState.selectedExecutor !== wallet.address) {
-          logger.info('[ChugSplash]: execution failed due to ')
+          logger.info(
+            '[ChugSplash]: execution failed due to bundle being claimed by another executor'
+          )
           if (remoteExecution) {
             process.send({ action: 'discard', payload: executorEvent })
           }
@@ -303,8 +301,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           await verifyChugSplashConfig(
             proposalEvent.args.configUri,
             rpcProvider,
-            network,
-            activeBundleId
+            network
           )
           logger.info(
             `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`

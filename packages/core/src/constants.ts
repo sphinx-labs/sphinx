@@ -3,7 +3,6 @@ import {
   ChugSplashBootLoaderArtifact,
   ChugSplashManagerProxyArtifact,
   ChugSplashManagerArtifact,
-  ProxyArtifact,
   ProxyInitializerArtifact,
   DefaultAdapterArtifact,
   OZUUPSAdapterArtifact,
@@ -24,6 +23,7 @@ import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   CHUGSPLASH_RECORDER_ADDRESS,
+  ChugSplashRegistryProxyArtifact,
 } from '@chugsplash/contracts'
 import { utils } from 'ethers'
 
@@ -40,7 +40,8 @@ const chugsplashBootLoaderSourceName = ChugSplashBootLoaderArtifact.sourceName
 const chugsplashManagerProxySourceName =
   ChugSplashManagerProxyArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
-const chugsplashRegistyProxySourceName = ProxyArtifact.sourceName
+const chugsplashRegistyProxySourceName =
+  ChugSplashRegistryProxyArtifact.sourceName
 const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
 const OZUUPSAdapterSourceName = OZUUPSAdapterArtifact.sourceName
