@@ -1,6 +1,6 @@
 # ChugSplash File
 
-A ChugSplash file contains all of the information necessary to deploy and upgrade a project. It includes configuration settings, contract definitions, and state variables. ChugSplash files replace deployment scripts, which are used in other tools like [hardhat-deploy](https://github.com/wighawag/hardhat-deploy) and [OpenZeppelin Upgrades](https://docs.openzeppelin.com/upgrades-plugins/1.x/#hardhat-usage).
+A ChugSplash file contains all of the information necessary to deploy and upgrade a project. It includes configuration settings, contract definitions, and state variable definitions. ChugSplash files replace deployment scripts, which are used in other tools like [hardhat-deploy](https://github.com/wighawag/hardhat-deploy) and [OpenZeppelin Upgrades](https://docs.openzeppelin.com/upgrades-plugins/1.x/#hardhat-usage).
 
 > Note: We recommend that you put all of the contracts in a project into a single ChugSplash file. To upgrade contracts in a project, you should modify its existing ChugSplash file. Don't create a new one. You should only create a second ChugSplash file if you're creating a new project that is entirely distinct from the first (i.e. no overlapping contract definitions).
 

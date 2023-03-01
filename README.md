@@ -14,6 +14,7 @@ If you want to use ChugSplash in production, ask a question, or request a featur
 The Core Protocol includes smart contracts as well as Hardhat and Foundry plugins. All of the code is MIT licensed and is located inside this repository.
 - Define deployments and upgrades [declaratively](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#layout-of-a-chugsplash-file) in a single file, inspired by [Terraform](https://www.terraform.io/).
 - Deployments are fully atomic, deterministic, and idempotent. Deployments cannot be halted for any reason and are finalized in a single transaction.
+- Removes the need for initializer functions in your upgradeable contracts
 - Built-in storage layout safety checker
 - Deploys contracts at consistent addresses across networks using `CREATE2`
 - Keep track of contract dependencies using simple template syntax (i.e. `{{ MyContract }}`).
@@ -42,10 +43,12 @@ The ChugSplash Managed Service is an optional product built on top of the ChugSp
 
 - [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define your deployments and upgrades.
 - [Variables Reference](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Reference describing how to assign values to every variable type in a ChugSplash file.
+- [Special Variable Definitions](https://github.com/chugsplash/chugsplash/blob/develop/docs/special-var-defs.md): Explains how to define contract references in your ChugSplash file, and how to preserve the values of variables during an upgrade.
 - [Immutable Variables](https://github.com/chugsplash/chugsplash/blob/develop/docs/immutable-variables.md): How to define immutable variables with ChugSplash.
 - [Storage Layout Safety Checker](https://github.com/chugsplash/chugsplash/blob/develop/docs/storage-checker.md): Explains the type of storage layout errors that ChugSplash automatically detects.
 - [Using ChugSplash on Live Networks](https://github.com/chugsplash/chugsplash/blob/develop/docs/live-network.md): Instructions for using ChugSplash to deploy or upgrade a project on a live network.
 - [Importing Contracts from the OpenZeppelin Hardhat Upgrades API](https://github.com/chugsplash/chugsplash/blob/develop/docs/import-openzeppelin.md): Upgrade your existing OpenZeppelin proxies using ChugSplash.
+- [How ChugSplash Works](https://github.com/chugsplash/chugsplash/blob/develop/docs/how-chugsplash-works.md). A deep dive into the ChugSplash Core Protocol.
 
 ## Supported Networks
 * Ethereum Goerli
