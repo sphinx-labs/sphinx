@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/core",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "ChugSplash core library",
   "main": "dist/index",
   "types": "dist/index",
