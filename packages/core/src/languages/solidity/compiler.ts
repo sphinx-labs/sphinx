@@ -8,7 +8,7 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import { add0x } from '@eth-optimism/core-utils'
 import { providers } from 'ethers'
 
-import { CanonicalChugSplashConfig } from '../../config/types'
+import { CanonicalChugSplashConfig, CanonicalConfigArtifacts } from '../../config/types'
 import {
   ChugSplashActionBundle,
   makeActionBundleFromConfig,
@@ -83,11 +83,10 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   return wasmCompiler
 }
 
-// TODO: `CanonicalConfigArtifact` type
 export const getCanonicalConfigArtifacts = async (
   canonicalConfig: CanonicalChugSplashConfig
 ): Promise<{ [referenceName: string]: any }> => {
-  const compilerOutputs: any[] = []
+  const buildInfoArray: any[] = []
   // Get the compiler output for each compiler input.
   for (const compilerInput of canonicalConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
@@ -117,10 +116,13 @@ export const getCanonicalConfigArtifacts = async (
       }
     }
 
-    compilerOutputs.push(compilerOutput)
+    buildInfoArray.push({
+      ...compilerInput,
+      output: compilerOutput,
+    })
   }
 
-  const artifacts = {}
+  const artifacts: CanonicalConfigArtifacts = {}
   // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts

@@ -1,4 +1,5 @@
 import { Fragment } from 'ethers/lib/utils'
+import { SourceUnit } from 'solidity-ast'
 
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the structure of
@@ -76,8 +77,15 @@ export interface CompilerInput {
   }
 }
 
+export type BuildInfo = {
+  id: string
+  solcVersion: string
+  solcLongVersion: string
+  input: CompilerInput
+  output: CompilerOutput
+}
+
 // TODO
-export type BuildInfo = any
 export type ContractASTNode = any
 
 export type ContractArtifact = {
@@ -123,11 +131,7 @@ export interface CompilerOutput {
 
 export interface CompilerOutputSource {
   id: number
-  ast: {
-    id: number
-    exportedSymbols: { [contractName: string]: number[] }
-    nodes?: any
-  }
+  ast: SourceUnit
 }
 
 export interface CompilerOutputSources {

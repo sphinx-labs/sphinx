@@ -22,7 +22,7 @@ import {
 import 'core-js/features/array/at'
 import { readStorageLayout } from './actions/artifacts'
 
-export const getLatestDeployedCanonicalConfig = async (
+export const getPreviousCanonicalConfig = async (
   provider: providers.Provider,
   proxyAddress: string,
   remoteExecution: boolean,
@@ -114,7 +114,7 @@ export const getLatestDeployedCanonicalConfig = async (
  * If we detect a 'previousBuildInfo' path as well as a previous deployment using ChugSplash, we log
  * a warning to the user and use the storage layout at 'previousBuildInfo'.
  */
-export const getLatestDeployedStorageLayout = async (
+export const getPreviousStorageLayout = async (
   provider: providers.Provider,
   referenceName: string,
   proxyAddress: string,
@@ -122,8 +122,8 @@ export const getLatestDeployedStorageLayout = async (
   artifactPaths: ArtifactPaths,
   remoteExecution: boolean,
   canonicalConfigFolderPath: string
-): Promise<SolidityStorageLayout> => {
-  const deployedCanonicalConfig = await getLatestDeployedCanonicalConfig(
+): Promise<SolidityStorageLayout | undefined> => {
+  const deployedCanonicalConfig = await getPreviousCanonicalConfig(
     provider,
     proxyAddress,
     remoteExecution,
@@ -181,9 +181,4 @@ export const getLatestDeployedStorageLayout = async (
       return implDeployment.layout as unknown as SolidityStorageLayout
     }
   }
-
-  throw new Error(
-    `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
-      `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash file.`
-  )
 }

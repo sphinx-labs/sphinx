@@ -5,8 +5,9 @@ import {
   REGISTRY_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { constants } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
 
-import { CompilerInput } from '../languages/solidity/types'
+import { CompilerInput, SolidityStorageLayout } from '../languages/solidity/types'
 
 export const externalProxyTypes = [
   'oz-transparent',
@@ -130,4 +131,14 @@ export type ChugSplashInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
+}
+
+export type CanonicalConfigArtifacts = {
+  [referenceName: string]: {
+    creationCodeWithConstructorArgs: string
+    storageLayout: SolidityStorageLayout
+    abi: Array<Fragment>
+    sourceName: string
+    contractName: string
+  }
 }

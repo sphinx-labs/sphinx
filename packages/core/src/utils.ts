@@ -30,7 +30,18 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { remove0x } from '@eth-optimism/core-utils'
 import yesno from 'yesno'
 import ora from 'ora'
-import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
+import {
+  assertStorageUpgradeSafe,
+<<<<<<< Updated upstream
+  ProxyDeployment,
+  StorageLayout,
+  UpgradeableContract,
+  ValidationOptions,
+=======
+  StorageLayout,
+  UpgradeableContract,
+>>>>>>> Stashed changes
+} from '@openzeppelin/upgrades-core'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
@@ -41,6 +52,7 @@ import {
   ParsedConfigVariable,
   ParsedConfigVariables,
   ParsedContractConfigs,
+  ProxyType,
   proxyTypeHashes,
   UserChugSplashConfig,
   UserConfigVariable,
@@ -52,7 +64,7 @@ import {
 } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
-import { getLatestDeployedStorageLayout } from './deployed'
+import { getPreviousStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
@@ -61,7 +73,10 @@ import {
   ContractASTNode,
   CompilerOutputSources,
   SolidityStorageLayout,
+  CompilerOutput,
 } from './languages/solidity/types'
+
+import { CompilerInput } from 'hardhat/types'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -761,7 +776,7 @@ permission to call the 'upgradeTo' function on each of them.
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
       if (isProxyDeployed) {
-        const currStorageLayout = await getLatestDeployedStorageLayout(
+        const currStorageLayout = await getPreviousStorageLayout(
           provider,
           referenceName,
           contractConfig.proxy,
@@ -1351,4 +1366,52 @@ export const callWithTimeout = async <T>(
     clearTimeout(timeoutHandle)
     return result
   })
+}
+
+export const toOpenZeppelinProxyType = (
+  proxyType: ProxyType
+): ProxyDeployment['kind'] => {
+  if (
+    proxyType === 'internal-default' ||
+    proxyType === 'external-default' ||
+    proxyType === 'oz-transparent' ||
+    proxyType === 'internal-registry'
+  ) {
+    return 'transparent'
+  } else if (proxyType === 'oz-uups') {
+    return 'uups'
+  } else {
+    throw new Error(
+      `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
+    )
+  }
+}
+
+export const getOpenZeppelinValidationOpts = (
+  proxyType: ProxyType
+): Required<ValidationOptions> => {
+  return {
+    kind: toOpenZeppelinProxyType(proxyType),
+    unsafeAllow: [],
+    unsafeAllowCustomTypes: false,
+    unsafeAllowLinkedLibraries: false,
+    unsafeAllowRenames: false,
+    unsafeSkipStorageCheck: false,
+  }
+}
+
+export const getOpenZeppelinStorageLayout = (
+  fullyQualifiedName: string,
+  compilerInput: CompilerInput,
+  compilerOutput: CompilerOutput,
+  proxyType: ProxyType
+): StorageLayout => {
+  const contract = new UpgradeableContract(
+    fullyQualifiedName,
+    compilerInput,
+    compilerOutput,
+    getOpenZeppelinValidationOpts(proxyType)
+  )
+
+  return contract.layout
 }
