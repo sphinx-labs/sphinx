@@ -305,7 +305,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           switch (message.action) {
             // on retry, put the new event back into the queue
             case 'retry':
-              if (message.payload === undefined) {
+              if (message.payload.retry === -1) {
                 this.logger.info(
                   '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
                 )

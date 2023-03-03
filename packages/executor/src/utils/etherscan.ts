@@ -37,7 +37,7 @@ import {
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
-  ProxyArtifact,
+  ChugSplashRegistryProxyArtifact,
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ChugSplashManagerProxyArtifact,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
@@ -73,8 +73,7 @@ export const RESPONSE_OK = '1'
 export const verifyChugSplashConfig = async (
   configUri: string,
   provider: ethers.providers.Provider,
-  networkName: string,
-  bundleId: string
+  networkName: string
 ) => {
   const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
     provider,
@@ -119,12 +118,7 @@ export const verifyChugSplashConfig = async (
       abi
     )
     const implementationAddress = await ChugSplashManager.implementations(
-      ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ['bytes32', 'string'],
-          [bundleId, referenceName]
-        )
-      )
+      ethers.utils.solidityKeccak256(['string'], [referenceName])
     )
 
     const { input, solcVersion } = canonicalConfig.inputs.find(
@@ -195,7 +189,10 @@ export const verifyChugSplash = async (
     },
     { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
     { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
-    { artifact: ProxyArtifact, address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS },
+    {
+      artifact: ChugSplashRegistryProxyArtifact,
+      address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    },
     {
       artifact: ChugSplashManagerProxyArtifact,
       address: ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,

@@ -1,5 +1,12 @@
 # @chugsplash/core
 
+## 0.8.1
+
+### Patch Changes
+
+- 6b3e2ed: Fix Etherscan verification constructor args
+- 6b3e2ed: Fix contract verification constructor args
+
 ## 0.8.0
 
 ### Minor Changes
