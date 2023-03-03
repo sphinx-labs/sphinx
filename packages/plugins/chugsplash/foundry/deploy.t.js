@@ -9,6 +9,7 @@ const variables = {
   longStringTest:
     'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
   bytesTest: '0xabcd1234',
+  bytes32Test: '0x' + '11'.repeat(32),
   longBytesTest:
     '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
   contractTest: '0x' + '11'.repeat(20),

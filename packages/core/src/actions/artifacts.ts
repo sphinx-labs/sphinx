@@ -8,13 +8,13 @@ import {
 } from '../languages/solidity/types'
 import { Integration } from '../constants'
 import {
-  addEnumMembersToStorageLayout,
   createDeploymentFolderForNetwork,
   getConstructorArgs,
   readBuildInfo,
   readContractArtifact,
   writeDeploymentArtifact,
 } from '../utils'
+
 import 'core-js/features/array/at'
 
 /**
@@ -32,8 +32,6 @@ export const readStorageLayout = (
   const buildInfo = readBuildInfo(buildInfoPath)
   const [sourceName, contractName] = contractFullyQualifiedName.split(':')
   const contractOutput = buildInfo.output.contracts[sourceName][contractName]
-
-  addEnumMembersToStorageLayout(contractOutput.storageLayout, buildInfo.output)
 
   return contractOutput.storageLayout
 }

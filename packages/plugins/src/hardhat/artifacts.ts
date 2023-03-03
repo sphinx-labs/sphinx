@@ -1,7 +1,21 @@
 import path from 'path'
 
-import { BuildInfo, HardhatRuntimeEnvironment } from 'hardhat/types'
-import { ArtifactPaths, UserContractConfigs } from '@chugsplash/core'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  ArtifactPaths,
+  ParsedChugSplashConfig,
+  UserChugSplashConfig,
+  UserContractConfigs,
+  getEIP1967ProxyImplementationAddress,
+  getOpenZeppelinValidationOpts,
+  BuildInfo,
+} from '@chugsplash/core'
+import {
+  Manifest,
+  getStorageLayoutForAddress,
+  StorageLayout,
+} from '@openzeppelin/upgrades-core'
+import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
 
 /**
  * Retrieves contract build info by name.
@@ -15,7 +29,7 @@ export const getBuildInfo = async (
   sourceName: string,
   contractName: string
 ): Promise<BuildInfo> => {
-  let buildInfo: BuildInfo | undefined
+  let buildInfo
   try {
     buildInfo = await hre.artifacts.getBuildInfo(
       `${sourceName}:${contractName}`
@@ -79,4 +93,48 @@ export const getArtifactPaths = async (
     }
   }
   return artifactPaths
+}
+
+/**
+ * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
+ * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
+ */
+export const importOpenZeppelinStorageLayouts = async (
+  hre: HardhatRuntimeEnvironment,
+  parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig
+): Promise<{ [referenceName: string]: StorageLayout }> => {
+  const layouts: { [referenceName: string]: StorageLayout } = {}
+
+  for (const [referenceName, parsedContractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const isProxyDeployed = await hre.ethers.provider.getCode(
+      parsedContractConfig.proxy
+    )
+    const { externalProxyType } = userConfig.contracts[referenceName]
+    if (
+      isProxyDeployed &&
+      (externalProxyType === 'oz-transparent' ||
+        externalProxyType === 'oz-uups')
+    ) {
+      const manifest = await Manifest.forNetwork(hre.network.provider)
+      const deployData = await getDeployData(
+        hre,
+        await hre.ethers.getContractFactory(parsedContractConfig.contract),
+        getOpenZeppelinValidationOpts(parsedContractConfig.proxyType)
+      )
+      const storageLayout = await getStorageLayoutForAddress(
+        manifest,
+        deployData.validations,
+        await getEIP1967ProxyImplementationAddress(
+          hre.ethers.provider,
+          parsedContractConfig.proxy
+        )
+      )
+      layouts[referenceName] = storageLayout
+    }
+  }
+
+  return layouts
 }

@@ -27,41 +27,50 @@ import {
   ChugSplashRecorderABI,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
-import { remove0x } from '@eth-optimism/core-utils'
+import { add0x, remove0x } from '@eth-optimism/core-utils'
 import yesno from 'yesno'
 import ora from 'ora'
-import { assertStorageUpgradeSafe } from '@openzeppelin/upgrades-core'
-import { astDereferencer } from 'solidity-ast/utils'
+import {
+  assertStorageUpgradeSafe,
+  ProxyDeployment,
+  StorageLayout,
+  UpgradeableContract,
+  ValidationOptions,
+} from '@openzeppelin/upgrades-core'
+import { ContractDefinition } from 'solidity-ast'
+import { CompilerInput, SolcBuild } from 'hardhat/types'
+import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CanonicalChugSplashConfig,
+  CanonicalConfigArtifacts,
   ExternalProxyType,
   externalProxyTypes,
   ParsedChugSplashConfig,
   ParsedConfigVariable,
   ParsedConfigVariables,
+  ParsedContractConfig,
   ParsedContractConfigs,
+  ProxyType,
   proxyTypeHashes,
   UserChugSplashConfig,
   UserConfigVariable,
+  UserContractConfig,
 } from './config/types'
-import {
-  ChugSplashActionBundle,
-  ChugSplashActionType,
-  readStorageLayout,
-} from './actions'
+import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
 import { Integration, keywords } from './constants'
 import 'core-js/features/array/at'
-import { getLatestDeployedStorageLayout } from './deployed'
 import { FoundryContractArtifact } from './types'
 import {
   ArtifactPaths,
-  BuildInfo,
   ContractArtifact,
   ContractASTNode,
   CompilerOutputSources,
-  SolidityStorageLayout,
+  BuildInfo,
+  CompilerOutput,
 } from './languages/solidity/types'
+import { chugsplashFetchSubtask } from './config'
+import { getSolcBuild } from './languages'
 
 export const computeBundleId = (
   bundleRoot: string,
@@ -658,11 +667,13 @@ export const assertValidParsedChugSplashFile = async (
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  remoteExecution: boolean,
   canonicalConfigFolderPath: string,
-  skipStorageCheck: boolean,
+  remoteExecution: boolean,
   confirm: boolean,
-  spinner?: ora.Ora
+  spinner?: ora.Ora,
+  openzeppelinStorageLayouts?: {
+    [referenceName: string]: StorageLayout
+  }
 ) => {
   // Determine if the deployment is an upgrade
   const projectName = parsedConfig.options.projectName
@@ -761,18 +772,25 @@ permission to call the 'upgradeTo' function on each of them.
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
       if (isProxyDeployed) {
-        const currStorageLayout = await getLatestDeployedStorageLayout(
+        const userContractConfig = userConfig.contracts[referenceName]
+        const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
           provider,
           referenceName,
-          contractConfig.proxy,
-          userConfig,
-          artifactPaths,
+          contractConfig,
+          userContractConfig,
           remoteExecution,
-          canonicalConfigFolderPath
+          canonicalConfigFolderPath,
+          openzeppelinStorageLayouts
         )
-        const newStorageLayout = readStorageLayout(
-          artifactPaths[referenceName].buildInfoPath,
-          contractConfig.contract
+
+        const { input, output } = readBuildInfo(
+          artifactPaths[referenceName].buildInfoPath
+        )
+        const newStorageLayout = getOpenZeppelinStorageLayout(
+          contractConfig.contract,
+          input,
+          output,
+          contractConfig.proxyType
         )
 
         // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
@@ -780,9 +798,9 @@ permission to call the 'upgradeTo' function on each of them.
         if (parsedConfig.options.skipStorageCheck !== true) {
           // Run OpenZeppelin's storage slot checker.
           assertStorageUpgradeSafe(
-            currStorageLayout as any,
-            newStorageLayout as any,
-            false
+            previousStorageLayout,
+            newStorageLayout,
+            getOpenZeppelinValidationOpts(contractConfig.proxyType)
           )
         }
       }
@@ -968,9 +986,15 @@ export const assertValidContracts = (
     const outputSource = buildInfo.output.sources[sourceName]
 
     const childContractNode = outputSource.ast.nodes.find(
-      (node) =>
+      (node): node is ContractDefinition =>
         node.nodeType === 'ContractDefinition' && node.name === contractName
     )
+
+    if (childContractNode === undefined) {
+      throw new Error(
+        `Could not find the child contract node for "${referenceName}"`
+      )
+    }
 
     const parentContractNodeAstIds =
       childContractNode.linearizedBaseContracts.filter(
@@ -1186,34 +1210,6 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
   return buildInfo
 }
 
-export const addEnumMembersToStorageLayout = (
-  storageLayout: SolidityStorageLayout,
-  outputSources: any
-): SolidityStorageLayout => {
-  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
-  if (storageLayout.types === null) {
-    return storageLayout
-  }
-
-  const deref = astDereferencer(outputSources)
-
-  for (const [typeName, typeDefinition] of Object.entries(
-    storageLayout.types
-  )) {
-    if (typeDefinition.label.startsWith('enum')) {
-      const astId = typeName.split(')').at(-1)
-      if (!astId) {
-        throw new Error(`Could not find AST ID for variable: ${typeName}`)
-      }
-      const enumDefinition = deref('EnumDefinition', parseInt(astId, 10))
-      typeDefinition.members = enumDefinition.members.map(
-        (member) => member.name
-      )
-    }
-  }
-  return storageLayout
-}
-
 /**
  * Retrieves artifact info from foundry artifacts and returns it in hardhat compatible format.
  *
@@ -1351,4 +1347,298 @@ export const callWithTimeout = async <T>(
     clearTimeout(timeoutHandle)
     return result
   })
+}
+
+export const toOpenZeppelinProxyType = (
+  proxyType: ProxyType
+): ProxyDeployment['kind'] => {
+  if (
+    proxyType === 'internal-default' ||
+    proxyType === 'external-default' ||
+    proxyType === 'oz-transparent' ||
+    proxyType === 'internal-registry'
+  ) {
+    return 'transparent'
+  } else if (proxyType === 'oz-uups') {
+    return 'uups'
+  } else {
+    throw new Error(
+      `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
+    )
+  }
+}
+
+export const getOpenZeppelinValidationOpts = (
+  proxyType: ProxyType
+): Required<ValidationOptions> => {
+  return {
+    kind: toOpenZeppelinProxyType(proxyType),
+    unsafeAllow: [],
+    unsafeAllowCustomTypes: false,
+    unsafeAllowLinkedLibraries: false,
+    unsafeAllowRenames: false,
+    unsafeSkipStorageCheck: false,
+  }
+}
+
+export const getOpenZeppelinStorageLayout = (
+  fullyQualifiedName: string,
+  compilerInput: CompilerInput,
+  compilerOutput: CompilerOutput,
+  proxyType: ProxyType
+): StorageLayout => {
+  const contract = new UpgradeableContract(
+    fullyQualifiedName,
+    compilerInput,
+    // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
+    // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
+    // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
+    // `CompilerOutput`, which is what OpenZeppelin expects.
+    compilerOutput as any,
+    getOpenZeppelinValidationOpts(proxyType)
+  )
+
+  return contract.layout
+}
+
+/**
+ * Get the most recent storage layout for the given reference name. Uses OpenZeppelin's
+ * StorageLayout format for consistency.
+ *
+ * When retrieving the storage layout, this function uses the following order of priority (from
+ * highest to lowest):
+ * 1. The 'previousBuildInfo' and 'previousFullyQualifiedName' fields if both have been declared by
+ * the user.
+ * 2. The latest deployment in the ChugSplash system for the proxy address that corresponds to the
+ * reference name.
+ * 3. OpenZeppelin's Network File if the proxy is an OpenZeppelin proxy type
+ *
+ * If (1) and (2) above are both satisfied, we log a warning to the user and default to using the
+ * storage layout located at 'previousBuildInfo'.
+ */
+export const getPreviousStorageLayoutOZFormat = async (
+  provider: providers.Provider,
+  referenceName: string,
+  parsedContractConfig: ParsedContractConfig,
+  userContractConfig: UserContractConfig,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string,
+  openzeppelinStorageLayouts?: {
+    [referenceName: string]: StorageLayout
+  }
+): Promise<StorageLayout> => {
+  if ((await provider.getCode(parsedContractConfig.proxy)) === '0x') {
+    throw new Error(
+      `Proxy has not been deployed for the contract: ${referenceName}.`
+    )
+  }
+
+  const previousCanonicalConfig = await getPreviousCanonicalConfig(
+    provider,
+    parsedContractConfig.proxy,
+    remoteExecution,
+    canonicalConfigFolderPath
+  )
+
+  if (
+    userContractConfig.previousFullyQualifiedName !== undefined &&
+    userContractConfig.previousBuildInfo !== undefined
+  ) {
+    const { input, output } = readBuildInfo(
+      userContractConfig.previousBuildInfo
+    )
+
+    if (previousCanonicalConfig !== undefined) {
+      console.warn(
+        '\x1b[33m%s\x1b[0m', // Display message in yellow
+        `\nUsing the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
+          `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash file.`
+      )
+    }
+
+    return getOpenZeppelinStorageLayout(
+      userContractConfig.previousFullyQualifiedName,
+      input,
+      output,
+      parsedContractConfig.proxyType
+    )
+  } else if (previousCanonicalConfig !== undefined) {
+    const prevCanonicalConfigArtifacts = await getCanonicalConfigArtifacts(
+      previousCanonicalConfig
+    )
+    const { sourceName, contractName, compilerInput, compilerOutput } =
+      prevCanonicalConfigArtifacts[referenceName]
+    return getOpenZeppelinStorageLayout(
+      `${sourceName}:${contractName}`,
+      compilerInput,
+      compilerOutput,
+      parsedContractConfig.proxyType
+    )
+  } else if (openzeppelinStorageLayouts?.[referenceName] !== undefined) {
+    return openzeppelinStorageLayouts[referenceName]
+  } else {
+    throw new Error(
+      `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
+        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash file.`
+    )
+  }
+}
+
+export const getPreviousCanonicalConfig = async (
+  provider: providers.Provider,
+  proxyAddress: string,
+  remoteExecution: boolean,
+  canonicalConfigFolderPath: string
+): Promise<CanonicalChugSplashConfig | undefined> => {
+  const ChugSplashRecorder = new Contract(
+    CHUGSPLASH_RECORDER_ADDRESS,
+    ChugSplashRecorderABI,
+    provider
+  )
+
+  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
+    ChugSplashRecorder.filters.EventAnnouncedWithData(
+      'ChugSplashActionExecuted',
+      null,
+      proxyAddress
+    )
+  )
+
+  if (actionExecutedEvents.length === 0) {
+    return undefined
+  }
+
+  const latestRegistryEvent = actionExecutedEvents.at(-1)
+
+  if (latestRegistryEvent === undefined) {
+    return undefined
+  } else if (latestRegistryEvent.args === undefined) {
+    throw new Error(`ChugSplashActionExecuted event has no args.`)
+  }
+
+  const ChugSplashManager = new Contract(
+    latestRegistryEvent.args.manager,
+    ChugSplashManagerABI,
+    provider
+  )
+
+  const latestExecutionEvent = (
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashActionExecuted(null, proxyAddress)
+    )
+  ).at(-1)
+
+  if (latestExecutionEvent === undefined) {
+    throw new Error(
+      `ChugSplashActionExecuted event detected in registry but not in manager contract`
+    )
+  } else if (latestExecutionEvent.args === undefined) {
+    throw new Error(`ChugSplashActionExecuted event has no args.`)
+  }
+
+  const latestProposalEvent = (
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashBundleProposed(
+        latestExecutionEvent.args.bundleId
+      )
+    )
+  ).at(-1)
+
+  if (latestProposalEvent === undefined) {
+    throw new Error(
+      `ChugSplashManager emitted a ChugSplashActionExecuted event but not a ChugSplashBundleProposed event`
+    )
+  } else if (latestProposalEvent.args === undefined) {
+    throw new Error(`ChugSplashBundleProposed event does not have args`)
+  }
+
+  if (remoteExecution) {
+    return callWithTimeout<CanonicalChugSplashConfig>(
+      chugsplashFetchSubtask({ configUri: latestProposalEvent.args.configUri }),
+      30000,
+      'Failed to fetch config file from IPFS'
+    )
+  } else {
+    return readCanonicalConfig(
+      canonicalConfigFolderPath,
+      latestProposalEvent.args.configUri
+    )
+  }
+}
+
+export const getCanonicalConfigArtifacts = async (
+  canonicalConfig: CanonicalChugSplashConfig
+): Promise<CanonicalConfigArtifacts> => {
+  const solcArray: {
+    compilerInput: CompilerInput
+    compilerOutput: CompilerOutput
+  }[] = []
+  // Get the compiler output for each compiler input.
+  for (const chugsplashInput of canonicalConfig.inputs) {
+    const solcBuild: SolcBuild = await getSolcBuild(chugsplashInput.solcVersion)
+    let compilerOutput: CompilerOutput
+    if (solcBuild.isSolcJs) {
+      const compiler = new Compiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(chugsplashInput.input)
+    } else {
+      const compiler = new NativeCompiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(chugsplashInput.input)
+    }
+
+    if (compilerOutput.errors) {
+      const formattedErrorMessages: string[] = []
+      compilerOutput.errors.forEach((error) => {
+        // Ignore warnings thrown by the compiler.
+        if (error.type.toLowerCase() !== 'warning') {
+          formattedErrorMessages.push(error.formattedMessage)
+        }
+      })
+
+      if (formattedErrorMessages.length > 0) {
+        throw new Error(
+          `Failed to compile. Please report this error to ChugSplash.\n` +
+            `${formattedErrorMessages}`
+        )
+      }
+    }
+
+    solcArray.push({
+      compilerInput: chugsplashInput.input,
+      compilerOutput,
+    })
+  }
+
+  const artifacts: CanonicalConfigArtifacts = {}
+  // Generate an artifact for each contract in the ChugSplash config.
+  for (const [referenceName, contractConfig] of Object.entries(
+    canonicalConfig.contracts
+  )) {
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    for (const { compilerInput, compilerOutput } of solcArray) {
+      const contractOutput =
+        compilerOutput.contracts?.[sourceName]?.[contractName]
+      if (contractOutput !== undefined) {
+        const creationCodeWithConstructorArgs =
+          getCreationCodeWithConstructorArgs(
+            add0x(contractOutput.evm.bytecode.object),
+            contractConfig.constructorArgs,
+            referenceName,
+            contractOutput.abi
+          )
+
+        artifacts[referenceName] = {
+          creationCodeWithConstructorArgs,
+          abi: contractOutput.abi,
+          compilerInput,
+          compilerOutput,
+          sourceName,
+          contractName,
+        }
+      }
+    }
+  }
+  return artifacts
 }

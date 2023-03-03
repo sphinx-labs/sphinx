@@ -1,11 +1,9 @@
-import { SolcBuild } from 'hardhat/types'
+import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { getCompilersDir } from 'hardhat/internal/util/global-dir'
 import {
   CompilerDownloader,
   CompilerPlatform,
 } from 'hardhat/internal/solidity/compiler/downloader'
-import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
-import { add0x } from '@eth-optimism/core-utils'
 import { providers } from 'ethers'
 
 import { CanonicalChugSplashConfig } from '../../config/types'
@@ -14,16 +12,11 @@ import {
   makeActionBundleFromConfig,
 } from '../../actions'
 import {
-  CompilerInput,
-  CompilerOutput,
   CompilerOutputContracts,
   CompilerOutputMetadata,
   CompilerOutputSources,
 } from './types'
-import {
-  addEnumMembersToStorageLayout,
-  getCreationCodeWithConstructorArgs,
-} from '../../utils'
+import { getCanonicalConfigArtifacts } from '../../utils'
 
 export const bundleRemoteSubtask = async (args: {
   provider: providers.Provider
@@ -83,82 +76,6 @@ export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
   return wasmCompiler
 }
 
-// TODO: `CanonicalConfigArtifact` type
-export const getCanonicalConfigArtifacts = async (
-  canonicalConfig: CanonicalChugSplashConfig
-): Promise<{ [referenceName: string]: any }> => {
-  const compilerOutputs: any[] = []
-  // Get the compiler output for each compiler input.
-  for (const compilerInput of canonicalConfig.inputs) {
-    const solcBuild: SolcBuild = await getSolcBuild(compilerInput.solcVersion)
-    let compilerOutput: CompilerOutput
-    if (solcBuild.isSolcJs) {
-      const compiler = new Compiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(compilerInput.input)
-    } else {
-      const compiler = new NativeCompiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(compilerInput.input)
-    }
-
-    if (compilerOutput.errors) {
-      const formattedErrorMessages: string[] = []
-      compilerOutput.errors.forEach((error) => {
-        // Ignore warnings thrown by the compiler.
-        if (error.type.toLowerCase() !== 'warning') {
-          formattedErrorMessages.push(error.formattedMessage)
-        }
-      })
-
-      if (formattedErrorMessages.length > 0) {
-        throw new Error(
-          `Failed to compile. Please report this error to ChugSplash.\n` +
-            `${formattedErrorMessages}`
-        )
-      }
-    }
-
-    compilerOutputs.push(compilerOutput)
-  }
-
-  const artifacts = {}
-  // Generate an artifact for each contract in the ChugSplash config.
-  for (const [referenceName, contractConfig] of Object.entries(
-    canonicalConfig.contracts
-  )) {
-    // Split the contract's fully qualified name into its source name and contract name.
-    const [sourceName, contractName] = contractConfig.contract.split(':')
-
-    for (const compilerOutput of compilerOutputs) {
-      const contractOutput =
-        compilerOutput.contracts?.[sourceName]?.[contractName]
-      if (contractOutput !== undefined) {
-        const creationCodeWithConstructorArgs =
-          getCreationCodeWithConstructorArgs(
-            add0x(contractOutput.evm.bytecode.object),
-            contractConfig.constructorArgs,
-            referenceName,
-            contractOutput.abi
-          )
-
-        addEnumMembersToStorageLayout(
-          contractOutput.storageLayout,
-          compilerOutput
-        )
-
-        artifacts[referenceName] = {
-          creationCodeWithConstructorArgs,
-          storageLayout: contractOutput.storageLayout,
-          abi: contractOutput.abi,
-          compilerOutput,
-          sourceName,
-          contractName,
-        }
-      }
-    }
-  }
-  return artifacts
-}
-
 /**
  * Returns the minimum compiler input necessary to compile a given source name. All contracts that
  * are imported in the given source must be included in the minimum compiler input.
@@ -215,22 +132,26 @@ export const getMinimumSourceNames = (
   // included in the list of minimum source names for the given source.
   const exportedSymbols = fullOutputSources[sourceName].ast.exportedSymbols
 
-  for (const astIds of Object.values(exportedSymbols)) {
-    if (astIds.length > 1) {
-      throw new Error(
-        `Detected more than one AST ID for: ${sourceName}. Please report this error.`
-      )
-    }
-    const astId = astIds[0]
-    const nextSourceName = contractAstIdsToSourceNames[astId]
-    if (!minimumSourceNames.includes(nextSourceName)) {
-      minimumSourceNames.push(nextSourceName)
-      minimumSourceNames = getMinimumSourceNames(
-        nextSourceName,
-        fullOutputSources,
-        contractAstIdsToSourceNames,
-        minimumSourceNames
-      )
+  if (exportedSymbols) {
+    for (const astIds of Object.values(exportedSymbols)) {
+      if (astIds === undefined) {
+        continue
+      } else if (astIds.length > 1) {
+        throw new Error(
+          `Detected more than one AST ID for: ${sourceName}. Please report this error.`
+        )
+      }
+      const astId = astIds[0]
+      const nextSourceName = contractAstIdsToSourceNames[astId]
+      if (!minimumSourceNames.includes(nextSourceName)) {
+        minimumSourceNames.push(nextSourceName)
+        minimumSourceNames = getMinimumSourceNames(
+          nextSourceName,
+          fullOutputSources,
+          contractAstIdsToSourceNames,
+          minimumSourceNames
+        )
+      }
     }
   }
   return minimumSourceNames

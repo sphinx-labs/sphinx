@@ -5,6 +5,7 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@chugsplash/contracts'
+import { StorageLayout } from '@openzeppelin/upgrades-core'
 
 import {
   CanonicalChugSplashConfig,
@@ -12,6 +13,7 @@ import {
   ParsedChugSplashConfig,
   readParsedChugSplashConfig,
   readUserChugSplashConfig,
+  UserChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -116,6 +118,7 @@ export const chugsplashProposeAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig,
   configPath: string,
   ipfsUrl: string,
   silent: boolean,
@@ -125,6 +128,9 @@ export const chugsplashProposeAbstractTask = async (
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   skipStorageCheck: boolean,
+  openzeppelinStorageLayouts?: {
+    [referenceName: string]: StorageLayout
+  },
   stream: NodeJS.WritableStream = process.stderr
 ) => {
   const spinner = ora({ isSilent: silent, stream })
@@ -134,18 +140,17 @@ export const chugsplashProposeAbstractTask = async (
 
   assertValidContracts(parsedConfig, artifactPaths)
 
-  const userConfig = readUserChugSplashConfig(configPath)
   await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     userConfig,
     artifactPaths,
     integration,
-    remoteExecution,
     canonicalConfigPath,
-    skipStorageCheck,
+    remoteExecution,
     confirm,
-    spinner
+    spinner,
+    openzeppelinStorageLayouts
   )
 
   if (
@@ -657,6 +662,9 @@ export const chugsplashDeployAbstractTask = async (
   integration: Integration,
   skipStorageCheck: boolean,
   executor?: ChugSplashExecutorType,
+  openzeppelinStorageLayouts?: {
+    [referenceName: string]: StorageLayout
+  },
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<FoundryContractArtifact[] | undefined> => {
   const spinner = ora({ isSilent: silent, stream })
@@ -697,11 +705,11 @@ export const chugsplashDeployAbstractTask = async (
     userConfig,
     artifactPaths,
     integration,
-    remoteExecution,
     canonicalConfigPath,
-    skipStorageCheck,
+    remoteExecution,
     confirm,
-    spinner
+    spinner,
+    openzeppelinStorageLayouts
   )
 
   if (projectPreviouslyRegistered === false) {
