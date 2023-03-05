@@ -53,7 +53,6 @@ The ChugSplash Managed Service is an optional product built on top of the ChugSp
 ## Supported Networks
 * Ethereum Goerli
 * Optimism Goerli
-* Base Goerli (Etherscan verification not currently supported)
 
 ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
 
