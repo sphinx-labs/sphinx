@@ -145,10 +145,18 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     // Handle if the config cannot be fetched
     if (remoteExecution) {
-      ;({ bundles, canonicalConfig } = await compileRemoteBundles(
-        rpcProvider,
-        proposalEvent.args.configUri
-      ))
+      try {
+        ;({ bundles, canonicalConfig } = await compileRemoteBundles(
+          rpcProvider,
+          proposalEvent.args.configUri
+        ))
+      } catch (e) {
+        // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
+        const retryEvent = generateRetryEvent(executorEvent)
+        if (remoteExecution) {
+          process.send({ action: 'retry', payload: retryEvent })
+        }
+      }
     } else {
       canonicalConfig = readCanonicalConfig(
         canonicalConfigFolderPath,
