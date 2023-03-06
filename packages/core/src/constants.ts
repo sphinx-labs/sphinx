@@ -5,7 +5,8 @@ import {
   ChugSplashManagerArtifact,
   ProxyInitializerArtifact,
   DefaultAdapterArtifact,
-  OZUUPSAdapterArtifact,
+  OZUUPSOwnableAdapterArtifact,
+  OZUUPSAccessControlAdapterArtifact,
   DefaultUpdaterArtifact,
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
@@ -15,7 +16,6 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
   DEFAULT_UPDATER_ADDRESS,
-  OZ_UUPS_UPDATER_ADDRESS,
   registryProxyConstructorArgValues,
   proxyInitializerConstructorArgValues,
   ChugSplashManagerABI,
@@ -23,6 +23,7 @@ import {
   CHUGSPLASH_SALT,
   CHUGSPLASH_RECORDER_ADDRESS,
   ChugSplashRegistryProxyArtifact,
+  OZ_UUPS_UPDATER_ADDRESS,
 } from '@chugsplash/contracts'
 import { utils } from 'ethers'
 
@@ -43,7 +44,9 @@ const chugsplashRegistyProxySourceName =
   ChugSplashRegistryProxyArtifact.sourceName
 const proxyInitializerSourceName = ProxyInitializerArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
-const OZUUPSAdapterSourceName = OZUUPSAdapterArtifact.sourceName
+const OZUUPSOwnableAdapterSourceName = OZUUPSOwnableAdapterArtifact.sourceName
+const OZUUPSAccessControlAdapterSourceName =
+  OZUUPSAccessControlAdapterArtifact.sourceName
 const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
 const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
 const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
@@ -75,7 +78,12 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] = Object.values(
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = [
   DEFAULT_UPDATER_ADDRESS,
 ]
-CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterSourceName] = [OZ_UUPS_UPDATER_ADDRESS]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSOwnableAdapterSourceName] = [
+  OZ_UUPS_UPDATER_ADDRESS,
+]
+CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAccessControlAdapterSourceName] = [
+  OZ_UUPS_UPDATER_ADDRESS,
+]
 CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterSourceName] = [
   DEFAULT_UPDATER_ADDRESS,
 ]

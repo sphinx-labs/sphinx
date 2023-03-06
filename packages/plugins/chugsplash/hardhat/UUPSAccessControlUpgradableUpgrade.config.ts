@@ -3,28 +3,28 @@ import { UserChugSplashConfig } from '@chugsplash/core'
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    projectName: 'UUPS Upgradable Token',
+    projectName: 'UUPS AccessControl Upgradable Token',
   },
   contracts: {
     Token: {
-      contract: 'UUPSUpgradableV2',
+      contract: 'UUPSAccessControlUpgradableV2',
       variables: {
         newInt: 1,
         originalInt: 1,
         _initialized: 1,
         _initializing: false,
         __gap: [],
-        _owner: '0x1111111111111111111111111111111111111111',
+        _roles: [],
       },
-      externalProxy: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
-      externalProxyType: 'oz-uups',
+      externalProxy: '0x62DB6c1678Ca81ea0d946EA3dd75b4F71421A2aE',
+      externalProxyType: 'oz-access-control-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
       previousBuildInfo:
-        'artifacts/build-info/7303da441c6bbfebbb1056a6da5af07d.json',
+        'artifacts/build-info/1af37641d1ff3a00679cea44257f9533.json',
       previousFullyQualifiedName:
-        'contracts/UUPSUpgradableV1.sol:UUPSUpgradableV1',
+        'contracts/UUPSAccessControlUpgradableV1.sol:UUPSAccessControlUpgradableV1',
     },
   },
 }

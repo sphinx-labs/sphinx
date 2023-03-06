@@ -54,8 +54,10 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZUUPSUpdaterArtifact,
   OZ_UUPS_UPDATER_ADDRESS,
-  OZUUPSAdapterArtifact,
-  OZ_UUPS_ADAPTER_ADDRESS,
+  OZUUPSOwnableAdapterArtifact,
+  OZUUPSAccessControlAdapterArtifact,
+  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
@@ -186,7 +188,14 @@ export const verifyChugSplash = async (
       address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
     },
     { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
-    { artifact: OZUUPSAdapterArtifact, address: OZ_UUPS_ADAPTER_ADDRESS },
+    {
+      artifact: OZUUPSOwnableAdapterArtifact,
+      address: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+    },
+    {
+      artifact: OZUUPSAccessControlAdapterArtifact,
+      address: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+    },
     {
       artifact: ChugSplashRegistryProxyArtifact,
       address: CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
