@@ -11,7 +11,6 @@ import {
   resolveNetworkName,
   ChugSplashExecutorType,
   readUserChugSplashConfig,
-  UserChugSplashConfig,
   getDefaultProxyAddress,
   readParsedChugSplashConfig,
 } from '@chugsplash/core'
@@ -67,7 +66,7 @@ export const deployAllChugSplashConfigs = async (
     if (isEmptyChugSplashConfig(configPath)) {
       return
     }
-    const userConfig = readUserChugSplashConfig(configPath)
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
       hre,
@@ -120,21 +119,24 @@ export const getContract = async (
   if (await isRemoteExecution(hre)) {
     throw new Error('Only the Hardhat Network is currently supported.')
   }
-  const userConfigs: UserChugSplashConfig[] = fetchFilesRecursively(
+  const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.chugsplash
-  )
-    .filter((configFileName) => {
-      return !isEmptyChugSplashConfig(configFileName)
-    })
-    .map((configFileName) => {
+  ).filter((configFileName) => {
+    return !isEmptyChugSplashConfig(configFileName)
+  })
+
+  const resolvedConfigs = await Promise.all(
+    filteredConfigNames.map((configFileName) => {
       return readUserChugSplashConfig(configFileName)
     })
-    .filter((userCfg) => {
-      return (
-        Object.keys(userCfg.contracts).includes(referenceName) &&
-        userCfg.options.projectName === projectName
-      )
-    })
+  )
+
+  const userConfigs = resolvedConfigs.filter((userCfg) => {
+    return (
+      Object.keys(userCfg.contracts).includes(referenceName) &&
+      userCfg.options.projectName === projectName
+    )
+  })
 
   if (userConfigs.length === 0) {
     throw new Error(

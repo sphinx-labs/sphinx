@@ -673,7 +673,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const userConfig = readUserChugSplashConfig(configPath)
+  const userConfig = await readUserChugSplashConfig(configPath)
   const parsedConfig = await readParsedChugSplashConfig(
     provider,
     configPath,
