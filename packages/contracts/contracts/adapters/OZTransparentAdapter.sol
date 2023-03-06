@@ -6,10 +6,10 @@ import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
 /**
- * @title DefaultAdapter
- * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy. This is the adapter used by
- *         default proxies in the ChugSplash system. To learn more about the transparent proxy
- *         pattern, see: https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @title OZTransparentAdapter
+ * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy.To learn more about the
+ *         transparent proxy pattern, see:
+ *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
  */
 contract OZTransparentAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
@@ -28,11 +28,7 @@ contract OZTransparentAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(
-        address payable _proxy,
-        address _implementation,
-        bytes memory
-    ) external {
+    function completeExecution(address payable _proxy, address _implementation) external {
         Proxy(_proxy).upgradeTo(_implementation);
     }
 

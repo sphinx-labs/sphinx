@@ -11,6 +11,7 @@ import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   callWithTimeout,
   CanonicalChugSplashConfig,
+  getImplAddress,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -33,7 +34,6 @@ import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/versi
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
 import {
-  ChugSplashManagerABI,
   ChugSplashManagerArtifact,
   ChugSplashBootLoaderArtifact,
   CHUGSPLASH_BOOTLOADER_ADDRESS,
@@ -86,11 +86,6 @@ export const verifyChugSplashConfig = async (
     'Failed to fetch config file from IPFS'
   )
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
-  const ChugSplashManager = new ethers.Contract(
-    getChugSplashManagerProxyAddress(canonicalConfig.options.projectName),
-    ChugSplashManagerABI,
-    provider
-  )
   // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
   const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
     canonicalConfig.options.projectName
@@ -111,14 +106,17 @@ export const verifyChugSplashConfig = async (
     canonicalConfig.contracts
   )) {
     const artifact = artifacts[referenceName]
-    const { abi, contractName, sourceName } = artifact
+    const { abi, contractName, sourceName, creationCodeWithConstructorArgs } =
+      artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )
-    const implementationAddress = await ChugSplashManager.implementations(
-      ethers.utils.solidityKeccak256(['string'], [referenceName])
+    const implementationAddress = getImplAddress(
+      canonicalConfig.options.projectName,
+      referenceName,
+      creationCodeWithConstructorArgs
     )
 
     const { input, solcVersion } = canonicalConfig.inputs.find(

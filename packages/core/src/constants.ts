@@ -9,7 +9,6 @@ import {
   DefaultUpdaterArtifact,
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
-  RegistryAdapterArtifact,
   OWNER_BOND_AMOUNT,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -48,7 +47,6 @@ const OZUUPSAdapterSourceName = OZUUPSAdapterArtifact.sourceName
 const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
 const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
 const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
-const registryAdapterSourceName = RegistryAdapterArtifact.sourceName
 
 // TODO: All of the ChugSplash contract constructor arguments should be in this format to make it
 // easy to do meta-upgrades on them later.
@@ -87,9 +85,6 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistyProxySourceName] =
   registryProxyConstructorArgValues
 CHUGSPLASH_CONSTRUCTOR_ARGS[proxyInitializerSourceName] =
   proxyInitializerConstructorArgValues
-CHUGSPLASH_CONSTRUCTOR_ARGS[registryAdapterSourceName] = [
-  DEFAULT_UPDATER_ADDRESS,
-]
 
 const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
   (fragment) => fragment.type === 'constructor'

@@ -40,7 +40,7 @@ const displayBundleInfo = async () => {
     'hardhat'
   )
 
-  const { configUri, bundle } = await chugsplashCommitAbstractSubtask(
+  const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
     hre.ethers.provider,
     hre.ethers.provider.getSigner(),
     parsedConfig,
@@ -52,13 +52,13 @@ const displayBundleInfo = async () => {
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.
-  for (const action of bundle.actions) {
+  for (const action of bundles.actionBundle.actions) {
     action.proof.siblings = action.proof.siblings.map((sibling) =>
       utils.hexlify(sibling)
     )
   }
 
-  const bundleInfo = { configUri, bundle }
+  const bundleInfo = { configUri, bundles }
 
   process.stdout.write(JSON.stringify(bundleInfo, null, 2))
 }

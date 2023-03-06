@@ -30,8 +30,10 @@ struct ChugSplashProof {
  */
 struct ChugSplashBundleState {
     ChugSplashBundleStatus status;
-    bool[] executions;
-    bytes32 merkleRoot;
+    bool[] actions;
+    uint256 targets;
+    bytes32 actionRoot;
+    bytes32 targetRoot;
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
@@ -43,7 +45,19 @@ struct ChugSplashBundleState {
 struct ChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
+    address payable proxy;
+    bytes32 proxyTypeHash;
     string referenceName;
+}
+
+/**
+ * @notice Struct representing a ChugSplash target.
+ */
+struct ChugSplashTarget {
+    string referenceName;
+    address payable proxy;
+    address implementation;
+    bytes32 proxyTypeHash;
 }
 
 /**
@@ -51,8 +65,7 @@ struct ChugSplashAction {
  */
 enum ChugSplashActionType {
     SET_STORAGE,
-    DEPLOY_IMPLEMENTATION,
-    SET_IMPLEMENTATION
+    DEPLOY_IMPLEMENTATION
 }
 
 /**
@@ -62,6 +75,7 @@ enum ChugSplashBundleStatus {
     EMPTY,
     PROPOSED,
     APPROVED,
+    INITIATED,
     COMPLETED,
     CANCELLED
 }

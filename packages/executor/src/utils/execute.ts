@@ -1,10 +1,9 @@
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import {
   CanonicalChugSplashConfig,
-  ChugSplashActionBundle,
   ChugSplashBundleState,
   claimExecutorPayment,
-  compileRemoteBundle,
+  compileRemoteBundles,
   executeTask,
   ExecutorEvent,
   ExecutorKey,
@@ -15,6 +14,8 @@ import {
   readCanonicalConfig,
   trackExecuted,
   bundleRemoteSubtask,
+  computeBundleId,
+  ChugSplashBundles,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -139,12 +140,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
     logger.info('[ChugSplash]: retrieving the bundle...')
     // Compile the bundle using either the provided localBundleId (when running the in-process
     // executor), or using the Config URI
-    let bundle: ChugSplashActionBundle
+    let bundles: ChugSplashBundles
     let canonicalConfig: CanonicalChugSplashConfig
 
     // Handle if the config cannot be fetched
     if (remoteExecution) {
-      ;({ bundle, canonicalConfig } = await compileRemoteBundle(
+      ;({ bundles, canonicalConfig } = await compileRemoteBundles(
         rpcProvider,
         proposalEvent.args.configUri
       ))
@@ -153,15 +154,23 @@ export const handleExecution = async (data: ExecutorMessage) => {
         canonicalConfigFolderPath,
         proposalEvent.args.configUri
       )
-      bundle = await bundleRemoteSubtask({
+      bundles = await bundleRemoteSubtask({
         provider: rpcProvider,
         canonicalConfig,
       })
     }
     const projectName = canonicalConfig.options.projectName
 
-    // ensure compiled bundle matches proposed bundle
-    if (bundle.root !== proposalEvent.args.bundleRoot) {
+    const expectedBundleId = computeBundleId(
+      bundles.actionBundle.root,
+      bundles.targetBundle.root,
+      bundles.actionBundle.actions.length,
+      bundles.targetBundle.targets.length,
+      proposalEvent.args.configUri
+    )
+
+    // ensure compiled bundle ID matches proposed bundle ID
+    if (expectedBundleId !== proposalEvent.args.bundleId) {
       // We cannot execute the current bundle, so we dicard the event
       // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
       if (remoteExecution) {
@@ -233,7 +242,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     if (
       await hasSufficientFundsForExecution(
         rpcProvider,
-        bundle,
+        bundles,
         bundleState.actionsExecuted.toNumber(),
         projectName
       )
@@ -244,7 +253,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         await executeTask({
           chugSplashManager: manager,
           bundleState,
-          bundle,
+          bundles,
           executor: wallet,
           projectName,
           logger,

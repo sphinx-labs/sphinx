@@ -11,7 +11,6 @@ import {
 } from 'hardhat/builtin-tasks/task-names'
 import {
   ParsedChugSplashConfig,
-  ChugSplashActionBundle,
   getChugSplashRegistry,
   chugsplashFetchSubtask,
   initializeChugSplash,
@@ -20,7 +19,6 @@ import {
   readParsedChugSplashConfig,
   chugsplashCommitAbstractSubtask,
   bundleLocal,
-  verifyBundle,
   chugsplashProposeAbstractTask,
   chugsplashApproveAbstractTask,
   chugsplashFundAbstractTask,
@@ -39,6 +37,7 @@ import {
   ArtifactPaths,
   bundleRemoteSubtask,
   readUserChugSplashConfig,
+  ChugSplashBundles,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, EXECUTOR } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -471,7 +470,7 @@ export const chugsplashCommitSubtask = async (
   },
   hre: HardhatRuntimeEnvironment
 ): Promise<{
-  bundle: ChugSplashActionBundle
+  bundles: ChugSplashBundles
   configUri: string
   bundleId: string
 }> => {
@@ -633,13 +632,6 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       }
     }
   )
-
-subtask(TASK_CHUGSPLASH_VERIFY_BUNDLE)
-  .setDescription('Checks if a deployment config matches a bundle hash')
-  .addParam('configUri', 'location of the config file')
-  .addParam('bundleId', 'hash of the bundle')
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(verifyBundle)
 
 export const monitorTask = async (
   args: {

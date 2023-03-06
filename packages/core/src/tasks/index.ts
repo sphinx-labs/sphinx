@@ -11,6 +11,7 @@ import {
   CanonicalChugSplashConfig,
   ChugSplashInput,
   ParsedChugSplashConfig,
+  proxyTypeHashes,
   readParsedChugSplashConfig,
   readUserChugSplashConfig,
   UserChugSplashConfig,
@@ -37,7 +38,6 @@ import {
   isUUPSProxy,
   readBuildInfo,
   registerChugSplashProject,
-  setProxiesToReferenceNames,
   writeCanonicalConfig,
 } from '../utils'
 import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
@@ -51,7 +51,7 @@ import {
 } from '../messages'
 import {
   bundleLocal,
-  ChugSplashActionBundle,
+  ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   createDeploymentArtifacts,
@@ -169,29 +169,20 @@ export const chugsplashProposeAbstractTask = async (
     spinner.succeed('ChugSplash is ready to go.')
   }
 
-  spinner.start('Setting proxies to reference names...')
-
-  await setProxiesToReferenceNames(
-    provider,
-    ChugSplashManager,
-    parsedConfig.contracts
-  )
-
-  spinner.succeed('Set proxies to reference names.')
-
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
   // it to IPFS.
-  const { bundle, configUri, bundleId } = await chugsplashCommitAbstractSubtask(
-    provider,
-    signer,
-    parsedConfig,
-    '',
-    false,
-    artifactPaths,
-    canonicalConfigPath,
-    integration
-  )
+  const { bundles, configUri, bundleId } =
+    await chugsplashCommitAbstractSubtask(
+      provider,
+      signer,
+      parsedConfig,
+      '',
+      false,
+      artifactPaths,
+      canonicalConfigPath,
+      integration
+    )
 
   spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
@@ -218,7 +209,7 @@ with a name other than ${parsedConfig.options.projectName}`
     // including a buffer in case the gas price increases during execution.
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
+      bundles,
       0,
       parsedConfig.options.projectName,
       true
@@ -233,7 +224,7 @@ with a name other than ${parsedConfig.options.projectName}`
         provider,
         signer,
         parsedConfig,
-        bundle,
+        bundles,
         configUri,
         remoteExecution,
         ipfsUrl,
@@ -277,7 +268,7 @@ export const chugsplashCommitAbstractSubtask = async (
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
-  bundle: ChugSplashActionBundle
+  bundles: ChugSplashBundles
   configUri: string
   bundleId: string
 }> => {
@@ -370,7 +361,7 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundle = await bundleLocal(
+  const bundles = await bundleLocal(
     provider,
     parsedConfig,
     artifactPaths,
@@ -379,8 +370,10 @@ IPFS_API_KEY_SECRET: ...
 
   const configUri = `ipfs://${ipfsHash}`
   const bundleId = computeBundleId(
-    bundle.root,
-    bundle.actions.length,
+    bundles.actionBundle.root,
+    bundles.targetBundle.root,
+    bundles.actionBundle.actions.length,
+    bundles.targetBundle.targets.length,
     configUri
   )
 
@@ -399,7 +392,7 @@ IPFS_API_KEY_SECRET: ...
         )
   }
 
-  return { bundle, configUri, bundleId }
+  return { bundles, configUri, bundleId }
 }
 
 export const chugsplashApproveAbstractTask = async (
@@ -446,7 +439,7 @@ Owner's address: ${projectOwnerAddress}`)
 
   // Call the commit subtask locally to get the bundle ID without publishing
   // anything to IPFS.
-  const { bundleId, bundle } = await chugsplashCommitAbstractSubtask(
+  const { bundleId, bundles } = await chugsplashCommitAbstractSubtask(
     provider,
     signer,
     parsedConfig,
@@ -485,7 +478,7 @@ Please wait a couple minutes then try again.`
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
+      bundles,
       0,
       projectName,
       false
@@ -522,7 +515,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         provider,
         signer,
         parsedConfig,
-        bundle,
+        bundles,
         bundleId,
         spinner
       )
@@ -726,29 +719,20 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`Successfully registered ${projectName}.`)
   }
 
-  spinner.start('Setting proxies to reference names...')
-
   const ChugSplashManager = getChugSplashManager(signer, projectName)
 
-  await setProxiesToReferenceNames(
-    provider,
-    ChugSplashManager,
-    parsedConfig.contracts
-  )
-
-  spinner.succeed('Set proxies to reference names.')
-
   // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundle, configUri } = await chugsplashCommitAbstractSubtask(
-    provider,
-    signer,
-    parsedConfig,
-    ipfsUrl,
-    false,
-    artifactPaths,
-    canonicalConfigPath,
-    integration
-  )
+  const { bundleId, bundles, configUri } =
+    await chugsplashCommitAbstractSubtask(
+      provider,
+      signer,
+      parsedConfig,
+      ipfsUrl,
+      false,
+      artifactPaths,
+      canonicalConfigPath,
+      integration
+    )
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -789,7 +773,7 @@ export const chugsplashDeployAbstractTask = async (
       provider,
       signer,
       parsedConfig,
-      bundle,
+      bundles,
       configUri,
       remoteExecution,
       ipfsUrl,
@@ -808,7 +792,7 @@ export const chugsplashDeployAbstractTask = async (
     spinner.start(`Calculating amount to deposit...`)
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
+      bundles,
       0,
       projectName,
       true
@@ -860,7 +844,7 @@ export const chugsplashDeployAbstractTask = async (
       provider,
       signer,
       parsedConfig,
-      bundle,
+      bundles,
       bundleId,
       spinner
     )
@@ -869,7 +853,7 @@ export const chugsplashDeployAbstractTask = async (
     // Use the in-process executor if executing the bundle locally.
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
+      bundles,
       0,
       projectName,
       true
@@ -962,7 +946,7 @@ export const chugsplashMonitorAbstractTask = async (
   // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
   // it to IPFS.
-  const { bundle, bundleId } = await chugsplashCommitAbstractSubtask(
+  const { bundles, bundleId } = await chugsplashCommitAbstractSubtask(
     provider,
     signer,
     parsedConfig,
@@ -1001,7 +985,7 @@ project with a name other than ${parsedConfig.options.projectName}`
     provider,
     signer,
     parsedConfig,
-    bundle,
+    bundles,
     bundleId,
     spinner
   )
@@ -1479,7 +1463,8 @@ export const chugsplashClaimProxyAbstractTask = async (
 
   await (
     await manager.transferProxyOwnership(
-      referenceName,
+      parsedConfig.contracts[referenceName].proxy,
+      proxyTypeHashes[parsedConfig.contracts[referenceName].proxyType],
       signerAddress,
       await getGasPriceOverrides(provider)
     )
@@ -1589,7 +1574,7 @@ export const proposeChugSplashBundle = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   configUri: string,
   remoteExecution: boolean,
   ipfsUrl: string,
@@ -1623,21 +1608,25 @@ export const proposeChugSplashBundle = async (
       integration,
       spinner
     )
+
+    const bundleId = computeBundleId(
+      bundles.actionBundle.root,
+      bundles.targetBundle.root,
+      bundles.actionBundle.actions.length,
+      bundles.targetBundle.targets.length,
+      configUri
+    )
+
     // Verify that the bundle has been committed to IPFS with the correct bundle hash.
-    await verifyBundle({
-      provider,
-      configUri,
-      bundleId: computeBundleId(bundle.root, bundle.actions.length, configUri),
-      ipfsUrl,
-      artifactPaths,
-      integration,
-    })
+    await verifyBundle(provider, configUri, bundleId, ipfsUrl)
   }
   // Propose the bundle.
   await (
     await ChugSplashManager.proposeChugSplashBundle(
-      bundle.root,
-      bundle.actions.length,
+      bundles.actionBundle.root,
+      bundles.targetBundle.root,
+      bundles.actionBundle.actions.length,
+      bundles.targetBundle.targets.length,
       configUri,
       await getGasPriceOverrides(provider)
     )

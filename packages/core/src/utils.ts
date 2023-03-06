@@ -60,9 +60,7 @@ import {
   ParsedConfigVariable,
   ParsedConfigVariables,
   ParsedContractConfig,
-  ParsedContractConfigs,
   ProxyType,
-  proxyTypeHashes,
   UserChugSplashConfig,
   UserConfigVariable,
   UserContractConfig,
@@ -83,14 +81,16 @@ import { chugsplashFetchSubtask } from './config'
 import { getSolcBuild } from './languages'
 
 export const computeBundleId = (
-  bundleRoot: string,
-  bundleSize: number,
+  actionRoot: string,
+  targetRoot: string,
+  numActions: number,
+  numTargets: number,
   configUri: string
 ): string => {
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'string'],
-      [bundleRoot, bundleSize, configUri]
+      ['bytes32', 'bytes32', 'uint256', 'uint256', 'string'],
+      [actionRoot, targetRoot, numActions, numTargets, configUri]
     )
   )
 }
@@ -645,30 +645,6 @@ const bytecodeContainsInterface = async (
     }
   }
   return true
-}
-
-export const setProxiesToReferenceNames = async (
-  provider: providers.Provider,
-  ChugSplashManager: ethers.Contract,
-  contractConfigs: ParsedContractConfigs
-): Promise<void> => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    if ((await provider.getCode(contractConfig.proxy)) === '0x') {
-      continue
-    }
-
-    const currProxyTypeHash = await ChugSplashManager.proxyTypes(referenceName)
-    const actualProxyTypeHash = proxyTypeHashes[contractConfig.proxyType]
-    if (currProxyTypeHash !== actualProxyTypeHash) {
-      await ChugSplashManager.setProxyToReferenceName(
-        referenceName,
-        contractConfig.proxy,
-        actualProxyTypeHash
-      )
-    }
-  }
 }
 
 export const assertValidParsedChugSplashFile = async (
@@ -1438,8 +1414,7 @@ export const toOpenZeppelinProxyType = (
   if (
     proxyType === 'internal-default' ||
     proxyType === 'external-default' ||
-    proxyType === 'oz-transparent' ||
-    proxyType === 'internal-registry'
+    proxyType === 'oz-transparent'
   ) {
     return 'transparent'
   } else if (proxyType === 'oz-uups') {

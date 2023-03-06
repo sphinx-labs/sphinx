@@ -38,9 +38,6 @@ import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
-  RegistryAdapterABI,
-  RegistryAdapterArtifact,
-  REGISTRY_PROXY_TYPE_HASH,
   ChugSplashRegistryProxyABI,
   CHUGSPLASH_RECORDER_ADDRESS,
   ChugSplashRecorderABI,
@@ -434,21 +431,6 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
-  logger?.info('[ChugSplash]: deploying RegistryAdapter...')
-
-  // Deploy the RegistryAdapter.
-  const RegistryAdapter = await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: RegistryAdapterABI,
-      bytecode: RegistryAdapterArtifact.bytecode,
-    },
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[RegistryAdapterArtifact.sourceName],
-    salt: CHUGSPLASH_SALT,
-  })
-
-  logger?.info('[ChugSplash]: RegistryAdapter deployed')
-
   if (
     (await ChugSplashRecorder.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
     DefaultAdapter.address
@@ -466,27 +448,6 @@ export const initializeChugSplash = async (
   } else {
     logger?.info(
       '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
-    )
-  }
-
-  // Set the registry proxy type. This will be removed when ChugSplash is non-upgradeable.
-  if (
-    (await ChugSplashRecorder.adapters(REGISTRY_PROXY_TYPE_HASH)) !==
-    RegistryAdapter.address
-  ) {
-    await (
-      await ChugSplashRecorder.addProxyType(
-        REGISTRY_PROXY_TYPE_HASH,
-        RegistryAdapter.address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-    logger?.info(
-      '[ChugSplash]: added the registry proxy type to the ChugSplashRegistry'
-    )
-  } else {
-    logger?.info(
-      '[ChugSplash]: the registry proxy type was already added to the ChugSplashRegistry'
     )
   }
 
