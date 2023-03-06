@@ -37,6 +37,16 @@ import {
   UpgradeableContract,
   ValidationOptions,
 } from '@openzeppelin/upgrades-core'
+import {
+  getDetailedLayout,
+  ParsedTypeDetailed,
+  StorageItem,
+} from '@openzeppelin/upgrades-core/dist/storage/layout'
+import {
+  StorageField,
+  StorageLayoutComparator,
+  stripContractSubstrings,
+} from '@openzeppelin/upgrades-core/dist/storage/compare'
 import { ContractDefinition } from 'solidity-ast'
 import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
@@ -793,6 +803,12 @@ permission to call the 'upgradeTo' function on each of them.
           contractConfig.proxyType
         )
 
+        assertStorageCompatiblePreserveKeywords(
+          contractConfig,
+          previousStorageLayout,
+          newStorageLayout
+        )
+
         // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
         // support more granular storage layout config options in the future.
         if (parsedConfig.options.skipStorageCheck !== true) {
@@ -1225,6 +1241,73 @@ export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const contractName = compilationTarget[sourceName]
 
   return { abi, bytecode, sourceName, contractName }
+}
+
+export const isEqualType = (
+  prevStorageObj: StorageItem<ParsedTypeDetailed>,
+  newStorageObj: StorageItem<ParsedTypeDetailed>
+): boolean => {
+  // Copied from OpenZeppelin's core upgrades package:
+  // https://github.com/OpenZeppelin/openzeppelin-upgrades/blob/13c072776e381d33cf285f8953127023b664de64/packages/core/src/storage/compare.ts#L197-L202
+  const isRetypedFromOriginal = (
+    original: StorageField,
+    updated: StorageField
+  ): boolean => {
+    const originalLabel = stripContractSubstrings(original.type.item.label)
+    const updatedLabel = stripContractSubstrings(updated.retypedFrom?.trim())
+
+    return originalLabel === updatedLabel
+  }
+
+  const layoutComparator = new StorageLayoutComparator(false, false)
+
+  // Copied from OpenZeppelin's core upgrades package:
+  // https://github.com/OpenZeppelin/openzeppelin-upgrades/blob/13c072776e381d33cf285f8953127023b664de64/packages/core/src/storage/compare.ts#L171-L173
+  const isEqual =
+    !isRetypedFromOriginal(prevStorageObj, newStorageObj) &&
+    !layoutComparator.getTypeChange(prevStorageObj.type, newStorageObj.type, {
+      allowAppend: false,
+    })
+
+  return isEqual
+}
+
+export const assertStorageCompatiblePreserveKeywords = (
+  contractConfig: ParsedContractConfig,
+  prevStorageLayout: StorageLayout,
+  newStorageLayout: StorageLayout
+) => {
+  const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
+  const newDetailedLayout = getDetailedLayout(newStorageLayout)
+
+  const errorMessages: Array<string> = []
+  for (const newStorageObj of newDetailedLayout) {
+    if (
+      variableContainsPreserveKeyword(
+        contractConfig.variables[newStorageObj.label]
+      )
+    ) {
+      const validPreserveKeyword = prevDetailedLayout.some(
+        (prevObj) =>
+          prevObj.label === newStorageObj.label &&
+          prevObj.slot === newStorageObj.slot &&
+          prevObj.offset === newStorageObj.offset &&
+          isEqualType(prevObj, newStorageObj)
+      )
+
+      if (!validPreserveKeyword) {
+        errorMessages.push(
+          `The variable "${newStorageObj.label}" contains the preserve keyword, but does not exist in the previous\n` +
+            `storage layout at the same slot position with the same variable type. Please fix this or remove\n` +
+            `the preserve keyword from this variable.`
+        )
+      }
+    }
+  }
+
+  if (errorMessages.length > 0) {
+    throw new Error(`${errorMessages.join('\n\n')}`)
+  }
 }
 
 /**
