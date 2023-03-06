@@ -6,12 +6,16 @@ import { OZUUPSUpdater } from "../updaters/OZUUPSUpdater.sol";
 import { Proxy } from "../libraries/Proxy.sol";
 
 /**
- * @title UUPSAdapter
- * @notice Adapter for an OpenZeppelin UUPS Upgradeable proxy. To learn more about the transparent
- *         proxy pattern, see:
+ * @title OZUUPSBaseAdapter
+ * @notice Base adapter for an OpenZeppelin UUPS Upgradeable proxy.
+ *         OZUUPSOwnableAdapter and OZUUPAccessControlAdapter both inherit from this contract
+ *         and implement their respective mechanisms for users to reclaim ownership of proxies
+ *         from the ChugSplash protocol.
+ *
+ *         To learn more about the uups proxy pattern, see:
  *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent-vs-uups
  */
-contract OZUUPSAdapter is IProxyAdapter {
+abstract contract OZUUPSBaseAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
@@ -43,12 +47,5 @@ contract OZUUPSAdapter is IProxyAdapter {
         bytes memory _segment
     ) external {
         OZUUPSUpdater(_proxy).setStorage(_key, _offset, _segment);
-    }
-
-    /**
-     * @inheritdoc IProxyAdapter
-     */
-    function changeProxyAdmin(address payable _proxy, address _newAdmin) external {
-        Proxy(_proxy).changeAdmin(_newAdmin);
     }
 }

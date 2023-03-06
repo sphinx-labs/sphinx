@@ -8,12 +8,13 @@ export const ProxyInitializerArtifact = require('../artifacts/contracts/ProxyIni
 export const DefaultUpdaterArtifact = require('../artifacts/contracts/updaters/DefaultUpdater.sol/DefaultUpdater.json')
 export const OZUUPSUpdaterArtifact = require('../artifacts/contracts/updaters/OZUUPSUpdater.sol/OZUUPSUpdater.json')
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')
-export const OZUUPSAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAdapter.sol/OZUUPSAdapter.json')
+export const OZUUPSOwnableAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSOwnableAdapter.sol/OZUUPSOwnableAdapter.json')
+export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAccessControlAdapter.sol/OZUUPSAccessControlAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const ChugSplashRegistryProxyArtifact = require('../artifacts/contracts/ChugSplashRegistryProxy.sol/ChugSplashRegistryProxy.json')
 export const ChugSplashRecorderArtifact = require('../artifacts/contracts/ChugSplashRecorder.sol/ChugSplashRecorder.json')
 
-export const buildInfo = require('../artifacts/build-info/1f4d5f4961dd1fe64024e77758d69475.json')
+export const buildInfo = require('../artifacts/build-info/8186fa1e54219a552b8795d8ebfbd695.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
@@ -24,7 +25,9 @@ export const ProxyInitializerABI = ProxyInitializerArtifact.abi
 export const DefaultUpdaterABI = DefaultUpdaterArtifact.abi
 export const DefaultAdapterABI = DefaultAdapterArtifact.abi
 export const OZUUPSUpdaterABI = OZUUPSUpdaterArtifact.abi
-export const OZUUPSAdapterABI = OZUUPSAdapterArtifact.abi
+export const OZUUPSOwnableAdapterABI = OZUUPSOwnableAdapterArtifact.abi
+export const OZUUPSAccessControlAdapterABI =
+  OZUUPSAccessControlAdapterArtifact.abi
 export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
 export const ChugSplashRegistryProxyABI = ChugSplashRegistryProxyArtifact.abi
 export const ChugSplashRecorderABI = ChugSplashRecorderArtifact.abi

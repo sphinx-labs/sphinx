@@ -1462,7 +1462,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   }
 
   await (
-    await manager.transferProxyOwnership(
+    await manager.claimProxyOwnership(
       parsedConfig.contracts[referenceName].proxy,
       proxyTypeHashes[parsedConfig.contracts[referenceName].proxyType],
       signerAddress,

@@ -683,7 +683,10 @@ export const assertValidParsedChugSplashFile = async (
     if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
       isUpgrade = true
 
-      if (contractConfig.proxyType === 'oz-uups') {
+      if (
+        contractConfig.proxyType === 'oz-ownable-uups' ||
+        contractConfig.proxyType === 'oz-access-control-uups'
+      ) {
         // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
         // function because OpenZeppelin UUPS proxies can implement arbitrary access control
         // mechanisms.
@@ -799,7 +802,10 @@ permission to call the 'upgradeTo' function on each of them.
 
       // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
       // user will be able to upgrade the proxy in the future.
-      if (contractConfig.proxyType === 'oz-uups') {
+      if (
+        contractConfig.proxyType === 'oz-ownable-uups' ||
+        contractConfig.proxyType === 'oz-access-control-uups'
+      ) {
         const artifact = readContractArtifact(
           artifactPaths[referenceName].contractArtifactPath,
           integration
@@ -1417,7 +1423,10 @@ export const toOpenZeppelinProxyType = (
     proxyType === 'oz-transparent'
   ) {
     return 'transparent'
-  } else if (proxyType === 'oz-uups') {
+  } else if (
+    proxyType === 'oz-ownable-uups' ||
+    proxyType === 'oz-access-control-uups'
+  ) {
     return 'uups'
   } else {
     throw new Error(

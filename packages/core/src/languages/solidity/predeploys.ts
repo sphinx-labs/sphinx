@@ -25,16 +25,20 @@ import {
   DefaultUpdaterABI,
   DefaultUpdaterArtifact,
   OZUUPSUpdaterABI,
-  OZUUPSAdapterABI,
+  OZUUPSOwnableAdapterABI,
+  OZUUPSAccessControlAdapterABI,
   OZTransparentAdapterABI,
   OZUUPSUpdaterArtifact,
-  OZUUPSAdapterArtifact,
+  OZUUPSOwnableAdapterArtifact,
+  OZUUPSAccessControlAdapterArtifact,
   DEFAULT_UPDATER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
-  OZ_UUPS_ADAPTER_ADDRESS,
+  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   OZ_UUPS_UPDATER_ADDRESS,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  OZ_UUPS_PROXY_TYPE_HASH,
+  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
@@ -355,13 +359,13 @@ export const initializeChugSplash = async (
   }
 
   // Deploy the OZUUPSAdapter.
-  const OZUUPSAdapter = await doDeterministicDeploy(provider, {
+  const OZUUPSOwnableAdapter = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: OZUUPSAdapterABI,
-      bytecode: OZUUPSAdapterArtifact.bytecode,
+      abi: OZUUPSOwnableAdapterABI,
+      bytecode: OZUUPSOwnableAdapterArtifact.bytecode,
     },
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSAdapterArtifact.sourceName],
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSOwnableAdapterArtifact.sourceName],
     salt: CHUGSPLASH_SALT,
   })
 
@@ -369,8 +373,30 @@ export const initializeChugSplash = async (
 
   // Make sure the addresses match, just in case.
   assert(
-    OZUUPSAdapter.address === OZ_UUPS_ADAPTER_ADDRESS,
-    'OZUUPSAdapter address mismatch'
+    OZUUPSOwnableAdapter.address === OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+    'OZUUPSOwnableAdapter address mismatch'
+  )
+
+  // Deploy the OZUUPSAdapter.
+  const OZUUPSAccessControlAdapter = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: OZUUPSAccessControlAdapterABI,
+      bytecode: OZUUPSAccessControlAdapterArtifact.bytecode,
+    },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[
+      OZUUPSAccessControlAdapterArtifact.sourceName
+    ],
+    salt: CHUGSPLASH_SALT,
+  })
+
+  logger?.info('[ChugSplash]: OZUUPSAdapter deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    OZUUPSAccessControlAdapter.address ===
+      OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+    'OZUUPSAccessControlAdapter address mismatch'
   )
 
   // Deploy the OZUUPSUpdater.
@@ -397,22 +423,44 @@ export const initializeChugSplash = async (
 
   // Set the oz uups proxy type on the registry.
   if (
-    (await ChugSplashRecorder.adapters(OZ_UUPS_PROXY_TYPE_HASH)) !==
-    OZUUPSAdapter.address
+    (await ChugSplashRecorder.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
+    OZUUPSOwnableAdapter.address
   ) {
     await (
       await ChugSplashRecorder.addProxyType(
-        OZ_UUPS_PROXY_TYPE_HASH,
-        OZUUPSAdapter.address,
+        OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+        OZUUPSOwnableAdapter.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[ChugSplash]: added the transparent proxy type to the ChugSplashRegistry'
+      '[ChugSplash]: added the uups ownable proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[ChugSplash]: the transparent proxy type was already added to the ChugSplashRegistry'
+      '[ChugSplash]: the uups ownable proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the oz uups proxy type on the registry.
+  if (
+    (await ChugSplashRecorder.adapters(
+      OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH
+    )) !== OZUUPSAccessControlAdapter.address
+  ) {
+    await (
+      await ChugSplashRecorder.addProxyType(
+        OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+        OZUUPSAccessControlAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the uups access control proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the uups access control proxy type was already added to the ChugSplashRegistry'
     )
   }
 
