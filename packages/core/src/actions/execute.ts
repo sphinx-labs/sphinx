@@ -1,14 +1,10 @@
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
-import {
-  fromRawChugSplashAction,
-  isDeployImplementationAction,
-  isSetImplementationAction,
-} from './bundle'
+import { fromRawChugSplashAction, isDeployImplementationAction } from './bundle'
 import {
   BundledChugSplashAction,
-  ChugSplashActionBundle,
+  ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
 } from './types'
@@ -16,7 +12,7 @@ import { getGasPriceOverrides } from '../utils'
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
-  bundle: ChugSplashActionBundle
+  bundles: ChugSplashBundles
   bundleState: ChugSplashBundleState
   executor: ethers.Wallet
   projectName: string
@@ -24,12 +20,14 @@ export const executeTask = async (args: {
 }) => {
   const {
     chugSplashManager,
-    bundle,
+    bundles,
     bundleState,
     executor,
     projectName,
     logger,
   } = args
+
+  const { actionBundle, targetBundle } = bundles
 
   logger.info(`[ChugSplash]: preparing to execute the project...`)
 
@@ -135,7 +133,7 @@ export const executeTask = async (args: {
       // Filter out any actions that have already been executed, sort by ascending action index.
       const filtered = actions
         .filter((action) => {
-          return !state.executions[action.proof.actionIndex]
+          return !state.actions[action.proof.actionIndex]
         })
         .sort((a, b) => {
           return a.proof.actionIndex - b.proof.actionIndex
@@ -178,39 +176,41 @@ export const executeTask = async (args: {
     }
 
     // Find the indices of the first DeployImplementation and SetImpl actions so we know where to
-    // split up our batches. Actions have already been sorted in the order SetStorage,
-    // DeployImplementation, SetImplementation. Although we could execute SetStorage and
-    // DeployImplementation actions together, SetStorage actions can often fit in a single batch
-    // so it's more efficient to execute them separately.
-    const firstDepImpl = bundle.actions.findIndex((action) =>
+    // split up our batches. Actions have already been sorted in the order: SetStorage then
+    // DeployImplementation.
+    const firstDepImpl = actionBundle.actions.findIndex((action) =>
       isDeployImplementationAction(fromRawChugSplashAction(action.action))
     )
-    const firstSetImpl = bundle.actions.findIndex((action) =>
-      isSetImplementationAction(fromRawChugSplashAction(action.action))
-    )
+
+    logger.info(`[ChugSplash]: initiating execution...`)
+    await (
+      await chugSplashManager.initiateBundleExecution(
+        targetBundle.targets.map((target) => target.target),
+        targetBundle.targets.map((target) => target.siblings),
+        await getGasPriceOverrides(executor.provider)
+      )
+    ).wait()
+
+    logger.info(`[ChugSplash]: execution initiated`)
 
     // Execute SetStorage actions in batches.
     logger.info(`[ChugSplash]: executing SetStorage actions...`)
-    await executeBatchActions(bundle.actions.slice(0, firstDepImpl))
+    await executeBatchActions(actionBundle.actions.slice(0, firstDepImpl))
     logger.info(`[ChugSplash]: executed SetStorage actions`)
 
     // Execute DeployImplementation actions in batches.
     logger.info(`[ChugSplash]: executing DeployImplementation actions...`)
-    await executeBatchActions(bundle.actions.slice(firstDepImpl, firstSetImpl))
+    await executeBatchActions(actionBundle.actions.slice(firstDepImpl))
     logger.info(`[ChugSplash]: executed DeployImplementation actions`)
 
-    // Execute SetImplementation actions in a single transaction.
-    logger.info(`[ChugSplash]: executing SetImplementation actions...`)
-    const setImplActions = bundle.actions.slice(firstSetImpl)
+    logger.info(`[ChugSplash]: completing execution...`)
     await (
-      await chugSplashManager.completeChugSplashBundle(
-        setImplActions.map((action) => action.action),
-        setImplActions.map((action) => action.proof.actionIndex),
-        setImplActions.map((action) => action.proof.siblings),
+      await chugSplashManager.completeBundleExecution(
+        targetBundle.targets.map((target) => target.target),
+        targetBundle.targets.map((target) => target.siblings),
         await getGasPriceOverrides(executor.provider)
       )
     ).wait()
-    logger.info(`[ChugSplash]: executed SetImplementation actions`)
 
     // We're done!
     logger.info(`[ChugSplash]: successfully executed: ${projectName}`)

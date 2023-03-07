@@ -5,6 +5,7 @@ import ora from 'ora'
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
+  ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
   createDeploymentArtifacts,
@@ -17,7 +18,6 @@ import {
   formatEther,
   getBundleCompletionTxnHash,
   getChugSplashManager,
-  getCurrentChugSplashActionType,
   getGasPriceOverrides,
   getProjectOwnerAddress,
 } from '../utils'
@@ -38,7 +38,7 @@ export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   bundleId: string,
   spinner: ora.Ora
 ) => {
@@ -51,12 +51,41 @@ export const monitorExecution = async (
     bundleId
   )
 
-  let actionType: ChugSplashActionType | undefined
+  while (bundleState.selectedExecutor !== ethers.constants.AddressZero) {
+    // Wait for one second.
+    await sleep(1000)
+
+    // Get the current bundle state.
+    bundleState = await ChugSplashManager.bundles(bundleId)
+  }
+
+  spinner.succeed('Executor has claimed the project.')
+  spinner.start('Waiting for execution to be initiated...')
+
   while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+    // Wait for one second.
+    await sleep(1000)
+
+    // Get the current bundle state.
+    bundleState = await ChugSplashManager.bundles(bundleId)
+  }
+
+  spinner.succeed('Execution initiated.')
+
+  const totalNumActions = bundles.actionBundle.actions.length
+  while (bundleState.status === ChugSplashBundleStatus.INITIATED) {
+    if (bundleState.actionsExecuted.toNumber() === totalNumActions) {
+      spinner.start(`All actions have been executed. Completing execution...`)
+    } else {
+      spinner.start(
+        `Number of actions executed: ${bundleState.actionsExecuted.toNumber()} out of ${totalNumActions}`
+      )
+    }
+
     // Check if there are enough funds in the ChugSplashManager to finish the deployment.
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
+      bundles,
       bundleState.actionsExecuted.toNumber(),
       projectName,
       false
@@ -74,39 +103,6 @@ export const monitorExecution = async (
   )} --config-path <configPath>
           `
       )
-    }
-
-    if (bundleState.selectedExecutor !== ethers.constants.AddressZero) {
-      const currActionType = getCurrentChugSplashActionType(
-        bundle,
-        bundleState.actionsExecuted
-      )
-
-      if (actionType !== currActionType) {
-        if (currActionType === ChugSplashActionType.SET_STORAGE) {
-          spinner.succeed('Executor has claimed the project.')
-          spinner.start('Executor is setting the state variables...')
-        } else if (
-          currActionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
-        ) {
-          spinner.succeed('State variables have been set.')
-        } else if (currActionType === ChugSplashActionType.SET_IMPLEMENTATION) {
-          spinner.succeed('Contracts have been deployed.')
-          spinner.start(
-            'Executor is linking the proxies with their implementation contracts...'
-          )
-        }
-        actionType = currActionType
-      }
-
-      if (currActionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
-        spinner.start(
-          `Executor is deploying the contracts... [${getNumDeployedImplementations(
-            bundle,
-            bundleState.actionsExecuted
-          )}/${Object.keys(parsedConfig.contracts).length}]`
-        )
-      }
     }
 
     // Wait for one second.

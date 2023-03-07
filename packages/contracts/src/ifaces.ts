@@ -10,11 +10,10 @@ export const OZUUPSUpdaterArtifact = require('../artifacts/contracts/updaters/OZ
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')
 export const OZUUPSAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAdapter.sol/OZUUPSAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
-export const RegistryAdapterArtifact = require('../artifacts/contracts/adapters/RegistryAdapter.sol/RegistryAdapter.json')
 export const ChugSplashRegistryProxyArtifact = require('../artifacts/contracts/ChugSplashRegistryProxy.sol/ChugSplashRegistryProxy.json')
 export const ChugSplashRecorderArtifact = require('../artifacts/contracts/ChugSplashRecorder.sol/ChugSplashRecorder.json')
 
-export const buildInfo = require('../artifacts/build-info/1a4d31d8d6997c14ab0714ce4b3c13a7.json')
+export const buildInfo = require('../artifacts/build-info/1f4d5f4961dd1fe64024e77758d69475.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi
@@ -27,6 +26,5 @@ export const DefaultAdapterABI = DefaultAdapterArtifact.abi
 export const OZUUPSUpdaterABI = OZUUPSUpdaterArtifact.abi
 export const OZUUPSAdapterABI = OZUUPSAdapterArtifact.abi
 export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
-export const RegistryAdapterABI = RegistryAdapterArtifact.abi
 export const ChugSplashRegistryProxyABI = ChugSplashRegistryProxyArtifact.abi
 export const ChugSplashRecorderABI = ChugSplashRecorderArtifact.abi

@@ -41,9 +41,6 @@ export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-uups')
 )
-export const REGISTRY_PROXY_TYPE_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('internal-registry')
-)
 
 export const CHUGSPLASH_SALT = '0x' + '13'.repeat(32)
 

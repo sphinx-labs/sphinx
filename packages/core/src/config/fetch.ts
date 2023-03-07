@@ -1,9 +1,8 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { ChugSplashActionBundle } from '../actions'
-import { Integration } from '../constants'
-import { ArtifactPaths, bundleRemoteSubtask } from '../languages'
+import { ChugSplashBundles } from '../actions'
+import { bundleRemoteSubtask } from '../languages'
 import { callWithTimeout, computeBundleId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 
@@ -51,41 +50,36 @@ export const chugsplashFetchSubtask = async (args: {
   return config
 }
 
-export const verifyBundle = async (args: {
-  provider: providers.Provider
-  configUri: string
-  bundleId: string
+export const verifyBundle = async (
+  provider: providers.Provider,
+  configUri: string,
+  bundleId: string,
   ipfsUrl: string
-  artifactPaths: ArtifactPaths
-  integration: Integration
-}): Promise<{
-  config: CanonicalChugSplashConfig
-  bundle: ChugSplashActionBundle
-}> => {
-  const { provider, configUri, bundleId, ipfsUrl } = args
-
+) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
     chugsplashFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const bundle: ChugSplashActionBundle = await bundleRemoteSubtask({
+  const { actionBundle, targetBundle } = await bundleRemoteSubtask({
     provider,
     canonicalConfig: config,
   })
 
   if (
-    bundleId !== computeBundleId(bundle.root, bundle.actions.length, configUri)
+    bundleId !==
+    computeBundleId(
+      actionBundle.root,
+      targetBundle.root,
+      actionBundle.actions.length,
+      targetBundle.targets.length,
+      configUri
+    )
   ) {
     throw new Error(
       'Bundle ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
-  }
-
-  return {
-    config,
-    bundle,
   }
 }
 
@@ -96,11 +90,11 @@ export const verifyBundle = async (args: {
  * @param provider JSON RPC provider.
  * @returns Compiled ChugSplashBundle.
  */
-export const compileRemoteBundle = async (
+export const compileRemoteBundles = async (
   provider: providers.Provider,
   configUri: string
 ): Promise<{
-  bundle: ChugSplashActionBundle
+  bundles: ChugSplashBundles
   canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
@@ -109,6 +103,6 @@ export const compileRemoteBundle = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundle = await bundleRemoteSubtask({ provider, canonicalConfig })
-  return { bundle, canonicalConfig }
+  const bundles = await bundleRemoteSubtask({ provider, canonicalConfig })
+  return { bundles, canonicalConfig }
 }
