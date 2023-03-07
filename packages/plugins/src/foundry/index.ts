@@ -50,7 +50,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -95,7 +95,7 @@ const command = args[0]
 
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -150,7 +150,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -194,7 +194,7 @@ const command = args[0]
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -259,7 +259,7 @@ const command = args[0]
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -337,7 +337,7 @@ const command = args[0]
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -383,7 +383,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -417,7 +417,7 @@ const command = args[0]
 
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -475,7 +475,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -510,7 +510,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -548,7 +548,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -589,7 +589,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -628,7 +628,7 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = readUserChugSplashConfig(configPath)
+      const userConfig = await readUserChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,

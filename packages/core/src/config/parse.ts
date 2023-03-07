@@ -31,18 +31,29 @@ export const readParsedChugSplashConfig = async (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<ParsedChugSplashConfig> => {
-  const userConfig = readUserChugSplashConfig(configPath)
+  const userConfig = await readUserChugSplashConfig(configPath)
   return parseChugSplashConfig(provider, userConfig, artifactPaths, integration)
 }
 
-export const readUserChugSplashConfig = (
+export const readUserChugSplashConfig = async (
   configPath: string
-): UserChugSplashConfig => {
+): Promise<UserChugSplashConfig> => {
   delete require.cache[require.resolve(path.resolve(configPath))]
 
+  let config
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let config = require(path.resolve(configPath))
-  config = config.default || config
+  let exported = require(path.resolve(configPath))
+  exported = exported.default || exported
+  if (typeof exported === 'function') {
+    config = await exported()
+  } else if (typeof exported === 'object') {
+    config = exported
+  } else {
+    throw new Error(
+      'Config file must export either a config object, or a function which resolves to one.'
+    )
+  }
+
   assertValidUserConfigFields(config)
   return config
 }

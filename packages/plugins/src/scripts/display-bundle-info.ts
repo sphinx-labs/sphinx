@@ -25,7 +25,7 @@ if (typeof chugsplashFilePath !== 'string') {
  * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
-  const userConfig = readUserChugSplashConfig(chugsplashFilePath)
+  const userConfig = await readUserChugSplashConfig(chugsplashFilePath)
   const artifactPaths = await getArtifactPaths(
     hre,
     userConfig.contracts,
