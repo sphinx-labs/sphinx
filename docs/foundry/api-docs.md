@@ -17,13 +17,13 @@ This document is a work in progress.
 - [Transfer Proxy](#Transfer-Proxy)
 
 ## Deploy
-Performs a complete deployment or upgrade of a ChugSplash file. 
+Performs a complete deployment or upgrade of a ChugSplash config file.
 
 ## Register
 Todo
 
 ## Propose
-Todo 
+Todo
 
 ## Approve
 Todo

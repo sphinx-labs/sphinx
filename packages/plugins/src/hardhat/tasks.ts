@@ -1172,13 +1172,13 @@ export const chugsplashInitTask = async (
     fs.mkdirSync(hre.config.paths.tests)
   }
 
-  // First, we'll create the sample ChugSplash file.
+  // First, we'll create the sample ChugSplash config file.
 
   // True if the Hardhat project is TypeScript and false if it's JavaScript.
   const isTypeScriptProject =
     path.extname(hre.config.paths.configFile) === '.ts'
 
-  // Check if the sample ChugSplash file already exists.
+  // Check if the sample ChugSplash config file already exists.
   const chugsplashFileName = isTypeScriptProject
     ? 'hello-chugsplash.ts'
     : 'hello-chugsplash.js'
@@ -1187,7 +1187,7 @@ export const chugsplashInitTask = async (
     chugsplashFileName
   )
   if (!fs.existsSync(chugsplashFilePath)) {
-    // Create the sample ChugSplash file.
+    // Create the sample ChugSplash config file.
     fs.writeFileSync(
       chugsplashFilePath,
       isTypeScriptProject

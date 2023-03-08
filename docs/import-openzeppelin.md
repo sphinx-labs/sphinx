@@ -13,7 +13,7 @@ Currently, ChugSplash only integrates with Transparent proxies, which is the def
 
 Navigate to your project directory that has ChugSplash set up.
 
-First, you'll need to decide on a project name. Once you've done this, create a ChugSplash file for your project in the `chugsplash/` folder. Copy and paste the following contents into it:
+First, you'll need to decide on a project name. Once you've done this, create a ChugSplash config file for your project in the `chugsplash/` folder. Copy and paste the following contents into it:
 
 ```json
 {
@@ -71,7 +71,7 @@ contract ChugSplashScript is Script {
     function run() public {
         ChugSplash chugsplash = new ChugSplash();
 
-        // Define the path from the project root to your ChugSplash file
+        // Define the path from the project root to your ChugSplash config file
         string memory chugsplashFilePath = "./chugsplash/my-chugsplash-file.json";
 
         // Register the project
@@ -80,7 +80,7 @@ contract ChugSplashScript is Script {
 }
 ```
 
-Make sure that you update the `chugsplashFilePath` variable to be the path from the project root to your ChugSplash file.
+Make sure that you update the `chugsplashFilePath` variable to be the path from the project root to your ChugSplash config file.
 
 Then, run this script using the command:
 ```bash
@@ -119,13 +119,13 @@ Inside your file, copy and paste the following:
 const hre = require('hardhat')
 require('@openzeppelin/hardhat-upgrades')
 const { getChugSplashManagerProxyAddress } = require('@chugsplash/core')
-// Import your ChugSplash file below:
+// Import your ChugSplash config file below:
 const { options } = require(path/to/chugsplash/file.json)
 
 // The address of the contract you're importing into ChugSplash
 const proxyAddress = 'your proxy address'
 
-// Check that the ChugSplash file has a project name field.
+// Check that the ChugSplash config file has a project name field.
 if (options.projectName === undefined) {
   throw new Error(`You must enter a project name.`)
 }
@@ -142,7 +142,7 @@ const main = async () => {
 main()
 ```
 
-Make sure to enter your ChugSplash file path and proxy address in the missing fields.
+Make sure to enter your ChugSplash config file path and proxy address in the missing fields.
 
 If you have multiple proxies that you'd like to import, we recommend transferring ownership of all of them in this script. To do this, simply add a `hre.upgrades.admin.changeProxyAdmin` call for each proxy that you'd like to import.
 
@@ -161,7 +161,7 @@ If you'd like to use ChugSplash's storage layout safety checker, you'll need to 
 
 ## Next Steps
 
-When you're ready to upgrade your proxy, you'll fill out the ChugSplash file that you created earlier in this guide. You'll need to use the same project name that you selected earlier.
+When you're ready to upgrade your proxy, you'll fill out the ChugSplash config file that you created earlier in this guide. You'll need to use the same project name that you selected earlier.
 
 If you haven't already read the [ChugSplash File guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), you should do so next. Note that you'll need to enter a `proxy` field in your contract definition, as explained in [this section](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) of the ChugSplash File guide.
 

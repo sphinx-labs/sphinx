@@ -35,7 +35,7 @@ describe('Transfer', () => {
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `externalProxy` field of the relevant
-    // ChugSplash files.
+    // ChugSplash config files.
     signer = signers[signers.length - 1]
   })
 
@@ -168,8 +168,6 @@ describe('Transfer', () => {
     })
 
     const provider = hre.ethers.provider
-
-    console.log(UUPSUpgradableTokenV1.address)
 
     // check owner is signer
     expect(await UUPSUpgradableTokenV1.owner()).to.equal(
