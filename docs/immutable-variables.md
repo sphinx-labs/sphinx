@@ -10,11 +10,11 @@ The first option is to directly assign the immutable variable to its value in yo
 uint public immutable myNum = block.timestamp;
 ```
 
-You don't need to create a variable definition in your ChugSplash file if you do this.
+You don't need to create a variable definition in your ChugSplash config file if you do this.
 
-## 2. Define `constructorArgs` in your ChugSplash file
+## 2. Define `constructorArgs` in your ChugSplash config file
 
-The other option is to define a `constructorArgs` field in your ChugSplash file. This field contains the constructor arguments that correspond to your immutable variables. For example, say you have the following contract:
+The other option is to define a `constructorArgs` field in your ChugSplash config file. This field contains the constructor arguments that correspond to your immutable variables. For example, say you have the following contract:
 
 ```sol
 contract MyContract {
@@ -26,7 +26,7 @@ contract MyContract {
 }
 ```
 
-Your ChugSplash file would be:
+Your ChugSplash config file would be:
 ```ts
 {
   options: { ... },
@@ -47,11 +47,11 @@ Notice that we assign a value to the constructor argument, `_num`, instead of th
 
 The `constructorArgs` field can only be used for immutable variables.
 
-### Why not use the `variables` field in the ChugSplash file to define immutable variables?
+### Why not use the `variables` field in the ChugSplash config file to define immutable variables?
 
-It might seem natural to define immutable variables in the same manner that you define mutable state variables in your ChugSplash file (via the `variables` section).
+It might seem natural to define immutable variables in the same manner that you define mutable state variables in your ChugSplash config file (via the `variables` section).
 
-However, you **cannot** use the `variables` section in your ChugSplash file to define immutable variables. For example, say you have an immutable variable, `myNum`, in your contract. ChugSplash would throw an error if you attempted to do:
+However, you **cannot** use the `variables` section in your ChugSplash config file to define immutable variables. For example, say you have an immutable variable, `myNum`, in your contract. ChugSplash would throw an error if you attempted to do:
 
 ```ts
 {
@@ -92,5 +92,5 @@ contract MyContract {
 }
 ```
 
-Since a constructor is required in this situation, the most straightforward solution is for users to pass in their constructor arguments via a `constructorArgs` section in the ChugSplash file. We chose to make this a separate section from `variables` to avoid confusion between the two ways of assigning variables.
+Since a constructor is required in this situation, the most straightforward solution is for users to pass in their constructor arguments via a `constructorArgs` section in the ChugSplash config file. We chose to make this a separate section from `variables` to avoid confusion between the two ways of assigning variables.
 

@@ -538,8 +538,8 @@ export const computeStorageSlots = (
     } else {
       throw new Error(
         `Detected a variable "${storageObj.label}" from the contract "${contractConfig.contract}" (or one\n` +
-          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash file.\n` +
-          `Every variable defined in your contracts must be assigned a value in your ChugSplash file.\n` +
+          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash config file.\n` +
+          `Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n` +
           `Please define the variable in your ChugSplash config file then run this command again.\n` +
           `If this problem persists, delete your cache folder then try again.`
       )
@@ -556,12 +556,12 @@ export const computeStorageSlots = (
     // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
     if (!storageObj) {
       throw new Error(
-        `Variable "${variableName}" was defined in the ChugSplash file for ${contractConfig.contract} but\n` +
+        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract} but\n` +
           `does not exist as a mutable variable in the contract. If "${variableName}" is immutable, please remove\n` +
-          `its definition in the 'variables' section of the ChugSplash file and use the 'constructorArgs' field\n` +
+          `its definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field\n` +
           `instead. If this variable is not meant to be immutable, you can fix this error by defining a mutable\n` +
           `variable in the contract with the name "${variableName}", or by removing its variable definition in the\n` +
-          `ChugSplash file. If this problem persists, delete your cache folder then try again.`
+          `ChugSplash config file. If this problem persists, delete your cache folder then try again.`
       )
     }
 

@@ -14,7 +14,7 @@ import { getArtifactPaths } from '../hardhat/artifacts'
 
 const chugsplashFilePath = argv[2]
 if (typeof chugsplashFilePath !== 'string') {
-  throw new Error(`Pass in a path to a ChugSplash file.`)
+  throw new Error(`Pass in a path to a ChugSplash config file.`)
 }
 
 /**

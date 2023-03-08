@@ -100,7 +100,7 @@ npx hardhat chugsplash-init
 This command created a `chugsplash/` folder, which is will contain your deployments.
 
 It also created a few files:
-* `chugsplash/hello-chugsplash.js`: The ChugSplash file where your first deployment is defined.
+* `chugsplash/hello-chugsplash.js`: The ChugSplash config file where your first deployment is defined.
 * `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
 * `test/HelloChugSplash.test.js`: The test file for your deployment.
 
@@ -156,7 +156,7 @@ npx hardhat chugsplash-init
 This command created a `chugsplash/` folder, which is will contain your deployments.
 
 It also created a few files:
-* `chugsplash/hello-chugsplash.ts`: The ChugSplash file where your first deployment is defined.
+* `chugsplash/hello-chugsplash.ts`: The ChugSplash config file where your first deployment is defined.
 * `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
 * `test/HelloChugSplash.spec.ts`: The test file for your deployment.
 

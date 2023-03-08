@@ -9,7 +9,7 @@ In this guide, you'll learn how to deploy, upgrade, and test an upgradeable cont
 3. [Configure your `foundry.toml` file](#3-configure-your-foundrytoml-file)
 4. [Update remappings](#4-update-remappings)
 5. [Create a contract](#5-create-a-contract)
-6. [Create a ChugSplash file](#6-create-a-chugsplash-file)
+6. [Create a ChugSplash config file](#6-create-a-chugsplash-file)
 7. [Create your deployment script](#7-create-your-deployment-script)
 8. [Deploy with ChugSplash](#8-deploy-with-chugsplash)
 9. [Test with ChugSplash](#9-test-with-chugsplash)
@@ -108,9 +108,9 @@ contract HelloChugSplash {
 }
 ```
 
-## 6. Create a ChugSplash file
+## 6. Create a ChugSplash config file
 
-Next, we'll create a ChugSplash file, which contains all of the information necessary to deploy and upgrade your project. A ChugSplash file can be written in JavaScript or JSON. In this guide, it'll be a JSON file. ChugSplash files are the only files in your project that are not written in Solidity.
+Next, we'll create a ChugSplash config file, which contains all of the information necessary to deploy and upgrade your project. A ChugSplash config file can be written in JavaScript or JSON. In this guide, it'll be a JSON file. ChugSplash config files are the only files in your project that are not written in Solidity.
 
 In your project root:
 
@@ -118,7 +118,7 @@ In your project root:
 mkdir chugsplash && echo > chugsplash/hello-chugsplash.json
 ```
 
-Inside your newly created ChugSplash file, `hello-chugsplash.json`, copy and paste the following:
+Inside your newly created ChugSplash config file, `hello-chugsplash.json`, copy and paste the following:
 
 ```json
 {
@@ -139,7 +139,7 @@ Inside your newly created ChugSplash file, `hello-chugsplash.json`, copy and pas
 }
 ```
 
-We'll explain the details of the ChugSplash file in the next guide.
+We'll explain the details of the ChugSplash config file in the next guide.
 
 ## 7. Create your deployment script
 
@@ -161,10 +161,10 @@ contract ChugSplashScript is Script {
         // Create a ChugSplash instance
         ChugSplash chugsplash = new ChugSplash();
 
-        // Define the path from the project root to your ChugSplash file.
+        // Define the path from the project root to your ChugSplash config file.
         string memory chugsplashFilePath = "./chugsplash/hello-chugsplash.json";
 
-        // Deploy all contracts in your ChugSplash file (in this case, just HelloChugSplash.sol)
+        // Deploy all contracts in your ChugSplash config file (in this case, just HelloChugSplash.sol)
         chugsplash.deploy(chugsplashFilePath);
     }
 }
@@ -218,10 +218,10 @@ contract ChugSplashTest is Test {
         // Create a ChugSplash instance
         ChugSplash chugsplash = new ChugSplash();
 
-        // Define the path from the project root to your ChugSplash file.
+        // Define the path from the project root to your ChugSplash config file.
         string memory chugsplashFilePath = "./chugsplash/hello-chugsplash.json";
 
-        // Deploy all contracts in your ChugSplash file (in this case, just HelloChugSplash.sol)
+        // Deploy all contracts in your ChugSplash config file (in this case, just HelloChugSplash.sol)
         chugsplash.deploy(chugsplashFilePath, true);
 
         // You *must* refresh EVM state after calling `chugsplash.deploy`.
@@ -277,7 +277,7 @@ contract HelloChugSplash {
 }
 ```
 
-Then, update your existing ChugSplash file, `hello-chugsplash.json`, to assign a value to this new variable:
+Then, update your existing ChugSplash config file, `hello-chugsplash.json`, to assign a value to this new variable:
 ```json
 {
   "options": {

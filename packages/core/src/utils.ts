@@ -840,11 +840,11 @@ permission to call the 'upgradeTo' function on each of them.
   } else {
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
       // Throw an error if the 'preserve' keyword is set to a variable's value in the
-      // ChugSplash file. This keyword is only allowed for upgrades.
+      // ChugSplash config file. This keyword is only allowed for upgrades.
       if (variableContainsPreserveKeyword(contractConfig.variables)) {
         throw new Error(
           `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
-            `upgrades only. Please remove all instances of it in your ChugSplash file.`
+            `upgrades only. Please remove all instances of it in your ChugSplash config file.`
         )
       }
     }
@@ -917,7 +917,7 @@ export const variableContainsPreserveKeyword = (
  * 2. The contract reference is not included in the array of valid contract references.
  *
  * @param variable Config variable defined by the user.
- * @param referenceNames Valid reference names for this ChugSplash file.
+ * @param referenceNames Valid reference names for this ChugSplash config file.
  */
 export const assertValidContractReferences = (
   variable: UserConfigVariable,
@@ -1333,7 +1333,7 @@ export const getConstructorArgs = (
   if (constructorFragment === undefined) {
     if (Object.keys(constructorArgs).length > 0) {
       throw new Error(
-        `User entered constructor arguments in the ChugSplash file for ${referenceName}, but\n` +
+        `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
           `no constructor exists in the contract.`
       )
     } else {
@@ -1349,7 +1349,7 @@ export const getConstructorArgs = (
       (argName) => !constructorArgNames.includes(argName)
     )
     throw new Error(
-      `User entered an incorrect number of constructor arguments in the ChugSplash file for ${referenceName}.\n` +
+      `User entered an incorrect number of constructor arguments in the ChugSplash config file for ${referenceName}.\n` +
         `Please remove the following variables from the 'constructorArgs' field:` +
         `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
     )
@@ -1359,8 +1359,8 @@ export const getConstructorArgs = (
     const constructorArgValue = constructorArgs[input.name]
     if (constructorArgValue === undefined) {
       throw new Error(
-        `User did not define the constructor argument '${input.name}' in the ChugSplash file\n` +
-          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash file.`
+        `User did not define the constructor argument '${input.name}' in the ChugSplash config file\n` +
+          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash config file.`
       )
     }
     constructorArgTypes.push(input.type)
@@ -1520,7 +1520,7 @@ export const getPreviousStorageLayoutOZFormat = async (
         '\x1b[33m%s\x1b[0m', // Display message in yellow
         `\nUsing the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
           `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
-          `ChugSplash deployment instead, please remove these two fields from your ChugSplash file.`
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash config file.`
       )
     }
 
@@ -1547,7 +1547,7 @@ export const getPreviousStorageLayoutOZFormat = async (
   } else {
     throw new Error(
       `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
-        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash file.`
+        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
   }
 }

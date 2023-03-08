@@ -141,7 +141,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.previousFullyQualifiedName === undefined
     ) {
       throw new Error(
-        `User included a 'previousBuildInfo' field in the ChugSplash file for ${contractConfig.contract}, but\n` +
+        `User included a 'previousBuildInfo' field in the ChugSplash config file for ${contractConfig.contract}, but\n` +
           `did not include a 'previousFullyQualifiedName' field. Please include both or neither.`
       )
     } else if (
@@ -149,7 +149,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.previousFullyQualifiedName !== undefined
     ) {
       throw new Error(
-        `User included a 'previousFullyQualifiedName' field in the ChugSplash file for ${contractConfig.contract}, but\n` +
+        `User included a 'previousFullyQualifiedName' field in the ChugSplash config file for ${contractConfig.contract}, but\n` +
           `did not include a 'previousBuildInfo' field. Please include both or neither.`
       )
     }
@@ -163,7 +163,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       // Check that the user did not use the 'preserve' keyword for constructor args.
       if (variableContainsPreserveKeyword(contractConfig.constructorArgs)) {
         throw new Error(
-          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash file. This \n` +
+          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash config file. This \n` +
             `keyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`
         )
       }
