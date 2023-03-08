@@ -9,11 +9,12 @@ import {
   ProxyABI,
   ProxyInitializerArtifact,
   ProxyInitializerABI,
-  OZUUPSAdapterArtifact,
   DefaultUpdaterArtifact,
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
   ChugSplashRegistryProxyArtifact,
+  OZUUPSOwnableAdapterArtifact,
+  OZUUPSAccessControlAdapterArtifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
@@ -38,8 +39,11 @@ export const EXTERNAL_DEFAULT_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-transparent')
 )
-export const OZ_UUPS_PROXY_TYPE_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('oz-uups')
+export const OZ_UUPS_OWNABLE_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('oz-ownable-uups')
+)
+export const OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('oz-access-control-uups')
 )
 
 export const CHUGSPLASH_SALT = '0x' + '13'.repeat(32)
@@ -96,13 +100,13 @@ export const OZ_UUPS_UPDATER_ADDRESS = ethers.utils.getCreate2Address(
   ethers.utils.solidityKeccak256(['bytes'], [OZUUPSUpdaterArtifact.bytecode])
 )
 
-export const OZ_UUPS_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
+export const OZ_UUPS_OWNABLE_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
   ethers.utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      OZUUPSAdapterArtifact.bytecode,
+      OZUUPSOwnableAdapterArtifact.bytecode,
       ethers.utils.defaultAbiCoder.encode(
         ['address'],
         [OZ_UUPS_UPDATER_ADDRESS]
@@ -110,6 +114,22 @@ export const OZ_UUPS_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
     ]
   )
 )
+
+export const OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS =
+  ethers.utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    CHUGSPLASH_SALT,
+    ethers.utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        OZUUPSAccessControlAdapterArtifact.bytecode,
+        ethers.utils.defaultAbiCoder.encode(
+          ['address'],
+          [OZ_UUPS_UPDATER_ADDRESS]
+        ),
+      ]
+    )
+  )
 
 export const OZ_TRANSPARENT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,

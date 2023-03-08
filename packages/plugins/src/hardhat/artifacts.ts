@@ -116,7 +116,8 @@ export const importOpenZeppelinStorageLayouts = async (
     if (
       isProxyDeployed &&
       (externalProxyType === 'oz-transparent' ||
-        externalProxyType === 'oz-uups')
+        externalProxyType === 'oz-ownable-uups' ||
+        externalProxyType === 'oz-access-control-uups')
     ) {
       const manifest = await Manifest.forNetwork(hre.network.provider)
       const deployData = await getDeployData(
