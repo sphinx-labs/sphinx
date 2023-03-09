@@ -2,11 +2,19 @@
 pragma solidity ^0.8.9;
 
 contract Storage {
+    type UserDefinedType is uint256;
+    type UserDefinedBytes32 is bytes32;
+    type UserDefinedInt is int;
+    type UserDefinedInt8 is int8;
+    type UserDefinedUint8 is uint8;
+    type UserDefinedBool is bool;
+
     enum TestEnum { A, B, C }
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
     struct ComplexStruct {
         int32 a;
         mapping(uint32 => string) b;
+        UserDefinedType c;
     }
 
     int public minInt256;
@@ -18,6 +26,20 @@ contract Storage {
     bytes public bytesTest;
     bytes public longBytesTest;
     bytes32 public bytes32Test;
+
+    UserDefinedType public userDefinedTypeTest;
+    UserDefinedBytes32 public userDefinedBytesTest;
+    UserDefinedInt public userDefinedInt;
+    UserDefinedInt8 public userDefinedInt8;
+    UserDefinedUint8 public userDefinedUint8;
+    UserDefinedBool public userDefinedBool;
+    mapping(UserDefinedType => string) public userDefinedToStringMapping;
+    mapping(string => UserDefinedType) public stringToUserDefinedMapping;
+    UserDefinedType[2] public userDefinedFixedArray;
+    UserDefinedType[2][2] public userDefinedFixedNestedArray;
+    UserDefinedType[] public userDefinedDynamicArray;
+
+
     Storage public contractTest;
     TestEnum public enumTest;
     SimpleStruct public simpleStruct;

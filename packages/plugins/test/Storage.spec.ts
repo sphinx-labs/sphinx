@@ -57,6 +57,86 @@ describe('Storage', () => {
     expect(await MyStorage.bytes32Test()).equals(variables.bytes32Test)
   })
 
+  it('does set user defined type', async () => {
+    expect(await MyStorage.userDefinedTypeTest()).deep.equals(
+      BigNumber.from(variables.userDefinedTypeTest)
+    )
+  })
+
+  it('does set user defined bytes', async () => {
+    expect(await MyStorage.userDefinedBytesTest()).deep.equals(
+      variables.userDefinedBytesTest
+    )
+  })
+
+  it('does set user defined int', async () => {
+    expect(await MyStorage.userDefinedInt()).deep.equals(
+      BigNumber.from(variables.userDefinedInt)
+    )
+  })
+
+  it('does set user defined int8', async () => {
+    expect(await MyStorage.userDefinedInt8()).deep.equals(
+      variables.userDefinedInt8
+    )
+  })
+
+  it('does set user defined uint8', async () => {
+    expect(await MyStorage.userDefinedUint8()).deep.equals(
+      variables.userDefinedUint8
+    )
+  })
+
+  it('does set user defined bool', async () => {
+    expect(await MyStorage.userDefinedBool()).deep.equals(
+      variables.userDefinedBool
+    )
+  })
+
+  it('does set string mapping to user defined type', async () => {
+    const [key] = Object.keys(variables.stringToUserDefinedMapping)
+    expect(await MyStorage.stringToUserDefinedMapping(key)).to.deep.equal(
+      BigNumber.from(variables.stringToUserDefinedMapping[key])
+    )
+  })
+
+  it('does set user defined type mapping to string', async () => {
+    const [key] = Object.keys(variables.userDefinedToStringMapping)
+    expect(await MyStorage.userDefinedToStringMapping(key)).to.equal(
+      variables.userDefinedToStringMapping[key]
+    )
+  })
+
+  it('does set user defined fixed array', async () => {
+    for (let i = 0; i < variables.userDefinedFixedArray.length; i++) {
+      expect(await MyStorage.userDefinedFixedArray(i)).deep.equals(
+        BigNumber.from(variables.userDefinedFixedArray[i])
+      )
+    }
+  })
+
+  it('does set user defined fixed size nested array', async () => {
+    for (let i = 0; i < variables.userDefinedFixedNestedArray.length; i++) {
+      for (
+        let j = 0;
+        j < variables.userDefinedFixedNestedArray[0].length;
+        j++
+      ) {
+        expect(await MyStorage.userDefinedFixedNestedArray(i, j)).deep.equals(
+          BigNumber.from(variables.userDefinedFixedNestedArray[i][j])
+        )
+      }
+    }
+  })
+
+  it('does set user defined dynamic array', async () => {
+    for (let i = 0; i < variables.userDefinedDynamicArray.length; i++) {
+      expect(await MyStorage.userDefinedDynamicArray(i)).deep.equals(
+        BigNumber.from(variables.userDefinedDynamicArray[i])
+      )
+    }
+  })
+
   it('does set contract', async () => {
     expect(await MyStorage.contractTest()).equals(variables.contractTest)
   })
@@ -101,7 +181,11 @@ describe('Storage', () => {
   })
 
   it('does set complex struct', async () => {
-    expect(await MyStorage.complexStruct()).equals(variables.complexStruct.a)
+    const complexStruct = await MyStorage.complexStruct()
+    expect(complexStruct.a).equals(variables.complexStruct.a)
+    expect(complexStruct.c).to.deep.equal(
+      BigNumber.from(variables.complexStruct.c)
+    )
 
     const [[key, val]] = Object.entries(variables.complexStruct.b)
     expect(await MyStorage.getComplexStructMappingVal(key)).equals(val)

@@ -1687,6 +1687,7 @@ export const getCanonicalConfigArtifacts = async (
     for (const { compilerInput, compilerOutput } of solcArray) {
       const contractOutput =
         compilerOutput.contracts?.[sourceName]?.[contractName]
+
       if (contractOutput !== undefined) {
         const creationCodeWithConstructorArgs =
           getCreationCodeWithConstructorArgs(

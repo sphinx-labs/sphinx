@@ -12,6 +12,29 @@ const variables = {
   bytes32Test: '0x' + '11'.repeat(32),
   longBytesTest:
     '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
+  userDefinedTypeTest: '1000000000000000000',
+  userDefinedBytesTest: '0x' + '11'.repeat(32),
+  userDefinedInt: ethers.constants.MinInt256.toString(),
+  userDefinedInt8: -128,
+  userDefinedUint8: 255,
+  userDefinedBool: true,
+  userDefinedFixedArray: ['1000000000000000000', '1000000000000000000'],
+  userDefinedFixedNestedArray: [
+    ['1000000000000000000', '1000000000000000000'],
+    ['1000000000000000000', '1000000000000000000'],
+  ],
+  userDefinedDynamicArray: [
+    '1000000000000000000',
+    '1000000000000000000',
+    '1000000000000000000',
+  ],
+  stringToUserDefinedMapping: {
+    testKey: '1000000000000000000',
+  },
+  userDefinedToStringMapping: {
+    // eslint-disable-next-line prettier/prettier
+    '1000000000000000000': 'testVal',
+  },
   contractTest: '0x' + '11'.repeat(20),
   enumTest: 1,
   simpleStruct: {
@@ -24,6 +47,7 @@ const variables = {
     b: {
       5: 'testVal',
     },
+    c: '1000000000000000000',
   },
   uint64FixedArray: [1, 10, 100, 1_000, 10_000],
   uint128FixedNestedArray: [
