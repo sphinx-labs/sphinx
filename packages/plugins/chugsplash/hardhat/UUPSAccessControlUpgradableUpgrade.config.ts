@@ -22,7 +22,7 @@ const config: UserChugSplashConfig = {
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
       previousBuildInfo:
-        'artifacts/build-info/1af37641d1ff3a00679cea44257f9533.json',
+        'artifacts/build-info/f9ae13bf7bbc9a4a4954c12d9ae47c89.json',
       previousFullyQualifiedName:
         'contracts/UUPSAccessControlUpgradableV1.sol:UUPSAccessControlUpgradableV1',
     },
