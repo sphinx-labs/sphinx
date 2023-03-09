@@ -20,6 +20,8 @@ import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
  */
 
 contract ChugSplashTest is Test {
+    type UserDefinedType is uint256;
+
     Proxy claimedProxy;
     Proxy transferredProxy;
     Storage myStorage;
@@ -169,6 +171,73 @@ contract ChugSplashTest is Test {
         assertEq(myStorage.bytesTest(), hex"abcd1234");
     }
 
+    function testSetUserDefinedType() public {
+        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+    }
+
+    function testSetUserDefinedBytes() public {
+        assertEq(Storage.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()), 0x1111111111111111111111111111111111111111111111111111111111111111);
+    }
+
+    function testSetUserDefinedInt() public {
+        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedInt()),  type(int256).min);
+    }
+
+    function testSetUserDefinedInt8() public {
+        assertEq(Storage.UserDefinedInt8.unwrap(myStorage.userDefinedInt8()), type(int8).min);
+    }
+
+    function testSetUserDefinedUint8() public {
+        assertEq(Storage.UserDefinedUint8.unwrap(myStorage.userDefinedUint8()), 255);
+    }
+
+    function testSetUserDefinedBool() public {
+        assertEq(Storage.UserDefinedBool.unwrap(myStorage.userDefinedBool()), true);
+    }
+
+    function testSetStringToUserDefinedTypeMapping() public {
+        (Storage.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
+        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+    }
+
+    function testSetUserDefinedTypeToStringMapping() public {
+        assertEq(myStorage.userDefinedToStringMapping(Storage.UserDefinedType.wrap(1000000000000000000)), 'testVal');
+    }
+
+    function testSetComplexStruct() public {
+        (int32 a, Storage.UserDefinedType c) = myStorage.complexStruct();
+        assertEq(a, 4);
+        assertEq(Storage.UserDefinedType.unwrap(c), 1000000000000000000);
+        assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
+    }
+
+    function testSetUserDefinedFixedArray() public {
+        uint64[2] memory uintFixedArray = [1000000000000000000, 1000000000000000000];
+        for (uint i = 0; i < uintFixedArray.length; i++) {
+            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)), uintFixedArray[i]);
+        }
+    }
+
+    function testSetUserDefinedNestedArray() public {
+        uint64[2][2] memory nestedArray = [
+            [1000000000000000000, 1000000000000000000],
+            [1000000000000000000, 1000000000000000000]
+        ];
+
+        for (uint i = 0; i < nestedArray.length; i++) {
+            for (uint j = 0; j < nestedArray[i].length; j++) {
+                assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)), nestedArray[i][j]);
+            }
+        }
+    }
+
+    function testSetUserDefinedDynamicArray() public {
+        uint64[3] memory uintDynamicArray = [1000000000000000000, 1000000000000000000, 1000000000000000000];
+        for (uint i = 0; i < uintDynamicArray.length; i++) {
+            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)), uintDynamicArray[i]);
+        }
+    }
+
     function testSetLongBytes() public {
         assertEq(myStorage.longBytesTest(), hex"123456789101112131415161718192021222324252627282930313233343536373839404142434445464");
     }
@@ -214,12 +283,6 @@ contract ChugSplashTest is Test {
     function testSetLongStringMappingtoLongString() public {
         string memory key = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz';
         assertEq(myStorage.longStringToLongStringMapping(key), key);
-    }
-
-    function testSetComplexStruct() public {
-        (int32 a) = myStorage.complexStruct();
-        assertEq(a, 4);
-        assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
     }
 
     function testSetUint64FixedSizeArray() public {

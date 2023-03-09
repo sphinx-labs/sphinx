@@ -15,6 +15,7 @@ import {
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
+  addUserDefinedTypesToStorageLayout,
 } from '../utils'
 import {
   ChugSplashAction,
@@ -354,6 +355,11 @@ export const makeActionBundleFromConfig = async (
 
     const storageLayout =
       compilerOutput.contracts[sourceName][contractName].storageLayout
+
+    const contractSource = compilerOutput.sources[sourceName].ast.nodes.find(
+      (node) => 'canonicalName' in node && node.canonicalName === contractName
+    )
+    addUserDefinedTypesToStorageLayout(storageLayout, contractSource)
 
     // Skip adding a `DEPLOY_IMPLEMENTATION` action if the implementation has already been deployed.
     if (

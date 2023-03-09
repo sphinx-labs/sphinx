@@ -18,6 +18,7 @@ This is a reference that explains how to assign values to every variable type in
 - [Arrays](#arrays)
 - [Structs](#structs)
 - [Mappings](#mappings)
+- [User Defined Types](#user-defined-types)
 
 
 ## Booleans
@@ -312,4 +313,18 @@ myMultiNestedMapping: {
   },
   ...
 },
+```
+
+## User defined types
+ChugSplash treats your user defined types as if they were their underlying types.
+
+Define your type in Solidity
+```solidity
+type UserDefinedType is uint256;
+UserDefinedType public userDefined;
+```
+
+In your ChugSplash config file:
+```ts
+userDefined: 1
 ```
