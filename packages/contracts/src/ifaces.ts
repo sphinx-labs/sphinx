@@ -14,7 +14,7 @@ export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adap
 export const ChugSplashRegistryProxyArtifact = require('../artifacts/contracts/ChugSplashRegistryProxy.sol/ChugSplashRegistryProxy.json')
 export const ChugSplashRecorderArtifact = require('../artifacts/contracts/ChugSplashRecorder.sol/ChugSplashRecorder.json')
 
-export const buildInfo = require('../artifacts/build-info/8186fa1e54219a552b8795d8ebfbd695.json')
+export const buildInfo = require('../artifacts/build-info/85f5febbb53141ce2dbca952bbc3a1f3.json')
 
 export const ChugSplashRegistryABI = ChugSplashRegistryArtifact.abi
 export const ChugSplashBootLoaderABI = ChugSplashBootLoaderArtifact.abi

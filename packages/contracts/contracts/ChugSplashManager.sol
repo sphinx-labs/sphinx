@@ -599,8 +599,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public {
-        for (uint256 i = 0; i < _actions.length; i++) {
+        uint256 length = _actions.length;
+        for (uint256 i = 0; i < length; ) {
             executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -751,7 +755,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: incorrect number of targets"
         );
 
-        for (uint256 i = 0; i < _targets.length; i++) {
+        uint256 length = _targets.length;
+        for (uint256 i = 0; i < length; ) {
             ChugSplashTarget memory target = _targets[i];
             bytes32[] memory proof = _proofs[i];
 
@@ -784,6 +789,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 )
             );
             require(success, "ChugSplashManger: failed to complete execution");
+            unchecked {
+                ++i;
+            }
         }
 
         // Mark the bundle as completed and reset the active bundle hash so that a new bundle can be
