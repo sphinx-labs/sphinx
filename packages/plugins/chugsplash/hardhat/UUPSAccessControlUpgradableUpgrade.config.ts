@@ -1,5 +1,7 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 
+import { fetchBuildInfo } from '../../test/constants'
+
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
@@ -21,8 +23,7 @@ const config: UserChugSplashConfig = {
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
-      previousBuildInfo:
-        'artifacts/build-info/f9ae13bf7bbc9a4a4954c12d9ae47c89.json',
+      previousBuildInfo: `artifacts/build-info/${fetchBuildInfo()}`,
       previousFullyQualifiedName:
         'contracts/UUPSAccessControlUpgradableV1.sol:UUPSAccessControlUpgradableV1',
     },

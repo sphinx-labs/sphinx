@@ -1,4 +1,18 @@
+import fs from 'fs'
+import path from 'path'
+
 import { ethers } from 'ethers'
+
+export const fetchBuildInfo = () => {
+  const directoryPath = path.join(__dirname, '../artifacts/build-info')
+  const fileNames = fs.readdirSync(directoryPath)
+  if (fileNames.length !== 1) {
+    throw new Error(
+      'Did not find exactly one ChugSplash contracts build info file.'
+    )
+  }
+  return fileNames[0]
+}
 
 const enum TestEnum {
   'A',
