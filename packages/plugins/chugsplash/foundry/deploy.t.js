@@ -69,6 +69,10 @@ const variables = {
     ],
   ],
   int64DynamicArray: [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+  int64NestedDynamicArray: [
+    [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+    [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+  ],
   simpleStructDynamicArray: [
     {
       a: '0x' + 'ab'.repeat(32),
