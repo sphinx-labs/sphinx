@@ -1,6 +1,7 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
+import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   CanonicalConfigArtifacts,
@@ -15,7 +16,6 @@ import {
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
-  addUserDefinedTypesToStorageLayout,
 } from '../utils'
 import {
   ChugSplashAction,
@@ -356,11 +356,6 @@ export const makeActionBundleFromConfig = async (
     const storageLayout =
       compilerOutput.contracts[sourceName][contractName].storageLayout
 
-    const contractSource = compilerOutput.sources[sourceName].ast.nodes.find(
-      (node) => 'canonicalName' in node && node.canonicalName === contractName
-    )
-    addUserDefinedTypesToStorageLayout(storageLayout, contractSource)
-
     // Skip adding a `DEPLOY_IMPLEMENTATION` action if the implementation has already been deployed.
     if (
       (await provider.getCode(
@@ -380,9 +375,18 @@ export const makeActionBundleFromConfig = async (
       })
     }
 
+    // Create an AST Dereferencer. We must convert the CompilerOutput type to `any` here because
+    // because a type error will be thrown otherwise. Coverting to `any` is harmless because we use
+    // Hardhat's default `CompilerOutput`, which is what OpenZeppelin expects.
+    const dereferencer = astDereferencer(compilerOutput as any)
+
     // Compute our storage slots.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(storageLayout, contractConfig)
+    const slots = computeStorageSlots(
+      storageLayout,
+      contractConfig,
+      dereferencer
+    )
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
     for (const slot of slots) {

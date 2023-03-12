@@ -76,7 +76,6 @@ import {
   CompilerOutputSources,
   BuildInfo,
   CompilerOutput,
-  SolidityStorageLayout,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config'
 import { getSolcBuild } from './languages'
@@ -1207,28 +1206,6 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
   }
 
   return buildInfo
-}
-
-export const addUserDefinedTypesToStorageLayout = (
-  storageLayout: SolidityStorageLayout,
-  contractSource: any
-): SolidityStorageLayout => {
-  // If no vars are defined or all vars are immutable, then storageLayout.types will be null and we can just return
-  if (storageLayout.types === null) {
-    return storageLayout
-  }
-
-  for (const [typeName, typeDefinition] of Object.entries(
-    storageLayout.types
-  )) {
-    if (typeName.startsWith('t_userDefinedValueType')) {
-      const node = contractSource.nodes.find(
-        (el) => el.canonicalName === typeDefinition.label
-      )
-      typeDefinition.label = node.underlyingType.name
-    }
-  }
-  return storageLayout
 }
 
 /**
