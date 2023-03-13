@@ -88,9 +88,10 @@ export const estimateExecutionGas = async (
   )
 
   const estimatedContractDeploymentGas =
-    resolvedContractDeploymentPromises.length > 0
-      ? resolvedContractDeploymentPromises.reduce((a, b) => a.add(b))
-      : ethers.BigNumber.from(0)
+    resolvedContractDeploymentPromises.reduce(
+      (a, b) => a.add(b),
+      ethers.BigNumber.from(0)
+    )
 
   estimatedGas = estimatedGas.add(estimatedContractDeploymentGas)
 
