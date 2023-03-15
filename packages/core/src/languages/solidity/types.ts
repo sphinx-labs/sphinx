@@ -16,6 +16,10 @@ export interface SolidityStorageObj {
   type: string
 }
 
+export interface ExtendedSolidityStorageObj extends SolidityStorageObj {
+  configVarName: string
+}
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the types used for
  * the various pieces of state in the contract. See
@@ -40,6 +44,10 @@ export interface SolidityStorageLayout {
   types: {
     [name: string]: SolidityStorageType
   }
+}
+
+export interface ExtendedStorageLayout extends SolidityStorageLayout {
+  storage: ExtendedSolidityStorageObj[]
 }
 
 /**
