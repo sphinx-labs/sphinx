@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-contract HelloChugSplash {
-    type UFixed256x18 is uint256;
+import { StorageSetter } from "./StorageSetter.sol";
+
+contract HelloChugSplash is StorageSetter {
     uint8 public number;
     bool public stored;
     address public otherStorage;

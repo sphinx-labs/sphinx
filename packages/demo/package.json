@@ -47,6 +47,7 @@
   "dependencies": {
     "@chugsplash/core": "^0.8.0",
     "@chugsplash/plugins": "^0.13.0",
-    "@types/node": "^18.0.0"
+    "@types/node": "^18.0.0",
+    "solmate": "^6.7.0"
   }
 }
