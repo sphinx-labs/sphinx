@@ -1,5 +1,6 @@
 import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
+import { ASTDereferencer } from 'solidity-ast/utils'
 
 import { isPreserveKeyword } from '../../utils'
 import { ParsedContractConfig } from '../../config/types'
@@ -9,6 +10,7 @@ import {
   SolidityStorageType,
   StorageSlotSegment,
 } from './types'
+
 import 'core-js/features/array/at'
 
 /**
@@ -67,7 +69,8 @@ export const encodeVariable = (
   storageTypes: {
     [name: string]: SolidityStorageType
   },
-  nestedSlotOffset: string
+  nestedSlotOffset: string,
+  dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
   // The current slot key is the slot key of the current storage object plus the `nestedSlotOffset`.
   const slotKey = addStorageSlotKeys(storageObj.slot, nestedSlotOffset)
@@ -83,7 +86,11 @@ export const encodeVariable = (
     ]
   }
 
-  const variableType = storageTypes[storageObj.type]
+  const variableType = getStorageType(
+    storageObj.type,
+    storageTypes,
+    dereferencer
+  )
 
   // The Solidity compiler uses four encodings to encode state variables: "inplace", "mapping",
   // "dynamic_array", and "bytes". Each state variable is assigned an encoding depending on its
@@ -104,7 +111,8 @@ export const encodeVariable = (
         storageObj,
         storageTypes,
         elementSlotKey,
-        nestedSlotOffset
+        nestedSlotOffset,
+        dereferencer
       )
     } else if (
       variableType.label === 'address' ||
@@ -245,7 +253,13 @@ export const encodeVariable = (
           )
         }
         slots = slots.concat(
-          encodeVariable(varVal, memberStorageObj, storageTypes, slotKey)
+          encodeVariable(
+            varVal,
+            memberStorageObj,
+            storageTypes,
+            slotKey,
+            dereferencer
+          )
         )
       }
       return slots
@@ -319,7 +333,11 @@ export const encodeVariable = (
         )
       }
 
-      const mappingKeyStorageType = storageTypes[variableType.key]
+      const mappingKeyStorageType = getStorageType(
+        variableType.key,
+        storageTypes,
+        dereferencer
+      )
 
       // Encode the mapping key according to its Solidity compiler encoding. The encoding for the
       // mapping key is 'bytes' if the mapping key is a string or dynamic bytes. Otherwise, the
@@ -368,7 +386,13 @@ export const encodeVariable = (
       // `nestedSlotOffset` to '0' because it isn't used when calculating the storage slot
       // key (we already calculated the storage slot key above).
       slots = slots.concat(
-        encodeVariable(mappingVal, mappingValStorageObj, storageTypes, '0')
+        encodeVariable(
+          mappingVal,
+          mappingValStorageObj,
+          storageTypes,
+          '0',
+          dereferencer
+        )
       )
     }
     return slots
@@ -391,7 +415,8 @@ export const encodeVariable = (
         storageObj,
         storageTypes,
         utils.keccak256(slotKey), // The slot key of the array elements begins at the hash of the `slotKey`.
-        nestedSlotOffset
+        nestedSlotOffset,
+        dereferencer
       )
     )
     return slots
@@ -423,9 +448,14 @@ export const encodeArrayElements = (
     [name: string]: SolidityStorageType
   },
   elementSlotKey: string,
-  nestedSlotOffset: string
+  nestedSlotOffset: string,
+  dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
-  const elementType = storageTypes[storageObj.type].base
+  const elementType = getStorageType(
+    storageObj.type,
+    storageTypes,
+    dereferencer
+  ).base
 
   if (elementType === undefined) {
     throw new Error(
@@ -433,7 +463,12 @@ export const encodeArrayElements = (
     )
   }
 
-  const bytesPerElement = Number(storageTypes[elementType].numberOfBytes)
+  const elementStorageType = getStorageType(
+    elementType,
+    storageTypes,
+    dereferencer
+  )
+  const bytesPerElement = Number(elementStorageType.numberOfBytes)
 
   // Calculate the number of slots to increment when iterating over the array elements. This
   // number is only ever greater than one if `bytesPerElement` > 32, which could happen if the
@@ -460,7 +495,8 @@ export const encodeArrayElements = (
           type: elementType,
         },
         storageTypes,
-        nestedSlotOffset
+        nestedSlotOffset,
+        dereferencer
       )
     )
     // Increment the bytes offset every time we iterate over an element.
@@ -528,7 +564,8 @@ export const encodeBytesArrayElements = (
  */
 export const computeStorageSlots = (
   storageLayout: SolidityStorageLayout,
-  contractConfig: ParsedContractConfig
+  contractConfig: ParsedContractConfig,
+  dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
   const storageEntries: { [storageObjLabel: string]: SolidityStorageObj } = {}
 
@@ -567,7 +604,13 @@ export const computeStorageSlots = (
 
     // Encode this variable as series of storage slot key/value pairs and save it.
     segments = segments.concat(
-      encodeVariable(variableValue, storageObj, storageLayout.types, '0')
+      encodeVariable(
+        variableValue,
+        storageObj,
+        storageLayout.types,
+        '0',
+        dereferencer
+      )
     )
   }
 
@@ -624,4 +667,44 @@ export const computeStorageSlots = (
   }
 
   return segments
+}
+
+export const getStorageType = (
+  variableType: string,
+  storageTypes: {
+    [name: string]: SolidityStorageType
+  },
+  dereferencer: ASTDereferencer
+): SolidityStorageType => {
+  if (!variableType.startsWith('t_userDefinedValueType')) {
+    return storageTypes[variableType]
+  } else {
+    const userDefinedValueAstId = variableType.split(')').at(-1)
+
+    if (userDefinedValueAstId === undefined) {
+      throw new Error(
+        `Could not find AST ID for variable type: ${variableType}. Should never happen.`
+      )
+    }
+
+    const userDefinedValueNode = dereferencer(
+      ['UserDefinedValueTypeDefinition'],
+      parseInt(userDefinedValueAstId, 10)
+    )
+
+    const label =
+      userDefinedValueNode.underlyingType.typeDescriptions.typeString
+    if (label === undefined || label === null) {
+      throw new Error(
+        `Could not find label for user-defined value type: ${variableType}. Should never happen.`
+      )
+    }
+
+    const { encoding, numberOfBytes } = storageTypes[variableType]
+    return {
+      label,
+      encoding,
+      numberOfBytes,
+    }
+  }
 }
