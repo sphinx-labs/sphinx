@@ -239,6 +239,16 @@ describe('Storage', () => {
     }
   })
 
+  it('does set int64 nested dynamic array', async () => {
+    for (let i = 0; i < variables.int64NestedDynamicArray.length; i++) {
+      for (let j = 0; j < variables.int64NestedDynamicArray[0].length; j++) {
+        expect(await MyStorage.int64NestedDynamicArray(i, j)).deep.equals(
+          BigNumber.from(variables.int64NestedDynamicArray[i][j])
+        )
+      }
+    }
+  })
+
   it('does set dynamic array of simple structs', async () => {
     for (let i = 0; i < variables.simpleStructDynamicArray.length; i++) {
       const { a, b, c } = await MyStorage.simpleStructDynamicArray(i)

@@ -48,6 +48,7 @@ contract Storage {
     uint128[5][6] public uint128FixedNestedArray;
     uint64[2][2][2] public uint64FixedMultiNestedArray;
     int64[] public int64DynamicArray;
+    int64[][] public int64NestedDynamicArray;
     SimpleStruct[] public simpleStructDynamicArray;
     mapping(string => string) public stringToStringMapping;
     mapping(string => string) public longStringToLongStringMapping;
