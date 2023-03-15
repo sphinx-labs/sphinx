@@ -127,8 +127,12 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         projects["ChugSplash"] = ChugSplashManager(payable(_rootManagerProxy));
         recorder.addManager(_rootManagerProxy);
 
-        for (uint i = 0; i < _executors.length; i++) {
+        uint256 length = _executors.length;
+        for (uint256 i; i < length; ) {
             executors[_executors[i]] = true;
+            unchecked {
+                ++i;
+            }
         }
     }
 

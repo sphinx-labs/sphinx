@@ -494,9 +494,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: incorrect number of targets"
         );
 
-        for (uint256 i = 0; i < _targets.length; i++) {
-            ChugSplashTarget memory target = _targets[i];
-            bytes32[] memory proof = _proofs[i];
+        uint256 length = _targets.length;
+        ChugSplashTarget memory target;
+        bytes32[] memory proof;
+        address adapter;
+        for (uint256 i; i < length; ) {
+            target = _targets[i];
+            proof = _proofs[i];
 
             require(
                 MerkleTree.verify(
@@ -517,7 +521,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = recorder.adapters(target.proxyTypeHash);
+            adapter = recorder.adapters(target.proxyTypeHash);
 
             if (target.proxyTypeHash == bytes32(0)) {
                 // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
@@ -555,6 +559,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
             );
             require(success, "ChugSplashManger: failed to initiate execution");
+            unchecked {
+                ++i;
+            }
         }
 
         // Mark the bundle as initiated.
@@ -600,7 +607,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32[][] memory _proofs
     ) public {
         uint256 length = _actions.length;
-        for (uint256 i = 0; i < length; ) {
+        for (uint256 i; i < length; ) {
             executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
             unchecked {
                 ++i;
@@ -756,9 +763,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
 
         uint256 length = _targets.length;
-        for (uint256 i = 0; i < length; ) {
-            ChugSplashTarget memory target = _targets[i];
-            bytes32[] memory proof = _proofs[i];
+        ChugSplashTarget memory target;
+        bytes32[] memory proof;
+        address adapter;
+        for (uint256 i; i < length; ) {
+            target = _targets[i];
+            proof = _proofs[i];
 
             require(
                 MerkleTree.verify(
@@ -779,7 +789,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = recorder.adapters(target.proxyTypeHash);
+            adapter = recorder.adapters(target.proxyTypeHash);
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
