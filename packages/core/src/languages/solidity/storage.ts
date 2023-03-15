@@ -1,17 +1,19 @@
 import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, ethers, utils } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
+import { ContractDefinition } from 'solidity-ast'
+import 'core-js/features/array/at'
 
 import { isPreserveKeyword } from '../../utils'
 import { ParsedContractConfig } from '../../config/types'
 import {
+  ExtendedSolidityStorageObj,
+  ExtendedStorageLayout,
   SolidityStorageLayout,
   SolidityStorageObj,
   SolidityStorageType,
   StorageSlotSegment,
 } from './types'
-
-import 'core-js/features/array/at'
 
 /**
  * Takes a slot value (in hex), left-pads it with zeros, and displaces it by a given offset.
@@ -555,59 +557,54 @@ export const encodeBytesArrayElements = (
 }
 
 /**
- * Computes the key/value storage slot pairs that would be used if a given set of variable values
- * were applied to a given contract.
+ * Computes the storage slot segments that would be used if a given set of variable values were
+ * applied to a given contract.
  *
- * @param storageLayout Solidity storage layout to use as a template for determining storage slots.
+ * @param extendedLayout Solidity storage layout to use as a template for determining storage slots.
  * @param contractConfig Variable values to apply against the given storage layout.
- * @returns An array of key/value storage slot pairs that would result in the desired state.
+ * @returns An array of storage slot segments that would result in the desired state.
  */
-export const computeStorageSlots = (
-  storageLayout: SolidityStorageLayout,
+export const computeStorageSegments = (
+  extendedLayout: ExtendedStorageLayout,
   contractConfig: ParsedContractConfig,
   dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
-  const storageEntries: { [storageObjLabel: string]: SolidityStorageObj } = {}
+  for (const variableName of Object.keys(contractConfig.variables)) {
+    const existsInLayout = extendedLayout.storage.some(
+      (storageObj) => storageObj.configVarName === variableName
+    )
 
-  for (const storageObj of Object.values(storageLayout.storage)) {
-    if (contractConfig.variables[storageObj.label] !== undefined) {
-      storageEntries[storageObj.label] = storageObj
-    } else {
+    if (existsInLayout === false) {
+      // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
       throw new Error(
-        `Detected a variable "${storageObj.label}" from the contract "${contractConfig.contract}" (or one\n` +
-          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash config file.\n` +
-          `Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n` +
-          `Please define the variable in your ChugSplash config file then run this command again.\n` +
-          `If this problem persists, delete your cache folder then try again.`
+        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract} but\n` +
+          `does not exist as a mutable variable in the contract. If "${variableName}" is immutable, please remove\n` +
+          `its definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field\n` +
+          `instead. If this variable is not meant to be immutable, please remove this variable definition in the\n` +
+          `ChugSplash config file. If this problem persists, delete your cache folder then try again.`
       )
     }
   }
 
   let segments: StorageSlotSegment[] = []
-  for (const [variableName, variableValue] of Object.entries(
-    contractConfig.variables
-  )) {
-    // Find the entry in the storage layout that corresponds to this variable name.
-    const storageObj = storageEntries[variableName]
-
-    // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
-    if (!storageObj) {
+  for (const storageObj of Object.values(extendedLayout.storage)) {
+    const configVarValue = contractConfig.variables[storageObj.configVarName]
+    if (configVarValue === undefined) {
       throw new Error(
-        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract} but\n` +
-          `does not exist as a mutable variable in the contract. If "${variableName}" is immutable, please remove\n` +
-          `its definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field\n` +
-          `instead. If this variable is not meant to be immutable, you can fix this error by defining a mutable\n` +
-          `variable in the contract with the name "${variableName}", or by removing its variable definition in the\n` +
-          `ChugSplash config file. If this problem persists, delete your cache folder then try again.`
+        `Detected a variable "${storageObj.configVarName}" from the contract "${contractConfig.contract}" (or one\n` +
+          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash config.\n` +
+          `file. Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n` +
+          `Please define the variable in your ChugSplash config file then run this command again.\n` +
+          `If this problem persists, delete your cache folder then try again.`
       )
     }
 
-    // Encode this variable as series of storage slot key/value pairs and save it.
+    // Encode this variable as a series of storage slot key/value pairs and save it.
     segments = segments.concat(
       encodeVariable(
-        variableValue,
+        configVarValue,
         storageObj,
-        storageLayout.types,
+        extendedLayout.types,
         '0',
         dereferencer
       )
@@ -667,6 +664,101 @@ export const computeStorageSlots = (
   }
 
   return segments
+}
+
+/**
+ * Extends a given storage layout. In particular, this function adds a `configVarName` field to each
+ * member of the `storageLayout.storage` array. This ensures that each config variable name in a
+ * contract definition is unique.
+ *
+ * @param storageLayout The storage layout to extend.
+ * @param derefencer AST Dereferencer.
+ * @returns Extended storage layout.
+ */
+export const extendStorageLayout = (
+  storageLayout: SolidityStorageLayout,
+  derefencer: ASTDereferencer
+): ExtendedStorageLayout => {
+  const extendedStorage: ExtendedSolidityStorageObj[] = []
+  for (const currStorageObj of storageLayout.storage) {
+    const sameLabels = storageLayout.storage.filter(
+      (storageObj) =>
+        storageObj.label === currStorageObj.label &&
+        storageObj.astId !== currStorageObj.astId
+    )
+
+    let extendedStorageObj: ExtendedSolidityStorageObj
+    if (sameLabels.length === 0) {
+      extendedStorageObj = {
+        ...currStorageObj,
+        configVarName: currStorageObj.label,
+      }
+    } else {
+      const currContractName = getContractNameForStorageObj(
+        currStorageObj,
+        derefencer
+      )
+      const hasDuplicateContractName = sameLabels.some(
+        (storageObj) =>
+          getContractNameForStorageObj(storageObj, derefencer) ===
+          currContractName
+      )
+      if (hasDuplicateContractName) {
+        // Extend the current storage object with the contract's fully qualified name.
+        const fullyQualifiedName = getFullyQualifiedNameForStorageObj(
+          currStorageObj,
+          derefencer
+        )
+        extendedStorageObj = {
+          ...currStorageObj,
+          configVarName: `${fullyQualifiedName}:${currStorageObj.label}`,
+        }
+      } else {
+        // Extend the current storage object with the contract name.
+        extendedStorageObj = {
+          ...currStorageObj,
+          configVarName: `${currContractName}:${currStorageObj.label}`,
+        }
+      }
+    }
+    extendedStorage.push(extendedStorageObj)
+  }
+
+  return {
+    storage: extendedStorage,
+    types: storageLayout.types,
+  }
+}
+
+export const getContractNameForStorageObj = (
+  storageObj: SolidityStorageObj,
+  derefencer: ASTDereferencer
+): string => {
+  const contractNode = getContractDefinitionNodeForStorageObj(
+    storageObj,
+    derefencer
+  )
+  return contractNode.name
+}
+
+export const getFullyQualifiedNameForStorageObj = (
+  storageObj: SolidityStorageObj,
+  derefencer: ASTDereferencer
+): string => {
+  const contractNode = getContractDefinitionNodeForStorageObj(
+    storageObj,
+    derefencer
+  )
+  const sourceUnit = derefencer(['SourceUnit'], contractNode.scope)
+  return `${sourceUnit.absolutePath}:${contractNode.name}`
+}
+
+export const getContractDefinitionNodeForStorageObj = (
+  storageObj: SolidityStorageObj,
+  derefencer: ASTDereferencer
+): ContractDefinition => {
+  const varDeclNode = derefencer(['VariableDeclaration'], storageObj.astId)
+  return derefencer(['ContractDefinition'], varDeclNode.scope)
 }
 
 export const getStorageType = (

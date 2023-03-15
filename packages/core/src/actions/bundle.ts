@@ -9,7 +9,10 @@ import {
   proxyTypeHashes,
 } from '../config/types'
 import { Integration } from '../constants'
-import { computeStorageSlots } from '../languages/solidity/storage'
+import {
+  computeStorageSegments,
+  extendStorageLayout,
+} from '../languages/solidity/storage'
 import { ArtifactPaths } from '../languages/solidity/types'
 import {
   getImplAddress,
@@ -380,23 +383,25 @@ export const makeActionBundleFromConfig = async (
     // Hardhat's default `CompilerOutput`, which is what OpenZeppelin expects.
     const dereferencer = astDereferencer(compilerOutput as any)
 
-    // Compute our storage slots.
+    const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
+
+    // Compute our storage segments.
     // TODO: One day we'll need to refactor this to support Vyper.
-    const slots = computeStorageSlots(
-      storageLayout,
+    const segments = computeStorageSegments(
+      extendedLayout,
       contractConfig,
       dereferencer
     )
 
     // Add SET_STORAGE actions for each storage slot that we want to modify.
-    for (const slot of slots) {
+    for (const segment of segments) {
       actions.push({
         referenceName,
         proxy: contractConfig.proxy,
         proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
-        key: slot.key,
-        offset: slot.offset,
-        value: slot.val,
+        key: segment.key,
+        offset: segment.offset,
+        value: segment.val,
       })
     }
   }
