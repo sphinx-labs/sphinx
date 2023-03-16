@@ -171,6 +171,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     event ProposerRemoved(address indexed proposer, address indexed owner);
 
+    event ToggledManagedProposals(bool isManaged, address indexed owner);
+
     /**
      * @notice Emitted when ETH is deposited in this contract
      */
@@ -251,8 +253,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @notice Maps an address to a boolean indicating if the address is allowed to propose bundles.
-     *         The owner of this contract is the only address that can add or remove proposers from
-     *         this mapping.
      */
     mapping(address => bool) public proposers;
 
@@ -277,6 +277,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public totalExecutorDebt;
 
     uint256 public totalProtocolDebt;
+
+    bool public allowManagedProposals;
 
     /**
      * @notice Modifier that restricts access to the executor.
@@ -319,7 +321,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _name  Name of the project this contract is managing.
      * @param _owner Initial owner of this contract.
      */
-    function initialize(string memory _name, address _owner) public initializer {
+    function initialize(
+        string memory _name,
+        address _owner,
+        bool _allowManagedProposals
+    ) public initializer {
+        allowManagedProposals = _allowManagedProposals;
         name = _name;
 
         __Ownable_init();
@@ -412,6 +419,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _numTargets,
         string memory _configUri
     ) public {
+        require(isProposer(msg.sender), "ChugSplashManager: caller must be proposer");
+
         bytes32 bundleId = computeBundleId(
             _actionRoot,
             _targetRoot,
@@ -896,6 +905,23 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         emit ProposerAdded(_proposer, msg.sender);
         recorder.announce("ProposerAdded");
+    }
+
+    function isProposer(address _addr) public view returns (bool) {
+        return
+            (allowManagedProposals && registry.managedProposers(_addr) == true) ||
+            proposers[_addr] == true ||
+            _addr == owner();
+    }
+
+    function toggleAllowManagedProposals() external onlyOwner {
+        allowManagedProposals = !allowManagedProposals;
+
+        emit ToggledManagedProposals(allowManagedProposals, msg.sender);
+        recorder.announceWithData(
+            "ToggledManagedProposals",
+            abi.encodePacked(allowManagedProposals)
+        );
     }
 
     /**

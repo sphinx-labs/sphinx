@@ -21,6 +21,7 @@ contract ChugSplash is Script, Test {
     bool withdrawFunds = vm.envOr("WITHDRAW_FUNDS", true);
     string ipfsUrl = vm.envOr("IPFS_URL", NONE);
     bool skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
+    bool allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
 
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
@@ -81,7 +82,7 @@ contract ChugSplash is Script, Test {
     ) public returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](12);
+        string[] memory cmds = new string[](13);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
@@ -94,6 +95,7 @@ contract ChugSplash is Script, Test {
         cmds[9] = outPath;
         cmds[10] = buildInfoPath;
         cmds[11] = newOwner;
+        cmds[12] = allowManagedProposals == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
 
@@ -215,7 +217,7 @@ contract ChugSplash is Script, Test {
     ) public {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](15);
+        string[] memory cmds = new string[](16);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
@@ -231,6 +233,7 @@ contract ChugSplash is Script, Test {
         cmds[12] = newOwner;
         cmds[13] = ipfsUrl;
         cmds[14] = skipStorageCheck == true ? "true" : "false";
+        cmds[15] = allowManagedProposals == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
         if (isChugSplashTest) {

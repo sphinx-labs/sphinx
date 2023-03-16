@@ -64,7 +64,7 @@ contract ChugSplashBootLoader is Initializable {
         // deployed.
         rootManagerProxy.upgradeToAndCall(
             _managerImplementation,
-            abi.encodeCall(ChugSplashManager.initialize, ("Root Manager", _owner))
+            abi.encodeCall(ChugSplashManager.initialize, ("Root Manager", _owner, false))
         );
         // Change the admin of the root ChugSplashManagerProxy to itself, since it will be upgrading
         // itself during meta-upgradeability (i.e. ChugSplash upgrading itself).

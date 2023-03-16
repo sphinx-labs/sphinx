@@ -215,7 +215,8 @@ export const registerChugSplashProject = async (
   signer: Signer,
   signerAddress: string,
   projectName: string,
-  projectOwner: string
+  projectOwner: string,
+  allowManagedProposals: boolean
 ): Promise<boolean> => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
@@ -226,6 +227,7 @@ export const registerChugSplashProject = async (
       await ChugSplashRegistry.register(
         projectName,
         projectOwner,
+        allowManagedProposals,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -377,15 +379,6 @@ export const getCurrentChugSplashActionType = (
   actionsExecuted: ethers.BigNumber
 ): ChugSplashActionType => {
   return bundle.actions[actionsExecuted.toNumber()].action.actionType
-}
-
-export const isProposer = async (
-  provider: providers.Provider,
-  projectName: string,
-  address: string
-): Promise<boolean> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
-  return ChugSplashManager.proposers(address)
 }
 
 export const isContractDeployed = async (
