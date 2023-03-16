@@ -358,7 +358,7 @@ export const claimExecutorPayment = async (
   executor: Wallet,
   ChugSplashManager: Contract
 ) => {
-  const executorDebt = await ChugSplashManager.debt(executor.address)
+  const executorDebt = await ChugSplashManager.executorDebt(executor.address)
   if (executorDebt.gt(0)) {
     await (
       await ChugSplashManager.claimExecutorPayment(

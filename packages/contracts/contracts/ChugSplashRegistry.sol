@@ -60,6 +60,10 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      */
     event ExecutorRemoved(address indexed executor);
 
+    event ProtocolPaymentRecipientAdded(address indexed executor);
+
+    event ProtocolPaymentRecipientRemoved(address indexed executor);
+
     /**
      * @notice Mapping of project names to ChugSplashManager contracts.
      */
@@ -69,6 +73,8 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
+
+    mapping(address => bool) public protocolPaymentRecipients;
 
     ChugSplashRecorder public recorder;
 
@@ -187,6 +193,24 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
         executors[_executor] = false;
         emit ExecutorRemoved(_executor);
+    }
+
+    function addProtocolPaymentRecipient(address _recipient) external onlyOwner {
+        require(
+            protocolPaymentRecipients[_recipient] == false,
+            "ChugSplashRegistry: recipient already added"
+        );
+        protocolPaymentRecipients[_recipient] = true;
+        emit ProtocolPaymentRecipientAdded(_recipient);
+    }
+
+    function removeProtocolPaymentRecipient(address _recipient) external onlyOwner {
+        require(
+            protocolPaymentRecipients[_recipient] == true,
+            "ChugSplashRegistry: recipient already removed"
+        );
+        protocolPaymentRecipients[_recipient] = false;
+        emit ProtocolPaymentRecipientRemoved(_recipient);
     }
 
     /**
