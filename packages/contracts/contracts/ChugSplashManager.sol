@@ -523,9 +523,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
                 // we're deploying via CREATE2, we can always correctly predict what the proxy
                 // address *should* be and can therefore easily check if it's already populated.
-                // TODO: See if there's a better way to handle this case because it messes with the
-                // gas cost of DEPLOY_IMPLEMENTATION/SET_STORAGE operations in a somewhat
-                // unpredictable way.
                 address proxy = getDefaultProxyAddress(target.referenceName);
                 if (proxy.code.length == 0) {
                     bytes32 salt = keccak256(bytes(target.referenceName));
@@ -533,8 +530,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
                     // Could happen if insufficient gas is supplied to this transaction, should not
                     // happen otherwise. If there's a situation in which this could happen other
-                    // than a standard OOG, then this would halt the entire contract. TODO: Make
-                    // sure this cannot happen in any case other than OOG.
+                    // than a standard OOG, then this would halt the entire contract.
                     require(
                         address(created) == proxy,
                         "ChugSplashManager: Proxy was not created correctly"
@@ -695,7 +691,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // executorPayment to the debt and total debt. Unfortunately, there is a wide variance in
         // the gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
         // might be contributing to the difficulty of getting a good estimate. For now, we err on
-        // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
+        // the side of safety by adding a larger value.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
 
         // Calculate the executor's payment and add it to the debt owed to the executor.
@@ -900,8 +896,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
      * @notice Transfers ownership of a proxy from this contract to the project owner.
      *
-     * @param _proxy     TODO
-     * @param _proxyTypeHash TODO
      * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
      */
     function claimProxyOwnership(
@@ -1004,8 +998,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // Could happen if insufficient gas is supplied to this transaction, should not happen
         // otherwise. If there's a situation in which this could happen other than a standard OOG,
-        // then this would halt the entire contract. TODO: Make sure this cannot happen in any case
-        // other than OOG.
+        // then this would halt the entire contract.
         require(
             expectedImplementation == implementation,
             "ChugSplashManager: implementation was not deployed correctly"
