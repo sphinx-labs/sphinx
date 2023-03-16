@@ -145,6 +145,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     event ExecutorPaymentClaimed(address indexed executor, uint256 amount);
 
+    event ProtocolPaymentClaimed(address indexed recipient, uint256 amount);
+
     /**
      * @notice Emitted when the owner withdraws ETH from this contract.
      *
@@ -239,11 +241,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     uint256 public immutable executorPaymentPercentage;
 
+    uint256 public immutable protocolPaymentPercentage;
+
     /**
      * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
      *         owed to them.
      */
-    mapping(address => uint256) public debt;
+    mapping(address => uint256) public executorDebt;
 
     /**
      * @notice Maps an address to a boolean indicating if the address is allowed to propose bundles.
@@ -270,7 +274,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
      * @notice ETH amount that is owed to the executor.
      */
-    uint256 public totalDebt;
+    uint256 public totalExecutorDebt;
+
+    uint256 public totalProtocolDebt;
 
     /**
      * @notice Modifier that restricts access to the executor.
@@ -298,13 +304,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ChugSplashRecorder _recorder,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
-        uint256 _executorPaymentPercentage
+        uint256 _executorPaymentPercentage,
+        uint256 _protocolPaymentPercentage
     ) {
         registry = _registry;
         recorder = _recorder;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
+        protocolPaymentPercentage = _protocolPaymentPercentage;
     }
 
     /**
@@ -336,6 +344,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public pure returns (bytes32) {
         return
             keccak256(abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri));
+    }
+
+    function totalDebt() public view returns (uint256) {
+        return totalExecutorDebt + totalProtocolDebt;
     }
 
     /**
@@ -442,7 +454,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
         require(
-            address(this).balance - totalDebt >= ownerBondAmount,
+            address(this).balance - totalDebt() >= ownerBondAmount,
             "ChugSplashManager: insufficient balance in manager"
         );
 
@@ -563,27 +575,32 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleInitiated(activeBundleId, msg.sender);
         recorder.announce("ChugSplashBundleInitiated");
 
-        // See the explanation in `executeChugSplashAction`.
-        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        // Calculate the executor's payment.
-        uint256 executorPayment;
+        uint256 gasPrice;
         if (block.chainid != 10 && block.chainid != 420) {
             // Use the gas price for any network that isn't Optimism.
-            executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = tx.gasprice;
         } else if (block.chainid == 10) {
             // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
             // its value here.
-            executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = 1000000;
         } else {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
             // its value here.
-            executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = 1;
         }
 
-        // Add the executor's payment to the debt.
-        totalDebt += executorPayment;
-        debt[msg.sender] += executorPayment;
+        // See the explanation in `executeChugSplashAction`.
+        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
+
+        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
+
+        // Add the executor's payment to the executor debt.
+        totalExecutorDebt += executorPayment;
+        executorDebt[msg.sender] += executorPayment;
+
+        // Add the protocol's payment to the protocol debt.
+        totalProtocolDebt += protocolPayment;
     }
 
     /**
@@ -689,6 +706,20 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashActionExecuted(activeBundleId, _action.proxy, msg.sender, _actionIndex);
         recorder.announceWithData("ChugSplashActionExecuted", abi.encodePacked(_action.proxy));
 
+        uint256 gasPrice;
+        if (block.chainid != 10 && block.chainid != 420) {
+            // Use the gas price for any network that isn't Optimism.
+            gasPrice = tx.gasprice;
+        } else if (block.chainid == 10) {
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
+            gasPrice = 1000000;
+        } else {
+            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
+            gasPrice = 1;
+        }
+
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
         // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
@@ -698,23 +729,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
         uint256 gasUsed = 152778 + initialGasLeft - gasleft();
 
-        // Calculate the executor's payment and add it to the debt owed to the executor.
-        uint256 executorPayment;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        } else {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
-        }
+        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
 
-        totalDebt += executorPayment;
-        debt[msg.sender] += executorPayment;
+        // Add the executor's payment to the executor debt.
+        totalExecutorDebt += executorPayment;
+        executorDebt[msg.sender] += executorPayment;
+
+        // Add the protocol's payment to the protocol debt.
+        totalProtocolDebt += protocolPayment;
     }
 
     /**
@@ -803,27 +826,32 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
         recorder.announce("ChugSplashBundleCompleted");
 
-        // See the explanation in `executeChugSplashAction`.
-        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        // Calculate the executor's payment.
-        uint256 executorPayment;
+        uint256 gasPrice;
         if (block.chainid != 10 && block.chainid != 420) {
             // Use the gas price for any network that isn't Optimism.
-            executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = tx.gasprice;
         } else if (block.chainid == 10) {
             // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
             // its value here.
-            executorPayment = (1000000 * gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = 1000000;
         } else {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
             // its value here.
-            executorPayment = (gasUsed * (100 + executorPaymentPercentage)) / 100;
+            gasPrice = 1;
         }
 
-        // Add the executor's payment to the debt.
-        totalDebt += executorPayment;
-        debt[msg.sender] += executorPayment;
+        // See the explanation in `executeChugSplashAction`.
+        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
+
+        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
+
+        // Add the executor's payment to the executor debt.
+        totalExecutorDebt += executorPayment;
+        executorDebt[msg.sender] += executorPayment;
+
+        // Add the protocol's payment to the protocol debt.
+        totalProtocolDebt += protocolPayment;
     }
 
     /**
@@ -844,7 +872,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
             // Give the owner's bond to the executor if the bundle is cancelled within the
             // `executionLockTime` window.
-            totalDebt += ownerBondAmount;
+            totalExecutorDebt += ownerBondAmount;
         }
 
         bytes32 cancelledBundleId = activeBundleId;
@@ -885,16 +913,32 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         ETH that is owed to them by this contract.
      */
     function claimExecutorPayment() external onlyExecutor {
-        uint256 amount = debt[msg.sender];
+        uint256 amount = executorDebt[msg.sender];
 
-        debt[msg.sender] -= amount;
-        totalDebt -= amount;
+        executorDebt[msg.sender] -= amount;
+        totalExecutorDebt -= amount;
 
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw owner funds failed");
+        require(success, "ChugSplashManager: call to withdraw executor funds failed");
 
         emit ExecutorPaymentClaimed(msg.sender, amount);
         recorder.announce("ExecutorPaymentClaimed");
+    }
+
+    function claimProtocolPayment() external {
+        require(
+            registry.protocolPaymentRecipients(msg.sender) == true,
+            "ChugSplashManager: caller is not a protocol payment recipient"
+        );
+
+        uint256 amount = totalProtocolDebt;
+        totalProtocolDebt = 0;
+
+        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        require(success, "ChugSplashManager: call to withdraw protocol funds failed");
+
+        emit ProtocolPaymentClaimed(msg.sender, amount);
+        recorder.announce("ProtocolPaymentClaimed");
     }
 
     /**
@@ -934,7 +978,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: cannot withdraw funds while bundle is active"
         );
 
-        uint256 amount = address(this).balance - totalDebt;
+        uint256 amount = address(this).balance - totalDebt();
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw owner funds failed");
 

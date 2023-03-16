@@ -18,6 +18,7 @@ import {
   DEFAULT_UPDATER_ADDRESS,
   registryProxyConstructorArgValues,
   proxyInitializerConstructorArgValues,
+  PROTOCOL_PAYMENT_PERCENTAGE,
   ChugSplashManagerABI,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   CHUGSPLASH_SALT,
@@ -59,6 +60,7 @@ export const chugsplashManagerConstructorArgs = {
   _executionLockTime: EXECUTION_LOCK_TIME,
   _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
   _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,
+  _protocolPaymentPercentage: PROTOCOL_PAYMENT_PERCENTAGE,
 }
 
 export const CHUGSPLASH_CONSTRUCTOR_ARGS = {}
