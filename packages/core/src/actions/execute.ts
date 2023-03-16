@@ -73,7 +73,7 @@ export const executeTask = async (args: {
         selected: BundledChugSplashAction[]
       ): Promise<boolean> => {
         try {
-          await chugSplashManager.callStatic.executeMultipleActions(
+          await chugSplashManager.callStatic.executeActions(
             selected.map((action) => action.action),
             selected.map((action) => action.proof.actionIndex),
             selected.map((action) => action.proof.siblings),
@@ -162,7 +162,7 @@ export const executeTask = async (args: {
 
         // Execute the batch.
         await (
-          await chugSplashManager.executeMultipleActions(
+          await chugSplashManager.executeActions(
             batch.map((action) => action.action),
             batch.map((action) => action.proof.actionIndex),
             batch.map((action) => action.proof.siblings),
