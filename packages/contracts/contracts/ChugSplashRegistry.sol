@@ -60,6 +60,10 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      */
     event ExecutorRemoved(address indexed executor);
 
+    event ManagedProposerAdded(address indexed proposer);
+
+    event ManagedProposerRemoved(address indexed proposer);
+
     event ProtocolPaymentRecipientAdded(address indexed executor);
 
     event ProtocolPaymentRecipientRemoved(address indexed executor);
@@ -73,6 +77,8 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      * @notice Addresses that can execute bundles.
      */
     mapping(address => bool) public executors;
+
+    mapping(address => bool) public managedProposers;
 
     mapping(address => bool) public protocolPaymentRecipients;
 
@@ -144,7 +150,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      * @param _name  Name of the new ChugSplash project.
      * @param _owner Initial owner for the new project.
      */
-    function register(string memory _name, address _owner) public {
+    function register(string memory _name, address _owner, bool _allowManagedProposals) public {
         require(
             address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
@@ -163,7 +169,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         // deployed.
         manager.upgradeToAndCall(
             _getManagerImpl(),
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
+            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _allowManagedProposals))
         );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
@@ -193,6 +199,21 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
         executors[_executor] = false;
         emit ExecutorRemoved(_executor);
+    }
+
+    function addManagedProposer(address _proposer) external onlyOwner {
+        require(managedProposers[_proposer] == false, "ChugSplashRegistry: proposer already added");
+        managedProposers[_proposer] = true;
+        emit ManagedProposerAdded(_proposer);
+    }
+
+    function removeManagedProposer(address _proposer) external onlyOwner {
+        require(
+            managedProposers[_proposer] == true,
+            "ChugSplashRegistry: proposer already removed"
+        );
+        managedProposers[_proposer] = false;
+        emit ManagedProposerRemoved(_proposer);
     }
 
     function addProtocolPaymentRecipient(address _recipient) external onlyOwner {

@@ -42,6 +42,7 @@ const command = args[0]
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
       let owner = args[8]
+      const allowManagedProposals = args[9] === 'true'
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -74,6 +75,7 @@ const command = args[0]
         provider,
         wallet,
         config,
+        allowManagedProposals,
         owner,
         silent,
         'foundry',
@@ -239,6 +241,7 @@ const command = args[0]
       let newOwner = args[9]
       const ipfsUrl = args[10] !== 'none' ? args[10] : ''
       const skipStorageCheck = args[11] === 'true'
+      const allowManagedProposals = args[12] === 'true'
 
       const noCompile = true
       const confirm = true
@@ -300,6 +303,7 @@ const command = args[0]
         confirm,
         withdrawFunds,
         newOwner ?? (await wallet.getAddress()),
+        allowManagedProposals,
         artifactPaths,
         canonicalConfigPath,
         deploymentFolder,

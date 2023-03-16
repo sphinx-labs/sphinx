@@ -100,6 +100,7 @@ export const deployAllChugSplashConfigs = async (
       confirm,
       true,
       await signer.getAddress(),
+      false,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,

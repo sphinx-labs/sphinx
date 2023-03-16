@@ -120,6 +120,7 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
+    allowManagedProposals: boolean
     newOwner: string
     ipfsUrl: string
     silent: boolean
@@ -132,6 +133,7 @@ export const chugsplashDeployTask = async (
 ) => {
   const {
     configPath,
+    allowManagedProposals,
     newOwner,
     ipfsUrl,
     silent,
@@ -202,6 +204,7 @@ export const chugsplashDeployTask = async (
     confirm,
     !noWithdraw,
     newOwner ?? signerAddress,
+    allowManagedProposals,
     artifactPaths,
     canonicalConfigPath,
     deploymentFolder,
@@ -234,6 +237,10 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
   )
   .addFlag(
+    'allowManagedProposals',
+    'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
+  )
+  .addFlag(
     'skipStorageCheck',
     "Upgrade your contract(s) without checking for storage layout compatibility. Only use this when confident that the upgrade won't lead to storage layout issues."
   )
@@ -242,12 +249,13 @@ task(TASK_CHUGSPLASH_DEPLOY)
 export const chugsplashRegisterTask = async (
   args: {
     configPath: string
+    allowManagedProposals: boolean
     owner: string
     silent: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, silent, owner } = args
+  const { configPath, silent, owner, allowManagedProposals } = args
 
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
@@ -273,6 +281,7 @@ export const chugsplashRegisterTask = async (
     provider,
     signer,
     parsedConfig,
+    allowManagedProposals,
     owner,
     silent,
     'hardhat'
@@ -282,6 +291,10 @@ export const chugsplashRegisterTask = async (
 task(TASK_CHUGSPLASH_REGISTER)
   .setDescription('Registers a new ChugSplash project')
   .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .addFlag(
+    'allowManagedProposals',
+    'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
+  )
   .addParam('owner', 'Owner of the ChugSplash project')
   .addFlag('silent', "Hide all of ChugSplash's output")
   .setAction(chugsplashRegisterTask)

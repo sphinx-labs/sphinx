@@ -78,6 +78,7 @@ export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
+  allowManagedProposals: boolean,
   owner: string,
   silent: boolean,
   integration: Integration,
@@ -92,7 +93,8 @@ export const chugsplashRegisterAbstractTask = async (
     signer,
     await signer.getAddress(),
     parsedConfig.options.projectName,
-    owner
+    owner,
+    allowManagedProposals
   )
 
   const networkName = await resolveNetworkName(provider, integration)
@@ -649,6 +651,7 @@ export const chugsplashDeployAbstractTask = async (
   confirm: boolean,
   withdraw: boolean,
   newOwner: string,
+  allowManagedProposals: boolean,
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   deploymentFolder: string,
@@ -714,7 +717,8 @@ export const chugsplashDeployAbstractTask = async (
       signer,
       signerAddress,
       projectName,
-      signerAddress
+      signerAddress,
+      allowManagedProposals
     )
     spinner.succeed(`Successfully registered ${projectName}.`)
   }
@@ -1587,14 +1591,21 @@ export const proposeChugSplashBundle = async (
   integration: Integration
 ) => {
   const projectName = parsedConfig.options.projectName
+  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const signerAddress = await signer.getAddress()
 
   spinner.start(`Checking if the caller is a proposer...`)
+
+  // Throw an error if the caller isn't the project owner or a proposer.
+  if (!(await ChugSplashManager.isProposer(signerAddress))) {
+    throw new Error(
+      `Caller is not a proposer for this project. Caller's address: ${signerAddress}`
+    )
+  }
 
   spinner.succeed(`Caller is a proposer.`)
 
   spinner.start(`Proposing ${projectName}...`)
-
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
 
   if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(

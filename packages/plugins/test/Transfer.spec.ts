@@ -93,6 +93,7 @@ describe('Transfer', () => {
       provider,
       signer,
       parsedConfig,
+      false,
       signer.address,
       true,
       'hardhat'
@@ -130,6 +131,7 @@ describe('Transfer', () => {
       true,
       false,
       '',
+      true,
       true,
       true,
       true,
@@ -210,6 +212,7 @@ describe('Transfer', () => {
       provider,
       signer,
       parsedConfig,
+      false,
       signer.address,
       true,
       'hardhat'
@@ -242,6 +245,7 @@ describe('Transfer', () => {
       true,
       false,
       '',
+      true,
       true,
       true,
       true,
@@ -345,6 +349,7 @@ describe('Transfer', () => {
       provider,
       signer,
       parsedConfig,
+      false,
       signer.address,
       true,
       'hardhat'
@@ -382,6 +387,7 @@ describe('Transfer', () => {
       true,
       false,
       '',
+      true,
       true,
       true,
       true,
