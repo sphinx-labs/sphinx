@@ -1,8 +1,8 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { ChugSplashBundles } from '../actions'
-import { bundleRemoteSubtask } from '../languages'
+import { ChugSplashBundles } from '../actions/types'
+import { bundleRemoteSubtask } from '../languages/solidity/compiler'
 import { callWithTimeout, computeBundleId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 

@@ -191,24 +191,14 @@ x: 1,
 For enums, we accept only positive integers that correspond to a valid value for the Solidity enum.
 I.e we accept only enum input values N where 0 <= N < type(SolidityEnumName).max
 
-Note that Typescript users may choose to use Typescript enums as input values and we expect this to work. Typescript also uses integers as the underlying value for their enums which means at runtime they conform to the above input specification.
-
 ### Examples
 ```js
 // Solidity
 enum TestEnum { A, B, C }
-TestEnum public standardEnum;
-TestEnum public typescriptEnum;
-
-// Typscript Enum
-const enum TestEnum {
-  'A',
-  'B',
-}
+TestEnum public x;
 
 // Config vars
-standardEnum: 0,
-typescriptEnum: TestEnum.B,
+x: 0,
 ```
 
 ## Fixed-size Bytes Arrays
@@ -357,4 +347,3 @@ multiNestedMapping: {
   },
 },
 ```
-

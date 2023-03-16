@@ -65,8 +65,8 @@ import {
   UserConfigVariable,
   UserContractConfig,
 } from './config/types'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions'
-import { Integration, keywords } from './constants'
+import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
+import { Integration } from './constants'
 import 'core-js/features/array/at'
 import { FoundryContractArtifact } from './types'
 import {
@@ -77,8 +77,8 @@ import {
   BuildInfo,
   CompilerOutput,
 } from './languages/solidity/types'
-import { chugsplashFetchSubtask } from './config'
-import { getSolcBuild } from './languages'
+import { chugsplashFetchSubtask } from './config/fetch'
+import { getSolcBuild, variableContainsPreserveKeyword } from './languages'
 
 export const computeBundleId = (
   actionRoot: string,
@@ -857,53 +857,6 @@ export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
   return externalProxyTypes.includes(proxyType)
-}
-
-export const isPreserveKeyword = (
-  variableValue: ParsedConfigVariable
-): boolean => {
-  if (
-    typeof variableValue === 'string' &&
-    // Remove whitespaces from the variable, then lowercase it
-    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
-  ) {
-    return true
-  } else {
-    return false
-  }
-}
-
-export const variableContainsPreserveKeyword = (
-  variable: ParsedConfigVariable
-): boolean => {
-  if (isPreserveKeyword(variable)) {
-    return true
-  } else if (Array.isArray(variable)) {
-    for (const element of variable) {
-      if (variableContainsPreserveKeyword(element)) {
-        return true
-      }
-    }
-    return false
-  } else if (typeof variable === 'object') {
-    for (const varValue of Object.values(variable)) {
-      if (variableContainsPreserveKeyword(varValue)) {
-        return true
-      }
-    }
-    return false
-  } else if (
-    typeof variable === 'boolean' ||
-    typeof variable === 'number' ||
-    typeof variable === 'string' ||
-    variable === undefined
-  ) {
-    return false
-  } else {
-    throw new Error(
-      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
-    )
-  }
 }
 
 /**
