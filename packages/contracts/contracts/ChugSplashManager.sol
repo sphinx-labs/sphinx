@@ -501,14 +501,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: execution has already been initiated"
         );
 
-        require(
-            _targets.length == bundle.targets,
-            "ChugSplashManager: incorrect number of targets"
-        );
+        uint256 numTargets = _targets.length;
+        require(numTargets == bundle.targets, "ChugSplashManager: incorrect number of targets");
 
-        for (uint256 i = 0; i < _targets.length; i++) {
-            ChugSplashTarget memory target = _targets[i];
-            bytes32[] memory proof = _proofs[i];
+        ChugSplashTarget memory target;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numTargets; i++) {
+            target = _targets[i];
+            proof = _proofs[i];
 
             require(
                 MerkleTree.verify(
@@ -575,70 +575,23 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleInitiated(activeBundleId, msg.sender);
         recorder.announce("ChugSplashBundleInitiated");
 
-        uint256 gasPrice;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            gasPrice = tx.gasprice;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1000000;
-        } else {
-            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1;
-        }
-
-        // See the explanation in `executeChugSplashAction`.
-        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
-
-        // Add the executor's payment to the executor debt.
-        totalExecutorDebt += executorPayment;
-        executorDebt[msg.sender] += executorPayment;
-
-        // Add the protocol's payment to the protocol debt.
-        totalProtocolDebt += protocolPayment;
+        _payExecutorAndProtocol(initialGasLeft);
     }
 
     /**
-     * @notice Executes multiple ChugSplash actions at once. This speeds up execution time since the
-     *         executor doesn't need to send as many transactions to execute a bundle.
+     * @notice Executes multiple ChugSplash actions within the current active bundle for a project.
+     *         Actions can only be executed once. A re-entrancy guard is added to prevent an
+     *         implementation contract's constructor from calling another contract which in turn
+     *         calls back into this function. Only callable by the executor.
      *
      * @param _actions       Array of SetStorage/DeployImplementation actions to execute.
      * @param _actionIndexes Array of action indexes.
      * @param _proofs        Array of Merkle proofs for each action.
      */
-    function executeMultipleActions(
+    function executeActions(
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public {
-        uint256 length = _actions.length;
-        for (uint256 i = 0; i < length; ) {
-            executeChugSplashAction(_actions[i], _actionIndexes[i], _proofs[i]);
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    /**
-     * @notice Executes a specific action within the current active bundle for a project. Actions
-     *         can only be executed once. A re-entrancy guard is added to prevent an implementation
-     *         contract's constructor from calling another contract which in turn calls back into
-     *         this function. Only callable by the executor.
-     *
-     * @param _action      Action to execute.
-     * @param _actionIndex Index of the action in the bundle.
-     * @param _proof       Merkle proof of the action within the bundle.
-     */
-    function executeChugSplashAction(
-        ChugSplashAction memory _action,
-        uint256 _actionIndex,
-        bytes32[] memory _proof
     ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
@@ -648,96 +601,76 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
-        require(
-            bundle.actions[_actionIndex] == false,
-            "ChugSplashManager: action has already been executed"
-        );
 
-        require(
-            MerkleTree.verify(
-                bundle.actionRoot,
-                keccak256(
-                    abi.encode(
-                        _action.referenceName,
-                        _action.proxy,
-                        _action.actionType,
-                        _action.proxyTypeHash,
-                        _action.data
-                    )
-                ),
-                _actionIndex,
-                _proof,
-                bundle.actions.length
-            ),
-            "ChugSplashManager: invalid bundle action proof"
-        );
+        uint256 numActions = _actions.length;
+        ChugSplashAction memory action;
+        uint256 actionIndex;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numActions; i++) {
+            action = _actions[i];
+            actionIndex = _actionIndexes[i];
+            proof = _proofs[i];
 
-        // Get the adapter for this reference name.
-        address adapter = recorder.adapters(_action.proxyTypeHash);
-
-        require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
-
-        // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
-        // ChugSplashManager can interact with a proxy that is in the process of being updated. Note
-        // that we use the Updater contract to provide a generic interface for updating a variety of
-        // proxy types.
-        (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.initiateExecution, (_action.proxy))
-        );
-        require(success, "ChugSplashManager: failed to set implementation to an updater");
-
-        // Mark the action as executed and update the total number of executed actions.
-        bundle.actionsExecuted++;
-        bundle.actions[_actionIndex] = true;
-
-        // Next, we execute the ChugSplash action by calling deployImplementation/setStorage.
-        if (_action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
-            _deployImplementation(_action.referenceName, _action.data);
-        } else if (_action.actionType == ChugSplashActionType.SET_STORAGE) {
-            (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-                _action.data,
-                (bytes32, uint8, bytes)
+            require(
+                bundle.actions[actionIndex] == false,
+                "ChugSplashManager: action has already been executed"
             );
-            _setProxyStorage(_action.proxy, adapter, key, offset, val);
-        } else {
-            revert("ChugSplashManager: unknown action type");
+
+            require(
+                MerkleTree.verify(
+                    bundle.actionRoot,
+                    keccak256(
+                        abi.encode(
+                            action.referenceName,
+                            action.proxy,
+                            action.actionType,
+                            action.proxyTypeHash,
+                            action.data
+                        )
+                    ),
+                    actionIndex,
+                    proof,
+                    bundle.actions.length
+                ),
+                "ChugSplashManager: invalid bundle action proof"
+            );
+
+            // Get the adapter for this reference name.
+            address adapter = recorder.adapters(action.proxyTypeHash);
+
+            require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+
+            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
+            // ChugSplashManager can interact with a proxy that is in the process of being updated.
+            // Note that we use the Updater contract to provide a generic interface for updating a
+            // variety of proxy types.
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.initiateExecution, (action.proxy))
+            );
+            require(success, "ChugSplashManager: failed to set implementation to an updater");
+
+            // Mark the action as executed and update the total number of executed actions.
+            bundle.actionsExecuted++;
+            bundle.actions[actionIndex] = true;
+
+            // Next, we execute the ChugSplash action by calling deployImplementation/setStorage.
+            if (action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
+                _deployImplementation(action.referenceName, action.data);
+            } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
+                (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+                    action.data,
+                    (bytes32, uint8, bytes)
+                );
+                _setProxyStorage(action.proxy, adapter, key, offset, val);
+            } else {
+                revert("ChugSplashManager: unknown action type");
+            }
+
+            emit ChugSplashActionExecuted(activeBundleId, action.proxy, msg.sender, actionIndex);
+            recorder.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.proxy));
         }
 
-        emit ChugSplashActionExecuted(activeBundleId, _action.proxy, msg.sender, _actionIndex);
-        recorder.announceWithData("ChugSplashActionExecuted", abi.encodePacked(_action.proxy));
-
-        uint256 gasPrice;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            gasPrice = tx.gasprice;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1000000;
-        } else {
-            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1;
-        }
-
-        // Estimate the amount of gas used in this call by subtracting the current gas left from the
-        // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
-        // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
-        // executorPayment to the debt and total debt. Unfortunately, there is a wide variance in
-        // the gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
-        // might be contributing to the difficulty of getting a good estimate. For now, we err on
-        // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
-        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
-
-        // Add the executor's payment to the executor debt.
-        totalExecutorDebt += executorPayment;
-        executorDebt[msg.sender] += executorPayment;
-
-        // Add the protocol's payment to the protocol debt.
-        totalProtocolDebt += protocolPayment;
+        _payExecutorAndProtocol(initialGasLeft);
     }
 
     /**
@@ -773,15 +706,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "ChugSplashManager: bundle was not executed completely"
         );
 
-        require(
-            _targets.length == bundle.targets,
-            "ChugSplashManager: incorrect number of targets"
-        );
+        uint256 numTargets = _targets.length;
+        require(numTargets == bundle.targets, "ChugSplashManager: incorrect number of targets");
 
-        uint256 length = _targets.length;
-        for (uint256 i = 0; i < length; ) {
-            ChugSplashTarget memory target = _targets[i];
-            bytes32[] memory proof = _proofs[i];
+        ChugSplashTarget memory target;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numTargets; i++) {
+            target = _targets[i];
+            proof = _proofs[i];
 
             require(
                 MerkleTree.verify(
@@ -812,9 +744,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 )
             );
             require(success, "ChugSplashManger: failed to complete execution");
-            unchecked {
-                ++i;
-            }
         }
 
         // Mark the bundle as completed and reset the active bundle hash so that a new bundle can be
@@ -826,32 +755,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
         recorder.announce("ChugSplashBundleCompleted");
 
-        uint256 gasPrice;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            gasPrice = tx.gasprice;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1000000;
-        } else {
-            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1;
-        }
-
-        // See the explanation in `executeChugSplashAction`.
-        uint256 gasUsed = 152778 + initialGasLeft - gasleft();
-
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
-
-        // Add the executor's payment to the executor debt.
-        totalExecutorDebt += executorPayment;
-        executorDebt[msg.sender] += executorPayment;
-
-        // Add the protocol's payment to the protocol debt.
-        totalProtocolDebt += protocolPayment;
+        _payExecutorAndProtocol(initialGasLeft);
     }
 
     /**
@@ -1020,6 +924,41 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     receive() external payable {
         emit ETHDeposited(msg.sender, msg.value);
         recorder.announce("ETHDeposited");
+    }
+
+    function _payExecutorAndProtocol(uint256 _initialGasLeft) internal {
+        uint256 gasPrice;
+        if (block.chainid != 10 && block.chainid != 420) {
+            // Use the gas price for any network that isn't Optimism.
+            gasPrice = tx.gasprice;
+        } else if (block.chainid == 10) {
+            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
+            gasPrice = 1000000;
+        } else {
+            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
+            // its value here.
+            gasPrice = 1;
+        }
+
+        // Estimate the amount of gas used in this call by subtracting the current gas left from the
+        // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
+        // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
+        // executorPayment to the debt and total debt. Unfortunately, there is a wide variance in
+        // the gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
+        // might be contributing to the difficulty of getting a good estimate. For now, we err on
+        // the side of safety by adding a larger value. TODO: Get a better estimate than 152778.
+        uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
+
+        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
+
+        // Add the executor's payment to the executor debt.
+        totalExecutorDebt += executorPayment;
+        executorDebt[msg.sender] += executorPayment;
+
+        // Add the protocol's payment to the protocol debt.
+        totalProtocolDebt += protocolPayment;
     }
 
     /**
