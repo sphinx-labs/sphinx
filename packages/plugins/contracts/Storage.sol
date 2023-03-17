@@ -17,8 +17,44 @@ contract Storage {
         UserDefinedType c;
     }
 
+    int immutable public immutableInt;
+    int8 immutable public immutableInt8;
+    uint immutable public immutableUint;
+    uint8 immutable public immutableUint8;
+    bool immutable public immutableBool;
+    bytes32 immutable public immutableBytes32;
+    UserDefinedType immutable public immutableUserDefinedType;
+    uint immutable public immutableBigNumberUint;
+    int immutable public immutableBigNumberInt;
+
+    constructor(
+        int _immutableInt,
+        int8 _immutableInt8,
+        uint _immutableUint,
+        uint8 _immutableUint8,
+        bool _immutableBool,
+        bytes32 _immutableBytes32,
+        UserDefinedType _immutableUserDefinedType,
+        uint _immutableBigNumberUint,
+        int _immutableBigNumberInt
+    ) {
+        immutableInt = _immutableInt;
+        immutableInt8 = _immutableInt8;
+        immutableUint = _immutableUint;
+        immutableUint8 = _immutableUint8;
+        immutableBool = _immutableBool;
+        immutableBytes32 = _immutableBytes32;
+        immutableUserDefinedType = _immutableUserDefinedType;
+        immutableBigNumberUint = _immutableBigNumberUint;
+        immutableBigNumberInt = _immutableBigNumberInt;
+    }
+
     int public minInt256;
     int8 public minInt8;
+    int public bigNumberInt256;
+    int8 public bigNumberInt8;
+    uint public bigNumberUint256;
+    uint8 public bigNumberUint8;
     uint8 public uint8Test;
     bool public boolTest;
     string public stringTest;
@@ -26,25 +62,25 @@ contract Storage {
     bytes public bytesTest;
     bytes public longBytesTest;
     bytes32 public bytes32Test;
-
     UserDefinedType public userDefinedTypeTest;
     UserDefinedBytes32 public userDefinedBytesTest;
     UserDefinedInt public userDefinedInt;
     UserDefinedInt8 public userDefinedInt8;
     UserDefinedUint8 public userDefinedUint8;
     UserDefinedBool public userDefinedBool;
+    UserDefinedInt public userDefinedBigNumberInt;
     mapping(UserDefinedType => string) public userDefinedToStringMapping;
     mapping(string => UserDefinedType) public stringToUserDefinedMapping;
     UserDefinedType[2] public userDefinedFixedArray;
     UserDefinedType[2][2] public userDefinedFixedNestedArray;
     UserDefinedType[] public userDefinedDynamicArray;
-
-
     Storage public contractTest;
     TestEnum public enumTest;
+    TestEnum public bigNumberEnumTest;
     SimpleStruct public simpleStruct;
     ComplexStruct public complexStruct;
     uint64[5] public uint64FixedArray;
+    uint64[5] public mixedTypesUint64FixedArray;
     uint128[5][6] public uint128FixedNestedArray;
     uint64[2][2][2] public uint64FixedMultiNestedArray;
     int64[] public int64DynamicArray;
@@ -56,6 +92,7 @@ contract Storage {
     mapping(string => bool) public stringToBoolMapping;
     mapping(string => address) public stringToAddressMapping;
     mapping(string => SimpleStruct) public stringToStructMapping;
+    mapping(string => uint) public stringToBigNumberUintMapping;
     mapping(uint => string) public uint256ToStringMapping;
     mapping(uint8 => string) public uint8ToStringMapping;
     mapping(uint128 => string) public uint128ToStringMapping;

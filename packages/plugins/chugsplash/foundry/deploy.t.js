@@ -1,8 +1,24 @@
 const ethers = require('ethers')
 
+const constructorArgs = {
+  _immutableInt: ethers.constants.MinInt256.toString(),
+  _immutableInt8: -128,
+  _immutableUint: ethers.constants.MaxUint256.toString(),
+  _immutableUint8: 255,
+  _immutableBool: true,
+  _immutableBytes32: '0x' + '11'.repeat(32),
+  _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
+  _immutableBigNumberUint: ethers.constants.MaxUint256,
+  _immutableBigNumberInt: ethers.constants.MinInt256,
+}
+
 const variables = {
   minInt256: ethers.constants.MinInt256.toString(),
   minInt8: -128,
+  bigNumberInt256: ethers.constants.MaxInt256,
+  bigNumberInt8: ethers.BigNumber.from(-128),
+  bigNumberUint256: ethers.constants.MaxUint256,
+  bigNumberUint8: ethers.BigNumber.from(255),
   uint8Test: 255,
   boolTest: true,
   stringTest: 'testString',
@@ -18,6 +34,7 @@ const variables = {
   userDefinedInt8: -128,
   userDefinedUint8: 255,
   userDefinedBool: true,
+  userDefinedBigNumberInt: ethers.BigNumber.from(0),
   userDefinedFixedArray: ['1000000000000000000', '1000000000000000000'],
   userDefinedFixedNestedArray: [
     ['1000000000000000000', '1000000000000000000'],
@@ -37,6 +54,7 @@ const variables = {
   },
   contractTest: '0x' + '11'.repeat(20),
   enumTest: 1,
+  bigNumberEnumTest: ethers.BigNumber.from(1),
   simpleStruct: {
     a: '0x' + 'aa'.repeat(32),
     b: 12345,
@@ -50,6 +68,13 @@ const variables = {
     c: '1000000000000000000',
   },
   uint64FixedArray: [1, 10, 100, 1_000, 10_000],
+  mixedTypesUint64FixedArray: [
+    1,
+    '10',
+    ethers.BigNumber.from(100),
+    1_000,
+    ethers.BigNumber.from(10_000),
+  ],
   uint128FixedNestedArray: [
     [1, 2, 3, 4, 5],
     [6, 7, 8, 9, 10],
@@ -122,6 +147,9 @@ const variables = {
   uint128ToStringMapping: {
     1234: 'testVal',
   },
+  stringToBigNumberUintMapping: {
+    testKey: ethers.BigNumber.from(1234),
+  },
   int256ToStringMapping: {
     '-1': 'testVal',
   },
@@ -159,6 +187,7 @@ module.exports = {
   contracts: {
     MyStorage: {
       contract: 'Storage',
+      constructorArgs,
       variables,
     },
     MySimpleStorage: {

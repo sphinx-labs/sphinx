@@ -4,7 +4,7 @@ import { ASTDereferencer } from 'solidity-ast/utils'
 import { ContractDefinition } from 'solidity-ast'
 import 'core-js/features/array/at'
 
-import { ParsedContractConfig } from '../../config/types'
+import { ParsedContractConfig, UserConfigVariable } from '../../config/types'
 import {
   ExtendedSolidityStorageObj,
   ExtendedStorageLayout,
@@ -173,8 +173,14 @@ export const encodeBytesArrayElements = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceArray: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
+export const encodeInplaceArray: VariableHandler<
+  Array<UserConfigVariable>,
+  Array<StorageSlotSegment>
+> = (
+  props: VariableHandlerProps<
+    Array<UserConfigVariable>,
+    Array<StorageSlotSegment>
+  >
 ) => {
   const {
     storageObj,
@@ -208,8 +214,9 @@ export const encodeInplaceArray: VariableHandler<Array<StorageSlotSegment>> = (
  * @returns
  */
 export const encodeInplaceAddress: VariableHandler<
+  string,
   Array<StorageSlotSegment>
-> = (props: VariableHandlerProps<Array<StorageSlotSegment>>) => {
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
   const { storageObj, variable, slotKey } = props
 
   return [
@@ -227,9 +234,10 @@ export const encodeInplaceAddress: VariableHandler<
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceBool: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
-) => {
+export const encodeInplaceBool: VariableHandler<
+  boolean,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<boolean, Array<StorageSlotSegment>>) => {
   const { storageObj, variable, slotKey } = props
 
   return [
@@ -247,9 +255,10 @@ export const encodeInplaceBool: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceBytes: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
-) => {
+export const encodeInplaceBytes: VariableHandler<
+  string,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
   const { storageObj, variable, slotKey, variableType } = props
 
   // Since this variable's encoding is `inplace`, it is a bytesN, where N is in the range [1,
@@ -279,9 +288,10 @@ export const encodeInplaceBytes: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceUint: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
-) => {
+export const encodeInplaceUint: VariableHandler<
+  string,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
   const { storageObj, variable, slotKey, variableType } = props
 
   // Convert enum types to uint8 because the `solidityPack` function doesn't support enum types.
@@ -304,9 +314,10 @@ export const encodeInplaceUint: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceInt: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
-) => {
+export const encodeInplaceInt: VariableHandler<
+  string,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
   const { storageObj, variable, slotKey, variableType } = props
 
   return [
@@ -324,8 +335,18 @@ export const encodeInplaceInt: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeInplaceStruct: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
+export const encodeInplaceStruct: VariableHandler<
+  {
+    [name: string]: UserConfigVariable
+  },
+  Array<StorageSlotSegment>
+> = (
+  props: VariableHandlerProps<
+    {
+      [name: string]: UserConfigVariable
+    },
+    Array<StorageSlotSegment>
+  >
 ) => {
   const {
     variable,
@@ -362,8 +383,8 @@ export const encodeInplaceStruct: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeBytes: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
+export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
+  props: VariableHandlerProps<string, Array<StorageSlotSegment>>
 ) => {
   const { variable, storageObj, variableType, slotKey } = props
 
@@ -417,8 +438,18 @@ export const encodeBytes: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeMapping: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
+export const encodeMapping: VariableHandler<
+  {
+    [name: string]: UserConfigVariable
+  },
+  Array<StorageSlotSegment>
+> = (
+  props: VariableHandlerProps<
+    {
+      [name: string]: UserConfigVariable
+    },
+    Array<StorageSlotSegment>
+  >
 ) => {
   const {
     variable,
@@ -463,8 +494,14 @@ export const encodeMapping: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodeDynamicArray: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
+export const encodeDynamicArray: VariableHandler<
+  Array<UserConfigVariable>,
+  Array<StorageSlotSegment>
+> = (
+  props: VariableHandlerProps<
+    Array<UserConfigVariable>,
+    Array<StorageSlotSegment>
+  >
 ) => {
   const {
     variable,
@@ -508,9 +545,10 @@ export const encodeDynamicArray: VariableHandler<Array<StorageSlotSegment>> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const encodePreserve: VariableHandler<Array<StorageSlotSegment>> = (
-  props: VariableHandlerProps<Array<StorageSlotSegment>>
-) => {
+export const encodePreserve: VariableHandler<
+  string,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
   const { storageObj, slotKey } = props
 
   return [
