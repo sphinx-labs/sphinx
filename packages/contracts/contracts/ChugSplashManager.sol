@@ -40,7 +40,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 targetRoot,
         uint256 numActions,
         uint256 numTargets,
-        string configUri
+        string configUri,
+        address proposer
     );
 
     /**
@@ -447,9 +448,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _targetRoot,
             _numActions,
             _numTargets,
-            _configUri
+            _configUri,
+            msg.sender
         );
-        recorder.announce("ChugSplashBundleProposed");
+        recorder.announceWithData("ChugSplashBundleProposed", abi.encodePacked(msg.sender));
     }
 
     /**
