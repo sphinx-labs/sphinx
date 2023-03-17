@@ -1277,38 +1277,11 @@ export const getConstructorArgs = (
   )
 
   if (constructorFragment === undefined) {
-    if (Object.keys(constructorArgs).length > 0) {
-      throw new Error(
-        `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
-          `no constructor exists in the contract.`
-      )
-    } else {
-      return { constructorArgTypes, constructorArgValues }
-    }
-  }
-
-  if (Object.keys(constructorArgs).length > constructorFragment.inputs.length) {
-    const constructorArgNames = constructorFragment.inputs.map(
-      (input) => input.name
-    )
-    const incorrectConstructorArgNames = Object.keys(constructorArgs).filter(
-      (argName) => !constructorArgNames.includes(argName)
-    )
-    throw new Error(
-      `User entered an incorrect number of constructor arguments in the ChugSplash config file for ${referenceName}.\n` +
-        `Please remove the following variables from the 'constructorArgs' field:` +
-        `${incorrectConstructorArgNames.map((argName) => `\n${argName}`)}`
-    )
+    return { constructorArgTypes, constructorArgValues }
   }
 
   constructorFragment.inputs.forEach((input) => {
     const constructorArgValue = constructorArgs[input.name]
-    if (constructorArgValue === undefined) {
-      throw new Error(
-        `User did not define the constructor argument '${input.name}' in the ChugSplash config file\n` +
-          `for ${referenceName}. Please include it in the 'constructorArgs' field in your ChugSplash config file.`
-      )
-    }
     constructorArgTypes.push(input.type)
     constructorArgValues.push(constructorArgValue)
   })
