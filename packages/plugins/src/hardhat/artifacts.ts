@@ -3,12 +3,12 @@ import path from 'path'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
   ArtifactPaths,
-  ParsedChugSplashConfig,
   UserChugSplashConfig,
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
   getOpenZeppelinValidationOpts,
   BuildInfo,
+  getDefaultProxyAddress,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -101,17 +101,17 @@ export const getArtifactPaths = async (
  */
 export const importOpenZeppelinStorageLayouts = async (
   hre: HardhatRuntimeEnvironment,
-  parsedConfig: ParsedChugSplashConfig,
   userConfig: UserChugSplashConfig
 ): Promise<{ [referenceName: string]: StorageLayout }> => {
   const layouts: { [referenceName: string]: StorageLayout } = {}
 
-  for (const [referenceName, parsedContractConfig] of Object.entries(
-    parsedConfig.contracts
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
   )) {
-    const isProxyDeployed = await hre.ethers.provider.getCode(
-      parsedContractConfig.proxy
-    )
+    const proxy =
+      userContractConfig.externalProxy ||
+      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+    const isProxyDeployed = await hre.ethers.provider.getCode(proxy)
     const { externalProxyType } = userConfig.contracts[referenceName]
     if (
       isProxyDeployed &&
@@ -122,16 +122,15 @@ export const importOpenZeppelinStorageLayouts = async (
       const manifest = await Manifest.forNetwork(hre.network.provider)
       const deployData = await getDeployData(
         hre,
-        await hre.ethers.getContractFactory(parsedContractConfig.contract),
-        getOpenZeppelinValidationOpts(parsedContractConfig.proxyType)
+        await hre.ethers.getContractFactory(userContractConfig.contract),
+        getOpenZeppelinValidationOpts(
+          userContractConfig.externalProxyType ?? 'internal-default'
+        )
       )
       const storageLayout = await getStorageLayoutForAddress(
         manifest,
         deployData.validations,
-        await getEIP1967ProxyImplementationAddress(
-          hre.ethers.provider,
-          parsedContractConfig.proxy
-        )
+        await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
       )
       layouts[referenceName] = storageLayout
     }

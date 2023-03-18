@@ -6,7 +6,6 @@ import {
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
   chugsplashRegisterAbstractTask,
-  readParsedChugSplashConfig,
   monitorChugSplashSetup,
   ChugSplashExecutorType,
   chugsplashMonitorAbstractTask,
@@ -17,9 +16,11 @@ import {
   chugsplashCancelAbstractTask,
   chugsplashClaimProxyAbstractTask,
   chugsplashTransferOwnershipAbstractTask,
-  readUserChugSplashConfig,
   getEIP1967ProxyAdminAddress,
   initializeChugSplash,
+  readValidatedChugSplashConfig,
+  getDefaultProxyAddress,
+  readUnvalidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
@@ -27,6 +28,7 @@ import { CHUGSPLASH_REGISTRY_PROXY_ADDRESS } from '@chugsplash/contracts'
 
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { initializeExecutor } from '../executor'
+import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -44,6 +46,13 @@ const command = args[0]
       let owner = args[8]
       const allowManagedProposals = args[9] === 'true'
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
+
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
 
@@ -51,18 +60,19 @@ const command = args[0]
         outPath,
         buildInfoPath
       )
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
         buildInfoFolder
       )
 
-      const config = await readParsedChugSplashConfig(
+      const config = await readValidatedChugSplashConfig(
         provider,
         configPath,
         artifactPaths,
-        'foundry'
+        'foundry',
+        cre
       )
       await provider.getNetwork()
       const address = await wallet.getAddress()
@@ -93,11 +103,17 @@ const command = args[0]
       const buildInfoPath = cleanPath(args[7])
       const ipfsUrl = args[8] !== 'none' ? args[8] : ''
       const remoteExecution = args[9] === 'true'
-      const skipStorageCheck = args[10] === 'true'
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
 
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -106,11 +122,12 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      const config = await readParsedChugSplashConfig(
+      const config = await readValidatedChugSplashConfig(
         provider,
         configPath,
         artifactPaths,
-        'foundry'
+        'foundry',
+        cre
       )
       await provider.getNetwork()
       await wallet.getAddress()
@@ -122,17 +139,13 @@ const command = args[0]
         provider,
         wallet,
         config,
-        userConfig,
         configPath,
         ipfsUrl,
         silent,
         remoteExecution,
-        true,
         'foundry',
         artifactPaths,
         canonicalConfigPath,
-        skipStorageCheck,
-        undefined,
         process.stdout
       )
       break
@@ -148,11 +161,18 @@ const command = args[0]
       const amount = BigNumber.from(args[8])
       const autoEstimate = args[9] === 'true'
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
+
       const { artifactFolder, buildInfoFolder } = fetchPaths(
         outPath,
         buildInfoPath
       )
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -175,6 +195,7 @@ const command = args[0]
         silent,
         artifactPaths,
         'foundry',
+        cre,
         process.stdout
       )
       break
@@ -190,13 +211,20 @@ const command = args[0]
       const withdrawFunds = args[8] === 'true'
       const skipMonitorStatus = args[9] === 'true'
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
+
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -225,6 +253,7 @@ const command = args[0]
         canonicalConfigPath,
         deploymentFolder,
         remoteExecution,
+        cre,
         process.stdout
       )
       break
@@ -240,11 +269,16 @@ const command = args[0]
       const withdrawFunds = args[8] === 'true'
       let newOwner = args[9]
       const ipfsUrl = args[10] !== 'none' ? args[10] : ''
-      const skipStorageCheck = args[11] === 'true'
-      const allowManagedProposals = args[12] === 'true'
+      const allowManagedProposals = args[11] === 'true'
 
-      const noCompile = true
       const confirm = true
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        confirm,
+        undefined
+      )
 
       const logPath = `logs/${network ?? 'anvil'}`
       if (!fs.existsSync(logPath)) {
@@ -262,7 +296,7 @@ const command = args[0]
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -299,8 +333,6 @@ const command = args[0]
         silent,
         remoteExecution,
         ipfsUrl,
-        noCompile,
-        confirm,
         withdrawFunds,
         newOwner ?? (await wallet.getAddress()),
         allowManagedProposals,
@@ -308,9 +340,8 @@ const command = args[0]
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
-        skipStorageCheck,
+        cre,
         executor,
-        undefined,
         logWriter
       )
 
@@ -335,13 +366,20 @@ const command = args[0]
       const withdrawFunds = args[8] === 'true'
       let newOwner = args[9]
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
+
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -371,6 +409,7 @@ const command = args[0]
         deploymentFolder,
         'foundry',
         remoteExecution,
+        cre,
         process.stdout
       )
       break
@@ -380,19 +419,6 @@ const command = args[0]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
       const privateKey = args[4]
-      const outPath = cleanPath(args[5])
-      const buildInfoPath = cleanPath(args[6])
-
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -404,7 +430,6 @@ const command = args[0]
         provider,
         wallet,
         configPath,
-        artifactPaths,
         'foundry',
         process.stdout
       )
@@ -416,17 +441,6 @@ const command = args[0]
       const network = args[3] !== 'localhost' ? args[3] : undefined
       const privateKey = args[4]
       const silent = args[5] === 'true'
-      const outPath = cleanPath(args[6])
-      const buildInfoPath = cleanPath(args[7])
-
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -441,8 +455,6 @@ const command = args[0]
         wallet,
         configPath,
         silent,
-        artifactPaths,
-        canonicalConfigPath,
         'foundry',
         process.stdout
       )
@@ -472,19 +484,6 @@ const command = args[0]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
       const privateKey = args[4]
-      const outPath = cleanPath(args[5])
-      const buildInfoPath = cleanPath(args[6])
-
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -496,7 +495,6 @@ const command = args[0]
         provider,
         wallet,
         configPath,
-        artifactPaths,
         'foundry'
       )
       break
@@ -506,20 +504,7 @@ const command = args[0]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
       const privateKey = args[4]
-      const outPath = cleanPath(args[5])
-      const buildInfoPath = cleanPath(args[6])
-      const newProposer = args[7]
-
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
+      const newProposer = args[5]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -532,7 +517,6 @@ const command = args[0]
         wallet,
         configPath,
         [newProposer],
-        artifactPaths,
         'foundry',
         process.stdout
       )
@@ -548,11 +532,18 @@ const command = args[0]
       const buildInfoPath = cleanPath(args[7])
       const referenceName = args[8]
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined
+      )
+
       const { artifactFolder, buildInfoFolder } = fetchPaths(
         outPath,
         buildInfoPath
       )
-      const userConfig = await readUserChugSplashConfig(configPath)
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
         artifactFolder,
@@ -575,6 +566,7 @@ const command = args[0]
         silent,
         artifactPaths,
         'foundry',
+        cre,
         process.stdout
       )
       break
@@ -585,20 +577,7 @@ const command = args[0]
       const network = args[3] !== 'localhost' ? args[3] : undefined
       const privateKey = args[4]
       const silent = args[5] === 'true'
-      const outPath = cleanPath(args[6])
-      const buildInfoPath = cleanPath(args[7])
-      const proxyAddress = args[8]
-
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
+      const proxyAddress = args[6]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -614,38 +593,22 @@ const command = args[0]
         configPath,
         proxyAddress,
         silent,
-        artifactPaths,
         'foundry',
         process.stdout
       )
       break
     }
     case 'getAddress': {
-      const rpcUrl = args[1]
-      const configPath = args[2]
-      const referenceName = args[3]
-      const outPath = cleanPath(args[4])
-      const buildInfoPath = cleanPath(args[5])
+      const configPath = args[1]
+      const referenceName = args[2]
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
-      const userConfig = await readUserChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-      const parsedConfig = await readParsedChugSplashConfig(
-        provider,
-        configPath,
-        artifactPaths,
-        'foundry'
-      )
-      process.stdout.write(parsedConfig.contracts[referenceName].proxy)
+      const proxy =
+        userConfig.contracts[referenceName].externalProxy ||
+        getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+
+      process.stdout.write(proxy)
       break
     }
     case 'getRegistryAddress': {
