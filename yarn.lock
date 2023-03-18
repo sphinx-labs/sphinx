@@ -498,6 +498,17 @@
     prom-client "^13.1.0"
     qs "^6.10.5"
 
+"@eth-optimism/contracts-bedrock@^0.13.1":
+  version "0.13.1"
+  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.13.1.tgz#52cd561c9f996d3695a8a6ba8b8996d6f1d893f6"
+  integrity sha512-Jgw8PkV90S0+06AxjI13lULdxO9eHzPvBOTSIxdig8V/EXykJdENGXk83JE3oKBaK5umMcT/44qk73ilxnP7kQ==
+  dependencies:
+    "@eth-optimism/core-utils" "^0.12.0"
+    "@openzeppelin/contracts" "4.7.3"
+    "@openzeppelin/contracts-upgradeable" "4.7.3"
+    ethers "^5.7.0"
+    hardhat "^2.9.6"
+
 "@eth-optimism/contracts-bedrock@^0.8.0":
   version "0.8.3"
   resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.8.3.tgz#a73302b57a61d9516abf80c136bf8298327178d5"
@@ -518,7 +529,7 @@
     "@ethersproject/abstract-provider" "^5.7.0"
     "@ethersproject/abstract-signer" "^5.7.0"
 
-"@eth-optimism/core-utils@0.12.0":
+"@eth-optimism/core-utils@0.12.0", "@eth-optimism/core-utils@^0.12.0":
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/@eth-optimism/core-utils/-/core-utils-0.12.0.tgz#6337e4599a34de23f8eceb20378de2a2de82b0ea"
   integrity sha512-qW+7LZYCz7i8dRa7SRlUKIo1VBU8lvN0HeXCxJR+z+xtMzMQpPds20XJNCMclszxYQHkXY00fOT6GvFw9ZL6nw==

@@ -16,7 +16,7 @@ import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
-import { Create2 } from "./libraries/Create2.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { MerkleTree } from "./libraries/MerkleTree.sol";
 import {
     ReentrancyGuardUpgradeable
@@ -396,10 +396,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function getDefaultProxyAddress(string memory _name) public view returns (address payable) {
         return (
             payable(
-                Create2.compute(
-                    address(this),
+                Create2.computeAddress(
                     keccak256(bytes(_name)),
-                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                    keccak256(abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this))))
                 )
             )
         );
@@ -1000,7 +999,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 salt = keccak256(bytes(_referenceName));
 
         // Get the expected address of the implementation contract.
-        address expectedImplementation = Create2.compute(address(this), salt, _code);
+        address expectedImplementation = Create2.computeAddress(
+            salt,
+            keccak256(_code)
+        );
 
         address implementation;
         assembly {
