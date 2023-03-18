@@ -14,8 +14,7 @@ import { Proxy } from "./libraries/Proxy.sol";
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
  *         deployments must be first registered with this contract, which allows clients to easily
- *         find and index these deployments. Deployment names are unique and are reserved on a
- *         first-come, first-served basis.
+ *         find and index these deployments.
  */
 contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
@@ -147,7 +146,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     function register(bytes32 _projectID, address _owner, bool _allowManagedProposals) public {
         require(
             address(projects[_projectID]) == address(0),
-            "ChugSplashRegistry: name already registered"
+            "ChugSplashRegistry: project ID already registered"
         );
 
         // Deploy the ChugSplashManager's proxy.

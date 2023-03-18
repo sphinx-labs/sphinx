@@ -263,9 +263,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(bytes32 => ChugSplashBundleState) internal _bundles;
 
     /**
-     * @notice Name of the project this contract is managing.
+     * @notice ID of the project this contract is managing.
      */
-    string public name;
+    bytes32 public projectID;
 
     /**
      * @notice ID of the currently active bundle.
@@ -319,16 +319,16 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @param _name  Name of the project this contract is managing.
-     * @param _owner Initial owner of this contract.
+     * @param _projectID ID of the project this contract is managing.
+     * @param _owner     Initial owner of this contract.
      */
     function initialize(
-        string memory _name,
+        bytes32 _projectID,
         address _owner,
         bool _allowManagedProposals
     ) public initializer {
         allowManagedProposals = _allowManagedProposals;
-        name = _name;
+        projectID = _projectID;
 
         __Ownable_init();
         _transferOwnership(_owner);

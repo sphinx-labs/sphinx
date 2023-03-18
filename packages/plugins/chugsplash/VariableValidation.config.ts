@@ -3,7 +3,7 @@ import { UserChugSplashConfig } from '@chugsplash/core'
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    projectName: 'Variable Validation',
+    projectID: '0x' + '33'.repeat(32),
   },
   contracts: {
     VariableValidation: {

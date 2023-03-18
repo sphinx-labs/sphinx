@@ -5,7 +5,7 @@ import { variables, constructorArgs } from '../test/constants'
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    projectName: 'My First Project',
+    projectID: '0x' + '22'.repeat(32),
   },
   contracts: {
     MyStorage: {

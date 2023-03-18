@@ -2,7 +2,7 @@ import { UserChugSplashConfig } from '@chugsplash/core'
 
 const config: UserChugSplashConfig = {
   options: {
-    projectName: 'Simple Project',
+    projectID: '0x' + '44'.repeat(32),
   },
   contracts: {
     MyContract: {

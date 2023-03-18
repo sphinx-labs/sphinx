@@ -32,24 +32,24 @@ contract ChugSplashTest is Test {
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
-    bytes32 withdrawProjectID = bytes32(hex"11");
+    bytes32 withdrawProjectID = bytes32(uint256(1));
     string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
 
-    string registerProjectID = bytes32(hex"22");
+    string registerProjectID = bytes32(uint256(2));
     string registerConfig = "./chugsplash/foundry/registerProposeFundApprove.t.js";
 
-    string cancelProjectName = "Cancel test";
+    bytes32 cancelProjectID = bytes32(uint256(3));
     string cancelConfig = "./chugsplash/foundry/cancel.t.js";
 
     // This is just an anvil test key
     string newProposerPrivateKey = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     address newProposer = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    string addProposerProjectName = "Add proposer test";
+    bytes32 addProposerProjectID = bytes32(uint256(4));
     string addProposerConfig = "./chugsplash/foundry/addProposer.t.js";
 
     string claimConfig = "./chugsplash/foundry/claim.t.js";
 
-    string transferProjectName = "Transfer test";
+    bytes32 transferProjectID = bytes32(uint256(6));
     string transferConfig = "./chugsplash/foundry/transfer.t.js";
 
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
@@ -109,7 +109,7 @@ contract ChugSplashTest is Test {
     }
 
     function testDidTransferProxy() public {
-        ChugSplashManager manager = registry.projects(transferProjectName);
+        ChugSplashManager manager = registry.projects(transferProjectID);
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(transferredProxy)), address(manager));
     }
 
@@ -130,12 +130,12 @@ contract ChugSplashTest is Test {
     }
 
     function testDidCancel() public {
-        ChugSplashManager manager = registry.projects(cancelProjectName);
+        ChugSplashManager manager = registry.projects(cancelProjectID);
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        ChugSplashManager manager = registry.projects(addProposerProjectName);
+        ChugSplashManager manager = registry.projects(addProposerProjectID);
         assertTrue(manager.proposers(newProposer));
     }
 

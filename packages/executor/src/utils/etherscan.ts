@@ -90,7 +90,7 @@ export const verifyChugSplashConfig = async (
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
   // Link the project's ChugSplashManagerProxy with the ChugSplashManager.
   const chugsplashManagerProxyAddress = getChugSplashManagerProxyAddress(
-    canonicalConfig.options.projectName
+    canonicalConfig.options.projectID
   )
   try {
     await linkProxyWithImplementation(
@@ -116,7 +116,7 @@ export const verifyChugSplashConfig = async (
       abi
     )
     const implementationAddress = getImplAddress(
-      canonicalConfig.options.projectName,
+      canonicalConfig.options.projectID,
       referenceName,
       creationCodeWithConstructorArgs
     )

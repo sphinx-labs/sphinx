@@ -77,7 +77,7 @@ export type ResponseMessage = {
     message: string
     err: Error
     options: {
-      projectName: string
+      projectID: string
       skipStorageCheck?: boolean
     }
   }
@@ -167,7 +167,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         canonicalConfig,
       })
     }
-    const projectName = canonicalConfig.options.projectName
+    const projectID = canonicalConfig.options.projectID
 
     const expectedBundleId = computeBundleId(
       bundles.actionBundle.root,
@@ -193,7 +193,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       return
     }
 
-    logger.info(`[ChugSplash]: compiled ${projectName} on: ${network}.`)
+    logger.info(`[ChugSplash]: compiled ${projectID} on: ${network}.`)
 
     const bundleState: ChugSplashBundleState = await manager.bundles(
       activeBundleId
@@ -252,10 +252,10 @@ export const handleExecution = async (data: ExecutorMessage) => {
         rpcProvider,
         bundles,
         bundleState.actionsExecuted.toNumber(),
-        projectName
+        projectID
       )
     ) {
-      logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
+      logger.info(`[ChugSplash]: ${projectID} has sufficient funds`)
       // execute bundle
       try {
         await executeTask({
@@ -263,7 +263,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           bundleState,
           bundles,
           executor: wallet,
-          projectName,
+          projectID,
           logger,
         })
       } catch (e) {
@@ -313,7 +313,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           )
         ) {
           logger.info(
-            `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
+            `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectID}`
           )
           await verifyChugSplashConfig(
             proposalEvent.args.configUri,
@@ -321,11 +321,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
             network
           )
           logger.info(
-            `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
+            `[ChugSplash]: finished attempting etherscan verification for project: ${projectID}`
           )
         } else {
           logger.info(
-            `[ChugSplash]: skipped verifying project: ${projectName}. reason: etherscan config not detected for network: ${network}`
+            `[ChugSplash]: skipped verifying project: ${projectID}. reason: etherscan config not detected for network: ${network}`
           )
         }
       } catch (e) {
@@ -366,13 +366,13 @@ export const handleExecution = async (data: ExecutorMessage) => {
       }
 
       trackExecuted(
-        await getProjectOwnerAddress(wallet, projectName),
-        projectName,
+        await getProjectOwnerAddress(wallet, projectID),
+        projectID,
         network,
         integration
       )
     } else {
-      logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
+      logger.info(`[ChugSplash]: ${projectID} has insufficient funds`)
 
       // Continue to the next bundle if there is an insufficient amount of funds in the
       // ChugSplashManager. We will make attempts to execute the bundle on

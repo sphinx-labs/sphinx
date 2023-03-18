@@ -161,7 +161,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.externalProxyType === undefined
     ) {
       throw new Error(
-        `User included an 'externalProxy' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
+        `User included an 'externalProxy' field for ${contractConfig.contract} in ${config.options.projectID},\n` +
           `but did not include an 'externalProxyType' field. Please include both or neither.`
       )
     } else if (
@@ -169,7 +169,7 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.externalProxyType !== undefined
     ) {
       throw new Error(
-        `User included an 'externalProxyType' field for ${contractConfig.contract} in ${config.options.projectName},\n` +
+        `User included an 'externalProxyType' field for ${contractConfig.contract} in ${config.options.projectID},\n` +
           `but did not include an 'externalProxy' field. Please include both or neither.`
       )
     }
@@ -1012,7 +1012,7 @@ const parseAndValidateChugSplashConfig = async (
     // used by ChugSplash.
     const proxy =
       externalProxy ||
-      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+      getDefaultProxyAddress(userConfig.options.projectID, referenceName)
 
     let proxyType: ProxyType
     if (externalProxyType) {

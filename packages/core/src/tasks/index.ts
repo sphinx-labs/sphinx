@@ -86,23 +86,23 @@ export const chugsplashRegisterAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: silent, stream })
 
-  spinner.start(`Registering ${parsedConfig.options.projectName}...`)
+  spinner.start(`Registering ${parsedConfig.options.projectID}...`)
 
   const isFirstTimeRegistered = await registerChugSplashProject(
     provider,
     signer,
     await signer.getAddress(),
-    parsedConfig.options.projectName,
+    parsedConfig.options.projectID,
     owner,
     allowManagedProposals
   )
 
   const networkName = await resolveNetworkName(provider, integration)
 
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   await trackRegistered(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -156,7 +156,7 @@ export const chugsplashProposeAbstractTask = async (
   )
 
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -164,7 +164,7 @@ export const chugsplashProposeAbstractTask = async (
 
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   if (integration === 'hardhat') {
@@ -186,7 +186,7 @@ export const chugsplashProposeAbstractTask = async (
       integration
     )
 
-  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
+  spinner.start(`Checking the status of ${parsedConfig.options.projectID}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -202,7 +202,7 @@ export const chugsplashProposeAbstractTask = async (
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
       `Project was already cancelled on ${networkName}. Please propose a new project
-with a name other than ${parsedConfig.options.projectName}`
+with a name other than ${parsedConfig.options.projectID}`
     )
   } else {
     // Bundle is either in the `EMPTY` or `PROPOSED` state.
@@ -213,13 +213,13 @@ with a name other than ${parsedConfig.options.projectName}`
       provider,
       bundles,
       0,
-      parsedConfig.options.projectName,
+      parsedConfig.options.projectID,
       true
     )
 
     if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
       spinner.succeed(
-        `${parsedConfig.options.projectName} has not been proposed before.`
+        `${parsedConfig.options.projectID} has not been proposed before.`
       )
 
       await proposeChugSplashBundle(
@@ -278,7 +278,7 @@ export const chugsplashCommitAbstractSubtask = async (
   if (spinner) {
     commitToIpfs
       ? spinner.start(
-          `Committing ${parsedConfig.options.projectName} on ${networkName}.`
+          `Committing ${parsedConfig.options.projectID} on ${networkName}.`
         )
       : spinner.start('Building the project...')
   }
@@ -387,10 +387,10 @@ IPFS_API_KEY_SECRET: ...
   if (spinner) {
     commitToIpfs
       ? spinner.succeed(
-          `${parsedConfig.options.projectName} has been committed to IPFS.`
+          `${parsedConfig.options.projectID} has been committed to IPFS.`
         )
       : spinner.succeed(
-          `Built ${parsedConfig.options.projectName} on ${networkName}.`
+          `Built ${parsedConfig.options.projectID} on ${networkName}.`
         )
   }
 
@@ -422,17 +422,17 @@ export const chugsplashApproveAbstractTask = async (
 
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(
-    `Approving ${parsedConfig.options.projectName} on ${networkName}...`
+    `Approving ${parsedConfig.options.projectID} on ${networkName}...`
   )
 
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   const signerAddress = await signer.getAddress()
 
-  if (!(await isProjectRegistered(signer, projectName))) {
+  if (!(await isProjectRegistered(signer, projectID))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
-  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
+  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectID)
   if (signerAddress !== projectOwnerAddress) {
     throw new Error(`Caller is not the project owner on ${networkName}.
 Caller's address: ${signerAddress}
@@ -453,7 +453,7 @@ Owner's address: ${projectOwnerAddress}`)
     spinner
   )
 
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
   )
@@ -482,7 +482,7 @@ Please wait a couple minutes then try again.`
       provider,
       bundles,
       0,
-      projectName,
+      projectID,
       false
     )
 
@@ -502,14 +502,14 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
     ).wait()
 
     await trackApproved(
-      await getProjectOwnerAddress(signer, projectName),
-      projectName,
+      await getProjectOwnerAddress(signer, projectID),
+      projectID,
       networkName,
       integration
     )
 
     spinner.succeed(
-      `${parsedConfig.options.projectName} approved on ${networkName}.`
+      `${parsedConfig.options.projectID} approved on ${networkName}.`
     )
 
     if (!skipMonitorStatus) {
@@ -537,7 +537,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
       )
       displayDeploymentTable(parsedConfig, silent)
 
-      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
+      spinner.succeed(`${projectID} successfully deployed on ${networkName}.`)
     }
   }
 }
@@ -574,12 +574,12 @@ export const chugsplashFundAbstractTask = async (
     artifactPaths,
     integration
   )
-  const projectName = parsedConfig.options.projectName
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const projectID = parsedConfig.options.projectID
+  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectID)
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
-  if (!(await isProjectRegistered(signer, projectName))) {
+  if (!(await isProjectRegistered(signer, projectID))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
@@ -588,7 +588,7 @@ export const chugsplashFundAbstractTask = async (
         provider,
         await bundleLocal(provider, parsedConfig, artifactPaths, integration),
         0,
-        parsedConfig.options.projectName,
+        parsedConfig.options.projectID,
         true
       )
     : amount
@@ -617,7 +617,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
     `Depositing ${formatEther(
       amountToDeposit,
       4
-    )} ETH for the project: ${projectName}...`
+    )} ETH for the project: ${projectID}...`
   )
   const txnRequest = await getGasPriceOverrides(provider, {
     value: amountToDeposit,
@@ -626,8 +626,8 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
   await (await signer.sendTransaction(txnRequest)).wait()
 
   await trackFund(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -636,7 +636,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
     `Deposited ${formatEther(
       amountToDeposit,
       4
-    )} ETH for the project: ${projectName}.`
+    )} ETH for the project: ${projectID}.`
   )
 }
 
@@ -684,14 +684,14 @@ export const chugsplashDeployAbstractTask = async (
     integration
   )
 
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
 
   const projectPreviouslyRegistered = await isProjectRegistered(
     signer,
-    projectName
+    projectID
   )
 
-  spinner.succeed(`Parsed ${projectName}.`)
+  spinner.succeed(`Parsed ${projectID}.`)
 
   assertValidContracts(parsedConfig, artifactPaths)
 
@@ -709,21 +709,21 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   if (projectPreviouslyRegistered === false) {
-    spinner.start(`Registering ${projectName}...`)
+    spinner.start(`Registering ${projectID}...`)
     // Register the project with the signer as the owner. Once we've completed the deployment, we'll
     // transfer ownership to the project owner specified in the config.
     await registerChugSplashProject(
       provider,
       signer,
       signerAddress,
-      projectName,
+      projectID,
       signerAddress,
       allowManagedProposals
     )
-    spinner.succeed(`Successfully registered ${projectName}.`)
+    spinner.succeed(`Successfully registered ${projectID}.`)
   }
 
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
 
   // Get the bundle ID without publishing anything to IPFS.
   const { bundleId, bundles, configUri } =
@@ -738,7 +738,7 @@ export const chugsplashDeployAbstractTask = async (
       integration
     )
 
-  spinner.start(`Checking the status of ${projectName}...`)
+  spinner.start(`Checking the status of ${projectID}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -756,7 +756,7 @@ export const chugsplashDeployAbstractTask = async (
       networkName,
       deploymentFolder
     )
-    spinner.succeed(`${projectName} was already completed on ${networkName}.`)
+    spinner.succeed(`${projectID} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
       displayDeploymentTable(parsedConfig, silent)
       return
@@ -764,15 +764,15 @@ export const chugsplashDeployAbstractTask = async (
       return generateFoundryTestArtifacts(parsedConfig)
     }
   } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
+    spinner.fail(`${projectID} was already cancelled on ${networkName}.`)
     throw new Error(
-      `${projectName} was previously cancelled on ${networkName}.`
+      `${projectID} was previously cancelled on ${networkName}.`
     )
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
-    spinner.succeed(`${projectName} has not been proposed before.`)
-    spinner.start(`Proposing ${projectName}...`)
+    spinner.succeed(`${projectID} has not been proposed before.`)
+    spinner.start(`Proposing ${projectID}...`)
     await proposeChugSplashBundle(
       provider,
       signer,
@@ -798,7 +798,7 @@ export const chugsplashDeployAbstractTask = async (
       provider,
       bundles,
       0,
-      projectName,
+      projectID,
       true
     )
 
@@ -853,13 +853,13 @@ export const chugsplashDeployAbstractTask = async (
       spinner
     )
   } else if (executor !== undefined) {
-    spinner.start(`Executing ${projectName}...`)
+    spinner.start(`Executing ${projectID}...`)
     // Use the in-process executor if executing the bundle locally.
     const amountToDeposit = await getAmountToDeposit(
       provider,
       bundles,
       0,
-      projectName,
+      projectID,
       true
     )
     await signer.sendTransaction({
@@ -867,7 +867,7 @@ export const chugsplashDeployAbstractTask = async (
       value: amountToDeposit,
     })
     await executor.main(canonicalConfigPath, integration, false)
-    spinner.succeed(`Executed ${projectName}.`)
+    spinner.succeed(`Executed ${projectID}.`)
   } else {
     throw new Error(`Local execution specified but no executor was given.`)
   }
@@ -893,14 +893,14 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   await trackDeployed(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
 
   // At this point, the bundle has been completed.
-  spinner.succeed(`${projectName} completed!`)
+  spinner.succeed(`${projectID} completed!`)
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, silent)
     spinner.info(
@@ -937,11 +937,11 @@ export const chugsplashMonitorAbstractTask = async (
   )
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -968,18 +968,18 @@ export const chugsplashMonitorAbstractTask = async (
 
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed or approved for
+      `${parsedConfig.options.projectID} has not been proposed or approved for
 execution on ${networkName}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.projectName} has not been proposed but not yet
+      `${parsedConfig.options.projectID} has not been proposed but not yet
 approved for execution on ${networkName}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
       `Project was already cancelled on ${networkName}. Please propose a new
-project with a name other than ${parsedConfig.options.projectName}`
+project with a name other than ${parsedConfig.options.projectID}`
     )
   }
 
@@ -1011,10 +1011,10 @@ project with a name other than ${parsedConfig.options.projectName}`
 
   bundleState.status === ChugSplashBundleStatus.APPROVED
     ? spinner.succeed(
-        `${parsedConfig.options.projectName} successfully completed on ${networkName}.`
+        `${parsedConfig.options.projectID} successfully completed on ${networkName}.`
       )
     : spinner.succeed(
-        `${parsedConfig.options.projectName} was already deployed on ${networkName}.`
+        `${parsedConfig.options.projectID} was already deployed on ${networkName}.`
       )
 
   displayDeploymentTable(parsedConfig, silent)
@@ -1036,28 +1036,28 @@ export const chugsplashCancelAbstractTask = async (
     artifactPaths,
     integration
   )
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
 
   const spinner = ora({ stream })
-  spinner.start(`Cancelling ${projectName} on ${networkName}.`)
+  spinner.start(`Cancelling ${projectID} on ${networkName}.`)
 
-  if (!(await isProjectRegistered(signer, projectName))) {
+  if (!(await isProjectRegistered(signer, projectID))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
-  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
+  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectID)
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
 You attempted to cancel the project using the address: ${await signer.getAddress()}`)
   }
 
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
 
   const activeBundleId = await ChugSplashManager.activeBundleId()
 
   if (activeBundleId === ethers.constants.HashZero) {
     spinner.fail(
-      `${projectName} is not an active project, so there is nothing to cancel.`
+      `${projectID} is not an active project, so there is nothing to cancel.`
     )
     return
   }
@@ -1068,7 +1068,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
     )
   ).wait()
 
-  spinner.succeed(`Cancelled ${projectName} on ${networkName}.`)
+  spinner.succeed(`Cancelled ${projectID} on ${networkName}.`)
   spinner.start(`Refunding the project owner...`)
 
   const prevOwnerBalance = await signer.getBalance()
@@ -1080,8 +1080,8 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   const refund = (await signer.getBalance()).sub(prevOwnerBalance)
 
   await trackCancel(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1111,18 +1111,18 @@ export const chugsplashWithdrawAbstractTask = async (
     artifactPaths,
     integration
   )
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
 
   const spinner = ora({ isSilent: silent, stream })
   spinner.start(
-    `Withdrawing ETH in the project ${projectName} on ${networkName}.`
+    `Withdrawing ETH in the project ${projectID} on ${networkName}.`
   )
 
-  if (!(await isProjectRegistered(signer, projectName))) {
+  if (!(await isProjectRegistered(signer, projectID))) {
     await errorProjectNotRegistered(provider, configPath, integration)
   }
 
-  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectName)
+  const projectOwnerAddress = await getProjectOwnerAddress(signer, projectID)
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
 Caller attempted to claim funds using the address: ${await signer.getAddress()}`)
@@ -1142,7 +1142,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     integration
   )
 
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -1154,12 +1154,12 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
 
   const amountToWithdraw = await getOwnerWithdrawableAmount(
     provider,
-    projectName
+    projectID
   )
 
   await trackWithdraw(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1179,7 +1179,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     )
   } else {
     spinner.fail(
-      `No funds available to withdraw on ${networkName} for the project: ${projectName}.`
+      `No funds available to withdraw on ${networkName} for the project: ${projectID}.`
     )
   }
 }
@@ -1213,11 +1213,11 @@ export const chugsplashListProjectsAbstractTask = async (
 
     const ChugSplashManager = getChugSplashManager(
       signer,
-      event.args.projectName
+      event.args.projectID
     )
     const projectOwnerAddress = await getProjectOwnerAddress(
       signer,
-      event.args.projectName
+      event.args.projectID
     )
     if (projectOwnerAddress === signerAddress) {
       numProjectsOwned += 1
@@ -1228,7 +1228,7 @@ export const chugsplashListProjectsAbstractTask = async (
       )
       const ownerBalance = await getOwnerWithdrawableAmount(
         provider,
-        event.args.projectName
+        event.args.projectID
       )
 
       const formattedTotalEthBalance = totalEthBalance.gt(0)
@@ -1239,7 +1239,7 @@ export const chugsplashListProjectsAbstractTask = async (
         : 0
 
       projects[numProjectsOwned] = {
-        'Project Name': event.args.projectName,
+        'Project ID': event.args.projectID,
         'Is Active': hasActiveBundle ? 'Yes' : 'No',
         "Project Owner's ETH": formattedOwnerBalance,
         'Total ETH Stored': formattedTotalEthBalance,
@@ -1274,7 +1274,7 @@ export const chugsplashListProposersAbstractTask = async (
   )
 
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -1282,7 +1282,7 @@ export const chugsplashListProposersAbstractTask = async (
 
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   const proposers: Array<string> = []
@@ -1290,7 +1290,7 @@ export const chugsplashListProposersAbstractTask = async (
   // Fetch current owner
   const owner = await getProjectOwnerAddress(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
   proposers.push(owner)
 
@@ -1315,10 +1315,10 @@ export const chugsplashListProposersAbstractTask = async (
   }
 
   const networkName = await resolveNetworkName(provider, integration)
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   await trackListProposers(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1351,7 +1351,7 @@ export const chugsplashAddProposersAbstractTask = async (
   spinner.start('Confirming project ownership...')
 
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -1359,13 +1359,13 @@ export const chugsplashAddProposersAbstractTask = async (
 
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   // Fetch current owner
   const projectOwnerAddress = await getProjectOwnerAddress(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
   if (projectOwnerAddress !== (await signer.getAddress())) {
     throw new Error(`Project is owned by: ${projectOwnerAddress}.
@@ -1375,10 +1375,10 @@ export const chugsplashAddProposersAbstractTask = async (
   spinner.succeed('Project ownership confirmed.')
 
   const networkName = await resolveNetworkName(provider, integration)
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   await trackAddProposers(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1434,7 +1434,7 @@ export const chugsplashClaimProxyAbstractTask = async (
 
   // Throw an error if the project has not been registered
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -1442,20 +1442,20 @@ export const chugsplashClaimProxyAbstractTask = async (
 
   const owner = await getProjectOwnerAddress(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   const signerAddress = await signer.getAddress()
   if (owner !== signerAddress) {
     throw new Error(
-      `Caller does not own the project ${parsedConfig.options.projectName}`
+      `Caller does not own the project ${parsedConfig.options.projectID}`
     )
   }
 
   spinner.succeed('Project registration detected')
   spinner.start('Claiming proxy ownership...')
 
-  const manager = getChugSplashManager(signer, parsedConfig.options.projectName)
+  const manager = getChugSplashManager(signer, parsedConfig.options.projectID)
 
   const activeBundleId = await manager.activeBundleId()
   if (activeBundleId !== ethers.constants.HashZero) {
@@ -1475,10 +1475,10 @@ export const chugsplashClaimProxyAbstractTask = async (
   ).wait()
 
   const networkName = await resolveNetworkName(provider, integration)
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   await trackClaimProxy(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1508,7 +1508,7 @@ export const chugsplashTransferOwnershipAbstractTask = async (
 
   // Throw an error if the project has not been registered
   if (
-    (await isProjectRegistered(signer, parsedConfig.options.projectName)) ===
+    (await isProjectRegistered(signer, parsedConfig.options.projectID)) ===
     false
   ) {
     await errorProjectNotRegistered(provider, configPath, integration)
@@ -1534,7 +1534,7 @@ If you believe this is a mistake, please reach out to the developers or open an 
 
   // Fetch ChugSplashManager address for this project
   const managerAddress = getChugSplashManagerProxyAddress(
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxy)
@@ -1563,10 +1563,10 @@ If you believe this is a mistake, please reach out to the developers or open an 
     )
   ).wait()
 
-  const projectName = parsedConfig.options.projectName
+  const projectID = parsedConfig.options.projectID
   await trackTransferProxy(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
@@ -1590,8 +1590,8 @@ export const proposeChugSplashBundle = async (
   silent: boolean,
   integration: Integration
 ) => {
-  const projectName = parsedConfig.options.projectName
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const projectID = parsedConfig.options.projectID
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
   const signerAddress = await signer.getAddress()
 
   spinner.start(`Checking if the caller is a proposer...`)
@@ -1605,7 +1605,7 @@ export const proposeChugSplashBundle = async (
 
   spinner.succeed(`Caller is a proposer.`)
 
-  spinner.start(`Proposing ${projectName}...`)
+  spinner.start(`Proposing ${projectID}...`)
 
   if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(
@@ -1645,11 +1645,11 @@ export const proposeChugSplashBundle = async (
 
   const networkName = await resolveNetworkName(provider, integration)
   await trackProposed(
-    await getProjectOwnerAddress(signer, projectName),
-    projectName,
+    await getProjectOwnerAddress(signer, projectID),
+    projectID,
     networkName,
     integration
   )
 
-  spinner.succeed(`Proposed ${projectName}.`)
+  spinner.succeed(`Proposed ${projectID}.`)
 }

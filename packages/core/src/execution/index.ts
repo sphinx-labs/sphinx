@@ -43,8 +43,8 @@ export const monitorExecution = async (
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const projectName = parsedConfig.options.projectName
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const projectID = parsedConfig.options.projectID
+  const ChugSplashManager = getChugSplashManager(signer, projectID)
 
   // Get the bundle state of the bundle ID.
   let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
@@ -87,7 +87,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       bundleState.actionsExecuted.toNumber(),
-      projectName,
+      projectID,
       false
     )
     if (amountToDeposit.gt(0)) {
@@ -95,7 +95,7 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
+        `${projectID} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
   Run the following command to add funds to your deployment so it can be completed:
 
   npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
@@ -113,7 +113,7 @@ export const monitorExecution = async (
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${projectName}.`)
+    spinner.succeed(`Finished executing ${projectID}.`)
     spinner.start(`Retrieving deployment info...`)
     // Get the `completeChugSplashBundle` transaction.
     const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
@@ -123,8 +123,8 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return bundleCompletionTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(`${projectName} was cancelled.`)
-    throw new Error(`${projectName} was cancelled.`)
+    spinner.fail(`${projectID} was cancelled.`)
+    throw new Error(`${projectID} was cancelled.`)
   } else {
     spinner.fail(
       `Project was never active. Current status: ${bundleState.status}`
@@ -159,11 +159,11 @@ export const postExecutionActions = async (
 ) => {
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
   const currProjectOwner = await getProjectOwnerAddress(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.projectID
   )
 
   spinner.start(`Retrieving leftover funds...`)
@@ -171,7 +171,7 @@ export const postExecutionActions = async (
   if ((await signer.getAddress()) === currProjectOwner) {
     const ownerBalance = await getOwnerWithdrawableAmount(
       provider,
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
     if (withdraw) {
       // Withdraw any of the current project owner's funds in the ChugSplashManager.

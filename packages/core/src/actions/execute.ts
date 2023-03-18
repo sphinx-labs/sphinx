@@ -15,7 +15,7 @@ export const executeTask = async (args: {
   bundles: ChugSplashBundles
   bundleState: ChugSplashBundleState
   executor: ethers.Wallet
-  projectName: string
+  projectID: string
   logger: Logger
 }) => {
   const {
@@ -23,7 +23,7 @@ export const executeTask = async (args: {
     bundles,
     bundleState,
     executor,
-    projectName,
+    projectID,
     logger,
   } = args
 
@@ -36,12 +36,12 @@ export const executeTask = async (args: {
     bundleState.status !== ChugSplashBundleStatus.COMPLETED
   ) {
     throw new Error(
-      `${projectName} cannot be executed. current project status: ${bundleState.status}`
+      `${projectID} cannot be executed. current project status: ${bundleState.status}`
     )
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    logger.info(`[ChugSplash]: already executed: ${projectName}`)
+    logger.info(`[ChugSplash]: already executed: ${projectID}`)
   } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
     // We execute all actions in batches to reduce the total number of transactions and reduce the
     // cost of a deployment in general. Approaching the maximum block gas limit can cause
@@ -213,6 +213,6 @@ export const executeTask = async (args: {
     ).wait()
 
     // We're done!
-    logger.info(`[ChugSplash]: successfully executed: ${projectName}`)
+    logger.info(`[ChugSplash]: successfully executed: ${projectID}`)
   }
 }

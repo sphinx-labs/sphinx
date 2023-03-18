@@ -1,7 +1,7 @@
 module.exports = {
   // Configuration options for the project:
   options: {
-    projectName: 'Cancel test',
+    projectID: '0x' + '00'.repeat(31) + '03',
   },
   contracts: {
     MySimpleStorage: {

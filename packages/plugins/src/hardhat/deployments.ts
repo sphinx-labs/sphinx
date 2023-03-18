@@ -114,7 +114,7 @@ export const deployAllChugSplashConfigs = async (
 
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
-  projectName: string,
+  projectID: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
   if (await isRemoteExecution(hre)) {
@@ -135,20 +135,20 @@ export const getContract = async (
   const userConfigs = resolvedConfigs.filter((userCfg) => {
     return (
       Object.keys(userCfg.contracts).includes(referenceName) &&
-      userCfg.options.projectName === projectName
+      userCfg.options.projectID === projectID
     )
   })
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project named "${projectName}" that contains the reference name "${referenceName}".`
+      `Cannot find a project with ID "${projectID}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects named "${projectName}" contain the reference name "${referenceName}"\n` +
-        `Please merge these projects or change one of the project names.`
+      `Multiple projects with ID "${projectID}" contain the reference name "${referenceName}"\n` +
+        `Please merge these projects or change one of the project IDs.`
     )
   }
 
@@ -156,7 +156,7 @@ export const getContract = async (
 
   const proxyAddress =
     userConfig.contracts[referenceName].externalProxy ||
-    getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+    getDefaultProxyAddress(userConfig.options.projectID, referenceName)
   if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`The proxy for ${referenceName} has not been deployed.`)
   }

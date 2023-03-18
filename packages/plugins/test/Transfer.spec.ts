@@ -100,7 +100,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
 
     const ProxyAdmin = await hre.ethers.getContractAt(
@@ -219,7 +219,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
 
     await UUPSUpgradableTokenV1.transferOwnership(managerProxyAddress)
@@ -260,7 +260,7 @@ describe('Transfer', () => {
     )
 
     const UUPSUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
+      parsedConfig.options.projectID,
       'Token'
     )
 
@@ -277,10 +277,10 @@ describe('Transfer', () => {
     // test claim ownership
     const manager = await getChugSplashManager(
       signer,
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
     const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
+      parsedConfig.options.projectID,
       'Token'
     )
     manager.claimProxyOwnership(
@@ -356,7 +356,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
@@ -402,7 +402,7 @@ describe('Transfer', () => {
     )
 
     const UUPSAccessControlUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
+      parsedConfig.options.projectID,
       'Token'
     )
 
@@ -421,10 +421,10 @@ describe('Transfer', () => {
     // test claiming back ownership
     const manager = await getChugSplashManager(
       signer,
-      parsedConfig.options.projectName
+      parsedConfig.options.projectID
     )
     const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
+      parsedConfig.options.projectID,
       'Token'
     )
     manager.claimProxyOwnership(
