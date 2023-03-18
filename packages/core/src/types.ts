@@ -3,6 +3,18 @@ import { ethers } from 'ethers'
 
 import { Integration } from './constants'
 
+export type ChugSplashRuntimeEnvironment = {
+  configPath: string
+  canonicalConfigPath: string | undefined
+  remoteExecution: boolean
+  autoConfirm: boolean
+  openzeppelinStorageLayouts:
+    | {
+        [referenceName: string]: any
+      }
+    | undefined
+}
+
 export type FoundryContractArtifact = {
   referenceName: string
   contractName: string

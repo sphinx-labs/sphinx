@@ -39,13 +39,14 @@ export type VariableHandlers<Output> = {
   preserve: VariableHandler<UserConfigVariable, Output>
 }
 
-export const isPreserveKeyword = (
-  variableValue: UserConfigVariable
+export const isKeyword = (
+  variableValue: UserConfigVariable,
+  keyword: string
 ): boolean => {
   if (
     typeof variableValue === 'string' &&
     // Remove whitespaces from the variable, then lowercase it
-    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
+    variableValue.replace(/\s+/g, '').toLowerCase() === keyword
   ) {
     return true
   } else {
@@ -53,21 +54,22 @@ export const isPreserveKeyword = (
   }
 }
 
-export const variableContainsPreserveKeyword = (
-  variable: UserConfigVariable
+export const variableContainsKeyword = (
+  variable: UserConfigVariable,
+  keyword: string
 ): boolean => {
-  if (isPreserveKeyword(variable)) {
+  if (isKeyword(variable, keyword)) {
     return true
   } else if (Array.isArray(variable)) {
     for (const element of variable) {
-      if (variableContainsPreserveKeyword(element)) {
+      if (variableContainsKeyword(element, keyword)) {
         return true
       }
     }
     return false
   } else if (typeof variable === 'object') {
     for (const varValue of Object.values(variable)) {
-      if (variableContainsPreserveKeyword(varValue)) {
+      if (variableContainsKeyword(varValue, keyword)) {
         return true
       }
     }
@@ -251,7 +253,7 @@ export const recursiveLayoutIterator = <Output>(
   )
 
   // Handle the preserve keyword
-  if (isPreserveKeyword(variable)) {
+  if (isKeyword(variable, keywords.preserve)) {
     return typeHandlers.preserve({
       variable,
       storageObj,

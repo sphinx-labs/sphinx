@@ -253,7 +253,7 @@ contract ChugSplashTest is Test {
 
     function testSetStringToUserDefinedTypeMapping() public {
         (Storage.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
-        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+        assertEq(Storage.UserDefinedType.unwrap(a), 1000000000000000000);
     }
 
     function testSetUserDefinedTypeToStringMapping() public {
