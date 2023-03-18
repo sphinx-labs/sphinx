@@ -5,7 +5,7 @@ import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/";
+import { Proxy } from "./libraries/Proxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**

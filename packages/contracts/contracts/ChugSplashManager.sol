@@ -17,7 +17,7 @@ import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
-import { MerkleTree } from "./libraries/MerkleTree.sol";
+import { Lib_MerkleTree } from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -521,7 +521,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proof = _proofs[i];
 
             require(
-                MerkleTree.verify(
+                Lib_MerkleTree.verify(
                     bundle.targetRoot,
                     keccak256(
                         abi.encode(
@@ -623,7 +623,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             require(
-                MerkleTree.verify(
+                Lib_MerkleTree.verify(
                     bundle.actionRoot,
                     keccak256(
                         abi.encode(
@@ -722,7 +722,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proof = _proofs[i];
 
             require(
-                MerkleTree.verify(
+                Lib_MerkleTree.verify(
                     bundle.targetRoot,
                     keccak256(
                         abi.encode(
