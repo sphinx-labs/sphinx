@@ -1,6 +1,6 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 
-import { variables } from '../test/constants'
+import { variables, constructorArgs } from '../test/constants'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
@@ -10,6 +10,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     MyStorage: {
       contract: 'Storage',
+      constructorArgs,
       variables,
     },
     MySimpleStorage: {

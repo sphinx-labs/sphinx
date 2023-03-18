@@ -6,6 +6,7 @@ import { BigNumber, ethers, providers } from 'ethers'
 import { astDereferencer, ASTDereferencer } from 'solidity-ast/utils'
 import { CompilerOutput } from 'hardhat/types'
 import { remove0x } from '@eth-optimism/core-utils'
+import { Fragment } from 'ethers/lib/utils'
 
 import {
   ArtifactPaths,
@@ -26,6 +27,9 @@ import {
   ProxyType,
   ParsedConfigVariable,
   UserContractConfig,
+  UserConfigVariable,
+  UserConfigVariables,
+  ParsedConfigVariables,
 } from './types'
 import { Integration } from '../constants'
 import {
@@ -40,6 +44,13 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
+
+class InputError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'InputError'
+  }
+}
 
 /**
  * Reads a ChugSplash config file synchronously.
@@ -198,6 +209,10 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
   }
 }
 
+const stringifyVariableType = (variable: UserConfigVariable) => {
+  return Array.isArray(variable) ? 'array' : typeof variable
+}
+
 /**
  * Parses and validates the elements of an array. This function is used whenever the encoding of
  * the array is `inplace` (for fixed size arrays) or `dynamic_array`, but not `bytes`, which is
@@ -210,14 +225,14 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
  * @returns Array with it's elements converted into the correct type for the parsed chugsplash config.
  */
 export const parseArrayElements = (
-  array: any[],
+  array: Array<UserConfigVariable>,
   storageObj: SolidityStorageObj,
   storageTypes: {
     [name: string]: SolidityStorageType
   },
   nestedSlotOffset: string,
   dereferencer: ASTDereferencer
-): Array<any> => {
+): Array<ParsedConfigVariable> => {
   const elementType = getStorageType(
     storageObj.type,
     storageTypes,
@@ -234,7 +249,7 @@ export const parseArrayElements = (
   const bytesOffset = 0
 
   // Iterate over the array and encode each element in it.
-  const parsedArray: any[] = []
+  const parsedArray: Array<ParsedConfigVariable> = []
   for (const element of array) {
     parsedArray.push(
       parseAndValidateVariable(
@@ -262,11 +277,47 @@ export const parseArrayElements = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceArray: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
+export const parseInplaceArray: VariableHandler<
+  UserConfigVariable,
+  Array<ParsedConfigVariable>
+> = (
+  props: VariableHandlerProps<UserConfigVariable, Array<ParsedConfigVariable>>
+): Array<ParsedConfigVariable> => {
   const { storageObj, variable, storageTypes, nestedSlotOffset, dereferencer } =
     props
+
+  if (!Array.isArray(variable)) {
+    throw new InputError(
+      `Expected array for ${storageObj.label} but got ${typeof variable}`
+    )
+  }
+
+  // array object types come in the format: t_array(t_<type>)<size>_storage)
+  // when nested, the format is repeated: t_array(t_array(t_<type>)<size>_storage)<size>_storage)
+  // So to get the size of the array, we split on the ')' character, remove the first element (which is the type),
+  // remove the _storage suffix, and parse the remaining element as an integer.
+  let stringSizes = storageObj.type.split(')')
+  stringSizes = stringSizes.map((el) => el.replace('_storage', ''))
+  stringSizes.shift()
+  const sizes = stringSizes.map((el) => parseInt(el, 10))
+
+  if (sizes.length === 0) {
+    throw new InputError(
+      `Failed to parse expected array size for ${storageObj.label}, this should never happen please report this error to the developers.`
+    )
+  }
+
+  if (
+    sizes[sizes.length - 1] !== variable.length &&
+    storageObj.label !== '__gap'
+  ) {
+    throw new InputError(
+      `Expected array of size ${sizes[sizes.length - 1]} for ${
+        storageObj.label
+      } but got ${JSON.stringify(variable)}`
+    )
+  }
+
   return parseArrayElements(
     variable,
     storageObj,
@@ -282,16 +333,28 @@ export const parseInplaceArray: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceAddress: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  const { variable } = props
+export const parseInplaceAddress: VariableHandler<
+  UserConfigVariable,
+  string
+> = (props: VariableHandlerProps<UserConfigVariable, string>): string => {
+  const { variable, storageObj } = props
 
-  if (!ethers.utils.isAddress(variable)) {
-    throw new Error(`invalid address type: ${variable}`)
+  if (typeof variable !== 'string') {
+    throw new InputError(
+      `invalid input type for ${
+        storageObj.label
+      }: ${variable}, expected address string but got ${stringifyVariableType(
+        variable
+      )}`
+    )
   }
 
-  return variable
+  if (!ethers.utils.isAddress(variable)) {
+    throw new Error(`invalid address for ${storageObj.label}: ${variable}`)
+  }
+
+  // convert to checksum address
+  return ethers.utils.getAddress(variable)
 }
 
 /**
@@ -300,23 +363,17 @@ export const parseInplaceAddress: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceBool: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  let { variable } = props
-
-  // Do some light parsing here to make sure "true" and "false" are recognized.
-  if (typeof variable === 'string') {
-    if (variable === 'false') {
-      variable = false
-    }
-    if (variable === 'true') {
-      variable = true
-    }
-  }
+export const parseInplaceBool: VariableHandler<UserConfigVariable, boolean> = (
+  props: VariableHandlerProps<UserConfigVariable, boolean>
+): boolean => {
+  const { variable, storageObj } = props
 
   if (typeof variable !== 'boolean') {
-    throw new Error(`invalid bool type: ${variable}`)
+    throw new InputError(
+      `invalid input type for variable ${
+        storageObj.label
+      }, expected boolean but got ${stringifyVariableType(variable)}`
+    )
   }
 
   return variable
@@ -328,27 +385,36 @@ export const parseInplaceBool: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceBytes: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  const { variable, variableType } = props
+export const parseInplaceBytes: VariableHandler<UserConfigVariable, string> = (
+  props: VariableHandlerProps<string, string>
+): string => {
+  const { variable, variableType, storageObj } = props
 
-  // Check that the user entered a valid bytes array or string
-  if (typeof variable === 'string' && !ethers.utils.isBytesLike(variable)) {
-    throw new Error(
-      `invalid bytes string for bytes${variableType.numberOfBytes} variable: ${variable}`
+  // Check that the user entered a string
+  if (typeof variable !== 'string') {
+    throw new InputError(
+      `invalid input type for ${
+        storageObj.label
+      }: ${variable}, expected DataHexString but got ${stringifyVariableType(
+        variable
+      )}`
     )
   }
 
-  // Convert the bytes object, which may be an array, into a hex-encoded string
-  const hexStringVariable = ethers.utils.hexlify(variable)
-  // Check that the hex string is the correct length
-  if (
-    !ethers.utils.isHexString(hexStringVariable, variableType.numberOfBytes)
-  ) {
-    throw new Error(
-      `invalid length for bytes${variableType.numberOfBytes} variable: ${variable}`
-    )
+  if (variableType.label.startsWith('bytes')) {
+    // hexDataLength returns null if the input is not a valid hex string.
+    if (ethers.utils.hexDataLength(variable) === null) {
+      throw new InputError(
+        `invalid input format for variable ${storageObj.label}, expected DataHexString but got ${variable}`
+      )
+    }
+
+    // Check that the DataHexString is the correct length
+    if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
+      throw new Error(
+        `invalid length for bytes${variableType.numberOfBytes} variable ${storageObj.label}: ${variable}`
+      )
+    }
   }
 
   return variable
@@ -360,16 +426,40 @@ export const parseInplaceBytes: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceUint: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  const { variable, variableType } = props
+export const parseInplaceUint: VariableHandler<UserConfigVariable, string> = (
+  props: VariableHandlerProps<UserConfigVariable, string>
+): string => {
+  const { variable, variableType, storageObj } = props
+
+  if (
+    typeof variable !== 'number' &&
+    typeof variable !== 'string' &&
+    !(
+      typeof variable === 'object' &&
+      'type' in variable &&
+      variable.type === 'BigNumber'
+    )
+  ) {
+    throw new InputError(
+      `invalid input type for variable ${
+        storageObj.label
+      } expected number, string, or BigNumber but got ${stringifyVariableType(
+        variable
+      )}`
+    )
+  }
+
+  const maxValue = BigNumber.from(2)
+    .pow(8 * variableType.numberOfBytes)
+    .sub(1)
 
   if (
     remove0x(BigNumber.from(variable).toHexString()).length / 2 >
     variableType.numberOfBytes
   ) {
-    throw new Error(`provided ${variableType.label} is too big: ${variable}`)
+    throw new Error(
+      `invalid value for ${storageObj.label}: ${variable}, outside valid range: [0:${maxValue}]`
+    )
   }
 
   return BigNumber.from(variable).toString()
@@ -381,10 +471,28 @@ export const parseInplaceUint: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceInt: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  const { variable, variableType } = props
+export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
+  props: VariableHandlerProps<UserConfigVariable, string>
+): string => {
+  const { variable, variableType, storageObj } = props
+
+  if (
+    typeof variable !== 'number' &&
+    typeof variable !== 'string' &&
+    !(
+      typeof variable === 'object' &&
+      'type' in variable &&
+      variable.type === 'BigNumber'
+    )
+  ) {
+    throw new InputError(
+      `invalid input type for variable ${
+        storageObj.label
+      } expected number, string, or BigNumber but got ${stringifyVariableType(
+        variable
+      )}`
+    )
+  }
 
   // Calculate the minimum and maximum values of the int to ensure that the variable fits within
   // these bounds.
@@ -401,7 +509,7 @@ export const parseInplaceInt: VariableHandler<ParsedConfigVariable> = (
     BigNumber.from(variable).gt(maxValue)
   ) {
     throw new Error(
-      `provided ${variableType.label} size is too big: ${variable}`
+      `invalid value for ${storageObj.label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
     )
   }
 
@@ -414,16 +522,37 @@ export const parseInplaceInt: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseInplaceStruct: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
+export const parseInplaceStruct: VariableHandler<
+  UserConfigVariable,
+  {
+    [name: string]: ParsedConfigVariable
+  }
+> = (
+  props: VariableHandlerProps<
+    UserConfigVariable,
+    {
+      [name: string]: ParsedConfigVariable
+    }
+  >
+): {
+  [name: string]: ParsedConfigVariable
+} => {
   const {
     variable,
     variableType,
     nestedSlotOffset,
     storageTypes,
+    storageObj,
     dereferencer,
   } = props
+
+  if (typeof variable !== 'object') {
+    throw new InputError(
+      `invalid input type for variable ${
+        storageObj.label
+      } expected object but got ${stringifyVariableType(variable)}`
+    )
+  }
 
   // Structs are encoded recursively, as defined by their `members` field.
   const parsedVariable: {
@@ -463,10 +592,27 @@ export const parseInplaceStruct: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseBytes: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
-  const { variable, storageObj } = props
+export const parseBytes: VariableHandler<UserConfigVariable, string> = (
+  props: VariableHandlerProps<UserConfigVariable, string>
+): string => {
+  const { variable, variableType, storageObj } = props
+
+  if (typeof variable !== 'string') {
+    throw new InputError(
+      `invalid input type for ${
+        storageObj.label
+      }, expected DataHexString but got ${stringifyVariableType(variable)}`
+    )
+  }
+
+  if (variableType.label.startsWith('bytes')) {
+    // hexDataLength returns null if the input is not a valid hex string.
+    if (ethers.utils.hexDataLength(variable) === null) {
+      throw new InputError(
+        `invalid input type for variable ${storageObj.label}, expected DataHexString but got ${variable}`
+      )
+    }
+  }
 
   // The Solidity compiler uses the "bytes" encoding for strings and dynamic bytes.
   // ref: https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#bytes-and-string
@@ -486,9 +632,21 @@ export const parseBytes: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseMapping: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
+export const parseMapping: VariableHandler<
+  UserConfigVariable,
+  {
+    [name: string]: ParsedConfigVariable
+  }
+> = (
+  props: VariableHandlerProps<
+    UserConfigVariable,
+    {
+      [name: string]: ParsedConfigVariable
+    }
+  >
+): {
+  [name: string]: ParsedConfigVariable
+} => {
   const {
     variable,
     storageObj,
@@ -531,11 +689,21 @@ export const parseMapping: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseDynamicArray: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
+export const parseDynamicArray: VariableHandler<
+  UserConfigVariable,
+  Array<ParsedConfigVariable>
+> = (
+  props: VariableHandlerProps<UserConfigVariable, Array<ParsedConfigVariable>>
+): Array<ParsedConfigVariable> => {
   const { variable, storageObj, storageTypes, nestedSlotOffset, dereferencer } =
     props
+
+  if (!Array.isArray(variable)) {
+    throw new InputError(
+      `invalid array ${variable}, expected array but got ${typeof variable}`
+    )
+  }
+
   // For dynamic arrays, the current storage slot stores the number of elements in the array (byte
   // arrays and strings are an exception since they use the encoding 'bytes').
   const array: any[] = parseArrayElements(
@@ -555,9 +723,9 @@ export const parseDynamicArray: VariableHandler<ParsedConfigVariable> = (
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parsePreserve: VariableHandler<ParsedConfigVariable> = (
-  props: VariableHandlerProps<ParsedConfigVariable>
-) => {
+export const parsePreserve: VariableHandler<string, string> = (
+  props: VariableHandlerProps<string, string>
+): string => {
   const { variable } = props
 
   return variable
@@ -574,7 +742,7 @@ export const parsePreserve: VariableHandler<ParsedConfigVariable> = (
  * @returns Variable parsed into the format expected by the parsed chugsplash config.
  */
 export const parseAndValidateVariable = (
-  variable: any,
+  variable: UserConfigVariable,
   storageObj: SolidityStorageObj,
   storageTypes: {
     [name: string]: SolidityStorageType
@@ -582,6 +750,10 @@ export const parseAndValidateVariable = (
   nestedSlotOffset: string,
   dereferencer: ASTDereferencer
 ): ParsedConfigVariable => {
+  if (variable === undefined) {
+    return variable
+  }
+
   const typeHandlers: VariableHandlers<ParsedConfigVariable> = {
     inplace: {
       array: parseInplaceArray,
@@ -623,7 +795,6 @@ const parseContractVariables = (
 ): {
   [name: string]: ParsedConfigVariable
 } => {
-  const errors: string[] = []
   const parsedConfigVariables: {
     [name: string]: ParsedConfigVariable
   } = {}
@@ -637,33 +808,24 @@ const parseContractVariables = (
   const dereferencer = astDereferencer(compilerOutput as any)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
+  const inputErrors: string[] = []
+  const unnecessarilyDefinedVariables: string[] = []
+  const missingVariables: string[] = []
+
   for (const variableName of Object.keys(contractConfig.variables)) {
     const existsInLayout = extendedLayout.storage.some(
       (storageObj) => storageObj.configVarName === variableName
     )
 
     if (existsInLayout === false) {
-      // Complain very loudly if attempting to set a variable that doesn't exist within this layout.
-      throw new Error(
-        `Variable "${variableName}" was defined in the ChugSplash config file for ${contractConfig.contract} but\n` +
-          `does not exist as a mutable variable in the contract. If "${variableName}" is immutable, please remove\n` +
-          `its definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field\n` +
-          `instead. If this variable is not meant to be immutable, please remove this variable definition in the\n` +
-          `ChugSplash config file. If this problem persists, delete your cache folder then try again.`
-      )
+      unnecessarilyDefinedVariables.push(variableName)
     }
   }
 
   for (const storageObj of Object.values(extendedLayout.storage)) {
     const configVarValue = contractConfig.variables[storageObj.configVarName]
     if (configVarValue === undefined) {
-      throw new Error(
-        `Detected a variable "${storageObj.configVarName}" from the contract "${contractConfig.contract}" (or one\n` +
-          `of its parent contracts), but could not find a corresponding variable definition in your ChugSplash config.\n` +
-          `file. Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n` +
-          `Please define the variable in your ChugSplash config file then run this command again.\n` +
-          `If this problem persists, delete your cache folder then try again.`
-      )
+      missingVariables.push(storageObj.configVarName)
     }
 
     try {
@@ -676,19 +838,131 @@ const parseContractVariables = (
           dereferencer
         )
     } catch (e) {
-      errors.push((e as Error).message)
+      inputErrors.push((e as Error).message)
     }
   }
 
-  if (errors.length > 0) {
+  if (
+    inputErrors.length > 0 ||
+    unnecessarilyDefinedVariables.length > 0 ||
+    missingVariables.length > 0
+  ) {
     let message = `We detected some issues in your ChugSplash config file, please resolve them and try again.\n\n`
-    for (const error of errors) {
-      message += `${error} \n`
+
+    if (inputErrors.length > 0) {
+      message += `The following variables were defined incorrectly:\n`
+      for (const error of inputErrors) {
+        message += `${error} \n`
+      }
+      message += '\n'
     }
-    throw new Error(message)
+
+    if (unnecessarilyDefinedVariables.length > 0) {
+      message += `The following variables were defined in the ChugSplash config file but do not exist in the contract ${contractConfig.contract}:\n`
+      for (const variable of unnecessarilyDefinedVariables) {
+        message += `${variable} \n`
+      }
+      message += `- If any of these variables are immutable, please remove their definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field instead.\n`
+      message += `- If any of these variables are meant to be mutable, please remove their definition in the ChugSplash config file.\n`
+      message += `- If this problem persists, delete your cache folder then try again.\n\n`
+    }
+
+    if (missingVariables.length > 0) {
+      message += `The following variables were defined in the contract ${contractConfig.contract} (or one of its parent contracts) but were not defined in the ChugSplash config file:\n`
+      for (const variable of missingVariables) {
+        message += `${variable} \n`
+      }
+      message += `- Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n`
+      message += `- Please define the variable in your ChugSplash config file then run this command again.\n`
+      message += `- If this problem persists, delete your cache folder then try again.\n\n`
+    }
+
+    throw new InputError(message)
   }
 
   return parsedConfigVariables
+}
+
+/**
+ * Parses and validates constructor args in a config file.
+ *
+ * TODO - Improve this function so that the parsing and validation is on par with that of variables.
+ *
+ * @param contractConfig Unparsed User-defined contract definition in a ChugSplash config.
+ * @param storageLayout Storage layout returned by the solidity compiler for the relevant contract.
+ * @param compilerOutput Complete compiler output.
+ * @returns complete set of variables parsed into the format expected by the parsed chugsplash config.
+ */
+export const parseAndValidateConstructorArgs = (
+  userConstructorArgs: UserConfigVariables,
+  referenceName: string,
+  abi: Array<Fragment>
+): ParsedConfigVariables => {
+  const parsedConstructorArgs: ParsedConfigVariables = {}
+
+  const constructorFragment = abi.find(
+    (fragment) => fragment.type === 'constructor'
+  )
+
+  if (constructorFragment === undefined) {
+    if (Object.keys(userConstructorArgs).length > 0) {
+      throw new InputError(
+        `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
+          `no constructor exists in the contract.`
+      )
+    } else {
+      return parsedConstructorArgs
+    }
+  }
+
+  const constructorArgNames = constructorFragment.inputs.map(
+    (input) => input.name
+  )
+  const incorrectConstructorArgNames = Object.keys(userConstructorArgs).filter(
+    (argName) => !constructorArgNames.includes(argName)
+  )
+  const undefinedConstructorArgNames: string[] = []
+
+  constructorFragment.inputs.forEach((input) => {
+    const constructorArgValue = userConstructorArgs[input.name]
+    if (constructorArgValue === undefined) {
+      undefinedConstructorArgNames.push(input.name)
+      return
+    }
+
+    // TODO - implement input validation and parsing on par with the rest of the variables
+    if (typeof constructorArgValue !== 'boolean') {
+      parsedConstructorArgs[input.name] = constructorArgValue.toString()
+    } else {
+      parsedConstructorArgs[input.name] = constructorArgValue
+    }
+  })
+
+  if (
+    incorrectConstructorArgNames.length > 0 ||
+    undefinedConstructorArgNames.length > 0
+  ) {
+    let message = `We detected some issues in your ChugSplash config file, please resolve them and try again.\n\n`
+    if (incorrectConstructorArgNames.length > 0) {
+      message += `The following constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:\n`
+      message += `${incorrectConstructorArgNames.map(
+        (argName) => `${argName}`
+      )}\n`
+      message += '\n'
+    }
+
+    if (undefinedConstructorArgNames.length > 0) {
+      message += `The following constructor arguments are required by the constructor for ${referenceName}, but were not found in your config:\n`
+      message += `${undefinedConstructorArgNames.map(
+        (argName) => `${argName}`
+      )}\n`
+      message += '\n'
+    }
+
+    throw new InputError(message)
+  }
+
+  return parsedConstructorArgs
 }
 
 /**
@@ -763,12 +1037,18 @@ const parseAndValidateChugSplashConfig = async (
       compilerOutput
     )
 
+    const args = parseAndValidateConstructorArgs(
+      constructorArgs ?? {},
+      referenceName,
+      compilerOutput.contracts[sourceName][contractName].abi
+    )
+
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
       proxy,
       proxyType,
       variables: parsedVariables,
-      constructorArgs: constructorArgs ?? {},
+      constructorArgs: args,
     }
 
     contracts[referenceName] = proxy
