@@ -28,22 +28,16 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
-     * @param projectNameHash Hash of the project name. Without this parameter, we
-     *                        won't be able to recover the unhashed project name in
-     *                        events, since indexed dynamic types like strings are hashed.
-     *                        For further explanation:
-     *                        https://github.com/ethers-io/ethers.js/issues/243
+     * @param projectID Project ID.
      * @param creator         Address of the creator of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
-     * @param projectName     Name of the project that was registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed projectNameHash,
+        bytes32 indexed projectID,
         address indexed creator,
         address indexed manager,
-        address owner,
-        string projectName
+        address owner
     );
 
     /**
@@ -69,9 +63,9 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     event ProtocolPaymentRecipientRemoved(address indexed executor);
 
     /**
-     * @notice Mapping of project names to ChugSplashManager contracts.
+     * @notice Mapping of project IDs to ChugSplashManager contracts.
      */
-    mapping(string => ChugSplashManager) public projects;
+    mapping(bytes32 => ChugSplashManager) public projects;
 
     /**
      * @notice Addresses that can execute bundles.
@@ -147,18 +141,18 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
      * @notice Registers a new project.
      *
-     * @param _name  Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new project.
+     * @param _projectID ID of the new ChugSplash project.
+     * @param _owner     Initial owner for the new project.
      */
-    function register(string memory _name, address _owner, bool _allowManagedProposals) public {
+    function register(bytes32 _projectID, address _owner, bool _allowManagedProposals) public {
         require(
-            address(projects[_name]) == address(0),
+            address(projects[_projectID]) == address(0),
             "ChugSplashRegistry: name already registered"
         );
 
         // Deploy the ChugSplashManager's proxy.
         ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
-            salt: keccak256(bytes(_name))
+            salt: _projectID
         }(
             address(this), // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
@@ -169,13 +163,13 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         // deployed.
         manager.upgradeToAndCall(
             _getManagerImpl(),
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _allowManagedProposals))
+            abi.encodeCall(ChugSplashManager.initialize, (_projectID, _owner, _allowManagedProposals))
         );
 
-        projects[_name] = ChugSplashManager(payable(address(manager)));
+        projects[_projectID] = ChugSplashManager(payable(address(manager)));
         recorder.addManager(address(manager));
 
-        emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
+        emit ChugSplashProjectRegistered(_projectID, msg.sender, address(manager), _owner);
     }
 
     /**

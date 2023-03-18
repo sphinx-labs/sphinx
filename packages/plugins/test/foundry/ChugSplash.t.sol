@@ -32,10 +32,10 @@ contract ChugSplashTest is Test {
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
-    string withdrawProjectName = "Withdraw test";
+    bytes32 withdrawProjectID = bytes32(hex"11");
     string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
 
-    string registerProjectName = 'Register, propose, fund, approve test';
+    string registerProjectID = bytes32(hex"22");
     string registerConfig = "./chugsplash/foundry/registerProposeFundApprove.t.js";
 
     string cancelProjectName = "Cancel test";
@@ -115,17 +115,17 @@ contract ChugSplashTest is Test {
 
     function testDidRegister() public {
         assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unregistered project detected");
-        assertFalse(address(registry.projects(registerProjectName)) == address(0), "Registered project was not detected");
+        assertFalse(address(registry.projects(registerProjectID)) == address(0), "Registered project was not detected");
     }
 
     function testDidProposeFundApprove() public {
-        ChugSplashManager manager = registry.projects(registerProjectName);
+        ChugSplashManager manager = registry.projects(registerProjectID);
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        ChugSplashManager manager = registry.projects(withdrawProjectName);
+        ChugSplashManager manager = registry.projects(withdrawProjectID);
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
