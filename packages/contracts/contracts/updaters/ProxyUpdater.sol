@@ -74,9 +74,6 @@ abstract contract ProxyUpdater is IProxyUpdater {
             // if-statement above.
             uint256 mask = ~((2 ** (segmentLengthBits) - 1) << offsetBits);
 
-            // Apply the bit mask to the existing storage slot value.
-            bytes32 maskedCurrVal = bytes32(mask) & currVal;
-
             // Calculate the offset of the segment from the left side of the storage slot.
             // Denominated in bits for consistency.
             uint256 leftOffsetBits = 256 - offsetBits - segmentLengthBits;
@@ -84,13 +81,13 @@ abstract contract ProxyUpdater is IProxyUpdater {
             // Shift the segment right so that it's aligned with the bitmasked location.
             bytes32 rightShiftedSegment = (segmentBytes32 >> leftOffsetBits);
 
-            // Create the new storage slot value by adding the bit masked slot value to the new
-            // segment.
-            uint256 newVal = uint256(maskedCurrVal) + uint256(rightShiftedSegment);
+            uint256 a = uint(rightShiftedSegment);
+            uint256 b = uint(currVal);
+            uint256 r = a ^ ((a ^ b) & mask);
 
             // Set the new value of the storage slot.
             assembly {
-                sstore(_key, newVal)
+                sstore(_key, r)
             }
         }
     }
