@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+library MyLibrary {
+    function first() external pure returns (uint8) {
+        return 2;
+    }
+}
+
 contract Storage {
+
     type UserDefinedType is uint256;
     type UserDefinedBytes32 is bytes32;
     type UserDefinedInt is int;
@@ -106,5 +113,9 @@ contract Storage {
 
     function getComplexStructMappingVal(uint32 _mappingKey) external view returns (string memory) {
         return complexStruct.b[_mappingKey];
+    }
+
+    function callLib() external {
+        uint8Test = MyLibrary.first();
     }
 }

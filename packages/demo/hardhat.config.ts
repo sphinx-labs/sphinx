@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv'
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@chugsplash/plugins'
+import '@openzeppelin/hardhat-upgrades'
 
 // Load environment variables from .env
 dotenv.config()
@@ -12,7 +13,7 @@ const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.15',
+    version: '0.8.9',
     settings: {
       outputSelection: {
         '*': {
