@@ -124,7 +124,8 @@ export const importOpenZeppelinStorageLayouts = async (
         hre,
         await hre.ethers.getContractFactory(userContractConfig.contract),
         getOpenZeppelinValidationOpts(
-          userContractConfig.externalProxyType ?? 'internal-default'
+          userContractConfig.externalProxyType ?? 'internal-default',
+          userContractConfig
         )
       )
       const storageLayout = await getStorageLayoutForAddress(

@@ -84,7 +84,8 @@ describe('Transfer', () => {
       transparentUpgradeConfigPath,
       false,
       true,
-      hre
+      hre,
+      true
     )
 
     const parsedConfig = await readValidatedChugSplashConfig(
@@ -101,8 +102,8 @@ describe('Transfer', () => {
       parsedConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
@@ -129,7 +130,6 @@ describe('Transfer', () => {
       provider,
       signer,
       configPath,
-      true,
       false,
       '',
       true,
@@ -140,6 +140,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig,
       hre.chugsplash.executor
     )
 
@@ -203,7 +204,8 @@ describe('Transfer', () => {
       uupsOwnableUpgradeConfigPath,
       false,
       true,
-      hre
+      hre,
+      true
     )
 
     const parsedConfig = await readValidatedChugSplashConfig(
@@ -220,8 +222,8 @@ describe('Transfer', () => {
       parsedConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
@@ -243,7 +245,6 @@ describe('Transfer', () => {
       provider,
       signer,
       configPath,
-      true,
       false,
       '',
       true,
@@ -254,6 +255,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig,
       hre.chugsplash.executor
     )
 
@@ -340,7 +342,8 @@ describe('Transfer', () => {
       uupsAccessControlUpgradeConfigPath,
       false,
       true,
-      hre
+      hre,
+      true
     )
 
     const parsedConfig = await readValidatedChugSplashConfig(
@@ -357,8 +360,8 @@ describe('Transfer', () => {
       parsedConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
@@ -385,7 +388,6 @@ describe('Transfer', () => {
       provider,
       signer,
       configPath,
-      true,
       false,
       '',
       true,
@@ -396,6 +398,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig,
       hre.chugsplash.executor
     )
 

@@ -38,7 +38,8 @@ const displayBundleInfo = async () => {
     chugsplashFilePath,
     false,
     true,
-    undefined
+    undefined,
+    false
   )
 
   const parsedConfig = await readValidatedChugSplashConfig(

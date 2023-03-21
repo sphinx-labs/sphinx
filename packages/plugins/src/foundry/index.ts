@@ -50,7 +50,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
@@ -87,9 +89,8 @@ const command = args[0]
         config,
         allowManagedProposals,
         owner,
-        silent,
         'foundry',
-        process.stdout
+        cre
       )
       break
     }
@@ -108,7 +109,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
@@ -141,12 +144,11 @@ const command = args[0]
         config,
         configPath,
         ipfsUrl,
-        silent,
         remoteExecution,
         'foundry',
         artifactPaths,
         canonicalConfigPath,
-        process.stdout
+        cre
       )
       break
     }
@@ -165,7 +167,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const { artifactFolder, buildInfoFolder } = fetchPaths(
@@ -183,6 +187,14 @@ const command = args[0]
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
 
+      const parsedConfig = await readValidatedChugSplashConfig(
+        provider,
+        configPath,
+        artifactPaths,
+        'foundry',
+        cre
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Fund --')
       }
@@ -192,11 +204,10 @@ const command = args[0]
         configPath,
         amount,
         autoEstimate,
-        silent,
         artifactPaths,
         'foundry',
-        cre,
-        process.stdout
+        parsedConfig,
+        cre
       )
       break
     }
@@ -215,7 +226,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const {
@@ -238,6 +251,14 @@ const command = args[0]
 
       const remoteExecution = args[3] !== 'localhost'
 
+      const parsedConfig = await readValidatedChugSplashConfig(
+        provider,
+        configPath,
+        artifactPaths,
+        'foundry',
+        cre
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Approve --')
       }
@@ -246,15 +267,14 @@ const command = args[0]
         wallet,
         configPath,
         !withdrawFunds,
-        silent,
         skipMonitorStatus,
         artifactPaths,
         'foundry',
         canonicalConfigPath,
         deploymentFolder,
         remoteExecution,
-        cre,
-        process.stdout
+        parsedConfig,
+        cre
       )
       break
     }
@@ -273,13 +293,6 @@ const command = args[0]
 
       const confirm = true
 
-      const cre = await createChugSplashRuntime(
-        configPath,
-        args[3] !== 'localhost',
-        confirm,
-        undefined
-      )
-
       const logPath = `logs/${network ?? 'anvil'}`
       if (!fs.existsSync(logPath)) {
         fs.mkdirSync(logPath, { recursive: true })
@@ -288,6 +301,15 @@ const command = args[0]
       const now = new Date()
       const logWriter = fs.createWriteStream(
         `${logPath}/deploy-${now.getTime()}`
+      )
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        confirm,
+        undefined,
+        silent,
+        logWriter
       )
 
       const {
@@ -310,7 +332,15 @@ const command = args[0]
       newOwner = newOwner !== 'self' ? newOwner : address
 
       const remoteExecution = args[3] !== 'localhost'
-      const spinner = ora({ isSilent: silent, stream: logWriter })
+      const spinner = ora({ isSilent: cre.silent, stream: logWriter })
+
+      const parsedConfig = await readValidatedChugSplashConfig(
+        provider,
+        configPath,
+        artifactPaths,
+        'foundry',
+        cre
+      )
 
       if (!silent) {
         logWriter.write('-- ChugSplash Deploy --\n')
@@ -330,7 +360,6 @@ const command = args[0]
         provider,
         wallet,
         configPath,
-        silent,
         remoteExecution,
         ipfsUrl,
         withdrawFunds,
@@ -341,8 +370,8 @@ const command = args[0]
         deploymentFolder,
         'foundry',
         cre,
-        executor,
-        logWriter
+        parsedConfig,
+        executor
       )
 
       const artifactStructABI =
@@ -370,7 +399,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const {
@@ -394,6 +425,14 @@ const command = args[0]
 
       const remoteExecution = args[3] !== 'localhost'
 
+      const parsedConfig = await readValidatedChugSplashConfig(
+        provider,
+        configPath,
+        artifactPaths,
+        'foundry',
+        cre
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Monitor --')
       }
@@ -402,15 +441,14 @@ const command = args[0]
         wallet,
         configPath,
         !withdrawFunds,
-        silent,
         newOwner,
         artifactPaths,
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
         remoteExecution,
-        cre,
-        process.stdout
+        parsedConfig,
+        cre
       )
       break
     }
@@ -425,13 +463,22 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined,
+        false,
+        process.stdout
+      )
+
       console.log('-- ChugSplash Cancel --')
       await chugsplashCancelAbstractTask(
         provider,
         wallet,
         configPath,
         'foundry',
-        process.stdout
+        cre
       )
       break
     }
@@ -447,6 +494,15 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined,
+        silent,
+        process.stdout
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Withdraw --')
       }
@@ -454,9 +510,8 @@ const command = args[0]
         provider,
         wallet,
         configPath,
-        silent,
         'foundry',
-        process.stdout
+        cre
       )
       break
     }
@@ -470,13 +525,17 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
-      console.log('-- ChugSplash List Projects --')
-      await chugsplashListProjectsAbstractTask(
-        provider,
-        wallet,
-        'foundry',
+      const cre = await createChugSplashRuntime(
+        '',
+        args[3] !== 'localhost',
+        true,
+        undefined,
+        false,
         process.stdout
       )
+
+      console.log('-- ChugSplash List Projects --')
+      await chugsplashListProjectsAbstractTask(provider, wallet, 'foundry', cre)
       break
     }
     case 'listProposers': {
@@ -511,6 +570,15 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined,
+        false,
+        process.stdout
+      )
+
       console.log('-- ChugSplash Add Proposer --')
       await chugsplashAddProposersAbstractTask(
         provider,
@@ -518,7 +586,7 @@ const command = args[0]
         configPath,
         [newProposer],
         'foundry',
-        process.stdout
+        cre
       )
       break
     }
@@ -536,7 +604,9 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
-        undefined
+        undefined,
+        silent,
+        process.stdout
       )
 
       const { artifactFolder, buildInfoFolder } = fetchPaths(
@@ -555,6 +625,14 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
+      const parsedConfig = await readValidatedChugSplashConfig(
+        provider,
+        configPath,
+        artifactPaths,
+        'foundry',
+        cre
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Claim Proxy --')
       }
@@ -563,11 +641,9 @@ const command = args[0]
         wallet,
         configPath,
         referenceName,
-        silent,
-        artifactPaths,
         'foundry',
-        cre,
-        process.stdout
+        parsedConfig,
+        cre
       )
       break
     }
@@ -584,6 +660,15 @@ const command = args[0]
       await provider.getNetwork()
       await wallet.getAddress()
 
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        undefined,
+        silent,
+        process.stdout
+      )
+
       if (!silent) {
         console.log('-- ChugSplash Transfer Proxy --')
       }
@@ -592,9 +677,8 @@ const command = args[0]
         wallet,
         configPath,
         proxyAddress,
-        silent,
         'foundry',
-        process.stdout
+        cre
       )
       break
     }

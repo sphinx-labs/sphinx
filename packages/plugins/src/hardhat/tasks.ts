@@ -146,7 +146,8 @@ export const chugsplashDeployTask = async (
     configPath,
     remoteExecution,
     confirm,
-    hre
+    hre,
+    silent
   )
 
   if (!noCompile) {
@@ -183,12 +184,18 @@ export const chugsplashDeployTask = async (
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
   )
+  const parsedConfig = await readValidatedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat',
+    cre
+  )
 
   await chugsplashDeployAbstractTask(
     provider,
     signer,
     configPath,
-    silent,
     remoteExecution,
     ipfsUrl,
     !noWithdraw,
@@ -199,6 +206,7 @@ export const chugsplashDeployTask = async (
     deploymentFolder,
     'hardhat',
     cre,
+    parsedConfig,
     executor
   )
 }
@@ -245,7 +253,8 @@ export const chugsplashRegisterTask = async (
     configPath,
     remoteExecution,
     true,
-    hre
+    hre,
+    silent
   )
 
   const provider = hre.ethers.provider
@@ -275,8 +284,8 @@ export const chugsplashRegisterTask = async (
     parsedConfig,
     allowManagedProposals,
     owner,
-    silent,
-    'hardhat'
+    'hardhat',
+    cre
   )
 }
 
@@ -307,7 +316,8 @@ export const chugsplashProposeTask = async (
     configPath,
     remoteExecution,
     confirm,
-    hre
+    hre,
+    silent
   )
 
   if (!noCompile) {
@@ -345,11 +355,11 @@ export const chugsplashProposeTask = async (
     parsedConfig,
     configPath,
     ipfsUrl,
-    silent,
     remoteExecution,
     'hardhat',
     artifactPaths,
-    canonicalConfigPath
+    canonicalConfigPath,
+    cre
   )
 }
 
@@ -385,7 +395,8 @@ export const chugsplashApproveTask = async (
     configPath,
     remoteExecution,
     true,
-    hre
+    hre,
+    silent
   )
 
   const userConfig = await readUnvalidatedChugSplashConfig(configPath)
@@ -401,19 +412,26 @@ export const chugsplashApproveTask = async (
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
   )
+  const parsedConfig = await readValidatedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat',
+    cre
+  )
 
   await chugsplashApproveAbstractTask(
     provider,
     signer,
     configPath,
     noWithdraw,
-    silent,
     skipMonitorStatus,
     artifactPaths,
     'hardhat',
     canonicalConfigPath,
     deploymentFolder,
     remoteExecution,
+    parsedConfig,
     cre
   )
 }
@@ -647,7 +665,8 @@ export const monitorTask = async (
     configPath,
     remoteExecution,
     true,
-    hre
+    hre,
+    silent
   )
 
   const provider = hre.ethers.provider
@@ -663,19 +682,26 @@ export const monitorTask = async (
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
   )
+  const parsedConfig = await readValidatedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat',
+    cre
+  )
 
   await chugsplashMonitorAbstractTask(
     provider,
     signer,
     configPath,
     noWithdraw,
-    silent,
     newOwner,
     artifactPaths,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     remoteExecution,
+    parsedConfig,
     cre
   )
 }
@@ -704,7 +730,8 @@ export const chugsplashFundTask = async (
     configPath,
     remoteExecution,
     true,
-    hre
+    hre,
+    silent
   )
 
   const provider = hre.ethers.provider
@@ -719,6 +746,13 @@ export const chugsplashFundTask = async (
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
   )
+  const parsedConfig = await readValidatedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat',
+    cre
+  )
 
   await chugsplashFundAbstractTask(
     provider,
@@ -726,9 +760,9 @@ export const chugsplashFundTask = async (
     configPath,
     amount ? ethers.BigNumber.from(amount) : ethers.BigNumber.from(0),
     autoEstimate,
-    silent,
     artifactPaths,
     'hardhat',
+    parsedConfig,
     cre
   )
 }
@@ -919,7 +953,15 @@ export const chugsplashCancelTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  await chugsplashCancelAbstractTask(provider, signer, configPath, 'hardhat')
+  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+
+  await chugsplashCancelAbstractTask(
+    provider,
+    signer,
+    configPath,
+    'hardhat',
+    cre
+  )
 }
 
 task(TASK_CHUGSPLASH_CANCEL)
@@ -939,12 +981,14 @@ export const chugsplashWithdrawTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
+  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+
   await chugsplashWithdrawAbstractTask(
     provider,
     signer,
     configPath,
-    silent,
-    'hardhat'
+    'hardhat',
+    cre
   )
 }
 
@@ -960,7 +1004,9 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  await chugsplashListProjectsAbstractTask(provider, signer, 'hardhat')
+  const cre = await createChugSplashRuntime('', true, true, hre, false)
+
+  await chugsplashListProjectsAbstractTask(provider, signer, 'hardhat', cre)
 }
 
 task(TASK_CHUGSPLASH_LIST_PROJECTS)
@@ -1005,12 +1051,15 @@ export const addProposerTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
+  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+
   await chugsplashAddProposersAbstractTask(
     provider,
     signer,
     configPath,
     newProposers,
-    'hardhat'
+    'hardhat',
+    cre
   )
 }
 
@@ -1038,7 +1087,8 @@ export const claimProxyTask = async (
     configPath,
     remoteExecution,
     true,
-    hre
+    hre,
+    silent
   )
 
   const provider = hre.ethers.provider
@@ -1051,15 +1101,21 @@ export const claimProxyTask = async (
     hre.config.paths.artifacts,
     path.join(hre.config.paths.artifacts, 'build-info')
   )
+  const parsedConfig = await readValidatedChugSplashConfig(
+    provider,
+    configPath,
+    artifactPaths,
+    'hardhat',
+    cre
+  )
 
   await chugsplashClaimProxyAbstractTask(
     provider,
     signer,
     configPath,
     referenceName,
-    silent,
-    artifactPaths,
     'hardhat',
+    parsedConfig,
     cre
   )
 }
@@ -1092,13 +1148,15 @@ export const transferOwnershipTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
+  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+
   await chugsplashTransferOwnershipAbstractTask(
     provider,
     signer,
     configPath,
     proxy,
-    silent,
-    'hardhat'
+    'hardhat',
+    cre
   )
 }
 

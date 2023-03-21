@@ -12,7 +12,6 @@ import {
   ParsedChugSplashConfig,
   proxyTypeHashes,
   readUnvalidatedChugSplashConfig,
-  readValidatedChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -80,11 +79,10 @@ export const chugsplashRegisterAbstractTask = async (
   parsedConfig: ParsedChugSplashConfig,
   allowManagedProposals: boolean,
   owner: string,
-  silent: boolean,
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
   spinner.start(`Registering ${parsedConfig.options.projectName}...`)
 
@@ -122,14 +120,13 @@ export const chugsplashProposeAbstractTask = async (
   parsedConfig: ParsedChugSplashConfig,
   configPath: string,
   ipfsUrl: string,
-  silent: boolean,
   remoteExecution: boolean,
   integration: Integration,
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   if (integration === 'hardhat') {
     spinner.start('Booting up ChugSplash...')
   }
@@ -376,27 +373,18 @@ export const chugsplashApproveAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   noWithdraw: boolean,
-  silent: boolean,
   skipMonitorStatus: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
   canonicalConfigPath: string,
   deploymentFolderPath: string,
   remoteExecution: boolean,
-  cre: ChugSplashRuntimeEnvironment,
-  stream: NodeJS.WritableStream = process.stderr
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration,
-    cre
-  )
-
   const networkName = await resolveNetworkName(provider, integration)
 
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start(
     `Approving ${parsedConfig.options.projectName} on ${networkName}...`
   )
@@ -510,7 +498,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         undefined,
         spinner
       )
-      displayDeploymentTable(parsedConfig, silent)
+      displayDeploymentTable(parsedConfig, cre.silent)
 
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
     }
@@ -523,11 +511,10 @@ export const chugsplashFundAbstractTask = async (
   configPath: string,
   amount: ethers.BigNumber,
   autoEstimate: boolean,
-  silent: boolean,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  cre: ChugSplashRuntimeEnvironment,
-  stream: NodeJS.WritableStream = process.stderr
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   if (amount.eq(0) && autoEstimate !== true) {
     throw new Error(
@@ -542,15 +529,8 @@ export const chugsplashFundAbstractTask = async (
     )
   }
 
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration,
-    cre
-  )
   const projectName = parsedConfig.options.projectName
   const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
   const signerBalance = await signer.getBalance()
@@ -621,7 +601,6 @@ export const chugsplashDeployAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
-  silent: boolean,
   remoteExecution: boolean,
   ipfsUrl: string,
   withdraw: boolean,
@@ -632,10 +611,10 @@ export const chugsplashDeployAbstractTask = async (
   deploymentFolder: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
-  executor?: ChugSplashExecutorType,
-  stream: NodeJS.WritableStream = process.stderr
+  parsedConfig: ParsedChugSplashConfig,
+  executor?: ChugSplashExecutorType
 ): Promise<FoundryContractArtifact[] | undefined> => {
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   const networkName = await resolveNetworkName(provider, integration)
 
   if (executor === undefined && !remoteExecution) {
@@ -646,24 +625,12 @@ export const chugsplashDeployAbstractTask = async (
 
   const signerAddress = await signer.getAddress()
 
-  spinner.start('Parsing ChugSplash config file...')
-
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration,
-    cre
-  )
-
   const projectName = parsedConfig.options.projectName
 
   const projectPreviouslyRegistered = await isProjectRegistered(
     signer,
     projectName
   )
-
-  spinner.succeed(`Parsed ${projectName}.`)
 
   if (projectPreviouslyRegistered === false) {
     spinner.start(`Registering ${projectName}...`)
@@ -714,7 +681,7 @@ export const chugsplashDeployAbstractTask = async (
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
-      displayDeploymentTable(parsedConfig, silent)
+      displayDeploymentTable(parsedConfig, cre.silent)
       return
     } else {
       return generateFoundryTestArtifacts(parsedConfig)
@@ -766,11 +733,10 @@ export const chugsplashDeployAbstractTask = async (
         configPath,
         amountToDeposit,
         false,
-        silent,
         artifactPaths,
         integration,
-        cre,
-        stream
+        parsedConfig,
+        cre
       )
     } else {
       spinner.succeed(`Sufficient funds already deposited.`)
@@ -782,13 +748,13 @@ export const chugsplashDeployAbstractTask = async (
       signer,
       configPath,
       false,
-      silent,
       true,
       artifactPaths,
       integration,
       canonicalConfigPath,
       deploymentFolder,
       remoteExecution,
+      parsedConfig,
       cre
     )
 
@@ -856,7 +822,7 @@ export const chugsplashDeployAbstractTask = async (
   // At this point, the bundle has been completed.
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
-    displayDeploymentTable(parsedConfig, silent)
+    displayDeploymentTable(parsedConfig, cre.silent)
     spinner.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
     )
@@ -870,27 +836,19 @@ export const chugsplashMonitorAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   noWithdraw: boolean,
-  silent: boolean,
   newOwner: string,
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
   remoteExecution: boolean,
-  cre: ChugSplashRuntimeEnvironment,
-  stream: NodeJS.WritableStream = process.stderr
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start(`Loading project information...`)
 
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration,
-    cre
-  )
   const ChugSplashManager = getChugSplashManager(
     signer,
     parsedConfig.options.projectName
@@ -972,7 +930,7 @@ project with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} was already deployed on ${networkName}.`
       )
 
-  displayDeploymentTable(parsedConfig, silent)
+  displayDeploymentTable(parsedConfig, cre.silent)
 }
 
 export const chugsplashCancelAbstractTask = async (
@@ -980,14 +938,14 @@ export const chugsplashCancelAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
 
   const unvalidatedConfig = await readUnvalidatedChugSplashConfig(configPath)
   const projectName = unvalidatedConfig.options.projectName
 
-  const spinner = ora({ stream })
+  const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
 
   if (!(await isProjectRegistered(signer, projectName))) {
@@ -1047,15 +1005,14 @@ export const chugsplashWithdrawAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
-  silent: boolean,
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
   const parsedConfig = await readUnvalidatedChugSplashConfig(configPath)
   const projectName = parsedConfig.options.projectName
 
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start(
     `Withdrawing ETH in the project ${projectName} on ${networkName}.`
   )
@@ -1117,12 +1074,12 @@ export const chugsplashListProjectsAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
   const signerAddress = await signer.getAddress()
 
-  const spinner = ora({ stream })
+  const spinner = ora({ stream: cre.stream })
   spinner.start(`Getting projects on ${networkName} owned by: ${signerAddress}`)
 
   const ChugSplashRegistry = getChugSplashRegistry(signer)
@@ -1256,7 +1213,7 @@ export const chugsplashAddProposersAbstractTask = async (
   configPath: string,
   newProposers: string[],
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   if (newProposers.length === 0) {
     throw new Error('You must specify at least one proposer to add.')
@@ -1264,7 +1221,7 @@ export const chugsplashAddProposersAbstractTask = async (
 
   const parsedConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-  const spinner = ora({ stream })
+  const spinner = ora({ stream: cre.stream })
   spinner.start('Confirming project ownership...')
 
   if (
@@ -1333,22 +1290,12 @@ export const chugsplashClaimProxyAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   referenceName: string,
-  silent: boolean,
-  artifactPaths: ArtifactPaths,
   integration: Integration,
-  cre: ChugSplashRuntimeEnvironment,
-  stream: NodeJS.WritableStream = process.stderr
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
-
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration,
-    cre
-  )
 
   // Throw an error if the project has not been registered
   if (
@@ -1409,11 +1356,10 @@ export const chugsplashTransferOwnershipAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   proxy: string,
-  silent: boolean,
   integration: Integration,
-  stream: NodeJS.WritableStream = process.stderr
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  const spinner = ora({ isSilent: silent, stream })
+  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
   const parsedConfig = await readUnvalidatedChugSplashConfig(configPath)

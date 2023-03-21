@@ -12,6 +12,7 @@ import {
   ChugSplashExecutorType,
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -64,7 +65,8 @@ export const deployAllChugSplashConfigs = async (
       configPath,
       remoteExecution,
       true,
-      hre
+      hre,
+      silent
     )
 
     // Skip this config if it's empty.
@@ -80,12 +82,19 @@ export const deployAllChugSplashConfigs = async (
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
+    const parsedConfig = await readValidatedChugSplashConfig(
+      hre.ethers.provider,
+      configPath,
+      artifactPaths,
+      'hardhat',
+      cre
+    )
+
     const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
       hre.ethers.provider,
       hre.ethers.provider.getSigner(),
       configPath,
-      silent,
       remoteExecution,
       ipfsUrl,
       true,
@@ -96,6 +105,7 @@ export const deployAllChugSplashConfigs = async (
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig,
       executor
     )
   }
