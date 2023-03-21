@@ -22,23 +22,18 @@ import {
   CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
   ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-  OZ_UUPS_UPDATER_ADDRESS,
   CHUGSPLASH_RECORDER_ADDRESS,
   ChugSplashRecorderABI,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
-import yesno from 'yesno'
-import ora from 'ora'
 import {
-  assertStorageUpgradeSafe,
   ProxyDeployment,
   StorageLayout,
   UpgradeableContract,
   ValidationOptions,
 } from '@openzeppelin/upgrades-core'
 import {
-  getDetailedLayout,
   ParsedTypeDetailed,
   StorageItem,
 } from '@openzeppelin/upgrades-core/dist/storage/layout'
@@ -47,7 +42,6 @@ import {
   StorageLayoutComparator,
   stripContractSubstrings,
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
-import { ContractDefinition } from 'solidity-ast'
 import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
@@ -61,7 +55,6 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
   ProxyType,
-  UserChugSplashConfig,
   UserConfigVariable,
   UserContractConfig,
 } from './config/types'
@@ -70,7 +63,6 @@ import { Integration } from './constants'
 import 'core-js/features/array/at'
 import { FoundryContractArtifact } from './types'
 import {
-  ArtifactPaths,
   ContractArtifact,
   ContractASTNode,
   CompilerOutputSources,
@@ -78,7 +70,7 @@ import {
   CompilerOutput,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
-import { getSolcBuild, variableContainsPreserveKeyword } from './languages'
+import { getSolcBuild } from './languages'
 
 export const computeBundleId = (
   actionRoot: string,
@@ -640,212 +632,6 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const assertValidParsedChugSplashFile = async (
-  provider: providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  userConfig: UserChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration,
-  canonicalConfigFolderPath: string,
-  remoteExecution: boolean,
-  confirm: boolean,
-  spinner?: ora.Ora,
-  openzeppelinStorageLayouts?: {
-    [referenceName: string]: StorageLayout
-  }
-) => {
-  // Determine if the deployment is an upgrade
-  const projectName = parsedConfig.options.projectName
-  spinner?.start(
-    `Checking if ${projectName} is a fresh deployment or upgrade...`
-  )
-
-  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
-    parsedConfig.options.projectName
-  )
-
-  const requiresOwnershipTransfer: {
-    name: string
-    proxyAddress: string
-    currentAdminAddress: string
-  }[] = []
-  let isUpgrade: boolean = false
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
-      isUpgrade = true
-
-      if (
-        contractConfig.proxyType === 'oz-ownable-uups' ||
-        contractConfig.proxyType === 'oz-access-control-uups'
-      ) {
-        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
-        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
-        // mechanisms.
-        const chugsplashManager = new ethers.VoidSigner(
-          chugSplashManagerAddress,
-          provider
-        )
-        const UUPSProxy = new ethers.Contract(
-          contractConfig.proxy,
-          ProxyABI,
-          chugsplashManager
-        )
-        try {
-          // Attempt to staticcall the `upgradeTo` function on the proxy from the
-          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
-          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
-          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
-          //    due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
-          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
-          //    will revert due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
-        } catch (e) {
-          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
-          // proxy, which means the user must grant it permission via whichever access control
-          // mechanism the UUPS proxy uses.
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            proxyAddress: contractConfig.proxy,
-            currentAdminAddress: 'unknown',
-          })
-        }
-      } else {
-        const proxyAdmin = await getEIP1967ProxyAdminAddress(
-          provider,
-          contractConfig.proxy
-        )
-
-        if (proxyAdmin !== chugSplashManagerAddress) {
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            proxyAddress: contractConfig.proxy,
-            currentAdminAddress: proxyAdmin,
-          })
-        }
-      }
-    }
-  }
-
-  if (requiresOwnershipTransfer.length > 0) {
-    throw new Error(
-      `Detected proxy contracts which are not managed by ChugSplash:` +
-        `${requiresOwnershipTransfer.map(
-          ({ name, proxyAddress, currentAdminAddress }) =>
-            `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
-        )}
-
-If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
-
-If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
-permission to call the 'upgradeTo' function on each of them.
-      `
-    )
-  }
-
-  if (isUpgrade) {
-    for (const [referenceName, contractConfig] of Object.entries(
-      parsedConfig.contracts
-    )) {
-      const isProxyDeployed =
-        (await provider.getCode(contractConfig.proxy)) !== '0x'
-      if (isProxyDeployed) {
-        const userContractConfig = userConfig.contracts[referenceName]
-        const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-          provider,
-          referenceName,
-          contractConfig,
-          userContractConfig,
-          remoteExecution,
-          canonicalConfigFolderPath,
-          openzeppelinStorageLayouts
-        )
-
-        const { input, output } = readBuildInfo(
-          artifactPaths[referenceName].buildInfoPath
-        )
-        const newStorageLayout = getOpenZeppelinStorageLayout(
-          contractConfig.contract,
-          input,
-          output,
-          contractConfig.proxyType
-        )
-
-        assertStorageCompatiblePreserveKeywords(
-          contractConfig,
-          previousStorageLayout,
-          newStorageLayout
-        )
-
-        // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
-        // support more granular storage layout config options in the future.
-        if (parsedConfig.options.skipStorageCheck !== true) {
-          // Run OpenZeppelin's storage slot checker.
-          assertStorageUpgradeSafe(
-            previousStorageLayout,
-            newStorageLayout,
-            getOpenZeppelinValidationOpts(contractConfig.proxyType)
-          )
-        }
-      }
-
-      // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
-      // user will be able to upgrade the proxy in the future.
-      if (
-        contractConfig.proxyType === 'oz-ownable-uups' ||
-        contractConfig.proxyType === 'oz-access-control-uups'
-      ) {
-        const artifact = readContractArtifact(
-          artifactPaths[referenceName].contractArtifactPath,
-          integration
-        )
-        const containsPublicUpgradeTo = artifact.abi.some(
-          (fragment) =>
-            fragment.name === 'upgradeTo' &&
-            fragment.inputs.length === 1 &&
-            fragment.inputs[0].type === 'address'
-        )
-        if (!containsPublicUpgradeTo) {
-          throw new Error(
-            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
-              `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
-              `or you will no longer be able to upgrade this contract.`
-          )
-        }
-      }
-    }
-
-    spinner?.succeed(`Validated the contracts in ${projectName}.`)
-
-    if (!confirm) {
-      // Confirm upgrade with user
-      const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
-      })
-      if (!userConfirmed) {
-        throw new Error(`User denied upgrade.`)
-      }
-    }
-  } else {
-    for (const contractConfig of Object.values(parsedConfig.contracts)) {
-      // Throw an error if the 'preserve' keyword is set to a variable's value in the
-      // ChugSplash config file. This keyword is only allowed for upgrades.
-      if (variableContainsPreserveKeyword(contractConfig.variables)) {
-        throw new Error(
-          `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
-            `upgrades only. Please remove all instances of it in your ChugSplash config file.`
-        )
-      }
-    }
-
-    spinner?.succeed(`Validated the contracts in ${projectName}.`)
-  }
-}
-
 export const isExternalProxyType = (
   proxyType: string
 ): proxyType is ExternalProxyType => {
@@ -912,134 +698,6 @@ export const assertValidContractReferences = (
     throw new Error(
       `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
     )
-  }
-}
-
-export const assertValidContracts = (
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths
-) => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    // Get the source name and contract name from its fully qualified name
-    const [sourceName, contractName] = contractConfig.contract.split(':')
-
-    const buildInfoPath = artifactPaths[referenceName].buildInfoPath
-    const buildInfo = readBuildInfo(buildInfoPath)
-    const outputSource = buildInfo.output.sources[sourceName]
-
-    const childContractNode = outputSource.ast.nodes.find(
-      (node): node is ContractDefinition =>
-        node.nodeType === 'ContractDefinition' && node.name === contractName
-    )
-
-    if (childContractNode === undefined) {
-      throw new Error(
-        `Could not find the child contract node for "${referenceName}"`
-      )
-    }
-
-    const parentContractNodeAstIds =
-      childContractNode.linearizedBaseContracts.filter(
-        (astId) => astId !== childContractNode.id
-      )
-    const parentContractNodes = getParentContractASTNodes(
-      buildInfo.output.sources,
-      parentContractNodeAstIds
-    )
-
-    // TODO: type
-    const constructorNodes: Array<any> = []
-    const immutableVarAstIds: { [astId: number]: boolean } = {}
-    // Create a mapping of constructor node AST IDs to the corresponding contract's name. This is only used
-    // for error messages when we parse the constructor nodes later.
-    const constructorNodeContractNames: { [astId: number]: string } = {}
-    for (const contractNode of parentContractNodes.concat([
-      childContractNode,
-    ])) {
-      for (const node of contractNode.nodes) {
-        if (node.kind === 'constructor') {
-          constructorNodes.push(node)
-          constructorNodeContractNames[node.id] = contractNode.name
-        } else if (node.nodeType === 'VariableDeclaration') {
-          if (node.mutability === 'mutable' && node.value !== undefined) {
-            throw new Error(
-              `User attempted to assign a value to a non-immutable state variable '${node.name}' in\n` +
-                `the contract: ${contractNode.name}. This is not allowed because the value will not exist in\n` +
-                `the upgradeable contract. Please remove the value in the contract and define it in your ChugSplash\n` +
-                `file instead. Alternatively, can also set '${node.name} to be a constant or immutable variable.`
-            )
-          }
-
-          if (
-            node.mutability === 'immutable' &&
-            node.value !== undefined &&
-            node.value.kind === 'functionCall'
-          ) {
-            throw new Error(
-              `User attempted to assign the immutable variable '${node.name}' to the return value of a function call in\n` +
-                `the contract: ${contractNode.name}. This is not allowed to ensure that ChugSplash is\n` +
-                `deterministic. Please remove the function call.`
-            )
-          }
-
-          if (node.mutability === 'immutable' && node.value === undefined) {
-            immutableVarAstIds[node.id] = true
-          }
-        }
-      }
-    }
-
-    for (const node of constructorNodes) {
-      for (const statement of node.body.statements) {
-        if (statement.nodeType !== 'ExpressionStatement') {
-          throw new Error(
-            `Detected an unallowed expression, '${statement.nodeType}', in the constructor of the\n` +
-              `contract: ${
-                constructorNodeContractNames[node.id]
-              }. Only immutable variable assignments are allowed in\n` +
-              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
-          )
-        }
-
-        if (statement.expression.nodeType !== 'Assignment') {
-          const unallowedOperation: string =
-            statement.expression.expression.name ?? statement.expression.kind
-          throw new Error(
-            `Detected an unallowed operation, '${unallowedOperation}', in the constructor of the\n` +
-              `contract: ${
-                constructorNodeContractNames[node.id]
-              }. Only immutable variable assignments are allowed in\n` +
-              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
-          )
-        }
-
-        if (
-          immutableVarAstIds[
-            statement.expression.leftHandSide.referencedDeclaration
-          ] !== true
-        ) {
-          throw new Error(
-            `Detected an assignment to a non-immutable variable, '${statement.expression.leftHandSide.name}', in the\n` +
-              `constructor of the contract: ${
-                constructorNodeContractNames[node.id]
-              }. Only immutable variable assignments are allowed in\n` +
-              `the constructor to ensure that ChugSplash can deterministically deploy your contracts.`
-          )
-        }
-
-        if (statement.expression.rightHandSide.kind === 'functionCall') {
-          throw new Error(
-            `User attempted to assign the immutable variable '${statement.expression.leftHandSide.name}' to the return \n` +
-              `value of a function call in the contract: ${
-                constructorNodeContractNames[node.id]
-              }. This is not allowed to ensure that\n` +
-              `ChugSplash is deterministic. Please remove the function call.`
-          )
-        }
-      }
-    }
   }
 }
 
@@ -1198,44 +856,6 @@ export const isEqualType = (
     })
 
   return isEqual
-}
-
-export const assertStorageCompatiblePreserveKeywords = (
-  contractConfig: ParsedContractConfig,
-  prevStorageLayout: StorageLayout,
-  newStorageLayout: StorageLayout
-) => {
-  const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
-  const newDetailedLayout = getDetailedLayout(newStorageLayout)
-
-  const errorMessages: Array<string> = []
-  for (const newStorageObj of newDetailedLayout) {
-    if (
-      variableContainsPreserveKeyword(
-        contractConfig.variables[newStorageObj.label]
-      )
-    ) {
-      const validPreserveKeyword = prevDetailedLayout.some(
-        (prevObj) =>
-          prevObj.label === newStorageObj.label &&
-          prevObj.slot === newStorageObj.slot &&
-          prevObj.offset === newStorageObj.offset &&
-          isEqualType(prevObj, newStorageObj)
-      )
-
-      if (!validPreserveKeyword) {
-        errorMessages.push(
-          `The variable "${newStorageObj.label}" contains the preserve keyword, but does not exist in the previous\n` +
-            `storage layout at the same slot position with the same variable type. Please fix this or remove\n` +
-            `the preserve keyword from this variable.`
-        )
-      }
-    }
-  }
-
-  if (errorMessages.length > 0) {
-    throw new Error(`${errorMessages.join('\n\n')}`)
-  }
 }
 
 /**

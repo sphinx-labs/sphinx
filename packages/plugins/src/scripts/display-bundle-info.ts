@@ -5,12 +5,13 @@ import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import {
   chugsplashCommitAbstractSubtask,
-  readParsedChugSplashConfig,
-  readUserChugSplashConfig,
+  readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { utils } from 'ethers'
 
 import { getArtifactPaths } from '../hardhat/artifacts'
+import { createChugSplashRuntime } from '../utils'
 
 const chugsplashFilePath = argv[2]
 if (typeof chugsplashFilePath !== 'string') {
@@ -25,7 +26,7 @@ if (typeof chugsplashFilePath !== 'string') {
  * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
-  const userConfig = await readUserChugSplashConfig(chugsplashFilePath)
+  const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
   const artifactPaths = await getArtifactPaths(
     hre,
     userConfig.contracts,
@@ -33,16 +34,23 @@ const displayBundleInfo = async () => {
     path.join(hre.config.paths.artifacts, 'build-info')
   )
 
-  const parsedConfig = await readParsedChugSplashConfig(
+  const cre = await createChugSplashRuntime(
+    chugsplashFilePath,
+    false,
+    true,
+    undefined
+  )
+
+  const parsedConfig = await readValidatedChugSplashConfig(
     hre.ethers.provider,
     chugsplashFilePath,
     artifactPaths,
-    'hardhat'
+    'hardhat',
+    cre
   )
 
   const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
     hre.ethers.provider,
-    hre.ethers.provider.getSigner(),
     parsedConfig,
     '',
     false,

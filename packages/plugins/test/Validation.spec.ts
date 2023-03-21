@@ -8,11 +8,13 @@ import '../dist'
 import { expect } from 'chai'
 import hre from 'hardhat'
 import {
-  readParsedChugSplashConfig,
-  readUserChugSplashConfig,
+  readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 
 import { getArtifactPaths } from '../src/hardhat/artifacts'
+import { createChugSplashRuntime } from '../src/utils'
+
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
 const constructorArgConfigPath =
   './chugsplash/ConstructorArgValidation.config.ts'
@@ -22,12 +24,11 @@ describe('Validate', () => {
   let constructorArgErr: Error
   before(async () => {
     const provider = hre.ethers.provider
-    const varValidationUserConfig = await readUserChugSplashConfig(
+    const varValidationUserConfig = await readUnvalidatedChugSplashConfig(
       variableValidateConfigPath
     )
-    const constructorArgsValidationUserConfig = await readUserChugSplashConfig(
-      constructorArgConfigPath
-    )
+    const constructorArgsValidationUserConfig =
+      await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
     const varValidationArtifactPaths = await getArtifactPaths(
       hre,
       varValidationUserConfig.contracts,
@@ -41,12 +42,27 @@ describe('Validate', () => {
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
+    const creVariableValidate = await createChugSplashRuntime(
+      variableValidateConfigPath,
+      false,
+      true,
+      hre
+    )
+
+    const creConstructorArg = await createChugSplashRuntime(
+      variableValidateConfigPath,
+      false,
+      true,
+      hre
+    )
+
     try {
-      await readParsedChugSplashConfig(
+      await readValidatedChugSplashConfig(
         provider,
         variableValidateConfigPath,
         varValidationArtifactPaths,
-        'hardhat'
+        'hardhat',
+        creVariableValidate
       )
     } catch (error) {
       expect(error).to.be.an('Error')
@@ -54,11 +70,12 @@ describe('Validate', () => {
     }
 
     try {
-      await readParsedChugSplashConfig(
+      await readValidatedChugSplashConfig(
         provider,
         constructorArgConfigPath,
         constructorArgsValidationArtifactPaths,
-        'hardhat'
+        'hardhat',
+        creConstructorArg
       )
     } catch (error) {
       expect(error).to.be.an('Error')
