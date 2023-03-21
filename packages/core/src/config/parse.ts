@@ -1617,7 +1617,7 @@ const logUnsafeOptions = (
     }
 
     if (lines.length > 0) {
-      logValidationError(
+      chugsplashLog(
         'warning',
         `Potentially unsafe deployment of ${referenceName}`,
         lines,
