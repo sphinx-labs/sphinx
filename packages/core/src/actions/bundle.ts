@@ -363,7 +363,7 @@ export const makeActionBundleFromConfig = async (
     if (
       (await provider.getCode(
         getImplAddress(
-          parsedConfig.options.projectID,
+          parsedConfig.options.organizationID,
           referenceName,
           creationCodeWithConstructorArgs
         )
@@ -432,7 +432,7 @@ export const makeTargetBundleFromConfig = (
       proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
       proxy: contractConfig.proxy,
       implementation: getImplAddress(
-        parsedConfig.options.projectID,
+        parsedConfig.options.organizationID,
         referenceName,
         creationCodeWithConstructorArgs
       ),

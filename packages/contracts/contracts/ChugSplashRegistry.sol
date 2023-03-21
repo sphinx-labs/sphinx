@@ -27,13 +27,13 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
-     * @param projectID Project ID.
+     * @param organizationID Organization ID.
      * @param creator         Address of the creator of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
      */
     event ChugSplashProjectRegistered(
-        bytes32 indexed projectID,
+        bytes32 indexed organizationID,
         address indexed creator,
         address indexed manager,
         address owner
@@ -62,7 +62,7 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     event ProtocolPaymentRecipientRemoved(address indexed executor);
 
     /**
-     * @notice Mapping of project IDs to ChugSplashManager contracts.
+     * @notice Mapping of organization IDs to ChugSplashManager contracts.
      */
     mapping(bytes32 => ChugSplashManager) public projects;
 
@@ -140,18 +140,18 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
     /**
      * @notice Registers a new project.
      *
-     * @param _projectID ID of the new ChugSplash project.
+     * @param _organizationID ID of the new ChugSplash project.
      * @param _owner     Initial owner for the new project.
      */
-    function register(bytes32 _projectID, address _owner, bool _allowManagedProposals) public {
+    function register(bytes32 _organizationID, address _owner, bool _allowManagedProposals) public {
         require(
-            address(projects[_projectID]) == address(0),
-            "ChugSplashRegistry: project ID already registered"
+            address(projects[_organizationID]) == address(0),
+            "ChugSplashRegistry: organization ID already registered"
         );
 
         // Deploy the ChugSplashManager's proxy.
         ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
-            salt: _projectID
+            salt: _organizationID
         }(
             address(this), // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
@@ -162,13 +162,13 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         // deployed.
         manager.upgradeToAndCall(
             _getManagerImpl(),
-            abi.encodeCall(ChugSplashManager.initialize, (_projectID, _owner, _allowManagedProposals))
+            abi.encodeCall(ChugSplashManager.initialize, (_organizationID, _owner, _allowManagedProposals))
         );
 
-        projects[_projectID] = ChugSplashManager(payable(address(manager)));
+        projects[_organizationID] = ChugSplashManager(payable(address(manager)));
         recorder.addManager(address(manager));
 
-        emit ChugSplashProjectRegistered(_projectID, msg.sender, address(manager), _owner);
+        emit ChugSplashProjectRegistered(_organizationID, msg.sender, address(manager), _owner);
     }
 
     /**

@@ -3,7 +3,8 @@ import { constants } from 'ethers'
 
 const config: UserChugSplashConfig = {
   options: {
-    projectID: constants.HashZero,
+    organizationID: constants.HashZero,
+    projectName: 'Hello ChugSplash',
   },
   contracts: {
     MyFirstContract: {

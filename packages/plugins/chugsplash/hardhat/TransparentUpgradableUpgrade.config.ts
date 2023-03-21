@@ -5,7 +5,7 @@ import { fetchBuildInfo } from '../../test/constants'
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    projectID: '0x' + '55'.repeat(32),
+    organizationID: '0x' + '55'.repeat(32),
   },
   contracts: {
     Token: {

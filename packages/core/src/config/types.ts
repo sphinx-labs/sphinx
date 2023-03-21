@@ -62,7 +62,8 @@ export type ParsedConfigVariable =
  */
 export interface UserChugSplashConfig {
   options: {
-    projectID: string
+    organizationID: string
+    projectName: string
     skipStorageCheck?: boolean
   }
   contracts: UserContractConfigs
@@ -73,7 +74,8 @@ export interface UserChugSplashConfig {
  */
 export interface ParsedChugSplashConfig {
   options: {
-    projectID: string
+    organizationID: string
+    projectName: string
     skipStorageCheck?: boolean
   }
   contracts: ParsedContractConfigs

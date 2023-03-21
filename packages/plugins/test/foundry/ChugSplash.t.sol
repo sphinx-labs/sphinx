@@ -32,24 +32,24 @@ contract ChugSplashTest is Test {
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
-    bytes32 withdrawProjectID = bytes32(uint256(1));
+    bytes32 withdraworganizationID = bytes32(uint256(1));
     string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
 
-    string registerProjectID = bytes32(uint256(2));
+    string registerorganizationID = bytes32(uint256(2));
     string registerConfig = "./chugsplash/foundry/registerProposeFundApprove.t.js";
 
-    bytes32 cancelProjectID = bytes32(uint256(3));
+    bytes32 cancelorganizationID = bytes32(uint256(3));
     string cancelConfig = "./chugsplash/foundry/cancel.t.js";
 
     // This is just an anvil test key
     string newProposerPrivateKey = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
     address newProposer = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    bytes32 addProposerProjectID = bytes32(uint256(4));
+    bytes32 addProposerorganizationID = bytes32(uint256(4));
     string addProposerConfig = "./chugsplash/foundry/addProposer.t.js";
 
     string claimConfig = "./chugsplash/foundry/claim.t.js";
 
-    bytes32 transferProjectID = bytes32(uint256(6));
+    bytes32 transferorganizationID = bytes32(uint256(6));
     string transferConfig = "./chugsplash/foundry/transfer.t.js";
 
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
@@ -109,33 +109,33 @@ contract ChugSplashTest is Test {
     }
 
     function testDidTransferProxy() public {
-        ChugSplashManager manager = registry.projects(transferProjectID);
+        ChugSplashManager manager = registry.projects(transferorganizationID);
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(transferredProxy)), address(manager));
     }
 
     function testDidRegister() public {
         assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unregistered project detected");
-        assertFalse(address(registry.projects(registerProjectID)) == address(0), "Registered project was not detected");
+        assertFalse(address(registry.projects(registerorganizationID)) == address(0), "Registered project was not detected");
     }
 
     function testDidProposeFundApprove() public {
-        ChugSplashManager manager = registry.projects(registerProjectID);
+        ChugSplashManager manager = registry.projects(registerorganizationID);
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        ChugSplashManager manager = registry.projects(withdrawProjectID);
+        ChugSplashManager manager = registry.projects(withdraworganizationID);
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
     function testDidCancel() public {
-        ChugSplashManager manager = registry.projects(cancelProjectID);
+        ChugSplashManager manager = registry.projects(cancelorganizationID);
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        ChugSplashManager manager = registry.projects(addProposerProjectID);
+        ChugSplashManager manager = registry.projects(addProposerorganizationID);
         assertTrue(manager.proposers(newProposer));
     }
 
