@@ -92,6 +92,7 @@ export const chugsplashRegisterAbstractTask = async (
     provider,
     signer,
     await signer.getAddress(),
+    parsedConfig.options.organizationID,
     parsedConfig.options.projectName,
     owner,
     allowManagedProposals
@@ -656,7 +657,7 @@ export const chugsplashDeployAbstractTask = async (
     cre
   )
 
-  const projectName = parsedConfig.options.projectName
+  const { projectName, organizationID } = parsedConfig.options
 
   const projectPreviouslyRegistered = await isProjectRegistered(
     signer,
@@ -673,6 +674,7 @@ export const chugsplashDeployAbstractTask = async (
       provider,
       signer,
       signerAddress,
+      organizationID,
       projectName,
       signerAddress,
       allowManagedProposals

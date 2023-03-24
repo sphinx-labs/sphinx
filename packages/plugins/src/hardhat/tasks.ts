@@ -511,12 +511,12 @@ subtask(TASK_CHUGSPLASH_COMMIT)
 
 subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
   .setDescription('Lists all bundles for a given project')
-  .addParam('projectName', 'name of the project')
+  .addParam('organizationID', 'Organization ID')
   .addFlag('includeExecuted', 'include bundles that have been executed')
   .setAction(
     async (
       args: {
-        projectName: string
+        organizationID: string
         includeExecuted: boolean
       },
       hre
@@ -528,7 +528,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.projectName),
+        await ChugSplashRegistry.projects(args.organizationID),
         ChugSplashManagerABI,
         signer
       )
@@ -594,7 +594,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
         console.log('There are currently no proposed bundles.')
       } else {
         // Display the proposed bundles
-        console.log(`Proposals for ${args.projectName}:`)
+        console.log(`Proposals:`)
         proposedEvents.forEach((event) => {
           if (event.args === undefined) {
             throw new Error(`ChugSplashBundleProposed does not have arguments.`)

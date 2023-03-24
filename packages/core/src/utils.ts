@@ -142,9 +142,16 @@ export const getDefaultProxyAddress = (
   // const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['string', 'string'],
+      [projectName, referenceName]
+    )
+  )
+
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -169,13 +176,13 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerProxyAddress = (projectName: string) => {
-  if (projectName === 'ChugSplash') {
+export const getChugSplashManagerProxyAddress = (organizationID: string) => {
+  if (organizationID === 'ChugSplash') {
     return ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS
   } else {
     return utils.getCreate2Address(
       CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-      utils.solidityKeccak256(['string'], [projectName]),
+      organizationID,
       utils.solidityKeccak256(
         ['bytes', 'bytes'],
         [
@@ -206,6 +213,7 @@ export const registerChugSplashProject = async (
   provider: providers.JsonRpcProvider,
   signer: Signer,
   signerAddress: string,
+  organizationID: string,
   projectName: string,
   projectOwner: string,
   allowManagedProposals: boolean
@@ -213,11 +221,12 @@ export const registerChugSplashProject = async (
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
-    (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
+    (await ChugSplashRegistry.projects(organizationID)) ===
+    constants.AddressZero
   ) {
     await (
       await ChugSplashRegistry.register(
-        projectName,
+        organizationID,
         projectOwner,
         allowManagedProposals,
         await getGasPriceOverrides(provider)

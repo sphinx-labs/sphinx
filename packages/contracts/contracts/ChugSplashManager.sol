@@ -124,21 +124,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
 
     /**
-     * @notice Emitted when a custom proxy is assigned to a reference name.
-     *
-     * @param referenceNameHash Hash of the reference name.
-     * @param proxy             Address of the proxy.
-     * @param proxyTypeHash         The proxy type.
-     * @param referenceName     String reference name.
-     */
-    event ProxySetToReferenceName(
-        string indexed referenceNameHash,
-        address indexed proxy,
-        bytes32 indexed proxyTypeHash,
-        string referenceName
-    );
-
-    /**
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
@@ -182,16 +167,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**
      * @notice Emitted when a default proxy is deployed by this contract.
      *
-     * @param referenceNameHash Hash of the reference name. This equals the salt used to deploy the
-     *                          proxy.
      * @param proxy             Address of the deployed proxy.
      * @param bundleId          ID of the bundle in which the proxy was deployed.
      * @param referenceName     String reference name.
      */
     event DefaultProxyDeployed(
-        string indexed referenceNameHash,
+        bytes32 indexed salt,
         address indexed proxy,
         bytes32 indexed bundleId,
+        string projectName,
         string referenceName
     );
 
@@ -263,9 +247,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(bytes32 => ChugSplashBundleState) internal _bundles;
 
     /**
-     * @notice Name of the project this contract is managing.
+     * @notice ID of the organization this contract is managing.
      */
-    string public name;
+    bytes32 public organizationID;
 
     /**
      * @notice ID of the currently active bundle.
@@ -319,16 +303,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @param _name  Name of the project this contract is managing.
      * @param _owner Initial owner of this contract.
      */
     function initialize(
-        string memory _name,
+        bytes32 _organizationID,
         address _owner,
         bool _allowManagedProposals
     ) public initializer {
         allowManagedProposals = _allowManagedProposals;
-        name = _name;
+        organizationID = _organizationID;
 
         __Ownable_init();
         _transferOwnership(_owner);
@@ -389,16 +372,16 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *         at the deployed address until one with the given reference name is executed by
      *         the ChugSplashManager.
      *
-     * @param _name Reference name get the corresponding proxy address of.
+     * @param _referenceName Reference name get the corresponding proxy address of.
      *
      * @return Address of the proxy for the given name.
      */
-    function getDefaultProxyAddress(string memory _name) public view returns (address payable) {
+    function getDefaultProxyAddress(string memory _projectName, string memory _referenceName) public view returns (address payable) {
         return (
             payable(
                 Create2.compute(
                     address(this),
-                    keccak256(bytes(_name)),
+                    keccak256(abi.encode(_projectName, _referenceName)),
                     abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
                 )
             )
@@ -526,6 +509,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     bundle.targetRoot,
                     keccak256(
                         abi.encode(
+                            target.projectName,
                             target.referenceName,
                             target.proxy,
                             target.implementation,
@@ -546,9 +530,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
                 // we're deploying via CREATE2, we can always correctly predict what the proxy
                 // address *should* be and can therefore easily check if it's already populated.
-                address proxy = getDefaultProxyAddress(target.referenceName);
+                address proxy = getDefaultProxyAddress(target.projectName, target.referenceName);
                 if (proxy.code.length == 0) {
-                    bytes32 salt = keccak256(bytes(target.referenceName));
+                    bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
                     Proxy created = new Proxy{ salt: salt }(address(this));
 
                     // Could happen if insufficient gas is supplied to this transaction, should not
@@ -560,9 +544,10 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     );
 
                     emit DefaultProxyDeployed(
-                        target.referenceName,
+                        salt,
                         proxy,
                         activeBundleId,
+                        target.projectName,
                         target.referenceName
                     );
                     recorder.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
@@ -727,6 +712,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     bundle.targetRoot,
                     keccak256(
                         abi.encode(
+                            target.projectName,
                             target.referenceName,
                             target.proxy,
                             target.implementation,

@@ -1,8 +1,10 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
+import { constants } from 'ethers'
 
 const config: UserChugSplashConfig = {
   options: {
     projectName: 'Hello ChugSplash',
+    organizationID: constants.HashZero,
   },
   contracts: {
     MyFirstContract: {

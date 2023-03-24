@@ -54,6 +54,7 @@ struct ChugSplashAction {
  * @notice Struct representing a ChugSplash target.
  */
 struct ChugSplashTarget {
+    string projectName;
     string referenceName;
     address payable proxy;
     address implementation;
