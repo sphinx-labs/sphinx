@@ -47,11 +47,12 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
 } from './types'
-import { Integration } from '../constants'
+import { Integration, Keyword, keywords } from '../constants'
 import {
-  variableContainsPreserveKeyword,
   getStorageType,
   extendStorageLayout,
+  isKeyword,
+  variableContainsKeyword,
 } from '../languages'
 import {
   recursiveLayoutIterator,
@@ -216,7 +217,12 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
 
     if (contractConfig.constructorArgs !== undefined) {
       // Check that the user did not use the 'preserve' keyword for constructor args.
-      if (variableContainsPreserveKeyword(contractConfig.constructorArgs)) {
+      if (
+        variableContainsKeyword(
+          contractConfig.constructorArgs,
+          keywords.preserve
+        )
+      ) {
         throw new Error(
           `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash config file. This \n` +
             `keyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`
@@ -324,10 +330,7 @@ export const parseInplaceArray: VariableHandler<
     )
   }
 
-  if (
-    sizes[sizes.length - 1] !== variable.length &&
-    storageObj.label !== '__gap'
-  ) {
+  if (sizes[sizes.length - 1] !== variable.length) {
     throw new InputError(
       `Expected array of size ${sizes[sizes.length - 1]} for ${
         storageObj.label
@@ -748,6 +751,37 @@ export const parsePreserve: VariableHandler<string, string> = (
   return variable
 }
 
+export const parseGap = (
+  storageObj: SolidityStorageObj,
+  variableType: SolidityStorageType
+): [] => {
+  if (
+    variableType.encoding === 'inplace' &&
+    storageObj.type.startsWith('t_array')
+  ) {
+    return []
+  }
+
+  throw new InputError(
+    `invalid use of { gap } keyword, only allowed for fixed-size arrays`
+  )
+}
+
+export const handleParseOnlyKeywords = (
+  storageObj: SolidityStorageObj,
+  variableType: SolidityStorageType,
+  keyword: Keyword
+): ParsedConfigVariable => {
+  switch (keyword) {
+    case keywords.gap:
+      return parseGap(storageObj, variableType)
+    case keywords.preserve:
+      return keywords.preserve
+    default:
+      throw Error(`parsing for keyword ${keyword} not implemented`)
+  }
+}
+
 /**
  * Parses and validates a single variable. Works recursively with complex data types using the recursiveLayoutIterator.
  * See ./iterator.ts for more information on the recursive iterator pattern.
@@ -785,6 +819,19 @@ export const parseAndValidateVariable = (
     mapping: parseMapping,
     dynamic_array: parseDynamicArray,
     preserve: parsePreserve,
+  }
+
+  // Handle any keywords that are only used for parsing, not encoding.
+  for (const keyword of Object.values(keywords)) {
+    if (isKeyword(variable, keyword)) {
+      const variableType = getStorageType(
+        storageObj.type,
+        storageTypes,
+        dereferencer
+      )
+
+      return handleParseOnlyKeywords(storageObj, variableType, keyword)
+    }
   }
 
   return recursiveLayoutIterator<ParsedConfigVariable>(
@@ -993,8 +1040,9 @@ export const assertStorageCompatiblePreserveKeywords = (
   const errorMessages: Array<string> = []
   for (const newStorageObj of newDetailedLayout) {
     if (
-      variableContainsPreserveKeyword(
-        contractConfig.variables[newStorageObj.label]
+      variableContainsKeyword(
+        contractConfig.variables[newStorageObj.label],
+        keywords.preserve
       )
     ) {
       const validPreserveKeyword = prevDetailedLayout.some(
@@ -1210,7 +1258,9 @@ permission to call the 'upgradeTo' function on each of them.
     for (const contractConfig of Object.values(parsedConfig.contracts)) {
       // Throw an error if the 'preserve' keyword is set to a variable's value in the
       // ChugSplash config file. This keyword is only allowed for upgrades.
-      if (variableContainsPreserveKeyword(contractConfig.variables)) {
+      if (
+        variableContainsKeyword(contractConfig.variables, keywords.preserve)
+      ) {
         throw new Error(
           `Detected the '{preserve}' keyword in a fresh deployment. This keyword is reserved for\n` +
             `upgrades only. Please remove all instances of it in your ChugSplash config file.`
