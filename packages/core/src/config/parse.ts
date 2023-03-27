@@ -1064,7 +1064,8 @@ export const parseContractConstructorArgs = (
   referenceName: string,
   abi: Array<Fragment>,
   cre: ChugSplashRuntimeEnvironment
-): ParsedConfigVariables => {
+): { args: ParsedConfigVariables; valid: boolean } => {
+  let validArguments = true
   const parsedConstructorArgs: ParsedConfigVariables = {}
 
   const constructorFragment = abi.find(
@@ -1078,7 +1079,7 @@ export const parseContractConstructorArgs = (
           `no constructor exists in the contract.`
       )
     } else {
-      return parsedConstructorArgs
+      return { args: parsedConstructorArgs, valid: validArguments }
     }
   }
 
@@ -1115,6 +1116,8 @@ export const parseContractConstructorArgs = (
         `${incorrectConstructorArgNames.map((argName) => `${argName}`)}`
       )
 
+      validArguments = false
+
       logValidationError(
         'error',
         `The following constructor arguments were found in your config for ${referenceName},\nbut are not present in the contract constructor:`,
@@ -1140,7 +1143,7 @@ export const parseContractConstructorArgs = (
     }
   }
 
-  return parsedConstructorArgs
+  return { args: parsedConstructorArgs, valid: validArguments }
 }
 
 export const assertStorageCompatiblePreserveKeywords = (
