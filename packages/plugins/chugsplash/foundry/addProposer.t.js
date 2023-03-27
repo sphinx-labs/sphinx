@@ -8,6 +8,7 @@ module.exports = {
       contract: 'SimpleStorage',
       variables: {
         myStorage: '0x1111111111111111111111111111111111111111',
+        myStateless: '0x1111111111111111111111111111111111111111',
       },
     },
   },

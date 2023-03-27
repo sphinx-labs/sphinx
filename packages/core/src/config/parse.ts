@@ -4,12 +4,12 @@ import * as path from 'path'
 import * as Handlebars from 'handlebars'
 import { BigNumber, ethers, providers } from 'ethers'
 import { astDereferencer, ASTDereferencer } from 'solidity-ast/utils'
-import { CompilerOutput } from 'hardhat/types'
 import { remove0x } from '@eth-optimism/core-utils'
 import { Fragment } from 'ethers/lib/utils'
 import {
   assertStorageUpgradeSafe,
   StorageLayout,
+  UpgradeableContract,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
 import { OZ_UUPS_UPDATER_ADDRESS, ProxyABI } from '@chugsplash/contracts'
@@ -19,13 +19,15 @@ import { ContractDefinition } from 'solidity-ast'
 
 import {
   ArtifactPaths,
+  ContractArtifact,
   SolidityStorageLayout,
   SolidityStorageObj,
   SolidityStorageType,
+  CompilerOutput,
 } from '../languages/solidity/types'
 import {
   getDefaultProxyAddress,
-  isExternalProxyType,
+  isExternalContractKind,
   readContractArtifact,
   readBuildInfo,
   getChugSplashManagerProxyAddress,
@@ -36,11 +38,11 @@ import {
   getOpenZeppelinValidationOpts,
   getParentContractASTNodes,
   chugsplashLog,
+  getContractAddress,
 } from '../utils'
 import {
   UserChugSplashConfig,
   ParsedChugSplashConfig,
-  ProxyType,
   ParsedConfigVariable,
   UserContractConfig,
   UserConfigVariable,
@@ -142,8 +144,9 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidUserConfigFields = (
+export const assertValidUserConfigFields = async (
   config: UserChugSplashConfig,
+  provider: providers.Provider,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const referenceNames: string[] = Object.keys(config.contracts)
@@ -190,39 +193,67 @@ export const assertValidUserConfigFields = (
       )
     }
 
-    // Make sure that the external proxy type is valid.
+    // Make sure that the external proxy contract exists.
     if (
-      contractConfig.externalProxyType !== undefined &&
-      isExternalProxyType(contractConfig.externalProxyType) === false
+      contractConfig.externalProxy !== undefined &&
+      (await provider.getCode(contractConfig.externalProxy)) === '0x'
     ) {
       logValidationError(
         'error',
-        `External proxy type is not valid ${contractConfig.externalProxyType}`,
+        `Entered a proxy address that does not exist: ${contractConfig.externalProxy}`,
         [],
         cre.silent,
         cre.stream
       )
     }
 
-    // The user must include both an `externalProxy` and `externalProxyType` field, or neither.
+    // Make sure that the external proxy type is valid.
     if (
-      contractConfig.externalProxy !== undefined &&
-      contractConfig.externalProxyType === undefined
+      contractConfig.kind !== undefined &&
+      isExternalContractKind(contractConfig.kind) === false
     ) {
       logValidationError(
         'error',
-        `User included an 'externalProxy' field, but did not include an 'externalProxyType'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `External proxy type is not valid ${contractConfig.kind}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    // The user must include both `externalProxy` and `kind` field, or neither.
+    // If the user sets kind to no-proxy, then they must not include an externalProxy.
+    if (
+      contractConfig.externalProxy !== undefined &&
+      contractConfig.kind === undefined
+    ) {
+      logValidationError(
+        'error',
+        `User included an 'externalProxy' field, but did not include an 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
       )
     } else if (
       contractConfig.externalProxy === undefined &&
-      contractConfig.externalProxyType !== undefined
+      contractConfig.kind !== undefined &&
+      contractConfig.kind !== 'no-proxy'
     ) {
       logValidationError(
         'error',
-        `User included an 'externalProxyType' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included an 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    } else if (
+      // if the contract is non-proxied than it should not have an external proxy defined
+      contractConfig.kind === 'no-proxy' &&
+      contractConfig.externalProxy !== undefined
+    ) {
+      logValidationError(
+        'error',
+        `User included a 'kind' field and an 'externalProxy' field for ${contractConfig.contract}. If you want to deploy a non-proxied contract, please remove the 'externalProxy' field.`,
         [],
         cre.silent,
         cre.stream
@@ -1007,7 +1038,7 @@ const parseContractVariables = (
 }
 
 /**
- * Parses and validates constructor args in a config file.
+ * Parses and validates constructor args for a single contract in a config file.
  *
  * TODO - Improve this function so that the parsing and validation is on par with that of variables.
  *
@@ -1016,7 +1047,7 @@ const parseContractVariables = (
  * @param compilerOutput Complete compiler output.
  * @returns complete set of variables parsed into the format expected by the parsed chugsplash config.
  */
-export const parseAndValidateConstructorArgs = (
+export const parseContractConstructorArgs = (
   userConstructorArgs: UserConfigVariables,
   referenceName: string,
   abi: Array<Fragment>,
@@ -1086,6 +1117,7 @@ export const parseAndValidateConstructorArgs = (
       lines.push(
         `${undefinedConstructorArgNames.map((argName) => `${argName}`)}`
       )
+
       logValidationError(
         'error',
         `The following constructor arguments are required by the constructor for ${referenceName},\nbut were not found in your config:`,
@@ -1251,8 +1283,8 @@ export const assertValidParsedChugSplashFile = async (
       isUpgrade = true
 
       if (
-        contractConfig.proxyType === 'oz-ownable-uups' ||
-        contractConfig.proxyType === 'oz-access-control-uups'
+        contractConfig.kind === 'oz-ownable-uups' ||
+        contractConfig.kind === 'oz-access-control-uups'
       ) {
         // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
         // function because OpenZeppelin UUPS proxies can implement arbitrary access control
@@ -1333,39 +1365,49 @@ permission to call the 'upgradeTo' function on each of them.
     const userContractConfig = userConfig.contracts[referenceName]
 
     // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
-    // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`
+    // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`.
+    // We store the contract in a variable so that we can use it later to run the storage slot checker.
+    let upgradableContract: UpgradeableContract | undefined
 
-    // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
-    // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
-    const tmp = console.error
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    console.error = () => {}
+    // We skip this validation for 'no-proxy' contracts because the checks aren't relevant to them.
+    if (contractConfig.kind !== 'no-proxy') {
+      // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+      // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+      const tmp = console.error
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      console.error = () => {}
 
-    // fetch the contract and validate
-    const upgradableContract = getOpenZeppelinUpgradableContract(
-      contractConfig.contract,
-      input,
-      output,
-      contractConfig.proxyType,
-      userContractConfig
-    )
+      // fetch the contract and validate
+      // We use a try catch and then rethrow any errors because we temporarily disabled console.error
+      try {
+        upgradableContract = getOpenZeppelinUpgradableContract(
+          contractConfig.contract,
+          input,
+          output,
+          contractConfig.kind,
+          userContractConfig
+        )
+      } catch (e) {
+        throw e
+      }
 
-    // revert to standard console.error
-    console.error = tmp
+      // revert to standard console.error
+      console.error = tmp
 
-    // throw validation errors if detected
-    if (upgradableContract.errors.length > 0) {
-      logValidationError(
-        'error',
-        `Contract ${contractConfig.contract} is not upgrade safe`,
-        [
-          new UpgradeableContractErrorReport(
-            upgradableContract.errors
-          ).explain(),
-        ],
-        false,
-        cre.stream
-      )
+      // throw validation errors if detected
+      if (upgradableContract.errors.length > 0) {
+        logValidationError(
+          'error',
+          `Contract ${contractConfig.contract} is not upgrade safe`,
+          [
+            new UpgradeableContractErrorReport(
+              upgradableContract.errors
+            ).explain(),
+          ],
+          false,
+          cre.stream
+        )
+      }
     }
 
     if (isUpgrade) {
@@ -1374,7 +1416,10 @@ permission to call the 'upgradeTo' function on each of them.
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
       if (isProxyDeployed && canonicalConfigPath) {
-        const newStorageLayout = upgradableContract.layout
+        // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
+        // will always be defined so we can safely assert it.
+        const newStorageLayout = upgradableContract!.layout
+
         const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
           provider,
           referenceName,
@@ -1400,7 +1445,7 @@ permission to call the 'upgradeTo' function on each of them.
             previousStorageLayout,
             newStorageLayout,
             getOpenZeppelinValidationOpts(
-              contractConfig.proxyType,
+              contractConfig.kind,
               userContractConfig
             )
           )
@@ -1628,6 +1673,182 @@ const logUnsafeOptions = (
   }
 }
 
+const assertValidConstructorArgs = (
+  userConfig: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  cre: ChugSplashRuntimeEnvironment,
+  exitOnFailure: boolean
+): {
+  cachedCompilerOutput: { [referenceName: string]: CompilerOutput }
+  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
+  cachedArtifacts: { [referenceName: string]: ContractArtifact }
+} => {
+  // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
+  const cachedCompilerOutput = {}
+  const cachedConstructorArgs = {}
+  const cachedArtifacts = {}
+  // Parse and validate all the constructor arguments
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const { constructorArgs } = userContractConfig
+
+    const { output } = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
+    cachedCompilerOutput[referenceName] = output
+
+    const artifact = readContractArtifact(
+      artifactPaths[referenceName].contractArtifactPath,
+      integration
+    )
+    cachedArtifacts[referenceName] = artifact
+    const { abi } = artifact
+
+    const args = parseContractConstructorArgs(
+      constructorArgs ?? {},
+      referenceName,
+      abi,
+      cre
+    )
+    cachedConstructorArgs[referenceName] = args
+  }
+
+  // Exit if any validation errors were detected up to this point. We exit early here because invalid
+  // constructor args can cause the rest of the parsing logic to fail with cryptic errors
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
+  }
+
+  // We return the cached values so we can use them in later steps without rereading the files
+  return {
+    cachedCompilerOutput,
+    cachedConstructorArgs,
+    cachedArtifacts,
+  }
+}
+
+const resolveContractAddresses = (
+  userConfig: UserChugSplashConfig,
+  cachedArtifacts: { [referenceName: string]: ContractArtifact },
+  projectName: string
+): { [referenceName: string]: string } => {
+  // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
+  const contracts: { [referenceName: string]: string } = {}
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const { externalProxy, kind } = userContractConfig
+
+    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
+    // used by ChugSplash.
+    const proxy =
+      externalProxy ||
+      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+
+    contracts[referenceName] =
+      kind !== 'no-proxy'
+        ? proxy
+        : getContractAddress(
+            projectName,
+            referenceName,
+            userContractConfig.constructorArgs ?? {},
+            cachedArtifacts[referenceName]
+          )
+  }
+
+  return contracts
+}
+
+const assertValidContractVariables = (
+  userConfig: UserChugSplashConfig,
+  cachedCompilerOutput: {
+    [referenceName: string]: CompilerOutput
+  },
+  cachedArtifacts: {
+    [referenceName: string]: ContractArtifact
+  },
+  contracts: { [referenceName: string]: string },
+  cre: ChugSplashRuntimeEnvironment
+): { [referenceName: string]: ParsedConfigVariables } => {
+  const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    if (
+      userContractConfig.kind === 'no-proxy' &&
+      userContractConfig.variables &&
+      Object.entries(userContractConfig.variables).length > 0
+    ) {
+      logValidationError(
+        'error',
+        `Detected variables for contract '${referenceName}', but variables are not supported for non-proxied contracts.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+      continue
+    }
+
+    const artifact = cachedArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
+
+    const compilerOutput = cachedCompilerOutput[referenceName]
+    const storageLayout =
+      compilerOutput.contracts[sourceName][contractName].storageLayout
+
+    // Only run the parsing logic if the contract is proxied
+    const parsedContractVariables = parseContractVariables(
+      JSON.parse(
+        Handlebars.compile(JSON.stringify(userContractConfig))({
+          ...contracts,
+        })
+      ),
+      storageLayout,
+      compilerOutput,
+      cre
+    )
+
+    parsedVariables[referenceName] = parsedContractVariables
+  }
+
+  return parsedVariables
+}
+
+const constructParsedConfig = (
+  userConfig: UserChugSplashConfig,
+  cachedArtifacts: {
+    [referenceName: string]: ContractArtifact
+  },
+  contracts: { [referenceName: string]: string },
+  parsedVariables: { [referenceName: string]: ParsedConfigVariables },
+  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
+): ParsedChugSplashConfig => {
+  const parsedConfig: ParsedChugSplashConfig = {
+    options: userConfig.options,
+    contracts: {},
+  }
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
+    // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
+    // config.
+    const artifact = cachedArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
+    const contractFullyQualifiedName = `${sourceName}:${contractName}`
+
+    parsedConfig.contracts[referenceName] = {
+      contract: contractFullyQualifiedName,
+      proxy: contracts[referenceName],
+      kind: userContractConfig.kind ?? 'internal-default',
+      variables: parsedVariables[referenceName],
+      constructorArgs: cachedConstructorArgs[referenceName],
+    }
+  }
+
+  return parsedConfig
+}
+
 /**
  * Parses a ChugSplash config file from the config file given by the user.
  *
@@ -1643,107 +1864,56 @@ const parseAndValidateChugSplashConfig = async (
   cre: ChugSplashRuntimeEnvironment,
   exitOnFailure: boolean = true
 ): Promise<ParsedChugSplashConfig> => {
-  // just in case, we reset the global validation errors flag before parsing
+  // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
+  // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
-  assertValidUserConfigFields(userConfig, cre)
+  // Validate top level config and contract options
+  await assertValidUserConfigFields(userConfig, provider, cre)
 
-  const parsedConfig: ParsedChugSplashConfig = {
-    options: userConfig.options,
-    contracts: {},
-  }
-
-  const contracts = {}
-  for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
-  )) {
-    // throw an error if the external proxy is not a valid address
-    if (
-      userContractConfig.externalProxy &&
-      !ethers.utils.isAddress(userContractConfig.externalProxy)
-    ) {
-      throw new Error(
-        `Invalid proxy address: ${userContractConfig.externalProxy}`
-      )
-    }
-
-    if (
-      userContractConfig.externalProxy !== undefined &&
-      (await provider.getCode(userContractConfig.externalProxy)) === '0x'
-    ) {
-      logValidationError(
-        'error',
-        `Entered a proxy address that does not exist: ${userContractConfig.externalProxy}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-
-    const { externalProxy, externalProxyType, constructorArgs } =
-      userContractConfig
-
-    // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
-    // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
-    // config.
-    const { sourceName, contractName } = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
-    const contractFullyQualifiedName = `${sourceName}:${contractName}`
-
-    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
-    // used by ChugSplash.
-    const proxy =
-      externalProxy ||
-      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
-
-    let proxyType: ProxyType
-    if (externalProxyType) {
-      proxyType = externalProxyType
-    } else {
-      proxyType = 'internal-default'
-    }
-
-    const { output: compilerOutput } = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath
-    )
-    const storageLayout =
-      compilerOutput.contracts[sourceName][contractName].storageLayout
-
-    const parsedVariables = parseContractVariables(
-      JSON.parse(
-        Handlebars.compile(JSON.stringify(userContractConfig))({
-          ...contracts,
-        })
-      ),
-      storageLayout,
-      compilerOutput,
-      cre
+  // Parse and validate contract constructor args
+  // We also cache the compiler output, parsed constructor args, and other artifacts so we don't have to re-read them later
+  const { cachedCompilerOutput, cachedConstructorArgs, cachedArtifacts } =
+    assertValidConstructorArgs(
+      userConfig,
+      artifactPaths,
+      integration,
+      cre,
+      exitOnFailure
     )
 
-    const args = parseAndValidateConstructorArgs(
-      constructorArgs ?? {},
-      referenceName,
-      compilerOutput.contracts[sourceName][contractName].abi,
-      cre
-    )
+  // Resolve all the contract addresses so they can be used handle contract references during the variable parsing step
+  const contracts = resolveContractAddresses(
+    userConfig,
+    cachedArtifacts,
+    userConfig.options.projectName
+  )
 
-    parsedConfig.contracts[referenceName] = {
-      contract: contractFullyQualifiedName,
-      proxy,
-      proxyType,
-      variables: parsedVariables,
-      constructorArgs: args,
-    }
+  // Parse and validate contract variables
+  const parsedVariables = assertValidContractVariables(
+    userConfig,
+    cachedCompilerOutput,
+    cachedArtifacts,
+    contracts,
+    cre
+  )
 
-    contracts[referenceName] = proxy
-  }
+  // Construct the parsed config
+  const parsedConfig = constructParsedConfig(
+    userConfig,
+    cachedArtifacts,
+    contracts,
+    parsedVariables,
+    cachedConstructorArgs
+  )
 
+  // Validate the contracts
   assertValidContracts(parsedConfig, artifactPaths, cre)
 
+  // Complete misc pre-deploy validation
+  // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
   const upgrade = await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
@@ -1752,9 +1922,8 @@ const parseAndValidateChugSplashConfig = async (
     cre
   )
 
-  // confirm
+  // Confirm upgrade with user
   if (!cre.autoConfirm && upgrade) {
-    // Confirm upgrade with user
     const userConfirmed = await yesno({
       question: `Prior deployment(s) detected for project ${userConfig.options.projectName}. Would you like to perform an upgrade? (y/n)`,
     })

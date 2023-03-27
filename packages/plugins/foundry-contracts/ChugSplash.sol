@@ -468,13 +468,17 @@ contract ChugSplash is Script, Test {
     }
 
     function getAddress(string memory _configPath, string memory _referenceName) public returns (address) {
-        string[] memory cmds = new string[](6);
+        (string memory outPath, string memory buildInfoPath) = fetchPaths();
+
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getAddress";
         cmds[4] = _configPath;
         cmds[5] = _referenceName;
+        cmds[6] = outPath;
+        cmds[7] = buildInfoPath;
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;

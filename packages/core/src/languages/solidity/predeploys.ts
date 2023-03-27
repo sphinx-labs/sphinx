@@ -343,7 +343,7 @@ export const initializeChugSplash = async (
     OZTransparentAdapter.address
   ) {
     await (
-      await ChugSplashRecorder.addProxyType(
+      await ChugSplashRecorder.addContractKind(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         OZTransparentAdapter.address,
         await getGasPriceOverrides(provider)
@@ -427,7 +427,7 @@ export const initializeChugSplash = async (
     OZUUPSOwnableAdapter.address
   ) {
     await (
-      await ChugSplashRecorder.addProxyType(
+      await ChugSplashRecorder.addContractKind(
         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
         OZUUPSOwnableAdapter.address,
         await getGasPriceOverrides(provider)
@@ -449,7 +449,7 @@ export const initializeChugSplash = async (
     )) !== OZUUPSAccessControlAdapter.address
   ) {
     await (
-      await ChugSplashRecorder.addProxyType(
+      await ChugSplashRecorder.addContractKind(
         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
         OZUUPSAccessControlAdapter.address,
         await getGasPriceOverrides(provider)
@@ -484,7 +484,7 @@ export const initializeChugSplash = async (
     DefaultAdapter.address
   ) {
     await (
-      await ChugSplashRecorder.addProxyType(
+      await ChugSplashRecorder.addContractKind(
         EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
         DefaultAdapter.address,
         await getGasPriceOverrides(provider)
@@ -507,7 +507,7 @@ export const initializeChugSplash = async (
     DefaultAdapter.address
   ) {
     await (
-      await ChugSplashRecorder.addProxyType(
+      await ChugSplashRecorder.addContractKind(
         ethers.constants.HashZero,
         DefaultAdapter.address,
         await getGasPriceOverrides(provider)

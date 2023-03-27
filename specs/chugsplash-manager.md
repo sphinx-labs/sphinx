@@ -5,8 +5,7 @@
 ```typescript
 enum ActionType {
   SET_STORAGE,
-  DEPLOY_IMPLEMENTATION
-  SET_IMPLEMENTATION,
+  DEPLOY_CONTRACT
 }
 ```
 
@@ -110,9 +109,9 @@ const getProxyByName = (
 * The `actionsExecuted` MUST be incremented by one.
 * The current `_actionIndex` MUST be set to `true`.
 * If the current action is `SET_STORAGE`:
-  * A call to `_setProxyStorage` MUST be executed with the `proxy`, `proxyType`, `key`, and `val` as arguments.
+  * A call to `_setProxyStorage` MUST be executed with the `proxy`, `contractKind`, `key`, and `val` as arguments.
 * Otherwise, if the current action is `DEPLOY_IMPLEMENTATION`:
-  * A call to `_deployImplementation` MUST be executed with `proxy`, `proxyType`, and `data` as arguments.
+  * A call to `_deployImplementation` MUST be executed with `proxy`, `contractKind`, and `data` as arguments.
 * Otherwise, the current call MUST revert.
 * The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active bundle ID, the executor's address, and the action index.
 * The ChugSplashManager MUST announce this event to the registry.

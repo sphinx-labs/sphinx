@@ -104,14 +104,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
      *         owner.
      *
-     * @param proxy     Address of the proxy that is the subject of the ownership transfer.
-     * @param proxyTypeHash The proxy type.
-     * @param newOwner  Address of the project owner that is receiving ownership of the
-     *                  proxy.
+     * @param proxy            Address of the proxy that is the subject of the ownership transfer.
+     * @param contractKindHash The contract kind. I.e transparent, UUPS, or no proxy.
+     * @param newOwner         Address of the project owner that is receiving ownership of the
+     *                         proxy.
      */
     event ProxyOwnershipTransferred(
         address indexed proxy,
-        bytes32 indexed proxyTypeHash,
+        bytes32 indexed contractKindHash,
         address newOwner
     );
 
@@ -128,13 +128,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      *
      * @param referenceNameHash Hash of the reference name.
      * @param proxy             Address of the proxy.
-     * @param proxyTypeHash         The proxy type.
+     * @param contractKindHash  The contract kind. I.e transparent, UUPS, or no proxy.
      * @param referenceName     String reference name.
      */
     event ProxySetToReferenceName(
         string indexed referenceNameHash,
         address indexed proxy,
-        bytes32 indexed proxyTypeHash,
+        bytes32 indexed contractKindHash,
         string referenceName
     );
 
@@ -196,16 +196,16 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     );
 
     /**
-     * @notice Emitted when an implementation contract is deployed by this contract.
+     * @notice Emitted when a contract is deployed.
      *
      * @param referenceNameHash Hash of the reference name.
-     * @param implementation    Address of the deployed implementation.
-     * @param bundleId          ID of the bundle in which the implementation was deployed.
+     * @param contractAddress   Address of the deployed contract.
+     * @param bundleId          ID of the bundle in which the contract was deployed.
      * @param referenceName     String reference name.
      */
-    event ImplementationDeployed(
+    event ContractDeployed(
         string indexed referenceNameHash,
-        address indexed implementation,
+        address indexed contractAddress,
         bytes32 indexed bundleId,
         string referenceName
     );
@@ -532,7 +532,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                             target.referenceName,
                             target.proxy,
                             target.implementation,
-                            target.proxyTypeHash
+                            target.contractKindHash
                         )
                     ),
                     i,
@@ -542,10 +542,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 "ChugSplashManager: invalid bundle target proof"
             );
 
-            // Get the proxy type and adapter for this reference name.
-            address adapter = recorder.adapters(target.proxyTypeHash);
-
-            if (target.proxyTypeHash == bytes32(0)) {
+            if (target.contractKindHash == bytes32(0)) {
                 // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
                 // we're deploying via CREATE2, we can always correctly predict what the proxy
                 // address *should* be and can therefore easily check if it's already populated.
@@ -571,12 +568,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     recorder.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
                 }
             }
-
-            // Upgrade the proxy's implementation contract to the adapter.
-            (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
-            );
-            require(success, "ChugSplashManger: failed to initiate execution");
         }
 
         // Mark the bundle as initiated.
@@ -590,11 +581,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @notice Executes multiple ChugSplash actions within the current active bundle for a project.
-     *         Actions can only be executed once. A re-entrancy guard is added to prevent an
-     *         implementation contract's constructor from calling another contract which in turn
+     *         Actions can only be executed once. A re-entrancy guard is added to prevent a
+     *         contract's constructor from calling another contract which in turn
      *         calls back into this function. Only callable by the executor.
      *
-     * @param _actions       Array of SetStorage/DeployImplementation actions to execute.
+     * @param _actions       Array of SetStorage/DeployContract actions to execute.
      * @param _actionIndexes Array of action indexes.
      * @param _proofs        Array of Merkle proofs for each action.
      */
@@ -603,6 +594,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
+        bytes32 noProxyContractKindHash = keccak256("no-proxy");
         uint256 initialGasLeft = gasleft();
 
         require(
@@ -634,7 +626,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                             action.referenceName,
                             action.proxy,
                             action.actionType,
-                            action.proxyTypeHash,
+                            action.contractKindHash,
                             action.data
                         )
                     ),
@@ -646,26 +638,38 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the adapter for this reference name.
-            address adapter = recorder.adapters(action.proxyTypeHash);
+            address adapter = recorder.adapters(action.contractKindHash);
 
-            require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+            require(
+                action.contractKindHash == noProxyContractKindHash || adapter != address(0),
+                "ChugSplashManager: proxy type has no adapter"
+            );
+            require(
+                action.contractKindHash != noProxyContractKindHash ||
+                    action.actionType != ChugSplashActionType.SET_STORAGE,
+                "ChugSplashManager: cannot set storage in non-proxied contracts"
+            );
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
             // Note that we use the Updater contract to provide a generic interface for updating a
             // variety of proxy types.
-            (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateExecution, (action.proxy))
-            );
-            require(success, "ChugSplashManager: failed to set implementation to an updater");
+            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
+            // cannot have state.
+            if (action.contractKindHash != noProxyContractKindHash) {
+                (bool success, ) = adapter.delegatecall(
+                    abi.encodeCall(IProxyAdapter.initiateExecution, (action.proxy))
+                );
+                require(success, "ChugSplashManager: failed to set implementation to an updater");
+            }
 
             // Mark the action as executed and update the total number of executed actions.
             bundle.actionsExecuted++;
             bundle.actions[actionIndex] = true;
 
-            // Next, we execute the ChugSplash action by calling deployImplementation/setStorage.
-            if (action.actionType == ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
-                _deployImplementation(action.referenceName, action.data);
+            // Next, we execute the ChugSplash action by calling deployContract/setStorage.
+            if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
+                _deployContract(action.referenceName, action.data);
             } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
                 (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
                     action.data,
@@ -687,7 +691,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @notice Completes the bundle by upgrading all proxies to their new implementations. This
      *         occurs in a single transaction to ensure that all proxies are initialized at the same
      *         time. Note that this function will revert if it is called before all of the SetCode
-     *         and DeployImplementation actions have been executed in `executeChugSplashAction`.
+     *         and DeployContract actions have been executed in `executeChugSplashAction`.
      *         Only callable by the executor.
      *
      * @param _targets Array of ChugSplashTarget objects.
@@ -733,7 +737,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                             target.referenceName,
                             target.proxy,
                             target.implementation,
-                            target.proxyTypeHash
+                            target.contractKindHash
                         )
                     ),
                     i,
@@ -744,7 +748,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = recorder.adapters(target.proxyTypeHash);
+            address adapter = recorder.adapters(target.contractKindHash);
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
@@ -862,13 +866,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function claimProxyOwnership(
         address payable _proxy,
-        bytes32 _proxyTypeHash,
+        bytes32 _contractKindHash,
         address _newOwner
     ) public onlyOwner {
         require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
 
-        // Get the adapter that corresponds to this proxy type.
-        address adapter = recorder.adapters(_proxyTypeHash);
+        // Get the adapter that corresponds to this contract type.
+        address adapter = recorder.adapters(_contractKindHash);
 
         // Delegatecall the adapter to change ownership of the proxy.
         (bool success, ) = adapter.delegatecall(
@@ -876,7 +880,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
         require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
 
-        emit ProxyOwnershipTransferred(_proxy, _proxyTypeHash, _newOwner);
+        emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
         recorder.announce("ProxyOwnershipTransferred");
     }
 
@@ -987,39 +991,43 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Deploys an implementation contract, which will later be set as the proxy's
-     *         implementation address. Note that we wait to set the proxy's implementation address
-     *         until the very last call of the bundle to avoid a situation where end-users are
-     *         interacting with a proxy whose storage has not fully been initialized.
+     * @notice Deploys a contract using the CREATE2 opcode.
      *
-     * @param _referenceName Reference name that corresponds to the implementation.
-     * @param _code          Creation bytecode of the implementation contract.
+     *         If the user is deploying a proxied contract, then we deploy the implementation
+     *         contract first and later set the proxy's implementation address to the implementation
+     *         contract's address.
+     *
+     *         Note that we wait to set the proxy's implementation address until
+     *         the very last call of the bundle to avoid a situation where end-users are interacting
+     *         with a proxy whose storage has not been fully initialized.
+     *
+     *         Note that there can be address collisions between implementations deployed with this
+     *         function if their reference names are the same. This is avoided with off-chain
+     *         tooling by skipping implementations that have the same reference name and creation
+     *         bytecode.
+     *
+     * @param _referenceName Reference name that corresponds to the contract.
+     * @param _code          Creation bytecode of the contract.
      */
-    function _deployImplementation(string memory _referenceName, bytes memory _code) internal {
-        // Calculate the salt for the Create2 call. Note that there can be address collisions
-        // between implementations if their reference names are the same, but this is avoided with
-        // off-chain tooling by skipping implementations that have the same reference name and
-        // creation bytecode.
-        bytes32 salt = keccak256(bytes(_referenceName));
+    function _deployContract(string memory _referenceName, bytes memory _code) internal {
+        // Get the expected address of the contract.
+        address expectedAddress = Create2.compute(address(this), bytes32(0), _code);
 
-        // Get the expected address of the implementation contract.
-        address expectedImplementation = Create2.compute(address(this), salt, _code);
-
-        address implementation;
+        address actualAddress;
         assembly {
-            implementation := create2(0x0, add(_code, 0x20), mload(_code), salt)
+            actualAddress := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
         }
 
         // Could happen if insufficient gas is supplied to this transaction, should not happen
         // otherwise. If there's a situation in which this could happen other than a standard OOG,
         // then this would halt the entire contract.
         require(
-            expectedImplementation == implementation,
-            "ChugSplashManager: implementation was not deployed correctly"
+            expectedAddress == actualAddress,
+            "ChugSplashManager: contract was not deployed correctly"
         );
 
-        emit ImplementationDeployed(_referenceName, implementation, activeBundleId, _referenceName);
-        recorder.announce("ImplementationDeployed");
+        emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
+        recorder.announce("ContractDeployed");
     }
 
     /**
