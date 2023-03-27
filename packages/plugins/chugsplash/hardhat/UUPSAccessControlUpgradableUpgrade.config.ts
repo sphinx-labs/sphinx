@@ -23,7 +23,7 @@ const config: UserChugSplashConfig = {
         _roles: [],
       },
       externalProxy: '0x62DB6c1678Ca81ea0d946EA3dd75b4F71421A2aE',
-      externalProxyType: 'oz-access-control-uups',
+      kind: 'oz-access-control-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files

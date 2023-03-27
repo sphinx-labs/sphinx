@@ -281,7 +281,7 @@ describe('Transfer', () => {
     )
     manager.claimProxyOwnership(
       proxyContract.address,
-      proxyTypeHashes[parsedConfig.contracts['Token'].proxyType],
+      proxyTypeHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
 
@@ -424,7 +424,7 @@ describe('Transfer', () => {
     )
     manager.claimProxyOwnership(
       proxyContract.address,
-      proxyTypeHashes[parsedConfig.contracts['Token'].proxyType],
+      proxyTypeHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
 

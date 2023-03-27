@@ -53,11 +53,10 @@ import {
   ExternalProxyType,
   externalProxyTypes,
   ParsedChugSplashConfig,
-  ParsedConfigVariable,
-  ParsedConfigVariables,
   ParsedContractConfig,
   ProxyType,
   UserConfigVariable,
+  UserConfigVariables,
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
@@ -70,6 +69,7 @@ import {
   CompilerOutputSources,
   BuildInfo,
   CompilerOutput,
+  ArtifactPaths,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
@@ -329,19 +329,42 @@ export const displayProposerTable = (proposerAddresses: string[]) => {
 
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
   silent: boolean
 ) => {
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) => {
+        let address = contractConfig.proxy
+
+        // if contract is an unproxied, then we must resolve it's implementation address
+        if (contractConfig.kind === 'no-proxy') {
+          const { abi, bytecode } = readContractArtifact(
+            artifactPaths[referenceName].contractArtifactPath,
+            integration
+          )
+          const creationCodeWithConstructorArgs =
+            getCreationCodeWithConstructorArgs(
+              bytecode,
+              contractConfig.constructorArgs,
+              referenceName,
+              abi
+            )
+          address = getContractAddress(
+            parsedConfig.options.projectName,
+            creationCodeWithConstructorArgs
+          )
+        }
+
         const contractName = contractConfig.contract.includes(':')
           ? contractConfig.contract.split(':').at(-1)
           : contractConfig.contract
         deployments[i + 1] = {
           'Reference Name': referenceName,
           Contract: contractName,
-          Address: contractConfig.proxy,
+          Address: address,
         }
       }
     )
@@ -915,30 +938,29 @@ export const isEqualType = (
  * @param referenceName Reference name of the contract that corresponds to the proxy.
  * @returns Address of the implementation contract.
  */
-export const getImplAddress = (
+export const getContractAddress = (
   projectName: string,
-  referenceName: string,
   creationCodeWithConstructorArgs: string
 ): string => {
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    ethers.constants.HashZero,
     utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
   )
 }
 
 export const getConstructorArgs = (
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: UserConfigVariables,
   referenceName: string,
   abi: Array<Fragment>
 ): {
   constructorArgTypes: Array<string>
-  constructorArgValues: ParsedConfigVariable[]
+  constructorArgValues: UserConfigVariable[]
 } => {
   const constructorArgTypes: Array<string> = []
-  const constructorArgValues: Array<ParsedConfigVariable> = []
+  const constructorArgValues: Array<UserConfigVariable> = []
 
   const constructorFragment = abi.find(
     (fragment) => fragment.type === 'constructor'
@@ -959,7 +981,7 @@ export const getConstructorArgs = (
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: UserConfigVariables,
   referenceName: string,
   abi: any
 ): string => {
@@ -1139,7 +1161,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       userContractConfig.previousFullyQualifiedName,
       input,
       output,
-      parsedContractConfig.proxyType,
+      parsedContractConfig.kind,
       userContractConfig
     ).layout
   } else if (previousCanonicalConfig !== undefined) {
@@ -1152,7 +1174,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       `${sourceName}:${contractName}`,
       compilerInput,
       compilerOutput,
-      parsedContractConfig.proxyType,
+      parsedContractConfig.kind,
       userContractConfig
     ).layout
   } else if (openzeppelinStorageLayout !== undefined) {

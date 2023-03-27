@@ -15,7 +15,7 @@ import {
 } from '../languages/solidity/storage'
 import { ArtifactPaths } from '../languages/solidity/types'
 import {
-  getImplAddress,
+  getContractAddress,
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
@@ -362,9 +362,8 @@ export const makeActionBundleFromConfig = async (
     // Skip adding a `DEPLOY_IMPLEMENTATION` action if the implementation has already been deployed.
     if (
       (await provider.getCode(
-        getImplAddress(
+        getContractAddress(
           parsedConfig.options.projectName,
-          referenceName,
           creationCodeWithConstructorArgs
         )
       )) === '0x'
@@ -373,7 +372,7 @@ export const makeActionBundleFromConfig = async (
       actions.push({
         referenceName,
         proxy: contractConfig.proxy,
-        proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
+        proxyTypeHash: proxyTypeHashes[contractConfig.kind],
         code: creationCodeWithConstructorArgs,
       })
     }
@@ -398,7 +397,7 @@ export const makeActionBundleFromConfig = async (
       actions.push({
         referenceName,
         proxy: contractConfig.proxy,
-        proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
+        proxyTypeHash: proxyTypeHashes[contractConfig.kind],
         key: segment.key,
         offset: segment.offset,
         value: segment.val,
@@ -429,11 +428,10 @@ export const makeTargetBundleFromConfig = (
 
     targets.push({
       referenceName,
-      proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
+      proxyTypeHash: proxyTypeHashes[contractConfig.kind],
       proxy: contractConfig.proxy,
-      implementation: getImplAddress(
+      implementation: getContractAddress(
         parsedConfig.options.projectName,
-        referenceName,
         creationCodeWithConstructorArgs
       ),
     })

@@ -255,4 +255,10 @@ describe('Validate', () => {
     expect(validationOutput).to.have.string('but were not found in your config')
     expect(validationOutput).to.have.string('_immutableBytes')
   })
+
+  it('did catch variables in immutable contract', async () => {
+    expect(validationOutput).to.have.string(
+      `Detected variables for contract 'Stateless', variables are not supported for non-proxied contracts.`
+    )
+  })
 })

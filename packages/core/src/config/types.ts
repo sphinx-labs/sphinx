@@ -3,6 +3,7 @@ import {
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { BigNumber, constants } from 'ethers'
 import { Fragment } from 'ethers/lib/utils'
@@ -15,12 +16,14 @@ export const externalProxyTypes = [
   'oz-ownable-uups',
   'oz-access-control-uups',
   'external-default',
+  'no-proxy',
 ]
 export type ExternalProxyType =
   | 'oz-transparent'
   | 'oz-ownable-uups'
   | 'oz-access-control-uups'
   | 'external-default'
+  | 'no-proxy'
 
 export const proxyTypeHashes: { [proxyType: string]: string } = {
   'internal-default': constants.HashZero,
@@ -28,6 +31,7 @@ export const proxyTypeHashes: { [proxyType: string]: string } = {
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  'no-proxy': NO_PROXY_TYPE_HASH,
 }
 
 export type ProxyType = ExternalProxyType | 'internal-default'
@@ -83,7 +87,7 @@ export interface ParsedChugSplashConfig {
 export type UserContractConfig = {
   contract: string
   externalProxy?: string
-  externalProxyType?: ExternalProxyType
+  kind?: ExternalProxyType
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
@@ -113,7 +117,7 @@ export type UserConfigVariables = {
 export type ParsedContractConfig = {
   contract: string
   proxy: string
-  proxyType: ProxyType
+  kind: ProxyType
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
 }

@@ -499,7 +499,12 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         undefined,
         spinner
       )
-      displayDeploymentTable(parsedConfig, cre.silent)
+      displayDeploymentTable(
+        parsedConfig,
+        artifactPaths,
+        integration,
+        cre.silent
+      )
 
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
     }
@@ -682,7 +687,12 @@ export const chugsplashDeployAbstractTask = async (
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
-      displayDeploymentTable(parsedConfig, cre.silent)
+      displayDeploymentTable(
+        parsedConfig,
+        artifactPaths,
+        integration,
+        cre.silent
+      )
       return
     } else {
       return generateFoundryTestArtifacts(parsedConfig)
@@ -823,7 +833,7 @@ export const chugsplashDeployAbstractTask = async (
   // At this point, the bundle has been completed.
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
-    displayDeploymentTable(parsedConfig, cre.silent)
+    displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
     spinner.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
     )
@@ -931,7 +941,7 @@ project with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} was already deployed on ${networkName}.`
       )
 
-  displayDeploymentTable(parsedConfig, cre.silent)
+  displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
 }
 
 export const chugsplashCancelAbstractTask = async (
@@ -1334,7 +1344,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   await (
     await manager.claimProxyOwnership(
       parsedConfig.contracts[referenceName].proxy,
-      proxyTypeHashes[parsedConfig.contracts[referenceName].proxyType],
+      proxyTypeHashes[parsedConfig.contracts[referenceName].kind],
       signerAddress,
       await getGasPriceOverrides(provider)
     )

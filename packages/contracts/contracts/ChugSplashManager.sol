@@ -542,6 +542,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 "ChugSplashManager: invalid bundle target proof"
             );
 
+            // continue if the target does not use a proxy
+            if (target.proxyTypeHash == keccak256('no-proxy')) {
+                continue;
+            }
+
             // Get the proxy type and adapter for this reference name.
             address adapter = recorder.adapters(target.proxyTypeHash);
 
@@ -603,6 +608,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
+        bytes32 noProxyTypeHash = keccak256('no-proxy');
         uint256 initialGasLeft = gasleft();
 
         require(
@@ -648,7 +654,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             // Get the adapter for this reference name.
             address adapter = recorder.adapters(action.proxyTypeHash);
 
-            require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+            require(action.proxyTypeHash == noProxyTypeHash || adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+            require(action.proxyTypeHash != noProxyTypeHash || action.actionType != ChugSplashActionType.SET_STORAGE, "ChugSplashManager: cannot set storage in non-proxied contracts");
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
@@ -1000,7 +1007,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // between implementations if their reference names are the same, but this is avoided with
         // off-chain tooling by skipping implementations that have the same reference name and
         // creation bytecode.
-        bytes32 salt = keccak256(bytes(_referenceName));
+        bytes32 salt = bytes32(0);
 
         // Get the expected address of the implementation contract.
         address expectedImplementation = Create2.compute(address(this), salt, _code);

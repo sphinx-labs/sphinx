@@ -5,7 +5,6 @@ import {
   ArtifactPaths,
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
-  getOpenZeppelinValidationOpts,
   BuildInfo,
   ParsedContractConfig,
 } from '@chugsplash/core'
@@ -13,6 +12,7 @@ import {
   Manifest,
   getStorageLayoutForAddress,
   StorageLayout,
+  withValidationDefaults,
 } from '@openzeppelin/upgrades-core'
 import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
 
@@ -102,11 +102,11 @@ export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
   parsedContractConfig: ParsedContractConfig
 ): Promise<StorageLayout> => {
-  const { proxyType } = parsedContractConfig
+  const { kind } = parsedContractConfig
   if (
-    proxyType === 'oz-transparent' ||
-    proxyType === 'oz-ownable-uups' ||
-    proxyType === 'oz-access-control-uups'
+    kind === 'oz-transparent' ||
+    kind === 'oz-ownable-uups' ||
+    kind === 'oz-access-control-uups'
   ) {
     const proxy = parsedContractConfig.proxy
     const isProxyDeployed = await hre.ethers.provider.getCode(proxy)
@@ -115,10 +115,7 @@ export const importOpenZeppelinStorageLayout = async (
       const deployData = await getDeployData(
         hre,
         await hre.ethers.getContractFactory(parsedContractConfig.contract),
-        getOpenZeppelinValidationOpts(
-          parsedContractConfig.proxyType,
-          parsedContractConfig
-        )
+        withValidationDefaults({})
       )
       const storageLayout = await getStorageLayoutForAddress(
         manifest,

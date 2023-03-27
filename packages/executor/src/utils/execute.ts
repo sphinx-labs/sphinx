@@ -281,6 +281,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           return
         }
 
+        console.error(e)
         // log error
         logger.error(
           '[ChugSplash]: error: execution error',

@@ -45,6 +45,9 @@ export const OZ_UUPS_OWNABLE_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-access-control-uups')
 )
+export const NO_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('no-proxy')
+)
 
 export const CHUGSPLASH_SALT = '0x' + '13'.repeat(32)
 

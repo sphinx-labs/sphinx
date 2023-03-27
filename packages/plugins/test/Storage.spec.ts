@@ -7,12 +7,24 @@ import { constructorArgs, variables } from './constants'
 describe('Storage', () => {
   let MyStorage: Contract
   let MySimpleStorage: Contract
+  let Stateless: Contract
   beforeEach(async () => {
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',
       'MySimpleStorage'
     )
+    Stateless = await chugsplash.getContract('My First Project', 'Stateless')
+  })
+
+  it('does deploy stateless immutable contract', async () => {
+    expect(await Stateless.hello()).to.equal('Hello, world!')
+    expect(await Stateless.immutableUint()).to.deep.equal(BigNumber.from(1))
+  })
+
+  it('does properly resolve reference to stateless immutable contract', async () => {
+    expect(await MySimpleStorage.myStateless()).to.equal(Stateless.address)
+    expect(await MySimpleStorage.hello()).to.equal('Hello, world!')
   })
 
   it('does set immutable int', async () => {
