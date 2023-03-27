@@ -26,6 +26,8 @@ const variables = {
     'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
   bytesTest: '0xabcd1234',
   bytes32Test: '0x' + '11'.repeat(32),
+  addressTest: '0x1111111111111111111111111111111111111111',
+  payableAddressTest: '0x1111111111111111111111111111111111111111',
   longBytesTest:
     '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
   userDefinedTypeTest: '1000000000000000000',
