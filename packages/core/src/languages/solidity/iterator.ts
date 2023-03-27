@@ -286,7 +286,7 @@ export const recursiveLayoutIterator = <Output>(
         dereferencer,
       })
     } else if (
-      variableType.label === 'address' ||
+      variableType.label.startsWith('address') ||
       variableType.label.startsWith('contract')
     ) {
       return typeHandlers.inplace.address({

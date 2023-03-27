@@ -62,6 +62,8 @@ contract Storage {
     bytes public bytesTest;
     bytes public longBytesTest;
     bytes32 public bytes32Test;
+    address public addressTest;
+    address payable public payableAddressTest;
     UserDefinedType public userDefinedTypeTest;
     UserDefinedBytes32 public userDefinedBytesTest;
     UserDefinedInt public userDefinedInt;
