@@ -54,7 +54,11 @@ import {
   externalContractKinds,
   ParsedChugSplashConfig,
   ParsedContractConfig,
+<<<<<<< HEAD
   ContractKind,
+=======
+  ProxyType,
+>>>>>>> bff7b7b (feat(core): Add support for deploying stateless contracts)
   UserConfigVariable,
   UserConfigVariables,
   UserContractConfig,

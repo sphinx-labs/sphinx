@@ -97,7 +97,7 @@ export interface CompilerOutputMetadata {
 
 export interface CompilerOutputContract {
   abi: Array<Fragment>
-  storageLayout: SolidityStorageLayout
+  storageLayout: SolidityStorageLayout | undefined
   evm: {
     bytecode: CompilerOutputBytecode
     deployedBytecode: CompilerOutputBytecode
