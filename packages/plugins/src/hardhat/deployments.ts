@@ -47,7 +47,7 @@ export const deployAllChugSplashConfigs = async (
   silent: boolean,
   ipfsUrl: string,
   fileNames?: string[]
-) => {
+): Promise<boolean> => {
   const remoteExecution = await isRemoteExecution(hre)
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
@@ -71,7 +71,7 @@ export const deployAllChugSplashConfigs = async (
 
     // Skip this config if it's empty.
     if (isEmptyChugSplashConfig(configPath)) {
-      return
+      return true
     }
     const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
@@ -109,6 +109,8 @@ export const deployAllChugSplashConfigs = async (
       executor
     )
   }
+
+  return true
 }
 
 export const getContract = async (

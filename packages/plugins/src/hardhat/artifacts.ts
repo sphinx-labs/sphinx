@@ -3,12 +3,11 @@ import path from 'path'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
   ArtifactPaths,
-  UserChugSplashConfig,
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
   getOpenZeppelinValidationOpts,
   BuildInfo,
-  getDefaultProxyAddress,
+  ParsedContractConfig,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -99,33 +98,26 @@ export const getArtifactPaths = async (
  * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
  * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
  */
-export const importOpenZeppelinStorageLayouts = async (
+export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
-  userConfig: UserChugSplashConfig
-): Promise<{ [referenceName: string]: StorageLayout }> => {
-  const layouts: { [referenceName: string]: StorageLayout } = {}
-
-  for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
-  )) {
-    const proxy =
-      userContractConfig.externalProxy ||
-      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+  parsedContractConfig: ParsedContractConfig
+): Promise<StorageLayout> => {
+  const { proxyType } = parsedContractConfig
+  if (
+    proxyType === 'oz-transparent' ||
+    proxyType === 'oz-ownable-uups' ||
+    proxyType === 'oz-access-control-uups'
+  ) {
+    const proxy = parsedContractConfig.proxy
     const isProxyDeployed = await hre.ethers.provider.getCode(proxy)
-    const { externalProxyType } = userConfig.contracts[referenceName]
-    if (
-      isProxyDeployed &&
-      (externalProxyType === 'oz-transparent' ||
-        externalProxyType === 'oz-ownable-uups' ||
-        externalProxyType === 'oz-access-control-uups')
-    ) {
+    if (isProxyDeployed) {
       const manifest = await Manifest.forNetwork(hre.network.provider)
       const deployData = await getDeployData(
         hre,
-        await hre.ethers.getContractFactory(userContractConfig.contract),
+        await hre.ethers.getContractFactory(parsedContractConfig.contract),
         getOpenZeppelinValidationOpts(
-          userContractConfig.externalProxyType ?? 'internal-default',
-          userContractConfig
+          parsedContractConfig.proxyType,
+          parsedContractConfig
         )
       )
       const storageLayout = await getStorageLayoutForAddress(
@@ -133,9 +125,11 @@ export const importOpenZeppelinStorageLayouts = async (
         deployData.validations,
         await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
       )
-      layouts[referenceName] = storageLayout
+      return storageLayout
     }
   }
 
-  return layouts
+  throw new Error(
+    'Should not attempt to import OpenZeppelin storage layout for non-OpenZeppelin proxy type. Please report this to the developers.'
+  )
 }

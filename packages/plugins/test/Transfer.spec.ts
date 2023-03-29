@@ -85,21 +85,14 @@ describe('Transfer', () => {
       false,
       true,
       hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
-    )
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      transparentUpgradeConfigPath,
-      artifactPaths,
-      'hardhat',
-      cre
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
       'hardhat',
@@ -107,7 +100,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      userConfig.options.projectName
     )
 
     const ProxyAdmin = await hre.ethers.getContractAt(
@@ -123,13 +116,18 @@ describe('Transfer', () => {
       managerProxyAddress
     )
 
-    const configPath =
-      './chugsplash/hardhat/TransparentUpgradableUpgrade.config.ts'
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      transparentUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
+    )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
+      transparentUpgradeConfigPath,
       false,
       '',
       true,
@@ -205,21 +203,14 @@ describe('Transfer', () => {
       false,
       true,
       hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
-    )
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      uupsOwnableUpgradeConfigPath,
-      artifactPaths,
-      'hardhat',
-      cre
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
       'hardhat',
@@ -227,7 +218,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      userConfig.options.projectName
     )
 
     await UUPSUpgradableTokenV1.transferOwnership(managerProxyAddress)
@@ -238,13 +229,18 @@ describe('Transfer', () => {
       'proxy owner is not chugsplash manager'
     )
 
-    const configPath =
-      './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      uupsOwnableUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
+    )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
+      uupsOwnableUpgradeConfigPath,
       false,
       '',
       true,
@@ -343,21 +339,14 @@ describe('Transfer', () => {
       false,
       true,
       hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
-    )
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      uupsAccessControlUpgradeConfigPath,
-      artifactPaths,
-      'hardhat',
-      cre
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
       'hardhat',
@@ -365,7 +354,7 @@ describe('Transfer', () => {
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.projectName
+      userConfig.options.projectName
     )
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
@@ -381,13 +370,18 @@ describe('Transfer', () => {
       )
     ).to.equal(true, 'proxy owner is not chugsplash manager')
 
-    const configPath =
-      './chugsplash/hardhat/UUPSAccessControlUpgradableUpgrade.config.ts'
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      uupsAccessControlUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
+    )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
+      uupsAccessControlUpgradeConfigPath,
       false,
       '',
       true,

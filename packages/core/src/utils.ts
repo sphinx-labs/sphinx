@@ -63,7 +63,7 @@ import {
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
 import { Integration } from './constants'
 import 'core-js/features/array/at'
-import { FoundryContractArtifact } from './types'
+import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
   ContractArtifact,
   ContractASTNode,
@@ -673,52 +673,80 @@ export const isExternalProxyType = (
  */
 export const assertValidContractReferences = (
   variable: UserConfigVariable,
-  referenceNames: string[]
-) => {
+  referenceNames: string[],
+  cre: ChugSplashRuntimeEnvironment
+): boolean => {
+  let isValid = true
   if (
     typeof variable === 'string' &&
     variable.includes('{{') &&
     variable.includes('}}')
   ) {
     if (!variable.startsWith('{{')) {
-      throw new Error(
-        `Contract reference cannot contain leading spaces before '{{' : ${variable}`
+      isValid = false
+      chugsplashLog(
+        'error',
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
     if (!variable.endsWith('}}')) {
-      throw new Error(
-        `Contract reference cannot contain trailing spaces: ${variable}`
+      isValid = false
+      chugsplashLog(
+        'error',
+        `Contract reference cannot contain trailing spaces: ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
     const contractReference = variable.substring(2, variable.length - 2).trim()
 
     if (!referenceNames.includes(contractReference)) {
-      throw new Error(
-        `Invalid contract reference: ${variable}.\n` +
-          `Did you misspell this contract reference, or forget to define a contract with this reference name?`
+      isValid = false
+      chugsplashLog(
+        'error',
+        `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
   } else if (Array.isArray(variable)) {
     for (const element of variable) {
-      assertValidContractReferences(element, referenceNames)
+      if (!assertValidContractReferences(element, referenceNames, cre)) {
+        isValid = false
+      }
     }
   } else if (typeof variable === 'object') {
     for (const [varName, varValue] of Object.entries(variable)) {
-      assertValidContractReferences(varName, referenceNames)
-      assertValidContractReferences(varValue, referenceNames)
+      if (
+        !assertValidContractReferences(varName, referenceNames, cre) ||
+        !assertValidContractReferences(varValue, referenceNames, cre)
+      ) {
+        isValid = false
+      }
     }
   } else if (
     typeof variable === 'boolean' ||
     typeof variable === 'number' ||
     typeof variable === 'string'
   ) {
-    return
+    return isValid
   } else {
-    throw new Error(
-      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`
+    chugsplashLog(
+      'error',
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`,
+      [],
+      cre.silent,
+      cre.stream
     )
   }
+
+  return isValid
 }
 
 export const getParentContractASTNodes = (
@@ -1068,10 +1096,13 @@ export const getPreviousStorageLayoutOZFormat = async (
   userContractConfig: UserContractConfig,
   remoteExecution: boolean,
   canonicalConfigFolderPath: string,
-  openzeppelinStorageLayouts?: {
-    [referenceName: string]: StorageLayout
-  }
+  cre: ChugSplashRuntimeEnvironment
 ): Promise<StorageLayout> => {
+  const openzeppelinStorageLayout = await cre.fetchOpenZeppelinStorageLayout(
+    cre.hre,
+    parsedContractConfig
+  )
+
   if ((await provider.getCode(parsedContractConfig.proxy)) === '0x') {
     throw new Error(
       `Proxy has not been deployed for the contract: ${referenceName}.`
@@ -1122,8 +1153,8 @@ export const getPreviousStorageLayoutOZFormat = async (
       parsedContractConfig.proxyType,
       userContractConfig
     ).layout
-  } else if (openzeppelinStorageLayouts?.[referenceName] !== undefined) {
-    return openzeppelinStorageLayouts[referenceName]
+  } else if (openzeppelinStorageLayout !== undefined) {
+    return openzeppelinStorageLayout
   } else {
     throw new Error(
       `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
