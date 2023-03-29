@@ -10,6 +10,7 @@ import { Fragment } from 'ethers/lib/utils'
 import {
   assertStorageUpgradeSafe,
   StorageLayout,
+  ValidationErrors,
 } from '@openzeppelin/upgrades-core'
 import { OZ_UUPS_UPDATER_ADDRESS, ProxyABI } from '@chugsplash/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
@@ -31,10 +32,11 @@ import {
   getChugSplashManagerProxyAddress,
   getEIP1967ProxyAdminAddress,
   getPreviousStorageLayoutOZFormat,
-  getOpenZeppelinStorageLayout,
+  getOpenZeppelinUpgradableContract,
   isEqualType,
   getOpenZeppelinValidationOpts,
   getParentContractASTNodes,
+  chugsplashLog,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -1173,14 +1175,50 @@ permission to call the 'upgradeTo' function on each of them.
     )
   }
 
-  if (isUpgrade) {
-    for (const [referenceName, contractConfig] of Object.entries(
-      parsedConfig.contracts
-    )) {
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { input, output } = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath
+    )
+    const userContractConfig = userConfig.contracts[referenceName]
+
+    // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
+    // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`
+
+    // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+    // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+    const tmp = console.error
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    console.error = () => {}
+
+    // fetch the contract and validate
+    const upgradableContract = getOpenZeppelinUpgradableContract(
+      contractConfig.contract,
+      input,
+      output,
+      contractConfig.proxyType,
+      userContractConfig
+    )
+
+    // revert to standard console.error
+    console.error = tmp
+
+    // throw validation errors if detected
+    if (upgradableContract.errors.length > 0) {
+      throw new ValidationErrors(
+        contractConfig.contract,
+        upgradableContract.errors
+      )
+    }
+
+    if (isUpgrade) {
+      // Perform upgrade specific validation
+
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
       if (isProxyDeployed && canonicalConfigPath) {
-        const userContractConfig = userConfig.contracts[referenceName]
+        const newStorageLayout = upgradableContract.layout
         const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
           provider,
           referenceName,
@@ -1191,30 +1229,23 @@ permission to call the 'upgradeTo' function on each of them.
           openzeppelinStorageLayouts
         )
 
-        const { input, output } = readBuildInfo(
-          artifactPaths[referenceName].buildInfoPath
-        )
-        const newStorageLayout = getOpenZeppelinStorageLayout(
-          contractConfig.contract,
-          input,
-          output,
-          contractConfig.proxyType
-        )
-
         assertStorageCompatiblePreserveKeywords(
           contractConfig,
           previousStorageLayout,
           newStorageLayout
         )
 
-        // We could check for the `skipStorageCheck` in the outer for-loop, but this makes it easy to
-        // support more granular storage layout config options in the future.
-        if (parsedConfig.options.skipStorageCheck !== true) {
-          // Run OpenZeppelin's storage slot checker.
+        if (
+          // If the user has disabled storage checks for this contract
+          userConfig.contracts[referenceName].unsafeSkipStorageCheck !== true
+        ) {
           assertStorageUpgradeSafe(
             previousStorageLayout,
             newStorageLayout,
-            getOpenZeppelinValidationOpts(contractConfig.proxyType)
+            getOpenZeppelinValidationOpts(
+              contractConfig.proxyType,
+              userContractConfig
+            )
           )
         }
       }
@@ -1235,7 +1266,11 @@ permission to call the 'upgradeTo' function on each of them.
             fragment.inputs.length === 1 &&
             fragment.inputs[0].type === 'address'
         )
-        if (!containsPublicUpgradeTo) {
+        if (
+          !containsPublicUpgradeTo &&
+          !userConfig.contracts[referenceName].unsafeAllow
+            ?.missingPublicUpgradeTo
+        ) {
           throw new Error(
             `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation\n` +
               `no longer has a public 'upgradeTo(address)' function. You must include this function \n` +
@@ -1243,19 +1278,9 @@ permission to call the 'upgradeTo' function on each of them.
           )
         }
       }
-    }
+    } else {
+      // Perform initial deployment specific validation
 
-    if (!autoConfirm) {
-      // Confirm upgrade with user
-      const userConfirmed = await yesno({
-        question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
-      })
-      if (!userConfirmed) {
-        throw new Error(`User denied upgrade.`)
-      }
-    }
-  } else {
-    for (const contractConfig of Object.values(parsedConfig.contracts)) {
       // Throw an error if the 'preserve' keyword is set to a variable's value in the
       // ChugSplash config file. This keyword is only allowed for upgrades.
       if (
@@ -1266,6 +1291,17 @@ permission to call the 'upgradeTo' function on each of them.
             `upgrades only. Please remove all instances of it in your ChugSplash config file.`
         )
       }
+    }
+  }
+
+  // confirm
+  if (!autoConfirm && isUpgrade) {
+    // Confirm upgrade with user
+    const userConfirmed = await yesno({
+      question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+    })
+    if (!userConfirmed) {
+      throw new Error(`User denied upgrade.`)
     }
   }
 }
@@ -1398,6 +1434,45 @@ export const assertValidContracts = (
   }
 }
 
+const logUnsafeOptions = (
+  userConfig: UserChugSplashConfig,
+  silent: boolean,
+  stream: NodeJS.WritableStream
+) => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const lines: string[] = []
+    if (contractConfig.unsafeAllow?.delegatecall) {
+      lines.push('You are using the unsafe option `unsafeAllow.delegatecall`')
+    }
+    if (contractConfig.unsafeAllow?.selfdestruct) {
+      lines.push('You are using the unsafe option `unsafeAllow.selfdestruct`')
+    }
+    if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+      lines.push(
+        'You are using the unsafe option`unsafeAllow.missingPublicUpgradeTo`'
+      )
+    }
+    if (contractConfig.unsafeAllowRenames) {
+      lines.push('You are using the unsafe option `unsafeAllowRenames`')
+    }
+    if (contractConfig.unsafeSkipStorageCheck) {
+      lines.push('You are using the unsafe option `unsafeSkipStorageCheck`')
+    }
+
+    if (lines.length > 0) {
+      chugsplashLog(
+        'warning',
+        `Potentially unsafe deployment of ${referenceName}`,
+        lines,
+        silent,
+        stream
+      )
+    }
+  }
+}
+
 /**
  * Parses a ChugSplash config file from the config file given by the user.
  *
@@ -1412,6 +1487,8 @@ const parseAndValidateChugSplashConfig = async (
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
 ): Promise<ParsedChugSplashConfig> => {
+  logUnsafeOptions(userConfig, cre.silent, cre.stream)
+
   assertValidUserConfigFields(userConfig)
 
   const parsedConfig: ParsedChugSplashConfig = {
@@ -1499,7 +1576,6 @@ const parseAndValidateChugSplashConfig = async (
     integration,
     cre
   )
-
   return JSON.parse(
     Handlebars.compile(JSON.stringify(parsedConfig))({
       ...contracts,

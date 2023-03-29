@@ -13,6 +13,8 @@ export type ChugSplashRuntimeEnvironment = {
         [referenceName: string]: any
       }
     | undefined
+  stream: NodeJS.WritableStream
+  silent: boolean
 }
 
 export type FoundryContractArtifact = {

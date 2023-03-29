@@ -10,7 +10,9 @@ export const createChugSplashRuntime = async (
   configPath: string,
   remoteExecution: boolean,
   autoConfirm: boolean,
-  hre: HardhatRuntimeEnvironment | undefined
+  hre: HardhatRuntimeEnvironment | undefined = undefined,
+  silent: boolean,
+  stream: NodeJS.WritableStream = process.stderr
 ): Promise<ChugSplashRuntimeEnvironment> => {
   const userConfig = await readUnvalidatedChugSplashConfig(configPath)
   const openzeppelinStorageLayouts = hre
@@ -23,5 +25,7 @@ export const createChugSplashRuntime = async (
     remoteExecution,
     autoConfirm,
     openzeppelinStorageLayouts,
+    stream,
+    silent,
   }
 }

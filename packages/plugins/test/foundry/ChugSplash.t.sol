@@ -5,9 +5,8 @@ import "forge-std/Test.sol";
 import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
-import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
-import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
-import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
+import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 
 /* ChugSplash Foundry Library Tests
  *
@@ -22,12 +21,12 @@ import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
 contract ChugSplashTest is Test {
     type UserDefinedType is uint256;
 
-    Proxy claimedProxy;
-    Proxy transferredProxy;
+    address claimedProxy;
+    address transferredProxy;
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
-    ChugSplashRegistry registry;
+    IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
@@ -96,21 +95,21 @@ contract ChugSplashTest is Test {
         chugsplash.refresh();
 
         chugsplash.transferProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = Proxy(payable(chugsplash.getAddress(claimConfig, "MySimpleStorage")));
-        transferredProxy = Proxy(payable(chugsplash.getAddress(transferConfig, "MySimpleStorage")));
+        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
+        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
         mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
 
-        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
     function testDidClaimProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(claimedProxy)), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
     function testDidTransferProxy() public {
-        ChugSplashManager manager = registry.projects(transferProjectName);
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(transferredProxy)), address(manager));
+        IChugSplashManager manager = registry.projects(transferProjectName);
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
     function testDidRegister() public {
@@ -119,23 +118,23 @@ contract ChugSplashTest is Test {
     }
 
     function testDidProposeFundApprove() public {
-        ChugSplashManager manager = registry.projects(registerProjectName);
+        IChugSplashManager manager = registry.projects(registerProjectName);
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        ChugSplashManager manager = registry.projects(withdrawProjectName);
+        IChugSplashManager manager = registry.projects(withdrawProjectName);
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
     function testDidCancel() public {
-        ChugSplashManager manager = registry.projects(cancelProjectName);
+        IChugSplashManager manager = registry.projects(cancelProjectName);
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        ChugSplashManager manager = registry.projects(addProposerProjectName);
+        IChugSplashManager manager = registry.projects(addProposerProjectName);
         assertTrue(manager.proposers(newProposer));
     }
 

@@ -27,11 +27,13 @@ import {
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
+import chalk from 'chalk'
 import {
   ProxyDeployment,
   StorageLayout,
   UpgradeableContract,
   ValidationOptions,
+  withValidationDefaults,
 } from '@openzeppelin/upgrades-core'
 import {
   ParsedTypeDetailed,
@@ -291,10 +293,28 @@ export const getChugSplashManagerReadOnly = (
   )
 }
 
-export const chugsplashLog = (text: string, silent: boolean) => {
-  if (!silent) {
-    console.log(text)
+export const chugsplashLog = (
+  logLevel: 'warning' | 'error' = 'warning',
+  title: string,
+  lines: string[],
+  silent: boolean,
+  stream: NodeJS.WritableStream
+): void => {
+  if (silent) {
+    return
   }
+
+  const prefix = logLevel.charAt(0).toUpperCase() + logLevel.slice(1)
+
+  const chalkColor = logLevel === 'warning' ? chalk.yellow : chalk.red
+
+  const parts = ['\n' + chalkColor.bold(prefix + ':') + ' ' + title]
+
+  if (lines.length > 0) {
+    parts.push(lines.map((l) => l + '\n').join(''))
+  }
+
+  stream.write(parts.join('\n') + '\n')
 }
 
 export const displayProposerTable = (proposerAddresses: string[]) => {
@@ -975,24 +995,43 @@ export const toOpenZeppelinProxyType = (
 }
 
 export const getOpenZeppelinValidationOpts = (
-  proxyType: ProxyType
+  proxyType: ProxyType,
+  contractConfig: UserContractConfig
 ): Required<ValidationOptions> => {
-  return {
-    kind: toOpenZeppelinProxyType(proxyType),
-    unsafeAllow: [],
-    unsafeAllowCustomTypes: false,
-    unsafeAllowLinkedLibraries: false,
-    unsafeAllowRenames: false,
-    unsafeSkipStorageCheck: false,
+  type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
+
+  const unsafeAllow: UnsafeAllow = [
+    'state-variable-assignment',
+    'constructor',
+    'state-variable-immutable',
+    'missing-public-upgradeto',
+  ]
+  if (contractConfig.unsafeAllow?.delegatecall) {
+    unsafeAllow.push('delegatecall')
   }
+  if (contractConfig.unsafeAllow?.selfdestruct) {
+    unsafeAllow.push('selfdestruct')
+  }
+
+  const options = {
+    kind: toOpenZeppelinProxyType(proxyType),
+    unsafeAllow,
+    unsafeAllowRenames: contractConfig.unsafeAllowRenames,
+    unsafeSkipStorageCheck: contractConfig.unsafeSkipStorageCheck,
+  }
+
+  return withValidationDefaults(options)
 }
 
-export const getOpenZeppelinStorageLayout = (
+export const getOpenZeppelinUpgradableContract = (
   fullyQualifiedName: string,
   compilerInput: CompilerInput,
   compilerOutput: CompilerOutput,
-  proxyType: ProxyType
-): StorageLayout => {
+  proxyType: ProxyType,
+  contractConfig: UserContractConfig
+): UpgradeableContract => {
+  const options = getOpenZeppelinValidationOpts(proxyType, contractConfig)
+
   const contract = new UpgradeableContract(
     fullyQualifiedName,
     compilerInput,
@@ -1001,10 +1040,10 @@ export const getOpenZeppelinStorageLayout = (
     // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
     // `CompilerOutput`, which is what OpenZeppelin expects.
     compilerOutput as any,
-    getOpenZeppelinValidationOpts(proxyType)
+    options
   )
 
-  return contract.layout
+  return contract
 }
 
 /**
@@ -1063,24 +1102,26 @@ export const getPreviousStorageLayoutOZFormat = async (
       )
     }
 
-    return getOpenZeppelinStorageLayout(
+    return getOpenZeppelinUpgradableContract(
       userContractConfig.previousFullyQualifiedName,
       input,
       output,
-      parsedContractConfig.proxyType
-    )
+      parsedContractConfig.proxyType,
+      userContractConfig
+    ).layout
   } else if (previousCanonicalConfig !== undefined) {
     const prevCanonicalConfigArtifacts = await getCanonicalConfigArtifacts(
       previousCanonicalConfig
     )
     const { sourceName, contractName, compilerInput, compilerOutput } =
       prevCanonicalConfigArtifacts[referenceName]
-    return getOpenZeppelinStorageLayout(
+    return getOpenZeppelinUpgradableContract(
       `${sourceName}:${contractName}`,
       compilerInput,
       compilerOutput,
-      parsedContractConfig.proxyType
-    )
+      parsedContractConfig.proxyType,
+      userContractConfig
+    ).layout
   } else if (openzeppelinStorageLayouts?.[referenceName] !== undefined) {
     return openzeppelinStorageLayouts[referenceName]
   } else {
