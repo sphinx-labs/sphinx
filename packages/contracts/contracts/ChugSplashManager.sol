@@ -471,9 +471,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         ChugSplashBundleState storage bundle = _bundles[_bundleId];
 
+        ChugSplashBundleStatus status = bundle.status;
         require(
-            bundle.status == ChugSplashBundleStatus.PROPOSED,
-            "ChugSplashManager: bundle does not exist or has already been approved or completed"
+            status == ChugSplashBundleStatus.PROPOSED ||
+                status == ChugSplashBundleStatus.COMPLETED ||
+                status == ChugSplashBundleStatus.CANCELLED,
+            "ChugSplashManager: bundle cannot be approved"
         );
 
         require(
