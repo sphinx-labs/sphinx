@@ -976,7 +976,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
 
         uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
+        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
