@@ -76,6 +76,7 @@ const command = args[0]
         'foundry',
         cre
       )
+
       await provider.getNetwork()
       const address = await wallet.getAddress()
       owner = owner !== 'self' ? owner : address
@@ -132,6 +133,7 @@ const command = args[0]
         'foundry',
         cre
       )
+
       await provider.getNetwork()
       await wallet.getAddress()
 

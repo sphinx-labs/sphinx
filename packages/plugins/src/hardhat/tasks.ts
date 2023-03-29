@@ -816,7 +816,10 @@ task(TASK_NODE)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, hide, '')
+          const succeeded = await deployAllChugSplashConfigs(hre, hide, '')
+          if (succeeded === false) {
+            return
+          }
           const networkName = await resolveNetworkName(
             hre.ethers.provider,
             'hardhat'
@@ -886,12 +889,15 @@ task(TASK_TEST)
             })
           }
           if (!skipDeploy) {
-            await deployAllChugSplashConfigs(
+            const succeeded = await deployAllChugSplashConfigs(
               hre,
               !show,
               '',
               configPath ? [configPath] : undefined
             )
+            if (succeeded === false) {
+              return
+            }
           }
         }
         await writeSnapshotId(
@@ -936,7 +942,10 @@ task(TASK_RUN)
             quiet: true,
           })
         }
-        await deployAllChugSplashConfigs(hre, true, '')
+        const succeeded = await deployAllChugSplashConfigs(hre, true, '')
+        if (succeeded === false) {
+          return
+        }
       }
       await runSuper(args)
     }

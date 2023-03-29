@@ -12,6 +12,7 @@ import {
   ParsedChugSplashConfig,
   proxyTypeHashes,
   readUnvalidatedChugSplashConfig,
+  UserChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -76,7 +77,7 @@ import {
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: UserChugSplashConfig | ParsedChugSplashConfig,
   allowManagedProposals: boolean,
   owner: string,
   integration: Integration,
