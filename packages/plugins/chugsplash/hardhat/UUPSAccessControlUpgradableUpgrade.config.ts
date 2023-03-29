@@ -22,7 +22,7 @@ const config: UserChugSplashConfig = {
         'UUPSUpgradeable:__gap': '{ gap }',
         _roles: [],
       },
-      externalProxy: '0x9A7848b9E60C7619f162880c7CA5Cbca80998034',
+      externalProxy: '0x62DB6c1678Ca81ea0d946EA3dd75b4F71421A2aE',
       externalProxyType: 'oz-access-control-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
