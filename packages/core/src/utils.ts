@@ -1032,13 +1032,15 @@ export const getOpenZeppelinValidationOpts = (
     'state-variable-assignment',
     'constructor',
     'state-variable-immutable',
-    'missing-public-upgradeto',
   ]
   if (contractConfig.unsafeAllow?.delegatecall) {
     unsafeAllow.push('delegatecall')
   }
   if (contractConfig.unsafeAllow?.selfdestruct) {
     unsafeAllow.push('selfdestruct')
+  }
+  if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+    unsafeAllow.push('missing-public-upgradeto')
   }
 
   const options = {
