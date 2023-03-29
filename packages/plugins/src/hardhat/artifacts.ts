@@ -101,7 +101,7 @@ export const getArtifactPaths = async (
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
   parsedContractConfig: ParsedContractConfig
-): Promise<StorageLayout> => {
+): Promise<StorageLayout | undefined> => {
   const { proxyType } = parsedContractConfig
   if (
     proxyType === 'oz-transparent' ||
@@ -128,8 +128,4 @@ export const importOpenZeppelinStorageLayout = async (
       return storageLayout
     }
   }
-
-  throw new Error(
-    'Should not attempt to import OpenZeppelin storage layout for non-OpenZeppelin proxy type. Please report this to the developers.'
-  )
 }

@@ -57,7 +57,6 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
   ProxyType,
-  UserConfigVariable,
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
@@ -658,97 +657,6 @@ export const isExternalProxyType = (
   return externalProxyTypes.includes(proxyType)
 }
 
-/**
- * Throws an error if the given variable contains any invalid contract references. Specifically,
- * it'll throw an error if any of the following conditions occur:
- *
- * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
- * template string converts into a valid address when it's parsed. If there are any leading or
- * trailing spaces in an address, `ethers.utils.isAddress` will return false.
- *
- * 2. The contract reference is not included in the array of valid contract references.
- *
- * @param variable Config variable defined by the user.
- * @param referenceNames Valid reference names for this ChugSplash config file.
- */
-export const assertValidContractReferences = (
-  variable: UserConfigVariable,
-  referenceNames: string[],
-  cre: ChugSplashRuntimeEnvironment
-): boolean => {
-  let isValid = true
-  if (
-    typeof variable === 'string' &&
-    variable.includes('{{') &&
-    variable.includes('}}')
-  ) {
-    if (!variable.startsWith('{{')) {
-      isValid = false
-      chugsplashLog(
-        'error',
-        `Contract reference cannot contain leading spaces before '{{' : ${variable}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-    if (!variable.endsWith('}}')) {
-      isValid = false
-      chugsplashLog(
-        'error',
-        `Contract reference cannot contain trailing spaces: ${variable}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-
-    const contractReference = variable.substring(2, variable.length - 2).trim()
-
-    if (!referenceNames.includes(contractReference)) {
-      isValid = false
-      chugsplashLog(
-        'error',
-        `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-  } else if (Array.isArray(variable)) {
-    for (const element of variable) {
-      if (!assertValidContractReferences(element, referenceNames, cre)) {
-        isValid = false
-      }
-    }
-  } else if (typeof variable === 'object') {
-    for (const [varName, varValue] of Object.entries(variable)) {
-      if (
-        !assertValidContractReferences(varName, referenceNames, cre) ||
-        !assertValidContractReferences(varValue, referenceNames, cre)
-      ) {
-        isValid = false
-      }
-    }
-  } else if (
-    typeof variable === 'boolean' ||
-    typeof variable === 'number' ||
-    typeof variable === 'string'
-  ) {
-    return isValid
-  } else {
-    chugsplashLog(
-      'error',
-      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  return isValid
-}
-
 export const getParentContractASTNodes = (
   compilerOutputSources: CompilerOutputSources,
   parentContractNodeAstIds: Array<number>
@@ -1032,13 +940,15 @@ export const getOpenZeppelinValidationOpts = (
     'state-variable-assignment',
     'constructor',
     'state-variable-immutable',
-    'missing-public-upgradeto',
   ]
   if (contractConfig.unsafeAllow?.delegatecall) {
     unsafeAllow.push('delegatecall')
   }
   if (contractConfig.unsafeAllow?.selfdestruct) {
     unsafeAllow.push('selfdestruct')
+  }
+  if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+    unsafeAllow.push('missing-public-upgradeto')
   }
 
   const options = {
@@ -1098,11 +1008,6 @@ export const getPreviousStorageLayoutOZFormat = async (
   canonicalConfigFolderPath: string,
   cre: ChugSplashRuntimeEnvironment
 ): Promise<StorageLayout> => {
-  const openzeppelinStorageLayout = await cre.fetchOpenZeppelinStorageLayout(
-    cre.hre,
-    parsedContractConfig
-  )
-
   if ((await provider.getCode(parsedContractConfig.proxy)) === '0x') {
     throw new Error(
       `Proxy has not been deployed for the contract: ${referenceName}.`
@@ -1153,7 +1058,17 @@ export const getPreviousStorageLayoutOZFormat = async (
       parsedContractConfig.proxyType,
       userContractConfig
     ).layout
-  } else if (openzeppelinStorageLayout !== undefined) {
+  } else if (cre.hre !== undefined) {
+    const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
+      cre.hre,
+      parsedContractConfig
+    )
+    if (!openzeppelinStorageLayout) {
+      throw new Error(
+        'Should not attempt to import OpenZeppelin storage layout for non-OpenZeppelin proxy type. Please report this to the developers.'
+      )
+    }
+
     return openzeppelinStorageLayout
   } else {
     throw new Error(

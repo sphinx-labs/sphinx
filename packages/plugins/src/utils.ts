@@ -1,19 +1,7 @@
-import {
-  ChugSplashRuntimeEnvironment,
-  ParsedContractConfig,
-} from '@chugsplash/core'
+import { ChugSplashRuntimeEnvironment } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
-
-const fetchOpenZeppelinStorageLayout = async (
-  hre: HardhatRuntimeEnvironment | undefined = undefined,
-  parsedContractConfig: ParsedContractConfig
-) => {
-  return hre
-    ? importOpenZeppelinStorageLayout(hre, parsedContractConfig)
-    : undefined
-}
 
 export const createChugSplashRuntime = async (
   configPath: string,
@@ -30,7 +18,7 @@ export const createChugSplashRuntime = async (
     autoConfirm,
     stream,
     silent,
-    fetchOpenZeppelinStorageLayout,
+    importOpenZeppelinStorageLayout,
     hre,
   }
 }

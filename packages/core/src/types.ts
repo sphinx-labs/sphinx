@@ -14,8 +14,8 @@ export type ChugSplashRuntimeEnvironment = {
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined
-  fetchOpenZeppelinStorageLayout: (
-    hre: HardhatRuntimeEnvironment | undefined,
+  importOpenZeppelinStorageLayout: (
+    hre: HardhatRuntimeEnvironment,
     parsedContractConfig: ParsedContractConfig
   ) => Promise<StorageLayout | undefined>
 }

@@ -27,7 +27,6 @@ import {
   getDefaultProxyAddress,
   isExternalProxyType,
   readContractArtifact,
-  assertValidContractReferences,
   readBuildInfo,
   getChugSplashManagerProxyAddress,
   getEIP1967ProxyAdminAddress,
@@ -75,7 +74,7 @@ class InputError extends Error {
 let validationErrors = false
 
 const logValidationError = (
-  logLevel: 'warning' | 'error' = 'warning',
+  logLevel: 'warning' | 'error',
   title: string,
   lines: string[],
   silent: boolean,
@@ -595,19 +594,10 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
  */
 export const parseInplaceStruct: VariableHandler<
   UserConfigVariable,
-  {
-    [name: string]: ParsedConfigVariable
-  }
+  ParsedConfigVariables
 > = (
-  props: VariableHandlerProps<
-    UserConfigVariable,
-    {
-      [name: string]: ParsedConfigVariable
-    }
-  >
-): {
-  [name: string]: ParsedConfigVariable
-} => {
+  props: VariableHandlerProps<UserConfigVariable, ParsedConfigVariables>
+): ParsedConfigVariables => {
   const {
     variable,
     variableType,
@@ -626,9 +616,7 @@ export const parseInplaceStruct: VariableHandler<
   }
 
   // Structs are encoded recursively, as defined by their `members` field.
-  const parsedVariable: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+  const parsedVariable: ParsedConfigVariables = {}
   if (variableType.members === undefined) {
     // The Solidity compiler prevents defining structs without any members, so this should
     // never occur.
@@ -705,19 +693,10 @@ export const parseBytes: VariableHandler<UserConfigVariable, string> = (
  */
 export const parseMapping: VariableHandler<
   UserConfigVariable,
-  {
-    [name: string]: ParsedConfigVariable
-  }
+  ParsedConfigVariables
 > = (
-  props: VariableHandlerProps<
-    UserConfigVariable,
-    {
-      [name: string]: ParsedConfigVariable
-    }
-  >
-): {
-  [name: string]: ParsedConfigVariable
-} => {
+  props: VariableHandlerProps<UserConfigVariable, ParsedConfigVariables>
+): ParsedConfigVariables => {
   const {
     variable,
     storageObj,
@@ -728,9 +707,7 @@ export const parseMapping: VariableHandler<
   } = props
 
   // Iterate over every key/value in the mapping to get the storage slot pair for each one.
-  const mapping: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+  const mapping: ParsedConfigVariables = {}
   for (const [mappingKey, mappingVal] of Object.entries(variable)) {
     const mappingValStorageObj = buildMappingStorageObj(
       storageTypes,
@@ -908,16 +885,10 @@ const parseContractVariables = (
   storageLayout: SolidityStorageLayout,
   compilerOutput: CompilerOutput,
   cre: ChugSplashRuntimeEnvironment
-): {
-  variables: {
-    [name: string]: ParsedConfigVariable
-  }
-} => {
-  const parsedConfigVariables: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+): ParsedConfigVariables => {
+  const parsedConfigVariables: ParsedConfigVariables = {}
   if (!contractConfig.variables) {
-    return { variables: {} }
+    return {}
   }
 
   // Create an AST Dereferencer. We must convert the CompilerOutput type to `any` here because
@@ -1032,7 +1003,7 @@ const parseContractVariables = (
     }
   }
 
-  return { variables: parsedConfigVariables }
+  return parsedConfigVariables
 }
 
 /**
@@ -1050,7 +1021,7 @@ export const parseAndValidateConstructorArgs = (
   referenceName: string,
   abi: Array<Fragment>,
   cre: ChugSplashRuntimeEnvironment
-): { args: ParsedConfigVariables } => {
+): ParsedConfigVariables => {
   const parsedConstructorArgs: ParsedConfigVariables = {}
 
   const constructorFragment = abi.find(
@@ -1064,7 +1035,7 @@ export const parseAndValidateConstructorArgs = (
           `no constructor exists in the contract.`
       )
     } else {
-      return { args: parsedConstructorArgs }
+      return parsedConstructorArgs
     }
   }
 
@@ -1125,7 +1096,7 @@ export const parseAndValidateConstructorArgs = (
     }
   }
 
-  return { args: parsedConstructorArgs }
+  return parsedConstructorArgs
 }
 
 export const assertStorageCompatiblePreserveKeywords = (
@@ -1133,7 +1104,7 @@ export const assertStorageCompatiblePreserveKeywords = (
   prevStorageLayout: StorageLayout,
   newStorageLayout: StorageLayout,
   cre: ChugSplashRuntimeEnvironment
-): boolean => {
+) => {
   const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
   const newDetailedLayout = getDetailedLayout(newStorageLayout)
 
@@ -1172,10 +1143,86 @@ export const assertStorageCompatiblePreserveKeywords = (
       cre.silent,
       cre.stream
     )
-    return false
   }
+}
 
-  return true
+/**
+ * Throws an error if the given variable contains any invalid contract references. Specifically,
+ * it'll throw an error if any of the following conditions occur:
+ *
+ * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
+ * template string converts into a valid address when it's parsed. If there are any leading or
+ * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ *
+ * 2. The contract reference is not included in the array of valid contract references.
+ *
+ * @param variable Config variable defined by the user.
+ * @param referenceNames Valid reference names for this ChugSplash config file.
+ */
+export const assertValidContractReferences = (
+  variable: UserConfigVariable,
+  referenceNames: string[],
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  if (
+    typeof variable === 'string' &&
+    variable.includes('{{') &&
+    variable.includes('}}')
+  ) {
+    if (!variable.startsWith('{{')) {
+      logValidationError(
+        'error',
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+    if (!variable.endsWith('}}')) {
+      logValidationError(
+        'error',
+        `Contract reference cannot contain trailing spaces: ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    const contractReference = variable.substring(2, variable.length - 2).trim()
+
+    if (!referenceNames.includes(contractReference)) {
+      logValidationError(
+        'error',
+        `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertValidContractReferences(element, referenceNames, cre)
+    }
+  } else if (typeof variable === 'object') {
+    for (const [varName, varValue] of Object.entries(variable)) {
+      assertValidContractReferences(varName, referenceNames, cre)
+      assertValidContractReferences(varValue, referenceNames, cre)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    logValidationError(
+      'error',
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 }
 
 export const assertValidParsedChugSplashFile = async (
@@ -1183,11 +1230,8 @@ export const assertValidParsedChugSplashFile = async (
   parsedConfig: ParsedChugSplashConfig,
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
-  integration: Integration,
   cre: ChugSplashRuntimeEnvironment
-): Promise<{
-  upgrade: boolean
-}> => {
+): Promise<boolean> => {
   const { canonicalConfigPath, remoteExecution } = cre
 
   // Determine if the deployment is an upgrade
@@ -1362,39 +1406,6 @@ permission to call the 'upgradeTo' function on each of them.
           )
         }
       }
-
-      // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
-      // user will be able to upgrade the proxy in the future.
-      if (
-        contractConfig.proxyType === 'oz-ownable-uups' ||
-        contractConfig.proxyType === 'oz-access-control-uups'
-      ) {
-        const artifact = readContractArtifact(
-          artifactPaths[referenceName].contractArtifactPath,
-          integration
-        )
-        const containsPublicUpgradeTo = artifact.abi.some(
-          (fragment) =>
-            fragment.name === 'upgradeTo' &&
-            fragment.inputs.length === 1 &&
-            fragment.inputs[0].type === 'address'
-        )
-        if (
-          !containsPublicUpgradeTo &&
-          !userConfig.contracts[referenceName].unsafeAllow
-            ?.missingPublicUpgradeTo
-        ) {
-          logValidationError(
-            'error',
-            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation \n no longer has a public 'upgradeTo(address)' function.`,
-            [
-              'You must include this function or you will no longer be able to upgrade this contract.',
-            ],
-            cre.silent,
-            cre.stream
-          )
-        }
-      }
     } else {
       // Perform initial deployment specific validation
 
@@ -1416,7 +1427,7 @@ permission to call the 'upgradeTo' function on each of them.
     }
   }
 
-  return { upgrade: isUpgrade }
+  return isUpgrade
 }
 
 export const assertValidContracts = (
@@ -1648,22 +1659,26 @@ const parseAndValidateChugSplashConfig = async (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    try {
-      if (
-        userContractConfig.externalProxy !== undefined &&
-        (await provider.getCode(userContractConfig.externalProxy)) === '0x'
-      ) {
-        logValidationError(
-          'error',
-          `Entered a proxy address that does not exist: ${userContractConfig.externalProxy}`,
-          [],
-          cre.silent,
-          cre.stream
-        )
-      }
-    } catch {
+    // throw an error if the external proxy is not a valid address
+    if (
+      userContractConfig.externalProxy &&
+      !ethers.utils.isAddress(userContractConfig.externalProxy)
+    ) {
       throw new Error(
         `Invalid proxy address: ${userContractConfig.externalProxy}`
+      )
+    }
+
+    if (
+      userContractConfig.externalProxy !== undefined &&
+      (await provider.getCode(userContractConfig.externalProxy)) === '0x'
+    ) {
+      logValidationError(
+        'error',
+        `Entered a proxy address that does not exist: ${userContractConfig.externalProxy}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -1698,7 +1713,7 @@ const parseAndValidateChugSplashConfig = async (
     const storageLayout =
       compilerOutput.contracts[sourceName][contractName].storageLayout
 
-    const { variables: parsedVariables } = parseContractVariables(
+    const parsedVariables = parseContractVariables(
       JSON.parse(
         Handlebars.compile(JSON.stringify(userContractConfig))({
           ...contracts,
@@ -1709,7 +1724,7 @@ const parseAndValidateChugSplashConfig = async (
       cre
     )
 
-    const { args } = parseAndValidateConstructorArgs(
+    const args = parseAndValidateConstructorArgs(
       constructorArgs ?? {},
       referenceName,
       compilerOutput.contracts[sourceName][contractName].abi,
@@ -1729,12 +1744,11 @@ const parseAndValidateChugSplashConfig = async (
 
   assertValidContracts(parsedConfig, artifactPaths, cre)
 
-  const { upgrade } = await assertValidParsedChugSplashFile(
+  const upgrade = await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
     userConfig,
     artifactPaths,
-    integration,
     cre
   )
 
@@ -1756,9 +1770,5 @@ const parseAndValidateChugSplashConfig = async (
     process.exit(1)
   }
 
-  return JSON.parse(
-    Handlebars.compile(JSON.stringify(parsedConfig))({
-      ...contracts,
-    })
-  )
+  return parsedConfig
 }
