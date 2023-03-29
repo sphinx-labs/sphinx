@@ -461,7 +461,13 @@ export const encodeMapping: VariableHandler<
   } = props
 
   // Iterate over every key/value in the mapping to get the storage slot pair for each one.
-  let slots: Array<StorageSlotSegment> = []
+  let slots: Array<StorageSlotSegment> = [
+    {
+      key: slotKey,
+      offset: 0,
+      val: ethers.constants.HashZero,
+    },
+  ]
   for (const [mappingKey, mappingVal] of Object.entries(variable)) {
     const mappingValStorageObj = buildMappingStorageObj(
       storageTypes,
