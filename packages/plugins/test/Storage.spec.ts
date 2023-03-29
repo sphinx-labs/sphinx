@@ -135,6 +135,16 @@ describe('Storage', () => {
     expect(await MyStorage.bytes32Test()).equals(variables.bytes32Test)
   })
 
+  it('does set addressTest', async () => {
+    expect(await MyStorage.addressTest()).equals(variables.addressTest)
+  })
+
+  it('does set payableAddressTest', async () => {
+    expect(await MyStorage.payableAddressTest()).equals(
+      variables.payableAddressTest
+    )
+  })
+
   it('does set user defined type', async () => {
     expect(await MyStorage.userDefinedTypeTest()).deep.equals(
       BigNumber.from(variables.userDefinedTypeTest)

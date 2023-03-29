@@ -184,7 +184,7 @@ export const buildMappingStorageObj = (
   const mappingValStorageObj: SolidityStorageObj = {
     astId: storageObj.astId,
     contract: storageObj.contract,
-    label: storageObj.label, // The mapping value has no storage label, which is fine since it's unused here.
+    label: storageObj.label, // The mapping value label is unused, so we just use the label of the mapping itself.
     offset: storageObj.offset,
     slot: mappingValueStorageSlotKey,
     type: variableType.value,
@@ -286,7 +286,7 @@ export const recursiveLayoutIterator = <Output>(
         dereferencer,
       })
     } else if (
-      variableType.label === 'address' ||
+      variableType.label.startsWith('address') ||
       variableType.label.startsWith('contract')
     ) {
       return typeHandlers.inplace.address({
