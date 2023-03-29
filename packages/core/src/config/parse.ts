@@ -1362,39 +1362,6 @@ permission to call the 'upgradeTo' function on each of them.
           )
         }
       }
-
-      // Check new UUPS implementations include a public `upgradeTo` function. This ensures that the
-      // user will be able to upgrade the proxy in the future.
-      if (
-        contractConfig.proxyType === 'oz-ownable-uups' ||
-        contractConfig.proxyType === 'oz-access-control-uups'
-      ) {
-        const artifact = readContractArtifact(
-          artifactPaths[referenceName].contractArtifactPath,
-          integration
-        )
-        const containsPublicUpgradeTo = artifact.abi.some(
-          (fragment) =>
-            fragment.name === 'upgradeTo' &&
-            fragment.inputs.length === 1 &&
-            fragment.inputs[0].type === 'address'
-        )
-        if (
-          !containsPublicUpgradeTo &&
-          !userConfig.contracts[referenceName].unsafeAllow
-            ?.missingPublicUpgradeTo
-        ) {
-          logValidationError(
-            'error',
-            `Contract ${referenceName} proxy type is marked as UUPS, but the new implementation \n no longer has a public 'upgradeTo(address)' function.`,
-            [
-              'You must include this function or you will no longer be able to upgrade this contract.',
-            ],
-            cre.silent,
-            cre.stream
-          )
-        }
-      }
     } else {
       // Perform initial deployment specific validation
 
