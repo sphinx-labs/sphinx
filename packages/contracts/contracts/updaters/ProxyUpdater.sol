@@ -47,7 +47,7 @@ abstract contract ProxyUpdater is IProxyUpdater {
      * @param _segment New value for the segment of the storage slot. The length of this value is a
      *                 bytesN value, where N is in the range [1, 32] (inclusive).
      */
-    function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external {
+    function setStorageValue(bytes32 _key, uint8 _offset, bytes memory _segment) internal {
         bytes32 segmentBytes32 = bytes32(_segment);
 
         // If the length of the new segment equals the size of the storage slot, we can just replace
