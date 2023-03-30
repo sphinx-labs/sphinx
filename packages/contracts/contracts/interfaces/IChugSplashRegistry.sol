@@ -9,4 +9,6 @@ import { IChugSplashManager } from "./IChugSplashManager.sol";
  */
 interface IChugSplashRegistry {
     function projects(string memory) external returns (IChugSplashManager);
+
+    function versions(address) external returns (bool);
 }

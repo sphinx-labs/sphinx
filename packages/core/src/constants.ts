@@ -108,17 +108,18 @@ const [chugsplashManagerConstructorFragment] = ChugSplashManagerABI.filter(
 )
 const chugsplashManagerConstructorArgTypes =
   chugsplashManagerConstructorFragment.inputs.map((input) => input.type)
-export const INITIAL_CHUGSPLASH_MANAGER_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  CHUGSPLASH_SALT,
-  utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ChugSplashManagerArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
-        chugsplashManagerConstructorArgTypes,
-        Object.values(chugsplashManagerConstructorArgs)
-      ),
-    ]
+export const CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS =
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    CHUGSPLASH_SALT,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashManagerArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          chugsplashManagerConstructorArgTypes,
+          Object.values(chugsplashManagerConstructorArgs)
+        ),
+      ]
+    )
   )
-)

@@ -7,7 +7,7 @@ import {
   chugsplashFetchSubtask,
   getMinimumCompilerInput,
   getCanonicalConfigArtifacts,
-  INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   callWithTimeout,
   CanonicalChugSplashConfig,
@@ -97,7 +97,7 @@ export const verifyChugSplashConfig = async (
       etherscanApiEndpoints,
       etherscanApiKey,
       chugsplashManagerProxyAddress,
-      INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+      CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
       'ChugSplashManager'
     )
   } catch (err) {
@@ -175,7 +175,7 @@ export const verifyChugSplash = async (
   const contracts = [
     {
       artifact: ChugSplashManagerArtifact,
-      address: INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+      address: CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
     },
     {
       artifact: ChugSplashBootLoaderArtifact,
@@ -254,7 +254,7 @@ export const verifyChugSplash = async (
     etherscanApiEndpoints,
     etherscanApiKey,
     ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-    INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+    CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
     'ChugSplashManager'
   )
 }

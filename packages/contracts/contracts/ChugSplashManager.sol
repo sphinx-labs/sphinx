@@ -1066,4 +1066,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
         return codeHash;
     }
+
+    /**
+     * @notice Checks if the ChugSplashManager is currently executing a bundle.
+     *
+     * @return true if the ChugSplashManager is currently executing a bundle, false otherwise.
+     */
+    function isExecuting() external view returns (bool) {
+        return activeBundleId != bytes32(0);
+    }
 }

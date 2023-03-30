@@ -82,6 +82,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
 
     mapping(address => bool) public protocolPaymentRecipients;
 
+    /**
+     * @notice Addresses that can be used as the implementation for ChugSplashManagers.
+     */
+    mapping(address => bool) public versions;
+
     ChugSplashRecorder public recorder;
 
     /**
@@ -127,9 +132,11 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         ChugSplashRecorder _recorder,
         address _owner,
         address _rootManagerProxy,
+        address _initialManagerVersion,
         address[] memory _executors
     ) public initializer {
         recorder = _recorder;
+        versions[_initialManagerVersion] = true;
 
         __Ownable_init();
         _transferOwnership(_owner);
@@ -150,10 +157,15 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
      * @param _name  Name of the new ChugSplash project.
      * @param _owner Initial owner for the new project.
      */
-    function register(string memory _name, address _owner, bool _allowManagedProposals) public {
+    function register(string memory _name, address _owner, bool _allowManagedProposals, address _version) public {
         require(
             address(projects[_name]) == address(0),
             "ChugSplashRegistry: name already registered"
+        );
+
+        require(
+            versions[_version] == true,
+            "ChugSplashRegistry: version not allowed"
         );
 
         // Deploy the ChugSplashManager's proxy.
@@ -162,15 +174,18 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
         }(
             address(this), // This will be the Registry's proxy address since the Registry will be
             // delegatecalled by the proxy.
-            address(this)
+            address(this),
+            _version
         );
         // Initialize the proxy. Note that we initialize it in a different call from the deployment
         // because this makes it easy to calculate the Create2 address off-chain before it is
         // deployed.
-        manager.upgradeToAndCall(
-            _getManagerImpl(),
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _allowManagedProposals))
-        );
+        ChugSplashManager(payable(address(manager))).initialize(_name, _owner, _allowManagedProposals);
+
+        // manager.upgradeToAndCall(
+        //     _getManagerImpl(),
+        //     abi.encodeCall(ChugSplashManager.initialize, (_name, _owner, _allowManagedProposals))
+        // );
 
         projects[_name] = ChugSplashManager(payable(address(manager)));
         recorder.addManager(address(manager));
@@ -246,5 +261,9 @@ contract ChugSplashRegistry is Initializable, OwnableUpgradeable {
             impl := sload(CHUGSPLASH_MANAGER_IMPL_SLOT_KEY)
         }
         return impl;
+    }
+
+    function setVersion(address _manager, bool _isVersion) external onlyOwner {
+        versions[_manager] = _isVersion;
     }
 }

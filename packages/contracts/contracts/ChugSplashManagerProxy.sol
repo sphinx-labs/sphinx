@@ -2,7 +2,9 @@
 pragma solidity ^0.8.9;
 
 import { Proxy } from "./libraries/Proxy.sol";
-import { ChugSplashRegistryProxy } from "./ChugSplashRegistryProxy.sol";
+import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
+import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
+import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashManagerProxy
@@ -13,21 +15,50 @@ contract ChugSplashManagerProxy is Proxy {
     /**
      * @notice Address of the ChugSplashRegistry.
      */
-    ChugSplashRegistryProxy public immutable registryProxy;
+    ChugSplashRegistry public immutable registry;
 
     /**
-     * @param _registryProxy The ChugSplashRegistry's proxy.
-     * @param _admin         Owner of this contract.
+     * @param _registry     The ChugSplashRegistry's address.
+     * @param _admin        Owner of this contract.
      */
-    constructor(address _registryProxy, address _admin) payable Proxy(_admin) {
-        registryProxy = ChugSplashRegistryProxy(payable(_registryProxy));
+    constructor(address _registry, address _admin, address _implementation) payable Proxy(_admin) {
+        registry = ChugSplashRegistry(payable(_registry));
+        super.upgradeTo(_implementation);
+    }
+
+    modifier isNotExecuting() {
+        require(IChugSplashManager(_getImplementation()).isExecuting() == false, "ChugSplashProxy: execution in progress");
+        _;
+    }
+
+    modifier isApprovedImplementation(address _implementation) {
+        require(_getRegistry().versions(_implementation) == true, "ChugSplashProxy: unapproved manager");
+        _;
     }
 
     /**
-     * @notice The implementation contract for this proxy is stored in the ChugSplashRegistry's
-     *         proxy.
+     * @notice Queries the implementation address.
+     *
+     * @return Implementation address.
      */
-    function _getImplementation() internal view override returns (address) {
-        return registryProxy.managerImplementation();
+    function _getRegistry() internal view virtual returns (ChugSplashRegistry) {
+        return registry;
+    }
+
+    /**
+     * @inheritdoc Proxy
+     */
+    function upgradeTo(address _implementation) public override proxyCallIfNotAdmin isNotExecuting isApprovedImplementation(_implementation) {
+        super.upgradeTo(_implementation);
+    }
+
+    /**
+     * @inheritdoc Proxy
+     */
+    function upgradeToAndCall(
+        address _implementation,
+        bytes calldata _data
+    ) public override payable proxyCallIfNotAdmin isNotExecuting isApprovedImplementation(_implementation) returns (bytes memory) {
+        return super.upgradeToAndCall(_implementation, _data);
     }
 }

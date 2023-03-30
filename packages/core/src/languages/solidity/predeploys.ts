@@ -58,7 +58,7 @@ import {
 } from '../../utils'
 import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
-  INITIAL_CHUGSPLASH_MANAGER_ADDRESS,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
 } from '../../constants'
 
 export const initializeChugSplash = async (
@@ -77,7 +77,10 @@ export const initializeChugSplash = async (
 
   // Deploy the ChugSplashManager implementation if it hasn't already been deployed.
   let ChugSplashManager: ethers.Contract
-  if ((await provider.getCode(INITIAL_CHUGSPLASH_MANAGER_ADDRESS)) === '0x') {
+  if (
+    (await provider.getCode(CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS)) ===
+    '0x'
+  ) {
     ChugSplashManager = await doDeterministicDeploy(provider, {
       signer: deployer,
       contract: {
@@ -243,6 +246,7 @@ export const initializeChugSplash = async (
           ChugSplashRecorder.address,
           await deployer.getAddress(),
           ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+          CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
           executors,
         ]),
         await getGasPriceOverrides(provider)

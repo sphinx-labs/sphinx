@@ -54,17 +54,16 @@ import {
   externalContractKinds,
   ParsedChugSplashConfig,
   ParsedContractConfig,
-<<<<<<< HEAD
   ContractKind,
-=======
-  ProxyType,
->>>>>>> bff7b7b (feat(core): Add support for deploying stateless contracts)
   UserConfigVariable,
   UserConfigVariables,
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
-import { Integration } from './constants'
+import {
+  CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
+  Integration,
+} from './constants'
 import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
@@ -175,7 +174,10 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerProxyAddress = (projectName: string) => {
+export const getChugSplashManagerProxyAddress = (
+  projectName: string,
+  version: string = CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS
+) => {
   if (projectName === 'ChugSplash') {
     return ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS
   } else {
@@ -187,10 +189,11 @@ export const getChugSplashManagerProxyAddress = (projectName: string) => {
         [
           ChugSplashManagerProxyArtifact.bytecode,
           utils.defaultAbiCoder.encode(
-            ['address', 'address'],
+            ['address', 'address', 'address'],
             [
               CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
               CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+              version,
             ]
           ),
         ]
@@ -226,6 +229,7 @@ export const registerChugSplashProject = async (
         projectName,
         projectOwner,
         allowManagedProposals,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION_ADDRESS,
         await getGasPriceOverrides(provider)
       )
     ).wait()

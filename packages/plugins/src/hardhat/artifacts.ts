@@ -101,11 +101,7 @@ export const getArtifactPaths = async (
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
   parsedContractConfig: ParsedContractConfig
-<<<<<<< HEAD
 ): Promise<StorageLayout | undefined> => {
-=======
-): Promise<StorageLayout> => {
->>>>>>> ed670ea (feat(core): Add support for deploying stateless contracts)
   const { kind } = parsedContractConfig
   if (
     kind === 'oz-transparent' ||
