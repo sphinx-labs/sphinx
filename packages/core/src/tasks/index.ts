@@ -169,19 +169,16 @@ export const chugsplashProposeAbstractTask = async (
   )
 
   const networkName = await resolveNetworkName(provider, integration)
-  if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+  if (
+    bundleState.status === ChugSplashBundleStatus.APPROVED ||
+    bundleState.status === ChugSplashBundleStatus.INITIATED
+  ) {
     spinner.fail(
       `Project was already proposed and is currently being executed on ${networkName}.`
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.fail(`Project was already completed on ${networkName}.`)
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    throw new Error(
-      `Project was already cancelled on ${networkName}. Please propose a new project
-with a name other than ${parsedConfig.options.projectName}`
-    )
   } else {
-    // Bundle is either in the `EMPTY` or `PROPOSED` state.
+    // If we make it to this point, we know that the bundle is either currently proposed or can be
+    // proposed.
 
     // Get the amount that the user must send to the ChugSplashManager to execute the bundle
     // including a buffer in case the gas price increases during execution.
@@ -193,10 +190,18 @@ with a name other than ${parsedConfig.options.projectName}`
       true
     )
 
-    if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
-      spinner.succeed(
-        `${parsedConfig.options.projectName} has not been proposed before.`
+    if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+      spinner.fail(
+        await alreadyProposedMessage(
+          provider,
+          amountToDeposit,
+          configPath,
+          integration
+        )
       )
+    } else {
+      spinner.succeed(`${parsedConfig.options.projectName} can be proposed.`)
+      spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
       await proposeChugSplashBundle(
         provider,
@@ -218,16 +223,6 @@ with a name other than ${parsedConfig.options.projectName}`
         integration
       )
       spinner.succeed(message)
-    } else {
-      // Bundle was already in the `PROPOSED` state before the call to this task.
-      spinner.fail(
-        await alreadyProposedMessage(
-          provider,
-          amountToDeposit,
-          configPath,
-          integration
-        )
-      )
     }
   }
 }
