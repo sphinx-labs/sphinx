@@ -12,6 +12,7 @@ import {
   ParsedChugSplashConfig,
   proxyTypeHashes,
   readUnvalidatedChugSplashConfig,
+  UserChugSplashConfig,
   verifyBundle,
 } from '../config'
 import {
@@ -76,7 +77,7 @@ import {
 export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedChugSplashConfig,
+  config: UserChugSplashConfig,
   allowManagedProposals: boolean,
   owner: string,
   integration: Integration,
@@ -84,20 +85,20 @@ export const chugsplashRegisterAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  spinner.start(`Registering ${parsedConfig.options.projectName}...`)
+  spinner.start(`Registering ${config.options.projectName}...`)
 
   const isFirstTimeRegistered = await registerChugSplashProject(
     provider,
     signer,
     await signer.getAddress(),
-    parsedConfig.options.projectName,
+    config.options.projectName,
     owner,
     allowManagedProposals
   )
 
   const networkName = await resolveNetworkName(provider, integration)
 
-  const projectName = parsedConfig.options.projectName
+  const projectName = config.options.projectName
   await trackRegistered(
     await getProjectOwnerAddress(signer, projectName),
     projectName,

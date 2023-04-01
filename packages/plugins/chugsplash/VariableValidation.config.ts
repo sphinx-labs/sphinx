@@ -8,9 +8,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     VariableValidation: {
       contract: 'VariableValidation',
-      constructorArgs: {
-        _immutableUint: 1,
-      },
+      constructorArgs: {},
       variables: {
         arrayInt8: [0, 1, 2],
         int8OutsideRange: 255,

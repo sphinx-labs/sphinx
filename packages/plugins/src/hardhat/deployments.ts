@@ -71,7 +71,7 @@ export const deployAllChugSplashConfigs = async (
 
     // Skip this config if it's empty.
     if (isEmptyChugSplashConfig(configPath)) {
-      return
+      continue
     }
     const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 

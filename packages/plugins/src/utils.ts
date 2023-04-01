@@ -1,10 +1,7 @@
-import {
-  ChugSplashRuntimeEnvironment,
-  readUnvalidatedChugSplashConfig,
-} from '@chugsplash/core'
+import { ChugSplashRuntimeEnvironment } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { importOpenZeppelinStorageLayouts } from './hardhat/artifacts'
+import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 
 export const createChugSplashRuntime = async (
   configPath: string,
@@ -14,18 +11,14 @@ export const createChugSplashRuntime = async (
   silent: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<ChugSplashRuntimeEnvironment> => {
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const openzeppelinStorageLayouts = hre
-    ? await importOpenZeppelinStorageLayouts(hre, userConfig)
-    : undefined
-
   return {
     configPath,
     canonicalConfigPath: hre ? hre.config.paths.canonicalConfigs : undefined,
     remoteExecution,
     autoConfirm,
-    openzeppelinStorageLayouts,
     stream,
     silent,
+    importOpenZeppelinStorageLayout,
+    hre,
   }
 }

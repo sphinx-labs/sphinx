@@ -1,6 +1,9 @@
 import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
+import { StorageLayout } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
+import { ParsedContractConfig } from './config'
 import { Integration } from './constants'
 
 export type ChugSplashRuntimeEnvironment = {
@@ -8,13 +11,13 @@ export type ChugSplashRuntimeEnvironment = {
   canonicalConfigPath: string | undefined
   remoteExecution: boolean
   autoConfirm: boolean
-  openzeppelinStorageLayouts:
-    | {
-        [referenceName: string]: any
-      }
-    | undefined
   stream: NodeJS.WritableStream
   silent: boolean
+  hre: HardhatRuntimeEnvironment | undefined
+  importOpenZeppelinStorageLayout: (
+    hre: HardhatRuntimeEnvironment,
+    parsedContractConfig: ParsedContractConfig
+  ) => Promise<StorageLayout | undefined>
 }
 
 export type FoundryContractArtifact = {
