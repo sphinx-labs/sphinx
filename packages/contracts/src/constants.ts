@@ -1,10 +1,5 @@
 import { ethers } from 'ethers'
 
-defs = []
-for (const functionDef of s.findAll('FunctionCall', sourceUnit)) {
-  defs.push(functionDef)
-}
-
 import {
   DefaultAdapterArtifact,
   ChugSplashBootLoaderArtifact,
