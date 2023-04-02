@@ -2,12 +2,12 @@ import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, utils } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 
-import { ParsedConfigVariable } from '../../config'
+import { UserConfigVariable } from '../../config'
 import { keywords } from '../../constants'
 import { SolidityStorageObj, SolidityStorageType } from './types'
 
-export type VariableHandlerProps<T> = {
-  variable: any
+export type VariableHandlerProps<Input, Output> = {
+  variable: Extract<Input, UserConfigVariable>
   storageObj: SolidityStorageObj
   storageTypes: {
     [name: string]: SolidityStorageType
@@ -15,35 +15,38 @@ export type VariableHandlerProps<T> = {
   nestedSlotOffset: string
   slotKey: string
   variableType: SolidityStorageType
-  typeHandlers: VariableHandlers<T>
+  typeHandlers: VariableHandlers<Output>
   dereferencer: ASTDereferencer
 }
 
-export type VariableHandler<T> = (props: VariableHandlerProps<T>) => T
+export type VariableHandler<Input, Output> = (
+  props: VariableHandlerProps<Input, Output>
+) => Output
 
-export type VariableHandlers<T> = {
+export type VariableHandlers<Output> = {
   inplace: {
-    array: VariableHandler<T>
-    address: VariableHandler<T>
-    bool: VariableHandler<T>
-    bytes: VariableHandler<T>
-    uint: VariableHandler<T>
-    int: VariableHandler<T>
-    struct: VariableHandler<T>
+    array: VariableHandler<UserConfigVariable, Output>
+    address: VariableHandler<UserConfigVariable, Output>
+    bool: VariableHandler<UserConfigVariable, Output>
+    bytes: VariableHandler<UserConfigVariable, Output>
+    uint: VariableHandler<UserConfigVariable, Output>
+    int: VariableHandler<UserConfigVariable, Output>
+    struct: VariableHandler<UserConfigVariable, Output>
   }
-  bytes: VariableHandler<T>
-  mapping: VariableHandler<T>
-  dynamic_array: VariableHandler<T>
-  preserve: VariableHandler<T>
+  bytes: VariableHandler<UserConfigVariable, Output>
+  mapping: VariableHandler<UserConfigVariable, Output>
+  dynamic_array: VariableHandler<UserConfigVariable, Output>
+  preserve: VariableHandler<UserConfigVariable, Output>
 }
 
-export const isPreserveKeyword = (
-  variableValue: ParsedConfigVariable
+export const isKeyword = (
+  variableValue: UserConfigVariable,
+  keyword: string
 ): boolean => {
   if (
     typeof variableValue === 'string' &&
     // Remove whitespaces from the variable, then lowercase it
-    variableValue.replace(/\s+/g, '').toLowerCase() === keywords.preserve
+    variableValue.replace(/\s+/g, '').toLowerCase() === keyword
   ) {
     return true
   } else {
@@ -51,21 +54,22 @@ export const isPreserveKeyword = (
   }
 }
 
-export const variableContainsPreserveKeyword = (
-  variable: ParsedConfigVariable
+export const variableContainsKeyword = (
+  variable: UserConfigVariable,
+  keyword: string
 ): boolean => {
-  if (isPreserveKeyword(variable)) {
+  if (isKeyword(variable, keyword)) {
     return true
   } else if (Array.isArray(variable)) {
     for (const element of variable) {
-      if (variableContainsPreserveKeyword(element)) {
+      if (variableContainsKeyword(element, keyword)) {
         return true
       }
     }
     return false
   } else if (typeof variable === 'object') {
     for (const varValue of Object.values(variable)) {
-      if (variableContainsPreserveKeyword(varValue)) {
+      if (variableContainsKeyword(varValue, keyword)) {
         return true
       }
     }
@@ -180,7 +184,7 @@ export const buildMappingStorageObj = (
   const mappingValStorageObj: SolidityStorageObj = {
     astId: storageObj.astId,
     contract: storageObj.contract,
-    label: '', // The mapping value has no storage label, which is fine since it's unused here.
+    label: storageObj.label, // The mapping value label is unused, so we just use the label of the mapping itself.
     offset: storageObj.offset,
     slot: mappingValueStorageSlotKey,
     type: variableType.value,
@@ -229,16 +233,16 @@ export const getStorageType = (
   }
 }
 
-export const recursiveLayoutIterator = <T>(
+export const recursiveLayoutIterator = <Output>(
   variable: any,
   storageObj: SolidityStorageObj,
   storageTypes: {
     [name: string]: SolidityStorageType
   },
   nestedSlotOffset: string,
-  typeHandlers: VariableHandlers<T>,
+  typeHandlers: VariableHandlers<Output>,
   dereferencer: ASTDereferencer
-): T => {
+): Output => {
   // The current slot key is the slot key of the current storage object plus the `nestedSlotOffset`.
   const slotKey = addStorageSlotKeys(storageObj.slot, nestedSlotOffset)
 
@@ -249,7 +253,7 @@ export const recursiveLayoutIterator = <T>(
   )
 
   // Handle the preserve keyword
-  if (isPreserveKeyword(variable)) {
+  if (isKeyword(variable, keywords.preserve)) {
     return typeHandlers.preserve({
       variable,
       storageObj,
@@ -282,7 +286,7 @@ export const recursiveLayoutIterator = <T>(
         dereferencer,
       })
     } else if (
-      variableType.label === 'address' ||
+      variableType.label.startsWith('address') ||
       variableType.label.startsWith('contract')
     ) {
       return typeHandlers.inplace.address({

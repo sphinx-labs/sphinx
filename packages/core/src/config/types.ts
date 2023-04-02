@@ -4,7 +4,7 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { constants } from 'ethers'
+import { BigNumber, constants } from 'ethers'
 import { Fragment } from 'ethers/lib/utils'
 import { CompilerInput } from 'hardhat/types'
 
@@ -39,6 +39,7 @@ export type UserConfigVariable =
   | boolean
   | string
   | number
+  | BigNumber
   | Array<UserConfigVariable>
   | {
       [name: string]: UserConfigVariable
@@ -62,7 +63,6 @@ export type ParsedConfigVariable =
 export interface UserChugSplashConfig {
   options: {
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: UserContractConfigs
 }
@@ -73,7 +73,6 @@ export interface UserChugSplashConfig {
 export interface ParsedChugSplashConfig {
   options: {
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: ParsedContractConfigs
 }
@@ -89,6 +88,13 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  unsafeAllowRenames?: boolean
+  unsafeSkipStorageCheck?: boolean
+  unsafeAllow?: {
+    delegatecall?: boolean
+    selfdestruct?: boolean
+    missingPublicUpgradeTo?: boolean
+  }
 }
 
 export type UserContractConfigs = {

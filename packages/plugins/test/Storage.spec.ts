@@ -2,7 +2,7 @@ import { chugsplash } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { variables } from './constants'
+import { constructorArgs, variables } from './constants'
 
 describe('Storage', () => {
   let MyStorage: Contract
@@ -12,6 +12,60 @@ describe('Storage', () => {
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',
       'MySimpleStorage'
+    )
+  })
+
+  it('does set immutable int', async () => {
+    expect(await MyStorage.immutableInt()).to.deep.equals(
+      BigNumber.from(constructorArgs._immutableInt)
+    )
+  })
+
+  it('does set immutable int8', async () => {
+    expect(await MyStorage.immutableInt8()).equals(
+      constructorArgs._immutableInt8
+    )
+  })
+
+  it('does set immutable uint', async () => {
+    expect(await MyStorage.immutableUint()).to.deep.equals(
+      BigNumber.from(constructorArgs._immutableUint)
+    )
+  })
+
+  it('does set immutable uint8', async () => {
+    expect(await MyStorage.immutableUint8()).equals(
+      constructorArgs._immutableUint8
+    )
+  })
+
+  it('does set immutable bool', async () => {
+    expect(await MyStorage.immutableBool()).equals(
+      constructorArgs._immutableBool
+    )
+  })
+
+  it('does set immutable bytes', async () => {
+    expect(await MyStorage.immutableBytes32()).equals(
+      constructorArgs._immutableBytes32
+    )
+  })
+
+  it('does set immutable user defined type', async () => {
+    expect(await MyStorage.immutableUserDefinedType()).to.deep.equals(
+      BigNumber.from(constructorArgs._immutableUserDefinedType)
+    )
+  })
+
+  it('does set immutable BigNumber int', async () => {
+    expect(await MyStorage.immutableBigNumberInt()).to.deep.equals(
+      constructorArgs._immutableBigNumberInt
+    )
+  })
+
+  it('does set immutable BigNumber uint', async () => {
+    expect(await MyStorage.immutableBigNumberUint()).to.deep.equals(
+      constructorArgs._immutableBigNumberUint
     )
   })
 
@@ -27,6 +81,30 @@ describe('Storage', () => {
 
   it('does set min int8', async () => {
     expect(await MyStorage.minInt8()).equals(variables.minInt8)
+  })
+
+  it('does set BigNumber int256', async () => {
+    expect(await MyStorage.bigNumberInt256()).deep.equals(
+      variables.bigNumberInt256
+    )
+  })
+
+  it('does set BigNumber int8', async () => {
+    expect(await MyStorage.bigNumberInt8()).deep.equals(
+      variables.bigNumberInt8.toNumber()
+    )
+  })
+
+  it('does set BigNumber uint256', async () => {
+    expect(await MyStorage.bigNumberUint256()).deep.equals(
+      variables.bigNumberUint256
+    )
+  })
+
+  it('does set BigNumber uint8', async () => {
+    expect(await MyStorage.bigNumberUint8()).deep.equals(
+      variables.bigNumberUint8.toNumber()
+    )
   })
 
   it('does set uint8', async () => {
@@ -55,6 +133,16 @@ describe('Storage', () => {
 
   it('does set bytes32', async () => {
     expect(await MyStorage.bytes32Test()).equals(variables.bytes32Test)
+  })
+
+  it('does set addressTest', async () => {
+    expect(await MyStorage.addressTest()).equals(variables.addressTest)
+  })
+
+  it('does set payableAddressTest', async () => {
+    expect(await MyStorage.payableAddressTest()).equals(
+      variables.payableAddressTest
+    )
   })
 
   it('does set user defined type', async () => {
@@ -90,6 +178,12 @@ describe('Storage', () => {
   it('does set user defined bool', async () => {
     expect(await MyStorage.userDefinedBool()).deep.equals(
       variables.userDefinedBool
+    )
+  })
+
+  it('does set user defined BigNumber int', async () => {
+    expect(await MyStorage.userDefinedBigNumberInt()).deep.equals(
+      variables.userDefinedBigNumberInt
     )
   })
 
@@ -145,6 +239,12 @@ describe('Storage', () => {
     expect(await MyStorage.enumTest()).equals(variables.enumTest)
   })
 
+  it('does set BigNumber enum', async () => {
+    expect(await MyStorage.bigNumberEnumTest()).deep.equals(
+      variables.bigNumberEnumTest.toNumber()
+    )
+  })
+
   it('does set struct', async () => {
     const { a, b, c } = await MyStorage.simpleStruct()
     expect(a).equals(variables.simpleStruct.a)
@@ -165,6 +265,9 @@ describe('Storage', () => {
     )
     expect(await MyStorage.stringToAddressMapping(key)).equals(
       variables.stringToAddressMapping[key]
+    )
+    expect(await MyStorage.stringToBigNumberUintMapping(key)).to.deep.equal(
+      variables.stringToBigNumberUintMapping[key]
     )
 
     const { a, b, c } = await MyStorage.stringToStructMapping(key)
@@ -195,6 +298,14 @@ describe('Storage', () => {
     for (let i = 0; i < variables.uint64FixedArray.length; i++) {
       expect(await MyStorage.uint64FixedArray(i)).deep.equals(
         BigNumber.from(variables.uint64FixedArray[i])
+      )
+    }
+  })
+
+  it('does set uint64 mixed types array', async () => {
+    for (let i = 0; i < variables.mixedTypesUint64FixedArray.length; i++) {
+      expect(await MyStorage.mixedTypesUint64FixedArray(i)).deep.equals(
+        BigNumber.from(variables.mixedTypesUint64FixedArray[i])
       )
     }
   })

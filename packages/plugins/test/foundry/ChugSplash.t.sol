@@ -5,9 +5,8 @@ import "forge-std/Test.sol";
 import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
-import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
-import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
-import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
+import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 
 /* ChugSplash Foundry Library Tests
  *
@@ -22,12 +21,12 @@ import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
 contract ChugSplashTest is Test {
     type UserDefinedType is uint256;
 
-    Proxy claimedProxy;
-    Proxy transferredProxy;
+    address claimedProxy;
+    address transferredProxy;
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
-    ChugSplashRegistry registry;
+    IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
@@ -96,21 +95,21 @@ contract ChugSplashTest is Test {
         chugsplash.refresh();
 
         chugsplash.transferProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = Proxy(payable(chugsplash.getAddress(claimConfig, "MySimpleStorage")));
-        transferredProxy = Proxy(payable(chugsplash.getAddress(transferConfig, "MySimpleStorage")));
+        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
+        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
         mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
 
-        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
     function testDidClaimProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(claimedProxy)), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
     function testDidTransferProxy() public {
-        ChugSplashManager manager = registry.projects(transferProjectName);
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(transferredProxy)), address(manager));
+        IChugSplashManager manager = registry.projects(transferProjectName);
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
     function testDidRegister() public {
@@ -119,24 +118,60 @@ contract ChugSplashTest is Test {
     }
 
     function testDidProposeFundApprove() public {
-        ChugSplashManager manager = registry.projects(registerProjectName);
+        IChugSplashManager manager = registry.projects(registerProjectName);
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        ChugSplashManager manager = registry.projects(withdrawProjectName);
+        IChugSplashManager manager = registry.projects(withdrawProjectName);
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
     function testDidCancel() public {
-        ChugSplashManager manager = registry.projects(cancelProjectName);
+        IChugSplashManager manager = registry.projects(cancelProjectName);
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        ChugSplashManager manager = registry.projects(addProposerProjectName);
+        IChugSplashManager manager = registry.projects(addProposerProjectName);
         assertTrue(manager.proposers(newProposer));
+    }
+
+    function testSetImmutableInt() public {
+        assertEq(myStorage.immutableInt(), type(int256).min);
+    }
+
+    function testSetImmutableInt8() public {
+        assertEq(myStorage.immutableInt8(), type(int8).min);
+    }
+
+    function testSetImmutableUint256() public {
+        assertEq(myStorage.immutableUint(), type(uint256).max);
+    }
+
+    function testSetImmutableUint8() public {
+        assertEq(myStorage.immutableUint8(), type(uint8).max);
+    }
+
+    function testSetImmutableBool() public {
+        assertEq(myStorage.immutableBool(), true);
+    }
+
+    function testSetImmutableBytes32() public {
+        assertEq(myStorage.immutableBytes32(), 0x1111111111111111111111111111111111111111111111111111111111111111);
+    }
+
+    function testSetImmutableUserDefinedType() public {
+        assertEq(Storage.UserDefinedType.unwrap(myStorage.immutableUserDefinedType()), type(uint256).max);
+    }
+
+    function testSetImmutableBigNumberUint() public {
+        assertEq(myStorage.immutableBigNumberUint(), type(uint256).max);
+    }
+
+    function testSetImmutableBigNumberInt() public {
+        assertEq(myStorage.immutableBigNumberInt(), type(int256).min);
     }
 
     function testSetContractReference() public {
@@ -149,6 +184,22 @@ contract ChugSplashTest is Test {
 
     function testSetMinInt8() public {
         assertEq(myStorage.minInt8(), type(int8).min);
+    }
+
+    function testSetBigNumberInt256() public {
+        assertEq(myStorage.bigNumberInt256(), type(int256).max);
+    }
+
+    function testSetBigNumberInt8() public {
+        assertEq(myStorage.bigNumberInt8(), type(int8).min);
+    }
+
+    function testSetBigNumberUint256() public {
+        assertEq(myStorage.bigNumberUint256(), type(uint256).max);
+    }
+
+    function testSetBigNumberUint8() public {
+        assertEq(myStorage.bigNumberUint8(), type(uint8).max);
     }
 
     function testSetMinUint8() public {
@@ -195,9 +246,13 @@ contract ChugSplashTest is Test {
         assertEq(Storage.UserDefinedBool.unwrap(myStorage.userDefinedBool()), true);
     }
 
+    function testSetUserDefinedBigNumberInt() public {
+        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedBigNumberInt()), 0);
+    }
+
     function testSetStringToUserDefinedTypeMapping() public {
         (Storage.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
-        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+        assertEq(Storage.UserDefinedType.unwrap(a), 1000000000000000000);
     }
 
     function testSetUserDefinedTypeToStringMapping() public {
@@ -250,6 +305,10 @@ contract ChugSplashTest is Test {
         assertEq(uint(myStorage.enumTest()), 1);
     }
 
+    function testSetBigNumberEnum() public {
+        assertEq(uint(myStorage.bigNumberEnumTest()), 1);
+    }
+
     function testSetStruct() public {
         (bytes32 a, uint128 b, uint128 c) = myStorage.simpleStruct();
         assertEq(a, hex"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
@@ -289,6 +348,13 @@ contract ChugSplashTest is Test {
         uint16[5] memory expectedValues = [1, 10, 100, 1_000, 10_000];
         for (uint i = 0; i < 5; i++) {
             assertEq(myStorage.uint64FixedArray(i), expectedValues[i]);
+        }
+    }
+
+    function testSetUint64MixedTypesArray() public {
+        uint16[5] memory expectedValues = [1, 10, 100, 1_000, 10_000];
+        for (uint i = 0; i < 5; i++) {
+            assertEq(myStorage.mixedTypesUint64FixedArray(i), expectedValues[i]);
         }
     }
 
@@ -355,6 +421,10 @@ contract ChugSplashTest is Test {
 
     function testSetUint128MappingToString() public {
         assertEq(myStorage.uint128ToStringMapping(1234), 'testVal');
+    }
+
+    function testSetStringToBigNumberUintMapping() public {
+        assertEq(myStorage.stringToBigNumberUintMapping('testKey'), 1234);
     }
 
     function testSetInt256MappingToString() public {
