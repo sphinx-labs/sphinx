@@ -20,21 +20,19 @@ const main = async () => {
   const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
   const dereferencer = astDereferencer(buildInfo.output)
 
-  // Get the ContractDefinition node for this `contractName`. There should only be one
+  // Get the ContractDefinition node for this `contractName`. There should always be exactly one
   // ContractDefinition since we filter by the `contractName`, which is unique within a SourceUnit.
-  const childContractDefs = sourceUnit.nodes
+  const childContractDef = sourceUnit.nodes
     .filter(isNodeType('ContractDefinition'))
-    .filter((contractDef: ContractDefinition) => {
+    .find((contractDef: ContractDefinition) => {
       return contractDef.name === contractName
     })
 
-  if (childContractDefs.length !== 1) {
+  if (childContractDef === undefined) {
     throw new Error(
-      `Found ${childContractDefs.length} ContractDefinition nodes instead of 1 for ${contractName}. Should never happen.`
+      `Could not find the ContractDefinition AST node for ${contractName}. Should never happen.`
     )
   }
-
-  const childContractDef = childContractDefs[0]
 
   // Get the base (i.e. parent) ContractDefinition nodes for the child contract.
   const baseContractDefs = childContractDef.linearizedBaseContracts.map(
