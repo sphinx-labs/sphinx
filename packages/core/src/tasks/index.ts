@@ -87,7 +87,7 @@ export const chugsplashRegisterAbstractTask = async (
 
   spinner.start(`Registering ${config.options.projectName}...`)
 
-  const organizationID = config.options.organizationID
+  const { projectName, organizationID } = config.options
   const isFirstTimeRegistered = await registerChugSplashProject(
     provider,
     signer,
@@ -102,6 +102,7 @@ export const chugsplashRegisterAbstractTask = async (
   await trackRegistered(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -387,7 +388,7 @@ export const chugsplashApproveAbstractTask = async (
     `Approving ${parsedConfig.options.organizationID} on ${networkName}...`
   )
 
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   const signerAddress = await signer.getAddress()
 
   if (!(await isProjectRegistered(signer, organizationID))) {
@@ -468,6 +469,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
     await trackApproved(
       await getProjectOwnerAddress(signer, organizationID),
       organizationID,
+      projectName,
       networkName,
       integration
     )
@@ -587,6 +589,7 @@ Please send more ETH to ${await signer.getAddress()} on ${networkName} then try 
 
   await trackFund(
     await getProjectOwnerAddress(signer, organizationID),
+    organizationID,
     projectName,
     networkName,
     integration
@@ -830,6 +833,7 @@ export const chugsplashDeployAbstractTask = async (
   await trackDeployed(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -958,8 +962,7 @@ export const chugsplashCancelAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   const unvalidatedConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const { projectName, organizationID } =
-    unvalidatedConfig.options.organizationID
+  const { projectName, organizationID } = unvalidatedConfig.options
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
@@ -1007,6 +1010,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
   await trackCancel(
     await getProjectOwnerAddress(signer, organizationID),
+    organizationID,
     projectName,
     networkName,
     integration
@@ -1067,6 +1071,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
 
   await trackWithdraw(
     await getProjectOwnerAddress(signer, organizationID),
+    organizationID,
     projectName,
     networkName,
     integration
@@ -1217,10 +1222,11 @@ export const chugsplashListProposersAbstractTask = async (
   }
 
   const networkName = await resolveNetworkName(provider, integration)
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   await trackListProposers(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -1271,10 +1277,11 @@ export const chugsplashAddProposersAbstractTask = async (
   spinner.succeed('Project ownership confirmed.')
 
   const networkName = await resolveNetworkName(provider, integration)
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   await trackAddProposers(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -1365,10 +1372,11 @@ export const chugsplashClaimProxyAbstractTask = async (
   ).wait()
 
   const networkName = await resolveNetworkName(provider, integration)
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   await trackClaimProxy(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -1446,10 +1454,11 @@ If you believe this is a mistake, please reach out to the developers or open an 
     )
   ).wait()
 
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   await trackTransferProxy(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )
@@ -1470,7 +1479,7 @@ export const proposeChugSplashBundle = async (
   canonicalConfigPath: string,
   integration: Integration
 ) => {
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   const ChugSplashManager = getChugSplashManager(signer, organizationID)
   const signerAddress = await signer.getAddress()
 
@@ -1526,6 +1535,7 @@ export const proposeChugSplashBundle = async (
   await trackProposed(
     await getProjectOwnerAddress(signer, organizationID),
     organizationID,
+    projectName,
     networkName,
     integration
   )

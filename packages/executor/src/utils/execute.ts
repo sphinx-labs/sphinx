@@ -168,7 +168,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         canonicalConfig,
       })
     }
-    const organizationID = canonicalConfig.options.organizationID
+    const { projectName, organizationID } = canonicalConfig.options
 
     const expectedBundleId = computeBundleId(
       bundles.actionBundle.root,
@@ -366,9 +366,10 @@ export const handleExecution = async (data: ExecutorMessage) => {
         }
       }
 
-      trackExecuted(
+      await trackExecuted(
         await getProjectOwnerAddress(wallet, organizationID),
         organizationID,
+        projectName,
         network,
         integration
       )
