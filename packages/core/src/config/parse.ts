@@ -8,6 +8,7 @@ import {
   ASTDereferencer,
   srcDecoder,
   isNodeType,
+  findAll,
 } from 'solidity-ast/utils'
 import { CompilerOutput } from 'hardhat/types'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -1484,70 +1485,28 @@ export const assertValidContracts = (
           return functionDef.kind === 'constructor'
         })
 
-      if (
-        constructorNode &&
-        constructorNode.body &&
-        constructorNode.body.statements
-      ) {
+      if (constructorNode?.body?.statements) {
         for (const statementNode of constructorNode.body.statements) {
-          if (!isNodeType('ExpressionStatement', statementNode)) {
+          if (
+            !isNodeType('ExpressionStatement', statementNode) ||
+            !isNodeType('Assignment', statementNode.expression) ||
+            !isNodeType('Identifier', statementNode.expression.leftHandSide) ||
+            typeof statementNode.expression.leftHandSide
+              .referencedDeclaration !== 'number' ||
+            dereferencer(
+              'VariableDeclaration',
+              statementNode.expression.leftHandSide.referencedDeclaration
+            ).mutability !== 'immutable' ||
+            isNodeType('FunctionCall', statementNode.expression.rightHandSide)
+          ) {
             logValidationError(
               'error',
-              `Detected an unallowed expression '${
-                statementNode.nodeType
-              }', in the constructor at: ${decodeSrc(constructorNode)}.`,
+              `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                constructorNode
+              )}.`,
               [
                 'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
                 'can deterministically deploy your contracts.',
-              ],
-              cre.silent,
-              cre.stream
-            )
-          }
-
-          if (!isNodeType('Assignment', statementNode.expression)) {
-            const unallowedOperation: string =
-              statementNode.expression.expression.name ??
-              statementNode.expression.kind
-            logValidationError(
-              'error',
-              `Detected an unallowed operation, '${unallowedOperation}', in the constructor at: ${decodeSrc(
-                constructorNode
-              )}.`,
-              [
-                'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash is deterministic',
-              ],
-              cre.silent,
-              cre.stream
-            )
-          }
-
-          const varDeclNode = dereferencer(
-            'VariableDeclaration',
-            statementNode.expression.leftHandSide.referencedDeclaration
-          )
-          if (varDeclNode.mutability !== 'immutable') {
-            logValidationError(
-              'error',
-              `Detected an assignment to a non-immutable variable, '${
-                statementNode.expression.leftHandSide.name
-              }', in the constructor at: ${decodeSrc(constructorNode)}.`,
-              [],
-              cre.silent,
-              cre.stream
-            )
-          }
-
-          if (statementNode.expression.rightHandSide.kind === 'functionCall') {
-            logValidationError(
-              'error',
-              `User attempted to assign the immutable variable '${
-                statementNode.expression.leftHandSide.name
-              }' to the return \n value of a function call at: ${decodeSrc(
-                constructorNode
-              )}.`,
-              [
-                'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
               ],
               cre.silent,
               cre.stream
@@ -1558,10 +1517,12 @@ export const assertValidContracts = (
 
       for (const node of contractDef.nodes) {
         if (isNodeType('VariableDeclaration', node)) {
-          if (node.mutability === 'mutable' && node.value !== undefined) {
+          if (node.mutability === 'mutable' && node.value) {
             logValidationError(
               'error',
-              `Attempted to assign a value to a non-immutable state variable '${node.name}' in the contract: ${contractDef.name}`,
+              `Attempted to assign a value to a non-immutable state variable '${
+                node.name
+              }' at: ${decodeSrc(node)}`,
               [
                 'This is not allowed because the value will not exist in the upgradeable contract.',
                 'Please remove the value in the contract and define it in your ChugSplash file instead',
@@ -1574,8 +1535,8 @@ export const assertValidContracts = (
 
           if (
             node.mutability === 'immutable' &&
-            node.value !== undefined &&
-            node.value.kind === 'functionCall'
+            node.value &&
+            isNodeType('FunctionCall', node.value)
           ) {
             logValidationError(
               'error',
@@ -1587,6 +1548,32 @@ export const assertValidContracts = (
               cre.stream
             )
           }
+        }
+      }
+
+      for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
+        const typeIdentifier =
+          memberAccessNode.expression.typeDescriptions.typeIdentifier
+        const isDynamicBytesOrArray =
+          typeof typeIdentifier === 'string' &&
+          (typeIdentifier === 't_bytes_storage' ||
+            typeIdentifier.endsWith('dyn_storage'))
+
+        // Throw an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
+        // We only throw an error when `push` is called with no parameters. In other words, we don't
+        // throw an error for `push(x)`.
+        if (
+          isDynamicBytesOrArray &&
+          memberAccessNode.memberName === 'push' &&
+          memberAccessNode.argumentTypes &&
+          memberAccessNode.argumentTypes.length === 0
+        ) {
+          // TODO: logValidationError
+          throw new Error(
+            `Detected the member function 'push()' at ${decodeSrc(
+              memberAccessNode
+            )}. Please use 'push(x)' instead.`
+          )
         }
       }
     }
