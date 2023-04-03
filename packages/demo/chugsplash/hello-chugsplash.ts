@@ -11,7 +11,6 @@ const config: UserChugSplashConfig = {
       contract: 'HelloChugSplash',
       unsafeAllowEmptyPush: true,
       variables: {
-        myArray: [],
         number: 1,
         stored: true,
         storageName: 'First',

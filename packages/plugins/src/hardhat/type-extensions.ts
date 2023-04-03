@@ -55,10 +55,10 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
         await resetChugSplashDeployments(hre)
       },
       getContract: async (
-        organizationID: string,
+        projectName: string,
         referenceName: string
       ): Promise<ethers.Contract> => {
-        const contract = await getContract(hre, organizationID, referenceName)
+        const contract = await getContract(hre, projectName, referenceName)
         return contract
       },
       executor,

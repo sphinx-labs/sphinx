@@ -1242,7 +1242,7 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
-    parsedConfig.options.projectName
+    parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
     name: string

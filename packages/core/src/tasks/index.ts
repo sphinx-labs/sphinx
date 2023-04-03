@@ -163,9 +163,7 @@ export const chugsplashProposeAbstractTask = async (
       integration
     )
 
-  spinner.start(
-    `Checking the status of ${parsedConfig.options.organizationID}...`
-  )
+  spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -248,7 +246,7 @@ export const chugsplashCommitAbstractSubtask = async (
   if (spinner) {
     commitToIpfs
       ? spinner.start(
-          `Committing ${parsedConfig.options.organizationID} on ${networkName}.`
+          `Committing ${parsedConfig.options.projectName} on ${networkName}.`
         )
       : spinner.start('Building the project...')
   }
@@ -357,10 +355,10 @@ IPFS_API_KEY_SECRET: ...
   if (spinner) {
     commitToIpfs
       ? spinner.succeed(
-          `${parsedConfig.options.organizationID} has been committed to IPFS.`
+          `${parsedConfig.options.projectName} has been committed to IPFS.`
         )
       : spinner.succeed(
-          `Built ${parsedConfig.options.organizationID} on ${networkName}.`
+          `Built ${parsedConfig.options.projectName} on ${networkName}.`
         )
   }
 
@@ -385,7 +383,7 @@ export const chugsplashApproveAbstractTask = async (
 
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start(
-    `Approving ${parsedConfig.options.organizationID} on ${networkName}...`
+    `Approving ${parsedConfig.options.projectName} on ${networkName}...`
   )
 
   const { projectName, organizationID } = parsedConfig.options
@@ -475,7 +473,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
     )
 
     spinner.succeed(
-      `${parsedConfig.options.organizationID} approved on ${networkName}.`
+      `${parsedConfig.options.projectName} approved on ${networkName}.`
     )
 
     if (!skipMonitorStatus) {
@@ -503,9 +501,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
       )
       displayDeploymentTable(parsedConfig, cre.silent)
 
-      spinner.succeed(
-        `${organizationID} successfully deployed on ${networkName}.`
-      )
+      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
     }
   }
 }
@@ -537,7 +533,8 @@ export const chugsplashFundAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
   const { projectName, organizationID } = parsedConfig.options
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const chugsplashManagerAddress =
+    getChugSplashManagerProxyAddress(organizationID)
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
@@ -633,14 +630,6 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const userConfig = await readUserChugSplashConfig(configPath)
-  const parsedConfig = await readParsedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    integration
-  )
-
   const { organizationID, projectName } = parsedConfig.options
 
   const projectPreviouslyRegistered = await isProjectRegistered(
@@ -649,7 +638,7 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   if (projectPreviouslyRegistered === false) {
-    spinner.start(`Registering ${organizationID}...`)
+    spinner.start(`Registering ${projectName}...`)
     // Register the project with the signer as the owner. Once we've completed the deployment, we'll
     // transfer ownership to the project owner specified in the config.
     await registerChugSplashProject(
@@ -660,7 +649,7 @@ export const chugsplashDeployAbstractTask = async (
       signerAddress,
       allowManagedProposals
     )
-    spinner.succeed(`Successfully registered ${organizationID}.`)
+    spinner.succeed(`Successfully registered ${projectName}.`)
   }
 
   const ChugSplashManager = getChugSplashManager(signer, organizationID)
@@ -677,7 +666,7 @@ export const chugsplashDeployAbstractTask = async (
       integration
     )
 
-  spinner.start(`Checking the status of ${organizationID}...`)
+  spinner.start(`Checking the status of ${projectName}...`)
 
   const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
     bundleId
@@ -695,9 +684,7 @@ export const chugsplashDeployAbstractTask = async (
       networkName,
       deploymentFolder
     )
-    spinner.succeed(
-      `${organizationID} was already completed on ${networkName}.`
-    )
+    spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
       displayDeploymentTable(parsedConfig, cre.silent)
       return
@@ -705,15 +692,15 @@ export const chugsplashDeployAbstractTask = async (
       return generateFoundryTestArtifacts(parsedConfig)
     }
   } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(`${organizationID} was already cancelled on ${networkName}.`)
+    spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
     throw new Error(
-      `${organizationID} was previously cancelled on ${networkName}.`
+      `${projectName} was previously cancelled on ${networkName}.`
     )
   }
 
   if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
-    spinner.succeed(`${organizationID} has not been proposed before.`)
-    spinner.start(`Proposing ${organizationID}...`)
+    spinner.succeed(`${projectName} has not been proposed before.`)
+    spinner.start(`Proposing ${projectName}...`)
     await proposeChugSplashBundle(
       provider,
       signer,
@@ -791,7 +778,7 @@ export const chugsplashDeployAbstractTask = async (
       spinner
     )
   } else if (executor !== undefined) {
-    spinner.start(`Executing ${organizationID}...`)
+    spinner.start(`Executing ${projectName}...`)
     // Use the in-process executor if executing the bundle locally.
     const amountToDeposit = await getAmountToDeposit(
       provider,
@@ -805,7 +792,7 @@ export const chugsplashDeployAbstractTask = async (
       value: amountToDeposit,
     })
     await executor.main(canonicalConfigPath, integration, false)
-    spinner.succeed(`Executed ${organizationID}.`)
+    spinner.succeed(`Executed ${projectName}.`)
   } else {
     throw new Error(`Local execution specified but no executor was given.`)
   }
@@ -839,7 +826,7 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   // At this point, the bundle has been completed.
-  spinner.succeed(`${organizationID} completed!`)
+  spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, cre.silent)
     spinner.info(
@@ -900,18 +887,18 @@ export const chugsplashMonitorAbstractTask = async (
 
   if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
     throw new Error(
-      `${parsedConfig.options.organizationID} has not been proposed or approved for
+      `${parsedConfig.options.projectName} has not been proposed or approved for
 execution on ${networkName}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
     throw new Error(
-      `${parsedConfig.options.organizationID} has not been proposed but not yet
+      `${parsedConfig.options.projectName} has not been proposed but not yet
 approved for execution on ${networkName}.`
     )
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     throw new Error(
       `Project was already cancelled on ${networkName}. Please propose a new
-project with a name other than ${parsedConfig.options.organizationID}`
+project with a name other than ${parsedConfig.options.projectName}`
     )
   }
 
@@ -943,10 +930,10 @@ project with a name other than ${parsedConfig.options.organizationID}`
 
   bundleState.status === ChugSplashBundleStatus.APPROVED
     ? spinner.succeed(
-        `${parsedConfig.options.organizationID} successfully completed on ${networkName}.`
+        `${parsedConfig.options.projectName} successfully completed on ${networkName}.`
       )
     : spinner.succeed(
-        `${parsedConfig.options.organizationID} was already deployed on ${networkName}.`
+        `${parsedConfig.options.projectName} was already deployed on ${networkName}.`
       )
 
   displayDeploymentTable(parsedConfig, cre.silent)
@@ -986,7 +973,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
   if (activeBundleId === ethers.constants.HashZero) {
     spinner.fail(
-      `${organizationID} is not an active project, so there is nothing to cancel.`
+      `${projectName} is not an active project, so there is nothing to cancel.`
     )
     return
   }
@@ -997,7 +984,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
     )
   ).wait()
 
-  spinner.succeed(`Cancelled ${organizationID} on ${networkName}.`)
+  spinner.succeed(`Cancelled ${projectName} on ${networkName}.`)
   spinner.start(`Refunding the project owner...`)
 
   const prevOwnerBalance = await signer.getBalance()
@@ -1092,7 +1079,7 @@ Caller attempted to claim funds using the address: ${await signer.getAddress()}`
     )
   } else {
     spinner.fail(
-      `No funds available to withdraw on ${networkName} for the project: ${organizationID}.`
+      `No funds available to withdraw on ${networkName} for the project: ${projectName}.`
     )
   }
 }
@@ -1342,7 +1329,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   const signerAddress = await signer.getAddress()
   if (owner !== signerAddress) {
     throw new Error(
-      `Caller does not own the project ${parsedConfig.options.organizationID}`
+      `Caller does not own the project ${parsedConfig.options.projectName}`
     )
   }
 
@@ -1494,7 +1481,7 @@ export const proposeChugSplashBundle = async (
 
   spinner.succeed(`Caller is a proposer.`)
 
-  spinner.start(`Proposing ${organizationID}...`)
+  spinner.start(`Proposing ${projectName}...`)
 
   if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(
@@ -1540,5 +1527,5 @@ export const proposeChugSplashBundle = async (
     integration
   )
 
-  spinner.succeed(`Proposed ${organizationID}.`)
+  spinner.succeed(`Proposed ${projectName}.`)
 }

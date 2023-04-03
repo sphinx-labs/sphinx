@@ -256,7 +256,7 @@ describe('Transfer', () => {
     )
 
     const UUPSUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.organizationID,
+      parsedConfig.options.projectName,
       'Token'
     )
 
@@ -276,7 +276,7 @@ describe('Transfer', () => {
       parsedConfig.options.organizationID
     )
     const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.organizationID,
+      parsedConfig.options.projectName,
       'Token'
     )
     manager.claimProxyOwnership(
@@ -397,7 +397,7 @@ describe('Transfer', () => {
     )
 
     const UUPSAccessControlUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.organizationID,
+      parsedConfig.options.projectName,
       'Token'
     )
 
@@ -419,7 +419,7 @@ describe('Transfer', () => {
       parsedConfig.options.organizationID
     )
     const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.organizationID,
+      parsedConfig.options.projectName,
       'Token'
     )
     manager.claimProxyOwnership(

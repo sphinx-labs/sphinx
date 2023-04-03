@@ -113,7 +113,7 @@ export const deployAllChugSplashConfigs = async (
 
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
-  organizationID: string,
+  projectName: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
   if (await isRemoteExecution(hre)) {
@@ -134,19 +134,19 @@ export const getContract = async (
   const userConfigs = resolvedConfigs.filter((userCfg) => {
     return (
       Object.keys(userCfg.contracts).includes(referenceName) &&
-      userCfg.options.organizationID === organizationID
+      userCfg.options.projectName === projectName
     )
   })
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project with ID "${organizationID}" that contains the reference name "${referenceName}".`
+      `Cannot find a project with ID "${projectName}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects with ID "${organizationID}" contain the reference name "${referenceName}"\n` +
+      `Multiple projects with ID "${projectName}" contain the reference name "${referenceName}"\n` +
         `Please merge these projects or change one of the organization IDs.`
     )
   }

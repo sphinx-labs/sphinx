@@ -43,7 +43,7 @@ export const monitorExecution = async (
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const organizationID = parsedConfig.options.organizationID
+  const { projectName, organizationID } = parsedConfig.options
   const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   // Get the bundle state of the bundle ID.
@@ -95,7 +95,7 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${organizationID} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
+        `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
   Run the following command to add funds to your deployment so it can be completed:
 
   npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
@@ -113,7 +113,7 @@ export const monitorExecution = async (
   }
 
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${organizationID}.`)
+    spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     // Get the `completeChugSplashBundle` transaction.
     const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
@@ -123,8 +123,8 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return bundleCompletionTxnHash
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
-    spinner.fail(`${organizationID} was cancelled.`)
-    throw new Error(`${organizationID} was cancelled.`)
+    spinner.fail(`${projectName} was cancelled.`)
+    throw new Error(`${projectName} was cancelled.`)
   } else {
     spinner.fail(
       `Project was never active. Current status: ${bundleState.status}`
