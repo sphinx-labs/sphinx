@@ -5,6 +5,7 @@ const config: UserChugSplashConfig = {
   options: {
     organizationID: constants.HashZero,
     projectName: 'Hello ChugSplash',
+    organizationID: constants.HashZero,
   },
   contracts: {
     MyFirstContract: {

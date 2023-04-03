@@ -32,6 +32,7 @@ export interface RawChugSplashAction {
 }
 
 export interface ChugSplashTarget {
+  projectName: string
   referenceName: string
   proxy: string
   implementation: string

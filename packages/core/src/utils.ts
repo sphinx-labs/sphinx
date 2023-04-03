@@ -144,9 +144,16 @@ export const getDefaultProxyAddress = (
   const chugSplashManagerAddress =
     getChugSplashManagerProxyAddress(organizationID)
 
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['string', 'string'],
+      [projectName, referenceName]
+    )
+  )
+
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [

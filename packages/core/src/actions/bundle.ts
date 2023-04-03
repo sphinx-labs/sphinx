@@ -160,8 +160,9 @@ export const getActionHash = (action: RawChugSplashAction): string => {
 export const getTargetHash = (target: ChugSplashTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['string', 'address', 'address', 'bytes32'],
+      ['string', 'string', 'address', 'address', 'bytes32'],
       [
+        target.projectName,
         target.referenceName,
         target.proxy,
         target.implementation,
@@ -421,6 +422,8 @@ export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: CanonicalConfigArtifacts
 ): ChugSplashTargetBundle => {
+  const projectName = parsedConfig.options.projectName
+
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -428,6 +431,7 @@ export const makeTargetBundleFromConfig = (
     const { creationCodeWithConstructorArgs } = artifacts[referenceName]
 
     targets.push({
+      projectName,
       referenceName,
       proxyTypeHash: proxyTypeHashes[contractConfig.proxyType],
       proxy: contractConfig.proxy,

@@ -612,7 +612,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
         console.log('There are currently no proposed bundles.')
       } else {
         // Display the proposed bundles
-        console.log(`Proposals for ${args.organizationID}:`)
+        console.log(`Proposals:`)
         proposedEvents.forEach((event) => {
           if (event.args === undefined) {
             throw new Error(`ChugSplashBundleProposed does not have arguments.`)

@@ -22,6 +22,10 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    tenderly: {
+      chainId: 1, // chain you forked
+      url: 'https://rpc.tenderly.co/fork/fbc4fcb2-ffd1-4528-8dc2-e003f39e5cc5',
+    },
     goerli: {
       chainId: 5,
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
