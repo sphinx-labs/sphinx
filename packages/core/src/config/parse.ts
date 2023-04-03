@@ -1479,44 +1479,43 @@ export const assertValidContracts = (
 
     // Iterate over the child ContractDefinition node and its parent ContractDefinition nodes.
     for (const contractDef of baseContractDefs.concat(childContractDef)) {
-      const constructorNode = contractDef.nodes
-        .filter(isNodeType('FunctionDefinition'))
-        .find((functionDef: FunctionDefinition) => {
-          return functionDef.kind === 'constructor'
-        })
-
-      if (constructorNode?.body?.statements) {
-        for (const statementNode of constructorNode.body.statements) {
-          if (
-            !isNodeType('ExpressionStatement', statementNode) ||
-            !isNodeType('Assignment', statementNode.expression) ||
-            !isNodeType('Identifier', statementNode.expression.leftHandSide) ||
-            typeof statementNode.expression.leftHandSide
-              .referencedDeclaration !== 'number' ||
-            dereferencer(
-              'VariableDeclaration',
-              statementNode.expression.leftHandSide.referencedDeclaration
-            ).mutability !== 'immutable' ||
-            isNodeType('FunctionCall', statementNode.expression.rightHandSide)
-          ) {
-            logValidationError(
-              'error',
-              `Detected an unallowed expression in the constructor at: ${decodeSrc(
-                constructorNode
-              )}.`,
-              [
-                'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
-                'can deterministically deploy your contracts.',
-              ],
-              cre.silent,
-              cre.stream
-            )
-          }
-        }
-      }
-
       for (const node of contractDef.nodes) {
-        if (isNodeType('VariableDeclaration', node)) {
+        if (
+          isNodeType('FunctionDefinition', node) &&
+          node.kind === 'constructor' &&
+          node?.body?.statements
+        ) {
+          for (const statementNode of node.body.statements) {
+            if (
+              !isNodeType('ExpressionStatement', statementNode) ||
+              !isNodeType('Assignment', statementNode.expression) ||
+              !isNodeType(
+                'Identifier',
+                statementNode.expression.leftHandSide
+              ) ||
+              typeof statementNode.expression.leftHandSide
+                .referencedDeclaration !== 'number' ||
+              dereferencer(
+                'VariableDeclaration',
+                statementNode.expression.leftHandSide.referencedDeclaration
+              ).mutability !== 'immutable' ||
+              isNodeType('FunctionCall', statementNode.expression.rightHandSide)
+            ) {
+              logValidationError(
+                'error',
+                `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                  node
+                )}.`,
+                [
+                  'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
+                  'can deterministically deploy your contracts.',
+                ],
+                cre.silent,
+                cre.stream
+              )
+            }
+          }
+        } else if (isNodeType('VariableDeclaration', node)) {
           if (node.mutability === 'mutable' && node.value) {
             logValidationError(
               'error',
@@ -1531,16 +1530,18 @@ export const assertValidContracts = (
               cre.silent,
               cre.stream
             )
-          }
-
-          if (
+          } else if (
             node.mutability === 'immutable' &&
             node.value &&
             isNodeType('FunctionCall', node.value)
           ) {
             logValidationError(
               'error',
-              `Attempted to assign the immutable variable '${node.name}' to the return value of a function call in\nthe contract: ${contractDef.name}.`,
+              `Attempted to assign the immutable variable '${
+                node.name
+              }' to the return value of a function call at: ${decodeSrc(
+                node
+              )}.`,
               [
                 'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
               ],
@@ -1559,20 +1560,21 @@ export const assertValidContracts = (
           (typeIdentifier === 't_bytes_storage' ||
             typeIdentifier.endsWith('dyn_storage'))
 
-        // Throw an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
-        // We only throw an error when `push` is called with no parameters. In other words, we don't
-        // throw an error for `push(x)`.
+        // Log an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
         if (
           isDynamicBytesOrArray &&
           memberAccessNode.memberName === 'push' &&
           memberAccessNode.argumentTypes &&
           memberAccessNode.argumentTypes.length === 0
         ) {
-          // TODO: logValidationError
-          throw new Error(
+          logValidationError(
+            'error',
             `Detected the member function 'push()' at ${decodeSrc(
               memberAccessNode
-            )}. Please use 'push(x)' instead.`
+            )}.`,
+            [`Please use 'push(x)' instead.`],
+            cre.silent,
+            cre.stream
           )
         }
       }
