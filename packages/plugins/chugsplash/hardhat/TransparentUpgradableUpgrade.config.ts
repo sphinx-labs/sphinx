@@ -1,11 +1,17 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
+import { ethers } from 'ethers'
 
 import { fetchBuildInfo } from '../../test/constants'
+
+const projectName = 'Transparent Upgradable Token'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    organizationID: '0x' + '55'.repeat(32),
+    organizationID: ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(projectName)
+    ),
+    projectName,
   },
   contracts: {
     Token: {

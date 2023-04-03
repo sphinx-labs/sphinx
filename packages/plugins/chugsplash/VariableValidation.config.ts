@@ -4,6 +4,7 @@ const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
     organizationID: '0x' + '33'.repeat(32),
+    projectName: 'Variable Validation',
   },
   contracts: {
     VariableValidation: {

@@ -1,8 +1,14 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
+import { ethers } from 'ethers'
+
+const projectName = 'Simple Project'
 
 const config: UserChugSplashConfig = {
   options: {
-    organizationID: '0x' + '44'.repeat(32),
+    organizationID: ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(projectName)
+    ),
+    projectName,
   },
   contracts: {
     MyContract: {

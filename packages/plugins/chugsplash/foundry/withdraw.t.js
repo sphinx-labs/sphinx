@@ -1,7 +1,10 @@
+const projectName = 'Withdraw test'
+
 module.exports = {
   // Configuration options for the project:
   options: {
-    projectID: '0x' + '00'.repeat(31) + '01',
+    organizationID: ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectName)),
+    projectName,
   },
   contracts: {
     MySimpleStorage: {
