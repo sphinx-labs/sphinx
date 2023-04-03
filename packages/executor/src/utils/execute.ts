@@ -253,7 +253,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
         rpcProvider,
         bundles,
         bundleState.actionsExecuted.toNumber(),
-        organizationID
+        organizationID,
+        projectName
       )
     ) {
       logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)

@@ -138,6 +138,7 @@ export const writeDeploymentArtifact = (
  */
 export const getDefaultProxyAddress = (
   organizationID: string,
+  projectName: string,
   referenceName: string
 ): string => {
   // const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)

@@ -155,7 +155,11 @@ export const getContract = async (
 
   const proxyAddress =
     userConfig.contracts[referenceName].externalProxy ||
-    getDefaultProxyAddress(userConfig.options.organizationID, referenceName)
+    getDefaultProxyAddress(
+      userConfig.options.organizationID,
+      userConfig.options.projectName,
+      referenceName
+    )
   if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
     throw new Error(`The proxy for ${referenceName} has not been deployed.`)
   }

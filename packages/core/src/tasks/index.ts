@@ -188,6 +188,7 @@ export const chugsplashProposeAbstractTask = async (
       bundles,
       0,
       parsedConfig.options.organizationID,
+      parsedConfig.options.projectName,
       true
     )
 
@@ -446,6 +447,7 @@ Please wait a couple minutes then try again.`
       bundles,
       0,
       organizationID,
+      projectName,
       false
     )
 
@@ -548,6 +550,7 @@ export const chugsplashFundAbstractTask = async (
         await bundleLocal(provider, parsedConfig, artifactPaths, integration),
         0,
         parsedConfig.options.organizationID,
+        parsedConfig.options.projectName,
         true
       )
     : amount
@@ -724,6 +727,7 @@ export const chugsplashDeployAbstractTask = async (
       bundles,
       0,
       organizationID,
+      projectName,
       true
     )
 
@@ -785,6 +789,7 @@ export const chugsplashDeployAbstractTask = async (
       bundles,
       0,
       organizationID,
+      projectName,
       true
     )
     await signer.sendTransaction({

@@ -154,6 +154,16 @@ export const assertValidUserConfigFields = (
 ) => {
   const referenceNames: string[] = Object.keys(config.contracts)
 
+  if (!ethers.utils.isHexString(config.options.organizationID, 32)) {
+    logValidationError(
+      'error',
+      `Organization ID must be a 32-byte hex string. Instead, got: ${config.options.organizationID}`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
   )) {
@@ -1697,7 +1707,11 @@ const parseAndValidateChugSplashConfig = async (
     // used by ChugSplash.
     const proxy =
       externalProxy ||
-      getDefaultProxyAddress(userConfig.options.organizationID, referenceName)
+      getDefaultProxyAddress(
+        userConfig.options.organizationID,
+        userConfig.options.projectName,
+        referenceName
+      )
 
     let proxyType: ProxyType
     if (externalProxyType) {

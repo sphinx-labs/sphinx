@@ -692,7 +692,11 @@ const command = args[0]
 
       const proxy =
         userConfig.contracts[referenceName].externalProxy ||
-        getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+        getDefaultProxyAddress(
+          userConfig.options.organizationID,
+          userConfig.options.projectName,
+          referenceName
+        )
 
       process.stdout.write(proxy)
       break

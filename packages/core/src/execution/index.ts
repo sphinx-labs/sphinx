@@ -88,6 +88,7 @@ export const monitorExecution = async (
       bundles,
       bundleState.actionsExecuted.toNumber(),
       organizationID,
+      projectName,
       false
     )
     if (amountToDeposit.gt(0)) {

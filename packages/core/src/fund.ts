@@ -58,7 +58,8 @@ export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  organizationID: string
+  organizationID: string,
+  projectName: string
 ): Promise<ethers.BigNumber> => {
   const actions = bundles.actionBundle.actions
     .map((action) => fromRawChugSplashAction(action.action))
@@ -72,7 +73,11 @@ export const estimateExecutionGas = async (
     .filter((action) => isDeployImplementationAction(action))
     .map(async (action) => {
       return (await isContractDeployed(
-        getDefaultProxyAddress(organizationID, action.referenceName),
+        getDefaultProxyAddress(
+          organizationID,
+          projectName,
+          action.referenceName
+        ),
         provider
       ))
         ? ethers.BigNumber.from(0)
@@ -108,13 +113,15 @@ export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  organizationID: string
+  organizationID: string,
+  projectName: string
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
     provider,
     bundles,
     actionsExecuted,
-    organizationID
+    organizationID,
+    projectName
   )
   const feeData = await provider.getFeeData()
 
@@ -133,7 +140,8 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  organizationID: string
+  organizationID: string,
+  projectName: string
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
@@ -144,7 +152,8 @@ export const hasSufficientFundsForExecution = async (
     provider,
     bundles,
     actionsExecuted,
-    organizationID
+    organizationID,
+    projectName
   )
 
   return availableFunds.gte(currExecutionCost)
@@ -155,13 +164,15 @@ export const getAmountToDeposit = async (
   bundles: ChugSplashBundles,
   actionsExecuted: number,
   organizationID: string,
+  projectName: string,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
     provider,
     bundles,
     actionsExecuted,
-    organizationID
+    organizationID,
+    projectName
   )
 
   const availableFunds = await availableFundsForExecution(
