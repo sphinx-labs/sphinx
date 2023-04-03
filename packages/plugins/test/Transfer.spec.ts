@@ -10,21 +10,19 @@ import hre, { ethers } from 'hardhat'
 import {
   getChugSplashManagerProxyAddress,
   chugsplashRegisterAbstractTask,
-  readParsedChugSplashConfig,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
   proxyTypeHashes,
-  readUserChugSplashConfig,
+  readValidatedChugSplashConfig,
+  readUnvalidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 
-import {
-  getArtifactPaths,
-  importOpenZeppelinStorageLayouts,
-} from '../src/hardhat/artifacts'
+import { createChugSplashRuntime } from '../src/utils'
+import { getArtifactPaths } from '../src/hardhat/artifacts'
 const uupsOwnableUpgradeConfigPath =
   './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
 const uupsAccessControlUpgradeConfigPath =
@@ -71,7 +69,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
+    const userConfig = await readUnvalidatedChugSplashConfig(
       transparentUpgradeConfigPath
     )
 
@@ -82,25 +80,27 @@ describe('Transfer', () => {
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
-    const parsedConfig = await readParsedChugSplashConfig(
-      provider,
+    const cre = await createChugSplashRuntime(
       transparentUpgradeConfigPath,
-      artifactPaths,
-      'hardhat'
+      false,
+      true,
+      hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
+      true
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.organizationID
+      userConfig.options.organizationID
     )
 
     const ProxyAdmin = await hre.ethers.getContractAt(
@@ -116,23 +116,20 @@ describe('Transfer', () => {
       managerProxyAddress
     )
 
-    const configPath =
-      './chugsplash/hardhat/TransparentUpgradableUpgrade.config.ts'
-    const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
-      hre,
-      parsedConfig,
-      userConfig
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      transparentUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
     )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
-      true,
+      transparentUpgradeConfigPath,
       false,
       '',
-      true,
-      true,
       true,
       signer.address,
       true,
@@ -140,9 +137,9 @@ describe('Transfer', () => {
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
-      true,
-      hre.chugsplash.executor,
-      openzeppelinStorageLayouts
+      cre,
+      parsedConfig,
+      hre.chugsplash.executor
     )
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
@@ -190,7 +187,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
+    const userConfig = await readUnvalidatedChugSplashConfig(
       uupsOwnableUpgradeConfigPath
     )
 
@@ -201,25 +198,27 @@ describe('Transfer', () => {
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
-    const parsedConfig = await readParsedChugSplashConfig(
-      provider,
+    const cre = await createChugSplashRuntime(
       uupsOwnableUpgradeConfigPath,
-      artifactPaths,
-      'hardhat'
+      false,
+      true,
+      hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
+      true
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.organizationID
+      userConfig.options.organizationID
     )
 
     await UUPSUpgradableTokenV1.transferOwnership(managerProxyAddress)
@@ -230,23 +229,20 @@ describe('Transfer', () => {
       'proxy owner is not chugsplash manager'
     )
 
-    const configPath =
-      './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
-    const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
-      hre,
-      parsedConfig,
-      userConfig
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      uupsOwnableUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
     )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
-      true,
+      uupsOwnableUpgradeConfigPath,
       false,
       '',
-      true,
-      true,
       true,
       signer.address,
       true,
@@ -254,9 +250,9 @@ describe('Transfer', () => {
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
-      true,
-      hre.chugsplash.executor,
-      openzeppelinStorageLayouts
+      cre,
+      parsedConfig,
+      hre.chugsplash.executor
     )
 
     const UUPSUpgradableTokenV2 = await hre.chugsplash.getContract(
@@ -327,7 +323,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
+    const userConfig = await readUnvalidatedChugSplashConfig(
       uupsAccessControlUpgradeConfigPath
     )
 
@@ -338,25 +334,27 @@ describe('Transfer', () => {
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
-    const parsedConfig = await readParsedChugSplashConfig(
-      provider,
+    const cre = await createChugSplashRuntime(
       uupsAccessControlUpgradeConfigPath,
-      artifactPaths,
-      'hardhat'
+      false,
+      true,
+      hre,
+      // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
+      true
     )
 
     await chugsplashRegisterAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      userConfig,
       false,
       signer.address,
-      true,
-      'hardhat'
+      'hardhat',
+      cre
     )
 
     const managerProxyAddress = getChugSplashManagerProxyAddress(
-      parsedConfig.options.organizationID
+      userConfig.options.organizationID
     )
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
@@ -372,23 +370,20 @@ describe('Transfer', () => {
       )
     ).to.equal(true, 'proxy owner is not chugsplash manager')
 
-    const configPath =
-      './chugsplash/hardhat/UUPSAccessControlUpgradableUpgrade.config.ts'
-    const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
-      hre,
-      parsedConfig,
-      userConfig
+    const parsedConfig = await readValidatedChugSplashConfig(
+      provider,
+      uupsAccessControlUpgradeConfigPath,
+      artifactPaths,
+      'hardhat',
+      cre
     )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      configPath,
-      true,
+      uupsAccessControlUpgradeConfigPath,
       false,
       '',
-      true,
-      true,
       true,
       signer.address,
       true,
@@ -396,9 +391,9 @@ describe('Transfer', () => {
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
-      true,
-      hre.chugsplash.executor,
-      openzeppelinStorageLayouts
+      cre,
+      parsedConfig,
+      hre.chugsplash.executor
     )
 
     const UUPSAccessControlUpgradableTokenV2 = await hre.chugsplash.getContract(

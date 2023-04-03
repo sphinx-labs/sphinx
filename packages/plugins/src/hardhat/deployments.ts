@@ -10,14 +10,15 @@ import {
   writeSnapshotId,
   resolveNetworkName,
   ChugSplashExecutorType,
-  readUserChugSplashConfig,
   getDefaultProxyAddress,
-  readParsedChugSplashConfig,
+  readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getArtifactPaths, importOpenZeppelinStorageLayouts } from './artifacts'
+import { getArtifactPaths } from './artifacts'
 import { isRemoteExecution } from './utils'
+import { createChugSplashRuntime } from '../utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -45,8 +46,6 @@ export const deployAllChugSplashConfigs = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
   ipfsUrl: string,
-  noCompile: boolean,
-  confirm: boolean,
   fileNames?: string[]
 ) => {
   const remoteExecution = await isRemoteExecution(hre)
@@ -62,11 +61,19 @@ export const deployAllChugSplashConfigs = async (
   const deploymentFolder = hre.config.paths.deployments
 
   for (const configPath of fileNames) {
+    const cre = await createChugSplashRuntime(
+      configPath,
+      remoteExecution,
+      true,
+      hre,
+      silent
+    )
+
     // Skip this config if it's empty.
     if (isEmptyChugSplashConfig(configPath)) {
-      return
+      continue
     }
-    const userConfig = await readUserChugSplashConfig(configPath)
+    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
       hre,
@@ -75,17 +82,12 @@ export const deployAllChugSplashConfigs = async (
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
-    const parsedConfig = await readParsedChugSplashConfig(
+    const parsedConfig = await readValidatedChugSplashConfig(
       hre.ethers.provider,
       configPath,
       artifactPaths,
-      'hardhat'
-    )
-
-    const openzeppelinStorageLayouts = await importOpenZeppelinStorageLayouts(
-      hre,
-      parsedConfig,
-      userConfig
+      'hardhat',
+      cre
     )
 
     const signer = hre.ethers.provider.getSigner()
@@ -93,11 +95,8 @@ export const deployAllChugSplashConfigs = async (
       hre.ethers.provider,
       hre.ethers.provider.getSigner(),
       configPath,
-      silent,
       remoteExecution,
       ipfsUrl,
-      noCompile,
-      confirm,
       true,
       await signer.getAddress(),
       false,
@@ -105,9 +104,9 @@ export const deployAllChugSplashConfigs = async (
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
-      true,
-      executor,
-      openzeppelinStorageLayouts
+      cre,
+      parsedConfig,
+      executor
     )
   }
 }
@@ -128,7 +127,7 @@ export const getContract = async (
 
   const resolvedConfigs = await Promise.all(
     filteredConfigNames.map((configFileName) => {
-      return readUserChugSplashConfig(configFileName)
+      return readUnvalidatedChugSplashConfig(configFileName)
     })
   )
 

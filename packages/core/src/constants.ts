@@ -31,8 +31,15 @@ import { utils } from 'ethers'
 export const EXECUTION_BUFFER_MULTIPLIER = 2
 export type Integration = 'hardhat' | 'foundry'
 
-export const keywords = {
+export type Keyword = '{preserve}' | '{gap}'
+type Keywords = {
+  preserve: Keyword
+  gap: Keyword
+}
+
+export const keywords: Keywords = {
   preserve: '{preserve}',
+  gap: '{gap}',
 }
 
 // TODO: We should use fully qualified names instead of source names

@@ -64,7 +64,6 @@ export interface UserChugSplashConfig {
   options: {
     organizationID: string
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: UserContractConfigs
 }
@@ -76,7 +75,6 @@ export interface ParsedChugSplashConfig {
   options: {
     organizationID: string
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: ParsedContractConfigs
 }
@@ -92,6 +90,14 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowRenames?: boolean
+  unsafeSkipStorageCheck?: boolean
+  unsafeAllow?: {
+    delegatecall?: boolean
+    selfdestruct?: boolean
+    missingPublicUpgradeTo?: boolean
+  }
 }
 
 export type UserContractConfigs = {
@@ -113,6 +119,7 @@ export type ParsedContractConfig = {
   proxyType: ProxyType
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
 }
 
 export type ParsedContractConfigs = {

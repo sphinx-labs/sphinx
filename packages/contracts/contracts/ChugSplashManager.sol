@@ -431,9 +431,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
+        ChugSplashBundleStatus status = bundle.status;
         require(
-            bundle.status == ChugSplashBundleStatus.EMPTY,
-            "ChugSplashManager: bundle already exists"
+            status == ChugSplashBundleStatus.EMPTY ||
+                status == ChugSplashBundleStatus.COMPLETED ||
+                status == ChugSplashBundleStatus.CANCELLED,
+            "ChugSplashManager: bundle cannot be proposed"
         );
 
         bundle.status = ChugSplashBundleStatus.PROPOSED;
@@ -473,7 +476,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         require(
             bundle.status == ChugSplashBundleStatus.PROPOSED,
-            "ChugSplashManager: bundle does not exist or has already been approved or completed"
+            "ChugSplashManager: bundle must be proposed"
         );
 
         require(
@@ -973,7 +976,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
 
         uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = gasPrice * gasUsed * protocolPaymentPercentage;
+        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;

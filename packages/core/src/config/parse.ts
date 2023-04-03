@@ -3,10 +3,25 @@ import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
 import { BigNumber, ethers, providers } from 'ethers'
-import { astDereferencer, ASTDereferencer } from 'solidity-ast/utils'
+import {
+  astDereferencer,
+  ASTDereferencer,
+  srcDecoder,
+  isNodeType,
+  findAll,
+} from 'solidity-ast/utils'
 import { CompilerOutput } from 'hardhat/types'
 import { remove0x } from '@eth-optimism/core-utils'
 import { Fragment } from 'ethers/lib/utils'
+import {
+  assertStorageUpgradeSafe,
+  StorageLayout,
+  UpgradeableContractErrorReport,
+} from '@openzeppelin/upgrades-core'
+import { OZ_UUPS_UPDATER_ADDRESS, ProxyABI } from '@chugsplash/contracts'
+import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
+import yesno from 'yesno'
+import { ContractDefinition, FunctionDefinition } from 'solidity-ast'
 
 import {
   ArtifactPaths,
@@ -18,8 +33,15 @@ import {
   getDefaultProxyAddress,
   isExternalProxyType,
   readContractArtifact,
-  assertValidContractReferences,
   readBuildInfo,
+  getChugSplashManagerProxyAddress,
+  getEIP1967ProxyAdminAddress,
+  getPreviousStorageLayoutOZFormat,
+  getOpenZeppelinUpgradableContract,
+  isEqualType,
+  getOpenZeppelinValidationOpts,
+  getParentContractASTNodes,
+  chugsplashLog,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -30,12 +52,14 @@ import {
   UserConfigVariable,
   UserConfigVariables,
   ParsedConfigVariables,
+  ParsedContractConfig,
 } from './types'
-import { Integration } from '../constants'
+import { Integration, Keyword, keywords } from '../constants'
 import {
-  variableContainsPreserveKeyword,
   getStorageType,
   extendStorageLayout,
+  isKeyword,
+  variableContainsKeyword,
 } from '../languages'
 import {
   recursiveLayoutIterator,
@@ -44,36 +68,54 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
+import { ChugSplashRuntimeEnvironment } from '../types'
 
 class InputError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message)
     this.name = 'InputError'
   }
 }
 
+let validationErrors = false
+
+const logValidationError = (
+  logLevel: 'warning' | 'error',
+  title: string,
+  lines: string[],
+  silent: boolean,
+  stream: NodeJS.WritableStream
+) => {
+  validationErrors = true
+  chugsplashLog(logLevel, title, lines, silent, stream)
+}
+
 /**
- * Reads a ChugSplash config file synchronously.
+ * Reads a ChugSplash config file and completes full parsing and validation on it.
  *
  * @param configPath Path to the ChugSplash config file.
  * @returns The parsed ChugSplash config file.
  */
-export const readParsedChugSplashConfig = async (
+export const readValidatedChugSplashConfig = async (
   provider: providers.Provider,
   configPath: string,
   artifactPaths: ArtifactPaths,
-  integration: Integration
+  integration: Integration,
+  cre: ChugSplashRuntimeEnvironment,
+  exitOnFailure: boolean = true
 ): Promise<ParsedChugSplashConfig> => {
-  const userConfig = await readUserChugSplashConfig(configPath)
+  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
   return parseAndValidateChugSplashConfig(
     provider,
     userConfig,
     artifactPaths,
-    integration
+    integration,
+    cre,
+    exitOnFailure
   )
 }
 
-export const readUserChugSplashConfig = async (
+export const readUnvalidatedChugSplashConfig = async (
   configPath: string
 ): Promise<UserChugSplashConfig> => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -91,8 +133,6 @@ export const readUserChugSplashConfig = async (
       'Config file must export either a config object, or a function which resolves to one.'
     )
   }
-
-  assertValidUserConfigFields(config)
   return config
 }
 
@@ -108,11 +148,10 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
-  if (config.contracts === undefined) {
-    throw new Error('contracts field must be defined in ChugSplash config')
-  }
-
+export const assertValidUserConfigFields = (
+  config: UserChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
+) => {
   const referenceNames: string[] = Object.keys(config.contracts)
 
   for (const [referenceName, contractConfig] of Object.entries(
@@ -120,8 +159,12 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
   )) {
     // Block people from accidentally using templates in contract names.
     if (referenceName.includes('{') || referenceName.includes('}')) {
-      throw new Error(
-        `cannot use template strings in reference names: ${referenceName}`
+      logValidationError(
+        'error',
+        `Cannot use template strings in reference names: ${referenceName}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -130,8 +173,12 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.contract.includes('{') ||
       contractConfig.contract.includes('}')
     ) {
-      throw new Error(
-        `cannot use template strings in contract names: ${contractConfig.contract}`
+      logValidationError(
+        'error',
+        `Cannot use template strings in contract name: ${contractConfig.contract}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -140,8 +187,12 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.externalProxy !== undefined &&
       !ethers.utils.isAddress(contractConfig.externalProxy)
     ) {
-      throw new Error(
-        `external proxy address is not a valid address: ${contractConfig.externalProxy}`
+      logValidationError(
+        'error',
+        `External proxy address is not a valid address: ${contractConfig.externalProxy}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -150,8 +201,12 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.externalProxyType !== undefined &&
       isExternalProxyType(contractConfig.externalProxyType) === false
     ) {
-      throw new Error(
-        `External proxy type is not valid: ${contractConfig.externalProxyType}`
+      logValidationError(
+        'error',
+        `External proxy type is not valid ${contractConfig.externalProxyType}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -160,17 +215,23 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.externalProxy !== undefined &&
       contractConfig.externalProxyType === undefined
     ) {
-      throw new Error(
-        `User included an 'externalProxy' field for ${contractConfig.contract} in ${config.options.organizationID},\n` +
-          `but did not include an 'externalProxyType' field. Please include both or neither.`
+      logValidationError(
+        'error',
+        `User included an 'externalProxy' field, but did not include an 'externalProxyType'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        [],
+        cre.silent,
+        cre.stream
       )
     } else if (
       contractConfig.externalProxy === undefined &&
       contractConfig.externalProxyType !== undefined
     ) {
-      throw new Error(
-        `User included an 'externalProxyType' field for ${contractConfig.contract} in ${config.options.organizationID},\n` +
-          `but did not include an 'externalProxy' field. Please include both or neither.`
+      logValidationError(
+        'error',
+        `User included an 'externalProxyType' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
@@ -178,31 +239,49 @@ export const assertValidUserConfigFields = (config: UserChugSplashConfig) => {
       contractConfig.previousBuildInfo !== undefined &&
       contractConfig.previousFullyQualifiedName === undefined
     ) {
-      throw new Error(
-        `User included a 'previousBuildInfo' field in the ChugSplash config file for ${contractConfig.contract}, but\n` +
-          `did not include a 'previousFullyQualifiedName' field. Please include both or neither.`
+      logValidationError(
+        'error',
+        `User included a 'previousBuildInfo' field in the ChugSplash config file for ${contractConfig.contract}, but\ndid not include a 'previousFullyQualifiedName' field. Please include both or neither.`,
+        [],
+        cre.silent,
+        cre.stream
       )
     } else if (
       contractConfig.previousBuildInfo === undefined &&
       contractConfig.previousFullyQualifiedName !== undefined
     ) {
-      throw new Error(
-        `User included a 'previousFullyQualifiedName' field in the ChugSplash config file for ${contractConfig.contract}, but\n` +
-          `did not include a 'previousBuildInfo' field. Please include both or neither.`
+      logValidationError(
+        'error',
+        `User included a 'previousFullyQualifiedName' field in the ChugSplash config file for ${contractConfig.contract}, but\ndid not include a 'previousBuildInfo' field. Please include both or neither.`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
     if (contractConfig.variables !== undefined) {
       // Check that all contract references are valid.
-      assertValidContractReferences(contractConfig.variables, referenceNames)
+      assertValidContractReferences(
+        contractConfig.variables,
+        referenceNames,
+        cre
+      )
     }
 
     if (contractConfig.constructorArgs !== undefined) {
       // Check that the user did not use the 'preserve' keyword for constructor args.
-      if (variableContainsPreserveKeyword(contractConfig.constructorArgs)) {
-        throw new Error(
-          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash config file. This \n` +
-            `keyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`
+      if (
+        variableContainsKeyword(
+          contractConfig.constructorArgs,
+          keywords.preserve
+        )
+      ) {
+        logValidationError(
+          'error',
+          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash config file. This \nkeyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`,
+          [],
+          cre.silent,
+          cre.stream
         )
       }
     }
@@ -307,10 +386,7 @@ export const parseInplaceArray: VariableHandler<
     )
   }
 
-  if (
-    sizes[sizes.length - 1] !== variable.length &&
-    storageObj.label !== '__gap'
-  ) {
+  if (sizes[sizes.length - 1] !== variable.length) {
     throw new InputError(
       `Expected array of size ${sizes[sizes.length - 1]} for ${
         storageObj.label
@@ -524,19 +600,10 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
  */
 export const parseInplaceStruct: VariableHandler<
   UserConfigVariable,
-  {
-    [name: string]: ParsedConfigVariable
-  }
+  ParsedConfigVariables
 > = (
-  props: VariableHandlerProps<
-    UserConfigVariable,
-    {
-      [name: string]: ParsedConfigVariable
-    }
-  >
-): {
-  [name: string]: ParsedConfigVariable
-} => {
+  props: VariableHandlerProps<UserConfigVariable, ParsedConfigVariables>
+): ParsedConfigVariables => {
   const {
     variable,
     variableType,
@@ -555,9 +622,7 @@ export const parseInplaceStruct: VariableHandler<
   }
 
   // Structs are encoded recursively, as defined by their `members` field.
-  const parsedVariable: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+  const parsedVariable: ParsedConfigVariables = {}
   if (variableType.members === undefined) {
     // The Solidity compiler prevents defining structs without any members, so this should
     // never occur.
@@ -570,7 +635,7 @@ export const parseInplaceStruct: VariableHandler<
       return member.label === varName
     })
     if (memberStorageObj === undefined) {
-      throw new Error(
+      throw new InputError(
         `User entered incorrect member in ${variableType.label}: ${varName}`
       )
     }
@@ -634,19 +699,10 @@ export const parseBytes: VariableHandler<UserConfigVariable, string> = (
  */
 export const parseMapping: VariableHandler<
   UserConfigVariable,
-  {
-    [name: string]: ParsedConfigVariable
-  }
+  ParsedConfigVariables
 > = (
-  props: VariableHandlerProps<
-    UserConfigVariable,
-    {
-      [name: string]: ParsedConfigVariable
-    }
-  >
-): {
-  [name: string]: ParsedConfigVariable
-} => {
+  props: VariableHandlerProps<UserConfigVariable, ParsedConfigVariables>
+): ParsedConfigVariables => {
   const {
     variable,
     storageObj,
@@ -657,9 +713,7 @@ export const parseMapping: VariableHandler<
   } = props
 
   // Iterate over every key/value in the mapping to get the storage slot pair for each one.
-  const mapping: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+  const mapping: ParsedConfigVariables = {}
   for (const [mappingKey, mappingVal] of Object.entries(variable)) {
     const mappingValStorageObj = buildMappingStorageObj(
       storageTypes,
@@ -731,6 +785,37 @@ export const parsePreserve: VariableHandler<string, string> = (
   return variable
 }
 
+export const parseGap = (
+  storageObj: SolidityStorageObj,
+  variableType: SolidityStorageType
+): [] => {
+  if (
+    variableType.encoding === 'inplace' &&
+    storageObj.type.startsWith('t_array')
+  ) {
+    return []
+  }
+
+  throw new InputError(
+    `invalid use of { gap } keyword, only allowed for fixed-size arrays`
+  )
+}
+
+export const handleParseOnlyKeywords = (
+  storageObj: SolidityStorageObj,
+  variableType: SolidityStorageType,
+  keyword: Keyword
+): ParsedConfigVariable => {
+  switch (keyword) {
+    case keywords.gap:
+      return parseGap(storageObj, variableType)
+    case keywords.preserve:
+      return keywords.preserve
+    default:
+      throw Error(`parsing for keyword ${keyword} not implemented`)
+  }
+}
+
 /**
  * Parses and validates a single variable. Works recursively with complex data types using the recursiveLayoutIterator.
  * See ./iterator.ts for more information on the recursive iterator pattern.
@@ -770,6 +855,19 @@ export const parseAndValidateVariable = (
     preserve: parsePreserve,
   }
 
+  // Handle any keywords that are only used for parsing, not encoding.
+  for (const keyword of Object.values(keywords)) {
+    if (isKeyword(variable, keyword)) {
+      const variableType = getStorageType(
+        storageObj.type,
+        storageTypes,
+        dereferencer
+      )
+
+      return handleParseOnlyKeywords(storageObj, variableType, keyword)
+    }
+  }
+
   return recursiveLayoutIterator<ParsedConfigVariable>(
     variable,
     storageObj,
@@ -791,13 +889,10 @@ export const parseAndValidateVariable = (
 const parseContractVariables = (
   contractConfig: UserContractConfig,
   storageLayout: SolidityStorageLayout,
-  compilerOutput: CompilerOutput
-): {
-  [name: string]: ParsedConfigVariable
-} => {
-  const parsedConfigVariables: {
-    [name: string]: ParsedConfigVariable
-  } = {}
+  compilerOutput: CompilerOutput,
+  cre: ChugSplashRuntimeEnvironment
+): ParsedConfigVariables => {
+  const parsedConfigVariables: ParsedConfigVariables = {}
   if (!contractConfig.variables) {
     return {}
   }
@@ -847,37 +942,71 @@ const parseContractVariables = (
     unnecessarilyDefinedVariables.length > 0 ||
     missingVariables.length > 0
   ) {
-    let message = `We detected some issues in your ChugSplash config file, please resolve them and try again.\n\n`
-
     if (inputErrors.length > 0) {
-      message += `The following variables were defined incorrectly:\n`
+      const lines: string[] = []
+
       for (const error of inputErrors) {
-        message += `${error} \n`
+        lines.push(error)
       }
-      message += '\n'
+
+      logValidationError(
+        'error',
+        'Detected incorrectly defined variables:',
+        lines,
+        cre.silent,
+        cre.stream
+      )
     }
 
     if (unnecessarilyDefinedVariables.length > 0) {
-      message += `The following variables were defined in the ChugSplash config file but do not exist in the contract ${contractConfig.contract}:\n`
+      const lines: string[] = []
+
       for (const variable of unnecessarilyDefinedVariables) {
-        message += `${variable} \n`
+        lines.push(`${variable}`)
       }
-      message += `- If any of these variables are immutable, please remove their definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field instead.\n`
-      message += `- If any of these variables are meant to be mutable, please remove their definition in the ChugSplash config file.\n`
-      message += `- If this problem persists, delete your cache folder then try again.\n\n`
+      lines.push(
+        `- If any of these variables are immutable, please remove their definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field instead.`
+      )
+      lines.push(
+        `- If any of these variables are meant to be mutable, please remove their definition in the ChugSplash config file.`
+      )
+      lines.push(
+        `- If this problem persists, delete your cache folder then try again.`
+      )
+
+      logValidationError(
+        'error',
+        `Detected variables defined in the ChugSplash config file that do not exist in the contract ${contractConfig.contract}:`,
+        lines,
+        cre.silent,
+        cre.stream
+      )
     }
 
     if (missingVariables.length > 0) {
-      message += `The following variables were defined in the contract ${contractConfig.contract} (or one of its parent contracts) but were not defined in the ChugSplash config file:\n`
-      for (const variable of missingVariables) {
-        message += `${variable} \n`
-      }
-      message += `- Every variable defined in your contracts must be assigned a value in your ChugSplash config file.\n`
-      message += `- Please define the variable in your ChugSplash config file then run this command again.\n`
-      message += `- If this problem persists, delete your cache folder then try again.\n\n`
-    }
+      const lines: string[] = []
 
-    throw new InputError(message)
+      for (const variable of missingVariables) {
+        lines.push(variable)
+      }
+      lines.push(
+        '- Every variable defined in your contracts must be assigned a value in your ChugSplash config file.'
+      )
+      lines.push(
+        '- Please define the variable in your ChugSplash config file then run this command again.'
+      )
+      lines.push(
+        '- If this problem persists, delete your cache folder then try again.'
+      )
+
+      logValidationError(
+        'error',
+        `The following variables were defined in the contract ${contractConfig.contract} (or one of its parent contracts) but were not defined in the ChugSplash config file:`,
+        lines,
+        cre.silent,
+        cre.stream
+      )
+    }
   }
 
   return parsedConfigVariables
@@ -896,7 +1025,8 @@ const parseContractVariables = (
 export const parseAndValidateConstructorArgs = (
   userConstructorArgs: UserConfigVariables,
   referenceName: string,
-  abi: Array<Fragment>
+  abi: Array<Fragment>,
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConstructorArgs: ParsedConfigVariables = {}
 
@@ -942,27 +1072,555 @@ export const parseAndValidateConstructorArgs = (
     incorrectConstructorArgNames.length > 0 ||
     undefinedConstructorArgNames.length > 0
   ) {
-    let message = `We detected some issues in your ChugSplash config file, please resolve them and try again.\n\n`
     if (incorrectConstructorArgNames.length > 0) {
-      message += `The following constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:\n`
-      message += `${incorrectConstructorArgNames.map(
-        (argName) => `${argName}`
-      )}\n`
-      message += '\n'
+      const lines: string[] = []
+      lines.push(
+        `${incorrectConstructorArgNames.map((argName) => `${argName}`)}`
+      )
+
+      logValidationError(
+        'error',
+        `The following constructor arguments were found in your config for ${referenceName},\nbut are not present in the contract constructor:`,
+        lines,
+        cre.silent,
+        cre.stream
+      )
     }
 
     if (undefinedConstructorArgNames.length > 0) {
-      message += `The following constructor arguments are required by the constructor for ${referenceName}, but were not found in your config:\n`
-      message += `${undefinedConstructorArgNames.map(
-        (argName) => `${argName}`
-      )}\n`
-      message += '\n'
+      const lines: string[] = []
+      lines.push(
+        `${undefinedConstructorArgNames.map((argName) => `${argName}`)}`
+      )
+      logValidationError(
+        'error',
+        `The following constructor arguments are required by the constructor for ${referenceName},\nbut were not found in your config:`,
+        lines,
+        cre.silent,
+        cre.stream
+      )
     }
-
-    throw new InputError(message)
   }
 
   return parsedConstructorArgs
+}
+
+export const assertStorageCompatiblePreserveKeywords = (
+  contractConfig: ParsedContractConfig,
+  prevStorageLayout: StorageLayout,
+  newStorageLayout: StorageLayout,
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
+  const newDetailedLayout = getDetailedLayout(newStorageLayout)
+
+  const errorMessages: Array<string> = []
+  for (const newStorageObj of newDetailedLayout) {
+    if (
+      variableContainsKeyword(
+        contractConfig.variables[newStorageObj.label],
+        keywords.preserve
+      )
+    ) {
+      const validPreserveKeyword = prevDetailedLayout.some(
+        (prevObj) =>
+          prevObj.label === newStorageObj.label &&
+          prevObj.slot === newStorageObj.slot &&
+          prevObj.offset === newStorageObj.offset &&
+          isEqualType(prevObj, newStorageObj)
+      )
+
+      if (!validPreserveKeyword) {
+        errorMessages.push(newStorageObj.label)
+      }
+    }
+  }
+
+  if (errorMessages.length > 0) {
+    logValidationError(
+      'error',
+      'Invalid use of preserve keyword.',
+      [
+        'The following variables contain the preserve keyword, but do not exist in the previous',
+        'storage layout at the same slot position with the same variable type. Please fix this',
+        'or remove the preserve keyword from these variables:',
+        ...errorMessages,
+      ],
+      cre.silent,
+      cre.stream
+    )
+  }
+}
+
+/**
+ * Throws an error if the given variable contains any invalid contract references. Specifically,
+ * it'll throw an error if any of the following conditions occur:
+ *
+ * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
+ * template string converts into a valid address when it's parsed. If there are any leading or
+ * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ *
+ * 2. The contract reference is not included in the array of valid contract references.
+ *
+ * @param variable Config variable defined by the user.
+ * @param referenceNames Valid reference names for this ChugSplash config file.
+ */
+export const assertValidContractReferences = (
+  variable: UserConfigVariable,
+  referenceNames: string[],
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  if (
+    typeof variable === 'string' &&
+    variable.includes('{{') &&
+    variable.includes('}}')
+  ) {
+    if (!variable.startsWith('{{')) {
+      logValidationError(
+        'error',
+        `Contract reference cannot contain leading spaces before '{{' : ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+    if (!variable.endsWith('}}')) {
+      logValidationError(
+        'error',
+        `Contract reference cannot contain trailing spaces: ${variable}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    const contractReference = variable.substring(2, variable.length - 2).trim()
+
+    if (!referenceNames.includes(contractReference)) {
+      logValidationError(
+        'error',
+        `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  } else if (Array.isArray(variable)) {
+    for (const element of variable) {
+      assertValidContractReferences(element, referenceNames, cre)
+    }
+  } else if (typeof variable === 'object') {
+    for (const [varName, varValue] of Object.entries(variable)) {
+      assertValidContractReferences(varName, referenceNames, cre)
+      assertValidContractReferences(varValue, referenceNames, cre)
+    }
+  } else if (
+    typeof variable === 'boolean' ||
+    typeof variable === 'number' ||
+    typeof variable === 'string'
+  ) {
+    return
+  } else {
+    logValidationError(
+      'error',
+      `Detected unknown variable type, ${typeof variable}, for variable: ${variable}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+}
+
+export const assertValidParsedChugSplashFile = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  userConfig: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  cre: ChugSplashRuntimeEnvironment
+): Promise<boolean> => {
+  const { canonicalConfigPath, remoteExecution } = cre
+
+  // Determine if the deployment is an upgrade
+  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+    parsedConfig.options.projectName
+  )
+  const requiresOwnershipTransfer: {
+    name: string
+    proxyAddress: string
+    currentAdminAddress: string
+  }[] = []
+  let isUpgrade: boolean = false
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+      isUpgrade = true
+
+      if (
+        contractConfig.proxyType === 'oz-ownable-uups' ||
+        contractConfig.proxyType === 'oz-access-control-uups'
+      ) {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const chugsplashManager = new ethers.VoidSigner(
+          chugSplashManagerAddress,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          contractConfig.proxy,
+          ProxyABI,
+          chugsplashManager
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: 'unknown',
+          })
+        }
+      } else {
+        const proxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          contractConfig.proxy
+        )
+
+        if (proxyAdmin !== chugSplashManagerAddress) {
+          requiresOwnershipTransfer.push({
+            name: referenceName,
+            proxyAddress: contractConfig.proxy,
+            currentAdminAddress: proxyAdmin,
+          })
+        }
+      }
+    }
+  }
+
+  if (requiresOwnershipTransfer.length > 0) {
+    logValidationError(
+      'error',
+      `Detected proxy contracts which are not managed by ChugSplash:`,
+      [
+        `${requiresOwnershipTransfer.map(
+          ({ name, proxyAddress, currentAdminAddress }) =>
+            `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
+        )}
+If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
+npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
+permission to call the 'upgradeTo' function on each of them.
+    `,
+      ],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { input, output } = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath
+    )
+    const userContractConfig = userConfig.contracts[referenceName]
+
+    // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
+    // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`
+
+    // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+    // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+    const tmp = console.error
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    console.error = () => {}
+
+    // fetch the contract and validate
+    const upgradableContract = getOpenZeppelinUpgradableContract(
+      contractConfig.contract,
+      input,
+      output,
+      contractConfig.proxyType,
+      userContractConfig
+    )
+
+    // revert to standard console.error
+    console.error = tmp
+
+    // throw validation errors if detected
+    if (upgradableContract.errors.length > 0) {
+      logValidationError(
+        'error',
+        `Contract ${contractConfig.contract} is not upgrade safe`,
+        [
+          new UpgradeableContractErrorReport(
+            upgradableContract.errors
+          ).explain(),
+        ],
+        false,
+        cre.stream
+      )
+    }
+
+    if (isUpgrade) {
+      // Perform upgrade specific validation
+
+      const isProxyDeployed =
+        (await provider.getCode(contractConfig.proxy)) !== '0x'
+      if (isProxyDeployed && canonicalConfigPath) {
+        const newStorageLayout = upgradableContract.layout
+        const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
+          provider,
+          referenceName,
+          contractConfig,
+          userContractConfig,
+          remoteExecution,
+          canonicalConfigPath,
+          cre
+        )
+
+        assertStorageCompatiblePreserveKeywords(
+          contractConfig,
+          previousStorageLayout,
+          newStorageLayout,
+          cre
+        )
+
+        if (
+          // If the user has disabled storage checks for this contract
+          userConfig.contracts[referenceName].unsafeSkipStorageCheck !== true
+        ) {
+          assertStorageUpgradeSafe(
+            previousStorageLayout,
+            newStorageLayout,
+            getOpenZeppelinValidationOpts(
+              contractConfig.proxyType,
+              userContractConfig
+            )
+          )
+        }
+      }
+    } else {
+      // Perform initial deployment specific validation
+
+      // Throw an error if the 'preserve' keyword is set to a variable's value in the
+      // ChugSplash config file. This keyword is only allowed for upgrades.
+      if (
+        variableContainsKeyword(contractConfig.variables, keywords.preserve)
+      ) {
+        logValidationError(
+          'error',
+          'Detected the "{preserve}" keyword in a fresh deployment.',
+          [
+            'This keyword is reserved for upgrades only. Please remove all instances of it in your ChugSplash config file.',
+          ],
+          cre.silent,
+          cre.stream
+        )
+      }
+    }
+  }
+
+  return isUpgrade
+}
+
+export const assertValidContracts = (
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    // Get the source name and contract name from its fully qualified name
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    const buildInfoPath = artifactPaths[referenceName].buildInfoPath
+    const buildInfo = readBuildInfo(buildInfoPath)
+
+    const sourceUnit = buildInfo.output.sources[sourceName].ast
+    const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
+    // TODO: can we remove the `as any` in `astDereferencer` in the other parts of the codebase?
+    const dereferencer = astDereferencer(buildInfo.output)
+
+    // Get the ContractDefinition node for this `contractName`. There should only be one
+    // ContractDefinition since we filter by the `contractName`, which is unique within a SourceUnit.
+    const childContractDefs = sourceUnit.nodes
+      .filter(isNodeType('ContractDefinition'))
+      .filter((contractDef: ContractDefinition) => {
+        return contractDef.name === contractName
+      })
+
+    if (childContractDefs.length !== 1) {
+      throw new Error(
+        `Found ${childContractDefs.length} ContractDefinition nodes instead of 1 for ${contractName}. Should never happen.`
+      )
+    }
+
+    const childContractDef = childContractDefs[0]
+
+    // Get the base (i.e. parent) ContractDefinition nodes for the child contract.
+    const baseContractDefs = childContractDef.linearizedBaseContracts
+      .map(dereferencer('ContractDefinition'))
+      // Filter out the child ContractDefinition node, which is included in `linearizedBaseContracts`
+      .filter((node: ContractDefinition) => node.id !== childContractDef.id)
+
+    // Iterate over the child ContractDefinition node and its parent ContractDefinition nodes.
+    for (const contractDef of baseContractDefs.concat(childContractDef)) {
+      for (const node of contractDef.nodes) {
+        if (
+          isNodeType('FunctionDefinition', node) &&
+          node.kind === 'constructor' &&
+          node?.body?.statements
+        ) {
+          for (const statementNode of node.body.statements) {
+            if (
+              !isNodeType('ExpressionStatement', statementNode) ||
+              !isNodeType('Assignment', statementNode.expression) ||
+              !isNodeType(
+                'Identifier',
+                statementNode.expression.leftHandSide
+              ) ||
+              typeof statementNode.expression.leftHandSide
+                .referencedDeclaration !== 'number' ||
+              dereferencer(
+                'VariableDeclaration',
+                statementNode.expression.leftHandSide.referencedDeclaration
+              ).mutability !== 'immutable' ||
+              isNodeType('FunctionCall', statementNode.expression.rightHandSide)
+            ) {
+              logValidationError(
+                'error',
+                `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                  node
+                )}.`,
+                [
+                  'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
+                  'can deterministically deploy your contracts.',
+                ],
+                cre.silent,
+                cre.stream
+              )
+            }
+          }
+        } else if (isNodeType('VariableDeclaration', node)) {
+          if (node.mutability === 'mutable' && node.value) {
+            logValidationError(
+              'error',
+              `Attempted to assign a value to a non-immutable state variable '${
+                node.name
+              }' at: ${decodeSrc(node)}`,
+              [
+                'This is not allowed because the value will not exist in the upgradeable contract.',
+                'Please remove the value in the contract and define it in your ChugSplash file instead',
+                `Alternatively, you can also set '${node.name}' to be a constant or immutable variable.`,
+              ],
+              cre.silent,
+              cre.stream
+            )
+          } else if (
+            node.mutability === 'immutable' &&
+            node.value &&
+            isNodeType('FunctionCall', node.value)
+          ) {
+            logValidationError(
+              'error',
+              `Attempted to assign the immutable variable '${
+                node.name
+              }' to the return value of a function call at: ${decodeSrc(
+                node
+              )}.`,
+              [
+                'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
+              ],
+              cre.silent,
+              cre.stream
+            )
+          }
+        }
+      }
+
+      if (!contractConfig.unsafeAllowEmptyPush) {
+        for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
+          const typeIdentifier =
+            memberAccessNode.expression.typeDescriptions.typeIdentifier
+          const isDynamicBytesOrArray =
+            typeof typeIdentifier === 'string' &&
+            (typeIdentifier === 't_bytes_storage' ||
+              typeIdentifier.endsWith('dyn_storage'))
+
+          // Log an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
+          if (
+            isDynamicBytesOrArray &&
+            memberAccessNode.memberName === 'push' &&
+            memberAccessNode.argumentTypes &&
+            memberAccessNode.argumentTypes.length === 0
+          ) {
+            logValidationError(
+              'error',
+              `Detected the member function 'push()' at ${decodeSrc(
+                memberAccessNode
+              )}.`,
+              [`Please use 'push(x)' instead.`],
+              cre.silent,
+              cre.stream
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+const logUnsafeOptions = (
+  userConfig: UserChugSplashConfig,
+  silent: boolean,
+  stream: NodeJS.WritableStream
+) => {
+  for (const [referenceName, contractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const lines: string[] = []
+    if (contractConfig.unsafeAllow?.delegatecall) {
+      lines.push('You are using the unsafe option `unsafeAllow.delegatecall`')
+    }
+    if (contractConfig.unsafeAllow?.selfdestruct) {
+      lines.push('You are using the unsafe option `unsafeAllow.selfdestruct`')
+    }
+    if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
+      lines.push(
+        'You are using the unsafe option`unsafeAllow.missingPublicUpgradeTo`'
+      )
+    }
+    if (contractConfig.unsafeAllowRenames) {
+      lines.push('You are using the unsafe option `unsafeAllowRenames`')
+    }
+    if (contractConfig.unsafeSkipStorageCheck) {
+      lines.push('You are using the unsafe option `unsafeSkipStorageCheck`')
+    }
+
+    if (lines.length > 0) {
+      logValidationError(
+        'warning',
+        `Potentially unsafe deployment of ${referenceName}`,
+        lines,
+        silent,
+        stream
+      )
+    }
+  }
 }
 
 /**
@@ -976,8 +1634,17 @@ const parseAndValidateChugSplashConfig = async (
   provider: providers.Provider,
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
-  integration: Integration
+  integration: Integration,
+  cre: ChugSplashRuntimeEnvironment,
+  exitOnFailure: boolean = true
 ): Promise<ParsedChugSplashConfig> => {
+  // just in case, we reset the global validation errors flag before parsing
+  validationErrors = false
+
+  logUnsafeOptions(userConfig, cre.silent, cre.stream)
+
+  assertValidUserConfigFields(userConfig, cre)
+
   const parsedConfig: ParsedChugSplashConfig = {
     options: userConfig.options,
     contracts: {},
@@ -987,17 +1654,35 @@ const parseAndValidateChugSplashConfig = async (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
+    // throw an error if the external proxy is not a valid address
+    if (
+      userContractConfig.externalProxy &&
+      !ethers.utils.isAddress(userContractConfig.externalProxy)
+    ) {
+      throw new Error(
+        `Invalid proxy address: ${userContractConfig.externalProxy}`
+      )
+    }
+
     if (
       userContractConfig.externalProxy !== undefined &&
       (await provider.getCode(userContractConfig.externalProxy)) === '0x'
     ) {
-      throw new Error(
-        `User entered a proxy address that does not exist: ${userContractConfig.externalProxy}`
+      logValidationError(
+        'error',
+        `Entered a proxy address that does not exist: ${userContractConfig.externalProxy}`,
+        [],
+        cre.silent,
+        cre.stream
       )
     }
 
-    const { externalProxy, externalProxyType, constructorArgs } =
-      userContractConfig
+    const {
+      externalProxy,
+      externalProxyType,
+      constructorArgs,
+      unsafeAllowEmptyPush,
+    } = userContractConfig
 
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
@@ -1034,13 +1719,15 @@ const parseAndValidateChugSplashConfig = async (
         })
       ),
       storageLayout,
-      compilerOutput
+      compilerOutput,
+      cre
     )
 
     const args = parseAndValidateConstructorArgs(
       constructorArgs ?? {},
       referenceName,
-      compilerOutput.contracts[sourceName][contractName].abi
+      compilerOutput.contracts[sourceName][contractName].abi,
+      cre
     )
 
     parsedConfig.contracts[referenceName] = {
@@ -1049,14 +1736,39 @@ const parseAndValidateChugSplashConfig = async (
       proxyType,
       variables: parsedVariables,
       constructorArgs: args,
+      unsafeAllowEmptyPush,
     }
 
     contracts[referenceName] = proxy
   }
 
-  return JSON.parse(
-    Handlebars.compile(JSON.stringify(parsedConfig))({
-      ...contracts,
-    })
+  assertValidContracts(parsedConfig, artifactPaths, cre)
+
+  const upgrade = await assertValidParsedChugSplashFile(
+    provider,
+    parsedConfig,
+    userConfig,
+    artifactPaths,
+    cre
   )
+
+  // confirm
+  if (!cre.autoConfirm && upgrade) {
+    // Confirm upgrade with user
+    const userConfirmed = await yesno({
+      question: `Prior deployment(s) detected for project ${userConfig.options.projectName}. Would you like to perform an upgrade? (y/n)`,
+    })
+    if (!userConfirmed) {
+      throw new Error(`User denied upgrade.`)
+    }
+  }
+
+  // Exit if validation errors are detected
+  // We also allow the user to disable this behavior by setting `exitOnFailure` to false.
+  // This is useful for testing.
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
+  }
+
+  return parsedConfig
 }
