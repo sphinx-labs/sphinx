@@ -1552,30 +1552,32 @@ export const assertValidContracts = (
         }
       }
 
-      for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
-        const typeIdentifier =
-          memberAccessNode.expression.typeDescriptions.typeIdentifier
-        const isDynamicBytesOrArray =
-          typeof typeIdentifier === 'string' &&
-          (typeIdentifier === 't_bytes_storage' ||
-            typeIdentifier.endsWith('dyn_storage'))
+      if (!contractConfig.unsafeAllowEmptyPush) {
+        for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
+          const typeIdentifier =
+            memberAccessNode.expression.typeDescriptions.typeIdentifier
+          const isDynamicBytesOrArray =
+            typeof typeIdentifier === 'string' &&
+            (typeIdentifier === 't_bytes_storage' ||
+              typeIdentifier.endsWith('dyn_storage'))
 
-        // Log an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
-        if (
-          isDynamicBytesOrArray &&
-          memberAccessNode.memberName === 'push' &&
-          memberAccessNode.argumentTypes &&
-          memberAccessNode.argumentTypes.length === 0
-        ) {
-          logValidationError(
-            'error',
-            `Detected the member function 'push()' at ${decodeSrc(
-              memberAccessNode
-            )}.`,
-            [`Please use 'push(x)' instead.`],
-            cre.silent,
-            cre.stream
-          )
+          // Log an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
+          if (
+            isDynamicBytesOrArray &&
+            memberAccessNode.memberName === 'push' &&
+            memberAccessNode.argumentTypes &&
+            memberAccessNode.argumentTypes.length === 0
+          ) {
+            logValidationError(
+              'error',
+              `Detected the member function 'push()' at ${decodeSrc(
+                memberAccessNode
+              )}.`,
+              [`Please use 'push(x)' instead.`],
+              cre.silent,
+              cre.stream
+            )
+          }
         }
       }
     }
@@ -1675,8 +1677,12 @@ const parseAndValidateChugSplashConfig = async (
       )
     }
 
-    const { externalProxy, externalProxyType, constructorArgs } =
-      userContractConfig
+    const {
+      externalProxy,
+      externalProxyType,
+      constructorArgs,
+      unsafeAllowEmptyPush,
+    } = userContractConfig
 
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
@@ -1730,6 +1736,7 @@ const parseAndValidateChugSplashConfig = async (
       proxyType,
       variables: parsedVariables,
       constructorArgs: args,
+      unsafeAllowEmptyPush,
     }
 
     contracts[referenceName] = proxy

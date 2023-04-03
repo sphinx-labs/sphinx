@@ -88,6 +88,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  unsafeAllowEmptyPush?: boolean
   unsafeAllowRenames?: boolean
   unsafeSkipStorageCheck?: boolean
   unsafeAllow?: {
@@ -116,6 +117,7 @@ export type ParsedContractConfig = {
   proxyType: ProxyType
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
 }
 
 export type ParsedContractConfigs = {
