@@ -181,10 +181,15 @@ const variables = {
   },
 }
 
+const projectName = 'Deploy test'
+
 module.exports = {
   // Configuration options for the project:
   options: {
-    projectName: 'Deploy test',
+    organizationID: ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(projectName)
+    ),
+    projectName,
   },
   contracts: {
     MyStorage: {

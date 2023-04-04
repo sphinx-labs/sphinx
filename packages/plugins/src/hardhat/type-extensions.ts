@@ -30,7 +30,7 @@ declare module 'hardhat/types/runtime' {
     chugsplash: {
       reset: () => Promise<void>
       getContract: (
-        projectName: string,
+        organizationID: string,
         referenceName: string
       ) => Promise<ethers.Contract>
       executor: ChugSplashExecutorType

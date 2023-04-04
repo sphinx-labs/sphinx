@@ -129,23 +129,31 @@ export const writeDeploymentArtifact = (
 
 /**
  * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
- * the projectName and the corresponding contract's reference name. Note that a default proxy will
+ * the organizationID and the corresponding contract's reference name. Note that a default proxy will
  * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
  * attribute.
  *
- * @param projectName Name of the ChugSplash project.
+ * @param organizationID ID of the organization.
  * @param referenceName Reference name of the contract that corresponds to the proxy.
  * @returns Address of the default EIP-1967 proxy used by ChugSplash.
  */
 export const getDefaultProxyAddress = (
+  organizationID: string,
   projectName: string,
   referenceName: string
 ): string => {
-  const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
+  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
+
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['string', 'string'],
+      [projectName, referenceName]
+    )
+  )
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -170,10 +178,10 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerAddress = (projectName: string) => {
+export const getChugSplashManagerAddress = (organizationID: string) => {
   return utils.getCreate2Address(
     CHUGSPLASH_REGISTRY_ADDRESS,
-    utils.solidityKeccak256(['string'], [projectName]),
+    organizationID,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -197,7 +205,7 @@ export const getChugSplashManagerAddress = (projectName: string) => {
  * Registers a new ChugSplash project.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param projectName Name of the created project.
+ * @param organizationID ID of the organization.
  * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
  * @returns True if the project was registered for the first time in this call, and false if the
  * project was already registered by the caller.
@@ -206,19 +214,20 @@ export const registerChugSplashProject = async (
   provider: providers.JsonRpcProvider,
   signer: Signer,
   signerAddress: string,
-  projectName: string,
+  organizationID: string,
   projectOwner: string,
   allowManagedProposals: boolean
 ): Promise<boolean> => {
   const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
-    (await ChugSplashRegistry.projects(projectName)) === constants.AddressZero
+    (await ChugSplashRegistry.projects(organizationID)) ===
+    constants.AddressZero
   ) {
     await (
       await ChugSplashRegistry.register(
-        projectName,
         projectOwner,
+        organizationID,
         allowManagedProposals,
         await getGasPriceOverrides(provider)
       )
@@ -227,7 +236,7 @@ export const registerChugSplashProject = async (
   } else {
     const existingProjectOwner = await getProjectOwnerAddress(
       signer,
-      projectName
+      organizationID
     )
     if (existingProjectOwner !== signerAddress) {
       throw new Error(`Project already owned by: ${existingProjectOwner}.`)
@@ -239,9 +248,9 @@ export const registerChugSplashProject = async (
 
 export const getProjectOwnerAddress = async (
   signer: Signer,
-  projectName: string
+  organizationID: string
 ): Promise<string> => {
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.OwnershipTransferred()
@@ -272,9 +281,12 @@ export const getChugSplashRegistry = (
   )
 }
 
-export const getChugSplashManager = (signer: Signer, projectName: string) => {
+export const getChugSplashManager = (
+  signer: Signer,
+  organizationID: string
+) => {
   return new Contract(
-    getChugSplashManagerAddress(projectName),
+    getChugSplashManagerAddress(organizationID),
     ChugSplashManagerABI,
     signer
   )
@@ -282,10 +294,10 @@ export const getChugSplashManager = (signer: Signer, projectName: string) => {
 
 export const getChugSplashManagerReadOnly = (
   provider: providers.Provider,
-  projectName: string
+  organizationID: string
 ) => {
   return new Contract(
-    getChugSplashManagerAddress(projectName),
+    getChugSplashManagerAddress(organizationID),
     ChugSplashManagerABI,
     provider
   )
@@ -340,7 +352,7 @@ export const displayDeploymentTable = (
           contractConfig.kind !== 'no-proxy'
             ? contractConfig.proxy
             : getContractAddress(
-                parsedConfig.options.projectName,
+                parsedConfig.options.organizationID,
                 referenceName,
                 parsedConfig.contracts[referenceName].constructorArgs,
                 { integration, artifactPaths }
@@ -520,14 +532,14 @@ export const getGasPriceOverrides = async (
 
 export const isProjectRegistered = async (
   signer: Signer,
-  projectName: string
+  organizationID: string
 ) => {
   const ChugSplashRegistry = new ethers.Contract(
     CHUGSPLASH_REGISTRY_ADDRESS,
     ChugSplashRegistryABI,
     signer
   )
-  const chugsplashManagerAddress = getChugSplashManagerAddress(projectName)
+  const chugsplashManagerAddress = getChugSplashManagerAddress(organizationID)
   const isRegistered: boolean = await ChugSplashRegistry.managers(
     chugsplashManagerAddress
   )
@@ -827,18 +839,19 @@ export const isEqualType = (
 }
 
 /**
- * Returns the Create2 address of a contract deployed by ChugSplash, which is calculated
- * as a function of the projectName and the corresponding contract's reference name. Note
- * that the contract may not yet be deployed at this address since it's calculated via Create2.
+ * Returns the Create2 address of a contract deployed by ChugSplash, which is calculated as a
+ * function of the organizationID and the corresponding contract's reference name. Note that the
+ * contract may not yet be deployed at this address since it's calculated via Create2.
  *
- * @param projectName Name of the ChugSplash project.
+ * @param organizationID ID of the organization.
  * @param referenceName Reference name of the contract that corresponds to the proxy.
  * @param constructorArgs Constructor arguments for the contract.
- * @param maybeArtifact Contract artifact, or an object containing the artifactPaths and the integration so the artifact can be resolved.
+ * @param maybeArtifact Contract artifact, or an object containing the artifactPaths and the
+ * integration so the artifact can be resolved.
  * @returns Address of the contract.
  */
 export const getContractAddress = (
-  projectName: string,
+  organizationID: string,
   referenceName: string,
   constructorArgs: UserConfigVariables,
   maybeArtifact:
@@ -864,7 +877,7 @@ export const getContractAddress = (
     abi
   )
 
-  const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
+  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,

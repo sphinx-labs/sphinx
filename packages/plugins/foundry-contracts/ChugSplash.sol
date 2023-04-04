@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import "lib/solidity-stringutils/src/strings.sol";
-import "forge-std/console.sol";
 
 contract ChugSplash is Script, Test {
     using strings for *;

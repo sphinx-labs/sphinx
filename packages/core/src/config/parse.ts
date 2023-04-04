@@ -3,7 +3,13 @@ import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
 import { BigNumber, ethers, providers } from 'ethers'
-import { astDereferencer, ASTDereferencer } from 'solidity-ast/utils'
+import {
+  astDereferencer,
+  ASTDereferencer,
+  srcDecoder,
+  isNodeType,
+  findAll,
+} from 'solidity-ast/utils'
 import { remove0x } from '@eth-optimism/core-utils'
 import { Fragment } from 'ethers/lib/utils'
 import {
@@ -36,7 +42,6 @@ import {
   getOpenZeppelinUpgradableContract,
   isEqualType,
   getOpenZeppelinValidationOpts,
-  getParentContractASTNodes,
   chugsplashLog,
   getContractAddress,
 } from '../utils'
@@ -150,6 +155,16 @@ export const assertValidUserConfigFields = async (
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const referenceNames: string[] = Object.keys(config.contracts)
+
+  if (!ethers.utils.isHexString(config.options.organizationID, 32)) {
+    logValidationError(
+      'error',
+      `Organization ID must be a 32-byte hex string. Instead, got: ${config.options.organizationID}`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
@@ -1268,7 +1283,7 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.projectName
+    parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
     name: string
@@ -1488,46 +1503,79 @@ export const assertValidContracts = (
 
     const buildInfoPath = artifactPaths[referenceName].buildInfoPath
     const buildInfo = readBuildInfo(buildInfoPath)
-    const outputSource = buildInfo.output.sources[sourceName]
 
-    const childContractNode = outputSource.ast.nodes.find(
-      (node): node is ContractDefinition =>
-        node.nodeType === 'ContractDefinition' && node.name === contractName
-    )
+    const sourceUnit = buildInfo.output.sources[sourceName].ast
+    const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
+    // TODO: can we remove the `as any` in `astDereferencer` in the other parts of the codebase?
+    const dereferencer = astDereferencer(buildInfo.output)
 
-    if (childContractNode === undefined) {
+    // Get the ContractDefinition node for this `contractName`. There should only be one
+    // ContractDefinition since we filter by the `contractName`, which is unique within a SourceUnit.
+    const childContractDefs = sourceUnit.nodes
+      .filter(isNodeType('ContractDefinition'))
+      .filter((contractDef: ContractDefinition) => {
+        return contractDef.name === contractName
+      })
+
+    if (childContractDefs.length !== 1) {
       throw new Error(
-        `Could not find the child contract node for "${referenceName}"`
+        `Found ${childContractDefs.length} ContractDefinition nodes instead of 1 for ${contractName}. Should never happen.`
       )
     }
 
-    const parentContractNodeAstIds =
-      childContractNode.linearizedBaseContracts.filter(
-        (astId) => astId !== childContractNode.id
-      )
-    const parentContractNodes = getParentContractASTNodes(
-      buildInfo.output.sources,
-      parentContractNodeAstIds
-    )
+    const childContractDef = childContractDefs[0]
 
-    // TODO: type
-    const constructorNodes: Array<any> = []
-    const immutableVarAstIds: { [astId: number]: boolean } = {}
-    // Create a mapping of constructor node AST IDs to the corresponding contract's name. This is only used
-    // for error messages when we parse the constructor nodes later.
-    const constructorNodeContractNames: { [astId: number]: string } = {}
-    for (const contractNode of parentContractNodes.concat([
-      childContractNode,
-    ])) {
-      for (const node of contractNode.nodes) {
-        if (node.kind === 'constructor') {
-          constructorNodes.push(node)
-          constructorNodeContractNames[node.id] = contractNode.name
-        } else if (node.nodeType === 'VariableDeclaration') {
-          if (node.mutability === 'mutable' && node.value !== undefined) {
+    // Get the base (i.e. parent) ContractDefinition nodes for the child contract.
+    const baseContractDefs = childContractDef.linearizedBaseContracts
+      .map(dereferencer('ContractDefinition'))
+      // Filter out the child ContractDefinition node, which is included in `linearizedBaseContracts`
+      .filter((node: ContractDefinition) => node.id !== childContractDef.id)
+
+    // Iterate over the child ContractDefinition node and its parent ContractDefinition nodes.
+    for (const contractDef of baseContractDefs.concat(childContractDef)) {
+      for (const node of contractDef.nodes) {
+        if (
+          isNodeType('FunctionDefinition', node) &&
+          node.kind === 'constructor' &&
+          node?.body?.statements
+        ) {
+          for (const statementNode of node.body.statements) {
+            if (
+              !isNodeType('ExpressionStatement', statementNode) ||
+              !isNodeType('Assignment', statementNode.expression) ||
+              !isNodeType(
+                'Identifier',
+                statementNode.expression.leftHandSide
+              ) ||
+              typeof statementNode.expression.leftHandSide
+                .referencedDeclaration !== 'number' ||
+              dereferencer(
+                'VariableDeclaration',
+                statementNode.expression.leftHandSide.referencedDeclaration
+              ).mutability !== 'immutable' ||
+              isNodeType('FunctionCall', statementNode.expression.rightHandSide)
+            ) {
+              logValidationError(
+                'error',
+                `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                  node
+                )}.`,
+                [
+                  'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
+                  'can deterministically deploy your contracts.',
+                ],
+                cre.silent,
+                cre.stream
+              )
+            }
+          }
+        } else if (isNodeType('VariableDeclaration', node)) {
+          if (node.mutability === 'mutable' && node.value) {
             logValidationError(
               'error',
-              `Attempted to assign a value to a non-immutable state variable '${node.name}' in the contract: ${contractNode.name}`,
+              `Attempted to assign a value to a non-immutable state variable '${
+                node.name
+              }' at: ${decodeSrc(node)}`,
               [
                 'This is not allowed because the value will not exist in the upgradeable contract.',
                 'Please remove the value in the contract and define it in your ChugSplash file instead',
@@ -1536,16 +1584,18 @@ export const assertValidContracts = (
               cre.silent,
               cre.stream
             )
-          }
-
-          if (
+          } else if (
             node.mutability === 'immutable' &&
-            node.value !== undefined &&
-            node.value.kind === 'functionCall'
+            node.value &&
+            isNodeType('FunctionCall', node.value)
           ) {
             logValidationError(
               'error',
-              `Attempted to assign the immutable variable '${node.name}' to the return value of a function call in\nthe contract: ${contractNode.name}.`,
+              `Attempted to assign the immutable variable '${
+                node.name
+              }' to the return value of a function call at: ${decodeSrc(
+                node
+              )}.`,
               [
                 'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
               ],
@@ -1553,81 +1603,35 @@ export const assertValidContracts = (
               cre.stream
             )
           }
-
-          if (node.mutability === 'immutable' && node.value === undefined) {
-            immutableVarAstIds[node.id] = true
-          }
         }
       }
-    }
 
-    for (const node of constructorNodes) {
-      for (const statement of node.body.statements) {
-        if (statement.nodeType !== 'ExpressionStatement') {
-          logValidationError(
-            'error',
-            `Detected an unallowed expression '${
-              statement.nodeType
-            }', in the constructor of the contract: ${
-              constructorNodeContractNames[node.id]
-            }.`,
-            [
-              'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
-              'can deterministically deploy your contracts.',
-            ],
-            cre.silent,
-            cre.stream
-          )
-        }
+      if (!contractConfig.unsafeAllowEmptyPush) {
+        for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
+          const typeIdentifier =
+            memberAccessNode.expression.typeDescriptions.typeIdentifier
+          const isDynamicBytesOrArray =
+            typeof typeIdentifier === 'string' &&
+            (typeIdentifier === 't_bytes_storage' ||
+              typeIdentifier.endsWith('dyn_storage'))
 
-        if (statement.expression.nodeType !== 'Assignment') {
-          const unallowedOperation: string =
-            statement.expression.expression.name ?? statement.expression.kind
-          logValidationError(
-            'error',
-            `Detected an unallowed operation, '${unallowedOperation}', in the constructor of the contract: ${
-              constructorNodeContractNames[node.id]
-            }.`,
-            [
-              'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash is deterministic',
-            ],
-            cre.silent,
-            cre.stream
-          )
-        }
-
-        if (
-          immutableVarAstIds[
-            statement.expression.leftHandSide.referencedDeclaration
-          ] !== true
-        ) {
-          logValidationError(
-            'error',
-            `Detected an assignment to a non-immutable variable, '${
-              statement.expression.leftHandSide.name
-            }', in the constructor of the contract: ${
-              constructorNodeContractNames[node.id]
-            }.`,
-            [],
-            cre.silent,
-            cre.stream
-          )
-        }
-
-        if (statement.expression.rightHandSide.kind === 'functionCall') {
-          logValidationError(
-            'error',
-            `User attempted to assign the immutable variable '${
-              statement.expression.leftHandSide.name
-            }' to the return \n value of a function call in the contract: ${
-              constructorNodeContractNames[node.id]
-            }.`,
-            [
-              'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
-            ],
-            cre.silent,
-            cre.stream
-          )
+          // Log an error if calling `push()` with no parameters on a dynamic array or dynamic bytes.
+          if (
+            isDynamicBytesOrArray &&
+            memberAccessNode.memberName === 'push' &&
+            memberAccessNode.argumentTypes &&
+            memberAccessNode.argumentTypes.length === 0
+          ) {
+            logValidationError(
+              'error',
+              `Detected the member function 'push()' at ${decodeSrc(
+                memberAccessNode
+              )}.`,
+              [`Please use 'push(x)' instead.`],
+              cre.silent,
+              cre.stream
+            )
+          }
         }
       }
     }
@@ -1729,8 +1733,7 @@ const assertValidConstructorArgs = (
 
 const resolveContractAddresses = (
   userConfig: UserChugSplashConfig,
-  cachedArtifacts: { [referenceName: string]: ContractArtifact },
-  projectName: string
+  cachedArtifacts: { [referenceName: string]: ContractArtifact }
 ): { [referenceName: string]: string } => {
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
@@ -1743,13 +1746,17 @@ const resolveContractAddresses = (
     // used by ChugSplash.
     const proxy =
       externalProxy ||
-      getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+      getDefaultProxyAddress(
+        userConfig.options.organizationID,
+        userConfig.options.projectName,
+        referenceName
+      )
 
     contracts[referenceName] =
       kind !== 'no-proxy'
         ? proxy
         : getContractAddress(
-            projectName,
+            userConfig.options.organizationID,
             referenceName,
             userContractConfig.constructorArgs ?? {},
             cachedArtifacts[referenceName]
@@ -1885,11 +1892,7 @@ const parseAndValidateChugSplashConfig = async (
     )
 
   // Resolve all the contract addresses so they can be used handle contract references during the variable parsing step
-  const contracts = resolveContractAddresses(
-    userConfig,
-    cachedArtifacts,
-    userConfig.options.projectName
-  )
+  const contracts = resolveContractAddresses(userConfig, cachedArtifacts)
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(

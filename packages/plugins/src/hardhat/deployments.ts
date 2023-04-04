@@ -88,7 +88,8 @@ export const deployAllChugSplashConfigs = async (
       configPath,
       artifactPaths,
       'hardhat',
-      cre
+      cre,
+      false
     )
 
     const signer = hre.ethers.provider.getSigner()
@@ -141,14 +142,14 @@ export const getContract = async (
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project named "${projectName}" that contains the reference name "${referenceName}".`
+      `Cannot find a project with ID "${projectName}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects named "${projectName}" contain the reference name "${referenceName}"\n` +
-        `Please merge these projects or change one of the project names.`
+      `Multiple projects with ID "${projectName}" contain the reference name "${referenceName}"\n` +
+        `Please merge these projects or change one of the organization IDs.`
     )
   }
 
@@ -157,12 +158,15 @@ export const getContract = async (
 
   let address =
     contractConfig.externalProxy ||
-    getDefaultProxyAddress(userConfig.options.projectName, referenceName)
-
+    getDefaultProxyAddress(
+      userConfig.options.organizationID,
+      userConfig.options.projectName,
+      referenceName
+    )
   if (contractConfig.kind === 'no-proxy') {
     const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
     address = getContractAddress(
-      userConfig.options.projectName,
+      userConfig.options.organizationID,
       referenceName,
       contractConfig.constructorArgs ?? {},
       artifact
