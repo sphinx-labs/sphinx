@@ -13,6 +13,7 @@ import {
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
+  getContractAddress,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -152,16 +153,28 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
+  const contractConfig = userConfig.contracts[referenceName]
 
-  const proxyAddress =
-    userConfig.contracts[referenceName].externalProxy ||
+  let address =
+    contractConfig.externalProxy ||
     getDefaultProxyAddress(userConfig.options.projectName, referenceName)
-  if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
+
+  if (contractConfig.kind === 'no-proxy') {
+    const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
+    address = getContractAddress(
+      userConfig.options.projectName,
+      referenceName,
+      contractConfig.constructorArgs ?? {},
+      artifact
+    )
+  }
+
+  if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(`The proxy for ${referenceName} has not been deployed.`)
   }
 
   const Proxy = new ethers.Contract(
-    proxyAddress,
+    address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
         userConfig.contracts[referenceName].contract

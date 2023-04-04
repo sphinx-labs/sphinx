@@ -3,6 +3,7 @@ import {
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { BigNumber, constants } from 'ethers'
 import { Fragment } from 'ethers/lib/utils'
@@ -10,27 +11,30 @@ import { CompilerInput } from 'hardhat/types'
 
 import { CompilerOutput } from '../languages/solidity/types'
 
-export const externalProxyTypes = [
+export const externalContractKinds = [
   'oz-transparent',
   'oz-ownable-uups',
   'oz-access-control-uups',
   'external-default',
+  'no-proxy',
 ]
-export type ExternalProxyType =
+export type ExternalContractKind =
   | 'oz-transparent'
   | 'oz-ownable-uups'
   | 'oz-access-control-uups'
   | 'external-default'
+  | 'no-proxy'
 
-export const proxyTypeHashes: { [proxyType: string]: string } = {
+export const contractKindHashes: { [contractKind: string]: string } = {
   'internal-default': constants.HashZero,
   'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  'no-proxy': NO_PROXY_TYPE_HASH,
 }
 
-export type ProxyType = ExternalProxyType | 'internal-default'
+export type ContractKind = ExternalContractKind | 'internal-default'
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -83,7 +87,7 @@ export interface ParsedChugSplashConfig {
 export type UserContractConfig = {
   contract: string
   externalProxy?: string
-  externalProxyType?: ExternalProxyType
+  kind?: ExternalContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
@@ -113,7 +117,7 @@ export type UserConfigVariables = {
 export type ParsedContractConfig = {
   contract: string
   proxy: string
-  proxyType: ProxyType
+  kind: ContractKind
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
 }
@@ -146,6 +150,7 @@ export type CanonicalConfigArtifacts = {
     compilerOutput: CompilerOutput
     creationCodeWithConstructorArgs: string
     abi: Array<Fragment>
+    bytecode: string
     sourceName: string
     contractName: string
   }

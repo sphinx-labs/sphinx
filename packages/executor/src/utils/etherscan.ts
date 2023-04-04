@@ -11,7 +11,7 @@ import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   callWithTimeout,
   CanonicalChugSplashConfig,
-  getImplAddress,
+  getContractAddress,
 } from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
@@ -108,17 +108,17 @@ export const verifyChugSplashConfig = async (
     canonicalConfig.contracts
   )) {
     const artifact = artifacts[referenceName]
-    const { abi, contractName, sourceName, creationCodeWithConstructorArgs } =
-      artifact
+    const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
       referenceName,
       abi
     )
-    const implementationAddress = getImplAddress(
+    const implementationAddress = getContractAddress(
       canonicalConfig.options.projectName,
       referenceName,
-      creationCodeWithConstructorArgs
+      contractConfig.constructorArgs,
+      artifact
     )
 
     const { input, solcVersion } = canonicalConfig.inputs.find(

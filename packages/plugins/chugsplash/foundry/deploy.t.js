@@ -196,6 +196,14 @@ module.exports = {
       contract: 'SimpleStorage',
       variables: {
         myStorage: '{{ MyStorage }}',
+        myStateless: '{{ Stateless }}',
+      },
+    },
+    Stateless: {
+      contract: 'Stateless',
+      kind: 'no-proxy',
+      constructorArgs: {
+        _immutableUint: 1,
       },
     },
   },

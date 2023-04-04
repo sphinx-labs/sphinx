@@ -33,7 +33,9 @@ export const readStorageLayout = (
   const [sourceName, contractName] = contractFullyQualifiedName.split(':')
   const contractOutput = buildInfo.output.contracts[sourceName][contractName]
 
-  return contractOutput.storageLayout
+  // Foundry artifacts do not contain the storage layout field for contracts which have no storage.
+  // So we default to an empty storage layout in this case for consistency.
+  return contractOutput.storageLayout ?? { storage: [], types: {} }
 }
 
 export const getDeployedBytecode = async (

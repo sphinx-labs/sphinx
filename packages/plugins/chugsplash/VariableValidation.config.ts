@@ -51,6 +51,16 @@ const config: UserChugSplashConfig = {
         anotherExtraVar: [],
       },
     },
+    Stateless: {
+      contract: 'Stateless',
+      kind: 'no-proxy',
+      constructorArgs: {
+        _immutableUint: 1,
+      },
+      variables: {
+        hello: 'world',
+      },
+    },
   },
 }
 

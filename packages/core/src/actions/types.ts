@@ -5,7 +5,7 @@ import { BigNumber } from 'ethers'
  */
 export enum ChugSplashActionType {
   SET_STORAGE,
-  DEPLOY_IMPLEMENTATION,
+  DEPLOY_CONTRACT,
 }
 
 /**
@@ -28,14 +28,14 @@ export interface RawChugSplashAction {
   referenceName: string
   data: string
   proxy: string
-  proxyTypeHash: string
+  contractKindHash: string
 }
 
 export interface ChugSplashTarget {
   referenceName: string
   proxy: string
   implementation: string
-  proxyTypeHash: string
+  contractKindHash: string
 }
 
 /**
@@ -44,19 +44,19 @@ export interface ChugSplashTarget {
 export interface SetStorageAction {
   referenceName: string
   proxy: string
-  proxyTypeHash: string
+  contractKindHash: string
   key: string
   offset: number
   value: string
 }
 
 /**
- * DeployImplementation action data.
+ * DeployContract action data.
  */
-export interface DeployImplementationAction {
+export interface DeployContractAction {
   referenceName: string
   proxy: string
-  proxyTypeHash: string
+  contractKindHash: string
   code: string
 }
 
@@ -68,7 +68,7 @@ export interface ChugSplashBundles {
 /**
  * ChugSplash action.
  */
-export type ChugSplashAction = SetStorageAction | DeployImplementationAction
+export type ChugSplashAction = SetStorageAction | DeployContractAction
 
 /**
  * ChugSplash action that is part of a bundle.

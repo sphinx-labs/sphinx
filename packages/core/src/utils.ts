@@ -50,13 +50,13 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 import {
   CanonicalChugSplashConfig,
   CanonicalConfigArtifacts,
-  ExternalProxyType,
-  externalProxyTypes,
+  ExternalContractKind,
+  externalContractKinds,
   ParsedChugSplashConfig,
-  ParsedConfigVariable,
-  ParsedConfigVariables,
   ParsedContractConfig,
-  ProxyType,
+  ContractKind,
+  UserConfigVariable,
+  UserConfigVariables,
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
@@ -69,6 +69,7 @@ import {
   CompilerOutputSources,
   BuildInfo,
   CompilerOutput,
+  ArtifactPaths,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
@@ -328,19 +329,32 @@ export const displayProposerTable = (proposerAddresses: string[]) => {
 
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
   silent: boolean
 ) => {
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) => {
+        // if contract is an unproxied, then we must resolve it's true address
+        const address =
+          contractConfig.kind !== 'no-proxy'
+            ? contractConfig.proxy
+            : getContractAddress(
+                parsedConfig.options.projectName,
+                referenceName,
+                parsedConfig.contracts[referenceName].constructorArgs,
+                { integration, artifactPaths }
+              )
+
         const contractName = contractConfig.contract.includes(':')
           ? contractConfig.contract.split(':').at(-1)
           : contractConfig.contract
         deployments[i + 1] = {
           'Reference Name': referenceName,
           Contract: contractName,
-          Address: contractConfig.proxy,
+          Address: address,
         }
       }
     )
@@ -651,10 +665,10 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const isExternalProxyType = (
-  proxyType: string
-): proxyType is ExternalProxyType => {
-  return externalProxyTypes.includes(proxyType)
+export const isExternalContractKind = (
+  contractKind: string
+): contractKind is ExternalContractKind => {
+  return externalContractKinds.includes(contractKind)
 }
 
 export const getParentContractASTNodes = (
@@ -815,38 +829,62 @@ export const isEqualType = (
 }
 
 /**
- * Returns the Create2 address of an implementation contract deployed by ChugSplash, which is
- * calculated as a function of the projectName and the corresponding contract's reference name. Note
+ * Returns the Create2 address of a contract deployed by ChugSplash, which is calculated
+ * as a function of the projectName and the corresponding contract's reference name. Note
  * that the contract may not yet be deployed at this address since it's calculated via Create2.
  *
  * @param projectName Name of the ChugSplash project.
  * @param referenceName Reference name of the contract that corresponds to the proxy.
- * @returns Address of the implementation contract.
+ * @param constructorArgs Constructor arguments for the contract.
+ * @param maybeArtifact Contract artifact, or an object containing the artifactPaths and the integration so the artifact can be resolved.
+ * @returns Address of the contract.
  */
-export const getImplAddress = (
+export const getContractAddress = (
   projectName: string,
   referenceName: string,
-  creationCodeWithConstructorArgs: string
+  constructorArgs: UserConfigVariables,
+  maybeArtifact:
+    | ContractArtifact
+    | {
+        integration: Integration
+        artifactPaths: ArtifactPaths
+      }
 ): string => {
+  // Resolve the artifact either from the maybeArtifcat object itself, or from the artifactPaths
+  const { abi, bytecode } =
+    'abi' in maybeArtifact
+      ? maybeArtifact
+      : readContractArtifact(
+          maybeArtifact.artifactPaths[referenceName].contractArtifactPath,
+          maybeArtifact.integration
+        )
+
+  const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+    bytecode,
+    constructorArgs ?? {},
+    referenceName,
+    abi
+  )
+
   const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
-    utils.keccak256(utils.toUtf8Bytes(referenceName)),
+    ethers.constants.HashZero,
     utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
   )
 }
 
 export const getConstructorArgs = (
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: UserConfigVariables,
   referenceName: string,
   abi: Array<Fragment>
 ): {
   constructorArgTypes: Array<string>
-  constructorArgValues: ParsedConfigVariable[]
+  constructorArgValues: UserConfigVariable[]
 } => {
   const constructorArgTypes: Array<string> = []
-  const constructorArgValues: Array<ParsedConfigVariable> = []
+  const constructorArgValues: Array<UserConfigVariable> = []
 
   const constructorFragment = abi.find(
     (fragment) => fragment.type === 'constructor'
@@ -867,7 +905,7 @@ export const getConstructorArgs = (
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
-  constructorArgs: ParsedConfigVariables,
+  constructorArgs: UserConfigVariables,
   referenceName: string,
   abi: any
 ): string => {
@@ -909,29 +947,29 @@ export const callWithTimeout = async <T>(
   })
 }
 
-export const toOpenZeppelinProxyType = (
-  proxyType: ProxyType
+export const toOpenZeppelinContractKind = (
+  contractKind: ContractKind
 ): ProxyDeployment['kind'] => {
   if (
-    proxyType === 'internal-default' ||
-    proxyType === 'external-default' ||
-    proxyType === 'oz-transparent'
+    contractKind === 'internal-default' ||
+    contractKind === 'external-default' ||
+    contractKind === 'oz-transparent'
   ) {
     return 'transparent'
   } else if (
-    proxyType === 'oz-ownable-uups' ||
-    proxyType === 'oz-access-control-uups'
+    contractKind === 'oz-ownable-uups' ||
+    contractKind === 'oz-access-control-uups'
   ) {
     return 'uups'
   } else {
     throw new Error(
-      `Attempted to convert "${proxyType}" to an OpenZeppelin proxy type`
+      `Attempted to convert "${contractKind}" to an OpenZeppelin proxy type`
     )
   }
 }
 
 export const getOpenZeppelinValidationOpts = (
-  proxyType: ProxyType,
+  contractKind: ContractKind,
   contractConfig: UserContractConfig
 ): Required<ValidationOptions> => {
   type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
@@ -952,7 +990,7 @@ export const getOpenZeppelinValidationOpts = (
   }
 
   const options = {
-    kind: toOpenZeppelinProxyType(proxyType),
+    kind: toOpenZeppelinContractKind(contractKind),
     unsafeAllow,
     unsafeAllowRenames: contractConfig.unsafeAllowRenames,
     unsafeSkipStorageCheck: contractConfig.unsafeSkipStorageCheck,
@@ -965,10 +1003,10 @@ export const getOpenZeppelinUpgradableContract = (
   fullyQualifiedName: string,
   compilerInput: CompilerInput,
   compilerOutput: CompilerOutput,
-  proxyType: ProxyType,
+  contractKind: ContractKind,
   contractConfig: UserContractConfig
 ): UpgradeableContract => {
-  const options = getOpenZeppelinValidationOpts(proxyType, contractConfig)
+  const options = getOpenZeppelinValidationOpts(contractKind, contractConfig)
 
   const contract = new UpgradeableContract(
     fullyQualifiedName,
@@ -1042,7 +1080,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       userContractConfig.previousFullyQualifiedName,
       input,
       output,
-      parsedContractConfig.proxyType,
+      parsedContractConfig.kind,
       userContractConfig
     ).layout
   } else if (previousCanonicalConfig !== undefined) {
@@ -1055,7 +1093,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       `${sourceName}:${contractName}`,
       compilerInput,
       compilerOutput,
-      parsedContractConfig.proxyType,
+      parsedContractConfig.kind,
       userContractConfig
     ).layout
   } else if (cre.hre !== undefined) {
@@ -1230,6 +1268,7 @@ export const getCanonicalConfigArtifacts = async (
           compilerOutput,
           sourceName,
           contractName,
+          bytecode: add0x(contractOutput.evm.bytecode.object),
         }
       }
     }

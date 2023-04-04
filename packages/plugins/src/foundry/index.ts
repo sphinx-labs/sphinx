@@ -21,6 +21,7 @@ import {
   readValidatedChugSplashConfig,
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
+  getContractAddress,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
@@ -687,14 +688,35 @@ const command = args[0]
     case 'getAddress': {
       const configPath = args[1]
       const referenceName = args[2]
+      const outPath = cleanPath(args[3])
+      const buildInfoPath = cleanPath(args[4])
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-      const proxy =
-        userConfig.contracts[referenceName].externalProxy ||
-        getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+      if (userConfig.contracts[referenceName].kind === 'no-proxy') {
+        const { artifactFolder, buildInfoFolder } = fetchPaths(
+          outPath,
+          buildInfoPath
+        )
+        const artifactPaths = await getArtifactPaths(
+          userConfig.contracts,
+          artifactFolder,
+          buildInfoFolder
+        )
 
-      process.stdout.write(proxy)
+        const address = getContractAddress(
+          userConfig.options.projectName,
+          referenceName,
+          userConfig.contracts[referenceName].constructorArgs ?? {},
+          { integration: 'foundry', artifactPaths }
+        )
+        process.stdout.write(address)
+      } else {
+        const proxy =
+          userConfig.contracts[referenceName].externalProxy ||
+          getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+        process.stdout.write(proxy)
+      }
       break
     }
     case 'getRegistryAddress': {

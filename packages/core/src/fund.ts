@@ -8,9 +8,9 @@ import {
 } from './utils'
 import {
   ChugSplashBundles,
-  DeployImplementationAction,
+  DeployContractAction,
   fromRawChugSplashAction,
-  isDeployImplementationAction,
+  isDeployContractAction,
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
@@ -63,7 +63,7 @@ export const estimateExecutionGas = async (
   )
 
   const deployedProxyPromises = actions
-    .filter((action) => isDeployImplementationAction(action))
+    .filter((action) => isDeployContractAction(action))
     .map(async (action) => {
       return (await isContractDeployed(
         getDefaultProxyAddress(projectName, action.referenceName),
@@ -73,9 +73,9 @@ export const estimateExecutionGas = async (
         : ethers.BigNumber.from(550_000)
     })
 
-  const deployedImplementationPromises = actions
-    .filter((action) => isDeployImplementationAction(action))
-    .map(async (action: DeployImplementationAction) =>
+  const deployedContractPromises = actions
+    .filter((action) => isDeployContractAction(action))
+    .map(async (action: DeployContractAction) =>
       ethers.BigNumber.from(350_000).add(
         await provider.estimateGas({
           data: action.code,
@@ -84,7 +84,7 @@ export const estimateExecutionGas = async (
     )
 
   const resolvedContractDeploymentPromises = await Promise.all(
-    deployedProxyPromises.concat(deployedImplementationPromises)
+    deployedProxyPromises.concat(deployedContractPromises)
   )
 
   const estimatedContractDeploymentGas =

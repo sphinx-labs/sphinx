@@ -22,7 +22,7 @@ import {
   getProjectOwnerAddress,
 } from '../utils'
 
-export const getNumDeployedImplementations = (
+export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,
   actionsExecuted: ethers.BigNumber
 ): number => {
@@ -30,7 +30,7 @@ export const getNumDeployedImplementations = (
     .slice(0, actionsExecuted.toNumber())
     .filter(
       (action) =>
-        action.action.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
+        action.action.actionType === ChugSplashActionType.DEPLOY_CONTRACT
     ).length
 }
 

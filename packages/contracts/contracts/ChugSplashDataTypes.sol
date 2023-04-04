@@ -46,7 +46,7 @@ struct ChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
     address payable proxy;
-    bytes32 proxyTypeHash;
+    bytes32 contractKindHash;
     string referenceName;
 }
 
@@ -57,7 +57,7 @@ struct ChugSplashTarget {
     string referenceName;
     address payable proxy;
     address implementation;
-    bytes32 proxyTypeHash;
+    bytes32 contractKindHash;
 }
 
 /**
@@ -65,7 +65,7 @@ struct ChugSplashTarget {
  */
 enum ChugSplashActionType {
     SET_STORAGE,
-    DEPLOY_IMPLEMENTATION
+    DEPLOY_CONTRACT
 }
 
 /**

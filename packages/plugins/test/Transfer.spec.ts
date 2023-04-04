@@ -13,7 +13,7 @@ import {
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
-  proxyTypeHashes,
+  contractKindHashes,
   readValidatedChugSplashConfig,
   readUnvalidatedChugSplashConfig,
 } from '@chugsplash/core'
@@ -281,7 +281,7 @@ describe('Transfer', () => {
     )
     manager.claimProxyOwnership(
       proxyContract.address,
-      proxyTypeHashes[parsedConfig.contracts['Token'].proxyType],
+      contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
 
@@ -424,7 +424,7 @@ describe('Transfer', () => {
     )
     manager.claimProxyOwnership(
       proxyContract.address,
-      proxyTypeHashes[parsedConfig.contracts['Token'].proxyType],
+      contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
 

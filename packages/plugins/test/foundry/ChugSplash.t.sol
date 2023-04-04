@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
+import { Stateless } from "../../contracts/Stateless.sol";
 import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
 import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 
@@ -26,6 +27,7 @@ contract ChugSplashTest is Test {
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
+    Stateless     myStateless;
     IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
@@ -99,6 +101,7 @@ contract ChugSplashTest is Test {
         transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
         mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
+        myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
 
         registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
     }
@@ -136,6 +139,16 @@ contract ChugSplashTest is Test {
     function testDidAddProposer() public {
         IChugSplashManager manager = registry.projects(addProposerProjectName);
         assertTrue(manager.proposers(newProposer));
+    }
+
+    function testDeployStatelessImmutableContract() public {
+        assertEq(myStateless.hello(), 'Hello, world!');
+        assertEq(myStateless.immutableUint(), 1);
+    }
+
+    function testDoesResolveReferenceToNonProxiedContract() public {
+        assertEq(address(mySimpleStorage.myStateless()), address(myStateless));
+        assertEq(mySimpleStorage.hello(), 'Hello, world!');
     }
 
     function testSetImmutableInt() public {

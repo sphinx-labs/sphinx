@@ -50,10 +50,10 @@ contract ChugSplashRecorder {
     /**
      * @notice Emitted whenever a new proxy type is added.
      *
-     * @param proxyTypeHash Hash representing the proxy type.
+     * @param contractKindHash Hash representing the contract kind.
      * @param adapter   Address of the adapter for the proxy.
      */
-    event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
+    event ContractKindAdded(bytes32 contractKindHash, address adapter);
 
     /**
      * @notice Mapping of proxy types to adapters.
@@ -116,19 +116,19 @@ contract ChugSplashRecorder {
     }
 
     /**
-     * @notice Adds a new proxy type with a corresponding adapter.
+     * @notice Adds a new contract kind with a corresponding adapter.
      *
-     * @param _proxyTypeHash Hash representing the proxy type
-     * @param _adapter   Address of the adapter for this proxy type.
+     * @param _contractKindHash Hash representing the contract kind
+     * @param _adapter   Address of the adapter for this contract kind.
      */
-    function addProxyType(bytes32 _proxyTypeHash, address _adapter) external {
+    function addContractKind(bytes32 _contractKindHash, address _adapter) external {
         require(
-            adapters[_proxyTypeHash] == address(0),
+            adapters[_contractKindHash] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
 
-        adapters[_proxyTypeHash] = _adapter;
+        adapters[_contractKindHash] = _adapter;
 
-        emit ProxyTypeAdded(_proxyTypeHash, _adapter);
+        emit ContractKindAdded(_contractKindHash, _adapter);
     }
 }
