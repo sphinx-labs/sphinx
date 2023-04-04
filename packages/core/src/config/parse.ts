@@ -30,7 +30,7 @@ import {
   isExternalContractKind,
   readContractArtifact,
   readBuildInfo,
-  getChugSplashManagerProxyAddress,
+  getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
   getPreviousStorageLayoutOZFormat,
   getOpenZeppelinUpgradableContract,
@@ -1267,7 +1267,7 @@ export const assertValidParsedChugSplashFile = async (
   const { canonicalConfigPath, remoteExecution } = cre
 
   // Determine if the deployment is an upgrade
-  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(
+  const chugSplashManagerAddress = getChugSplashManagerAddress(
     parsedConfig.options.projectName
   )
   const requiresOwnershipTransfer: {

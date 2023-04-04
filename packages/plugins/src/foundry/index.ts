@@ -22,10 +22,10 @@ import {
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
   getContractAddress,
+  CHUGSPLASH_REGISTRY_ADDRESS,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
-import { CHUGSPLASH_REGISTRY_PROXY_ADDRESS } from '@chugsplash/contracts'
 
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { initializeExecutor } from '../executor'
@@ -351,7 +351,7 @@ const command = args[0]
       let executor: ChugSplashExecutorType | undefined
       if (remoteExecution) {
         spinner.start('Waiting for the executor to set up ChugSplash...')
-        await monitorChugSplashSetup(provider, wallet)
+        await monitorChugSplashSetup(provider)
       } else {
         spinner.start('Booting up ChugSplash...')
         executor = await initializeExecutor(provider)
@@ -720,7 +720,7 @@ const command = args[0]
       break
     }
     case 'getRegistryAddress': {
-      process.stdout.write(CHUGSPLASH_REGISTRY_PROXY_ADDRESS)
+      process.stdout.write(CHUGSPLASH_REGISTRY_ADDRESS)
       break
     }
     case 'getEIP1967ProxyAdminAddress': {

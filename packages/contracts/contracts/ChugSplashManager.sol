@@ -13,7 +13,6 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "./libraries/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
-import { ChugSplashRecorder } from "./ChugSplashRecorder.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "./libraries/Create2.sol";
@@ -21,6 +20,7 @@ import { MerkleTree } from "./libraries/MerkleTree.sol";
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title ChugSplashManager
@@ -124,21 +124,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
 
     /**
-     * @notice Emitted when a custom proxy is assigned to a reference name.
-     *
-     * @param referenceNameHash Hash of the reference name.
-     * @param proxy             Address of the proxy.
-     * @param contractKindHash  The contract kind. I.e transparent, UUPS, or no proxy.
-     * @param referenceName     String reference name.
-     */
-    event ProxySetToReferenceName(
-        string indexed referenceNameHash,
-        address indexed proxy,
-        bytes32 indexed contractKindHash,
-        string referenceName
-    );
-
-    /**
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
@@ -216,11 +201,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ChugSplashRegistry public immutable registry;
 
     /**
-     * @notice Address of the ChugSplashRecorder.
-     */
-    ChugSplashRecorder public immutable recorder;
-
-    /**
      * @notice Amount that must be deposited in this contract in order to execute a bundle. The
      *         project owner can withdraw this amount whenever a bundle is not active. This bond
      *         will be forfeited if the project owner cancels a bundle that is in progress, which is
@@ -294,7 +274,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _recorder                  Address of the ChugSplashRecorder.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
@@ -304,14 +283,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     constructor(
         ChugSplashRegistry _registry,
-        ChugSplashRecorder _recorder,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage
     ) {
         registry = _registry;
-        recorder = _recorder;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -323,12 +300,12 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _owner Initial owner of this contract.
      */
     function initialize(
-        string memory _name,
         address _owner,
+        string memory _name,
         bool _allowManagedProposals
     ) public initializer {
-        allowManagedProposals = _allowManagedProposals;
         name = _name;
+        allowManagedProposals = _allowManagedProposals;
 
         __Ownable_init();
         _transferOwnership(_owner);
@@ -454,7 +431,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _configUri,
             msg.sender
         );
-        recorder.announceWithData("ChugSplashBundleProposed", abi.encodePacked(msg.sender));
+        registry.announceWithData("ChugSplashBundleProposed", abi.encodePacked(msg.sender));
     }
 
     /**
@@ -488,7 +465,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bundle.status = ChugSplashBundleStatus.APPROVED;
 
         emit ChugSplashBundleApproved(_bundleId);
-        recorder.announce("ChugSplashBundleApproved");
+        registry.announce("ChugSplashBundleApproved");
     }
 
     /**
@@ -565,7 +542,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                         activeBundleId,
                         target.referenceName
                     );
-                    recorder.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
+                    registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
                 }
             }
         }
@@ -574,7 +551,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bundle.status = ChugSplashBundleStatus.INITIATED;
 
         emit ChugSplashBundleInitiated(activeBundleId, msg.sender);
-        recorder.announce("ChugSplashBundleInitiated");
+        registry.announce("ChugSplashBundleInitiated");
 
         _payExecutorAndProtocol(initialGasLeft);
     }
@@ -638,7 +615,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the adapter for this reference name.
-            address adapter = recorder.adapters(action.contractKindHash);
+            address adapter = registry.adapters(action.contractKindHash);
 
             require(
                 action.contractKindHash == noProxyContractKindHash || adapter != address(0),
@@ -681,7 +658,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             }
 
             emit ChugSplashActionExecuted(activeBundleId, action.proxy, msg.sender, actionIndex);
-            recorder.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.proxy));
+            registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.proxy));
         }
 
         _payExecutorAndProtocol(initialGasLeft);
@@ -748,7 +725,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             );
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = recorder.adapters(target.contractKindHash);
+            address adapter = registry.adapters(target.contractKindHash);
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
@@ -767,7 +744,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         activeBundleId = bytes32(0);
 
         emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
-        recorder.announce("ChugSplashBundleCompleted");
+        registry.announce("ChugSplashBundleCompleted");
 
         _payExecutorAndProtocol(initialGasLeft);
     }
@@ -798,7 +775,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bundle.status = ChugSplashBundleStatus.CANCELLED;
 
         emit ChugSplashBundleCancelled(cancelledBundleId, msg.sender, bundle.actionsExecuted);
-        recorder.announce("ChugSplashBundleCancelled");
+        registry.announce("ChugSplashBundleCancelled");
     }
 
     /**
@@ -823,7 +800,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bundle.selectedExecutor = msg.sender;
 
         emit ChugSplashBundleClaimed(activeBundleId, msg.sender);
-        recorder.announce("ChugSplashBundleClaimed");
+        registry.announce("ChugSplashBundleClaimed");
     }
 
     /**
@@ -840,7 +817,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(success, "ChugSplashManager: call to withdraw executor funds failed");
 
         emit ExecutorPaymentClaimed(msg.sender, amount);
-        recorder.announce("ExecutorPaymentClaimed");
+        registry.announce("ExecutorPaymentClaimed");
     }
 
     function claimProtocolPayment() external {
@@ -856,7 +833,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(success, "ChugSplashManager: call to withdraw protocol funds failed");
 
         emit ProtocolPaymentClaimed(msg.sender, amount);
-        recorder.announce("ProtocolPaymentClaimed");
+        registry.announce("ProtocolPaymentClaimed");
     }
 
     /**
@@ -872,7 +849,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
 
         // Get the adapter that corresponds to this contract type.
-        address adapter = recorder.adapters(_contractKindHash);
+        address adapter = registry.adapters(_contractKindHash);
 
         // Delegatecall the adapter to change ownership of the proxy.
         (bool success, ) = adapter.delegatecall(
@@ -881,7 +858,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
 
         emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
-        recorder.announce("ProxyOwnershipTransferred");
+        registry.announce("ProxyOwnershipTransferred");
     }
 
     /**
@@ -899,7 +876,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(success, "ChugSplashManager: call to withdraw owner funds failed");
 
         emit OwnerWithdrewETH(msg.sender, amount);
-        recorder.announce("OwnerWithdrewETH");
+        registry.announce("OwnerWithdrewETH");
     }
 
     /**
@@ -913,7 +890,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         proposers[_proposer] = true;
 
         emit ProposerAdded(_proposer, msg.sender);
-        recorder.announce("ProposerAdded");
+        registry.announce("ProposerAdded");
     }
 
     function isProposer(address _addr) public view returns (bool) {
@@ -927,7 +904,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         allowManagedProposals = !allowManagedProposals;
 
         emit ToggledManagedProposals(allowManagedProposals, msg.sender);
-        recorder.announceWithData(
+        registry.announceWithData(
             "ToggledManagedProposals",
             abi.encodePacked(allowManagedProposals)
         );
@@ -944,7 +921,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         proposers[_proposer] = false;
 
         emit ProposerRemoved(_proposer, msg.sender);
-        recorder.announce("ProposerRemoved");
+        registry.announce("ProposerRemoved");
     }
 
     /**
@@ -952,7 +929,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     receive() external payable {
         emit ETHDeposited(msg.sender, msg.value);
-        recorder.announce("ETHDeposited");
+        registry.announce("ETHDeposited");
     }
 
     function _payExecutorAndProtocol(uint256 _initialGasLeft) internal {
@@ -1027,7 +1004,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
 
         emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
-        recorder.announce("ContractDeployed");
+        registry.announce("ContractDeployed");
     }
 
     /**
@@ -1050,20 +1027,5 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
         require(success, "ChugSplashManager: delegatecall to set storage failed");
-    }
-
-    /**
-     * @notice Gets the code hash for a given account.
-     *
-     * @param _account Address of the account to get a code hash for.
-     *
-     * @return Code hash for the account.
-     */
-    function _getAccountCodeHash(address _account) internal view returns (bytes32) {
-        bytes32 codeHash;
-        assembly {
-            codeHash := extcodehash(_account)
-        }
-        return codeHash;
     }
 }

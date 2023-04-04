@@ -51,7 +51,7 @@ export type ExecutorEvent = {
 export type ExecutorState = {
   eventsQueue: ExecutorEvent[]
   executionCache: ExecutorEvent[]
-  recorder: ethers.Contract
+  registry: ethers.Contract
   provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
   keys: ExecutorKey[]
