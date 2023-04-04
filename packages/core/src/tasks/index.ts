@@ -23,7 +23,7 @@ import {
   generateFoundryTestArtifacts,
   getBundleCompletionTxnHash,
   getChugSplashManager,
-  getChugSplashManagerProxyAddress,
+  getChugSplashManagerAddress,
   getChugSplashRegistry,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
@@ -533,7 +533,7 @@ export const chugsplashFundAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
   const projectName = parsedConfig.options.projectName
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const chugsplashManagerAddress = getChugSplashManagerAddress(projectName)
   const signerBalance = await signer.getBalance()
   const networkName = await resolveNetworkName(provider, integration)
 
@@ -1397,7 +1397,7 @@ If you believe this is a mistake, please reach out to the developers or open an 
   }
 
   // Fetch ChugSplashManager address for this project
-  const managerAddress = getChugSplashManagerProxyAddress(
+  const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.projectName
   )
 

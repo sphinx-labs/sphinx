@@ -18,12 +18,12 @@ import {
   ProxyArtifact,
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
-  ChugSplashManagerProxyArtifact,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
   ProxyABI,
-  ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-  CHUGSPLASH_RECORDER_ADDRESS,
-  ChugSplashRecorderABI,
+  ChugSplashManagerArtifact,
+  EXECUTION_LOCK_TIME,
+  OWNER_BOND_AMOUNT,
+  EXECUTOR_PAYMENT_PERCENTAGE,
+  PROTOCOL_PAYMENT_PERCENTAGE,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -60,7 +60,7 @@ import {
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
-import { Integration } from './constants'
+import { CHUGSPLASH_REGISTRY_ADDRESS, Integration } from './constants'
 import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
@@ -141,8 +141,7 @@ export const getDefaultProxyAddress = (
   projectName: string,
   referenceName: string
 ): string => {
-  // const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
-  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
@@ -171,28 +170,27 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerProxyAddress = (projectName: string) => {
-  if (projectName === 'ChugSplash') {
-    return ROOT_CHUGSPLASH_MANAGER_PROXY_ADDRESS
-  } else {
-    return utils.getCreate2Address(
-      CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-      utils.solidityKeccak256(['string'], [projectName]),
-      utils.solidityKeccak256(
-        ['bytes', 'bytes'],
-        [
-          ChugSplashManagerProxyArtifact.bytecode,
-          utils.defaultAbiCoder.encode(
-            ['address', 'address'],
-            [
-              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-              CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-            ]
-          ),
-        ]
-      )
+export const getChugSplashManagerAddress = (projectName: string) => {
+  return utils.getCreate2Address(
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    utils.solidityKeccak256(['string'], [projectName]),
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashManagerArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'uint256', 'uint256', 'uint256', 'uint256'],
+          [
+            CHUGSPLASH_REGISTRY_ADDRESS,
+            EXECUTION_LOCK_TIME,
+            OWNER_BOND_AMOUNT,
+            EXECUTOR_PAYMENT_PERCENTAGE,
+            PROTOCOL_PAYMENT_PERCENTAGE,
+          ]
+        ),
+      ]
     )
-  }
+  )
 }
 
 /**
@@ -268,7 +266,7 @@ export const getChugSplashRegistry = (
 ): Contract => {
   return new Contract(
     // CHUGSPLASH_REGISTRY_ADDRESS,
-    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
+    CHUGSPLASH_REGISTRY_ADDRESS,
     ChugSplashRegistryABI,
     signerOrProvider
   )
@@ -276,7 +274,7 @@ export const getChugSplashRegistry = (
 
 export const getChugSplashManager = (signer: Signer, projectName: string) => {
   return new Contract(
-    getChugSplashManagerProxyAddress(projectName),
+    getChugSplashManagerAddress(projectName),
     ChugSplashManagerABI,
     signer
   )
@@ -287,7 +285,7 @@ export const getChugSplashManagerReadOnly = (
   projectName: string
 ) => {
   return new Contract(
-    getChugSplashManagerProxyAddress(projectName),
+    getChugSplashManagerAddress(projectName),
     ChugSplashManagerABI,
     provider
   )
@@ -524,13 +522,13 @@ export const isProjectRegistered = async (
   signer: Signer,
   projectName: string
 ) => {
-  const ChugSplashRecorder = new ethers.Contract(
-    CHUGSPLASH_RECORDER_ADDRESS,
-    ChugSplashRecorderABI,
+  const ChugSplashRegistry = new ethers.Contract(
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    ChugSplashRegistryABI,
     signer
   )
-  const chugsplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
-  const isRegistered: boolean = await ChugSplashRecorder.managers(
+  const chugsplashManagerAddress = getChugSplashManagerAddress(projectName)
+  const isRegistered: boolean = await ChugSplashRegistry.managers(
     chugsplashManagerAddress
   )
   return isRegistered
@@ -540,14 +538,14 @@ export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  const ChugSplashRecorder = new Contract(
-    CHUGSPLASH_RECORDER_ADDRESS,
-    ChugSplashRecorderABI,
+  const ChugSplashRegistry = new Contract(
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    ChugSplashRegistryABI,
     provider
   )
 
-  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
-    ChugSplashRecorder.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
       'DefaultProxyDeployed',
       null,
       proxyAddress
@@ -866,7 +864,7 @@ export const getContractAddress = (
     abi
   )
 
-  const chugSplashManagerAddress = getChugSplashManagerProxyAddress(projectName)
+  const chugSplashManagerAddress = getChugSplashManagerAddress(projectName)
 
   return utils.getCreate2Address(
     chugSplashManagerAddress,
@@ -1122,14 +1120,14 @@ export const getPreviousCanonicalConfig = async (
   remoteExecution: boolean,
   canonicalConfigFolderPath: string
 ): Promise<CanonicalChugSplashConfig | undefined> => {
-  const ChugSplashRecorder = new Contract(
-    CHUGSPLASH_RECORDER_ADDRESS,
-    ChugSplashRecorderABI,
+  const ChugSplashRegistry = new Contract(
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    ChugSplashRegistryABI,
     provider
   )
 
-  const actionExecutedEvents = await ChugSplashRecorder.queryFilter(
-    ChugSplashRecorder.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
       'ChugSplashActionExecuted',
       null,
       proxyAddress

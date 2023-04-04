@@ -8,7 +8,7 @@ import '../dist'
 import { expect } from 'chai'
 import hre, { ethers } from 'hardhat'
 import {
-  getChugSplashManagerProxyAddress,
+  getChugSplashManagerAddress,
   chugsplashRegisterAbstractTask,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
@@ -99,7 +99,7 @@ describe('Transfer', () => {
       cre
     )
 
-    const managerProxyAddress = getChugSplashManagerProxyAddress(
+    const managerAddress = getChugSplashManagerAddress(
       userConfig.options.projectName
     )
 
@@ -113,7 +113,7 @@ describe('Transfer', () => {
     )
     await ProxyAdmin.changeProxyAdmin(
       TransparentUpgradableTokenV1.address,
-      managerProxyAddress
+      managerAddress
     )
 
     const parsedConfig = await readValidatedChugSplashConfig(
@@ -217,15 +217,15 @@ describe('Transfer', () => {
       cre
     )
 
-    const managerProxyAddress = getChugSplashManagerProxyAddress(
+    const managerAddress = getChugSplashManagerAddress(
       userConfig.options.projectName
     )
 
-    await UUPSUpgradableTokenV1.transferOwnership(managerProxyAddress)
+    await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
 
     // check owner is manager
     expect(await UUPSUpgradableTokenV1.owner()).to.equal(
-      managerProxyAddress,
+      managerAddress,
       'proxy owner is not chugsplash manager'
     )
 
@@ -353,20 +353,20 @@ describe('Transfer', () => {
       cre
     )
 
-    const managerProxyAddress = getChugSplashManagerProxyAddress(
+    const managerAddress = getChugSplashManagerAddress(
       userConfig.options.projectName
     )
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
       ethers.constants.HashZero,
-      managerProxyAddress
+      managerAddress
     )
 
     // check owner is manager
     expect(
       await UUPSAccessControlUpgradableTokenV1.hasRole(
         ethers.constants.HashZero,
-        managerProxyAddress
+        managerAddress
       )
     ).to.equal(true, 'proxy owner is not chugsplash manager')
 
@@ -438,14 +438,14 @@ describe('Transfer', () => {
 
     await UUPSAccessControlUpgradableTokenV1.revokeRole(
       ethers.constants.HashZero,
-      managerProxyAddress
+      managerAddress
     )
 
     // check manager is no longer owner
     expect(
       await UUPSAccessControlUpgradableTokenV2.hasRole(
         ethers.constants.HashZero,
-        managerProxyAddress
+        managerAddress
       )
     ).to.equal(false, 'proxy owner is still chugsplash manager')
   })

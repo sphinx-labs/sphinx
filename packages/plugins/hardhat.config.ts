@@ -30,6 +30,9 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     goerli: {
       chainId: 5,
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
