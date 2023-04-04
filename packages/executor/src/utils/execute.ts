@@ -306,7 +306,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
           logger.error('[ChugSplash]: error: deployment update error', error)
         }
       }
-
       // verify on etherscan
       try {
         if (
@@ -386,7 +385,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
       }
       return
     }
-
     logger.info(`[ChugSplash]: claiming executor's payment...`)
 
     // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the

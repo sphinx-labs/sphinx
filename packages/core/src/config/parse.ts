@@ -2,7 +2,7 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { BigNumber, ethers, providers } from 'ethers'
+import { BigNumber, ethers, providers, utils } from 'ethers'
 import {
   astDereferencer,
   ASTDereferencer,
@@ -69,7 +69,7 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
-import { ChugSplashRuntimeEnvironment } from '../types'
+import { ChugSplashRuntimeEnvironment, Libraries, Link } from '../types'
 
 class InputError extends Error {
   constructor(message: string) {
@@ -152,6 +152,7 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
 export const assertValidUserConfigFields = async (
   config: UserChugSplashConfig,
   provider: providers.Provider,
+  exitOnFailure: boolean,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const referenceNames: string[] = Object.keys(config.contracts)
@@ -300,9 +301,18 @@ export const assertValidUserConfigFields = async (
     }
 
     if (contractConfig.variables !== undefined) {
-      // Check that all contract references are valid.
+      // Check that all contract references are valid in variables.
       assertValidContractReferences(
         contractConfig.variables,
+        referenceNames,
+        cre
+      )
+    }
+
+    if (contractConfig.libraries !== undefined) {
+      // Check that all contract references in libraries are valid.
+      assertValidContractReferences(
+        contractConfig.libraries ?? {},
         referenceNames,
         cre
       )
@@ -325,6 +335,12 @@ export const assertValidUserConfigFields = async (
         )
       }
     }
+  }
+
+  // Exit if any validation errors were detected up to this point. We exit early here because invalid
+  // constructor args can cause the rest of the parsing logic to fail with cryptic errors
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
   }
 }
 
@@ -1673,21 +1689,19 @@ const logUnsafeOptions = (
   }
 }
 
-const assertValidConstructorArgs = (
+const assertValidConstructorArgs = async (
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
-  integration: Integration,
+  cachedArtifacts: { [referenceName: string]: ContractArtifact },
   cre: ChugSplashRuntimeEnvironment,
   exitOnFailure: boolean
-): {
+): Promise<{
   cachedCompilerOutput: { [referenceName: string]: CompilerOutput }
-  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
-  cachedArtifacts: { [referenceName: string]: ContractArtifact }
-} => {
+  parsedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
+}> => {
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedCompilerOutput = {}
-  const cachedConstructorArgs = {}
-  const cachedArtifacts = {}
+  const parsedConstructorArgs = {}
   // Parse and validate all the constructor arguments
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
@@ -1697,12 +1711,7 @@ const assertValidConstructorArgs = (
     const { output } = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
     cachedCompilerOutput[referenceName] = output
 
-    const artifact = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
-    cachedArtifacts[referenceName] = artifact
-    const { abi } = artifact
+    const { abi } = cachedArtifacts[referenceName]
 
     const args = parseContractConstructorArgs(
       constructorArgs ?? {},
@@ -1710,7 +1719,7 @@ const assertValidConstructorArgs = (
       abi,
       cre
     )
-    cachedConstructorArgs[referenceName] = args
+    parsedConstructorArgs[referenceName] = args
   }
 
   // Exit if any validation errors were detected up to this point. We exit early here because invalid
@@ -1722,15 +1731,18 @@ const assertValidConstructorArgs = (
   // We return the cached values so we can use them in later steps without rereading the files
   return {
     cachedCompilerOutput,
-    cachedConstructorArgs,
-    cachedArtifacts,
+    parsedConstructorArgs,
   }
 }
 
-const resolveContractAddresses = (
-  userConfig: UserChugSplashConfig,
-  cachedArtifacts: { [referenceName: string]: ContractArtifact }
-): { [referenceName: string]: string } => {
+export const resolveContractAddresses = async (
+  userConfig: UserChugSplashConfig | ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  stream: NodeJS.WritableStream,
+  silent: boolean,
+  exitOnFailure: boolean = true
+): Promise<{ [referenceName: string]: string }> => {
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -1738,25 +1750,83 @@ const resolveContractAddresses = (
   )) {
     const { externalProxy, kind } = userContractConfig
 
-    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
-    // used by ChugSplash.
-    const proxy =
-      externalProxy ||
-      getDefaultProxyAddress(
-        userConfig.options.organizationID,
-        userConfig.options.projectName,
-        referenceName
-      )
+    // if the contract is proxied then we can just return the proxy address
+    if (kind !== 'no-proxy') {
+      // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
+      // used by ChugSplash.
+      const proxy =
+        externalProxy ||
+        getDefaultProxyAddress(
+          userConfig.options.organizationID,
+          userConfig.options.projectName,
+          referenceName
+        )
 
-    contracts[referenceName] =
-      kind !== 'no-proxy'
-        ? proxy
-        : getContractAddress(
-            userConfig.options.organizationID,
-            referenceName,
-            userContractConfig.constructorArgs ?? {},
-            cachedArtifacts[referenceName]
-          )
+      contracts[referenceName] = proxy
+    } else {
+      /**
+       * If the contract is not proxied then we need to resolve the actual contract address.
+       *
+       * If a no-proxy contract includes libraries, then we must resolve any contract references used when defining those libraries.
+       * This is because the library addresses are injected into the bytecode which will impact the create2 address of the contract
+       * that we are attempting to resolve here.
+       *
+       * Due to this dynamic, if a no-proxy contract dependes on a library, then the library must be defined before the contract
+       * in the config or we will not be able to resolve the contract address.
+       */
+
+      // So if the contract uses libraries, then we compile the libraries to resolve the library contract references, and detect any out of order references.
+      const outOfOrderReferences: string[] = []
+      let libraries = userContractConfig.libraries ?? {}
+      if (libraries && Object.entries(libraries).length > 0) {
+        libraries = JSON.parse(
+          Handlebars.compile(JSON.stringify(libraries ?? {}))({
+            ...contracts,
+          })
+        )
+
+        for (const [libraryName, libraryAddress] of Object.entries(libraries)) {
+          if (libraryAddress === '' && libraries) {
+            outOfOrderReferences.push(
+              `${libraryName}: ${userContractConfig.libraries![libraryName]}`
+            )
+          }
+        }
+      }
+
+      // If there were out of order references detected, then we can't resolve the contract address and we log an error.
+      if (outOfOrderReferences.length > 0) {
+        logValidationError(
+          'error',
+          'Detected out of order library references.',
+          [
+            'When using contract references to link external libraries in non-proxied contracts, you must always define the library before it is referenced. The following library references are out of order:',
+            ...outOfOrderReferences,
+          ],
+          silent,
+          stream
+        )
+      } else {
+        // If the user did not define any out of order library references then we can read the artifact using the compiled
+        // libraries and generate the contract address.
+        const artifact = readContractArtifact(
+          artifactPaths[referenceName].contractArtifactPath,
+          integration,
+          libraries
+        )
+
+        contracts[referenceName] = getContractAddress(
+          userConfig.options.organizationID,
+          referenceName,
+          userContractConfig,
+          artifact
+        )
+      }
+    }
+  }
+
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
   }
 
   return contracts
@@ -1770,7 +1840,6 @@ const assertValidContractVariables = (
   cachedArtifacts: {
     [referenceName: string]: ContractArtifact
   },
-  contracts: { [referenceName: string]: string },
   cre: ChugSplashRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
   const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
@@ -1801,11 +1870,7 @@ const assertValidContractVariables = (
 
     // Only run the parsing logic if the contract is proxied
     const parsedContractVariables = parseContractVariables(
-      JSON.parse(
-        Handlebars.compile(JSON.stringify(userContractConfig))({
-          ...contracts,
-        })
-      ),
+      userContractConfig,
       storageLayout,
       compilerOutput,
       cre
@@ -1817,6 +1882,188 @@ const assertValidContractVariables = (
   return parsedVariables
 }
 
+const isContractReferenceLike = (value: string) => {
+  if (
+    typeof value === 'string' &&
+    value.startsWith('{{') &&
+    value.endsWith('}}')
+  ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+// Borrowed from the Hardhat ethers plugin. Unfortunately, it does not export this logic.
+// So since we had to copy this function into our code base anyway, we've also split the
+// validation logic out into this function so it can be performed during the config validation
+// step.
+// Source: https://github.com/NomicFoundation/hardhat/blob/5426f582c28f90576300378c94a86e61ca13bc7b/packages/hardhat-ethers/src/internal/helpers.ts#L163
+export const validateContractLibraries = async (
+  artifact: ContractArtifact,
+  libraries: Libraries,
+  silent: boolean,
+  stream: NodeJS.WritableStream
+) => {
+  const neededLibraries: Array<{
+    sourceName: string
+    libName: string
+  }> = []
+  for (const [sourceName, sourceLibraries] of Object.entries(
+    artifact.linkReferences
+  )) {
+    for (const libName of Object.keys(sourceLibraries)) {
+      neededLibraries.push({ sourceName, libName })
+    }
+  }
+
+  const linksToApply: Map<string, Link> = new Map()
+  for (const [linkedLibraryName, linkedLibraryAddress] of Object.entries(
+    libraries
+  )) {
+    if (
+      !utils.isAddress(linkedLibraryAddress) &&
+      !isContractReferenceLike(linkedLibraryAddress)
+    ) {
+      logValidationError(
+        'error',
+        `You tried to link the contract ${artifact.contractName} with the library ${linkedLibraryName}, but provided this invalid address: ${linkedLibraryAddress}`,
+        [
+          `If ${linkedLibraryName} is a contract reference, it may be formatted incorrectly.`,
+        ],
+        silent,
+        stream
+      )
+      continue
+    }
+
+    const matchingNeededLibraries = neededLibraries.filter((lib) => {
+      return (
+        lib.libName === linkedLibraryName ||
+        `${lib.sourceName}:${lib.libName}` === linkedLibraryName
+      )
+    })
+
+    if (matchingNeededLibraries.length === 0) {
+      let detailedMessage: string
+      if (neededLibraries.length > 0) {
+        const libraryFQNames = neededLibraries
+          .map((lib) => `${lib.sourceName}:${lib.libName}`)
+          .map((x) => `* ${x}`)
+          .join('\n')
+        detailedMessage = `The libraries needed are:
+${libraryFQNames}`
+      } else {
+        detailedMessage = "This contract doesn't need linking any libraries."
+      }
+      logValidationError(
+        'error',
+        `You tried to link the contract ${artifact.contractName} with ${linkedLibraryName}, which is not one of its libraries.`,
+        [`${detailedMessage}`],
+        silent,
+        stream
+      )
+      continue
+    }
+
+    if (matchingNeededLibraries.length > 1) {
+      const matchingNeededLibrariesFQNs = matchingNeededLibraries
+        .map(({ sourceName, libName }) => `${sourceName}:${libName}`)
+        .map((x) => `* ${x}`)
+        .join('\n')
+
+      logValidationError(
+        'error',
+        `The library name ${linkedLibraryName} is ambiguous for the contract ${artifact.contractName}.`,
+        [
+          'It may resolve to one of the following libraries:',
+          `${matchingNeededLibrariesFQNs}`,
+          '\nTo fix this, choose one of these fully qualified library names and replace where appropriate.',
+        ],
+        silent,
+        stream
+      )
+      continue
+    }
+
+    const [neededLibrary] = matchingNeededLibraries
+
+    const neededLibraryFQN = `${neededLibrary.sourceName}:${neededLibrary.libName}`
+
+    // The only way for this library to be already mapped is
+    // for it to be given twice in the libraries user input:
+    // once as a library name and another as a fully qualified library name.
+    if (linksToApply.has(neededLibraryFQN)) {
+      logValidationError(
+        'error',
+        `The library names ${neededLibrary.libName} and ${neededLibraryFQN} refer to the same library and were given as two separate library links. Remove one of them and review your library links before proceeding.`,
+        [],
+        silent,
+        stream
+      )
+      continue
+    }
+
+    linksToApply.set(neededLibraryFQN, {
+      sourceName: neededLibrary.sourceName,
+      libraryName: neededLibrary.libName,
+      address: linkedLibraryAddress,
+    })
+  }
+
+  if (linksToApply.size < neededLibraries.length) {
+    const missingLibraries = neededLibraries
+      .map((lib) => `${lib.sourceName}:${lib.libName}`)
+      .filter((libFQName) => !linksToApply.has(libFQName))
+      .map((x) => `* ${x}`)
+      .join('\n')
+
+    logValidationError(
+      'error',
+      `The contract ${artifact.contractName} is missing links for the following libraries:`,
+      [`${missingLibraries}`],
+      silent,
+      stream
+    )
+  }
+}
+
+export const assertValidLibraries = async (
+  userConfig: UserChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration,
+  silent: boolean,
+  stream: NodeJS.WritableStream
+): Promise<{
+  [referenceName: string]: ContractArtifact
+}> => {
+  const cachedArtifacts: {
+    [referenceName: string]: ContractArtifact
+  } = {}
+
+  for (const [referenceName, userContractConfig] of Object.entries(
+    userConfig.contracts
+  )) {
+    const artifact = readContractArtifact(
+      artifactPaths[referenceName].contractArtifactPath,
+      integration,
+      // We pass in undefined, because we do not want to link any libraries yet
+      // since they have not been validated
+      undefined
+    )
+    cachedArtifacts[referenceName] = artifact
+
+    validateContractLibraries(
+      cachedArtifacts[referenceName],
+      userContractConfig.libraries ?? {},
+      silent,
+      stream
+    )
+  }
+
+  return cachedArtifacts
+}
+
 const constructParsedConfig = (
   userConfig: UserChugSplashConfig,
   cachedArtifacts: {
@@ -1824,7 +2071,7 @@ const constructParsedConfig = (
   },
   contracts: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
-  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
+  parsedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
 ): ParsedChugSplashConfig => {
   const parsedConfig: ParsedChugSplashConfig = {
     options: userConfig.options,
@@ -1845,7 +2092,8 @@ const constructParsedConfig = (
       proxy: contracts[referenceName],
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
-      constructorArgs: cachedConstructorArgs[referenceName],
+      constructorArgs: parsedConstructorArgs[referenceName],
+      libraries: userContractConfig.libraries ?? {},
     }
   }
 
@@ -1859,7 +2107,7 @@ const constructParsedConfig = (
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-const parseAndValidateChugSplashConfig = async (
+export const parseAndValidateChugSplashConfig = async (
   provider: providers.Provider,
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
@@ -1874,38 +2122,60 @@ const parseAndValidateChugSplashConfig = async (
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  await assertValidUserConfigFields(userConfig, provider, cre)
+  await assertValidUserConfigFields(userConfig, provider, exitOnFailure, cre)
+
+  // Validate any included libraries
+  const cachedArtifacts = await assertValidLibraries(
+    userConfig,
+    artifactPaths,
+    integration,
+    cre.silent,
+    cre.stream
+  )
 
   // Parse and validate contract constructor args
   // We also cache the compiler output, parsed constructor args, and other artifacts so we don't have to re-read them later
-  const { cachedCompilerOutput, cachedConstructorArgs, cachedArtifacts } =
-    assertValidConstructorArgs(
+  const { cachedCompilerOutput, parsedConstructorArgs } =
+    await assertValidConstructorArgs(
       userConfig,
       artifactPaths,
-      integration,
+      cachedArtifacts,
       cre,
       exitOnFailure
     )
 
   // Resolve all the contract addresses so they can be used handle contract references during the variable parsing step
-  const contracts = resolveContractAddresses(userConfig, cachedArtifacts)
+  const contracts = await resolveContractAddresses(
+    userConfig,
+    artifactPaths,
+    integration,
+    cre.stream,
+    cre.silent,
+    exitOnFailure
+  )
+
+  // Compile the config file with Handlebars to replace contract references with their addresses
+  const compiledConfig: UserChugSplashConfig = JSON.parse(
+    Handlebars.compile(JSON.stringify(userConfig))({
+      ...contracts,
+    })
+  )
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
-    userConfig,
+    compiledConfig,
     cachedCompilerOutput,
     cachedArtifacts,
-    contracts,
     cre
   )
 
   // Construct the parsed config
   const parsedConfig = constructParsedConfig(
-    userConfig,
+    compiledConfig,
     cachedArtifacts,
     contracts,
     parsedVariables,
-    cachedConstructorArgs
+    parsedConstructorArgs
   )
 
   // Validate the contracts
@@ -1916,7 +2186,7 @@ const parseAndValidateChugSplashConfig = async (
   const upgrade = await assertValidParsedChugSplashFile(
     provider,
     parsedConfig,
-    userConfig,
+    compiledConfig,
     artifactPaths,
     cre
   )
@@ -1924,7 +2194,7 @@ const parseAndValidateChugSplashConfig = async (
   // Confirm upgrade with user
   if (!cre.autoConfirm && upgrade) {
     const userConfirmed = await yesno({
-      question: `Prior deployment(s) detected for project ${userConfig.options.projectName}. Would you like to perform an upgrade? (y/n)`,
+      question: `Prior deployment(s) detected for project ${compiledConfig.options.projectName}. Would you like to perform an upgrade? (y/n)`,
     })
     if (!userConfirmed) {
       throw new Error(`User denied upgrade.`)

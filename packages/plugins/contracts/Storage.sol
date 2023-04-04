@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { ExternalLibrary } from "./ExternalLibrary.sol";
+
 contract Storage {
     type UserDefinedType is uint256;
     type UserDefinedBytes32 is bytes32;
@@ -108,5 +110,9 @@ contract Storage {
 
     function getComplexStructMappingVal(uint32 _mappingKey) external view returns (string memory) {
         return complexStruct.b[_mappingKey];
+    }
+
+    function callLibrary() external pure returns (uint8) {
+        return ExternalLibrary.first();
     }
 }

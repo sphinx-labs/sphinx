@@ -119,7 +119,8 @@ export const writeDeploymentArtifacts = async (
       const referenceName = deploymentEvent.args.referenceName
       const artifact = readContractArtifact(
         artifactPaths[referenceName].contractArtifactPath,
-        integration
+        integration,
+        parsedConfig.contracts[referenceName].libraries
       )
       const { sourceName, contractName, bytecode, abi } = artifact
       const buildInfo = readBuildInfo(

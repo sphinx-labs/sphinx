@@ -234,6 +234,10 @@ contract ChugSplash is Script, Test {
         cmds[14] = allowManagedProposals == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
+        if (result.length == 0) {
+            emit log("Error detected in ChugSplash config, check /logs/<network> for more information.");
+        }
+
         if (isChugSplashTest) {
             emit log("Attempting to decode deploy command results:");
             emit log_bytes(result);

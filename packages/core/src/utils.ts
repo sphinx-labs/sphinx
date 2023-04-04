@@ -62,7 +62,12 @@ import {
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
 import { CHUGSPLASH_REGISTRY_ADDRESS, Integration } from './constants'
 import 'core-js/features/array/at'
-import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
+import {
+  ChugSplashRuntimeEnvironment,
+  FoundryContractArtifact,
+  Libraries,
+  Link,
+} from './types'
 import {
   ContractArtifact,
   ContractASTNode,
@@ -337,7 +342,7 @@ export const displayProposerTable = (proposerAddresses: string[]) => {
   console.table(proposers)
 }
 
-export const displayDeploymentTable = (
+export const displayDeploymentTable = async (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
@@ -345,29 +350,32 @@ export const displayDeploymentTable = (
 ) => {
   if (!silent) {
     const deployments = {}
-    Object.entries(parsedConfig.contracts).forEach(
-      ([referenceName, contractConfig], i) => {
-        // if contract is an unproxied, then we must resolve it's true address
-        const address =
-          contractConfig.kind !== 'no-proxy'
-            ? contractConfig.proxy
-            : getContractAddress(
-                parsedConfig.options.organizationID,
-                referenceName,
-                parsedConfig.contracts[referenceName].constructorArgs,
-                { integration, artifactPaths }
-              )
+    let i = 0
+    for (const [referenceName, contractConfig] of Object.entries(
+      parsedConfig.contracts
+    )) {
+      // if contract is an unproxied, then we must resolve it's true address
+      const address =
+        contractConfig.kind !== 'no-proxy'
+          ? contractConfig.proxy
+          : getContractAddress(
+              parsedConfig.options.organizationID,
+              referenceName,
+              contractConfig,
+              { integration, artifactPaths }
+            )
 
-        const contractName = contractConfig.contract.includes(':')
-          ? contractConfig.contract.split(':').at(-1)
-          : contractConfig.contract
-        deployments[i + 1] = {
-          'Reference Name': referenceName,
-          Contract: contractName,
-          Address: address,
-        }
+      const contractName = contractConfig.contract.includes(':')
+        ? contractConfig.contract.split(':').at(-1)
+        : contractConfig.contract
+      deployments[i + 1] = {
+        'Reference Name': referenceName,
+        Contract: contractName,
+        Address: address,
       }
-    )
+
+      i += 1
+    }
     console.table(deployments)
   }
 }
@@ -706,23 +714,107 @@ export const getParentContractASTNodes = (
 }
 
 /**
+ * Borrowed from the Hardhat ethers plugin. Unfortunately, it does not export this function.
+ * Since we had to copy this function into our code base anyway, we've also modified it to
+ * move all of the validation into the chugsplash config parsing and validation logic.
+ *
+ * So in this function, we assume all the libraries are valid.
+ * Source: https://github.com/NomicFoundation/hardhat/blob/5426f582c28f90576300378c94a86e61ca13bc7b/packages/hardhat-ethers/src/internal/helpers.ts#L163
+ *
+ * @param artifact The artifact of the contract we are fetching the bytecode of.
+ * @param libraries The libraries to link into the bytecode.
+ * @returns The bytecode of the contract with the libraries linked in.
+ */
+const getBytecodeWithExternalLibraries = (
+  artifact: ContractArtifact,
+  libraries: Libraries
+) => {
+  const neededLibraries: Array<{
+    sourceName: string
+    libName: string
+  }> = []
+  for (const [sourceName, sourceLibraries] of Object.entries(
+    artifact.linkReferences
+  )) {
+    for (const libName of Object.keys(sourceLibraries)) {
+      neededLibraries.push({ sourceName, libName })
+    }
+  }
+  const linksToApply: Map<string, Link> = new Map()
+  for (const [linkedLibraryName, linkedLibraryAddress] of Object.entries(
+    libraries
+  )) {
+    const matchingNeededLibraries = neededLibraries.filter((lib) => {
+      return (
+        lib.libName === linkedLibraryName ||
+        `${lib.sourceName}:${lib.libName}` === linkedLibraryName
+      )
+    })
+
+    const [neededLibrary] = matchingNeededLibraries
+
+    const neededLibraryFQN = `${neededLibrary.sourceName}:${neededLibrary.libName}`
+
+    linksToApply.set(neededLibraryFQN, {
+      sourceName: neededLibrary.sourceName,
+      libraryName: neededLibrary.libName,
+      address: linkedLibraryAddress,
+    })
+  }
+
+  return linkBytecode(artifact, [...linksToApply.values()])
+}
+
+/**
+ * Links the given bytecode with the given libraries.
+ * Borrowed from hardhat ethers plugin and updated to fit our conventions.
+ * Source: https://github.com/NomicFoundation/hardhat/blob/5426f582c28f90576300378c94a86e61ca13bc7b/packages/hardhat-ethers/src/internal/helpers.ts#L424
+ *
+ * @param artifact The artifact of the contract that will be linked.
+ * @param libraries The libraries to link.
+ * @returns The linked bytecode.
+ */
+const linkBytecode = (
+  artifact: ContractArtifact,
+  libraries: Link[]
+): string => {
+  let bytecode = artifact.bytecode
+
+  for (const { sourceName, libraryName, address } of libraries) {
+    const linkReferences = artifact.linkReferences[sourceName][libraryName]
+    for (const { start, length } of linkReferences) {
+      bytecode =
+        bytecode.substring(0, 2 + start * 2) +
+        address.substring(2) +
+        bytecode.substring(2 + (start + length) * 2)
+    }
+  }
+
+  return bytecode
+}
+
+/**
  * Retrieves an artifact by name from the local file system.
  */
 export const readContractArtifact = (
   contractArtifactPath: string,
-  integration: Integration
+  integration: Integration,
+  libraries?: Libraries
 ): ContractArtifact => {
-  const artifact: ContractArtifact = JSON.parse(
+  let artifact: ContractArtifact = JSON.parse(
     fs.readFileSync(contractArtifactPath, 'utf8')
   )
 
-  if (integration === 'hardhat') {
-    return artifact
-  } else if (integration === 'foundry') {
-    return parseFoundryArtifact(artifact)
-  } else {
-    throw new Error('Unknown integration')
+  // If we're using the Foundry integration, we need to convert the artifact into a consistent format.
+  if (integration === 'foundry') {
+    artifact = parseFoundryArtifact(artifact)
   }
+
+  if (libraries) {
+    artifact.bytecode = getBytecodeWithExternalLibraries(artifact, libraries)
+  }
+
+  return artifact
 }
 
 /**
@@ -769,12 +861,13 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
 export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const abi = artifact.abi
   const bytecode = artifact.bytecode.object
+  const linkReferences = artifact.bytecode.linkReferences
 
   const compilationTarget = artifact.metadata.settings.compilationTarget
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
 
-  return { abi, bytecode, sourceName, contractName }
+  return { abi, bytecode, sourceName, contractName, linkReferences }
 }
 
 export const isEqualType = (
@@ -821,7 +914,7 @@ export const isEqualType = (
 export const getContractAddress = (
   organizationID: string,
   referenceName: string,
-  constructorArgs: UserConfigVariables,
+  contractConfig: UserContractConfig | ParsedContractConfig,
   maybeArtifact:
     | ContractArtifact
     | {
@@ -835,12 +928,13 @@ export const getContractAddress = (
       ? maybeArtifact
       : readContractArtifact(
           maybeArtifact.artifactPaths[referenceName].contractArtifactPath,
-          maybeArtifact.integration
+          maybeArtifact.integration,
+          contractConfig.libraries
         )
 
   const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
     bytecode,
-    constructorArgs ?? {},
+    contractConfig.constructorArgs ?? {},
     referenceName,
     abi
   )
@@ -966,6 +1060,9 @@ export const getOpenZeppelinValidationOpts = (
   }
   if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
     unsafeAllow.push('missing-public-upgradeto')
+  }
+  if (contractConfig.unsafeAllow?.externalLibraryLinking) {
+    unsafeAllow.push('external-library-linking')
   }
 
   const options = {
@@ -1232,23 +1329,33 @@ export const getCanonicalConfigArtifacts = async (
         compilerOutput.contracts?.[sourceName]?.[contractName]
 
       if (contractOutput !== undefined) {
-        const creationCodeWithConstructorArgs =
-          getCreationCodeWithConstructorArgs(
-            add0x(contractOutput.evm.bytecode.object),
-            contractConfig.constructorArgs,
-            referenceName,
-            contractOutput.abi
-          )
-
+        // Construct the initial artifact without the creation code or the complete bytecode
+        // Since those need to have external libraries injected which we will do next
         artifacts[referenceName] = {
-          creationCodeWithConstructorArgs,
+          creationCodeWithConstructorArgs: '',
           abi: contractOutput.abi,
           compilerInput,
           compilerOutput,
           sourceName,
           contractName,
           bytecode: add0x(contractOutput.evm.bytecode.object),
+          linkReferences: contractOutput.evm.bytecode.linkReferences,
         }
+
+        // update the bytecode with the external libraries
+        artifacts[referenceName].bytecode = getBytecodeWithExternalLibraries(
+          artifacts[referenceName],
+          contractConfig.libraries
+        )
+
+        // update creation code with linked bytecode
+        artifacts[referenceName].creationCodeWithConstructorArgs =
+          getCreationCodeWithConstructorArgs(
+            artifacts[referenceName].bytecode,
+            contractConfig.constructorArgs,
+            referenceName,
+            contractOutput.abi
+          )
       }
     }
   }

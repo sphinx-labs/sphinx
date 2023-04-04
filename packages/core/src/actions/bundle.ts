@@ -295,10 +295,12 @@ export const bundleLocal = async (
       artifactPaths[referenceName].buildInfoPath
     )
 
-    const { abi, bytecode, sourceName, contractName } = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
+    const { abi, bytecode, sourceName, contractName, linkReferences } =
+      readContractArtifact(
+        artifactPaths[referenceName].contractArtifactPath,
+        integration,
+        parsedConfig.contracts[referenceName].libraries
+      )
     const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
       bytecode,
       contractConfig.constructorArgs,
@@ -313,6 +315,7 @@ export const bundleLocal = async (
       sourceName,
       contractName,
       bytecode,
+      linkReferences,
     }
   }
 
@@ -329,7 +332,7 @@ export const makeBundlesFromConfig = async (
     parsedConfig,
     artifacts
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
+  const targetBundle = await makeTargetBundleFromConfig(parsedConfig, artifacts)
   return { actionBundle, targetBundle }
 }
 
@@ -363,10 +366,10 @@ export const makeActionBundleFromConfig = async (
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
       (await provider.getCode(
-        getContractAddress(
+        await getContractAddress(
           parsedConfig.options.organizationID,
           referenceName,
-          contractConfig.constructorArgs,
+          contractConfig,
           artifacts[referenceName]
         )
       )) === '0x'
@@ -416,10 +419,10 @@ export const makeActionBundleFromConfig = async (
  * @param env Environment variables to inject into the config file.
  * @returns Target bundle generated from the parsed config file.
  */
-export const makeTargetBundleFromConfig = (
+export const makeTargetBundleFromConfig = async (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: CanonicalConfigArtifacts
-): ChugSplashTargetBundle => {
+): Promise<ChugSplashTargetBundle> => {
   const projectName = parsedConfig.options.projectName
 
   const targets: ChugSplashTarget[] = []
@@ -431,10 +434,10 @@ export const makeTargetBundleFromConfig = (
       referenceName,
       contractKindHash: contractKindHashes[contractConfig.kind],
       proxy: contractConfig.proxy,
-      implementation: getContractAddress(
+      implementation: await getContractAddress(
         parsedConfig.options.organizationID,
         referenceName,
-        contractConfig.constructorArgs,
+        contractConfig,
         artifacts[referenceName]
       ),
     })

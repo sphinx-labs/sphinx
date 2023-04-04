@@ -8,8 +8,10 @@ import '../dist'
 import { expect } from 'chai'
 import hre from 'hardhat'
 import {
+  assertValidLibraries,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
+  resolveContractAddresses,
 } from '@chugsplash/core'
 
 import { getArtifactPaths } from '../src/hardhat/artifacts'
@@ -18,6 +20,8 @@ import { createChugSplashRuntime } from '../src/utils'
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
 const constructorArgConfigPath =
   './chugsplash/ConstructorArgValidation.config.ts'
+const libraryValidationConfigPath = './chugsplash/LibraryValidation.config.ts'
+const outOfOrderLibraryConfigPath = './chugsplash/OutOfOrderLibrary.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
@@ -27,17 +31,42 @@ describe('Validate', () => {
     const varValidationUserConfig = await readUnvalidatedChugSplashConfig(
       variableValidateConfigPath
     )
+
     const constructorArgsValidationUserConfig =
       await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
+
+    const libraryValidationUserConfig = await readUnvalidatedChugSplashConfig(
+      libraryValidationConfigPath
+    )
+
+    const outOfOrderLibraryUserConfig = await readUnvalidatedChugSplashConfig(
+      outOfOrderLibraryConfigPath
+    )
+
     const varValidationArtifactPaths = await getArtifactPaths(
       hre,
       varValidationUserConfig.contracts,
       hre.config.paths.artifacts,
       path.join(hre.config.paths.artifacts, 'build-info')
     )
+
     const constructorArgsValidationArtifactPaths = await getArtifactPaths(
       hre,
       constructorArgsValidationUserConfig.contracts,
+      hre.config.paths.artifacts,
+      path.join(hre.config.paths.artifacts, 'build-info')
+    )
+
+    const libraryValidationArtifactPaths = await getArtifactPaths(
+      hre,
+      libraryValidationUserConfig.contracts,
+      hre.config.paths.artifacts,
+      path.join(hre.config.paths.artifacts, 'build-info')
+    )
+
+    const outOfOrderLibraryArtifactPaths = await getArtifactPaths(
+      hre,
+      outOfOrderLibraryUserConfig.contracts,
       hre.config.paths.artifacts,
       path.join(hre.config.paths.artifacts, 'build-info')
     )
@@ -47,8 +76,9 @@ describe('Validate', () => {
       return true
     }
 
-    const creVariableValidate = await createChugSplashRuntime(
-      variableValidateConfigPath,
+    // Construct CRE
+    const cre = await createChugSplashRuntime(
+      '',
       false,
       true,
       hre,
@@ -56,30 +86,42 @@ describe('Validate', () => {
       process.stderr
     )
 
-    const creConstructorArg = await createChugSplashRuntime(
-      variableValidateConfigPath,
-      false,
-      true,
-      hre,
-      false,
-      process.stderr
-    )
-
+    // Run validation for variable validation config
     await readValidatedChugSplashConfig(
       provider,
       variableValidateConfigPath,
       varValidationArtifactPaths,
       'hardhat',
-      creVariableValidate,
+      cre,
       false
     )
 
+    // Run validation for constructor arg validation config
     await readValidatedChugSplashConfig(
       provider,
       constructorArgConfigPath,
       constructorArgsValidationArtifactPaths,
       'hardhat',
-      creConstructorArg,
+      cre,
+      false
+    )
+
+    // Run validation for unnecessary libraries config
+    await assertValidLibraries(
+      libraryValidationUserConfig,
+      libraryValidationArtifactPaths,
+      'hardhat',
+      cre.silent,
+      cre.stream
+    )
+
+    // Run validation for out of order libraries config
+    await resolveContractAddresses(
+      outOfOrderLibraryUserConfig,
+      outOfOrderLibraryArtifactPaths,
+      'hardhat',
+      cre.stream,
+      cre.silent,
       false
     )
   })
@@ -259,6 +301,36 @@ describe('Validate', () => {
   it('did catch variables in immutable contract', async () => {
     expect(validationOutput).to.have.string(
       `Detected variables for contract 'Stateless', but variables are not supported for non-proxied contracts.`
+    )
+  })
+
+  it('did catch out of order library reference', async () => {
+    expect(validationOutput).to.have.string(
+      'Detected out of order library references'
+    )
+    expect(validationOutput).to.have.string(
+      'ExternalLibrary: {{ ExternalLibrary }}'
+    )
+  })
+
+  it('did catch unnecessary library', async () => {
+    expect(validationOutput).to.have.string(
+      'You tried to link the contract Stateless with UnnecessaryLibrary, which is not one of its libraries.'
+    )
+  })
+
+  it('did catch invalid address', async () => {
+    expect(validationOutput).to.have.string(
+      'You tried to link the contract Stateless with the library ExternalLibrary, but provided this invalid address: invalidAddress'
+    )
+  })
+
+  it('did catch missing library link', async () => {
+    expect(validationOutput).to.have.string(
+      'The contract Stateless is missing links for the following libraries:'
+    )
+    expect(validationOutput).to.have.string(
+      'contracts/ExternalLibrary.sol:ExternalLibrary'
     )
   })
 })

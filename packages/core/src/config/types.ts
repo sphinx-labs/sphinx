@@ -7,9 +7,10 @@ import {
 } from '@chugsplash/contracts'
 import { BigNumber, constants } from 'ethers'
 import { Fragment } from 'ethers/lib/utils'
-import { CompilerInput } from 'hardhat/types'
+import { CompilerInput, LinkReferences } from 'hardhat/types'
 
 import { CompilerOutput } from '../languages/solidity/types'
+import { Libraries } from '../types'
 
 export const externalContractKinds = [
   'oz-transparent',
@@ -94,6 +95,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  libraries?: Libraries
   unsafeAllowEmptyPush?: boolean
   unsafeAllowRenames?: boolean
   unsafeSkipStorageCheck?: boolean
@@ -101,6 +103,7 @@ export type UserContractConfig = {
     delegatecall?: boolean
     selfdestruct?: boolean
     missingPublicUpgradeTo?: boolean
+    externalLibraryLinking?: boolean
   }
 }
 
@@ -124,6 +127,7 @@ export type ParsedContractConfig = {
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
   unsafeAllowEmptyPush?: boolean
+  libraries: Libraries
 }
 
 export type ParsedContractConfigs = {
@@ -157,5 +161,6 @@ export type CanonicalConfigArtifacts = {
     bytecode: string
     sourceName: string
     contractName: string
+    linkReferences: LinkReferences
   }
 }

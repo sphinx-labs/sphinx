@@ -1,10 +1,23 @@
 import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
+import { Address } from '@eth-optimism/core-utils'
 import { StorageLayout } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { ParsedContractConfig } from './config'
 import { Integration } from './constants'
+
+// Used when linking bytecode to external libraries.
+// Borrowed from hardhat ethers plugin.
+export interface Link {
+  sourceName: string
+  libraryName: string
+  address: string
+}
+
+export type Libraries = {
+  [libraryName: string]: Address
+}
 
 export type ChugSplashRuntimeEnvironment = {
   configPath: string

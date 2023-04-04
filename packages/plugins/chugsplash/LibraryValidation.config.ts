@@ -1,9 +1,7 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-import { variables, constructorArgs } from '../test/constants'
-
-const projectName = 'My First Project'
+const projectName = 'Variable Validation'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
@@ -14,24 +12,6 @@ const config: UserChugSplashConfig = {
     projectName,
   },
   contracts: {
-    MyStorage: {
-      contract: 'Storage',
-      constructorArgs,
-      variables,
-      unsafeAllow: {
-        externalLibraryLinking: true,
-      },
-      libraries: {
-        ExternalLibrary: '{{ ExternalLibrary }}',
-      },
-    },
-    MySimpleStorage: {
-      contract: 'SimpleStorage',
-      variables: {
-        myStorage: '{{ MyStorage }}',
-        myStateless: '{{ Stateless }}',
-      },
-    },
     ExternalLibrary: {
       contract: 'ExternalLibrary',
       kind: 'no-proxy',
@@ -43,7 +23,8 @@ const config: UserChugSplashConfig = {
         _immutableUint: 1,
       },
       libraries: {
-        ExternalLibrary: '{{ ExternalLibrary }}',
+        UnnecessaryLibrary: '{{ UnnecessaryLibrary }}',
+        ExternalLibrary: 'invalidAddress',
       },
     },
   },

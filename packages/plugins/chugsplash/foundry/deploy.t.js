@@ -196,6 +196,12 @@ module.exports = {
       contract: 'Storage',
       constructorArgs,
       variables,
+      unsafeAllow: {
+        externalLibraryLinking: true,
+      },
+      libraries: {
+        ExternalLibrary: '{{ ExternalLibrary }}',
+      },
     },
     MySimpleStorage: {
       contract: 'SimpleStorage',
@@ -204,11 +210,18 @@ module.exports = {
         myStateless: '{{ Stateless }}',
       },
     },
+    ExternalLibrary: {
+      contract: 'ExternalLibrary',
+      kind: 'no-proxy',
+    },
     Stateless: {
       contract: 'Stateless',
       kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
+      },
+      libraries: {
+        ExternalLibrary: '{{ ExternalLibrary }}',
       },
     },
   },

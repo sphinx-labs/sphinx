@@ -8,7 +8,7 @@ describe('Storage', () => {
   let MyStorage: Contract
   let MySimpleStorage: Contract
   let Stateless: Contract
-  beforeEach(async () => {
+  before(async () => {
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',
@@ -20,6 +20,14 @@ describe('Storage', () => {
   it('does deploy stateless immutable contract', async () => {
     expect(await Stateless.hello()).to.equal('Hello, world!')
     expect(await Stateless.immutableUint()).to.deep.equal(BigNumber.from(1))
+  })
+
+  it('does deploy and link external library', async () => {
+    expect(await MyStorage.callLibrary()).to.equal(2)
+  })
+
+  it('does deploy and link external library within no-proxy contract', async () => {
+    expect(await Stateless.callLibrary()).to.equal(2)
   })
 
   it('does properly resolve reference to stateless immutable contract', async () => {

@@ -57,6 +57,10 @@ const config: UserChugSplashConfig = {
         anotherExtraVar: [],
       },
     },
+    ExternalLibrary: {
+      contract: 'ExternalLibrary',
+      kind: 'no-proxy',
+    },
     Stateless: {
       contract: 'Stateless',
       kind: 'no-proxy',
@@ -65,6 +69,9 @@ const config: UserChugSplashConfig = {
       },
       variables: {
         hello: 'world',
+      },
+      libraries: {
+        ExternalLibrary: '{{ ExternalLibrary }}',
       },
     },
   },

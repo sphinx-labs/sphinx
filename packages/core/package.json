@@ -42,7 +42,6 @@
     "fs": "^0.0.1-security",
     "handlebars": "^4.7.7",
     "hardhat": "^2.10.0",
-    "hardhat-deploy": "^0.11.18",
     "insight": "^0.11.1",
     "ipfs-http-client": "56.0.3",
     "ipfs-only-hash": "^4.0.0",

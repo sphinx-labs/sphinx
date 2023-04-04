@@ -1,5 +1,5 @@
 import { Fragment } from 'ethers/lib/utils'
-import { CompilerInput } from 'hardhat/types'
+import { CompilerInput, LinkReferences } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 
 /**
@@ -82,6 +82,7 @@ export type ContractArtifact = {
   sourceName: string
   contractName: string
   bytecode: string
+  linkReferences: LinkReferences
 }
 
 export interface CompilerOutputMetadata {

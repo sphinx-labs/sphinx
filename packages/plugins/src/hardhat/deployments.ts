@@ -2,6 +2,7 @@ import '@nomiclabs/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import * as Handlebars from 'handlebars'
 import { ethers } from 'ethers'
 import {
   isEmptyChugSplashConfig,
@@ -14,6 +15,9 @@ import {
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
   getContractAddress,
+  resolveContractAddresses,
+  UserChugSplashConfig,
+  assertValidLibraries,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -156,6 +160,10 @@ export const getContract = async (
   const userConfig = userConfigs[0]
   const contractConfig = userConfig.contracts[referenceName]
 
+  if (userConfig.options.organizationID === undefined) {
+    throw new Error(`Organization ID is undefined for project "${projectName}"`)
+  }
+
   let address =
     contractConfig.externalProxy ||
     getDefaultProxyAddress(
@@ -164,12 +172,45 @@ export const getContract = async (
       referenceName
     )
   if (contractConfig.kind === 'no-proxy') {
-    const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
-    address = getContractAddress(
+    const artifactPaths = await getArtifactPaths(
+      hre,
+      userConfig.contracts,
+      hre.config.paths.artifacts,
+      path.join(hre.config.paths.artifacts, 'build-info')
+    )
+
+    await assertValidLibraries(
+      userConfig,
+      artifactPaths,
+      'hardhat',
+      true,
+      process.stderr
+    )
+
+    // Resolve all the contract addresses so they can be used handle contract references during the variable parsing step
+    const contracts = await resolveContractAddresses(
+      userConfig,
+      artifactPaths,
+      'hardhat',
+      process.stderr,
+      true
+    )
+
+    // Compile the config file with Handlebars to replace contract references with their addresses
+    const compiledConfig: UserChugSplashConfig = JSON.parse(
+      Handlebars.compile(JSON.stringify(userConfig))({
+        ...contracts,
+      })
+    )
+
+    address = await getContractAddress(
       userConfig.options.organizationID,
       referenceName,
-      contractConfig.constructorArgs ?? {},
-      artifact
+      compiledConfig.contracts[referenceName],
+      {
+        integration: 'hardhat',
+        artifactPaths,
+      }
     )
   }
 

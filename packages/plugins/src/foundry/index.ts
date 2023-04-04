@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 
+import * as Handlebars from 'handlebars'
 import {
   chugsplashApproveAbstractTask,
   chugsplashDeployAbstractTask,
@@ -23,6 +24,10 @@ import {
   readUnvalidatedChugSplashConfig,
   getContractAddress,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  assertValidLibraries,
+  resolveContractAddresses,
+  UserChugSplashConfig,
+  chugsplashLog,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 import ora from 'ora'
@@ -704,10 +709,46 @@ const command = args[0]
           buildInfoFolder
         )
 
-        const address = getContractAddress(
+        // We have to account for possible external libraries here
+
+        await assertValidLibraries(
+          userConfig,
+          artifactPaths,
+          'foundry',
+          true,
+          process.stdout
+        )
+
+        // Resolve all the contract addresses so they can be used handle contract references during the variable parsing step
+        const contracts = await resolveContractAddresses(
+          userConfig,
+          artifactPaths,
+          'foundry',
+          process.stdout,
+          true
+        )
+
+        // Compile the config file with Handlebars to replace contract references with their addresses
+        const compiledConfig: UserChugSplashConfig = JSON.parse(
+          Handlebars.compile(JSON.stringify(userConfig))({
+            ...contracts,
+          })
+        )
+
+        if (userConfig.options.organizationID === undefined) {
+          chugsplashLog(
+            'error',
+            `Organization ID is undefined for project "${userConfig.options.projectName}"`,
+            [],
+            false,
+            process.stdout
+          )
+        }
+
+        const address = await getContractAddress(
           userConfig.options.organizationID,
           referenceName,
-          userConfig.contracts[referenceName].constructorArgs ?? {},
+          compiledConfig.contracts[referenceName],
           { integration: 'foundry', artifactPaths }
         )
         process.stdout.write(address)
