@@ -1,5 +1,73 @@
 # @chugsplash/contracts
 
+## 0.6.0
+
+### Minor Changes
+
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
+
+### Patch Changes
+
+- 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
+- c76142e: Remove contract unit tests until ChugSplash contracts stabilize
+- 35c7a63: Add meta upgrades for root ChugSplashManager
+
+## 0.5.2
+
+### Patch Changes
+
+- 20f1a7e: Use JSON bundle in contract unit tests
+- c8af97c: Update `setStorage` function to set only a segment of a storage slot
+- 736b859: Update contract unit tests to reflect new storage slot segment setter
+
+## 0.5.1
+
+### Patch Changes
+
+- ca6d384: Bump contracts
+
+## 0.5.0
+
+### Minor Changes
+
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- 263b34d: Add logic for claiming bundles
+- 57a327d: Temporarily allow anyone to propose bundles
+
+## 0.4.3
+
+### Patch Changes
+
+- 4265ae4: Bump chugsplash salt value
+- 4554d0c: Make `ChugSplashManagerProxy` address stable by removing dependency on `ChugSplashRegistry`'s bytecode
+- 591e7da: improve transparent proxy test names
+
+## 0.4.2
+
+### Patch Changes
+
+- 4029daf: Change `target` to `referenceName` everywhere
+
+## 0.4.1
+
+### Patch Changes
+
+- 5a135ec: Fix issue verifying ChugSplash contracts
+
+## 0.4.0
+
+### Minor Changes
+
+- 0443459: Support custom transparent proxies
+
+### Patch Changes
+
+- 60d7adc: Make executors permissioned
+- 40f0d0a: Add OpenZeppelin storage slot checker
+
 ## 0.3.17
 
 ### Patch Changes

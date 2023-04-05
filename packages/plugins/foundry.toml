@@ -1,0 +1,26 @@
+[profile.default]
+src = 'foundry-contracts'
+out = 'out/artifacts'
+build_info_path = 'out/artifacts/build-info'
+build_info = true
+extra_output = ['storageLayout']
+fs_permissions = [{ access = "read", path = "./"}]
+force = true
+ffi = true
+libs = ['node_modules', 'lib']
+test = 'test/foundry'
+cache_path  = 'forge-cache'
+verbosity = 2
+allow_paths = ["../contracts"]
+
+
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
+homestead = "${RPC_MAINNET}"
+goerli = "${RPC_GOERLI}"
+optimism = "${RPC_OPTIMISM}"
+optimism-goerli = "${RPC_OPTIMISM_GOERLI}"
+arbitrum = "${RPC_ARBITRUM}"
+arbitrum-goerli = "${RPC_ARBITRUM_GOERLI}"
+matic = "${RPC_MATIC}"
+maticmum = "${RPC_MATIC_MUMBAI}"

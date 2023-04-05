@@ -1,70 +1,53 @@
+import { fork } from 'child_process'
+
 import * as dotenv from 'dotenv'
 dotenv.config()
 import {
   BaseServiceV2,
   Logger,
-  LogLevel,
+  StandardOptions,
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
+import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
-  ChugSplashManagerABI,
-  ChugSplashRegistryABI,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-} from '@chugsplash/contracts'
-import {
-  claimExecutorPayment,
-  hasSufficientFundsForExecution,
-  executeTask,
-  CanonicalChugSplashConfig,
+  CHUGSPLASH_REGISTRY_ADDRESS,
   initializeChugSplash,
-  getProjectOwnerAddress,
-  ChugSplashBundleState,
-  ChugSplashActionBundle,
-  readCanonicalConfig,
+  Integration,
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState,
+  ExecutorEvent,
+  ExecutorKey,
 } from '@chugsplash/core'
-import * as Amplitude from '@amplitude/node'
 import { getChainId } from '@eth-optimism/core-utils'
+import { GraphQLClient } from 'graphql-request'
 
+import { verifyChugSplash, isSupportedNetworkOnEtherscan } from './utils'
 import {
-  compileRemoteBundle,
-  verifyChugSplash,
-  verifyChugSplashConfig,
-  isSupportedNetworkOnEtherscan,
-  bundleRemoteSubtask,
-} from './utils'
-
+  ExecutorMessage,
+  handleExecution,
+  ResponseMessage,
+} from './utils/execute'
 export * from './utils'
 
-type Options = {
-  url: string
-  network: string
-  privateKey: string
-  amplitudeKey: string
-  logLevel: LogLevel
-}
-
-type Metrics = {}
-
-type State = {
-  eventsQueue: ethers.Event[]
-  registry: ethers.Contract
-  provider: ethers.providers.JsonRpcProvider
-  lastBlockNumber: number
-  amplitudeClient: Amplitude.NodeClient
-  wallet: ethers.Wallet
-}
-
-export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
-  constructor(options?: Partial<Options>) {
+export class ChugSplashExecutor extends BaseServiceV2<
+  ExecutorOptions,
+  ExecutorMetrics,
+  ExecutorState & {
+    graphQLClient: GraphQLClient
+  }
+> {
+  constructor(options?: Partial<ExecutorOptions & StandardOptions>) {
     super({
       name: 'chugsplash-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
-      loopIntervalMs: 5000,
-      port: parseInt(process.env.EXECUTOR_PORT, 10),
-      options,
+      options: {
+        loopIntervalMs: 5000,
+        ...options,
+      },
       optionsSpec: {
         url: {
           desc: 'Target deployment network access url',
@@ -76,21 +59,21 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
           validator: validators.str,
           default: 'localhost',
         },
-        privateKey: {
-          desc: 'Private key for signing deployment transactions',
+        privateKeys: {
+          desc: 'Command delimited list of private keys for signing deployment transactions',
           validator: validators.str,
           default:
             '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
-        },
-        amplitudeKey: {
-          desc: 'Amplitude API key for analytics',
-          validator: validators.str,
-          default: 'disabled',
         },
         logLevel: {
           desc: 'Executor log level',
           validator: validators.str,
           default: 'error',
+        },
+        managedApiUrl: {
+          desc: 'ChugSplash Managed GraphQL API',
+          validator: validators.str,
+          default: '',
         },
       },
       metricsSpec: {},
@@ -105,7 +88,7 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
    * environment variables.
    **/
   async setup(
-    options: Partial<Options>,
+    options: Partial<ExecutorOptions>,
     provider?: ethers.providers.JsonRpcProvider
   ) {
     this.logger = new Logger({
@@ -113,63 +96,105 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       level: options.logLevel,
     })
 
-    if (options.amplitudeKey !== 'disabled') {
-      this.state.amplitudeClient = Amplitude.init(this.options.amplitudeKey)
-    }
-
-    const reg = CHUGSPLASH_REGISTRY_PROXY_ADDRESS
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
-      reg,
+      CHUGSPLASH_REGISTRY_ADDRESS,
       ChugSplashRegistryABI,
       this.state.provider
     )
     this.state.lastBlockNumber = 0
 
+    // Passing the log level in when creating executor still does not work as expected.
+    // If you attempt to remove this, the foundry library will fail due to incorrect output to the console.
+    // This is because the foundry library parses stdout and expects a very specific format.
+    this.logger = new Logger({
+      name: 'Logger',
+      level: options.logLevel,
+    })
+
     // This represents a queue of "BundleApproved" events to execute.
     this.state.eventsQueue = []
+    // This represents a cache of "BundleApproved" events which are currently being executed.
+    this.state.executionCache = []
 
-    this.state.wallet = new ethers.Wallet(
-      options.privateKey,
+    const keyStrings = options.privateKeys.split(',')
+    this.state.keys = keyStrings.map((privateKey, index) => {
+      return {
+        id: index,
+        privateKey,
+        locked: false,
+      }
+    })
+  }
+
+  async init() {
+    await this.setup(this.options)
+
+    this.logger.info('[ChugSplash]: setting up chugsplash...')
+
+    const wallet = new ethers.Wallet(
+      this.state.keys[0].privateKey,
       this.state.provider
     )
 
-    this.logger.info('[ChugSplash]: setting up chugsplash...')
+    const executorAddresses: string[] = []
+    for (const key of this.state.keys) {
+      const w = new ethers.Wallet(key.privateKey, this.state.provider)
+      executorAddresses.push(w.address)
+    }
 
     // Deploy the ChugSplash contracts.
     await initializeChugSplash(
       this.state.provider,
-      this.state.wallet,
+      wallet,
+      executorAddresses,
       this.logger
     )
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
-    // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))) {
-      this.logger.info(
-        '[ChugSplash]: attempting to verify the chugsplash contracts...'
-      )
-      await verifyChugSplash(this.state.provider, this.options.network)
-      this.logger.info(
-        '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-      )
-    } else {
-      this.logger.info(
-        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
+    // verify ChugSplash contracts on etherscan
+    try {
+      // Verify the ChugSplash contracts if the current network is supported.
+      if (
+        isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
+      ) {
+        this.logger.info(
+          '[ChugSplash]: attempting to verify the chugsplash contracts...'
+        )
+        await verifyChugSplash(this.state.provider, this.options.network)
+        this.logger.info(
+          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
+        )
+      } else {
+        this.logger.info(
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
+        )
+      }
+    } catch (e) {
+      this.logger.error(
+        `[ChugSplash]: error: failed to verify chugsplash contracts on ${this.options.network}`,
+        e
       )
     }
   }
 
-  async init() {
-    await this.setup(this.options)
-  }
-
-  async main(localBundleId?: string, canonicalConfigFolderPath?: string) {
-    const { provider, wallet, registry } = this.state
+  async main(
+    canonicalConfigFolderPath?: string,
+    integration?: Integration,
+    remoteExecution: boolean = true
+  ) {
+    const { provider, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
+
+    // Handles an edge case with retries that can only occur
+    // when running the executor against a local network that
+    // does not use interval mining (i.e the default hardhat network)
+    if (this.state.lastBlockNumber > latestBlockNumber) {
+      return
+    }
 
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
@@ -178,8 +203,20 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
       latestBlockNumber
     )
 
+    const currentTime = new Date()
+    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents.map(
+      (event) => {
+        return {
+          retry: 1,
+          nextTry: currentTime,
+          waitingPeriodMs: 15000,
+          event,
+        }
+      }
+    )
+
     // Concatenate the new approval events to the array
-    this.state.eventsQueue = this.state.eventsQueue.concat(newApprovalEvents)
+    this.state.eventsQueue = this.state.eventsQueue.concat(newExecutorEvents)
 
     // store last block number
     this.state.lastBlockNumber = latestBlockNumber
@@ -200,168 +237,88 @@ export class ChugSplashExecutor extends BaseServiceV2<Options, Metrics, State> {
     const eventsCopy = this.state.eventsQueue.slice()
 
     // execute all approved bundles
-    for (const approvalAnnouncementEvent of eventsCopy) {
+    for (const executorEvent of eventsCopy) {
       this.logger.info('[ChugSplash]: detected a project...')
 
-      // Remove the current event from the front of the events queue and place it at the end of the
-      // array. This ensures that the current event won't block the execution of other events if
-      // we're unable to execute it.
-      this.state.eventsQueue.shift()
-      this.state.eventsQueue.push(approvalAnnouncementEvent)
-
-      // fetch manager for relevant project
-      const manager = new ethers.Contract(
-        approvalAnnouncementEvent.args.manager,
-        ChugSplashManagerABI,
-        wallet
-      )
-
-      // get active bundle id for this project
-      const activeBundleId = await manager.activeBundleId()
-      if (activeBundleId === ethers.constants.HashZero) {
-        this.logger.info('[ChugSplash]: no active bundle in project')
-      } else {
-        // Retrieve the corresponding proposal event to get the config URI.
-        const [proposalEvent] = await manager.queryFilter(
-          manager.filters.ChugSplashBundleProposed(activeBundleId)
-        )
-
-        this.logger.info('[ChugSplash]: retrieving the bundle...')
-
-        // Compile the bundle using either the provided localBundleId (when running the in-process
-        // executor), or using the Config URI
-        let bundle: ChugSplashActionBundle
-        let canonicalConfig: CanonicalChugSplashConfig
-        if (localBundleId !== undefined) {
-          canonicalConfig = readCanonicalConfig(
-            canonicalConfigFolderPath,
-            localBundleId
-          )
-          bundle = await bundleRemoteSubtask({ canonicalConfig })
-        } else {
-          ;({ bundle, canonicalConfig } = await compileRemoteBundle(
-            proposalEvent.args.configUri
-          ))
-        }
-        const projectName = canonicalConfig.options.projectName
-
-        // ensure compiled bundle matches proposed bundle
-        if (bundle.root !== proposalEvent.args.bundleRoot) {
-          // We cannot execute the current bundle, so we remove the corresponding event from the end
-          // of the events queue.
-          this.state.eventsQueue.pop()
-
-          // log error and continue
-          this.logger.error(
-            '[ChugSplash]: error: compiled bundle root does not match proposal event bundle root',
-            canonicalConfig.options
-          )
-          continue
-        }
-
-        this.logger.info(
-          `[ChugSplash]: compiled ${projectName} on: ${this.options.network}. checking that the project is funded...`
-        )
-
-        const bundleState: ChugSplashBundleState = await manager.bundles(
-          activeBundleId
-        )
-
-        if (
-          await hasSufficientFundsForExecution(
-            provider,
-            bundle,
-            bundleState.actionsExecuted.toNumber(),
-            projectName
-          )
-        ) {
-          this.logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
-          // execute bundle
-          try {
-            await executeTask({
-              chugSplashManager: manager,
-              bundleState,
-              bundle,
-              executor: wallet,
-              projectName,
-              logger: this.logger,
-            })
-          } catch (e) {
-            // log error and continue
-            this.logger.error(
-              '[ChugSplash]: error: execution error',
-              e,
-              canonicalConfig.options
-            )
-            continue
-          }
-
-          // verify on etherscan
-          try {
-            if (
-              isSupportedNetworkOnEtherscan(
-                await getChainId(this.state.provider)
-              )
-            ) {
-              this.logger.info(
-                `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
-              )
-              await verifyChugSplashConfig(
-                proposalEvent.args.configUri,
-                provider,
-                this.options.network,
-                activeBundleId
-              )
-              this.logger.info(
-                `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
-              )
-            } else {
-              this.logger.info(
-                `[ChugSplash]: skipped verifying project: ${projectName}. reason: etherscan config not detected for network: ${this.options.network}`
-              )
-            }
-          } catch (e) {
-            this.logger.error(
-              '[ChugSplash]: error: verification error',
-              e,
-              canonicalConfig.options
-            )
-          }
-
-          if (this.options.amplitudeKey !== 'disabled') {
-            this.state.amplitudeClient.logEvent({
-              event_type: 'chugsplash executed',
-              user_id: await getProjectOwnerAddress(provider, projectName),
-              event_properties: {
-                projectName,
-                network: this.options.network,
-              },
-            })
-          }
-        } else {
-          this.logger.info(
-            `[ChugSplash]: ${projectName} has insufficient funds`
-          )
-          // Continue to the next bundle if there is an insufficient amount of funds in the
-          // ChugSplashManager. We will continue to make attempts to execute the bundle on
-          // subsequent iterations of the BaseService.
-          continue
-        }
+      // If still waiting on retry, then continue
+      if (executorEvent.nextTry > currentTime) {
+        continue
       }
 
-      this.logger.info(`[ChugSplash]: claiming executor's payment...`)
+      // find available key, continue if none found
+      const key: ExecutorKey | undefined = this.state.keys.find(
+        (el) => el.locked === false
+      )
+      if (key === undefined) {
+        this.logger.info('[ChugSplash]: All keys in use')
+        continue
+      } else {
+        // lock the selected key
+        this.state.keys[key.id].locked = true
+      }
 
-      // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
-      // project owner during execution, the executor will still be able to claim funds here.
-      await claimExecutorPayment(wallet, manager)
+      // Remove the current event from the front of the queue and cache it
+      // so we don't try to execute it in a subsequent iteration
+      const event = this.state.eventsQueue.shift()
+      this.state.executionCache.push(event)
 
-      this.logger.info(`[ChugSplash]: claimed executor's payment`)
+      const executionMessage: ExecutorMessage = {
+        executorEvent: event,
+        key,
+        provider: remoteExecution ? this.options.url : this.state.provider,
+        loggerOptions: this.logger.options,
+        remoteExecution,
+        canonicalConfigFolderPath,
+        network: this.options.network,
+        managedApiUrl: this.options.managedApiUrl,
+        managedPublicKey: process.env.MANAGED_PUBLIC_KEY,
+        integration,
+      }
+      if (remoteExecution) {
+        // If the event is being processed remotely then fork a child process and pass in the event and other required args
+        const child = fork(`${__dirname}/utils/child.js`, {
+          stdio: 'inherit',
+        })
+        child.send(executionMessage)
 
-      // If we make it to this point, we know that the executor has executed the bundle (or that it
-      // has been cancelled by the owner), and that the executor has claimed its payment.
+        // listen for events from child process
+        child.on('message', (message: ResponseMessage) => {
+          if (message.action === 'log') {
+            this.logger[message.log.level](
+              message.log.message,
+              message.log.err,
+              message.log.options
+            )
+            return
+          }
 
-      // Remove the current event from the events queue.
-      this.state.eventsQueue.pop()
+          this.state.executionCache = this.state.executionCache.filter(
+            (e) =>
+              e.event.transactionHash !== message.payload.event.transactionHash
+          )
+
+          // unlock the selected key
+          this.state.keys[key.id].locked = false
+
+          switch (message.action) {
+            // on retry, put the new event back into the queue
+            case 'retry':
+              if (message.payload.retry === -1) {
+                this.logger.info(
+                  '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
+                )
+              } else {
+                this.state.eventsQueue.push(message.payload)
+              }
+              return
+          }
+        })
+      } else {
+        // if executing locally then call the execution handler directly
+        await handleExecution(executionMessage)
+        // unlock the selected key
+        this.state.keys[key.id].locked = false
+      }
     }
   }
 }

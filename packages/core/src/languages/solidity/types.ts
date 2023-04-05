@@ -1,3 +1,7 @@
+import { Fragment } from 'ethers/lib/utils'
+import { CompilerInput } from 'hardhat/types'
+import { SourceUnit } from 'solidity-ast'
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the structure of
  * state within the contract. See
@@ -12,6 +16,10 @@ export interface SolidityStorageObj {
   type: string
 }
 
+export interface ExtendedSolidityStorageObj extends SolidityStorageObj {
+  configVarName: string
+}
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the types used for
  * the various pieces of state in the contract. See
@@ -24,7 +32,7 @@ export interface SolidityStorageType {
   key?: string
   value?: string
   base?: string
-  members?: SolidityStorageObj[]
+  members?: any[]
 }
 
 /**
@@ -38,33 +46,58 @@ export interface SolidityStorageLayout {
   }
 }
 
-export interface StorageSlotPair {
-  key: string
-  val: string
+export interface ExtendedStorageLayout extends SolidityStorageLayout {
+  storage: ExtendedSolidityStorageObj[]
 }
 
-export interface CompilerInput {
-  language: string
-  sources: { [sourceName: string]: { content: string } }
-  settings: {
-    optimizer: { runs?: number; enabled?: boolean }
-    metadata?: { useLiteralContent: boolean }
-    outputSelection: {
-      [sourceName: string]: {
-        [contractName: string]: string[]
-      }
-    }
-    evmVersion?: string
-    libraries?: {
-      [libraryFileName: string]: {
-        [libraryName: string]: string
-      }
-    }
+/**
+ * Mapping from a contract's reference name to its build info file path and artifact path.
+ */
+export type ArtifactPaths = {
+  [referenceName: string]: {
+    buildInfoPath: string
+    contractArtifactPath: string
   }
 }
 
+export interface StorageSlotSegment {
+  key: string
+  offset: number
+  val: string
+}
+
+export type BuildInfo = {
+  id: string
+  solcVersion: string
+  solcLongVersion: string
+  input: CompilerInput
+  output: CompilerOutput
+}
+
+// TODO
+export type ContractASTNode = any
+
+export type ContractArtifact = {
+  abi: Array<Fragment>
+  sourceName: string
+  contractName: string
+  bytecode: string
+}
+
+export interface CompilerOutputMetadata {
+  sources: {
+    [sourceName: string]: {
+      keccak256: string
+      license: string
+      urls: string[]
+    }
+  }
+  output: any
+}
+
 export interface CompilerOutputContract {
-  abi: any
+  abi: Array<Fragment>
+  storageLayout: SolidityStorageLayout
   evm: {
     bytecode: CompilerOutputBytecode
     deployedBytecode: CompilerOutputBytecode
@@ -72,23 +105,24 @@ export interface CompilerOutputContract {
       [methodSignature: string]: string
     }
   }
+  metadata: string | CompilerOutputMetadata
+}
+
+export interface CompilerOutputContracts {
+  [sourceName: string]: {
+    [contractName: string]: CompilerOutputContract
+  }
 }
 
 export interface CompilerOutput {
   sources: CompilerOutputSources
-  contracts: {
-    [sourceName: string]: {
-      [contractName: string]: CompilerOutputContract
-    }
-  }
+  contracts: CompilerOutputContracts
+  errors?: any[]
 }
 
 export interface CompilerOutputSource {
   id: number
-  ast: {
-    id: number
-    exportedSymbols: { [contractName: string]: number[] }
-  }
+  ast: SourceUnit
 }
 
 export interface CompilerOutputSources {

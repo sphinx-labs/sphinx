@@ -1,56 +1,34 @@
 import path from 'path'
 
-import * as semver from 'semver'
-import {
-  SolidityStorageLayout,
-  ParsedChugSplashConfig,
-  writeDeploymentArtifact,
-  getConstructorArgs,
-  ChugSplashInputs,
-  CompilerInput,
-  getMinimumCompilerInput,
-  getChugSplashManagerProxyAddress,
-  writeDeploymentFolderForNetwork,
-} from '@chugsplash/core'
-import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
-  ProxyArtifact,
-  buildInfo as chugsplashBuildInfo,
-  ProxyABI,
-} from '@chugsplash/contracts'
-
-// TODO
-export type ContractArtifact = any
-export type BuildInfo = any
-
-/**
- * Retrieves an artifact by name.
- *
- * @param name Name of the artifact.
- * @returns Artifact.
- */
-export const getContractArtifact = (name: string): ContractArtifact => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
-  return hre.artifacts.readArtifactSync(name)
-}
+  ArtifactPaths,
+  UserContractConfigs,
+  getEIP1967ProxyImplementationAddress,
+  BuildInfo,
+  ParsedContractConfig,
+} from '@chugsplash/core'
+import {
+  Manifest,
+  getStorageLayoutForAddress,
+  StorageLayout,
+  withValidationDefaults,
+} from '@openzeppelin/upgrades-core'
+import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
 
 /**
  * Retrieves contract build info by name.
  *
  * @param sourceName Source file name.
- * @param contractName Contract name.
+ * @param contractName Contract name within the source file.
  * @returns Contract build info.
  */
 export const getBuildInfo = async (
+  hre: HardhatRuntimeEnvironment,
   sourceName: string,
   contractName: string
 ): Promise<BuildInfo> => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const hre = require('hardhat')
-
-  let buildInfo: BuildInfo
+  let buildInfo
   try {
     buildInfo = await hre.artifacts.getBuildInfo(
       `${sourceName}:${contractName}`
@@ -70,57 +48,52 @@ export const getBuildInfo = async (
     }
   }
 
+  // Shouldn't happen, but might as well be safe.
+  if (buildInfo === undefined) {
+    throw new Error(
+      `unable to find build info for contract ${contractName} in ${sourceName}`
+    )
+  }
+
   return buildInfo
 }
 
 /**
- * Retrieves the storageLayout portion of the compiler artifact for a given contract by name. This
- * function is hardhat specific.
+ * Finds the path to the build info file and the contract artifact file for each contract
+ * referenced in the given contract configurations.
  *
- * @param hre HardhatRuntimeEnvironment, required for the readArtifactSync function.
- * @param name Name of the contract to retrieve the storage layout for.
- * @return Storage layout object from the compiler output.
+ * @param hre Hardhat runtime environment.
+ * @param contractConfigs Contract configurations.
+ * @param artifactFolder Path to the artifact folder.
+ * @param buildInfoFolder Path to the build info folder.
+ * @returns Paths to the build info and contract artifact files.
  */
-export const getStorageLayout = async (
-  name: string
-): Promise<SolidityStorageLayout> => {
-  const { sourceName, contractName } = getContractArtifact(name)
-  const buildInfo = await getBuildInfo(sourceName, contractName)
-  const output = buildInfo.output.contracts[sourceName][contractName]
-
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+export const getArtifactPaths = async (
+  hre: HardhatRuntimeEnvironment,
+  contractConfigs: UserContractConfigs,
+  artifactFolder: string,
+  buildInfoFolder: string
+): Promise<ArtifactPaths> => {
+  const artifactPaths: ArtifactPaths = {}
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    const { sourceName, contractName } = hre.artifacts.readArtifactSync(
+      contractConfig.contract
     )
+    const buildInfo = await getBuildInfo(hre, sourceName, contractName)
+    artifactPaths[referenceName] = {
+      buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
+      contractArtifactPath: path.join(
+        artifactFolder,
+        sourceName,
+        `${contractName}.json`
+      ),
+    }
   }
-
-  if (!('storageLayout' in output)) {
-    throw new Error(
-      `Storage layout for ${name} not found. Did you forget to set the storage layout
-compiler option in your hardhat config? Read more:
-https://github.com/ethereum-optimism/smock#note-on-using-smoddit`
-    )
-  }
-
-  return (output as any).storageLayout
+  return artifactPaths
 }
 
-export const getDeployedBytecode = async (
-  provider: ethers.providers.JsonRpcProvider,
-  address: string
-): Promise<string> => {
-  const deployedBytecode = await provider.getCode(address)
-  return deployedBytecode
-}
-
-/**
- * Filters out sources in the ChugSplash input that aren't necessary to compile the ChugSplash
- * config.
- *
- * @param chugsplashInputs ChugSplash input array.
- * @param parsedConfig Parsed ChugSplash config.
- * @returns Filtered ChugSplash input array.
- */
 export const filterChugSplashInputs = async (
   chugsplashInputs: ChugSplashInputs,
   parsedConfig: ParsedChugSplashConfig
@@ -280,6 +253,39 @@ export const writeDeploymentArtifacts = async (
         implementationArtifact,
         referenceName
       )
+    }
+  }
+}
+
+/**
+ * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
+ * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
+ */
+export const importOpenZeppelinStorageLayout = async (
+  hre: HardhatRuntimeEnvironment,
+  parsedContractConfig: ParsedContractConfig
+): Promise<StorageLayout | undefined> => {
+  const { kind } = parsedContractConfig
+  if (
+    kind === 'oz-transparent' ||
+    kind === 'oz-ownable-uups' ||
+    kind === 'oz-access-control-uups'
+  ) {
+    const proxy = parsedContractConfig.proxy
+    const isProxyDeployed = await hre.ethers.provider.getCode(proxy)
+    if (isProxyDeployed) {
+      const manifest = await Manifest.forNetwork(hre.network.provider)
+      const deployData = await getDeployData(
+        hre,
+        await hre.ethers.getContractFactory(parsedContractConfig.contract),
+        withValidationDefaults({})
+      )
+      const storageLayout = await getStorageLayoutForAddress(
+        manifest,
+        deployData.validations,
+        await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
+      )
+      return storageLayout
     }
   }
 }

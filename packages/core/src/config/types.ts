@@ -1,4 +1,40 @@
-import { CompilerInput } from '../languages'
+import {
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  NO_PROXY_TYPE_HASH,
+} from '@chugsplash/contracts'
+import { BigNumber, constants } from 'ethers'
+import { Fragment } from 'ethers/lib/utils'
+import { CompilerInput } from 'hardhat/types'
+
+import { CompilerOutput } from '../languages/solidity/types'
+
+export const externalContractKinds = [
+  'oz-transparent',
+  'oz-ownable-uups',
+  'oz-access-control-uups',
+  'external-default',
+  'no-proxy',
+]
+export type ExternalContractKind =
+  | 'oz-transparent'
+  | 'oz-ownable-uups'
+  | 'oz-access-control-uups'
+  | 'external-default'
+  | 'no-proxy'
+
+export const contractKindHashes: { [contractKind: string]: string } = {
+  'internal-default': constants.HashZero,
+  'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+  'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  'no-proxy': NO_PROXY_TYPE_HASH,
+}
+
+export type ContractKind = ExternalContractKind | 'internal-default'
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -7,6 +43,7 @@ export type UserConfigVariable =
   | boolean
   | string
   | number
+  | BigNumber
   | Array<UserConfigVariable>
   | {
       [name: string]: UserConfigVariable
@@ -29,6 +66,7 @@ export type ParsedConfigVariable =
  */
 export interface UserChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
   }
   contracts: UserContractConfigs
@@ -39,6 +77,7 @@ export interface UserChugSplashConfig {
  */
 export interface ParsedChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
   }
   contracts: ParsedContractConfigs
@@ -49,8 +88,20 @@ export interface ParsedChugSplashConfig {
  */
 export type UserContractConfig = {
   contract: string
-  proxy?: string
+  externalProxy?: string
+  kind?: ExternalContractKind
+  previousBuildInfo?: string
+  previousFullyQualifiedName?: string
   variables?: UserConfigVariables
+  constructorArgs?: UserConfigVariables
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowRenames?: boolean
+  unsafeSkipStorageCheck?: boolean
+  unsafeAllow?: {
+    delegatecall?: boolean
+    selfdestruct?: boolean
+    missingPublicUpgradeTo?: boolean
+  }
 }
 
 export type UserContractConfigs = {
@@ -62,12 +113,17 @@ export type UserConfigVariables = {
 }
 
 /**
- * Parsed contract definition in a ChugSplash config.
+ * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
+ * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
+ * qualified name or the contract name.
  */
 export type ParsedContractConfig = {
   contract: string
   proxy: string
-  variables?: ParsedConfigVariables
+  kind: ContractKind
+  variables: ParsedConfigVariables
+  constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
 }
 
 export type ParsedContractConfigs = {
@@ -83,13 +139,23 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
-  inputs: ChugSplashInputs
+  inputs: Array<ChugSplashInput>
 }
-
-export type ChugSplashInputs = Array<ChugSplashInput>
 
 export type ChugSplashInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
+}
+
+export type CanonicalConfigArtifacts = {
+  [referenceName: string]: {
+    compilerInput: CompilerInput
+    compilerOutput: CompilerOutput
+    creationCodeWithConstructorArgs: string
+    abi: Array<Fragment>
+    bytecode: string
+    sourceName: string
+    contractName: string
+  }
 }

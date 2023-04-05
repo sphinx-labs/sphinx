@@ -1,31 +1,27 @@
+import { ChugSplashExecutorType } from '@chugsplash/core'
 import { ChugSplashExecutor } from '@chugsplash/executor'
 import { providers } from 'ethers'
 
-import { addCommandLineArgs, removeFlagsFromCommandLineArgs } from './env'
-
 export const initializeExecutor = async (
   provider: providers.JsonRpcProvider
-): Promise<ChugSplashExecutor> => {
-  // We must remove the command line arguments that begin with '--' from the process.argv array,
-  // or else the BaseServiceV2 (inherited by the executor) will throw an error when we instantiate
-  // it.
-  const removed = removeFlagsFromCommandLineArgs()
-
+): Promise<ChugSplashExecutorType> => {
   // Instantiate the executor.
-  const executor = new ChugSplashExecutor()
+  const executor = new ChugSplashExecutor({
+    useArgv: false,
+  })
 
   // Setup the executor.
   await executor.setup(
     {
-      privateKey:
+      privateKeys:
         '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+      // Passing the log level in when creating executor still does not work as expected.
+      // If you attempt to remove this option, the foundry library will fail due to incorrect output to the console.
+      // This is because the foundry library parses stdout and expects a very specific format.
       logLevel: 'error',
     },
     provider
   )
 
-  // Add the command line args back to the array.
-  addCommandLineArgs(removed)
-
-  return executor
+  return executor as any as ChugSplashExecutorType
 }

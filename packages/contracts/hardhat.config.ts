@@ -10,7 +10,15 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 10_000,
+        runs: 200,
+      },
+      outputSelection: {
+        '*': {
+          '*': ['storageLayout'],
+        },
+      },
+      metadata: {
+        bytecodeHash: 'none',
       },
     },
   },

@@ -2,184 +2,256 @@ import assert from 'assert'
 
 import { Contract, ethers } from 'ethers'
 import {
-  OWNER_BOND_AMOUNT,
-  EXECUTOR_BOND_AMOUNT,
-  EXECUTION_LOCK_TIME,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  CHUGSPLASH_BOOTLOADER_ADDRESS,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ChugSplashManagerABI,
-  ChugSplashManagerArtifact,
   DefaultAdapterABI,
   DefaultAdapterArtifact,
-  ChugSplashBootLoaderABI,
-  ChugSplashBootLoaderArtifact,
-  DEFAULT_ADAPTER_ADDRESS,
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
-  CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-  ProxyABI,
-  ProxyInitializerABI,
-  ProxyInitializerArtifact,
-  CHUGSPLASH_REGISTRY_ADDRESS,
   OWNER_MULTISIG_ADDRESS,
-  PROXY_INITIALIZER_ADDRESS,
-  CHUGSPLASH_SALT,
+  ChugSplashRegistryABI,
+  DefaultUpdaterABI,
+  DefaultUpdaterArtifact,
+  OZUUPSUpdaterABI,
+  OZUUPSOwnableAdapterABI,
+  OZUUPSAccessControlAdapterABI,
+  OZTransparentAdapterABI,
+  OZUUPSUpdaterArtifact,
+  OZUUPSOwnableAdapterArtifact,
+  OZUUPSAccessControlAdapterArtifact,
+  DEFAULT_UPDATER_ADDRESS,
+  DEFAULT_ADAPTER_ADDRESS,
+  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+  OZ_UUPS_UPDATER_ADDRESS,
+  OZ_TRANSPARENT_ADAPTER_ADDRESS,
+  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+  OZTransparentAdapterArtifact,
+  ChugSplashRegistryArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
 
 import {
-  getChugSplashRegistry,
-  getProxyAt,
-  getProxyAdmin,
+  getEIP1967ProxyAdminAddress,
   isContractDeployed,
-  getProxyImplementationAddress,
   getGasPriceOverrides,
 } from '../../utils'
+import {
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  registryConstructorValues,
+} from '../../constants'
 
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
+  executors: string[],
   logger?: Logger
 ): Promise<void> => {
-  logger?.info('[ChugSplash]: deploying ChugSplashManager...')
+  logger?.info('[ChugSplash]: deploying ChugSplashRegistry...')
 
-  // Deploy the root ChugSplashManager.
-  const ChugSplashManager = await doDeterministicDeploy(provider, {
+  const ChugSplashRegistry = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: ChugSplashManagerABI,
-      bytecode: ChugSplashManagerArtifact.bytecode,
+      abi: ChugSplashRegistryABI,
+      bytecode: ChugSplashRegistryArtifact.bytecode,
     },
-    salt: CHUGSPLASH_SALT,
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ChugSplashManagerArtifact.sourceName],
+    args: registryConstructorValues,
+    salt: ethers.constants.HashZero,
   })
 
-  logger?.info('[ChugSplash]: ChugSplashManager deployed')
-  logger?.info('[ChugSplash]: deploying ChugSplashBootLoader...')
+  assert(
+    CHUGSPLASH_REGISTRY_ADDRESS === ChugSplashRegistry.address,
+    'ChugSplashRegistry has incorrect address'
+  )
 
-  // Deploy the ChugSplashBootLoader.
-  const ChugSplashBootLoader = await doDeterministicDeploy(provider, {
+  logger?.info('[ChugSplash]: deployed ChugSplashRegistry')
+  logger?.info('[ChugSplash]: initializing ChugSplashRegistry...')
+
+  await (
+    await ChugSplashRegistry.initialize(
+      executors,
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
+
+  for (const executorAddress of executors) {
+    assert(
+      (await ChugSplashRegistry.executors(executorAddress)) === true,
+      'Failed to add executor to ChugSplashRegistry'
+    )
+  }
+
+  logger?.info('[ChugSplash]: ChugSplashRegistry initialized')
+
+  logger?.info('[ChugSplash]: deploying OZTransparentAdapter...')
+
+  // Deploy the OpenZeppelin Transparent Adapter.
+  const OZTransparentAdapter = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: ChugSplashBootLoaderABI,
-      bytecode: ChugSplashBootLoaderArtifact.bytecode,
+      abi: OZTransparentAdapterABI,
+      bytecode: OZTransparentAdapterArtifact.bytecode,
     },
-    salt: CHUGSPLASH_SALT,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZTransparentAdapterArtifact.sourceName],
+    salt: ethers.constants.HashZero,
   })
 
-  logger?.info('[ChugSplash]: ChugSplashBootLoader deployed')
+  logger?.info('[ChugSplash]: OZTransparentAdapter deployed')
 
   // Make sure the addresses match, just in case.
   assert(
-    ChugSplashBootLoader.address === CHUGSPLASH_BOOTLOADER_ADDRESS,
-    'ChugSplashBootLoader address mismatch'
+    OZTransparentAdapter.address === OZ_TRANSPARENT_ADAPTER_ADDRESS,
+    'OZTransparentAdapter address mismatch'
   )
 
-  logger?.info('[ChugSplash]: initializing ChugSplashBootLoader...')
-
-  // Initialize the ChugSplashBootLoader.
-  try {
-    await (
-      await ChugSplashBootLoader.initialize(
-        OWNER_MULTISIG_ADDRESS,
-        EXECUTOR_BOND_AMOUNT,
-        EXECUTION_LOCK_TIME,
-        OWNER_BOND_AMOUNT,
-        EXECUTOR_PAYMENT_PERCENTAGE,
-        ChugSplashManager.address,
-        CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-        CHUGSPLASH_SALT,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-    logger?.info('[ChugSplash]: ChugSplashBootLoader initialized')
-  } catch (err) {
-    if (
-      err.message.includes('Initializable: contract is already initialized')
-    ) {
-      logger?.info('[ChugSplash]: ChugSplashBootLoader was already initialized')
-    } else {
-      throw err
-    }
-  }
-
-  logger?.info('[ChugSplash]: deploying ProxyInitializer...')
-
-  // Deploy the ProxyInitializer, which we use to deploy and initialize the ChugSplashRegistry's
-  // proxy.
-  const ProxyInitializer = await doDeterministicDeploy(provider, {
+  // Deploy the DefaultUpdater.
+  const DefaultUpdater = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: ProxyInitializerABI,
-      bytecode: ProxyInitializerArtifact.bytecode,
+      abi: DefaultUpdaterABI,
+      bytecode: DefaultUpdaterArtifact.bytecode,
     },
-    salt: CHUGSPLASH_SALT,
-    args: CHUGSPLASH_CONSTRUCTOR_ARGS[ProxyInitializerArtifact.sourceName],
+    salt: ethers.constants.HashZero,
   })
 
-  logger?.info('[ChugSplash]: ProxyInitializer deployed')
+  logger?.info('[ChugSplash]: DefaultUpdater deployed')
 
-  // Make sure the ChugSplashRegistry proxy deployed by the ProxyInitializer has the correct
-  // address.
+  // Make sure the addresses match, just in case.
   assert(
-    (await ProxyInitializer.proxy()) === CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    'ChugSplashRegistry proxy address mismatch'
+    DefaultUpdater.address === DEFAULT_UPDATER_ADDRESS,
+    'DefaultUpdater address mismatch'
   )
 
-  // Make sure the multisig owner address is correct.
-  assert(
-    (await ProxyInitializer.newOwner()) === OWNER_MULTISIG_ADDRESS,
-    'ProxyInitializer has incorrect multisig owner address'
+  logger?.info(
+    '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )
 
-  // Make sure the ProxyInitializer addresses match, just in case.
-  assert(
-    ProxyInitializer.address === PROXY_INITIALIZER_ADDRESS,
-    'ProxyInitializer address mismatch'
-  )
-
-  logger?.info('[ChugSplash]: initializing ChugSplashRegistry proxy...')
-
-  const ChugSplashRegistryProxy = new Contract(
-    CHUGSPLASH_REGISTRY_PROXY_ADDRESS,
-    ProxyABI,
-    provider
-  )
-
-  // Check if the ChugSplashRegistry proxy's owner is the ProxyInitializer. This will only be true
-  // when the ChugSplashRegistry's proxy hasn't been initialized yet.
+  // Set the oz transparent proxy type on the registry.
   if (
-    (await getProxyAdmin(ChugSplashRegistryProxy)) === PROXY_INITIALIZER_ADDRESS
+    (await ChugSplashRegistry.adapters(OZ_TRANSPARENT_PROXY_TYPE_HASH)) !==
+    OZTransparentAdapter.address
   ) {
-    // Initialize the ChugSplashRegistry's proxy. This sets the ChugSplashRegistry proxy's
-    // implementation and transfers ownership of the proxy to the multisig owner.
     await (
-      await ProxyInitializer.initialize(
-        CHUGSPLASH_REGISTRY_ADDRESS,
+      await ChugSplashRegistry.addContractKind(
+        OZ_TRANSPARENT_PROXY_TYPE_HASH,
+        OZTransparentAdapter.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
-
-    // Make sure ownership of the ChugSplashRegistry's proxy has been transferred.
-    assert(
-      (await getProxyAdmin(ChugSplashRegistryProxy)) === OWNER_MULTISIG_ADDRESS,
-      'ChugSplashRegistry proxy has incorrect owner'
+    logger?.info(
+      '[ChugSplash]: added the transparent proxy type to the ChugSplashRegistry'
     )
-
-    // Make sure the ChugSplashRegistry's proxy has the correct implementation address.
-    assert(
-      (await getProxyImplementationAddress(
-        provider,
-        CHUGSPLASH_REGISTRY_PROXY_ADDRESS
-      )) === CHUGSPLASH_REGISTRY_ADDRESS,
-      'ChugSplashRegistry proxy has incorrect implememtation'
-    )
-
-    logger?.info('[ChugSplash]: ChugSplashRegistry proxy initialized')
   } else {
     logger?.info(
-      '[ChugSplash]: ChugSplashRegistry proxy was already initialized'
+      '[ChugSplash]: the transparent proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Deploy the OZUUPSAdapter.
+  const OZUUPSOwnableAdapter = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: OZUUPSOwnableAdapterABI,
+      bytecode: OZUUPSOwnableAdapterArtifact.bytecode,
+    },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[OZUUPSOwnableAdapterArtifact.sourceName],
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: OZUUPSAdapter deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    OZUUPSOwnableAdapter.address === OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+    'OZUUPSOwnableAdapter address mismatch'
+  )
+
+  // Deploy the OZUUPSAdapter.
+  const OZUUPSAccessControlAdapter = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: OZUUPSAccessControlAdapterABI,
+      bytecode: OZUUPSAccessControlAdapterArtifact.bytecode,
+    },
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[
+      OZUUPSAccessControlAdapterArtifact.sourceName
+    ],
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: OZUUPSAdapter deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    OZUUPSAccessControlAdapter.address ===
+      OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+    'OZUUPSAccessControlAdapter address mismatch'
+  )
+
+  // Deploy the OZUUPSUpdater.
+  const OZUUPSUpdater = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: OZUUPSUpdaterABI,
+      bytecode: OZUUPSUpdaterArtifact.bytecode,
+    },
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: OZUUPSUpdater deployed')
+
+  // Make sure the addresses match, just in case.
+  assert(
+    OZUUPSUpdater.address === OZ_UUPS_UPDATER_ADDRESS,
+    'OZUUPSUpdater address mismatch'
+  )
+
+  logger?.info(
+    '[ChugSplash]: adding the uups proxy type to the ChugSplashRegistry...'
+  )
+
+  // Set the oz uups proxy type on the registry.
+  if (
+    (await ChugSplashRegistry.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
+    OZUUPSOwnableAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addContractKind(
+        OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+        OZUUPSOwnableAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the uups ownable proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the uups ownable proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the oz uups proxy type on the registry.
+  if (
+    (await ChugSplashRegistry.adapters(
+      OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH
+    )) !== OZUUPSAccessControlAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addContractKind(
+        OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+        OZUUPSAccessControlAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the uups access control proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the uups access control proxy type was already added to the ChugSplashRegistry'
     )
   }
 
@@ -192,42 +264,56 @@ export const initializeChugSplash = async (
       abi: DefaultAdapterABI,
       bytecode: DefaultAdapterArtifact.bytecode,
     },
-    salt: CHUGSPLASH_SALT,
+    args: CHUGSPLASH_CONSTRUCTOR_ARGS[DefaultAdapterArtifact.sourceName],
+    salt: ethers.constants.HashZero,
   })
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
 
-  // Make sure the addresses match, just in case.
-  assert(
-    DefaultAdapter.address === DEFAULT_ADAPTER_ADDRESS,
-    'DefaultAdapter address mismatch'
-  )
-
-  logger?.info(
-    '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
-  )
-
-  // Set the default proxy type on the registry. Note that `monitorChugSplashSetup` relies on the
-  // fact that this is the last transaction to setup ChugSplash. If this changes, we also change
-  // `monitorChugSplashSetup` to reflect this.
-  const ChugSplashRegistry = getChugSplashRegistry(deployer)
-  const adapter = await ChugSplashRegistry.adapters(ethers.constants.HashZero)
-  if (adapter === ethers.constants.AddressZero) {
+  if (
+    (await ChugSplashRegistry.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
+    DefaultAdapter.address
+  ) {
     await (
-      await ChugSplashRegistry.addProxyType(
+      await ChugSplashRegistry.addContractKind(
+        EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+        DefaultAdapter.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    logger?.info(
+      '[ChugSplash]: added the external default proxy type to the ChugSplashRegistry'
+    )
+  } else {
+    logger?.info(
+      '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
+    )
+  }
+
+  // Set the internal default proxy type on the registry. Note that `monitorChugSplashSetup` relies
+  // on the fact that this is the last transaction to setup ChugSplash. If this changes, we also
+  // change `monitorChugSplashSetup` to reflect this.
+  if (
+    (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
+    DefaultAdapter.address
+  ) {
+    await (
+      await ChugSplashRegistry.addContractKind(
         ethers.constants.HashZero,
         DefaultAdapter.address,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[ChugSplash]: added the default proxy type to the ChugSplashRegistry'
+      '[ChugSplash]: added the internal default proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[ChugSplash]: the default proxy type was already added to the ChugSplashRegistry'
+      '[ChugSplash]: the internal default proxy type was already added to the ChugSplashRegistry'
     )
   }
+
+  // Don't put any transactions here! See note above.
 }
 
 export const getDeterministicFactoryAddress = async (
@@ -291,8 +377,13 @@ export const doDeterministicDeploy = async (
     options.contract.abi,
     options.contract.bytecode
   )
-  const deploymentTx = factory.getDeployTransaction(...(options.args || []))
   const deployer = await getDeterministicFactoryAddress(provider)
+
+  const deploymentTx = factory.getDeployTransaction(...(options.args || []))
+  if (deploymentTx.data === undefined) {
+    throw new Error(`Deployment transaction data is undefined`)
+  }
+
   const address = ethers.utils.getCreate2Address(
     deployer,
     options.salt,
@@ -323,8 +414,11 @@ export const doDeterministicDeploy = async (
 export const monitorChugSplashSetup = async (
   provider: ethers.providers.JsonRpcProvider
 ) => {
-  const signer = provider.getSigner()
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const ChugSplashRegistry = new Contract(
+    CHUGSPLASH_REGISTRY_ADDRESS,
+    ChugSplashRegistryABI,
+    provider
+  )
 
   while (!(await isContractDeployed(ChugSplashRegistry.address, provider))) {
     await sleep(1000)
@@ -332,7 +426,7 @@ export const monitorChugSplashSetup = async (
 
   while (
     OWNER_MULTISIG_ADDRESS !==
-    (await getProxyAdmin(getProxyAt(signer, CHUGSPLASH_REGISTRY_PROXY_ADDRESS)))
+    (await getEIP1967ProxyAdminAddress(provider, CHUGSPLASH_REGISTRY_ADDRESS))
   ) {
     await sleep(1000)
   }

@@ -1,0 +1,4 @@
+@chugsplash/=../
+@openzeppelin/contracts-upgradeable/=../contracts/node_modules/@openzeppelin/contracts-upgradeable/
+@openzeppelin/contracts/=../contracts/node_modules/@openzeppelin/contracts/
+forge-std/=lib/forge-std/src/

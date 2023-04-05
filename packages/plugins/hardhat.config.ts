@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
+import '@openzeppelin/hardhat-upgrades'
 import './dist'
 
 // Load environment variables from .env
@@ -19,9 +20,19 @@ const config: HardhatUserConfig = {
           '*': ['storageLayout'],
         },
       },
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      metadata: {
+        bytecodeHash: 'none',
+      },
     },
   },
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     goerli: {
       chainId: 5,
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,

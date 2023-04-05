@@ -1,5 +1,156 @@
 # @chugsplash/executor
 
+## 0.8.1
+
+### Patch Changes
+
+- 6b3e2ed: Fix Etherscan verification constructor args
+- 6b3e2ed: Fix contract verification constructor args
+- Updated dependencies [6b3e2ed]
+- Updated dependencies [6b3e2ed]
+  - @chugsplash/core@0.8.1
+
+## 0.8.0
+
+### Minor Changes
+
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
+
+### Patch Changes
+
+- ecef09e: Improve executor retry policy
+- 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
+- 22c24d2: Add support for parallel execution
+- Updated dependencies [3b382d9]
+- Updated dependencies [3da5ee8]
+- Updated dependencies [ecef09e]
+- Updated dependencies [3e923a0]
+- Updated dependencies [22c24d2]
+- Updated dependencies [35c7a63]
+  - @chugsplash/core@0.8.0
+
+## 0.7.0
+
+### Minor Changes
+
+- 9dca319: Integrate Executor with ChugSplash Managed
+
+### Patch Changes
+
+- Updated dependencies [5dcb7d3]
+- Updated dependencies [c8af97c]
+- Updated dependencies [44e592e]
+- Updated dependencies [9dca319]
+- Updated dependencies [80b1a53]
+- Updated dependencies [6a48dd7]
+- Updated dependencies [736b859]
+  - @chugsplash/core@0.7.0
+
+## 0.6.1
+
+### Patch Changes
+
+- ca6d384: Bump contracts
+- Updated dependencies [ca6d384]
+  - @chugsplash/core@0.6.1
+
+## 0.6.0
+
+### Minor Changes
+
+- fa3f420: Add support for UUPS proxies
+
+### Patch Changes
+
+- a76efad: Removes an unnecessary environment variable in the ChugSplashExecutor.
+- 263b34d: Add logic for claiming bundles
+- Updated dependencies [3b13db4]
+- Updated dependencies [04dba20]
+- Updated dependencies [5c6846e]
+- Updated dependencies [263b34d]
+- Updated dependencies [fa3f420]
+- Updated dependencies [57a327d]
+  - @chugsplash/core@0.6.0
+
+## 0.5.5
+
+### Patch Changes
+
+- 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
+- Updated dependencies [2caf51e]
+  - @chugsplash/core@0.5.5
+
+## 0.5.4
+
+### Patch Changes
+
+- 4cf40e5: Bump plugins and executor versions
+
+## 0.5.3
+
+### Patch Changes
+
+- fdb9e62: Set executor default port
+- ed17785: Updates the executor to use the latest version of BaseServiceV2.
+- Updated dependencies [8c88808]
+- Updated dependencies [dfa0381]
+- Updated dependencies [1b08f02]
+- Updated dependencies [4029daf]
+- Updated dependencies [a37d5c3]
+- Updated dependencies [b343641]
+  - @chugsplash/core@0.5.0
+
+## 0.5.2
+
+### Patch Changes
+
+- 5a135ec: Fix issue verifying ChugSplash contracts
+
+## 0.5.1
+
+### Patch Changes
+
+- 48088b2: Add timeout on analytics functions
+- Updated dependencies [48088b2]
+  - @chugsplash/core@0.4.1
+
+## 0.5.0
+
+### Minor Changes
+
+- 8df582d: Fix(pg): Refactor tasks to remove dependencies on hardhat
+
+### Patch Changes
+
+- 9edf09b: Fix bug where executor wasn't detecting old approvals
+- 57a367d: Fix issue where executor always tries to execute locally
+- 1cbd07b: Set `strictNullChecks` to true for TypeScript
+- c379fb6: Use artifact paths object instead of inferring artifacts
+- 60d7adc: Make executors permissioned
+- 8df582d: Feat(core): Add support for local analytics
+- 40f0d0a: Add OpenZeppelin storage slot checker
+- Updated dependencies [ad46bbc]
+- Updated dependencies [042541b]
+- Updated dependencies [c8664a2]
+- Updated dependencies [57a367d]
+- Updated dependencies [1cbd07b]
+- Updated dependencies [c379fb6]
+- Updated dependencies [ba517ad]
+- Updated dependencies [2e41b30]
+- Updated dependencies [60d7adc]
+- Updated dependencies [f14cc8d]
+- Updated dependencies [8df582d]
+- Updated dependencies [deca63d]
+- Updated dependencies [cb3a70d]
+- Updated dependencies [d481925]
+- Updated dependencies [2b8af04]
+- Updated dependencies [6c07d41]
+- Updated dependencies [8df582d]
+- Updated dependencies [0443459]
+- Updated dependencies [40f0d0a]
+- Updated dependencies [2201f3a]
+  - @chugsplash/core@0.4.0
+
 ## 0.4.14
 
 ### Patch Changes

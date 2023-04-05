@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/contracts",
-  "version": "0.3.17",
+  "version": "0.6.0",
   "description": "ChugSplash contracts",
   "main": "dist/index",
   "types": "dist/index",
@@ -14,14 +14,14 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "hardhat clean && hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "echo 'no tests'",
+    "test:coverage": "forge test",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:contracts:check && yarn lint:ts:check",
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
-    "lint:contracts:check": "yarn solhint -f table 'contracts/**/*.sol'",
-    "lint:contracts:fix": "prettier --write 'contracts/**/*.sol'",
+    "lint:contracts:check": "yarn solhint -f table '{contracts,test}/**/*.sol'",
+    "lint:contracts:fix": "prettier --write '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/contracts#readme",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@eth-optimism/core-utils": "^0.9.0",
+    "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.6.0",
     "dotenv": "^16.0.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#9310e879db8ba3ea6d5c6489a579118fd264a3f5",

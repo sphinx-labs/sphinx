@@ -2,38 +2,52 @@
 pragma solidity ^0.8.9;
 
 import { ChugSplashManager } from "./ChugSplashManager.sol";
-import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { Proxy } from "./libraries/Proxy.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
  *         deployments must be first registered with this contract, which allows clients to easily
- *         find and index these deployments. Deployment names are unique and are reserved on a
- *         first-come, first-served basis.
+ *         find and index these deployments.
  */
-contract ChugSplashRegistry is Initializable {
+contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
-     * @param projectNameHash Hash of the project name. Without this parameter, we
-     *                        won't be able to recover the unhashed project name in
-     *                        events, since indexed dynamic types like strings are hashed.
-     *                        For further explanation:
-     *                        https://github.com/ethers-io/ethers.js/issues/243
+     * @param organizationID Organization ID.
      * @param creator         Address of the creator of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
-     * @param projectName     Name of the project that was registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed projectNameHash,
+        bytes32 indexed organizationID,
         address indexed creator,
         address indexed manager,
-        address owner,
-        string projectName
+        address owner
     );
+
+    /**
+     * @notice Emitted when an executor is added.
+     *
+     * @param executor Address of the added executor.
+     */
+    event ExecutorAdded(address indexed executor);
+
+    /**
+     * @notice Emitted when an executor is removed.
+     *
+     * @param executor Address of the removed executor.
+     */
+    event ExecutorRemoved(address indexed executor);
+
+    event ManagedProposerAdded(address indexed proposer);
+
+    event ManagedProposerRemoved(address indexed proposer);
+
+    event ProtocolPaymentRecipientAdded(address indexed executor);
+
+    event ProtocolPaymentRecipientRemoved(address indexed executor);
 
     /**
      * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
@@ -69,15 +83,15 @@ contract ChugSplashRegistry is Initializable {
     /**
      * @notice Emitted whenever a new proxy type is added.
      *
-     * @param proxyType Hash representing the proxy type.
+     * @param proxyTypeHash Hash representing the proxy type.
      * @param adapter   Address of the adapter for the proxy.
      */
-    event ProxyTypeAdded(bytes32 proxyType, address adapter);
+    event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
 
     /**
      * @notice Mapping of project names to ChugSplashManager contracts.
      */
-    mapping(string => ChugSplashManager) public projects;
+    mapping(bytes32 => ChugSplashManager) public projects;
 
     /**
      * @notice Mapping of created manager contracts.
@@ -85,24 +99,23 @@ contract ChugSplashRegistry is Initializable {
     mapping(ChugSplashManager => bool) public managers;
 
     /**
+     * @notice Addresses that can execute bundles.
+     */
+    mapping(address => bool) public executors;
+
+    /**
      * @notice Mapping of proxy types to adapters.
      */
     mapping(bytes32 => address) public adapters;
 
-    /**
-     * @notice Address of the ProxyUpdater.
-     */
-    address public immutable proxyUpdater;
+    mapping(address => bool) public managedProposers;
+
+    mapping(address => bool) public protocolPaymentRecipients;
 
     /**
      * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
      */
     uint256 public immutable ownerBondAmount;
-
-    /**
-     * @notice Amount that an executor must send to the ChugSplashManager to claim a bundle.
-     */
-    uint256 public immutable executorBondAmount;
 
     /**
      * @notice Amount of time for an executor to completely execute a bundle after claiming it.
@@ -114,72 +127,66 @@ contract ChugSplashRegistry is Initializable {
      */
     uint256 public immutable executorPaymentPercentage;
 
-    /**
-     * @notice Address of the ChugSplashManager implementation contract.
-     */
-    // TODO: Remove once this contract is not upgradeable anymore.
-    address public immutable managerImplementation;
+    uint256 public immutable protocolPaymentPercentage;
 
     /**
-     * @param _proxyUpdater              Address of the ProxyUpdater.
      * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
      *                                   order to execute a bundle.
-     * @param _executorBondAmount        Amount that an executor must send to the ChugSplashManager
-     *                                   to claim a bundle.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
      *                                   bundle after claiming it.
      * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
      *                                   denominated as a percentage.
-     * @param _managerImplementation     Address of the ChugSplashManager implementation contract.
      */
     constructor(
-        address _proxyUpdater,
+        address _owner,
         uint256 _ownerBondAmount,
-        uint256 _executorBondAmount,
         uint256 _executionLockTime,
         uint256 _executorPaymentPercentage,
-        address _managerImplementation
+        uint256 _protocolPaymentPercentage
     ) {
-        proxyUpdater = _proxyUpdater;
         ownerBondAmount = _ownerBondAmount;
-        executorBondAmount = _executorBondAmount;
         executionLockTime = _executionLockTime;
         executorPaymentPercentage = _executorPaymentPercentage;
-        managerImplementation = _managerImplementation;
+        protocolPaymentPercentage = _protocolPaymentPercentage;
+
+        _transferOwnership(_owner);
+    }
+
+    /**
+     * @param _executors        Array of executors to add.
+     */
+    function initialize(address[] memory _executors) public initializer {
+        for (uint i = 0; i < _executors.length; i++) {
+            executors[_executors[i]] = true;
+        }
     }
 
     /**
      * @notice Registers a new project.
      *
-     * @param _name  Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new project.
+     * @param _organizationID ID of the new ChugSplash project.
+     * @param _owner     Initial owner for the new project.
      */
-    function register(string memory _name, address _owner) public {
+    function register(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
         require(
-            address(projects[_name]) == address(0),
-            "ChugSplashRegistry: name already registered"
+            address(projects[_organizationID]) == address(0),
+            "ChugSplashRegistry: organization ID already registered"
         );
 
-        // Deploy the ChugSplashManager's proxy.
-        ChugSplashManagerProxy manager = new ChugSplashManagerProxy{
-            salt: keccak256(bytes(_name))
-        }(
-            this, // This will be the Registry's proxy address since the Registry will be
-            // delegatecalled by the proxy.
-            address(this)
+        // Deploy the ChugSplashManager.
+        ChugSplashManager manager = new ChugSplashManager{ salt: _organizationID }(
+            this,
+            executionLockTime,
+            ownerBondAmount,
+            executorPaymentPercentage,
+            protocolPaymentPercentage
         );
-        // Initialize the proxy. Note that we initialize it in a different call from the deployment
-        // because this makes it easy to calculate the Create2 address off-chain before it is
-        // deployed.
-        manager.upgradeToAndCall(
-            managerImplementation,
-            abi.encodeCall(ChugSplashManager.initialize, (_name, _owner))
-        );
+        manager.initialize(_owner, _organizationID, _allowManagedProposals);
 
-        projects[_name] = ChugSplashManager(payable(address(manager)));
+        projects[_organizationID] = ChugSplashManager(payable(address(manager)));
         managers[ChugSplashManager(payable(address(manager)))] = true;
 
-        emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
+        emit ChugSplashProjectRegistered(_organizationID, msg.sender, address(manager), _owner);
     }
 
     /**
@@ -213,19 +220,75 @@ contract ChugSplashRegistry is Initializable {
     }
 
     /**
-     * @notice Adds a new proxy type with a corresponding adapter, which can be used to upgrade a
-     *         custom proxy.
+     * @notice Adds a new proxy type with a corresponding adapter.
      *
-     * @param _proxyType Hash representing the proxy type
+     * @param _proxyTypeHash Hash representing the proxy type
      * @param _adapter   Address of the adapter for this proxy type.
      */
-    function addProxyType(bytes32 _proxyType, address _adapter) external {
+    function addContractKind(bytes32 _proxyTypeHash, address _adapter) external {
         require(
-            adapters[_proxyType] == address(0),
+            adapters[_proxyTypeHash] == address(0),
             "ChugSplashRegistry: proxy type has an existing adapter"
         );
-        adapters[_proxyType] = _adapter;
 
-        emit ProxyTypeAdded(_proxyType, _adapter);
+        adapters[_proxyTypeHash] = _adapter;
+
+        emit ProxyTypeAdded(_proxyTypeHash, _adapter);
+    }
+
+    /**
+     * @notice Add an executor, which can execute bundles on behalf of users. Only callable by the
+     *         owner of this contract.
+     *
+     * @param _executor Address of the executor to add.
+     */
+    function addExecutor(address _executor) external onlyOwner {
+        require(executors[_executor] == false, "ChugSplashRegistry: executor already added");
+        executors[_executor] = true;
+        emit ExecutorAdded(_executor);
+    }
+
+    /**
+     * @notice Remove an executor. Only callable by the owner of this contract.
+     *
+     * @param _executor Address of the executor to remove.
+     */
+    function removeExecutor(address _executor) external onlyOwner {
+        require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
+        executors[_executor] = false;
+        emit ExecutorRemoved(_executor);
+    }
+
+    function addManagedProposer(address _proposer) external onlyOwner {
+        require(managedProposers[_proposer] == false, "ChugSplashRegistry: proposer already added");
+        managedProposers[_proposer] = true;
+        emit ManagedProposerAdded(_proposer);
+    }
+
+    function removeManagedProposer(address _proposer) external onlyOwner {
+        require(
+            managedProposers[_proposer] == true,
+            "ChugSplashRegistry: proposer already removed"
+        );
+        managedProposers[_proposer] = false;
+        emit ManagedProposerRemoved(_proposer);
+    }
+
+    function addProtocolPaymentRecipient(address _recipient) external onlyOwner {
+        require(
+            protocolPaymentRecipients[_recipient] == false,
+            "ChugSplashRegistry: recipient already added"
+        );
+        protocolPaymentRecipients[_recipient] = true;
+        emit ProtocolPaymentRecipientAdded(_recipient);
+    }
+
+    function removeProtocolPaymentRecipient(address _recipient) external onlyOwner {
+        require(
+            protocolPaymentRecipients[_recipient] == true,
+            "ChugSplashRegistry: recipient already removed"
+        );
+        protocolPaymentRecipients[_recipient] = false;
+        emit ProtocolPaymentRecipientRemoved(_recipient);
     }
 }

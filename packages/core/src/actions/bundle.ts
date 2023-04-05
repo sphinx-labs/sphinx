@@ -1,14 +1,34 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers } from 'ethers'
+import { ethers, providers } from 'ethers'
 import MerkleTree from 'merkletreejs'
+import { astDereferencer } from 'solidity-ast/utils'
 
+import {
+  CanonicalConfigArtifacts,
+  ParsedChugSplashConfig,
+  contractKindHashes,
+} from '../config/types'
+import { Integration } from '../constants'
+import {
+  computeStorageSegments,
+  extendStorageLayout,
+} from '../languages/solidity/storage'
+import { ArtifactPaths } from '../languages/solidity/types'
+import {
+  getContractAddress,
+  readContractArtifact,
+  getCreationCodeWithConstructorArgs,
+  readBuildInfo,
+} from '../utils'
 import {
   ChugSplashAction,
   ChugSplashActionBundle,
   ChugSplashActionType,
-  DeployImplementationAction,
+  ChugSplashBundles,
+  ChugSplashTarget,
+  ChugSplashTargetBundle,
+  DeployContractAction,
   RawChugSplashAction,
-  SetImplementationAction,
   SetStorageAction,
 } from './types'
 
@@ -23,32 +43,21 @@ export const isSetStorageAction = (
 ): action is SetStorageAction => {
   return (
     (action as SetStorageAction).key !== undefined &&
-    (action as SetStorageAction).value !== undefined
+    (action as SetStorageAction).value !== undefined &&
+    (action as SetStorageAction).offset !== undefined
   )
 }
 
 /**
- * Checks whether a given action is a SetImplementation action.
+ * Checks whether a given action is a DeployContract action.
  *
  * @param action ChugSplash action to check.
- * @returns `true` if the action is a SetImplementation action, `false` otherwise.
+ * @returns `true` if the action is a DeployContract action, `false` otherwise.
  */
-export const isSetImplementationAction = (
+export const isDeployContractAction = (
   action: ChugSplashAction
-): action is SetImplementationAction => {
-  return !isSetStorageAction(action) && !isDeployImplementationAction(action)
-}
-
-/**
- * Checks whether a given action is a DeployImplementation action.
- *
- * @param action ChugSplash action to check.
- * @returns `true` if the action is a DeployImplementation action, `false` otherwise.
- */
-export const isDeployImplementationAction = (
-  action: ChugSplashAction
-): action is DeployImplementationAction => {
-  return (action as DeployImplementationAction).code !== undefined
+): action is DeployContractAction => {
+  return (action as DeployContractAction).code !== undefined
 }
 
 /**
@@ -64,24 +73,24 @@ export const toRawChugSplashAction = (
   if (isSetStorageAction(action)) {
     return {
       actionType: ChugSplashActionType.SET_STORAGE,
-      target: action.target,
+      proxy: action.proxy,
+      contractKindHash: action.contractKindHash,
+      referenceName: action.referenceName,
       data: ethers.utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes32'],
-        [action.key, action.value]
+        ['bytes32', 'uint8', 'bytes'],
+        [action.key, action.offset, action.value]
       ),
     }
-  } else if (isDeployImplementationAction(action)) {
+  } else if (isDeployContractAction(action)) {
     return {
-      actionType: ChugSplashActionType.DEPLOY_IMPLEMENTATION,
-      target: action.target,
+      actionType: ChugSplashActionType.DEPLOY_CONTRACT,
+      proxy: action.proxy,
+      contractKindHash: action.contractKindHash,
+      referenceName: action.referenceName,
       data: action.code,
     }
   } else {
-    return {
-      actionType: ChugSplashActionType.SET_IMPLEMENTATION,
-      target: action.target,
-      data: '0x',
-    }
+    throw new Error(`unknown action type`)
   }
 }
 
@@ -95,26 +104,27 @@ export const fromRawChugSplashAction = (
   rawAction: RawChugSplashAction
 ): ChugSplashAction => {
   if (rawAction.actionType === ChugSplashActionType.SET_STORAGE) {
-    const [key, value] = ethers.utils.defaultAbiCoder.decode(
-      ['bytes32', 'bytes32'],
+    const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
+      ['bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
     return {
-      target: rawAction.target,
+      referenceName: rawAction.referenceName,
+      proxy: rawAction.proxy,
+      contractKindHash: rawAction.contractKindHash,
       key,
+      offset,
       value,
     }
-  } else if (
-    rawAction.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
-  ) {
+  } else if (rawAction.actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
     return {
-      target: rawAction.target,
+      referenceName: rawAction.referenceName,
+      proxy: rawAction.proxy,
+      contractKindHash: rawAction.contractKindHash,
       code: rawAction.data,
     }
   } else {
-    return {
-      target: rawAction.target,
-    }
+    throw new Error(`unknown action type`)
   }
 }
 
@@ -127,35 +137,98 @@ export const fromRawChugSplashAction = (
 export const getActionHash = (action: RawChugSplashAction): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['string', 'uint8', 'bytes'],
-      [action.target, action.actionType, action.data]
+      ['string', 'address', 'uint8', 'bytes32', 'bytes'],
+      [
+        action.referenceName,
+        action.proxy,
+        action.actionType,
+        action.contractKindHash,
+        action.data,
+      ]
     )
   )
 }
 
 /**
+ * Computes the hash of a target.
+ *
+ * @param target Target to compute the hash of.
+ * @return Hash of the action.
+ */
+export const getTargetHash = (target: ChugSplashTarget): string => {
+  return ethers.utils.keccak256(
+    ethers.utils.defaultAbiCoder.encode(
+      ['string', 'string', 'address', 'address', 'bytes32'],
+      [
+        target.projectName,
+        target.referenceName,
+        target.proxy,
+        target.implementation,
+        target.contractKindHash,
+      ]
+    )
+  )
+}
+
+export const makeBundleFromTargets = (
+  targets: ChugSplashTarget[]
+): ChugSplashTargetBundle => {
+  // Now compute the hash for each action.
+  const elements = targets.map((target) => {
+    return getTargetHash(target)
+  })
+
+  // Pad the list of elements out with default hashes if len < a power of 2.
+  const filledElements: string[] = []
+  for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
+    if (i < elements.length) {
+      filledElements.push(elements[i])
+    } else {
+      filledElements.push(ethers.utils.keccak256(ethers.constants.HashZero))
+    }
+  }
+
+  // merkletreejs expects things to be buffers.
+  const tree = new MerkleTree(
+    filledElements.map((element) => {
+      return fromHexString(element)
+    }),
+    (el: Buffer | string): Buffer => {
+      return fromHexString(ethers.utils.keccak256(el))
+    }
+  )
+
+  return {
+    root: toHexString(tree.getRoot()),
+    targets: targets.map((target, idx) => {
+      return {
+        target,
+        siblings: tree.getProof(getTargetHash(target), idx).map((element) => {
+          return element.data
+        }),
+      }
+    }),
+  }
+}
+
+/**
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
  * provided to the ChugSplashManager contract. This function also sorts the actions so that the
- * SetStorage actions are first, the DeployImplementation actions are second, and the
- * SetImplementation actions are last.
+ * SetStorage actions are first and the DeployContract actions are last.
  *
- * @param actions Series of SetImplementation, DeployImplementation, or SetStorage actions to
- * bundle.
+ * @param actions Series of DeployContract and SetStorage actions to bundle.
  * @return Bundled actions.
  */
 export const makeBundleFromActions = (
   actions: ChugSplashAction[]
 ): ChugSplashActionBundle => {
-  // Sort the actions to be in the order: SetStorage, DeployImplementation,
-  // SetImplementation.
+  // Sort the actions to be in the order: SetStorage then DeployContract
   const sortedActions = actions.sort((a1, a2) => {
-    if (isSetStorageAction(a1) || isSetImplementationAction(a2)) {
-      // Keep the order of the actions if the first action is SetStorage or if the second action is
-      // SetImplementation.
+    if (isSetStorageAction(a1)) {
+      // Keep the order of the actions if the first action is SetStorage.
       return -1
-    } else if (isSetImplementationAction(a1) || isSetStorageAction(a2)) {
-      // Swap the order of the actions if the first action is SetImplementation or the second
-      // action is SetStorage.
+    } else if (isSetStorageAction(a2)) {
+      // Swap the order of the actions if the second action is SetStorage.
       return 1
     }
     // Keep the same order otherwise.
@@ -173,7 +246,7 @@ export const makeBundleFromActions = (
   })
 
   // Pad the list of elements out with default hashes if len < a power of 2.
-  const filledElements = []
+  const filledElements: string[] = []
   for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
     if (i < elements.length) {
       filledElements.push(elements[i])
@@ -206,4 +279,170 @@ export const makeBundleFromActions = (
       }
     }),
   }
+}
+
+export const bundleLocal = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifactPaths: ArtifactPaths,
+  integration: Integration
+): Promise<ChugSplashBundles> => {
+  const artifacts: CanonicalConfigArtifacts = {}
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { input, output } = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath
+    )
+
+    const { abi, bytecode, sourceName, contractName } = readContractArtifact(
+      artifactPaths[referenceName].contractArtifactPath,
+      integration
+    )
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+      bytecode,
+      contractConfig.constructorArgs,
+      referenceName,
+      abi
+    )
+    artifacts[referenceName] = {
+      compilerInput: input,
+      compilerOutput: output,
+      creationCodeWithConstructorArgs,
+      abi,
+      sourceName,
+      contractName,
+      bytecode,
+    }
+  }
+
+  return makeBundlesFromConfig(provider, parsedConfig, artifacts)
+}
+
+export const makeBundlesFromConfig = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: CanonicalConfigArtifacts
+): Promise<ChugSplashBundles> => {
+  const actionBundle = await makeActionBundleFromConfig(
+    provider,
+    parsedConfig,
+    artifacts
+  )
+  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
+  return { actionBundle, targetBundle }
+}
+
+/**
+ * Generates a ChugSplash action bundle from a config file.
+ *
+ * @param config Config file to convert into a bundle.
+ * @param env Environment variables to inject into the config file.
+ * @returns Action bundle generated from the parsed config file.
+ */
+export const makeActionBundleFromConfig = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: CanonicalConfigArtifacts
+): Promise<ChugSplashActionBundle> => {
+  const actions: ChugSplashAction[] = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const {
+      creationCodeWithConstructorArgs,
+      compilerOutput,
+      sourceName,
+      contractName,
+    } = artifacts[referenceName]
+
+    // Foundry outputs no storage layout for contracts that don't have any storage variables, so we fill it in with the empty layout.
+    const storageLayout = compilerOutput.contracts[sourceName][contractName]
+      .storageLayout ?? { storage: [], types: {} }
+
+    // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
+    if (
+      (await provider.getCode(
+        getContractAddress(
+          parsedConfig.options.organizationID,
+          referenceName,
+          contractConfig.constructorArgs,
+          artifacts[referenceName]
+        )
+      )) === '0x'
+    ) {
+      // Add a DEPLOY_CONTRACT action.
+      actions.push({
+        referenceName,
+        proxy: contractConfig.proxy,
+        contractKindHash: contractKindHashes[contractConfig.kind],
+        code: creationCodeWithConstructorArgs,
+      })
+    }
+
+    // Create an AST Dereferencer. We must convert the CompilerOutput type to `any` here because
+    // because a type error will be thrown otherwise. Coverting to `any` is harmless because we use
+    // Hardhat's default `CompilerOutput`, which is what OpenZeppelin expects.
+    const dereferencer = astDereferencer(compilerOutput as any)
+
+    const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
+
+    // Compute our storage segments.
+    // TODO: One day we'll need to refactor this to support Vyper.
+    const segments = computeStorageSegments(
+      extendedLayout,
+      contractConfig,
+      dereferencer
+    )
+
+    // Add SET_STORAGE actions for each storage slot that we want to modify.
+    for (const segment of segments) {
+      actions.push({
+        referenceName,
+        proxy: contractConfig.proxy,
+        contractKindHash: contractKindHashes[contractConfig.kind],
+        key: segment.key,
+        offset: segment.offset,
+        value: segment.val,
+      })
+    }
+  }
+
+  // Generate a bundle from the list of actions.
+  return makeBundleFromActions(actions)
+}
+
+/**
+ * Generates a ChugSplash target bundle from a config file.
+ *
+ * @param config Config file to convert into a bundle.
+ * @param env Environment variables to inject into the config file.
+ * @returns Target bundle generated from the parsed config file.
+ */
+export const makeTargetBundleFromConfig = (
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: CanonicalConfigArtifacts
+): ChugSplashTargetBundle => {
+  const projectName = parsedConfig.options.projectName
+
+  const targets: ChugSplashTarget[] = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    targets.push({
+      projectName,
+      referenceName,
+      contractKindHash: contractKindHashes[contractConfig.kind],
+      proxy: contractConfig.proxy,
+      implementation: getContractAddress(
+        parsedConfig.options.organizationID,
+        referenceName,
+        contractConfig.constructorArgs,
+        artifacts[referenceName]
+      ),
+    })
+  }
+
+  // Generate a bundle from the list of actions.
+  return makeBundleFromTargets(targets)
 }

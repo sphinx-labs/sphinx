@@ -1,5 +1,110 @@
 # @chugsplash/demo
 
+## 0.4.5
+
+### Patch Changes
+
+- Updated dependencies [3b382d9]
+- Updated dependencies [3da5ee8]
+- Updated dependencies [ecef09e]
+- Updated dependencies [3e923a0]
+- Updated dependencies [22c24d2]
+- Updated dependencies [35c7a63]
+  - @chugsplash/core@0.8.0
+  - @chugsplash/plugins@0.13.0
+
+## 0.4.4
+
+### Patch Changes
+
+- Updated dependencies [5dcb7d3]
+- Updated dependencies [20f1a7e]
+- Updated dependencies [c8af97c]
+- Updated dependencies [44e592e]
+- Updated dependencies [9dca319]
+- Updated dependencies [80b1a53]
+- Updated dependencies [6a48dd7]
+- Updated dependencies [736b859]
+  - @chugsplash/plugins@0.12.0
+  - @chugsplash/core@0.7.0
+
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [3b13db4]
+- Updated dependencies [04dba20]
+- Updated dependencies [5c6846e]
+- Updated dependencies [07860e6]
+- Updated dependencies [5ffd3cc]
+- Updated dependencies [263b34d]
+- Updated dependencies [1a22e72]
+- Updated dependencies [fa3f420]
+- Updated dependencies [a9d3337]
+- Updated dependencies [57a327d]
+  - @chugsplash/core@0.6.0
+  - @chugsplash/plugins@0.11.0
+
+## 0.4.2
+
+### Patch Changes
+
+- fd98872: Update demo package to reflect latest `getContract` function
+- Updated dependencies [fd98872]
+  - @chugsplash/plugins@0.10.5
+
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [8c88808]
+- Updated dependencies [b47a7e5]
+- Updated dependencies [dfa0381]
+- Updated dependencies [1b08f02]
+- Updated dependencies [4029daf]
+- Updated dependencies [a37d5c3]
+- Updated dependencies [b343641]
+- Updated dependencies [ed17785]
+- Updated dependencies [120327d]
+  - @chugsplash/core@0.5.0
+  - @chugsplash/plugins@0.10.0
+
+## 0.4.0
+
+### Minor Changes
+
+- 8df582d: Fix(pg): Refactor tasks to remove dependencies on hardhat
+
+### Patch Changes
+
+- 1cbd07b: Set `strictNullChecks` to true for TypeScript
+- c379fb6: Use artifact paths object instead of inferring artifacts
+- 8df582d: Feat(core): Add support for local analytics
+- Updated dependencies [ad46bbc]
+- Updated dependencies [042541b]
+- Updated dependencies [c8664a2]
+- Updated dependencies [242c7ca]
+- Updated dependencies [57a367d]
+- Updated dependencies [1cbd07b]
+- Updated dependencies [c379fb6]
+- Updated dependencies [ba517ad]
+- Updated dependencies [2e41b30]
+- Updated dependencies [60d7adc]
+- Updated dependencies [f14cc8d]
+- Updated dependencies [8df582d]
+- Updated dependencies [deca63d]
+- Updated dependencies [cb3a70d]
+- Updated dependencies [d481925]
+- Updated dependencies [2b8af04]
+- Updated dependencies [6c07d41]
+- Updated dependencies [8df582d]
+- Updated dependencies [0443459]
+- Updated dependencies [89fd479]
+- Updated dependencies [40f0d0a]
+- Updated dependencies [2201f3a]
+  - @chugsplash/core@0.4.0
+  - @chugsplash/plugins@0.9.0
+
 ## 0.3.22
 
 ### Patch Changes

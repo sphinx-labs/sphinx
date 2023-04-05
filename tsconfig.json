@@ -12,6 +12,7 @@
     "noLib": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "strictNullChecks": true,
     "typeRoots": [
       "node_modules/@types"
     ]

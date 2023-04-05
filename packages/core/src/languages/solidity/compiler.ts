@@ -1,4 +1,77 @@
-import { CompilerInput, CompilerOutputSources } from './types'
+import { CompilerInput, SolcBuild } from 'hardhat/types'
+import { getCompilersDir } from 'hardhat/internal/util/global-dir'
+import {
+  CompilerDownloader,
+  CompilerPlatform,
+} from 'hardhat/internal/solidity/compiler/downloader'
+import { providers } from 'ethers'
+
+import { CanonicalChugSplashConfig } from '../../config/types'
+import { ChugSplashBundles, makeBundlesFromConfig } from '../../actions'
+import {
+  CompilerOutputContracts,
+  CompilerOutputMetadata,
+  CompilerOutputSources,
+} from './types'
+import { getCanonicalConfigArtifacts } from '../../utils'
+
+export const bundleRemoteSubtask = async (args: {
+  provider: providers.Provider
+  canonicalConfig: CanonicalChugSplashConfig
+}): Promise<ChugSplashBundles> => {
+  const { provider, canonicalConfig } = args
+
+  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
+
+  return makeBundlesFromConfig(provider, canonicalConfig, artifacts)
+}
+
+// Credit: NomicFoundation
+// https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
+export const getSolcBuild = async (solcVersion: string): Promise<SolcBuild> => {
+  const compilersCache = await getCompilersDir()
+
+  const compilerPlatform = CompilerDownloader.getCompilerPlatform()
+  const downloader = CompilerDownloader.getConcurrencySafeDownloader(
+    compilerPlatform,
+    compilersCache
+  )
+
+  const isCompilerDownloaded = await downloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isCompilerDownloaded) {
+    await downloader.downloadCompiler(solcVersion)
+  }
+
+  const compiler = await downloader.getCompiler(solcVersion)
+
+  if (compiler !== undefined) {
+    return compiler
+  }
+
+  const wasmDownloader = CompilerDownloader.getConcurrencySafeDownloader(
+    CompilerPlatform.WASM,
+    compilersCache
+  )
+
+  const isWasmCompilerDownloader = await wasmDownloader.isCompilerDownloaded(
+    solcVersion
+  )
+
+  if (!isWasmCompilerDownloader) {
+    await wasmDownloader.downloadCompiler(solcVersion)
+  }
+
+  const wasmCompiler = await wasmDownloader.getCompiler(solcVersion)
+
+  if (wasmCompiler === undefined) {
+    throw new Error(`Could not get WASM compiler.`)
+  }
+
+  return wasmCompiler
+}
 
 /**
  * Returns the minimum compiler input necessary to compile a given source name. All contracts that
@@ -11,37 +84,26 @@ import { CompilerInput, CompilerOutputSources } from './types'
  */
 export const getMinimumCompilerInput = (
   fullCompilerInput: CompilerInput,
-  fullOutputSources: CompilerOutputSources,
-  sourceName: string
+  fullOutputContracts: CompilerOutputContracts,
+  sourceName: string,
+  contractName: string
 ): CompilerInput => {
-  const { language, settings, sources: inputSources } = fullCompilerInput
+  const contractOutput = fullOutputContracts[sourceName][contractName]
+  const metadata: CompilerOutputMetadata =
+    typeof contractOutput.metadata === 'string'
+      ? JSON.parse(contractOutput.metadata)
+      : contractOutput.metadata
 
-  const minimumInputSources: CompilerInput['sources'] = {}
+  const minimumSources: CompilerInput['sources'] = {}
+  for (const newSourceName of Object.keys(metadata.sources)) {
+    minimumSources[newSourceName] = fullCompilerInput.sources[newSourceName]
+  }
+
+  const { language, settings } = fullCompilerInput
   const minimumCompilerInput: CompilerInput = {
     language,
     settings,
-    sources: minimumInputSources,
-  }
-
-  // Each contract name has a unique AST ID in the compiler output. These will
-  // be necessary when we parse the compiler output later.
-  const contractAstIdsToSourceNames =
-    mapContractAstIdsToSourceNames(fullOutputSources)
-
-  // Get the source names that are necessary to compile the given source name.
-  const minimumSourceNames = getMinimumSourceNames(
-    sourceName,
-    fullOutputSources,
-    contractAstIdsToSourceNames,
-    [sourceName]
-  )
-
-  // Filter out any sources that are in the full compiler input but not in the minimum compiler
-  // input.
-  for (const [source, content] of Object.entries(inputSources)) {
-    if (minimumSourceNames.includes(source)) {
-      minimumInputSources[source] = content
-    }
+    sources: minimumSources,
   }
 
   return minimumCompilerInput
@@ -67,37 +129,27 @@ export const getMinimumSourceNames = (
   // included in the list of minimum source names for the given source.
   const exportedSymbols = fullOutputSources[sourceName].ast.exportedSymbols
 
-  for (const astIds of Object.values(exportedSymbols)) {
-    if (astIds.length > 1) {
-      throw new Error(
-        `Detected more than one AST ID for: ${sourceName}. Please report this error.`
-      )
-    }
-    const astId = astIds[0]
-    const nextSourceName = contractAstIdsToSourceNames[astId]
-    if (!minimumSourceNames.includes(nextSourceName)) {
-      minimumSourceNames.push(nextSourceName)
-      minimumSourceNames = getMinimumSourceNames(
-        nextSourceName,
-        fullOutputSources,
-        contractAstIdsToSourceNames,
-        minimumSourceNames
-      )
-    }
-  }
-  return minimumSourceNames
-}
-
-export const mapContractAstIdsToSourceNames = (
-  outputSources: CompilerOutputSources
-): { [astId: number]: string } => {
-  const contractAstIdsToSourceNames: { [astId: number]: string } = {}
-  for (const [sourceName, { ast }] of Object.entries(outputSources) as any) {
-    for (const node of ast.nodes) {
-      if (node.name !== undefined) {
-        contractAstIdsToSourceNames[node.id] = sourceName
+  if (exportedSymbols) {
+    for (const astIds of Object.values(exportedSymbols)) {
+      if (astIds === undefined) {
+        continue
+      } else if (astIds.length > 1) {
+        throw new Error(
+          `Detected more than one AST ID for: ${sourceName}. Please report this error.`
+        )
+      }
+      const astId = astIds[0]
+      const nextSourceName = contractAstIdsToSourceNames[astId]
+      if (!minimumSourceNames.includes(nextSourceName)) {
+        minimumSourceNames.push(nextSourceName)
+        minimumSourceNames = getMinimumSourceNames(
+          nextSourceName,
+          fullOutputSources,
+          contractAstIdsToSourceNames,
+          minimumSourceNames
+        )
       }
     }
   }
-  return contractAstIdsToSourceNames
+  return minimumSourceNames
 }

@@ -123,7 +123,8 @@ library MerkleTree {
         );
 
         bytes32 computedRoot = _leaf;
-        for (uint256 i = 0; i < _siblings.length; i++) {
+        uint256 length = _siblings.length;
+        for (uint256 i = 0; i < length; ) {
             if ((_index & 1) == 1) {
                 computedRoot = keccak256(abi.encodePacked(_siblings[i], computedRoot));
             } else {
@@ -131,6 +132,9 @@ library MerkleTree {
             }
 
             _index >>= 1;
+            unchecked {
+                ++i;
+            }
         }
 
         return _root == computedRoot;

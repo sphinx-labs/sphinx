@@ -7,11 +7,10 @@ import {
   isContractDeployed,
 } from './utils'
 import {
-  ChugSplashActionBundle,
-  DeployImplementationAction,
+  ChugSplashBundles,
+  DeployContractAction,
   fromRawChugSplashAction,
-  isDeployImplementationAction,
-  isSetImplementationAction,
+  isDeployContractAction,
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
@@ -23,9 +22,12 @@ import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
   const totalDebt = await ChugSplashManager.totalDebt()
@@ -34,9 +36,12 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   if (
     (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
@@ -51,35 +56,37 @@ export const getOwnerWithdrawableAmount = async (
 
 export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
-  const actions = bundle.actions
+  const actions = bundles.actionBundle.actions
     .map((action) => fromRawChugSplashAction(action.action))
     .slice(actionsExecuted)
 
   let estimatedGas = ethers.BigNumber.from(150_000).mul(
-    actions.filter(
-      (action) =>
-        isSetImplementationAction(action) || isSetStorageAction(action)
-    ).length
+    actions.filter((action) => isSetStorageAction(action)).length
   )
 
   const deployedProxyPromises = actions
-    .filter((action) => isDeployImplementationAction(action))
+    .filter((action) => isDeployContractAction(action))
     .map(async (action) => {
       return (await isContractDeployed(
-        getDefaultProxyAddress(projectName, action.target),
+        getDefaultProxyAddress(
+          organizationID,
+          projectName,
+          action.referenceName
+        ),
         provider
       ))
         ? ethers.BigNumber.from(0)
         : ethers.BigNumber.from(550_000)
     })
 
-  const deployedImplementationPromises = actions
-    .filter((action) => isDeployImplementationAction(action))
-    .map(async (action: DeployImplementationAction) =>
+  const deployedContractPromises = actions
+    .filter((action) => isDeployContractAction(action))
+    .map(async (action: DeployContractAction) =>
       ethers.BigNumber.from(350_000).add(
         await provider.estimateGas({
           data: action.code,
@@ -88,13 +95,14 @@ export const estimateExecutionGas = async (
     )
 
   const resolvedContractDeploymentPromises = await Promise.all(
-    deployedProxyPromises.concat(deployedImplementationPromises)
+    deployedProxyPromises.concat(deployedContractPromises)
   )
 
   const estimatedContractDeploymentGas =
-    resolvedContractDeploymentPromises.length > 0
-      ? resolvedContractDeploymentPromises.reduce((a, b) => a.add(b))
-      : ethers.BigNumber.from(0)
+    resolvedContractDeploymentPromises.reduce(
+      (a, b) => a.add(b),
+      ethers.BigNumber.from(0)
+    )
 
   estimatedGas = estimatedGas.add(estimatedContractDeploymentGas)
 
@@ -103,14 +111,16 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
     provider,
-    bundle,
+    bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
   const feeData = await provider.getFeeData()
@@ -119,21 +129,30 @@ export const estimateExecutionCost = async (
   // defined on Optimism.
   const estGasPrice = feeData.maxFeePerGas ?? feeData.gasPrice
 
+  if (estGasPrice === null) {
+    throw new Error(`Gas price does not exist on network`)
+  }
+
   return estExecutionGas.mul(estGasPrice)
 }
 
 export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<boolean> => {
-  const availableFunds = await availableFundsForExecution(provider, projectName)
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    organizationID
+  )
 
   const currExecutionCost = await estimateExecutionCost(
     provider,
-    bundle,
+    bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
 
@@ -142,19 +161,24 @@ export const hasSufficientFundsForExecution = async (
 
 export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundle: ChugSplashActionBundle,
+  bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
     provider,
-    bundle,
+    bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
 
-  const availableFunds = await availableFundsForExecution(provider, projectName)
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    organizationID
+  )
 
   const amountToDeposit = includeBuffer
     ? currExecutionCost.mul(EXECUTION_BUFFER_MULTIPLIER).sub(availableFunds)

@@ -5,8 +5,7 @@ import { BigNumber } from 'ethers'
  */
 export enum ChugSplashActionType {
   SET_STORAGE,
-  DEPLOY_IMPLEMENTATION,
-  SET_IMPLEMENTATION,
+  DEPLOY_CONTRACT,
 }
 
 /**
@@ -16,6 +15,7 @@ export enum ChugSplashBundleStatus {
   EMPTY,
   PROPOSED,
   APPROVED,
+  INITIATED,
   COMPLETED,
   CANCELLED,
 }
@@ -25,41 +25,51 @@ export enum ChugSplashBundleStatus {
  */
 export interface RawChugSplashAction {
   actionType: ChugSplashActionType
-  target: string
+  referenceName: string
   data: string
+  proxy: string
+  contractKindHash: string
+}
+
+export interface ChugSplashTarget {
+  projectName: string
+  referenceName: string
+  proxy: string
+  implementation: string
+  contractKindHash: string
 }
 
 /**
  * SetStorage action data.
  */
 export interface SetStorageAction {
-  target: string
+  referenceName: string
+  proxy: string
+  contractKindHash: string
   key: string
+  offset: number
   value: string
 }
 
 /**
- * DeployImplementation action data.
+ * DeployContract action data.
  */
-export interface DeployImplementationAction {
-  target: string
+export interface DeployContractAction {
+  referenceName: string
+  proxy: string
+  contractKindHash: string
   code: string
 }
 
-/**
- * SetImplementation action data.
- */
-export interface SetImplementationAction {
-  target: string
+export interface ChugSplashBundles {
+  actionBundle: ChugSplashActionBundle
+  targetBundle: ChugSplashTargetBundle
 }
 
 /**
  * ChugSplash action.
  */
-export type ChugSplashAction =
-  | SetStorageAction
-  | DeployImplementationAction
-  | SetImplementationAction
+export type ChugSplashAction = SetStorageAction | DeployContractAction
 
 /**
  * ChugSplash action that is part of a bundle.
@@ -73,6 +83,14 @@ export type BundledChugSplashAction = {
 }
 
 /**
+ * Bundle of ChugSplash targets.
+ */
+export interface BundledChugSplashTarget {
+  target: ChugSplashTarget
+  siblings: string[]
+}
+
+/**
  * Bundle of ChugSplash actions.
  */
 export interface ChugSplashActionBundle {
@@ -81,12 +99,22 @@ export interface ChugSplashActionBundle {
 }
 
 /**
+ * Bundle of ChugSplash targets.
+ */
+export interface ChugSplashTargetBundle {
+  root: string
+  targets: BundledChugSplashTarget[]
+}
+
+/**
  * The state of a ChugSplash bundle.
  */
 export type ChugSplashBundleState = {
   status: ChugSplashBundleStatus
-  executions: boolean[]
-  merkleRoot: string
+  actions: boolean[]
+  actionRoot: string
+  targetRoot: string
+  targets: number
   actionsExecuted: BigNumber
   timeClaimed: BigNumber
   selectedExecutor: string
