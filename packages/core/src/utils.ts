@@ -103,7 +103,7 @@ export const writeSnapshotId = async (
   fs.writeFileSync(snapshotIdPath, snapshotId)
 }
 
-export const createDeploymentFolderForNetwork = (
+export const writeDeploymentFolderForNetwork = (
   networkName: string,
   deploymentFolderPath: string
 ) => {
@@ -706,38 +706,6 @@ export const getParentContractASTNodes = (
 }
 
 /**
- * Grabs the transaction hash of the transaction that completed the given bundle.
- *
- * @param ChugSplashManager ChugSplashManager contract instance.
- * @param bundleId ID of the bundle to look up.
- * @returns Transaction hash of the transaction that completed the bundle.
- */
-export const getBundleCompletionTxnHash = async (
-  ChugSplashManager: ethers.Contract,
-  bundleId: string
-): Promise<string> => {
-  const events = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
-  )
-
-  // Might happen if we're asking for the event too quickly after completing the bundle.
-  if (events.length === 0) {
-    throw new Error(
-      `no ChugSplashBundleCompleted event found for bundle ${bundleId}`
-    )
-  }
-
-  // Shouldn't happen.
-  if (events.length > 1) {
-    throw new Error(
-      `multiple ChugSplashBundleCompleted events found for bundle ${bundleId}`
-    )
-  }
-
-  return events[0].transactionHash
-}
-
-/**
  * Retrieves an artifact by name from the local file system.
  */
 export const readContractArtifact = (
@@ -1285,4 +1253,30 @@ export const getCanonicalConfigArtifacts = async (
     }
   }
   return artifacts
+}
+
+export const getDeploymentEvents = async (
+  ChugSplashManager: ethers.Contract,
+  bundleId: string
+): Promise<ethers.Event[]> => {
+  const [approvalEvent] = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleApproved(bundleId)
+  )
+  const [completedEvent] = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+  )
+
+  const proxyDeployedEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.DefaultProxyDeployed(null, null, bundleId),
+    approvalEvent.blockNumber,
+    completedEvent.blockNumber
+  )
+
+  const contractDeployedEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ContractDeployed(null, null, bundleId),
+    approvalEvent.blockNumber,
+    completedEvent.blockNumber
+  )
+
+  return proxyDeployedEvents.concat(contractDeployedEvents)
 }
