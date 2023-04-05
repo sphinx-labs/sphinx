@@ -215,29 +215,3 @@ export const resetChugSplashDeployments = async (
     hre.config.paths.deployments
   )
 }
-
-export const getDeploymentEvents = async (
-  ChugSplashManager: ethers.Contract,
-  bundleId: string
-): Promise<ethers.Event[]> => {
-  const [approvalEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleApproved(bundleId)
-  )
-  const [completedEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
-  )
-
-  const proxyDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.DefaultProxyDeployed(null, null, bundleId),
-    approvalEvent.blockNumber,
-    completedEvent.blockNumber
-  )
-
-  const implementationDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ImplementationDeployed(null, null, bundleId),
-    approvalEvent.blockNumber,
-    completedEvent.blockNumber
-  )
-
-  return proxyDeployedEvents.concat(implementationDeployedEvents)
-}

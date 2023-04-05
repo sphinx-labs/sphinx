@@ -937,10 +937,7 @@ const parseContractVariables = (
     return {}
   }
 
-  // Create an AST Dereferencer. We must convert the CompilerOutput type to `any` here because
-  // because a type error will be thrown otherwise. Coverting to `any` is harmless because we use
-  // Hardhat's default `CompilerOutput`, which is what OpenZeppelin expects.
-  const dereferencer = astDereferencer(compilerOutput as any)
+  const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
   const inputErrors: string[] = []
@@ -1506,7 +1503,6 @@ export const assertValidContracts = (
 
     const sourceUnit = buildInfo.output.sources[sourceName].ast
     const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
-    // TODO: can we remove the `as any` in `astDereferencer` in the other parts of the codebase?
     const dereferencer = astDereferencer(buildInfo.output)
 
     // Get the ContractDefinition node for this `contractName`. There should only be one

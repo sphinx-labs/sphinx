@@ -8,7 +8,7 @@ import {
   ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  createDeploymentArtifacts,
+  writeDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
@@ -16,8 +16,8 @@ import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
   formatEther,
-  getBundleCompletionTxnHash,
   getChugSplashManager,
+  getDeploymentEvents,
   getGasPriceOverrides,
   getProjectOwnerAddress,
 } from '../utils'
@@ -137,7 +137,7 @@ export const monitorExecution = async (
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param parsedConfig Parsed ParsedChugSplashConfig.
- * @param deploymentEvents Array of `DefaultProxyDeployed` and `ImplementationDeployed` events
+ * @param deploymentEvents Array of `DefaultProxyDeployed` and `ContractDeployed` events
  * @param withdraw Boolean that determines if remaining funds in the ChugSplashManager should be
  * withdrawn to the project owner.
  * @param newProjectOwner Optional address to receive ownership of the project.
@@ -149,10 +149,9 @@ export const postExecutionActions = async (
   deploymentEvents: ethers.Event[],
   withdraw: boolean,
   networkName: string,
-  deploymentfolderPath: string,
+  deploymentFolderPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  remoteExecution: boolean,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -228,7 +227,15 @@ export const postExecutionActions = async (
 
   spinner.start(`Writing deployment artifacts...`)
 
-  await writeDeploymentArtifacts(hre, parsedConfig, deploymentEvents)
+  await writeDeploymentArtifacts(
+    provider,
+    parsedConfig,
+    deploymentEvents,
+    networkName,
+    deploymentFolderPath,
+    artifactPaths,
+    integration
+  )
 
   spinner.succeed(`Wrote deployment artifacts.`)
 }
