@@ -1,7 +1,14 @@
+const { ethers } = require('ethers')
+
+const projectName = 'Transfer test'
+
 module.exports = {
   // Configuration options for the project:
   options: {
-    projectName: 'Transfer test',
+    organizationID: ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(projectName)
+    ),
+    projectName,
   },
   contracts: {
     MySimpleStorage: {

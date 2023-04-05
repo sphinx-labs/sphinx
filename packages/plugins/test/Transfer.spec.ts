@@ -100,7 +100,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.projectName
+      userConfig.options.organizationID
     )
 
     const ProxyAdmin = await hre.ethers.getContractAt(
@@ -121,7 +121,8 @@ describe('Transfer', () => {
       transparentUpgradeConfigPath,
       artifactPaths,
       'hardhat',
-      cre
+      cre,
+      false
     )
 
     await chugsplashDeployAbstractTask(
@@ -218,7 +219,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.projectName
+      userConfig.options.organizationID
     )
 
     await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
@@ -234,7 +235,8 @@ describe('Transfer', () => {
       uupsOwnableUpgradeConfigPath,
       artifactPaths,
       'hardhat',
-      cre
+      cre,
+      false
     )
 
     await chugsplashDeployAbstractTask(
@@ -273,7 +275,7 @@ describe('Transfer', () => {
     // test claim ownership
     const manager = await getChugSplashManager(
       signer,
-      parsedConfig.options.projectName
+      parsedConfig.options.organizationID
     )
     const proxyContract = await hre.chugsplash.getContract(
       parsedConfig.options.projectName,
@@ -354,7 +356,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.projectName
+      userConfig.options.organizationID
     )
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
@@ -375,7 +377,8 @@ describe('Transfer', () => {
       uupsAccessControlUpgradeConfigPath,
       artifactPaths,
       'hardhat',
-      cre
+      cre,
+      false
     )
 
     await chugsplashDeployAbstractTask(
@@ -416,7 +419,7 @@ describe('Transfer', () => {
     // test claiming back ownership
     const manager = await getChugSplashManager(
       signer,
-      parsedConfig.options.projectName
+      parsedConfig.options.organizationID
     )
     const proxyContract = await hre.chugsplash.getContract(
       parsedConfig.options.projectName,

@@ -1,9 +1,15 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
+import { ethers } from 'ethers'
+
+const projectName = 'Variable Validation'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
   options: {
-    projectName: 'Variable Validation',
+    organizationID: ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(projectName)
+    ),
+    projectName,
   },
   contracts: {
     VariableValidation: {

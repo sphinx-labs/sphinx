@@ -88,7 +88,7 @@ export const verifyChugSplashConfig = async (
       abi
     )
     const implementationAddress = getContractAddress(
-      canonicalConfig.options.projectName,
+      canonicalConfig.options.organizationID,
       referenceName,
       contractConfig.constructorArgs,
       artifact

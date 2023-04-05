@@ -9,29 +9,22 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
  *         deployments must be first registered with this contract, which allows clients to easily
- *         find and index these deployments. Deployment names are unique and are reserved on a
- *         first-come, first-served basis.
+ *         find and index these deployments.
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Emitted whenever a new project is registered.
      *
-     * @param projectNameHash Hash of the project name. Without this parameter, we
-     *                        won't be able to recover the unhashed project name in
-     *                        events, since indexed dynamic types like strings are hashed.
-     *                        For further explanation:
-     *                        https://github.com/ethers-io/ethers.js/issues/243
+     * @param organizationID Organization ID.
      * @param creator         Address of the creator of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
-     * @param projectName     Name of the project that was registered.
      */
     event ChugSplashProjectRegistered(
-        string indexed projectNameHash,
+        bytes32 indexed organizationID,
         address indexed creator,
         address indexed manager,
-        address owner,
-        string projectName
+        address owner
     );
 
     /**
@@ -98,7 +91,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Mapping of project names to ChugSplashManager contracts.
      */
-    mapping(string => ChugSplashManager) public projects;
+    mapping(bytes32 => ChugSplashManager) public projects;
 
     /**
      * @notice Mapping of created manager contracts.
@@ -171,29 +164,29 @@ contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Registers a new project.
      *
-     * @param _name  Name of the new ChugSplash project.
-     * @param _owner Initial owner for the new project.
+     * @param _organizationID ID of the new ChugSplash project.
+     * @param _owner     Initial owner for the new project.
      */
-    function register(string memory _name, address _owner, bool _allowManagedProposals) public {
+    function register(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
         require(
-            address(projects[_name]) == address(0),
-            "ChugSplashRegistry: name already registered"
+            address(projects[_organizationID]) == address(0),
+            "ChugSplashRegistry: organization ID already registered"
         );
 
         // Deploy the ChugSplashManager.
-        ChugSplashManager manager = new ChugSplashManager{ salt: keccak256(bytes(_name)) }(
+        ChugSplashManager manager = new ChugSplashManager{ salt: _organizationID }(
             this,
             executionLockTime,
             ownerBondAmount,
             executorPaymentPercentage,
             protocolPaymentPercentage
         );
-        manager.initialize(_owner, _name, _allowManagedProposals);
+        manager.initialize(_owner, _organizationID, _allowManagedProposals);
 
-        projects[_name] = ChugSplashManager(payable(address(manager)));
+        projects[_organizationID] = ChugSplashManager(payable(address(manager)));
         managers[ChugSplashManager(payable(address(manager)))] = true;
 
-        emit ChugSplashProjectRegistered(_name, msg.sender, address(manager), _owner, _name);
+        emit ChugSplashProjectRegistered(_organizationID, msg.sender, address(manager), _owner);
     }
 
     /**

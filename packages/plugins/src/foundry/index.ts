@@ -705,7 +705,7 @@ const command = args[0]
         )
 
         const address = getContractAddress(
-          userConfig.options.projectName,
+          userConfig.options.organizationID,
           referenceName,
           userConfig.contracts[referenceName].constructorArgs ?? {},
           { integration: 'foundry', artifactPaths }
@@ -714,7 +714,11 @@ const command = args[0]
       } else {
         const proxy =
           userConfig.contracts[referenceName].externalProxy ||
-          getDefaultProxyAddress(userConfig.options.projectName, referenceName)
+          getDefaultProxyAddress(
+            userConfig.options.organizationID,
+            userConfig.options.projectName,
+            referenceName
+          )
         process.stdout.write(proxy)
       }
       break

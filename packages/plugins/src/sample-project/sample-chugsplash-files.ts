@@ -2,7 +2,7 @@ export const sampleChugSplashFileTypeScript = `import { UserChugSplashConfig } f
 
 const config: UserChugSplashConfig = {
   options: {
-    projectName: 'Hello ChugSplash',
+    organizationID: 'Hello ChugSplash',
   },
   contracts: {
     MyFirstContract: {
@@ -24,7 +24,7 @@ export const sampleChugSplashFileJavaScript = `require('@chugsplash/core')
 
 module.exports = {
   options: {
-    projectName: 'Hello ChugSplash',
+    organizationID: 'Hello ChugSplash',
   },
   contracts: {
     MyFirstContract: {

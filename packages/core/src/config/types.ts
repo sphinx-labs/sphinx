@@ -66,6 +66,7 @@ export type ParsedConfigVariable =
  */
 export interface UserChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
   }
   contracts: UserContractConfigs
@@ -76,6 +77,7 @@ export interface UserChugSplashConfig {
  */
 export interface ParsedChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
   }
   contracts: ParsedContractConfigs
@@ -92,6 +94,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  unsafeAllowEmptyPush?: boolean
   unsafeAllowRenames?: boolean
   unsafeSkipStorageCheck?: boolean
   unsafeAllow?: {
@@ -120,6 +123,7 @@ export type ParsedContractConfig = {
   kind: ContractKind
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
 }
 
 export type ParsedContractConfigs = {

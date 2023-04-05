@@ -1,12 +1,15 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
+import { constants } from 'ethers'
 
 const config: UserChugSplashConfig = {
   options: {
+    organizationID: constants.HashZero,
     projectName: 'Hello ChugSplash',
   },
   contracts: {
     MyFirstContract: {
       contract: 'HelloChugSplash',
+      unsafeAllowEmptyPush: true,
       variables: {
         number: 1,
         stored: true,

@@ -77,6 +77,7 @@ export type ResponseMessage = {
     message: string
     err: Error
     options: {
+      organizationID: string
       projectName: string
       skipStorageCheck?: boolean
     }
@@ -167,7 +168,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         canonicalConfig,
       })
     }
-    const projectName = canonicalConfig.options.projectName
+    const { projectName, organizationID } = canonicalConfig.options
 
     const expectedBundleId = computeBundleId(
       bundles.actionBundle.root,
@@ -252,6 +253,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         rpcProvider,
         bundles,
         bundleState.actionsExecuted.toNumber(),
+        organizationID,
         projectName
       )
     ) {
@@ -365,8 +367,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
         }
       }
 
-      trackExecuted(
-        await getProjectOwnerAddress(wallet, projectName),
+      await trackExecuted(
+        await getProjectOwnerAddress(wallet, organizationID),
+        organizationID,
         projectName,
         network,
         integration

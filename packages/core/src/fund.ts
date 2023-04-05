@@ -22,9 +22,12 @@ import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
   const totalDebt = await ChugSplashManager.totalDebt()
@@ -33,9 +36,12 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(provider, projectName)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   if (
     (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
@@ -52,6 +58,7 @@ export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
   const actions = bundles.actionBundle.actions
@@ -66,7 +73,11 @@ export const estimateExecutionGas = async (
     .filter((action) => isDeployContractAction(action))
     .map(async (action) => {
       return (await isContractDeployed(
-        getDefaultProxyAddress(projectName, action.referenceName),
+        getDefaultProxyAddress(
+          organizationID,
+          projectName,
+          action.referenceName
+        ),
         provider
       ))
         ? ethers.BigNumber.from(0)
@@ -102,12 +113,14 @@ export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
     provider,
     bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
   const feeData = await provider.getFeeData()
@@ -127,14 +140,19 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string
 ): Promise<boolean> => {
-  const availableFunds = await availableFundsForExecution(provider, projectName)
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    organizationID
+  )
 
   const currExecutionCost = await estimateExecutionCost(
     provider,
     bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
 
@@ -145,6 +163,7 @@ export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  organizationID: string,
   projectName: string,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
@@ -152,10 +171,14 @@ export const getAmountToDeposit = async (
     provider,
     bundles,
     actionsExecuted,
+    organizationID,
     projectName
   )
 
-  const availableFunds = await availableFundsForExecution(provider, projectName)
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    organizationID
+  )
 
   const amountToDeposit = includeBuffer
     ? currExecutionCost.mul(EXECUTION_BUFFER_MULTIPLIER).sub(availableFunds)
