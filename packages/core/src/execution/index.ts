@@ -8,7 +8,7 @@ import {
   ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  createDeploymentArtifacts,
+  writeDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
@@ -16,8 +16,8 @@ import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
   formatEther,
-  getBundleCompletionTxnHash,
   getChugSplashManager,
+  getDeploymentEvents,
   getGasPriceOverrides,
   getProjectOwnerAddress,
 } from '../utils'
@@ -116,13 +116,12 @@ export const monitorExecution = async (
   if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
-    // Get the `completeChugSplashBundle` transaction.
-    const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
+    const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
       bundleId
     )
     spinner.succeed('Retrieved deployment info.')
-    return bundleCompletionTxnHash
+    return deploymentEvents
   } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
@@ -138,8 +137,7 @@ export const monitorExecution = async (
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param parsedConfig Parsed ParsedChugSplashConfig.
- * @param finalDeploymentTxnHash Hash of the transaction that completed the deployment. This is the
- * call to `completeChugSplashBundle` on the ChugSplashManager.
+ * @param deploymentEvents Array of `DefaultProxyDeployed` and `ContractDeployed` events
  * @param withdraw Boolean that determines if remaining funds in the ChugSplashManager should be
  * withdrawn to the project owner.
  * @param newProjectOwner Optional address to receive ownership of the project.
@@ -148,13 +146,12 @@ export const postExecutionActions = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  finalDeploymentTxnHash: string,
+  deploymentEvents: ethers.Event[],
   withdraw: boolean,
   networkName: string,
-  deploymentfolderPath: string,
+  deploymentFolderPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  remoteExecution: boolean,
   newProjectOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
@@ -228,14 +225,17 @@ export const postExecutionActions = async (
     }
   }
 
-  await createDeploymentArtifacts(
+  spinner.start(`Writing deployment artifacts...`)
+
+  await writeDeploymentArtifacts(
     provider,
     parsedConfig,
-    finalDeploymentTxnHash,
-    artifactPaths,
-    integration,
-    spinner,
+    deploymentEvents,
     networkName,
-    deploymentfolderPath
+    deploymentFolderPath,
+    artifactPaths,
+    integration
   )
+
+  spinner.succeed(`Wrote deployment artifacts.`)
 }

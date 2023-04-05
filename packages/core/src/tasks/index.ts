@@ -21,10 +21,10 @@ import {
   displayProposerTable,
   formatEther,
   generateFoundryTestArtifacts,
-  getBundleCompletionTxnHash,
   getChugSplashManager,
   getChugSplashManagerAddress,
   getChugSplashRegistry,
+  getDeploymentEvents,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
   getProjectOwnerAddress,
@@ -50,7 +50,7 @@ import {
   ChugSplashBundles,
   ChugSplashBundleState,
   ChugSplashBundleStatus,
-  createDeploymentArtifacts,
+  writeDeploymentArtifacts,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
@@ -491,13 +491,12 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         provider,
         signer,
         parsedConfig,
-        await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
+        await getDeploymentEvents(ChugSplashManager, bundleId),
         !noWithdraw,
         networkName,
         deploymentFolderPath,
         artifactPaths,
         integration,
-        remoteExecution,
         undefined,
         spinner
       )
@@ -681,15 +680,14 @@ export const chugsplashDeployAbstractTask = async (
   let currBundleStatus = bundleState.status
 
   if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
-    await createDeploymentArtifacts(
+    await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
-      artifactPaths,
-      integration,
-      spinner,
+      await getDeploymentEvents(ChugSplashManager, bundleId),
       networkName,
-      deploymentFolder
+      deploymentFolder,
+      artifactPaths,
+      integration
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
@@ -811,22 +809,16 @@ export const chugsplashDeployAbstractTask = async (
     throw new Error(`Local execution specified but no executor was given.`)
   }
 
-  const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
-    ChugSplashManager,
-    bundleId
-  )
-
   await postExecutionActions(
     provider,
     signer,
     parsedConfig,
-    bundleCompletionTxnHash,
+    await getDeploymentEvents(ChugSplashManager, bundleId),
     withdraw,
     networkName,
     deploymentFolder,
     artifactPaths,
     integration,
-    remoteExecution,
     newOwner,
     spinner
   )
@@ -931,13 +923,12 @@ project with a name other than ${parsedConfig.options.projectName}`
     provider,
     signer,
     parsedConfig,
-    await getBundleCompletionTxnHash(ChugSplashManager, bundleId),
+    await getDeploymentEvents(ChugSplashManager, bundleId),
     !noWithdraw,
     networkName,
     deploymentFolder,
     artifactPaths,
     'hardhat',
-    remoteExecution,
     newOwner,
     spinner
   )
