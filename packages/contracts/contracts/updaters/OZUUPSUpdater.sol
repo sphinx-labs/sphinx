@@ -114,6 +114,14 @@ contract OZUUPSUpdater is ProxyUpdater {
         _setImplementation(_implementation);
     }
 
+    function setStorage(
+        bytes32 _key,
+        uint8 _offset,
+        bytes memory _segment
+    ) external ifChugSplashAdmin {
+        super.setStorageValue(_key, _offset, _segment);
+    }
+
     receive() external payable {
         revert("OZUUPSUpdater: caller is not an admin");
     }
