@@ -736,7 +736,7 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
-  if (!semver.satisfies(buildInfo.solcVersion, '>=0.4.x <0.9.x')) {
+  if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
     throw new Error(
       `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
     )
