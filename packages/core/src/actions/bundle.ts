@@ -296,9 +296,11 @@ export const bundleLocal = async (
     )
 
     const { abi, bytecode, sourceName, contractName, linkReferences } =
-      readContractArtifact(
-        artifactPaths[referenceName].contractArtifactPath,
+      await readContractArtifact(
+        artifactPaths,
+        referenceName,
         integration,
+        parsedConfig,
         parsedConfig.contracts[referenceName].libraries
       )
     const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
@@ -369,7 +371,7 @@ export const makeActionBundleFromConfig = async (
         await getContractAddress(
           parsedConfig.options.organizationID,
           referenceName,
-          contractConfig,
+          parsedConfig,
           artifacts[referenceName]
         )
       )) === '0x'
@@ -437,7 +439,7 @@ export const makeTargetBundleFromConfig = async (
       implementation: await getContractAddress(
         parsedConfig.options.organizationID,
         referenceName,
-        contractConfig,
+        parsedConfig,
         artifacts[referenceName]
       ),
     })

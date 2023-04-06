@@ -44,6 +44,7 @@ import {
   getOpenZeppelinValidationOpts,
   chugsplashLog,
   getContractAddress,
+  linkBytecode,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -1739,10 +1740,14 @@ export const resolveContractAddresses = async (
   userConfig: UserChugSplashConfig | ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  stream: NodeJS.WritableStream,
-  silent: boolean,
+  validate?: {
+    stream: NodeJS.WritableStream
+    silent: boolean
+  },
   exitOnFailure: boolean = true
 ): Promise<{ [referenceName: string]: string }> => {
+  console.log('resolveContractAddresses')
+  console.log(exitOnFailure)
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -1777,7 +1782,7 @@ export const resolveContractAddresses = async (
 
       // So if the contract uses libraries, then we compile the libraries to resolve the library contract references, and detect any out of order references.
       const outOfOrderReferences: string[] = []
-      let libraries = userContractConfig.libraries ?? {}
+      let libraries: Libraries | undefined = userContractConfig.libraries
       if (libraries && Object.entries(libraries).length > 0) {
         libraries = JSON.parse(
           Handlebars.compile(JSON.stringify(libraries ?? {}))({
@@ -1785,7 +1790,9 @@ export const resolveContractAddresses = async (
           })
         )
 
-        for (const [libraryName, libraryAddress] of Object.entries(libraries)) {
+        for (const [libraryName, libraryAddress] of Object.entries(
+          libraries!
+        )) {
           if (libraryAddress === '' && libraries) {
             outOfOrderReferences.push(
               `${libraryName}: ${userContractConfig.libraries![libraryName]}`
@@ -1796,38 +1803,53 @@ export const resolveContractAddresses = async (
 
       // If there were out of order references detected, then we can't resolve the contract address and we log an error.
       if (outOfOrderReferences.length > 0) {
-        logValidationError(
-          'error',
-          'Detected out of order library references.',
-          [
-            'When using contract references to link external libraries in non-proxied contracts, you must always define the library before it is referenced. The following library references are out of order:',
-            ...outOfOrderReferences,
-          ],
-          silent,
-          stream
-        )
+        if (validate) {
+          logValidationError(
+            'error',
+            'Detected out of order library references.',
+            [
+              'When using contract references to link external libraries in non-proxied contracts, you must always define the library before it is referenced. The following library references are out of order:',
+              ...outOfOrderReferences,
+            ],
+            validate.silent,
+            validate.stream
+          )
+        }
       } else {
         // If the user did not define any out of order library references then we can read the artifact using the compiled
         // libraries and generate the contract address.
-        const artifact = readContractArtifact(
-          artifactPaths[referenceName].contractArtifactPath,
+        console.log('reading artifact')
+        const artifact = await readContractArtifact(
+          artifactPaths,
+          referenceName,
           integration,
-          libraries
+          userConfig,
+          libraries,
+          validate,
+          contracts,
+          exitOnFailure
         )
 
-        contracts[referenceName] = getContractAddress(
+        console.log('calling getContractAddress from resolveContractAddresses')
+        contracts[referenceName] = await getContractAddress(
           userConfig.options.organizationID,
           referenceName,
-          userContractConfig,
-          artifact
+          userConfig,
+          artifact,
+          undefined,
+          exitOnFailure
         )
       }
     }
   }
 
+  console.log('exit on failure')
+  console.log(exitOnFailure)
   if (validationErrors && exitOnFailure) {
     process.exit(1)
   }
+
+  console.log('returning')
 
   return contracts
 }
@@ -1902,8 +1924,10 @@ const isContractReferenceLike = (value: string) => {
 export const validateContractLibraries = async (
   artifact: ContractArtifact,
   libraries: Libraries,
-  silent: boolean,
-  stream: NodeJS.WritableStream
+  validate?: {
+    stream: NodeJS.WritableStream
+    silent: boolean
+  }
 ) => {
   const neededLibraries: Array<{
     sourceName: string
@@ -1925,15 +1949,17 @@ export const validateContractLibraries = async (
       !utils.isAddress(linkedLibraryAddress) &&
       !isContractReferenceLike(linkedLibraryAddress)
     ) {
-      logValidationError(
-        'error',
-        `You tried to link the contract ${artifact.contractName} with the library ${linkedLibraryName}, but provided this invalid address: ${linkedLibraryAddress}`,
-        [
-          `If ${linkedLibraryName} is a contract reference, it may be formatted incorrectly.`,
-        ],
-        silent,
-        stream
-      )
+      if (validate) {
+        logValidationError(
+          'error',
+          `You tried to link the contract ${artifact.contractName} with the library ${linkedLibraryName}, but provided this invalid address: ${linkedLibraryAddress}`,
+          [
+            `If ${linkedLibraryName} is a contract reference, it may be formatted incorrectly.`,
+          ],
+          validate.silent,
+          validate.stream
+        )
+      }
       continue
     }
 
@@ -1944,7 +1970,7 @@ export const validateContractLibraries = async (
       )
     })
 
-    if (matchingNeededLibraries.length === 0) {
+    if (matchingNeededLibraries.length === 0 && validate) {
       let detailedMessage: string
       if (neededLibraries.length > 0) {
         const libraryFQNames = neededLibraries
@@ -1960,13 +1986,13 @@ ${libraryFQNames}`
         'error',
         `You tried to link the contract ${artifact.contractName} with ${linkedLibraryName}, which is not one of its libraries.`,
         [`${detailedMessage}`],
-        silent,
-        stream
+        validate.silent,
+        validate.stream
       )
       continue
     }
 
-    if (matchingNeededLibraries.length > 1) {
+    if (matchingNeededLibraries.length > 1 && validate) {
       const matchingNeededLibrariesFQNs = matchingNeededLibraries
         .map(({ sourceName, libName }) => `${sourceName}:${libName}`)
         .map((x) => `* ${x}`)
@@ -1980,8 +2006,8 @@ ${libraryFQNames}`
           `${matchingNeededLibrariesFQNs}`,
           '\nTo fix this, choose one of these fully qualified library names and replace where appropriate.',
         ],
-        silent,
-        stream
+        validate.silent,
+        validate.stream
       )
       continue
     }
@@ -1993,13 +2019,13 @@ ${libraryFQNames}`
     // The only way for this library to be already mapped is
     // for it to be given twice in the libraries user input:
     // once as a library name and another as a fully qualified library name.
-    if (linksToApply.has(neededLibraryFQN)) {
+    if (linksToApply.has(neededLibraryFQN) && validate) {
       logValidationError(
         'error',
         `The library names ${neededLibrary.libName} and ${neededLibraryFQN} refer to the same library and were given as two separate library links. Remove one of them and review your library links before proceeding.`,
         [],
-        silent,
-        stream
+        validate.silent,
+        validate.stream
       )
       continue
     }
@@ -2011,7 +2037,7 @@ ${libraryFQNames}`
     })
   }
 
-  if (linksToApply.size < neededLibraries.length) {
+  if (linksToApply.size < neededLibraries.length && validate) {
     const missingLibraries = neededLibraries
       .map((lib) => `${lib.sourceName}:${lib.libName}`)
       .filter((libFQName) => !linksToApply.has(libFQName))
@@ -2022,18 +2048,20 @@ ${libraryFQNames}`
       'error',
       `The contract ${artifact.contractName} is missing links for the following libraries:`,
       [`${missingLibraries}`],
-      silent,
-      stream
+      validate.silent,
+      validate.stream
     )
   }
+
+  return linkBytecode(artifact, [...linksToApply.values()])
 }
 
 export const assertValidLibraries = async (
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  silent: boolean,
-  stream: NodeJS.WritableStream
+  cre: ChugSplashRuntimeEnvironment,
+  exitOnFailure: boolean
 ): Promise<{
   [referenceName: string]: ContractArtifact
 }> => {
@@ -2044,21 +2072,26 @@ export const assertValidLibraries = async (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    const artifact = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
+    const artifact = await readContractArtifact(
+      artifactPaths,
+      referenceName,
       integration,
-      // We pass in undefined, because we do not want to link any libraries yet
-      // since they have not been validated
-      undefined
+      userConfig,
+      userContractConfig.libraries,
+      {
+        silent: cre.silent,
+        stream: cre.stream,
+      },
+      undefined,
+      exitOnFailure
     )
     cachedArtifacts[referenceName] = artifact
+  }
 
-    validateContractLibraries(
-      cachedArtifacts[referenceName],
-      userContractConfig.libraries ?? {},
-      silent,
-      stream
-    )
+  // Exit if any validation errors were detected up to this point. We exit early here because invalid
+  // constructor args can cause the rest of the parsing logic to fail with cryptic errors
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
   }
 
   return cachedArtifacts
@@ -2129,8 +2162,8 @@ export const parseAndValidateChugSplashConfig = async (
     userConfig,
     artifactPaths,
     integration,
-    cre.silent,
-    cre.stream
+    cre,
+    exitOnFailure
   )
 
   // Parse and validate contract constructor args
@@ -2149,8 +2182,7 @@ export const parseAndValidateChugSplashConfig = async (
     userConfig,
     artifactPaths,
     integration,
-    cre.stream,
-    cre.silent,
+    { stream: cre.stream, silent: cre.silent },
     exitOnFailure
   )
 

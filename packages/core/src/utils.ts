@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import * as Handlebars from 'handlebars'
 import * as semver from 'semver'
 import {
   utils,
@@ -78,6 +79,11 @@ import {
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
+import {
+  resolveContractAddresses,
+  UserChugSplashConfig,
+  validateContractLibraries,
+} from './config'
 
 export const computeBundleId = (
   actionRoot: string,
@@ -346,9 +352,9 @@ export const displayDeploymentTable = async (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  silent: boolean
+  cre: ChugSplashRuntimeEnvironment
 ) => {
-  if (!silent) {
+  if (!cre.silent) {
     const deployments = {}
     let i = 0
     for (const [referenceName, contractConfig] of Object.entries(
@@ -358,10 +364,10 @@ export const displayDeploymentTable = async (
       const address =
         contractConfig.kind !== 'no-proxy'
           ? contractConfig.proxy
-          : getContractAddress(
+          : await getContractAddress(
               parsedConfig.options.organizationID,
               referenceName,
-              contractConfig,
+              parsedConfig,
               { integration, artifactPaths }
             )
 
@@ -713,57 +719,57 @@ export const getParentContractASTNodes = (
   return parentContractNodes
 }
 
-/**
- * Borrowed from the Hardhat ethers plugin. Unfortunately, it does not export this function.
- * Since we had to copy this function into our code base anyway, we've also modified it to
- * move all of the validation into the chugsplash config parsing and validation logic.
- *
- * So in this function, we assume all the libraries are valid.
- * Source: https://github.com/NomicFoundation/hardhat/blob/5426f582c28f90576300378c94a86e61ca13bc7b/packages/hardhat-ethers/src/internal/helpers.ts#L163
- *
- * @param artifact The artifact of the contract we are fetching the bytecode of.
- * @param libraries The libraries to link into the bytecode.
- * @returns The bytecode of the contract with the libraries linked in.
- */
-const getBytecodeWithExternalLibraries = (
-  artifact: ContractArtifact,
-  libraries: Libraries
-) => {
-  const neededLibraries: Array<{
-    sourceName: string
-    libName: string
-  }> = []
-  for (const [sourceName, sourceLibraries] of Object.entries(
-    artifact.linkReferences
-  )) {
-    for (const libName of Object.keys(sourceLibraries)) {
-      neededLibraries.push({ sourceName, libName })
-    }
-  }
-  const linksToApply: Map<string, Link> = new Map()
-  for (const [linkedLibraryName, linkedLibraryAddress] of Object.entries(
-    libraries
-  )) {
-    const matchingNeededLibraries = neededLibraries.filter((lib) => {
-      return (
-        lib.libName === linkedLibraryName ||
-        `${lib.sourceName}:${lib.libName}` === linkedLibraryName
-      )
-    })
+// /**
+//  * Borrowed from the Hardhat ethers plugin. Unfortunately, it does not export this function.
+//  * Since we had to copy this function into our code base anyway, we've also modified it to
+//  * move all of the validation into the chugsplash config parsing and validation logic.
+//  *
+//  * So in this function, we assume all the libraries are valid.
+//  * Source: https://github.com/NomicFoundation/hardhat/blob/5426f582c28f90576300378c94a86e61ca13bc7b/packages/hardhat-ethers/src/internal/helpers.ts#L163
+//  *
+//  * @param artifact The artifact of the contract we are fetching the bytecode of.
+//  * @param libraries The libraries to link into the bytecode.
+//  * @returns The bytecode of the contract with the libraries linked in.
+//  */
+// const getBytecodeWithExternalLibraries = (
+//   artifact: ContractArtifact,
+//   libraries: Libraries
+// ) => {
+//   const neededLibraries: Array<{
+//     sourceName: string
+//     libName: string
+//   }> = []
+//   for (const [sourceName, sourceLibraries] of Object.entries(
+//     artifact.linkReferences
+//   )) {
+//     for (const libName of Object.keys(sourceLibraries)) {
+//       neededLibraries.push({ sourceName, libName })
+//     }
+//   }
+//   const linksToApply: Map<string, Link> = new Map()
+//   for (const [linkedLibraryName, linkedLibraryAddress] of Object.entries(
+//     libraries
+//   )) {
+//     const matchingNeededLibraries = neededLibraries.filter((lib) => {
+//       return (
+//         lib.libName === linkedLibraryName ||
+//         `${lib.sourceName}:${lib.libName}` === linkedLibraryName
+//       )
+//     })
 
-    const [neededLibrary] = matchingNeededLibraries
+//     const [neededLibrary] = matchingNeededLibraries
 
-    const neededLibraryFQN = `${neededLibrary.sourceName}:${neededLibrary.libName}`
+//     const neededLibraryFQN = `${neededLibrary.sourceName}:${neededLibrary.libName}`
 
-    linksToApply.set(neededLibraryFQN, {
-      sourceName: neededLibrary.sourceName,
-      libraryName: neededLibrary.libName,
-      address: linkedLibraryAddress,
-    })
-  }
+//     linksToApply.set(neededLibraryFQN, {
+//       sourceName: neededLibrary.sourceName,
+//       libraryName: neededLibrary.libName,
+//       address: linkedLibraryAddress,
+//     })
+//   }
 
-  return linkBytecode(artifact, [...linksToApply.values()])
-}
+//   return linkBytecode(artifact, [...linksToApply.values()])
+// }
 
 /**
  * Links the given bytecode with the given libraries.
@@ -774,7 +780,7 @@ const getBytecodeWithExternalLibraries = (
  * @param libraries The libraries to link.
  * @returns The linked bytecode.
  */
-const linkBytecode = (
+export const linkBytecode = (
   artifact: ContractArtifact,
   libraries: Link[]
 ): string => {
@@ -796,13 +802,27 @@ const linkBytecode = (
 /**
  * Retrieves an artifact by name from the local file system.
  */
-export const readContractArtifact = (
-  contractArtifactPath: string,
+export const readContractArtifact = async (
+  artifactPaths: ArtifactPaths,
+  referenceName: string,
   integration: Integration,
-  libraries?: Libraries
-): ContractArtifact => {
+  config: UserChugSplashConfig | ParsedChugSplashConfig,
+  libraries?: Libraries,
+  validate?: {
+    stream: NodeJS.WritableStream
+    silent: boolean
+  },
+  contracts?: {
+    [referenceName: string]: string
+  },
+  exitOnFailure?: boolean
+): Promise<ContractArtifact> => {
+  if (!artifactPaths[referenceName]) {
+    throw new Error(`No artifact found for contract: ${referenceName}`)
+  }
+
   let artifact: ContractArtifact = JSON.parse(
-    fs.readFileSync(contractArtifactPath, 'utf8')
+    fs.readFileSync(artifactPaths[referenceName].contractArtifactPath, 'utf8')
   )
 
   // If we're using the Foundry integration, we need to convert the artifact into a consistent format.
@@ -810,9 +830,40 @@ export const readContractArtifact = (
     artifact = parseFoundryArtifact(artifact)
   }
 
-  if (libraries) {
-    artifact.bytecode = getBytecodeWithExternalLibraries(artifact, libraries)
+  // If the target contract includes libraries, then we must resolve the addresses of those libraries
+  // and inject them into the bytecode.
+  if (libraries && Object.entries(libraries).length > 0) {
+    // The resolveContractAddresses function actually calls this function, so to avoid an infinite loop
+    // we accept a set of contracts that have already been resolved in the resolveContractAddresses function
+    // which is used in lue of calling the resolveContractAddresses function.
+    console.log('resolving addresses')
+    console.log(contracts)
+    contracts = contracts
+      ? contracts
+      : await resolveContractAddresses(
+          config,
+          artifactPaths,
+          integration,
+          validate,
+          exitOnFailure
+        )
+
+    console.log('done resolving addresses')
+    const compiledConfig: UserChugSplashConfig = JSON.parse(
+      Handlebars.compile(JSON.stringify(config))({
+        ...contracts,
+      })
+    )
+
+    console.log('validing libraries')
+    artifact.bytecode = await validateContractLibraries(
+      artifact,
+      compiledConfig.contracts[referenceName].libraries ?? {},
+      validate
+    )
   }
+
+  console.log('returning artifact')
 
   return artifact
 }
@@ -908,33 +959,44 @@ export const isEqualType = (
  * @param referenceName Reference name of the contract that corresponds to the proxy.
  * @param constructorArgs Constructor arguments for the contract.
  * @param maybeArtifact Contract artifact, or an object containing the artifactPaths and the
+ * @param validate Optional object containing a stream and a silent flag validation logging. If the object is not provided, then no validation will be performed.
  * integration so the artifact can be resolved.
  * @returns Address of the contract.
  */
-export const getContractAddress = (
+export const getContractAddress = async (
   organizationID: string,
   referenceName: string,
-  contractConfig: UserContractConfig | ParsedContractConfig,
+  config: UserChugSplashConfig | ParsedChugSplashConfig,
   maybeArtifact:
     | ContractArtifact
     | {
         integration: Integration
         artifactPaths: ArtifactPaths
-      }
-): string => {
+      },
+  validate?: {
+    stream: NodeJS.WritableStream
+    silent: boolean
+  },
+  exitOnFailure?: boolean
+): Promise<string> => {
   // Resolve the artifact either from the maybeArtifcat object itself, or from the artifactPaths
   const { abi, bytecode } =
     'abi' in maybeArtifact
       ? maybeArtifact
-      : readContractArtifact(
-          maybeArtifact.artifactPaths[referenceName].contractArtifactPath,
+      : await readContractArtifact(
+          maybeArtifact.artifactPaths,
+          referenceName,
           maybeArtifact.integration,
-          contractConfig.libraries
+          config,
+          config.contracts[referenceName].libraries,
+          validate,
+          undefined,
+          exitOnFailure
         )
 
   const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
     bytecode,
-    contractConfig.constructorArgs ?? {},
+    config.contracts[referenceName].constructorArgs ?? {},
     referenceName,
     abi
   )
@@ -1343,7 +1405,7 @@ export const getCanonicalConfigArtifacts = async (
         }
 
         // update the bytecode with the external libraries
-        artifacts[referenceName].bytecode = getBytecodeWithExternalLibraries(
+        artifacts[referenceName].bytecode = await validateContractLibraries(
           artifacts[referenceName],
           contractConfig.libraries
         )

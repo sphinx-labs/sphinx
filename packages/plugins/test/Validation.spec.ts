@@ -72,6 +72,7 @@ describe('Validate', () => {
     )
 
     process.stderr.write = (message: string) => {
+      console.log(message)
       validationOutput += message
       return true
     }
@@ -87,6 +88,7 @@ describe('Validate', () => {
     )
 
     // Run validation for variable validation config
+    console.log('aaaaaaaaaaa')
     await readValidatedChugSplashConfig(
       provider,
       variableValidateConfigPath,
@@ -97,6 +99,7 @@ describe('Validate', () => {
     )
 
     // Run validation for constructor arg validation config
+    console.log('bbbbbbbbbbb')
     await readValidatedChugSplashConfig(
       provider,
       constructorArgConfigPath,
@@ -107,21 +110,22 @@ describe('Validate', () => {
     )
 
     // Run validation for unnecessary libraries config
+    console.log('cccccccccccc')
     await assertValidLibraries(
       libraryValidationUserConfig,
       libraryValidationArtifactPaths,
       'hardhat',
-      cre.silent,
-      cre.stream
+      cre,
+      false
     )
 
     // Run validation for out of order libraries config
+    console.log('dddddddddddd')
     await resolveContractAddresses(
       outOfOrderLibraryUserConfig,
       outOfOrderLibraryArtifactPaths,
       'hardhat',
-      cre.stream,
-      cre.silent,
+      { stream: cre.stream, silent: cre.silent },
       false
     )
   })

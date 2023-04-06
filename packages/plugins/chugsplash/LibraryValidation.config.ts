@@ -23,7 +23,7 @@ const config: UserChugSplashConfig = {
         _immutableUint: 1,
       },
       libraries: {
-        UnnecessaryLibrary: '{{ UnnecessaryLibrary }}',
+        UnnecessaryLibrary: ethers.constants.AddressZero,
         ExternalLibrary: 'invalidAddress',
       },
     },

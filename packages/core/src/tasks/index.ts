@@ -504,7 +504,7 @@ npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
         parsedConfig,
         artifactPaths,
         integration,
-        cre.silent
+        cre
       )
 
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
@@ -695,7 +695,7 @@ export const chugsplashDeployAbstractTask = async (
         parsedConfig,
         artifactPaths,
         integration,
-        cre.silent
+        cre
       )
       return
     } else {
@@ -834,12 +834,7 @@ export const chugsplashDeployAbstractTask = async (
   // At this point, the bundle has been completed.
   spinner.succeed(`${projectName} completed!`)
   if (integration === 'hardhat') {
-    await displayDeploymentTable(
-      parsedConfig,
-      artifactPaths,
-      integration,
-      cre.silent
-    )
+    await displayDeploymentTable(parsedConfig, artifactPaths, integration, cre)
     spinner.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
     )
@@ -946,12 +941,7 @@ project with a name other than ${parsedConfig.options.projectName}`
         `${parsedConfig.options.projectName} was already deployed on ${networkName}.`
       )
 
-  await displayDeploymentTable(
-    parsedConfig,
-    artifactPaths,
-    integration,
-    cre.silent
-  )
+  await displayDeploymentTable(parsedConfig, artifactPaths, integration, cre)
 }
 
 export const chugsplashCancelAbstractTask = async (

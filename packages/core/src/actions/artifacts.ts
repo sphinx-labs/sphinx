@@ -19,7 +19,6 @@ import {
   writeDeploymentArtifact,
   getChugSplashManagerAddress,
 } from '../utils'
-
 import 'core-js/features/array/at'
 
 /**
@@ -117,9 +116,11 @@ export const writeDeploymentArtifacts = async (
     } else if (deploymentEvent.event === 'ContractDeployed') {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
-      const artifact = readContractArtifact(
-        artifactPaths[referenceName].contractArtifactPath,
+      const artifact = await readContractArtifact(
+        artifactPaths,
+        referenceName,
         integration,
+        parsedConfig,
         parsedConfig.contracts[referenceName].libraries
       )
       const { sourceName, contractName, bytecode, abi } = artifact
