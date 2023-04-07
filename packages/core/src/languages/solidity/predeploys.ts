@@ -69,12 +69,22 @@ export const initializeChugSplash = async (
   logger?.info('[ChugSplash]: deployed ChugSplashRegistry')
   logger?.info('[ChugSplash]: initializing ChugSplashRegistry...')
 
-  await (
-    await ChugSplashRegistry.initialize(
-      executors,
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
+  try {
+    await (
+      await ChugSplashRegistry.initialize(
+        executors,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  } catch (err) {
+    if (
+      err.message.includes('Initializable: contract is already initialized')
+    ) {
+      logger?.info('[ChugSplash]: registry was already initialized')
+    } else {
+      throw err
+    }
+  }
 
   for (const executorAddress of executors) {
     assert(
