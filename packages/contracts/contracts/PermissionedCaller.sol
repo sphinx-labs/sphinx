@@ -17,7 +17,7 @@ contract PermissionedCaller is AccessControl {
         bytes memory _data
     ) external payable onlyRole(PERMISSIONED_CALLER_ROLE) returns (bytes memory) {
         (bool success, bytes memory returnData) = _to.call{ value: msg.value }(_data);
-        require(success, "TODO");
+        require(success, "PermissionedCaller: call failed");
         emit ExecutedCall(msg.sender, _to, msg.value);
         return returnData;
     }

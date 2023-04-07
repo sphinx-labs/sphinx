@@ -218,7 +218,6 @@ export const attemptVerification = async (
 ): Promise<EtherscanResponse> => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
-    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
     provider as any,
     networkName
   )
@@ -232,7 +231,6 @@ export const attemptVerification = async (
 
   const solcFullVersion = await getLongVersion(solcVersion)
 
-  // TODO: We can replace this by ABI-encoding the result of our `getConstructorArgs` function.
   const constructorArgsAbiEncoded = await encodeArguments(
     abi,
     sourceName,
@@ -323,7 +321,6 @@ export const getEtherscanInfo = async (
   etherscanApiEndpoints: EtherscanURLs
 }> => {
   const { urls: etherscanApiEndpoints } = await getEtherscanEndpoints(
-    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
     provider as any,
     networkName,
     chainConfig,

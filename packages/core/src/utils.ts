@@ -65,8 +65,6 @@ import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
   ContractArtifact,
-  ContractASTNode,
-  CompilerOutputSources,
   BuildInfo,
   CompilerOutput,
   ArtifactPaths,
@@ -679,30 +677,6 @@ export const isExternalContractKind = (
   contractKind: string
 ): contractKind is ExternalContractKind => {
   return externalContractKinds.includes(contractKind)
-}
-
-export const getParentContractASTNodes = (
-  compilerOutputSources: CompilerOutputSources,
-  parentContractNodeAstIds: Array<number>
-): Array<ContractASTNode> => {
-  const parentContractNodes: Array<ContractASTNode> = []
-  for (const source of Object.values(compilerOutputSources)) {
-    for (const node of source.ast.nodes) {
-      if (parentContractNodeAstIds.includes(node.id)) {
-        parentContractNodes.push(node)
-      }
-    }
-  }
-
-  // Should never happen.
-  if (parentContractNodes.length !== parentContractNodeAstIds.length) {
-    throw new Error(
-      `Expected ${parentContractNodeAstIds.length} parent contract AST nodes, but got ${parentContractNodes.length}.\n` +
-        `Please report this error to ChugSplash.`
-    )
-  }
-
-  return parentContractNodes
 }
 
 /**
