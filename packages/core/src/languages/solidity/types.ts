@@ -74,9 +74,6 @@ export type BuildInfo = {
   output: CompilerOutput
 }
 
-// TODO
-export type ContractASTNode = any
-
 export type ContractArtifact = {
   abi: Array<Fragment>
   sourceName: string

@@ -385,7 +385,6 @@ export const makeActionBundleFromConfig = async (
     const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
     // Compute our storage segments.
-    // TODO: One day we'll need to refactor this to support Vyper.
     const segments = computeStorageSegments(
       extendedLayout,
       contractConfig,

@@ -1052,8 +1052,6 @@ const parseContractVariables = (
 /**
  * Parses and validates constructor args for a single contract in a config file.
  *
- * TODO - Improve this function so that the parsing and validation is on par with that of variables.
- *
  * @param contractConfig Unparsed User-defined contract definition in a ChugSplash config.
  * @param storageLayout Storage layout returned by the solidity compiler for the relevant contract.
  * @param compilerOutput Complete compiler output.
@@ -1097,7 +1095,6 @@ export const parseContractConstructorArgs = (
       return
     }
 
-    // TODO - implement input validation and parsing on par with the rest of the variables
     if (typeof constructorArgValue !== 'boolean') {
       parsedConstructorArgs[input.name] = constructorArgValue.toString()
     } else {

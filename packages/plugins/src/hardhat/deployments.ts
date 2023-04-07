@@ -38,7 +38,7 @@ export const fetchFilesRecursively = (dir): string[] => {
 }
 
 /**
- * TODO
+ * Deploys a list of ChugSplash config files.
  *
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.

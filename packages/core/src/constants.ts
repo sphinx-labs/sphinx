@@ -33,7 +33,6 @@ export const keywords: Keywords = {
   gap: '{gap}',
 }
 
-// TODO: We should use fully qualified names instead of source names
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
