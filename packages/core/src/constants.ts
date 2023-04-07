@@ -18,6 +18,10 @@ import {
   ChugSplashRegistryABI,
 } from '@chugsplash/contracts'
 import { utils, constants } from 'ethers'
+import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+
+// Etherscan constants
+export const customChains: CustomChain[] = []
 
 export const EXECUTION_BUFFER_MULTIPLIER = 2
 export type Integration = 'hardhat' | 'foundry'

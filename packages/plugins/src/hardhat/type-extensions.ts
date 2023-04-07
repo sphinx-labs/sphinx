@@ -1,6 +1,5 @@
 import * as path from 'path'
 
-import { ChugSplashExecutorType } from '@chugsplash/core'
 import { extendConfig, extendEnvironment } from 'hardhat/config'
 import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
@@ -11,7 +10,6 @@ import { getContract, resetChugSplashDeployments } from './deployments'
 // redeclare it.
 import 'hardhat/types/config'
 import 'hardhat/types/runtime'
-import { initializeExecutor } from '../executor'
 
 declare module 'hardhat/types/config' {
   // Extend the HardhatConfig type, which represents the configuration after it has been resolved.
@@ -30,10 +28,9 @@ declare module 'hardhat/types/runtime' {
     chugsplash: {
       reset: () => Promise<void>
       getContract: (
-        organizationID: string,
+        projectName: string,
         referenceName: string
       ) => Promise<ethers.Contract>
-      executor: ChugSplashExecutorType
     }
   }
 }
@@ -48,7 +45,6 @@ extendConfig((config: HardhatConfig) => {
 })
 
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
-  const executor = await initializeExecutor(hre.ethers.provider)
   hre.chugsplash = lazyObject(() => {
     return {
       reset: async (): Promise<void> => {
@@ -61,7 +57,6 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
         const contract = await getContract(hre, projectName, referenceName)
         return contract
       },
-      executor,
     }
   })
 })
