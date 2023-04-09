@@ -754,6 +754,18 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _payExecutorAndProtocol(initialGasLeft);
     }
 
+    function executeEntireBundle(
+        ChugSplashTarget[] memory _targets,
+        bytes32[][] memory _targetProofs,
+        ChugSplashAction[] memory _actions,
+        uint256[] memory _actionIndexes,
+        bytes32[][] memory _actionProofs
+    ) external {
+        initiateBundleExecution(_targets, _targetProofs);
+        executeActions(_actions, _actionIndexes, _actionProofs);
+        completeBundleExecution(_targets, _targetProofs);
+    }
+
     /**
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
