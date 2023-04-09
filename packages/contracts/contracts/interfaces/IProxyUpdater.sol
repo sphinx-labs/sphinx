@@ -15,8 +15,4 @@ interface IProxyUpdater {
      * @param _segment New value for the segment of the storage slot.
      */
     function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external;
-
-    receive() external payable;
-
-    fallback() external payable;
 }
