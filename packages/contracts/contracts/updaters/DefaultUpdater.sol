@@ -48,12 +48,4 @@ contract DefaultUpdater is ProxyUpdater {
     function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external ifAdmin {
         super.setStorageValue(_key, _offset, _segment);
     }
-
-    receive() external payable {
-        revert("DefaultUpdater: caller is not an admin");
-    }
-
-    fallback() external payable {
-        revert("DefaultUpdater: cannot call implementation functions while update is in progress");
-    }
 }
