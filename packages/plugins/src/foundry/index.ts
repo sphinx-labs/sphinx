@@ -5,7 +5,7 @@ import {
   chugsplashDeployAbstractTask,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
-  chugsplashRegisterAbstractTask,
+  chugsplashClaimAbstractTask,
   chugsplashMonitorAbstractTask,
   chugsplashAddProposersAbstractTask,
   chugsplashWithdrawAbstractTask,
@@ -21,6 +21,7 @@ import {
   readUnvalidatedChugSplashConfig,
   getContractAddress,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 
@@ -32,7 +33,7 @@ const command = args[0]
 
 ;(async () => {
   switch (command) {
-    case 'register': {
+    case 'claim': {
       const configPath = args[1]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
@@ -79,9 +80,9 @@ const command = args[0]
       owner = owner !== 'self' ? owner : address
 
       if (!silent) {
-        console.log('-- ChugSplash Register --')
+        console.log('-- ChugSplash Claim --')
       }
-      await chugsplashRegisterAbstractTask(
+      await chugsplashClaimAbstractTask(
         provider,
         wallet,
         config,
@@ -286,7 +287,7 @@ const command = args[0]
       const silent = args[5] === 'true'
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
-      let newOwner = args[9]
+      let newOwner = args[8]
 
       const confirm = true
 
@@ -678,6 +679,12 @@ const command = args[0]
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
+      const { projectName, organizationID, claimer } = userConfig.options
+      const managerAddress = getChugSplashManagerAddress(
+        claimer,
+        organizationID
+      )
+
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
         const { artifactFolder, buildInfoFolder } = fetchPaths(
           outPath,
@@ -690,7 +697,7 @@ const command = args[0]
         )
 
         const address = getContractAddress(
-          userConfig.options.organizationID,
+          managerAddress,
           referenceName,
           userConfig.contracts[referenceName].constructorArgs ?? {},
           { integration: 'foundry', artifactPaths }
@@ -700,8 +707,9 @@ const command = args[0]
         const proxy =
           userConfig.contracts[referenceName].externalProxy ||
           getDefaultProxyAddress(
-            userConfig.options.organizationID,
-            userConfig.options.projectName,
+            claimer,
+            organizationID,
+            projectName,
             referenceName
           )
         process.stdout.write(proxy)

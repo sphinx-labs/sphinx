@@ -47,6 +47,7 @@ import {
 import { CanonicalChugSplashConfig } from './config/types'
 import {
   getCanonicalConfigArtifacts,
+  getChugSplashManagerAddress,
   getConstructorArgs,
   getContractAddress,
 } from './utils'
@@ -66,6 +67,11 @@ export const verifyChugSplashConfig = async (
   networkName: string,
   apiKey: string
 ) => {
+  const managerAddress = getChugSplashManagerAddress(
+    canonicalConfig.options.claimer,
+    canonicalConfig.options.organizationID
+  )
+
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
     provider as any,
@@ -86,7 +92,7 @@ export const verifyChugSplashConfig = async (
       abi
     )
     const implementationAddress = getContractAddress(
-      canonicalConfig.options.organizationID,
+      managerAddress,
       referenceName,
       contractConfig.constructorArgs,
       artifact

@@ -121,12 +121,4 @@ contract OZUUPSUpdater is ProxyUpdater {
     ) external ifChugSplashAdmin {
         super.setStorageValue(_key, _offset, _segment);
     }
-
-    receive() external payable {
-        revert("OZUUPSUpdater: caller is not an admin");
-    }
-
-    fallback() external payable {
-        revert("OZUUPSUpdater: cannot call implementation functions while update is in progress");
-    }
 }

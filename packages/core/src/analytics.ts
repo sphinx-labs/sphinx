@@ -39,7 +39,7 @@ export const trackExecuted = async (
   )
 }
 
-export const trackRegistered = async (
+export const trackClaimed = async (
   user_id: string,
   organizationID: string,
   projectName: string,
@@ -51,7 +51,7 @@ export const trackRegistered = async (
   }
   await timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash register',
+      event_type: 'chugsplash claim',
       user_id,
       event_properties: {
         organizationID,

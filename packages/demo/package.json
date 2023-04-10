@@ -45,7 +45,6 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
-    "@0xsequence/create3": "https://github.com/0xsequence/create3",
     "@chugsplash/contracts": "^0.6.0",
     "@chugsplash/core": "^0.8.0",
     "@chugsplash/plugins": "^0.13.0",

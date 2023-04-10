@@ -72,11 +72,11 @@ contract ChugSplash is Script, Test {
         vm.ffi(cmds);
     }
 
-    function register(string memory configPath) public returns (bytes memory) {
-        return register(configPath, false);
+    function claim(string memory configPath) public returns (bytes memory) {
+        return claim(configPath, false);
     }
 
-    function register(
+    function claim(
         string memory configPath,
         bool silent
     ) public returns (bytes memory) {
@@ -86,7 +86,7 @@ contract ChugSplash is Script, Test {
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "register";
+        cmds[3] = "claim";
         cmds[4] = configPath;
         cmds[5] = rpcUrl;
         cmds[6] = network;
@@ -216,7 +216,7 @@ contract ChugSplash is Script, Test {
     ) public {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](15);
+        string[] memory cmds = new string[](12);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;

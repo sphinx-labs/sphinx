@@ -13,6 +13,7 @@ import {
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
   getContractAddress,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -82,7 +83,7 @@ export const deployAllChugSplashConfigs = async (
       artifactPaths,
       'hardhat',
       cre,
-      false
+      true
     )
 
     const signer = hre.ethers.provider.getSigner()
@@ -139,19 +140,17 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
+  const { organizationID, claimer } = userConfig.options
+  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
   const contractConfig = userConfig.contracts[referenceName]
 
   let address =
     contractConfig.externalProxy ||
-    getDefaultProxyAddress(
-      userConfig.options.organizationID,
-      userConfig.options.projectName,
-      referenceName
-    )
+    getDefaultProxyAddress(claimer, organizationID, projectName, referenceName)
   if (contractConfig.kind === 'no-proxy') {
     const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
     address = getContractAddress(
-      userConfig.options.organizationID,
+      managerAddress,
       referenceName,
       contractConfig.constructorArgs ?? {},
       artifact

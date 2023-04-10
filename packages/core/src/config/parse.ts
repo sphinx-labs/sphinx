@@ -933,7 +933,10 @@ const parseContractVariables = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConfigVariables: ParsedConfigVariables = {}
-  if (!contractConfig.variables) {
+  if (
+    !contractConfig.variables ||
+    Object.keys(contractConfig.variables).length === 0
+  ) {
     return {}
   }
 
@@ -1277,6 +1280,7 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
@@ -1728,6 +1732,10 @@ const resolveContractAddresses = (
   userConfig: UserChugSplashConfig,
   cachedArtifacts: { [referenceName: string]: ContractArtifact }
 ): { [referenceName: string]: string } => {
+  const { projectName, organizationID, claimer } = userConfig.options
+
+  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -1740,8 +1748,9 @@ const resolveContractAddresses = (
     const proxy =
       externalProxy ||
       getDefaultProxyAddress(
-        userConfig.options.organizationID,
-        userConfig.options.projectName,
+        claimer,
+        organizationID,
+        projectName,
         referenceName
       )
 
@@ -1749,7 +1758,7 @@ const resolveContractAddresses = (
       kind !== 'no-proxy'
         ? proxy
         : getContractAddress(
-            userConfig.options.organizationID,
+            managerAddress,
             referenceName,
             userContractConfig.constructorArgs ?? {},
             cachedArtifacts[referenceName]

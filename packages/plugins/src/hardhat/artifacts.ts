@@ -7,6 +7,7 @@ import {
   getEIP1967ProxyImplementationAddress,
   BuildInfo,
   ParsedContractConfig,
+  toOpenZeppelinContractKind,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -109,13 +110,15 @@ export const importOpenZeppelinStorageLayout = async (
     kind === 'oz-access-control-uups'
   ) {
     const proxy = parsedContractConfig.proxy
-    const isProxyDeployed = await hre.ethers.provider.getCode(proxy)
+    const isProxyDeployed = (await hre.ethers.provider.getCode(proxy)) !== '0x'
     if (isProxyDeployed) {
       const manifest = await Manifest.forNetwork(hre.network.provider)
       const deployData = await getDeployData(
         hre,
         await hre.ethers.getContractFactory(parsedContractConfig.contract),
-        withValidationDefaults({})
+        withValidationDefaults({
+          kind: toOpenZeppelinContractKind(kind),
+        })
       )
       const storageLayout = await getStorageLayoutForAddress(
         manifest,
