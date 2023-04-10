@@ -1424,7 +1424,7 @@ permission to call the 'upgradeTo' function on each of them.
 
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
-      if (isProxyDeployed && canonicalConfigPath) {
+      if (isProxyDeployed) {
         // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
         // will always be defined so we can safely assert it.
         const newStorageLayout = upgradableContract!.layout

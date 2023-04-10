@@ -58,6 +58,7 @@ export const deployAllChugSplashConfigs = async (
       configPath,
       false,
       true,
+      canonicalConfigPath,
       hre,
       silent
     )
