@@ -627,6 +627,10 @@ export const computeStorageSegments = (
   contractConfig: ParsedContractConfig,
   dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
+  if (contractConfig.kind === 'no-proxy') {
+    return []
+  }
+
   let segments: StorageSlotSegment[] = []
   for (const storageObj of Object.values(extendedLayout.storage)) {
     const configVarValue = contractConfig.variables[storageObj.configVarName]
