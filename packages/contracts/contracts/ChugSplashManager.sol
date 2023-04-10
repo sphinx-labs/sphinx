@@ -950,20 +950,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function _payExecutorAndProtocol(uint256 _initialGasLeft) internal {
-        uint256 gasPrice;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            gasPrice = tx.gasprice;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1000000;
-        } else {
-            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1;
-        }
-
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
         // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
@@ -973,8 +959,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // the side of safety by adding a larger value.
         uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
 
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
+        uint256 executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = (tx.gasprice * gasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
