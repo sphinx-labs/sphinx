@@ -222,7 +222,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'ipfsUrl',
     'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
   )
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .addFlag(
     'noWithdraw',
@@ -297,7 +297,7 @@ task(TASK_CHUGSPLASH_REGISTER)
     'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
   )
   .addParam('owner', 'Owner of the ChugSplash project')
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(chugsplashRegisterTask)
 
 export const chugsplashProposeTask = async (
@@ -366,7 +366,7 @@ export const chugsplashProposeTask = async (
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash project')
   .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addOptionalParam(
     'ipfsUrl',
     'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
@@ -443,7 +443,7 @@ task(TASK_CHUGSPLASH_APPROVE)
     'Skip withdrawing leftover funds to the project owner.'
   )
   .addParam('configPath', 'Path to the ChugSplash config file to approve')
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(chugsplashApproveTask)
 
 subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
@@ -560,7 +560,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       // Exit early if there are no proposals for the project.
       if (proposedEvents.length === 0) {
         console.log('There are no bundles for this project.')
-        process.exit()
+        return
       }
 
       // Filter out the approved bundle event if there is a currently active bundle
@@ -770,7 +770,7 @@ export const chugsplashFundTask = async (
 task(TASK_CHUGSPLASH_FUND)
   .setDescription('Fund a ChugSplash deployment')
   .addOptionalParam('amount', 'Amount to send in wei')
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addParam('configPath', 'Path to the ChugSplash config file')
   .addFlag(
     'autoEstimate',
@@ -784,24 +784,24 @@ task(TASK_NODE)
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
   )
-  .addFlag('hide', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         deployAll: boolean
         disableChugsplash: boolean
-        hide: boolean
+        silent: boolean
         noCompile: boolean
         confirm: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, disableChugsplash, hide, noCompile } = args
+      const { deployAll, disableChugsplash, silent, noCompile } = args
 
       if (!disableChugsplash) {
-        const spinner = ora({ isSilent: hide })
+        const spinner = ora({ isSilent: silent })
         spinner.start('Booting up ChugSplash...')
 
         const signer = hre.ethers.provider.getSigner()
@@ -816,7 +816,7 @@ task(TASK_NODE)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, hide, '')
+          await deployAllChugSplashConfigs(hre, silent, '')
           const networkName = await resolveNetworkName(
             hre.ethers.provider,
             'hardhat'
@@ -833,7 +833,7 @@ task(TASK_NODE)
   )
 
 task(TASK_TEST)
-  .addFlag('show', 'Show ChugSplash deployment information')
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag(
     'skipDeploy',
     'Skip deploying any ChugSplash config files before running the test(s)'
@@ -845,7 +845,7 @@ task(TASK_TEST)
   .setAction(
     async (
       args: {
-        show: boolean
+        silent: boolean
         noCompile: boolean
         confirm: boolean
         configPath: string
@@ -854,7 +854,7 @@ task(TASK_TEST)
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { show, noCompile, configPath, skipDeploy } = args
+      const { silent, noCompile, configPath, skipDeploy } = args
       const remoteExecution = await isRemoteExecution(hre)
 
       const signer = hre.ethers.provider.getSigner()
@@ -888,7 +888,7 @@ task(TASK_TEST)
           if (!skipDeploy) {
             await deployAllChugSplashConfigs(
               hre,
-              !show,
+              silent,
               '',
               configPath ? [configPath] : undefined
             )
@@ -996,7 +996,7 @@ task(TASK_CHUGSPLASH_WITHDRAW)
   .setDescription(
     'Withdraw funds in a ChugSplash project belonging to the project owner.'
   )
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .addParam('configPath', 'Path to the ChugSplash config file')
   .setAction(chugsplashWithdrawTask)
 
@@ -1132,7 +1132,7 @@ task(TASK_CHUGSPLASH_CLAIM_PROXY)
     'referenceName',
     'Reference name of the contract that should be transferred to you'
   )
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(claimProxyTask)
 
 export const transferOwnershipTask = async (
@@ -1170,7 +1170,7 @@ task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
     'proxy',
     'Address of the contract that should have its ownership transferred to ChugSplash.'
   )
-  .addFlag('silent', "Hide all of ChugSplash's output")
+  .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(transferOwnershipTask)
 
 export const chugsplashInitTask = async (
@@ -1257,5 +1257,5 @@ export const chugsplashInitTask = async (
 
 task(TASK_CHUGSPLASH_INIT)
   .setDescription('Sets up a ChugSplash project.')
-  .addFlag('silent', "Hide ChugSplash's output")
+  .addFlag('silent', "Hide ChugSplash's logs")
   .setAction(chugsplashInitTask)
