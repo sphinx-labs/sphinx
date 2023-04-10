@@ -8,21 +8,21 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
- *         deployments must be first registered with this contract, which allows clients to easily
+ *         deployments must be first claimed with this contract, which allows clients to easily
  *         find and index these deployments.
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
-     * @notice Emitted whenever a new project is registered.
+     * @notice Emitted whenever a new project is claimed.
      *
      * @param organizationID Organization ID.
-     * @param creator         Address of the creator of the project.
+     * @param claimer         Address of the claimer of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
      */
-    event ChugSplashProjectRegistered(
+    event ChugSplashProjectClaimed(
         bytes32 indexed organizationID,
-        address indexed creator,
+        address indexed claimer,
         address indexed manager,
         address owner
     );
@@ -89,9 +89,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
     event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
 
     /**
-     * @notice Mapping of project names to ChugSplashManager contracts.
+     * @notice Mapping of claimers to project names to ChugSplashManager contracts.
      */
-    mapping(bytes32 => ChugSplashManager) public projects;
+    mapping(address => mapping(bytes32 => ChugSplashManager)) public projects;
 
     /**
      * @notice Mapping of created manager contracts.
@@ -162,19 +162,20 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Registers a new project.
+     * @notice Claims a new project.
      *
      * @param _organizationID ID of the new ChugSplash project.
      * @param _owner     Initial owner for the new project.
      */
-    function register(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
+    function claim(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
         require(
-            address(projects[_organizationID]) == address(0),
-            "ChugSplashRegistry: organization ID already registered"
+            address(projects[msg.sender][_organizationID]) == address(0),
+            "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
         // Deploy the ChugSplashManager.
-        ChugSplashManager manager = new ChugSplashManager{ salt: _organizationID }(
+        bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
+        ChugSplashManager manager = new ChugSplashManager{ salt: salt }(
             this,
             executionLockTime,
             ownerBondAmount,
@@ -183,10 +184,10 @@ contract ChugSplashRegistry is Ownable, Initializable {
         );
         manager.initialize(_owner, _organizationID, _allowManagedProposals);
 
-        projects[_organizationID] = ChugSplashManager(payable(address(manager)));
+        projects[msg.sender][_organizationID] = ChugSplashManager(payable(address(manager)));
         managers[ChugSplashManager(payable(address(manager)))] = true;
 
-        emit ChugSplashProjectRegistered(_organizationID, msg.sender, address(manager), _owner);
+        emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(manager), _owner);
     }
 
     /**

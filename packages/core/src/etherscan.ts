@@ -1,21 +1,9 @@
 import assert from 'assert'
 
 import { ethers } from 'ethers'
-import {
-  CHUGSPLASH_REGISTRY_ADDRESS,
-  getConstructorArgs,
-  chugsplashFetchSubtask,
-  getMinimumCompilerInput,
-  getCanonicalConfigArtifacts,
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
-  callWithTimeout,
-  CanonicalChugSplashConfig,
-  getContractAddress,
-} from '@chugsplash/core'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
-  EtherscanResponse,
   verifyContract,
   delay,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanService'
@@ -51,7 +39,19 @@ import {
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
-import { etherscanApiKey as apiKey, customChains } from './constants'
+import {
+  CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  customChains,
+} from './constants'
+import { CanonicalChugSplashConfig } from './config/types'
+import {
+  getCanonicalConfigArtifacts,
+  getChugSplashManagerAddress,
+  getConstructorArgs,
+  getContractAddress,
+} from './utils'
+import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
 export interface EtherscanResponseBody {
   status: string
@@ -62,20 +62,24 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
-  configUri: string,
+  canonicalConfig: CanonicalChugSplashConfig,
   provider: ethers.providers.Provider,
-  networkName: string
+  networkName: string,
+  apiKey: string
 ) => {
-  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
-    provider,
-    networkName
+  const managerAddress = getChugSplashManagerAddress(
+    canonicalConfig.options.claimer,
+    canonicalConfig.options.organizationID
   )
 
-  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
-    chugsplashFetchSubtask({ configUri }),
-    30000,
-    'Failed to fetch config file from IPFS'
+  const etherscanApiEndpoints = await getEtherscanEndpoints(
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
+    networkName,
+    chainConfig,
+    customChains
   )
+
   const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
@@ -88,16 +92,21 @@ export const verifyChugSplashConfig = async (
       abi
     )
     const implementationAddress = getContractAddress(
-      canonicalConfig.options.organizationID,
+      managerAddress,
       referenceName,
       contractConfig.constructorArgs,
       artifact
     )
 
-    const { input, solcVersion } = canonicalConfig.inputs.find(
-      (compilerInput) =>
-        Object.keys(compilerInput.input.sources).includes(sourceName)
+    const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
+      Object.keys(compilerInput.input.sources).includes(sourceName)
     )
+
+    if (!chugsplashInput) {
+      // Should not happen. We'll continue to the next contract.
+      continue
+    }
+    const { input, solcVersion } = chugsplashInput
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
@@ -111,12 +120,12 @@ export const verifyChugSplashConfig = async (
       await attemptVerification(
         provider,
         networkName,
-        etherscanApiEndpoints,
+        etherscanApiEndpoints.urls,
         implementationAddress,
         sourceName,
         contractName,
         abi,
-        etherscanApiKey,
+        apiKey,
         minimumCompilerInput,
         solcVersion,
         constructorArgValues
@@ -124,8 +133,8 @@ export const verifyChugSplashConfig = async (
 
       // Link the proxy with its implementation
       await linkProxyWithImplementation(
-        etherscanApiEndpoints,
-        etherscanApiKey,
+        etherscanApiEndpoints.urls,
+        apiKey,
         contractConfig.proxy,
         implementationAddress,
         contractName
@@ -138,11 +147,15 @@ export const verifyChugSplashConfig = async (
 
 export const verifyChugSplash = async (
   provider: ethers.providers.Provider,
-  networkName: string
+  networkName: string,
+  apiKey: string
 ) => {
-  const { etherscanApiKey, etherscanApiEndpoints } = await getEtherscanInfo(
-    provider,
-    networkName
+  const etherscanApiEndpoints = await getEtherscanEndpoints(
+    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    provider as any,
+    networkName,
+    chainConfig,
+    customChains
   )
 
   const contracts = [
@@ -181,12 +194,12 @@ export const verifyChugSplash = async (
     await attemptVerification(
       provider,
       networkName,
-      etherscanApiEndpoints,
+      etherscanApiEndpoints.urls,
       address,
       sourceName,
       contractName,
       abi,
-      etherscanApiKey,
+      apiKey,
       minimumCompilerInput,
       buildInfo.solcVersion,
       CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
@@ -195,8 +208,8 @@ export const verifyChugSplash = async (
 
   // Link the ChugSplashRegistry's implementation with its proxy
   await linkProxyWithImplementation(
-    etherscanApiEndpoints,
-    etherscanApiKey,
+    etherscanApiEndpoints.urls,
+    apiKey,
     CHUGSPLASH_REGISTRY_ADDRESS,
     CHUGSPLASH_REGISTRY_ADDRESS,
     'ChugSplashRegistry'
@@ -206,7 +219,7 @@ export const verifyChugSplash = async (
 export const attemptVerification = async (
   provider: ethers.providers.Provider,
   networkName: string,
-  etherscanApiEndpoints: EtherscanURLs,
+  urls: EtherscanURLs,
   contractAddress: string,
   sourceName: string,
   contractName: string,
@@ -215,7 +228,7 @@ export const attemptVerification = async (
   compilerInput: CompilerInput,
   solcVersion: string,
   constructorArgValues: any[]
-): Promise<EtherscanResponse> => {
+) => {
   const deployedBytecodeHex = await retrieveContractBytecode(
     contractAddress,
     provider as any,
@@ -249,12 +262,12 @@ export const attemptVerification = async (
   })
   let response
   try {
-    response = await verifyContract(etherscanApiEndpoints.apiURL, verifyRequest)
+    response = await verifyContract(urls.apiURL, verifyRequest)
   } catch (err) {
     if (err.message === 'Contract source code already verified') {
       console.log(
         `${contractName} has already been already verified:
-        ${buildContractUrl(etherscanApiEndpoints.browserURL, contractAddress)}`
+        ${buildContractUrl(urls.browserURL, contractAddress)}`
       )
       return
     } else {
@@ -278,15 +291,12 @@ export const attemptVerification = async (
   await delay(700)
   let verificationStatus
   try {
-    verificationStatus = await getVerificationStatus(
-      etherscanApiEndpoints.apiURL,
-      pollRequest
-    )
+    verificationStatus = await getVerificationStatus(urls.apiURL, pollRequest)
   } catch (err) {
     if (err.message.includes('Reason: Already Verified')) {
       console.log(
         `${contractName} has already been already verified:
-        ${buildContractUrl(etherscanApiEndpoints.browserURL, contractAddress)}`
+        ${buildContractUrl(urls.browserURL, contractAddress)}`
       )
       return
     } else {
@@ -295,10 +305,7 @@ export const attemptVerification = async (
   }
 
   if (verificationStatus.isVerificationSuccess()) {
-    const contractURL = buildContractUrl(
-      etherscanApiEndpoints.browserURL,
-      contractAddress
-    )
+    const contractURL = buildContractUrl(urls.browserURL, contractAddress)
     console.log(
       `Successfully verified ${contractName} on Etherscan:
       ${contractURL}`
@@ -313,25 +320,8 @@ export const attemptVerification = async (
   }
 }
 
-export const getEtherscanInfo = async (
-  provider: ethers.providers.Provider,
-  networkName: string
-): Promise<{
-  etherscanApiKey: string
-  etherscanApiEndpoints: EtherscanURLs
-}> => {
-  const { urls: etherscanApiEndpoints } = await getEtherscanEndpoints(
-    provider as any,
-    networkName,
-    chainConfig,
-    customChains
-  )
-
-  return { etherscanApiKey: apiKey, etherscanApiEndpoints }
-}
-
 export const linkProxyWithImplementation = async (
-  etherscanApiEndpoints: EtherscanURLs,
+  urls: EtherscanURLs,
   etherscanApiKey: string,
   proxyAddress: string,
   implAddress: string,
@@ -343,18 +333,14 @@ export const linkProxyWithImplementation = async (
     address: proxyAddress,
     expectedimplementation: implAddress,
   }
-  let responseBody = await callEtherscanApi(
-    etherscanApiEndpoints,
-    etherscanApiKey,
-    params
-  )
+  let responseBody = await callEtherscanApi(urls, etherscanApiKey, params)
 
   if (responseBody.status === RESPONSE_OK) {
     // Initial call was OK, but need to send a status request using the returned guid to get the
     // actual verification status
     const guid = responseBody.result
     responseBody = await checkProxyVerificationStatus(
-      etherscanApiEndpoints,
+      urls,
       etherscanApiKey,
       guid
     )
@@ -362,7 +348,7 @@ export const linkProxyWithImplementation = async (
     while (responseBody.result === 'Pending in queue') {
       await delay(3000)
       responseBody = await checkProxyVerificationStatus(
-        etherscanApiEndpoints,
+        urls,
         etherscanApiKey,
         guid
       )

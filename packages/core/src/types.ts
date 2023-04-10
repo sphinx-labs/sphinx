@@ -4,11 +4,10 @@ import { ethers } from 'ethers'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { ParsedContractConfig } from './config'
-import { Integration } from './constants'
 
 export type ChugSplashRuntimeEnvironment = {
   configPath: string
-  canonicalConfigPath: string | undefined
+  canonicalConfigPath: string
   remoteExecution: boolean
   autoConfirm: boolean
   stream: NodeJS.WritableStream
@@ -68,9 +67,5 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
     provider?: ethers.providers.JsonRpcProvider
   ): Promise<void>
   init(): Promise<void>
-  main(
-    canonicalConfigFolderPath?: string,
-    integration?: Integration,
-    remoteExecution?: boolean
-  ): Promise<void>
+  main(): Promise<void>
 }

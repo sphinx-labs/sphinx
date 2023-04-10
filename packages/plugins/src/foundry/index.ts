@@ -5,9 +5,7 @@ import {
   chugsplashDeployAbstractTask,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
-  chugsplashRegisterAbstractTask,
-  monitorChugSplashSetup,
-  ChugSplashExecutorType,
+  chugsplashClaimAbstractTask,
   chugsplashMonitorAbstractTask,
   chugsplashAddProposersAbstractTask,
   chugsplashWithdrawAbstractTask,
@@ -23,12 +21,11 @@ import {
   readUnvalidatedChugSplashConfig,
   getContractAddress,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
-import ora from 'ora'
 
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
-import { initializeExecutor } from '../executor'
 import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
@@ -36,7 +33,7 @@ const command = args[0]
 
 ;(async () => {
   switch (command) {
-    case 'register': {
+    case 'claim': {
       const configPath = args[1]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
@@ -47,10 +44,14 @@ const command = args[0]
       let owner = args[8]
       const allowManagedProposals = args[9] === 'true'
 
+      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+        fetchPaths(outPath, buildInfoPath)
+
       const cre = await createChugSplashRuntime(
         configPath,
         args[3] !== 'localhost',
         true,
+        canonicalConfigPath,
         undefined,
         silent,
         process.stdout
@@ -59,10 +60,6 @@ const command = args[0]
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
 
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -83,9 +80,9 @@ const command = args[0]
       owner = owner !== 'self' ? owner : address
 
       if (!silent) {
-        console.log('-- ChugSplash Register --')
+        console.log('-- ChugSplash Claim --')
       }
-      await chugsplashRegisterAbstractTask(
+      await chugsplashClaimAbstractTask(
         provider,
         wallet,
         config,
@@ -107,17 +104,19 @@ const command = args[0]
       const ipfsUrl = args[8] !== 'none' ? args[8] : ''
       const remoteExecution = args[9] === 'true'
 
+      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+        fetchPaths(outPath, buildInfoPath)
+
       const cre = await createChugSplashRuntime(
         configPath,
         args[3] !== 'localhost',
         true,
+        canonicalConfigPath,
         undefined,
         silent,
         process.stdout
       )
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -166,19 +165,19 @@ const command = args[0]
       const amount = BigNumber.from(args[8])
       const autoEstimate = args[9] === 'true'
 
+      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+        fetchPaths(outPath, buildInfoPath)
+
       const cre = await createChugSplashRuntime(
         configPath,
         args[3] !== 'localhost',
         true,
+        canonicalConfigPath,
         undefined,
         silent,
         process.stdout
       )
 
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -225,21 +224,23 @@ const command = args[0]
       const withdrawFunds = args[8] === 'true'
       const skipMonitorStatus = args[9] === 'true'
 
-      const cre = await createChugSplashRuntime(
-        configPath,
-        args[3] !== 'localhost',
-        true,
-        undefined,
-        silent,
-        process.stdout
-      )
-
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        canonicalConfigPath,
+        undefined,
+        silent,
+        process.stdout
+      )
+
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -251,8 +252,6 @@ const command = args[0]
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
       await wallet.getAddress()
-
-      const remoteExecution = args[3] !== 'localhost'
 
       const parsedConfig = await readValidatedChugSplashConfig(
         provider,
@@ -275,7 +274,6 @@ const command = args[0]
         'foundry',
         canonicalConfigPath,
         deploymentFolder,
-        remoteExecution,
         parsedConfig,
         cre
       )
@@ -289,10 +287,7 @@ const command = args[0]
       const silent = args[5] === 'true'
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
-      const withdrawFunds = args[8] === 'true'
-      let newOwner = args[9]
-      const ipfsUrl = args[10] !== 'none' ? args[10] : ''
-      const allowManagedProposals = args[11] === 'true'
+      let newOwner = args[8]
 
       const confirm = true
 
@@ -306,21 +301,23 @@ const command = args[0]
         `${logPath}/deploy-${now.getTime()}`
       )
 
-      const cre = await createChugSplashRuntime(
-        configPath,
-        args[3] !== 'localhost',
-        confirm,
-        undefined,
-        silent,
-        logWriter
-      )
-
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        confirm,
+        canonicalConfigPath,
+        undefined,
+        silent,
+        logWriter
+      )
+
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -334,9 +331,6 @@ const command = args[0]
       const address = await wallet.getAddress()
       newOwner = newOwner !== 'self' ? newOwner : address
 
-      const remoteExecution = args[3] !== 'localhost'
-      const spinner = ora({ isSilent: cre.silent, stream: logWriter })
-
       const parsedConfig = await readValidatedChugSplashConfig(
         provider,
         configPath,
@@ -348,33 +342,18 @@ const command = args[0]
       if (!silent) {
         logWriter.write('-- ChugSplash Deploy --\n')
       }
-      let executor: ChugSplashExecutorType | undefined
-      if (remoteExecution) {
-        spinner.start('Waiting for the executor to set up ChugSplash...')
-        await monitorChugSplashSetup(provider)
-      } else {
-        spinner.start('Booting up ChugSplash...')
-        executor = await initializeExecutor(provider)
-      }
-
-      spinner.succeed('ChugSplash is ready to go.')
 
       const contractArtifacts = await chugsplashDeployAbstractTask(
         provider,
         wallet,
         configPath,
-        remoteExecution,
-        ipfsUrl,
-        withdrawFunds,
         newOwner ?? (await wallet.getAddress()),
-        allowManagedProposals,
         artifactPaths,
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
         cre,
-        parsedConfig,
-        executor
+        parsedConfig
       )
 
       const artifactStructABI =
@@ -398,21 +377,23 @@ const command = args[0]
       const withdrawFunds = args[8] === 'true'
       let newOwner = args[9]
 
-      const cre = await createChugSplashRuntime(
-        configPath,
-        args[3] !== 'localhost',
-        true,
-        undefined,
-        silent,
-        process.stdout
-      )
-
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
+
+      const cre = await createChugSplashRuntime(
+        configPath,
+        args[3] !== 'localhost',
+        true,
+        canonicalConfigPath,
+        undefined,
+        silent,
+        process.stdout
+      )
+
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -470,6 +451,7 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
+        '',
         undefined,
         false,
         process.stdout
@@ -501,6 +483,7 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
+        '',
         undefined,
         silent,
         process.stdout
@@ -532,6 +515,7 @@ const command = args[0]
         '',
         args[3] !== 'localhost',
         true,
+        '',
         undefined,
         false,
         process.stdout
@@ -577,6 +561,7 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
+        '',
         undefined,
         false,
         process.stdout
@@ -603,19 +588,19 @@ const command = args[0]
       const buildInfoPath = cleanPath(args[7])
       const referenceName = args[8]
 
+      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+        fetchPaths(outPath, buildInfoPath)
+
       const cre = await createChugSplashRuntime(
         configPath,
         args[3] !== 'localhost',
         true,
+        canonicalConfigPath,
         undefined,
         silent,
         process.stdout
       )
 
-      const { artifactFolder, buildInfoFolder } = fetchPaths(
-        outPath,
-        buildInfoPath
-      )
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
       const artifactPaths = await getArtifactPaths(
         userConfig.contracts,
@@ -667,6 +652,7 @@ const command = args[0]
         configPath,
         args[3] !== 'localhost',
         true,
+        '',
         undefined,
         silent,
         process.stdout
@@ -693,6 +679,12 @@ const command = args[0]
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
+      const { projectName, organizationID, claimer } = userConfig.options
+      const managerAddress = getChugSplashManagerAddress(
+        claimer,
+        organizationID
+      )
+
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
         const { artifactFolder, buildInfoFolder } = fetchPaths(
           outPath,
@@ -705,7 +697,7 @@ const command = args[0]
         )
 
         const address = getContractAddress(
-          userConfig.options.organizationID,
+          managerAddress,
           referenceName,
           userConfig.contracts[referenceName].constructorArgs ?? {},
           { integration: 'foundry', artifactPaths }
@@ -715,8 +707,9 @@ const command = args[0]
         const proxy =
           userConfig.contracts[referenceName].externalProxy ||
           getDefaultProxyAddress(
-            userConfig.options.organizationID,
-            userConfig.options.projectName,
+            claimer,
+            organizationID,
+            projectName,
             referenceName
           )
         process.stdout.write(proxy)

@@ -1,6 +1,6 @@
 const { ethers } = require('ethers')
 
-const projectName = 'Register, propose, fund, approve test'
+const projectName = 'Claim, propose, fund, approve test'
 
 module.exports = {
   // Configuration options for the project:
@@ -9,6 +9,7 @@ module.exports = {
       ethers.utils.toUtf8Bytes(projectName)
     ),
     projectName,
+    claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   },
   contracts: {
     MySimpleStorage: {

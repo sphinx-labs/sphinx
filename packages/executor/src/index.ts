@@ -13,22 +13,18 @@ import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
   CHUGSPLASH_REGISTRY_ADDRESS,
   initializeChugSplash,
-  Integration,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
+  isSupportedNetworkOnEtherscan,
+  verifyChugSplash,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { GraphQLClient } from 'graphql-request'
 
-import { verifyChugSplash, isSupportedNetworkOnEtherscan } from './utils'
-import {
-  ExecutorMessage,
-  handleExecution,
-  ResponseMessage,
-} from './utils/execute'
+import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
 export class ChugSplashExecutor extends BaseServiceV2<
@@ -160,13 +156,24 @@ export class ChugSplashExecutor extends BaseServiceV2<
       if (
         isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
       ) {
-        this.logger.info(
-          '[ChugSplash]: attempting to verify the chugsplash contracts...'
-        )
-        await verifyChugSplash(this.state.provider, this.options.network)
-        this.logger.info(
-          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-        )
+        const apiKey = process.env.ETHERSCAN_API_KEY
+        if (apiKey) {
+          this.logger.info(
+            '[ChugSplash]: attempting to verify the chugsplash contracts...'
+          )
+          await verifyChugSplash(
+            this.state.provider,
+            this.options.network,
+            apiKey
+          )
+          this.logger.info(
+            '[ChugSplash]: finished attempting to verify the chugsplash contracts'
+          )
+        } else {
+          this.logger.info(
+            `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
+          )
+        }
       } else {
         this.logger.info(
           `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
@@ -180,11 +187,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     }
   }
 
-  async main(
-    canonicalConfigFolderPath?: string,
-    integration?: Integration,
-    remoteExecution: boolean = true
-  ) {
+  async main() {
     const { provider, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
@@ -265,60 +268,51 @@ export class ChugSplashExecutor extends BaseServiceV2<
       const executionMessage: ExecutorMessage = {
         executorEvent: event,
         key,
-        provider: remoteExecution ? this.options.url : this.state.provider,
+        provider: this.options.url,
         loggerOptions: this.logger.options,
-        remoteExecution,
-        canonicalConfigFolderPath,
         network: this.options.network,
         managedApiUrl: this.options.managedApiUrl,
         managedPublicKey: process.env.MANAGED_PUBLIC_KEY,
-        integration,
       }
-      if (remoteExecution) {
-        // If the event is being processed remotely then fork a child process and pass in the event and other required args
-        const child = fork(`${__dirname}/utils/child.js`, {
-          stdio: 'inherit',
-        })
-        child.send(executionMessage)
 
-        // listen for events from child process
-        child.on('message', (message: ResponseMessage) => {
-          if (message.action === 'log') {
-            this.logger[message.log.level](
-              message.log.message,
-              message.log.err,
-              message.log.options
-            )
-            return
-          }
+      // Fork a child process and pass in the event and other required args
+      const child = fork(`${__dirname}/utils/child.js`, {
+        stdio: 'inherit',
+      })
+      child.send(executionMessage)
 
-          this.state.executionCache = this.state.executionCache.filter(
-            (e) =>
-              e.event.transactionHash !== message.payload.event.transactionHash
+      // listen for events from child process
+      child.on('message', (message: ResponseMessage) => {
+        if (message.action === 'log') {
+          this.logger[message.log.level](
+            message.log.message,
+            message.log.err,
+            message.log.options
           )
+          return
+        }
 
-          // unlock the selected key
-          this.state.keys[key.id].locked = false
+        this.state.executionCache = this.state.executionCache.filter(
+          (e) =>
+            e.event.transactionHash !== message.payload.event.transactionHash
+        )
 
-          switch (message.action) {
-            // on retry, put the new event back into the queue
-            case 'retry':
-              if (message.payload.retry === -1) {
-                this.logger.info(
-                  '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
-                )
-              } else {
-                this.state.eventsQueue.push(message.payload)
-              }
-              return
-          }
-        })
-      } else {
-        // if executing locally then call the execution handler directly
-        await handleExecution(executionMessage)
         // unlock the selected key
         this.state.keys[key.id].locked = false
-      }
+
+        switch (message.action) {
+          // on retry, put the new event back into the queue
+          case 'retry':
+            if (message.payload.retry === -1) {
+              this.logger.info(
+                '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
+              )
+            } else {
+              this.state.eventsQueue.push(message.payload)
+            }
+            return
+        }
+      })
     }
   }
 }

@@ -68,6 +68,7 @@ export interface UserChugSplashConfig {
   options: {
     organizationID: string
     projectName: string
+    claimer: string
   }
   contracts: UserContractConfigs
 }
@@ -79,6 +80,7 @@ export interface ParsedChugSplashConfig {
   options: {
     organizationID: string
     projectName: string
+    claimer: string
   }
   contracts: ParsedContractConfigs
 }

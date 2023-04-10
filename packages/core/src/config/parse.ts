@@ -1277,6 +1277,7 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
@@ -1424,7 +1425,7 @@ permission to call the 'upgradeTo' function on each of them.
 
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
-      if (isProxyDeployed && canonicalConfigPath) {
+      if (isProxyDeployed) {
         // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
         // will always be defined so we can safely assert it.
         const newStorageLayout = upgradableContract!.layout
@@ -1728,6 +1729,10 @@ const resolveContractAddresses = (
   userConfig: UserChugSplashConfig,
   cachedArtifacts: { [referenceName: string]: ContractArtifact }
 ): { [referenceName: string]: string } => {
+  const { projectName, organizationID, claimer } = userConfig.options
+
+  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -1740,8 +1745,9 @@ const resolveContractAddresses = (
     const proxy =
       externalProxy ||
       getDefaultProxyAddress(
-        userConfig.options.organizationID,
-        userConfig.options.projectName,
+        claimer,
+        organizationID,
+        projectName,
         referenceName
       )
 
@@ -1749,7 +1755,7 @@ const resolveContractAddresses = (
       kind !== 'no-proxy'
         ? proxy
         : getContractAddress(
-            userConfig.options.organizationID,
+            managerAddress,
             referenceName,
             userContractConfig.constructorArgs ?? {},
             cachedArtifacts[referenceName]

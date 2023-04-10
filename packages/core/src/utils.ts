@@ -136,11 +136,15 @@ export const writeDeploymentArtifact = (
  * @returns Address of the default EIP-1967 proxy used by ChugSplash.
  */
 export const getDefaultProxyAddress = (
+  claimer: string,
   organizationID: string,
   projectName: string,
   referenceName: string
 ): string => {
-  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
+  const chugSplashManagerAddress = getChugSplashManagerAddress(
+    claimer,
+    organizationID
+  )
 
   const salt = utils.keccak256(
     utils.defaultAbiCoder.encode(
@@ -176,10 +180,20 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerAddress = (organizationID: string) => {
+export const getChugSplashManagerAddress = (
+  claimer: string,
+  organizationID: string
+) => {
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['address', 'bytes32'],
+      [claimer, organizationID]
+    )
+  )
+
   return utils.getCreate2Address(
     CHUGSPLASH_REGISTRY_ADDRESS,
-    organizationID,
+    salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -200,31 +214,31 @@ export const getChugSplashManagerAddress = (organizationID: string) => {
 }
 
 /**
- * Registers a new ChugSplash project.
+ * Claims a new ChugSplash project.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
  * @param organizationID ID of the organization.
- * @param projectOwner Owner of the ChugSplashManager contract deployed by this call.
- * @returns True if the project was registered for the first time in this call, and false if the
- * project was already registered by the caller.
+ * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
+ * @returns True if the project was claimed for the first time in this call, and false if the
+ * project was already claimed by the caller.
  */
-export const registerChugSplashProject = async (
+export const claimChugSplashProject = async (
   provider: providers.JsonRpcProvider,
-  signer: Signer,
-  signerAddress: string,
+  claimer: Signer,
   organizationID: string,
-  projectOwner: string,
+  newOwnerAddress: string,
   allowManagedProposals: boolean
 ): Promise<boolean> => {
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  const ChugSplashRegistry = getChugSplashRegistry(claimer)
+  const claimerAddress = await claimer.getAddress()
 
   if (
-    (await ChugSplashRegistry.projects(organizationID)) ===
+    (await ChugSplashRegistry.projects(claimerAddress, organizationID)) ===
     constants.AddressZero
   ) {
     await (
-      await ChugSplashRegistry.register(
-        projectOwner,
+      await ChugSplashRegistry.claim(
+        newOwnerAddress,
         organizationID,
         allowManagedProposals,
         await getGasPriceOverrides(provider)
@@ -232,12 +246,11 @@ export const registerChugSplashProject = async (
     ).wait()
     return true
   } else {
-    const existingProjectOwner = await getProjectOwnerAddress(
-      signer,
-      organizationID
+    const existingOwnerAddress = await getProjectOwnerAddress(
+      getChugSplashManager(provider, claimerAddress, organizationID)
     )
-    if (existingProjectOwner !== signerAddress) {
-      throw new Error(`Project already owned by: ${existingProjectOwner}.`)
+    if (existingOwnerAddress !== newOwnerAddress) {
+      throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
       return false
     }
@@ -245,11 +258,8 @@ export const registerChugSplashProject = async (
 }
 
 export const getProjectOwnerAddress = async (
-  signer: Signer,
-  organizationID: string
+  ChugSplashManager: ethers.Contract
 ): Promise<string> => {
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
-
   const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.OwnershipTransferred()
   )
@@ -280,24 +290,14 @@ export const getChugSplashRegistry = (
 }
 
 export const getChugSplashManager = (
-  signer: Signer,
+  signerOrProvider: Signer | providers.Provider,
+  claimer: string,
   organizationID: string
 ) => {
   return new Contract(
-    getChugSplashManagerAddress(organizationID),
+    getChugSplashManagerAddress(claimer, organizationID),
     ChugSplashManagerABI,
-    signer
-  )
-}
-
-export const getChugSplashManagerReadOnly = (
-  provider: providers.Provider,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    provider
+    signerOrProvider
   )
 }
 
@@ -341,6 +341,10 @@ export const displayDeploymentTable = (
   integration: Integration,
   silent: boolean
 ) => {
+  const managerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
+    parsedConfig.options.organizationID
+  )
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
@@ -350,7 +354,7 @@ export const displayDeploymentTable = (
           contractConfig.kind !== 'no-proxy'
             ? contractConfig.proxy
             : getContractAddress(
-                parsedConfig.options.organizationID,
+                managerAddress,
                 referenceName,
                 parsedConfig.contracts[referenceName].constructorArgs,
                 { integration, artifactPaths }
@@ -428,40 +432,50 @@ export const formatEther = (
   return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
 }
 
-export const readCanonicalConfig = (
+export const readCanonicalConfig = async (
+  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string
-): CanonicalChugSplashConfig => {
+): Promise<CanonicalChugSplashConfig> => {
   const ipfsHash = configUri.replace('ipfs://', '')
+
+  const network = await provider.getNetwork()
+
   // Check that the file containing the canonical config exists.
-  const canonicalConfigFilePath = path.join(
+  const configFilePath = path.join(
     canonicalConfigFolderPath,
+    network.name,
     `${ipfsHash}.json`
   )
-  if (!fs.existsSync(canonicalConfigFilePath)) {
-    throw new Error(`Could not find cached canonical config file at:
-${canonicalConfigFilePath}`)
+  if (!fs.existsSync(configFilePath)) {
+    throw new Error(`Could not find local canonical config file at:
+${configFilePath}`)
   }
 
-  return JSON.parse(fs.readFileSync(canonicalConfigFilePath, 'utf8'))
+  return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
-export const writeCanonicalConfig = (
+export const writeCanonicalConfig = async (
+  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
-  // Create the canonical config folder if it doesn't already exist.
-  if (!fs.existsSync(canonicalConfigFolderPath)) {
-    fs.mkdirSync(canonicalConfigFolderPath)
+  const network = await provider.getNetwork()
+
+  const networkFolderPath = path.join(canonicalConfigFolderPath, network.name)
+
+  // Create the canonical config network folder if it doesn't already exist.
+  if (!fs.existsSync(networkFolderPath)) {
+    fs.mkdirSync(networkFolderPath, { recursive: true })
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
   fs.writeFileSync(
-    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
+    path.join(networkFolderPath, `${ipfsHash}.json`),
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
@@ -528,20 +542,17 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-export const isProjectRegistered = async (
-  signer: Signer,
-  organizationID: string
+export const isProjectClaimed = async (
+  signerOrProvider: Signer | providers.Provider,
+  managerAddress: string
 ) => {
   const ChugSplashRegistry = new ethers.Contract(
     CHUGSPLASH_REGISTRY_ADDRESS,
     ChugSplashRegistryABI,
-    signer
+    signerOrProvider
   )
-  const chugsplashManagerAddress = getChugSplashManagerAddress(organizationID)
-  const isRegistered: boolean = await ChugSplashRegistry.managers(
-    chugsplashManagerAddress
-  )
-  return isRegistered
+  const isClaimed: boolean = await ChugSplashRegistry.managers(managerAddress)
+  return isClaimed
 }
 
 export const isInternalDefaultProxy = async (
@@ -793,7 +804,7 @@ export const isEqualType = (
  * @returns Address of the contract.
  */
 export const getContractAddress = (
-  organizationID: string,
+  managerAddress: string,
   referenceName: string,
   constructorArgs: UserConfigVariables,
   maybeArtifact:
@@ -819,10 +830,8 @@ export const getContractAddress = (
     abi
   )
 
-  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
-
   return utils.getCreate2Address(
-    chugSplashManagerAddress,
+    managerAddress,
     ethers.constants.HashZero,
     utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
   )
@@ -1145,6 +1154,7 @@ export const getPreviousCanonicalConfig = async (
     )
   } else {
     return readCanonicalConfig(
+      provider,
       canonicalConfigFolderPath,
       latestProposalEvent.args.configUri
     )
@@ -1253,4 +1263,11 @@ export const getDeploymentEvents = async (
   )
 
   return proxyDeployedEvents.concat(contractDeployedEvents)
+}
+
+export const getChainId = async (
+  provider: ethers.providers.Provider
+): Promise<number> => {
+  const network = await provider.getNetwork()
+  return network.chainId
 }
