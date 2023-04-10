@@ -14,7 +14,7 @@ import {
   getChugSplashRegistry,
   chugsplashFetchSubtask,
   initializeChugSplash,
-  chugsplashRegisterAbstractTask,
+  chugsplashClaimAbstractTask,
   chugsplashCommitAbstractSubtask,
   bundleLocal,
   chugsplashProposeAbstractTask,
@@ -72,7 +72,7 @@ export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
-export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
+export const TASK_CHUGSPLASH_CLAIM = 'chugsplash-claim'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
@@ -193,7 +193,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .setAction(chugsplashDeployTask)
 
-export const chugsplashRegisterTask = async (
+export const chugsplashClaimTask = async (
   args: {
     configPath: string
     allowManagedProposals: boolean
@@ -233,7 +233,7 @@ export const chugsplashRegisterTask = async (
     cre
   )
 
-  await chugsplashRegisterAbstractTask(
+  await chugsplashClaimAbstractTask(
     provider,
     signer,
     parsedConfig,
@@ -244,8 +244,8 @@ export const chugsplashRegisterTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_REGISTER)
-  .setDescription('Registers a new ChugSplash project')
+task(TASK_CHUGSPLASH_CLAIM)
+  .setDescription('Claims a new ChugSplash project')
   .addParam('configPath', 'Path to the ChugSplash config file to propose')
   .addFlag(
     'allowManagedProposals',
@@ -253,7 +253,7 @@ task(TASK_CHUGSPLASH_REGISTER)
   )
   .addParam('owner', 'Owner of the ChugSplash project')
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(chugsplashRegisterTask)
+  .setAction(chugsplashClaimTask)
 
 export const chugsplashProposeTask = async (
   args: {
@@ -412,14 +412,14 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
     )
 
     const events = await ChugSplashRegistry.queryFilter(
-      ChugSplashRegistry.filters.ChugSplashProjectRegistered()
+      ChugSplashRegistry.filters.ChugSplashProjectClaimed()
     )
 
     console.table(
       events.map((event) => {
         if (event.args === undefined) {
           throw new Error(
-            `ChugSplashProjectRegistered event does not have arguments.`
+            `ChugSplashProjectClaimed event does not have arguments.`
           )
         }
 
@@ -483,11 +483,13 @@ subtask(TASK_CHUGSPLASH_COMMIT)
 
 subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
   .setDescription('Lists all bundles for a given project')
+  .addParam('claimer', 'Claimer address')
   .addParam('organizationID', 'Organization ID')
   .addFlag('includeExecuted', 'include bundles that have been executed')
   .setAction(
     async (
       args: {
+        claimer: string
         organizationID: string
         includeExecuted: boolean
       },
@@ -500,7 +502,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.organizationID),
+        await ChugSplashRegistry.projects(args.claimer, args.organizationID),
         ChugSplashManagerABI,
         signer
       )

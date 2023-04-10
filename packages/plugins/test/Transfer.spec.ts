@@ -9,7 +9,7 @@ import { expect } from 'chai'
 import hre, { ethers } from 'hardhat'
 import {
   getChugSplashManagerAddress,
-  chugsplashRegisterAbstractTask,
+  chugsplashClaimAbstractTask,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
@@ -32,8 +32,10 @@ const transparentUpgradeConfigPath =
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
+  let claimer: SignerWithAddress
   before(async () => {
     const signers = await hre.ethers.getSigners()
+    claimer = signers[0]
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `externalProxy` field of the relevant
@@ -89,9 +91,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -100,6 +102,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -203,9 +206,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -214,6 +217,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -265,8 +269,9 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const manager = await getChugSplashManager(
+    const manager = getChugSplashManager(
       signer,
+      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
 
@@ -334,9 +339,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -345,6 +350,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -404,8 +410,9 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const manager = await getChugSplashManager(
+    const manager = getChugSplashManager(
       signer,
+      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
     await manager.claimProxyOwnership(

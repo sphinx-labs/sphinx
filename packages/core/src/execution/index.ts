@@ -42,8 +42,12 @@ export const monitorExecution = async (
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const { projectName, organizationID } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
+  const { projectName, organizationID, claimer } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(
+    signer,
+    claimer,
+    organizationID
+  )
 
   // Get the bundle state of the bundle ID.
   let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
@@ -86,6 +90,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       bundleState.actionsExecuted.toNumber(),
+      claimer,
       organizationID,
       projectName,
       false
@@ -150,17 +155,15 @@ export const postExecutionActions = async (
   deploymentFolderPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  newProjectOwner?: string,
+  newProjectOwner?: string | undefined,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const ChugSplashManager = getChugSplashManager(
     signer,
+    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
-  const currProjectOwner = await getProjectOwnerAddress(
-    signer,
-    parsedConfig.options.organizationID
-  )
+  const currProjectOwner = await getProjectOwnerAddress(ChugSplashManager)
 
   // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
   if (

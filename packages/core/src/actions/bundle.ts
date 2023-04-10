@@ -19,6 +19,7 @@ import {
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
+  getChugSplashManagerAddress,
 } from '../utils'
 import {
   ChugSplashAction,
@@ -345,6 +346,11 @@ export const makeActionBundleFromConfig = async (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: CanonicalConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
+  const managerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
+    parsedConfig.options.organizationID
+  )
+
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -364,7 +370,7 @@ export const makeActionBundleFromConfig = async (
     if (
       (await provider.getCode(
         getContractAddress(
-          parsedConfig.options.organizationID,
+          managerAddress,
           referenceName,
           contractConfig.constructorArgs,
           artifacts[referenceName]
@@ -419,7 +425,9 @@ export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: CanonicalConfigArtifacts
 ): ChugSplashTargetBundle => {
-  const projectName = parsedConfig.options.projectName
+  const { projectName, organizationID, claimer } = parsedConfig.options
+
+  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
 
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -431,7 +439,7 @@ export const makeTargetBundleFromConfig = (
       contractKindHash: contractKindHashes[contractConfig.kind],
       proxy: contractConfig.proxy,
       implementation: getContractAddress(
-        parsedConfig.options.organizationID,
+        managerAddress,
         referenceName,
         contractConfig.constructorArgs,
         artifacts[referenceName]

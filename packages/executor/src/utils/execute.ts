@@ -155,7 +155,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName, organizationID } = canonicalConfig.options
+  const { projectName, organizationID, claimer } = canonicalConfig.options
 
   const expectedBundleId = computeBundleId(
     bundles.actionBundle.root,
@@ -231,6 +231,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       rpcProvider,
       bundles,
       bundleState.actionsExecuted.toNumber(),
+      claimer,
       organizationID,
       projectName
     )
@@ -346,7 +347,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
 
     await trackExecuted(
-      await getProjectOwnerAddress(wallet, organizationID),
+      await getProjectOwnerAddress(manager),
       organizationID,
       projectName,
       network,
