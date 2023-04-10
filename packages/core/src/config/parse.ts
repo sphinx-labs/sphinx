@@ -933,7 +933,10 @@ const parseContractVariables = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConfigVariables: ParsedConfigVariables = {}
-  if (!contractConfig.variables) {
+  if (
+    !contractConfig.variables ||
+    Object.keys(contractConfig.variables).length === 0
+  ) {
     return {}
   }
 
