@@ -29,8 +29,8 @@ import {
   chugsplashListProjectsAbstractTask,
   chugsplashListProposersAbstractTask,
   chugsplashAddProposersAbstractTask,
-  chugsplashClaimProxyAbstractTask,
-  chugsplashTransferOwnershipAbstractTask,
+  chugsplashExportProxyAbstractTask,
+  chugsplashImportProxyAbstractTask,
   ArtifactPaths,
   bundleRemoteSubtask,
   ChugSplashBundles,
@@ -82,9 +82,8 @@ export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_PROPOSERS = 'chugsplash-list-proposers'
 export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
-export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
-  'chugsplash-transfer-ownership'
-export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
+export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
+export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -1063,7 +1062,7 @@ task(TASK_CHUGSPLASH_ADD_PROPOSER)
   )
   .setAction(addProposerTask)
 
-export const claimProxyTask = async (
+export const exportProxyTask = async (
   args: {
     configPath: string
     referenceName: string
@@ -1100,7 +1099,7 @@ export const claimProxyTask = async (
     cre
   )
 
-  await chugsplashClaimProxyAbstractTask(
+  await chugsplashExportProxyAbstractTask(
     provider,
     signer,
     configPath,
@@ -1111,7 +1110,7 @@ export const claimProxyTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_CLAIM_PROXY)
+task(TASK_CHUGSPLASH_EXPORT_PROXY)
   .setDescription(
     'Transfers ownership of a proxy from ChugSplash to the caller'
   )
@@ -1124,9 +1123,9 @@ task(TASK_CHUGSPLASH_CLAIM_PROXY)
     'Reference name of the contract that should be transferred to you'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(claimProxyTask)
+  .setAction(exportProxyTask)
 
-export const transferOwnershipTask = async (
+export const importProxyTask = async (
   args: {
     configPath: string
     proxy: string
@@ -1148,7 +1147,7 @@ export const transferOwnershipTask = async (
     silent
   )
 
-  await chugsplashTransferOwnershipAbstractTask(
+  await chugsplashImportProxyAbstractTask(
     provider,
     signer,
     configPath,
@@ -1158,7 +1157,7 @@ export const transferOwnershipTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
+task(TASK_CHUGSPLASH_IMPORT_PROXY)
   .setDescription('Transfers ownership of a proxy to ChugSplash')
   .addParam(
     'configPath',
@@ -1169,7 +1168,7 @@ task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
     'Address of the contract that should have its ownership transferred to ChugSplash.'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(transferOwnershipTask)
+  .setAction(importProxyTask)
 
 export const chugsplashInitTask = async (
   args: {

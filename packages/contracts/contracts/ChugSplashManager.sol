@@ -862,11 +862,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @notice Transfers ownership of a proxy from this contract to the project owner.
+     * @notice Transfers ownership of a proxy from this contract to a given address.
      *
      * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
      */
-    function claimProxyOwnership(
+    function exportProxy(
         address payable _proxy,
         bytes32 _contractKindHash,
         address _newOwner

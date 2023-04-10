@@ -405,7 +405,7 @@ contract ChugSplash is Script, Test {
         return result;
     }
 
-    function claimProxy(
+    function exportProxy(
         string memory configPath,
         string memory referenceName,
         bool silent
@@ -416,7 +416,7 @@ contract ChugSplash is Script, Test {
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "claimProxy";
+        cmds[3] = "exportProxy";
         cmds[4] = configPath;
         cmds[5] = rpcUrl;
         cmds[6] = network;
@@ -436,7 +436,7 @@ contract ChugSplash is Script, Test {
         return result;
     }
 
-    function transferProxy(
+    function importProxy(
         string memory configPath,
         address proxyAddress,
         bool silent
@@ -445,7 +445,7 @@ contract ChugSplash is Script, Test {
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "transferProxy";
+        cmds[3] = "importProxy";
         cmds[4] = configPath;
         cmds[5] = rpcUrl;
         cmds[6] = network;
