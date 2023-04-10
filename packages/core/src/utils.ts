@@ -1254,3 +1254,10 @@ export const getDeploymentEvents = async (
 
   return proxyDeployedEvents.concat(contractDeployedEvents)
 }
+
+export const getChainId = async (
+  provider: ethers.providers.Provider
+): Promise<number> => {
+  const network = await provider.getNetwork()
+  return network.chainId
+}

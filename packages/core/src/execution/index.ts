@@ -12,10 +12,9 @@ import {
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
 import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
-import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
+import { getAmountToDeposit } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
-  formatEther,
   getChugSplashManager,
   getDeploymentEvents,
   getGasPriceOverrides,
@@ -147,7 +146,6 @@ export const postExecutionActions = async (
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
   deploymentEvents: ethers.Event[],
-  withdraw: boolean,
   networkName: string,
   deploymentFolderPath: string,
   artifactPaths: ArtifactPaths,
@@ -164,65 +162,29 @@ export const postExecutionActions = async (
     parsedConfig.options.organizationID
   )
 
-  spinner.start(`Retrieving leftover funds...`)
-
-  if ((await signer.getAddress()) === currProjectOwner) {
-    const ownerBalance = await getOwnerWithdrawableAmount(
-      provider,
-      parsedConfig.options.organizationID
-    )
-    if (withdraw) {
-      // Withdraw any of the current project owner's funds in the ChugSplashManager.
-      if (ownerBalance.gt(0)) {
-        await (
-          await ChugSplashManager.withdrawOwnerETH(
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-        spinner.succeed(
-          `Sent leftover funds to the project owner. Amount: ${formatEther(
-            ownerBalance,
-            4
-          )} ETH. Recipient: ${currProjectOwner}`
+  // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
+  if (
+    newProjectOwner !== undefined &&
+    ethers.utils.isAddress(newProjectOwner) &&
+    newProjectOwner !== currProjectOwner
+  ) {
+    spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
+    if (newProjectOwner === ethers.constants.AddressZero) {
+      // We must call a separate function if ownership is being transferred to address(0).
+      await (
+        await ChugSplashManager.renounceOwnership(
+          await getGasPriceOverrides(provider)
         )
-      } else {
-        spinner.succeed(
-          `There were no leftover funds to send to the project owner.`
-        )
-      }
+      ).wait()
     } else {
-      spinner.succeed(
-        `Skipped withdrawing leftover funds. Amount remaining: ${formatEther(
-          ownerBalance,
-          4
-        )} ETH.`
-      )
+      await (
+        await ChugSplashManager.transferOwnership(
+          newProjectOwner,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
-
-    // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
-    if (
-      newProjectOwner !== undefined &&
-      ethers.utils.isAddress(newProjectOwner) &&
-      newProjectOwner !== currProjectOwner
-    ) {
-      spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
-      if (newProjectOwner === ethers.constants.AddressZero) {
-        // We must call a separate function if ownership is being transferred to address(0).
-        await (
-          await ChugSplashManager.renounceOwnership(
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-      } else {
-        await (
-          await ChugSplashManager.transferOwnership(
-            newProjectOwner,
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-      }
-      spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
-    }
+    spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
   }
 
   spinner.start(`Writing deployment artifacts...`)

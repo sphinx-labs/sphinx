@@ -9,7 +9,6 @@ import {
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  ChugSplashExecutorType,
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
@@ -18,7 +17,6 @@ import {
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { getArtifactPaths } from './artifacts'
-import { isRemoteExecution } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
@@ -49,14 +47,8 @@ export const deployAllChugSplashConfigs = async (
   ipfsUrl: string,
   fileNames?: string[]
 ) => {
-  const remoteExecution = await isRemoteExecution(hre)
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
-
-  let executor: ChugSplashExecutorType | undefined
-  if (!remoteExecution) {
-    executor = hre.chugsplash.executor
-  }
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -64,7 +56,7 @@ export const deployAllChugSplashConfigs = async (
   for (const configPath of fileNames) {
     const cre = await createChugSplashRuntime(
       configPath,
-      remoteExecution,
+      false,
       true,
       hre,
       silent
@@ -97,18 +89,13 @@ export const deployAllChugSplashConfigs = async (
       hre.ethers.provider,
       hre.ethers.provider.getSigner(),
       configPath,
-      remoteExecution,
-      ipfsUrl,
-      true,
       await signer.getAddress(),
-      false,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      executor
+      parsedConfig
     )
   }
 }
@@ -118,9 +105,6 @@ export const getContract = async (
   projectName: string,
   referenceName: string
 ): Promise<ethers.Contract> => {
-  if (await isRemoteExecution(hre)) {
-    throw new Error('Only the Hardhat Network is currently supported.')
-  }
   const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.chugsplash
   ).filter((configFileName) => {

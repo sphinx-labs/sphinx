@@ -216,7 +216,7 @@ contract ChugSplash is Script, Test {
     ) public {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](15);
+        string[] memory cmds = new string[](12);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
@@ -228,10 +228,7 @@ contract ChugSplash is Script, Test {
         cmds[8] = silent == true ? "true" : "false";
         cmds[9] = outPath;
         cmds[10] = buildInfoPath;
-        cmds[11] = withdrawFunds == true ? "true" : "false";
-        cmds[12] = newOwner;
-        cmds[13] = ipfsUrl;
-        cmds[14] = allowManagedProposals == true ? "true" : "false";
+        cmds[11] = newOwner;
 
         bytes memory result = vm.ffi(cmds);
         if (isChugSplashTest) {
