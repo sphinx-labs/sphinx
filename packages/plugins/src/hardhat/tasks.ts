@@ -14,7 +14,6 @@ import {
   getChugSplashRegistry,
   chugsplashFetchSubtask,
   initializeChugSplash,
-  monitorChugSplashSetup,
   chugsplashRegisterAbstractTask,
   chugsplashCommitAbstractSubtask,
   bundleLocal,
@@ -32,7 +31,6 @@ import {
   chugsplashAddProposersAbstractTask,
   chugsplashClaimProxyAbstractTask,
   chugsplashTransferOwnershipAbstractTask,
-  ChugSplashExecutorType,
   ArtifactPaths,
   bundleRemoteSubtask,
   ChugSplashBundles,
@@ -121,30 +119,17 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
-    allowManagedProposals: boolean
     newOwner: string
-    ipfsUrl: string
     silent: boolean
     noCompile: boolean
     confirm: boolean
-    noWithdraw: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    allowManagedProposals,
-    newOwner,
-    ipfsUrl,
-    silent,
-    noCompile,
-    confirm,
-    noWithdraw,
-  } = args
-  const remoteExecution = await isRemoteExecution(hre)
+  const { configPath, newOwner, silent, noCompile, confirm } = args
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     confirm,
     hre,
     silent
@@ -156,23 +141,10 @@ export const chugsplashDeployTask = async (
     })
   }
 
-  const spinner = ora({ isSilent: silent })
-
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
   await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
-
-  let executor: ChugSplashExecutorType | undefined
-  if (remoteExecution) {
-    spinner.start('Waiting for the executor to set up ChugSplash...')
-    await monitorChugSplashSetup(provider)
-  } else {
-    spinner.start('Booting up ChugSplash...')
-    executor = hre.chugsplash.executor
-  }
-
-  spinner.succeed('ChugSplash is ready to go.')
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -196,18 +168,13 @@ export const chugsplashDeployTask = async (
     provider,
     signer,
     configPath,
-    remoteExecution,
-    ipfsUrl,
-    !noWithdraw,
     newOwner ?? signerAddress,
-    allowManagedProposals,
     artifactPaths,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
-    parsedConfig,
-    executor
+    parsedConfig
   )
 }
 
@@ -218,23 +185,11 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
   )
-  .addOptionalParam(
-    'ipfsUrl',
-    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
-  )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .addFlag(
-    'noWithdraw',
-    'Skip withdrawing leftover funds to the project owner.'
-  )
-  .addFlag(
     'confirm',
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
-  .addFlag(
-    'allowManagedProposals',
-    'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
   )
   .setAction(chugsplashDeployTask)
 
@@ -430,7 +385,6 @@ export const chugsplashApproveTask = async (
     'hardhat',
     canonicalConfigPath,
     deploymentFolder,
-    remoteExecution,
     parsedConfig,
     cre
   )
