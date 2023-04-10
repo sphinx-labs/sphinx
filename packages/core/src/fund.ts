@@ -2,7 +2,7 @@ import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 
 import {
-  getChugSplashManagerReadOnly,
+  getChugSplashManager,
   getDefaultProxyAddress,
   isContractDeployed,
 } from './utils'
@@ -22,10 +22,12 @@ import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
+  claimer: string,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(
+  const ChugSplashManager = getChugSplashManager(
     provider,
+    claimer,
     organizationID
   )
 
@@ -36,10 +38,12 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
+  claimer: string,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(
+  const ChugSplashManager = getChugSplashManager(
     provider,
+    claimer,
     organizationID
   )
 
@@ -58,6 +62,7 @@ export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  claimer: string,
   organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
@@ -74,6 +79,7 @@ export const estimateExecutionGas = async (
     .map(async (action) => {
       return (await isContractDeployed(
         getDefaultProxyAddress(
+          claimer,
           organizationID,
           projectName,
           action.referenceName
@@ -113,6 +119,7 @@ export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  claimer: string,
   organizationID: string,
   projectName: string
 ): Promise<ethers.BigNumber> => {
@@ -120,6 +127,7 @@ export const estimateExecutionCost = async (
     provider,
     bundles,
     actionsExecuted,
+    claimer,
     organizationID,
     projectName
   )
@@ -140,11 +148,13 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  claimer: string,
   organizationID: string,
   projectName: string
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
+    claimer,
     organizationID
   )
 
@@ -152,6 +162,7 @@ export const hasSufficientFundsForExecution = async (
     provider,
     bundles,
     actionsExecuted,
+    claimer,
     organizationID,
     projectName
   )
@@ -163,6 +174,7 @@ export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
+  claimer: string,
   organizationID: string,
   projectName: string,
   includeBuffer: boolean
@@ -171,12 +183,14 @@ export const getAmountToDeposit = async (
     provider,
     bundles,
     actionsExecuted,
+    claimer,
     organizationID,
     projectName
   )
 
   const availableFunds = await availableFundsForExecution(
     provider,
+    claimer,
     organizationID
   )
 

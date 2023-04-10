@@ -41,6 +41,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 numActions,
         uint256 numTargets,
         string configUri,
+        bool remoteExecution,
         address proposer
     );
 
@@ -330,6 +331,15 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             keccak256(abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri));
     }
 
+    function assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
+        _remoteExecution
+            ? require(
+                getSelectedExecutor(activeBundleId) == msg.sender,
+                "ChugSplashManager: caller is not approved executor"
+            )
+            : require(owner() == msg.sender, "ChugSplashManager: caller is not owner");
+    }
+
     function totalDebt() public view returns (uint256) {
         return totalExecutorDebt + totalProtocolDebt;
     }
@@ -397,7 +407,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
-        string memory _configUri
+        string memory _configUri,
+        bool _remoteExecution
     ) public {
         require(isProposer(msg.sender), "ChugSplashManager: caller must be proposer");
 
@@ -423,6 +434,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bundle.targetRoot = _targetRoot;
         bundle.actions = new bool[](_numActions);
         bundle.targets = _numTargets;
+        bundle.remoteExecution = _remoteExecution;
 
         emit ChugSplashBundleProposed(
             bundleId,
@@ -431,6 +443,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _numActions,
             _numTargets,
             _configUri,
+            _remoteExecution,
             msg.sender
         );
         registry.announceWithData("ChugSplashBundleProposed", abi.encodePacked(msg.sender));
@@ -446,12 +459,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * @param _bundleId ID of the bundle to approve
      */
     function approveChugSplashBundle(bytes32 _bundleId) public onlyOwner {
-        require(
-            address(this).balance - totalDebt() >= ownerBondAmount,
-            "ChugSplashManager: insufficient balance in manager"
-        );
-
         ChugSplashBundleState storage bundle = _bundles[_bundleId];
+
+        if (bundle.remoteExecution) {
+            require(
+                address(this).balance - totalDebt() >= ownerBondAmount,
+                "ChugSplashManager: insufficient balance in manager"
+            );
+        }
 
         require(
             bundle.status == ChugSplashBundleStatus.PROPOSED,
@@ -482,12 +497,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public {
         uint256 initialGasLeft = gasleft();
 
-        require(
-            getSelectedExecutor(activeBundleId) == msg.sender,
-            "ChugSplashManager: caller is not approved executor for active bundle ID"
-        );
-
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
 
         require(
             bundle.status == ChugSplashBundleStatus.APPROVED,
@@ -557,7 +569,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleInitiated(activeBundleId, msg.sender);
         registry.announce("ChugSplashBundleInitiated");
 
-        _payExecutorAndProtocol(initialGasLeft);
+        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
     }
 
     /**
@@ -578,12 +590,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes32 noProxyContractKindHash = keccak256("no-proxy");
         uint256 initialGasLeft = gasleft();
 
-        require(
-            getSelectedExecutor(activeBundleId) == msg.sender,
-            "ChugSplashManager: caller is not approved executor for active bundle ID"
-        );
-
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
 
         uint256 numActions = _actions.length;
         ChugSplashAction memory action;
@@ -665,7 +674,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.proxy));
         }
 
-        _payExecutorAndProtocol(initialGasLeft);
+        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
     }
 
     /**
@@ -684,17 +693,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public {
         uint256 initialGasLeft = gasleft();
 
-        require(
-            getSelectedExecutor(activeBundleId) == msg.sender,
-            "ChugSplashManager: caller is not approved executor for active bundle ID"
-        );
+        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
 
         require(
             activeBundleId != bytes32(0),
             "ChugSplashManager: no bundle has been approved for execution"
         );
-
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
         require(
             bundle.actionsExecuted == bundle.actions.length,
@@ -751,7 +757,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
         registry.announce("ChugSplashBundleCompleted");
 
-        _payExecutorAndProtocol(initialGasLeft);
+        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
     }
 
     function executeEntireBundle(
@@ -781,7 +787,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        if (bundle.timeClaimed + executionLockTime >= block.timestamp) {
+        if (bundle.remoteExecution && bundle.timeClaimed + executionLockTime >= block.timestamp) {
             // Give the owner's bond to the executor if the bundle is cancelled within the
             // `executionLockTime` window.
             totalExecutorDebt += ownerBondAmount;
@@ -807,6 +813,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        require(bundle.remoteExecution, "ChugSplashManager: bundle must be executed locally");
 
         require(
             block.timestamp > bundle.timeClaimed + executionLockTime,
@@ -949,7 +957,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         registry.announce("ETHDeposited");
     }
 
-    function _payExecutorAndProtocol(uint256 _initialGasLeft) internal {
+    function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
+        if (!_remoteExecution) {
+            return;
+        }
+
         uint256 gasPrice;
         if (block.chainid != 10 && block.chainid != 420) {
             // Use the gas price for any network that isn't Optimism.

@@ -9,7 +9,7 @@ import { expect } from 'chai'
 import hre, { ethers } from 'hardhat'
 import {
   getChugSplashManagerAddress,
-  chugsplashRegisterAbstractTask,
+  chugsplashClaimAbstractTask,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
@@ -32,8 +32,10 @@ const transparentUpgradeConfigPath =
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
+  let claimer: SignerWithAddress
   before(async () => {
     const signers = await hre.ethers.getSigners()
+    claimer = signers[0]
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `externalProxy` field of the relevant
@@ -89,9 +91,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -100,6 +102,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -129,18 +132,13 @@ describe('Transfer', () => {
       provider,
       signer,
       transparentUpgradeConfigPath,
-      false,
-      '',
-      true,
       signer.address,
-      true,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      hre.chugsplash.executor
+      parsedConfig
     )
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
@@ -208,9 +206,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -219,6 +217,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -238,28 +237,25 @@ describe('Transfer', () => {
       cre,
       false
     )
+    // We set the proxy's address here instead of inside the config because it's unpredictable
+    parsedConfig.contracts['Token'].proxy = UUPSUpgradableTokenV1.address
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
       uupsOwnableUpgradeConfigPath,
-      false,
-      '',
-      true,
       signer.address,
-      true,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      hre.chugsplash.executor
+      parsedConfig
     )
 
-    const UUPSUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
-      'Token'
+    const UUPSUpgradableTokenV2 = await hre.ethers.getContractAt(
+      'UUPSOwnableUpgradableV2',
+      UUPSUpgradableTokenV1.address
     )
 
     // check upgrade completed successfully
@@ -273,16 +269,14 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const manager = await getChugSplashManager(
+    const manager = getChugSplashManager(
       signer,
+      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
-    const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
-      'Token'
-    )
-    manager.claimProxyOwnership(
-      proxyContract.address,
+
+    await manager.claimProxyOwnership(
+      UUPSUpgradableTokenV2.address,
       contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
@@ -345,9 +339,9 @@ describe('Transfer', () => {
       true
     )
 
-    await chugsplashRegisterAbstractTask(
+    await chugsplashClaimAbstractTask(
       provider,
-      signer,
+      claimer,
       userConfig,
       false,
       signer.address,
@@ -356,6 +350,7 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
+      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -380,28 +375,26 @@ describe('Transfer', () => {
       cre,
       false
     )
+    // We set the proxy's address here instead of inside the config because it's unpredictable
+    parsedConfig.contracts['Token'].proxy =
+      UUPSAccessControlUpgradableTokenV1.address
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
       uupsAccessControlUpgradeConfigPath,
-      false,
-      '',
-      true,
       signer.address,
-      true,
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      hre.chugsplash.executor
+      parsedConfig
     )
 
-    const UUPSAccessControlUpgradableTokenV2 = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
-      'Token'
+    const UUPSAccessControlUpgradableTokenV2 = await hre.ethers.getContractAt(
+      'UUPSAccessControlUpgradableV2',
+      UUPSAccessControlUpgradableTokenV1.address
     )
 
     // check upgrade completed successfully
@@ -417,16 +410,13 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const manager = await getChugSplashManager(
+    const manager = getChugSplashManager(
       signer,
+      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
-    const proxyContract = await hre.chugsplash.getContract(
-      parsedConfig.options.projectName,
-      'Token'
-    )
-    manager.claimProxyOwnership(
-      proxyContract.address,
+    await manager.claimProxyOwnership(
+      UUPSAccessControlUpgradableTokenV2.address,
       contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address
     )
