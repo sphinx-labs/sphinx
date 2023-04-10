@@ -51,6 +51,7 @@ describe('Validate', () => {
       variableValidateConfigPath,
       false,
       true,
+      hre.config.paths.canonicalConfigs,
       hre,
       false,
       process.stderr
@@ -60,6 +61,7 @@ describe('Validate', () => {
       variableValidateConfigPath,
       false,
       true,
+      hre.config.paths.canonicalConfigs,
       hre,
       false,
       process.stderr

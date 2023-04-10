@@ -372,7 +372,12 @@ IPFS_API_KEY_SECRET: ...
 
   // Write the canonical config to the local file system if we aren't committing it to IPFS.
   if (!commitToIpfs) {
-    writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+    await writeCanonicalConfig(
+      provider,
+      canonicalConfigPath,
+      configUri,
+      canonicalConfig
+    )
   }
 
   if (spinner) {
@@ -787,7 +792,8 @@ export const chugsplashDeployAbstractTask = async (
   if (isSupportedNetworkOnEtherscan(await getChainId(provider))) {
     const etherscanApiKey = process.env.ETHERSCAN_API_KEY
     if (etherscanApiKey) {
-      const canonicalConfig = readCanonicalConfig(
+      const canonicalConfig = await readCanonicalConfig(
+        provider,
         canonicalConfigPath,
         configUri
       )

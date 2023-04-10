@@ -38,6 +38,7 @@ const displayBundleInfo = async () => {
     chugsplashFilePath,
     false,
     true,
+    hre.config.paths.canonicalConfigs,
     undefined,
     false
   )

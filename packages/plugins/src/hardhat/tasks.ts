@@ -131,6 +131,7 @@ export const chugsplashDeployTask = async (
     configPath,
     false,
     confirm,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -208,6 +209,7 @@ export const chugsplashClaimTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -271,6 +273,7 @@ export const chugsplashProposeTask = async (
     configPath,
     remoteExecution,
     confirm,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -350,6 +353,7 @@ export const chugsplashApproveTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -621,6 +625,7 @@ export const monitorTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -686,6 +691,7 @@ export const chugsplashFundTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -909,7 +915,14 @@ export const chugsplashCancelTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashCancelAbstractTask(
     provider,
@@ -937,7 +950,14 @@ export const chugsplashWithdrawTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    silent
+  )
 
   await chugsplashWithdrawAbstractTask(
     provider,
@@ -960,7 +980,14 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime('', true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    '',
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashListProjectsAbstractTask(provider, signer, 'hardhat', cre)
 }
@@ -1007,7 +1034,14 @@ export const addProposerTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashAddProposersAbstractTask(
     provider,
@@ -1043,6 +1077,7 @@ export const claimProxyTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -1104,7 +1139,14 @@ export const transferOwnershipTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    silent
+  )
 
   await chugsplashTransferOwnershipAbstractTask(
     provider,

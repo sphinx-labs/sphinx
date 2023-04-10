@@ -7,13 +7,14 @@ export const createChugSplashRuntime = async (
   configPath: string,
   remoteExecution: boolean,
   autoConfirm: boolean,
+  canonicalConfigPath: string,
   hre: HardhatRuntimeEnvironment | undefined = undefined,
   silent: boolean,
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<ChugSplashRuntimeEnvironment> => {
   return {
     configPath,
-    canonicalConfigPath: hre ? hre.config.paths.canonicalConfigs : undefined,
+    canonicalConfigPath,
     remoteExecution,
     autoConfirm,
     stream,

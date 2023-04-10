@@ -2,6 +2,12 @@
 # yarn lockfile v1
 
 
+"@0xsequence/create3@https://github.com/0xsequence/create3":
+  version "3.0.0"
+  resolved "https://github.com/0xsequence/create3#acc4703a21ec1d71dc2a99db088c4b1f467530fd"
+  dependencies:
+    csv-writer "^1.6.0"
+
 "@amplitude/identify@^1.10.2":
   version "1.10.2"
   resolved "https://registry.yarnpkg.com/@amplitude/identify/-/identify-1.10.2.tgz#25d88f9e3bedd99701c777b9e44408ac69179aa1"
@@ -3188,6 +3194,11 @@ csv-stringify@^5.6.5:
   version "5.6.5"
   resolved "https://registry.yarnpkg.com/csv-stringify/-/csv-stringify-5.6.5.tgz#c6d74badda4b49a79bf4e72f91cce1e33b94de00"
   integrity sha512-PjiQ659aQ+fUTQqSrd1XEDnOr52jh30RBurfzkscaE2tPaFsDH5wOAHJiw8XAHphRknCwMUE9KRayc4K/NbO8A==
+
+csv-writer@^1.6.0:
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/csv-writer/-/csv-writer-1.6.0.tgz#d0cea44b6b4d7d3baa2ecc6f3f7209233514bcf9"
+  integrity sha512-NOx7YDFWEsM/fTRAJjRpPp8t+MKRVvniAg9wQlUKx20MFrPs73WLJhFf5iteqrxNYnsy924K3Iroh3yNHeYd2g==
 
 csv@^5.5.3:
   version "5.5.3"

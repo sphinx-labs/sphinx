@@ -7,7 +7,7 @@ import { ParsedContractConfig } from './config'
 
 export type ChugSplashRuntimeEnvironment = {
   configPath: string
-  canonicalConfigPath: string | undefined
+  canonicalConfigPath: string
   remoteExecution: boolean
   autoConfirm: boolean
   stream: NodeJS.WritableStream

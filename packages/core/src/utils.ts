@@ -432,40 +432,50 @@ export const formatEther = (
   return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
 }
 
-export const readCanonicalConfig = (
+export const readCanonicalConfig = async (
+  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string
-): CanonicalChugSplashConfig => {
+): Promise<CanonicalChugSplashConfig> => {
   const ipfsHash = configUri.replace('ipfs://', '')
+
+  const network = await provider.getNetwork()
+
   // Check that the file containing the canonical config exists.
-  const canonicalConfigFilePath = path.join(
+  const configFilePath = path.join(
     canonicalConfigFolderPath,
+    network.name,
     `${ipfsHash}.json`
   )
-  if (!fs.existsSync(canonicalConfigFilePath)) {
-    throw new Error(`Could not find cached canonical config file at:
-${canonicalConfigFilePath}`)
+  if (!fs.existsSync(configFilePath)) {
+    throw new Error(`Could not find local canonical config file at:
+${configFilePath}`)
   }
 
-  return JSON.parse(fs.readFileSync(canonicalConfigFilePath, 'utf8'))
+  return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
-export const writeCanonicalConfig = (
+export const writeCanonicalConfig = async (
+  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
-  // Create the canonical config folder if it doesn't already exist.
-  if (!fs.existsSync(canonicalConfigFolderPath)) {
-    fs.mkdirSync(canonicalConfigFolderPath)
+  const network = await provider.getNetwork()
+
+  const networkFolderPath = path.join(canonicalConfigFolderPath, network.name)
+
+  // Create the canonical config network folder if it doesn't already exist.
+  if (!fs.existsSync(networkFolderPath)) {
+    fs.mkdirSync(networkFolderPath, { recursive: true })
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
   fs.writeFileSync(
-    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
+    path.join(networkFolderPath, `${ipfsHash}.json`),
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
@@ -1144,6 +1154,7 @@ export const getPreviousCanonicalConfig = async (
     )
   } else {
     return readCanonicalConfig(
+      provider,
       canonicalConfigFolderPath,
       latestProposalEvent.args.configUri
     )

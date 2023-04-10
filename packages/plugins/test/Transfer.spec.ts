@@ -86,6 +86,7 @@ describe('Transfer', () => {
       transparentUpgradeConfigPath,
       false,
       true,
+      hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
@@ -201,6 +202,7 @@ describe('Transfer', () => {
       uupsOwnableUpgradeConfigPath,
       false,
       true,
+      hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
@@ -334,6 +336,7 @@ describe('Transfer', () => {
       uupsAccessControlUpgradeConfigPath,
       false,
       true,
+      hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true
