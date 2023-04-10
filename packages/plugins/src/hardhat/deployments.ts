@@ -89,7 +89,7 @@ export const deployAllChugSplashConfigs = async (
       artifactPaths,
       'hardhat',
       cre,
-      false
+      true
     )
 
     const signer = hre.ethers.provider.getSigner()
