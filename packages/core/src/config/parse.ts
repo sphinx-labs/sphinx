@@ -933,12 +933,9 @@ const parseContractVariables = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConfigVariables: ParsedConfigVariables = {}
-  if (
-    !contractConfig.variables ||
-    Object.keys(contractConfig.variables).length === 0
-  ) {
-    return {}
-  }
+
+  const userConfigVariables: UserConfigVariables =
+    contractConfig.variables ?? {}
 
   const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
@@ -947,7 +944,7 @@ const parseContractVariables = (
   const unnecessarilyDefinedVariables: string[] = []
   const missingVariables: string[] = []
 
-  for (const variableName of Object.keys(contractConfig.variables)) {
+  for (const variableName of Object.keys(userConfigVariables)) {
     const existsInLayout = extendedLayout.storage.some(
       (storageObj) => storageObj.configVarName === variableName
     )
@@ -958,7 +955,7 @@ const parseContractVariables = (
   }
 
   for (const storageObj of Object.values(extendedLayout.storage)) {
-    const configVarValue = contractConfig.variables[storageObj.configVarName]
+    const configVarValue = userConfigVariables[storageObj.configVarName]
     if (configVarValue === undefined) {
       missingVariables.push(storageObj.configVarName)
     }
@@ -1777,41 +1774,41 @@ const assertValidContractVariables = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    if (
-      userContractConfig.kind === 'no-proxy' &&
-      userContractConfig.variables &&
-      Object.entries(userContractConfig.variables).length > 0
-    ) {
-      logValidationError(
-        'error',
-        `Detected variables for contract '${referenceName}', but variables are not supported for non-proxied contracts.`,
-        [],
-        cre.silent,
-        cre.stream
+    if (userContractConfig.kind === 'no-proxy') {
+      if (
+        userContractConfig.variables &&
+        Object.entries(userContractConfig.variables).length > 0
+      ) {
+        logValidationError(
+          'error',
+          `Detected variables for contract '${referenceName}', but variables are not supported for non-proxied contracts.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      }
+      parsedVariables[referenceName] = {}
+    } else {
+      const artifact = cachedArtifacts[referenceName]
+      const { sourceName, contractName } = artifact
+
+      const compilerOutput = cachedCompilerOutput[referenceName]
+      const storageLayout =
+        compilerOutput.contracts[sourceName][contractName].storageLayout
+
+      const parsedContractVariables = parseContractVariables(
+        JSON.parse(
+          Handlebars.compile(JSON.stringify(userContractConfig))({
+            ...contracts,
+          })
+        ),
+        storageLayout,
+        compilerOutput,
+        cre
       )
-      continue
+
+      parsedVariables[referenceName] = parsedContractVariables
     }
-
-    const artifact = cachedArtifacts[referenceName]
-    const { sourceName, contractName } = artifact
-
-    const compilerOutput = cachedCompilerOutput[referenceName]
-    const storageLayout =
-      compilerOutput.contracts[sourceName][contractName].storageLayout
-
-    // Only run the parsing logic if the contract is proxied
-    const parsedContractVariables = parseContractVariables(
-      JSON.parse(
-        Handlebars.compile(JSON.stringify(userContractConfig))({
-          ...contracts,
-        })
-      ),
-      storageLayout,
-      compilerOutput,
-      cre
-    )
-
-    parsedVariables[referenceName] = parsedContractVariables
   }
 
   return parsedVariables

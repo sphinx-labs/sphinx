@@ -9,7 +9,6 @@ const config: UserChugSplashConfig = {
   contracts: {
     MyFirstContract: {
       contract: 'HelloChugSplash',
-      unsafeAllowEmptyPush: true,
       variables: {
         number: 1,
         stored: true,
