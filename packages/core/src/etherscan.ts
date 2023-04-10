@@ -35,6 +35,7 @@ import {
   OZUUPSAccessControlAdapterArtifact,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+  ChugSplashManagerArtifact,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
@@ -42,6 +43,7 @@ import { CompilerInput } from 'hardhat/types'
 import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  CHUGSPLASH_MANAGER_V1_ADDRESS,
   customChains,
 } from './constants'
 import { CanonicalChugSplashConfig } from './config/types'
@@ -159,6 +161,10 @@ export const verifyChugSplash = async (
   )
 
   const contracts = [
+    {
+      artifact: ChugSplashManagerArtifact,
+      address: CHUGSPLASH_MANAGER_V1_ADDRESS,
+    },
     { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
     {

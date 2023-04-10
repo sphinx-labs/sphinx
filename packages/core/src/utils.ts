@@ -19,11 +19,7 @@ import {
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
   ProxyABI,
-  ChugSplashManagerArtifact,
-  EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  PROTOCOL_PAYMENT_PERCENTAGE,
+  ChugSplashManagerProxyArtifact,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -60,7 +56,11 @@ import {
   UserContractConfig,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
-import { CHUGSPLASH_REGISTRY_ADDRESS, Integration } from './constants'
+import {
+  CHUGSPLASH_MANAGER_V1_ADDRESS,
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  Integration,
+} from './constants'
 import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
@@ -197,16 +197,10 @@ export const getChugSplashManagerAddress = (
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ChugSplashManagerArtifact.bytecode,
+        ChugSplashManagerProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
-          ['address', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [
-            CHUGSPLASH_REGISTRY_ADDRESS,
-            EXECUTION_LOCK_TIME,
-            OWNER_BOND_AMOUNT,
-            EXECUTOR_PAYMENT_PERCENTAGE,
-            PROTOCOL_PAYMENT_PERCENTAGE,
-          ]
+          ['address', 'address'],
+          [CHUGSPLASH_REGISTRY_ADDRESS, CHUGSPLASH_REGISTRY_ADDRESS]
         ),
       ]
     )
@@ -236,11 +230,19 @@ export const claimChugSplashProject = async (
     (await ChugSplashRegistry.projects(claimerAddress, organizationID)) ===
     constants.AddressZero
   ) {
+    // Encode the initialization arguments for the ChugSplashManager contract.
+    // Note: Future versions of ChugSplash may require different arguments encoded in this way.
+    const initializerData = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'bytes32', 'bool'],
+      [newOwnerAddress, organizationID, allowManagedProposals]
+    )
+
     await (
       await ChugSplashRegistry.claim(
-        newOwnerAddress,
         organizationID,
-        allowManagedProposals,
+        newOwnerAddress,
+        CHUGSPLASH_MANAGER_V1_ADDRESS,
+        initializerData,
         await getGasPriceOverrides(provider)
       )
     ).wait()

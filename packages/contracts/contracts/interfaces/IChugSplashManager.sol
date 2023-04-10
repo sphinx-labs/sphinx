@@ -9,4 +9,8 @@ interface IChugSplashManager {
     function activeBundleId() external returns (bytes32);
 
     function proposers(address) external returns (bool);
+
+    function isExecuting() external view returns (bool);
+
+    function initialize(bytes memory) external;
 }
