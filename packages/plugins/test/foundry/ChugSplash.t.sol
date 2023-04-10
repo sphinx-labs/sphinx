@@ -63,13 +63,13 @@ contract ChugSplashTest is Test {
         // Setup deployment test
         chugsplash.deploy(deployConfig, true);
 
-        // Deploy claim proxy test
+        // Deploy export proxy test
         chugsplash.deploy(claimConfig, true);
-        chugsplash.claimProxy(claimConfig, "MySimpleStorage", true);
+        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
 
-        // Start transfer proxy test
+        // Start export proxy test
         chugsplash.deploy(transferConfig, true);
-        chugsplash.claimProxy(transferConfig, "MySimpleStorage", true);
+        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
 
         // Setup claim, propose, fund, approve process test
         chugsplash.claim(claimToApproveConfig, true);
@@ -98,7 +98,7 @@ contract ChugSplashTest is Test {
         // Refresh EVM state to reflect chain state after ChugSplash transactions
         chugsplash.refresh();
 
-        chugsplash.transferProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
+        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
         claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
         transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
@@ -108,11 +108,11 @@ contract ChugSplashTest is Test {
         registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
-    function testDidClaimProxy() public {
+    function testDidexportProxy() public {
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
-    function testDidTransferProxy() public {
+    function testDidImportProxy() public {
         IChugSplashManager manager = registry.projects(claimer, transferOrganizationID);
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }

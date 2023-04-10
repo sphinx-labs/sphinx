@@ -12,8 +12,8 @@ import {
   chugsplashListProjectsAbstractTask,
   chugsplashListProposersAbstractTask,
   chugsplashCancelAbstractTask,
-  chugsplashClaimProxyAbstractTask,
-  chugsplashTransferOwnershipAbstractTask,
+  chugsplashExportProxyAbstractTask,
+  chugsplashImportProxyAbstractTask,
   getEIP1967ProxyAdminAddress,
   initializeChugSplash,
   readValidatedChugSplashConfig,
@@ -578,7 +578,7 @@ const command = args[0]
       )
       break
     }
-    case 'claimProxy': {
+    case 'exportProxy': {
       const configPath = args[1]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
@@ -622,9 +622,9 @@ const command = args[0]
       )
 
       if (!silent) {
-        console.log('-- ChugSplash Claim Proxy --')
+        console.log('-- ChugSplash Export Proxy --')
       }
-      await chugsplashClaimProxyAbstractTask(
+      await chugsplashExportProxyAbstractTask(
         provider,
         wallet,
         configPath,
@@ -635,7 +635,7 @@ const command = args[0]
       )
       break
     }
-    case 'transferProxy': {
+    case 'importProxy': {
       const configPath = args[1]
       const rpcUrl = args[2]
       const network = args[3] !== 'localhost' ? args[3] : undefined
@@ -659,9 +659,9 @@ const command = args[0]
       )
 
       if (!silent) {
-        console.log('-- ChugSplash Transfer Proxy --')
+        console.log('-- ChugSplash Import Proxy --')
       }
-      await chugsplashTransferOwnershipAbstractTask(
+      await chugsplashImportProxyAbstractTask(
         provider,
         wallet,
         configPath,

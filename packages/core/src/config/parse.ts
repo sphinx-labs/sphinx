@@ -1356,7 +1356,7 @@ export const assertValidParsedChugSplashFile = async (
             `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
         )}
 If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+npx hardhat chugsplash-import --network <network> --config-path <path> --proxy <proxyAddress>
 If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
 permission to call the 'upgradeTo' function on each of them.
     `,

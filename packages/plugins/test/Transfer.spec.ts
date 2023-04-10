@@ -277,7 +277,7 @@ describe('Transfer', () => {
       parsedConfig.options.organizationID
     )
 
-    await manager.claimProxyOwnership(
+    await manager.exportProxy(
       UUPSUpgradableTokenV2.address,
       contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address
@@ -418,7 +418,7 @@ describe('Transfer', () => {
       parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
-    await manager.claimProxyOwnership(
+    await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,
       contractKindHashes[parsedConfig.contracts['Token'].kind],
       signer.address

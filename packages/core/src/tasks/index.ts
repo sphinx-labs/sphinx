@@ -62,14 +62,14 @@ import {
   trackAddProposers,
   trackApproved,
   trackCancel,
-  trackClaimProxy,
+  trackExportProxy,
   trackDeployed,
   trackFund,
   trackListProjects,
   trackListProposers,
   trackProposed,
   trackClaimed,
-  trackTransferProxy,
+  trackImportProxy,
   trackWithdraw,
 } from '../analytics'
 import {
@@ -1270,7 +1270,7 @@ export const chugsplashAddProposersAbstractTask = async (
   )
 }
 
-export const chugsplashClaimProxyAbstractTask = async (
+export const chugsplashExportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
@@ -1312,7 +1312,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   }
 
   await (
-    await manager.claimProxyOwnership(
+    await manager.exportProxy(
       parsedConfig.contracts[referenceName].proxy,
       contractKindHashes[parsedConfig.contracts[referenceName].kind],
       signerAddress,
@@ -1321,7 +1321,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   ).wait()
 
   const networkName = await resolveNetworkName(provider, integration)
-  await trackClaimProxy(
+  await trackExportProxy(
     await getProjectOwnerAddress(manager),
     organizationID,
     projectName,
@@ -1332,7 +1332,7 @@ export const chugsplashClaimProxyAbstractTask = async (
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
 }
 
-export const chugsplashTransferOwnershipAbstractTask = async (
+export const chugsplashImportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
@@ -1406,7 +1406,7 @@ If you believe this is a mistake, please reach out to the developers or open an 
     )
   ).wait()
 
-  await trackTransferProxy(
+  await trackImportProxy(
     await getProjectOwnerAddress(ChugSplashManager),
     organizationID,
     projectName,
