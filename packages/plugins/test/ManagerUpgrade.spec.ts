@@ -1,3 +1,5 @@
+import '@nomiclabs/hardhat-ethers'
+
 import hre, { chugsplash } from 'hardhat'
 import { Contract } from 'ethers'
 import {
@@ -8,8 +10,6 @@ import {
   ChugSplashManagerProxyArtifact,
   OWNER_MULTISIG_ADDRESS,
 } from '@chugsplash/contracts'
-import '@nomiclabs/hardhat-ethers'
-
 import { expect } from 'chai'
 
 import { orgId } from '../chugsplash/Storage.config'
