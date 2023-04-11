@@ -2,8 +2,10 @@
 pragma solidity ^0.8.9;
 
 import { ChugSplashManager } from "./ChugSplashManager.sol";
+import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -113,81 +115,72 @@ contract ChugSplashRegistry is Ownable, Initializable {
     mapping(address => bool) public protocolPaymentRecipients;
 
     /**
-     * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
+     * @notice Mapping of valid manager implementations
      */
-    uint256 public immutable ownerBondAmount;
+    mapping(address => bool) public versions;
 
     /**
-     * @notice Amount of time for an executor to completely execute a bundle after claiming it.
+     * @param _owner Address of the owner of the registry.
      */
-    uint256 public immutable executionLockTime;
-
-    /**
-     * @notice Amount that executors are paid, denominated as a percentage of the cost of execution.
-     */
-    uint256 public immutable executorPaymentPercentage;
-
-    uint256 public immutable protocolPaymentPercentage;
-
-    /**
-     * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
-     *                                   order to execute a bundle.
-     * @param _executionLockTime         Amount of time for an executor to completely execute a
-     *                                   bundle after claiming it.
-     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
-     *                                   denominated as a percentage.
-     */
-    constructor(
-        address _owner,
-        uint256 _ownerBondAmount,
-        uint256 _executionLockTime,
-        uint256 _executorPaymentPercentage,
-        uint256 _protocolPaymentPercentage
-    ) {
-        ownerBondAmount = _ownerBondAmount;
-        executionLockTime = _executionLockTime;
-        executorPaymentPercentage = _executorPaymentPercentage;
-        protocolPaymentPercentage = _protocolPaymentPercentage;
-
+    constructor(address _owner) {
         _transferOwnership(_owner);
     }
 
     /**
-     * @param _executors        Array of executors to add.
+     * @param _executors             Array of executors to add.
+     * @param _initialManagerVersion Initial manager version used for new projects before
+     *                               upgrading to the requested version.
      */
-    function initialize(address[] memory _executors) public initializer {
+    function initialize(
+        address _initialManagerVersion,
+        address[] memory _executors
+    ) public initializer {
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
         }
+
+        versions[_initialManagerVersion] = true;
     }
 
     /**
      * @notice Claims a new project.
      *
-     * @param _organizationID ID of the new ChugSplash project.
-     * @param _owner     Initial owner for the new project.
+     * @param _organizationID ID of the new ChugSplash organization.
+     * @param _owner     Initial owner for the new organization.
+     * @param _version   Manager version for the new organization.
+     * @param _data      Any data to pass to the ChugSplashManager initalizer.
      */
-    function claim(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
+    function claim(
+        bytes32 _organizationID,
+        address _owner,
+        address _version,
+        bytes memory _data
+    ) public {
         require(
             address(projects[msg.sender][_organizationID]) == address(0),
             "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
-        // Deploy the ChugSplashManager.
+        require(versions[_version] == true, "ChugSplashRegistry: invalid manager version");
+
+        // Deploy the ChugSplashManager proxy and set the implementation to the requested version
         bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
-        ChugSplashManager manager = new ChugSplashManager{ salt: salt }(
+        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
-            executionLockTime,
-            ownerBondAmount,
-            executorPaymentPercentage,
-            protocolPaymentPercentage
+            address(this)
         );
-        manager.initialize(_owner, _organizationID, _allowManagedProposals);
+        managerProxy.upgradeToAndCall(
+            _version,
+            abi.encodeCall(IChugSplashManager.initialize, _data)
+        );
 
-        projects[msg.sender][_organizationID] = ChugSplashManager(payable(address(manager)));
-        managers[ChugSplashManager(payable(address(manager)))] = true;
+        // Change manager proxy admin to the Org owner
+        managerProxy.changeAdmin(_owner);
 
-        emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(manager), _owner);
+        projects[msg.sender][_organizationID] = ChugSplashManager(payable(address(managerProxy)));
+        managers[ChugSplashManager(payable(address(managerProxy)))] = true;
+
+        emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(managerProxy), _owner);
     }
 
     /**
@@ -291,5 +284,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
         );
         protocolPaymentRecipients[_recipient] = false;
         emit ProtocolPaymentRecipientRemoved(_recipient);
+    }
+
+    function setVersion(address _version, bool _isVersion) external onlyOwner {
+        versions[_version] = _isVersion;
     }
 }

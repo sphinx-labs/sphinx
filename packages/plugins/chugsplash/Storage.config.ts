@@ -4,6 +4,9 @@ import { ethers } from 'ethers'
 import { variables, constructorArgs } from '../test/constants'
 
 const projectName = 'My First Project'
+export const orgId = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes(projectName)
+)
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:

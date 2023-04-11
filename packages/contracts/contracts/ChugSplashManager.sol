@@ -296,14 +296,20 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @param _organizationID ID of the organization this contract is managing.
-     * @param _owner     Initial owner of this contract.
+     * @param _data Arbitrary initialization data, allows for future manager versions to use the
+     *               same interface.
+     *              In this version, we expect the following data:
+     *              - address _owner: Address of the owner of this contract.
+     *              - bytes32 _organizationID: ID of the organization this contract is managing.
+     *              - bool _allowManagedProposals: Whether or not to allow upgrade proposals from
+     *                the ChugSplash managed service.
      */
-    function initialize(
-        address _owner,
-        bytes32 _organizationID,
-        bool _allowManagedProposals
-    ) public initializer {
+    function initialize(bytes memory _data) public initializer {
+        (address _owner, bytes32 _organizationID, bool _allowManagedProposals) = abi.decode(
+            _data,
+            (address, bytes32, bool)
+        );
+
         organizationID = _organizationID;
         allowManagedProposals = _allowManagedProposals;
 
@@ -1056,5 +1062,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
         require(success, "ChugSplashManager: delegatecall to set storage failed");
+    }
+
+    /**
+     * @notice Returns whether or not a bundle is currently being executed.
+     *         Used to determine if the manager implementation can safely be upgraded.
+     */
+    function isExecuting() external view returns (bool) {
+        return activeBundleId != bytes32(0);
     }
 }
