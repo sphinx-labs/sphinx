@@ -21,32 +21,83 @@ ChugSplash config files may be written in Javascript, Typescript, or JSON. For J
 - [Structs](#structs)
 - [Arbitary Nested Types](#arbitary-nested-types)
 
-## Options
-- Project name
-- todo spec out other project options
+# Options
+There are three config option fields `organizationID`, `claimer`, and `projectName`. Each of these values impacts the addresses of contracts deployed using ChugSplash. All three of these fields are required for ChugSplash to uniquely identify the correct organization, project, and contract when performing a deployment or upgrade.
 
-## Contracts Config Field
+### Organization Id
+A 32 byte string which identifies the organization that the relevant ChugSplash config is a part of. Each organization gets a unique ChugSplashManager contract which manages deployments for their organization. Users of the ChugSplash managed service have an organization id recommended to them, but other users can just generate and use any arbitrary 32 byte string.
+
+You can think of the organization id as identifying the toplevel address space of the users organization.
+
+## Project Name
+An abitrary name string which identifies a specific project within an Organization. Project names are unique within each organization. If you create multiple configs in the same organization that use the same project name, then they will be treated like they are part of the same project when you perform deployments. We recommend that project names not be shared between multiple config files.
+
+You can think of the project name as identifying a subsection of the address space of the organization that the project is a part of. Project names allow ChugSplash to reuse the same ChugSplashManager within an organization while avoid the possibility of different projects deployments and upgrades impacting each other.
+
+## Claimer
+The address of the wallet used to claim the organization on chain. Since ChugSplash deterministically deploys contracts to the same addresses across chains, we have to account for the possibility that a malicious third party could attempt to snipe the contract addresses of well know protocols on chains they have not deployed to yet. To avoid this attack vector, we use the address of the claimer wallet as the final element in determining the address of the ChugSplash manager. This makes it impossible to snipe a ChugSplash users contract address without owning the account used to claim the organization.
+
+# Contracts Config Field
 JSON or Javascript object defining the contracts that should be deployed. Each key is a contracts reference name and its value is a contract definition.
 
-> Reference names are used internally by ChugSplash to identify specific instances of contracts. Each combination of a project name and contract reference name should be unique within the ChugSplash system.
+> Reference names identify specific instances of contracts in the ChugSplash system. Each combination of a project name and contract reference name identifies a unique contract within an organization.
 
-## Contract Config Definition
-JSON or Javascript object defining a contract to be deployed, it's constructor args, and variable definitions. Contract definitions must conform to the following format:
+# Contract Config Definition
+JSON or Javascript object defining a contract to be deployed, it's constructor args, variable definitions, and other options.
 
-```js
-ReferenceName: {
-  contract: 'LiteralContractName',
-  constructorArgs: {},
-  variables: {}
-}
-```
+Contract definitions may include the following fields:
+- contract
+- variables
+- constructorArgs
+- externalProxy
+- kind
+- previousBuildInfo
+- previousFullyQualifiedName
+- unsafe
 
-## Contract Constructor Args
-A JSON or Javascript object defining a set of constructor args. All constructor arguements are required to be immutable variables...
+## Contract
+The name of the contract to be deployed.
 
-TODO finish defining constructor args spec
+## Variables
+A set of state variables for the contract. See [Contract Variables](#contract-variables) for more information.
 
-## Contract Variables
+## Constructor Arguments
+A set of constructro arguments for the contract. See [Contract Constructor Arguments](#contract-constructor-arguments) for more information.
+
+## External Proxy
+If this contract was initially deployed behind a proxy using a different tool. The user may define the proxy address using this field. Note that when using an external proxy, the user is expected to also define the `previousBuildInfo`, `previousFullyQualifiedName`, and `kind` fields which provide us with additional information necessary for working with external proxy types.
+
+## Kind
+An optional field defining the type of contract:
+- no-proxy: A stateless immutable contract to be deployed without a proxy
+- standard-transparent: Standard transparent proxies not deployed using OpenZeppelin.
+- oz-transparent: An OpenZeppelin transparent proxy
+- oz-ownable-uups: An OpenZeppelin UUPS proxy using Ownable
+- oz-access-control-uups: An OpenZeppelin UUPS proxy using Access Control
+
+## Previous Build Info
+A path to a build info file generated for a previous version of a contract that has already been deployed. This field needs to be defined when upgrading a contract that uses a proxy which was deployed outside of ChugSplash. Providing the previous build info allows us to run our storage slot checker
+
+## Previous Fully Qualified Name
+The fully qualified name of a contract that has been deployed outside of ChugSplash. This field needs to be defined along with the previous build info and is used to run the storage slot checker against the previous contract version.
+
+## Unsafe
+ChugSplash performs a variety of safety checks before deploying/upgrading contracts. Users may override these safety checks using this field if their situation requires it. The unsafe field is a JSON or JS object containing a set of fields which disable different safety checks including:
+- skipStorageCheck: Fully disable the storage slot checker
+- allowRenames: Allow renaming state variables
+- allowDelegatecall: Allow use of delegatecall in implementation contracts
+- allowSelfdestruct: Allow use of selfdestruct
+- allowMissingPublicUpgradeTo: Allow upgrading to a contract that does not include an upgradeTo function (only relevant to contracts using external UUPS proxies)
+- allowEmptyPush: Allow the use of the empty push function: `push()` which ChugSplash disallows due to potential ambiguity of the values in dynamic arrays if the function is used.
+
+# Contract Constructor Arguments
+We support providing a set of constructor arguements for each contract. We only support this because it is necessary to support the use of immutable variables. Therefore  all constructor arguements are required to be used by the constructor to set immutable variables in the target contract. If any logic is detected in the constructor that is not related to setting immutable variables than we thow an error. All other variables are expected to be set in the ChugSplash config file using the variable format defineed below.
+
+For constructor arguments we accept a JSON or Javascript object defining a set of constructor arguments. Since constructor arguments are expected to only be used to set immutable variables, we support all value types except for function types. For all of those types, we expect the same input format as the corresponding variable input format defined below.
+
+Note that for addresses, we support the use of contract references in constructor arguments as long as the target contract is proxied. We do not support contract references in the constructor arguements of non-proxied contracts.
+
+# Contract Variables
 A JSON or Javascript object defining a set of ChugSplash input variables. ChugSplash is designed to remove the need for constructors or initializers by allowing the user to define the value of their variables directly during the deployment process. To ensure this process works reliably we perform input validation during the bundling process. Below we define the expected valid types. All other input types should be caught and rejected.
 
 Note that ChugSplash config files may be written in Javascript and therefore users are able to take advantage of various Javscript features and libraries to fetch values to be used in their ChugSplash config files.
