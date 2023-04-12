@@ -26,6 +26,9 @@ contract Storage {
     UserDefinedType immutable public immutableUserDefinedType;
     uint immutable public immutableBigNumberUint;
     int immutable public immutableBigNumberInt;
+    address immutable public immutableAddress;
+    Storage immutable public immutableContract;
+    TestEnum immutable public immutableEnum;
 
     constructor(
         int _immutableInt,
@@ -36,7 +39,10 @@ contract Storage {
         bytes32 _immutableBytes32,
         UserDefinedType _immutableUserDefinedType,
         uint _immutableBigNumberUint,
-        int _immutableBigNumberInt
+        int _immutableBigNumberInt,
+        address _immutableAddress,
+        Storage _immutableContract,
+        TestEnum _immutableEnum
     ) {
         immutableInt = _immutableInt;
         immutableInt8 = _immutableInt8;
@@ -47,6 +53,9 @@ contract Storage {
         immutableUserDefinedType = _immutableUserDefinedType;
         immutableBigNumberUint = _immutableBigNumberUint;
         immutableBigNumberInt = _immutableBigNumberInt;
+        immutableAddress = _immutableAddress;
+        immutableContract = _immutableContract;
+        immutableEnum = _immutableEnum;
     }
 
     int public minInt256;

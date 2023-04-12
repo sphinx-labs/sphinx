@@ -86,87 +86,183 @@ describe('Validate', () => {
     )
   })
 
-  it('did catch invalid arrayInt8', async () => {
+  it('did catch invalid variable arrayInt8', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for variable arrayInt8 expected number, string, or BigNumber but got array'
     )
   })
 
-  it('did catch invalid int8OutsideRange', async () => {
+  it('did catch invalid variable int8OutsideRange', async () => {
     expect(validationOutput).to.have.string(
       'invalid value for int8OutsideRange: 255, outside valid range: [-128:127]'
     )
   })
 
-  it('did catch invalid uint8OutsideRange', async () => {
+  it('did catch invalid variable uint8OutsideRange', async () => {
     expect(validationOutput).to.have.string(
       'invalid value for uint8OutsideRange: 256, outside valid range: [0:255]'
     )
   })
 
-  it('did catch invalid intAddress', async () => {
+  it('did catch invalid variable intAddress', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for intAddress: 1, expected address string but got number'
     )
   })
 
-  it('did catch invalid arrayAddress', async () => {
+  it('did catch invalid variable arrayAddress', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for arrayAddress: 0x00000000, expected address string but got array'
     )
   })
 
-  it('did catch invalid shortAddress', async () => {
+  it('did catch invalid variable shortAddress', async () => {
     expect(validationOutput).to.have.string(
       'invalid address for shortAddress: 0x00000000'
     )
   })
 
-  it('did catch invalid intBytes32', async () => {
+  it('did catch invalid variable intBytes32', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for intBytes32: 1, expected DataHexString but got number'
     )
   })
 
-  it('did catch invalid arrayBytes32', async () => {
+  it('did catch invalid variable arrayBytes32', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for arrayBytes32: 1, expected DataHexString but got array'
     )
   })
 
-  it('did catch invalid shortBytes32', async () => {
+  it('did catch invalid variable shortBytes32', async () => {
     expect(validationOutput).to.have.string(
       'invalid length for bytes32 variable shortBytes32: 0x00000000'
     )
   })
 
-  it('did catch invalid longBytes8', async () => {
+  it('did catch invalid variable longBytes8', async () => {
     expect(validationOutput).to.have.string(
       'invalid length for bytes8 variable longBytes8: 0x1111111111111111111111111111111111111111111111111111111111111111'
     )
   })
 
-  it('did catch invalid malformedBytes16', async () => {
+  it('did catch invalid variable malformedBytes16', async () => {
     expect(validationOutput).to.have.string(
       'invalid input format for variable malformedBytes16, expected DataHexString but got 11111111111111111111111111111111'
     )
   })
 
-  it('did catch invalid intBoolean', async () => {
+  it('did catch invalid variable intBoolean', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for variable intBoolean, expected boolean but got number'
     )
   })
 
-  it('did catch invalid stringBoolean', async () => {
+  it('did catch invalid variable stringBoolean', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for variable stringBoolean, expected boolean but got string'
     )
   })
 
-  it('did catch invalid arrayBoolean', async () => {
+  it('did catch invalid variable arrayBoolean', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for variable arrayBoolean, expected boolean but got array'
+    )
+  })
+
+  it('did catch odd fixed bytes variable', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input format for variable oddStaticBytes, expected DataHexString but got'
+    )
+  })
+
+  it('did catch invalid constructor arg _arrayInt8', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for variable _arrayInt8 expected number, string, or BigNumber but got array'
+    )
+  })
+
+  it('did catch invalid constructor arg _int8OutsideRange', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid value for _int8OutsideRange: 255, outside valid range: [-128:127]'
+    )
+  })
+
+  it('did catch invalid constructor arg _uint8OutsideRange', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid value for _uint8OutsideRange: 256, outside valid range: [0:255]'
+    )
+  })
+
+  it('did catch invalid constructor arg _intAddress', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for _intAddress: 1, expected address string but got number'
+    )
+  })
+
+  it('did catch invalid constructor arg _arrayAddress', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for _arrayAddress: 0x00000000, expected address string but got array'
+    )
+  })
+
+  it('did catch invalid constructor arg _shortAddress', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid address for _shortAddress: 0x00000000'
+    )
+  })
+
+  it('did catch invalid constructor arg _intBytes32', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for _intBytes32: 1, expected DataHexString but got number'
+    )
+  })
+
+  it('did catch invalid constructor arg _arrayBytes32', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for _arrayBytes32: 1, expected DataHexString but got array'
+    )
+  })
+
+  it('did catch invalid constructor arg _shortBytes32', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid length for bytes32 variable _shortBytes32: 0x00000000'
+    )
+  })
+
+  it('did catch invalid constructor arg _longBytes8', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid length for bytes8 variable _longBytes8: 0x1111111111111111111111111111111111111111111111111111111111111111'
+    )
+  })
+
+  it('did catch invalid constructor arg _malformedBytes16', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input format for variable _malformedBytes16, expected DataHexString but got 11111111111111111111111111111111'
+    )
+  })
+
+  it('did catch invalid constructor arg _intBoolean', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for variable _intBoolean, expected boolean but got number'
+    )
+  })
+
+  it('did catch invalid constructor arg _stringBoolean', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for variable _stringBoolean, expected boolean but got string'
+    )
+  })
+
+  it('did catch invalid constructor arg _arrayBoolean', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input type for variable _arrayBoolean, expected boolean but got array'
+    )
+  })
+
+  it('did catch odd fixed bytes constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      'invalid input format for variable _oddStaticBytes, expected DataHexString but got'
     )
   })
 
@@ -237,12 +333,6 @@ describe('Validate', () => {
   it('did catch odd dynamic bytes', async () => {
     expect(validationOutput).to.have.string(
       'invalid input type for variable oddDynamicBytes, expected DataHexString but got'
-    )
-  })
-
-  it('did catch odd fixed bytes', async () => {
-    expect(validationOutput).to.have.string(
-      'invalid input format for variable oddStaticBytes, expected DataHexString but got'
     )
   })
 
