@@ -36,6 +36,7 @@ import {
   ChugSplashBundles,
   readValidatedChugSplashConfig,
   readUnvalidatedChugSplashConfig,
+  isLiveNetwork,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI, EXECUTOR } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -53,7 +54,6 @@ import {
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
 import { getArtifactPaths } from './artifacts'
-import { isRemoteExecution } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
 // Load environment variables from .env
@@ -203,10 +203,9 @@ export const chugsplashClaimTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, silent, owner, allowManagedProposals } = args
-  const remoteExecution = await isRemoteExecution(hre)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -267,7 +266,7 @@ export const chugsplashProposeTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, ipfsUrl, silent, noCompile, confirm } = args
-  const remoteExecution = await isRemoteExecution(hre)
+  const remoteExecution = await isLiveNetwork(hre.ethers.provider)
   const cre = await createChugSplashRuntime(
     configPath,
     remoteExecution,
@@ -312,7 +311,6 @@ export const chugsplashProposeTask = async (
     parsedConfig,
     configPath,
     ipfsUrl,
-    remoteExecution,
     'hardhat',
     artifactPaths,
     canonicalConfigPath,
@@ -347,10 +345,9 @@ export const chugsplashApproveTask = async (
   const { configPath, noWithdraw, silent, skipMonitorStatus } = args
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const remoteExecution = await isRemoteExecution(hre)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -619,10 +616,9 @@ export const monitorTask = async (
 ) => {
   const { configPath, noWithdraw, silent, newOwner } = args
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const remoteExecution = await isRemoteExecution(hre)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    true,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -660,7 +656,7 @@ export const monitorTask = async (
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
-    remoteExecution,
+    true,
     parsedConfig,
     cre
   )
@@ -685,10 +681,9 @@ export const chugsplashFundTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { amount, silent, configPath, autoEstimate } = args
-  const remoteExecution = await isRemoteExecution(hre)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -816,15 +811,15 @@ task(TASK_TEST)
       runSuper
     ) => {
       const { silent, noCompile, configPath, skipDeploy } = args
-      const remoteExecution = await isRemoteExecution(hre)
+      const liveNetwork = await isLiveNetwork(hre.ethers.provider)
 
       const signer = hre.ethers.provider.getSigner()
-      const executor = remoteExecution ? EXECUTOR : await signer.getAddress()
+      const executor = liveNetwork ? EXECUTOR : await signer.getAddress()
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (!remoteExecution) {
+      if (!liveNetwork) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -885,12 +880,12 @@ task(TASK_RUN)
       runSuper
     ) => {
       const { deployAll, noCompile } = args
-      const remoteExecution = await isRemoteExecution(hre)
+      const liveNetwork = await isLiveNetwork(hre.ethers.provider)
 
       if (deployAll) {
         const signer = hre.ethers.provider.getSigner()
 
-        const executor = remoteExecution ? EXECUTOR : await signer.getAddress()
+        const executor = liveNetwork ? EXECUTOR : await signer.getAddress()
         await initializeChugSplash(hre.ethers.provider, signer, [executor])
         if (!noCompile) {
           await hre.run(TASK_COMPILE, {
@@ -916,7 +911,7 @@ export const chugsplashCancelTask = async (
 
   const cre = await createChugSplashRuntime(
     configPath,
-    true,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -951,7 +946,7 @@ export const chugsplashWithdrawTask = async (
 
   const cre = await createChugSplashRuntime(
     configPath,
-    true,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -981,7 +976,7 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
 
   const cre = await createChugSplashRuntime(
     '',
-    true,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -1035,7 +1030,7 @@ export const addProposerTask = async (
 
   const cre = await createChugSplashRuntime(
     configPath,
-    true,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -1071,10 +1066,9 @@ export const exportProxyTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, referenceName, silent } = args
-  const remoteExecution = await isRemoteExecution(hre)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,
@@ -1140,7 +1134,7 @@ export const importProxyTask = async (
 
   const cre = await createChugSplashRuntime(
     configPath,
-    true,
+    false,
     true,
     hre.config.paths.canonicalConfigs,
     hre,

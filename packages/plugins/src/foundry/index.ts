@@ -22,6 +22,7 @@ import {
   getContractAddress,
   CHUGSPLASH_REGISTRY_ADDRESS,
   getChugSplashManagerAddress,
+  isLiveNetwork,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 
@@ -47,9 +48,10 @@ const command = args[0]
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         canonicalConfigPath,
         undefined,
@@ -57,7 +59,6 @@ const command = args[0]
         process.stdout
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
@@ -102,14 +103,15 @@ const command = args[0]
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
       const ipfsUrl = args[8] !== 'none' ? args[8] : ''
-      const remoteExecution = args[9] === 'true'
 
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
+      const remoteExecution = await isLiveNetwork(provider)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        remoteExecution,
         true,
         canonicalConfigPath,
         undefined,
@@ -124,7 +126,6 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       const config = await readValidatedChugSplashConfig(
         provider,
@@ -146,7 +147,6 @@ const command = args[0]
         config,
         configPath,
         ipfsUrl,
-        remoteExecution,
         'foundry',
         artifactPaths,
         canonicalConfigPath,
@@ -168,9 +168,10 @@ const command = args[0]
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         canonicalConfigPath,
         undefined,
@@ -185,7 +186,6 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
 
@@ -231,9 +231,10 @@ const command = args[0]
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         canonicalConfigPath,
         undefined,
@@ -248,7 +249,6 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
       await wallet.getAddress()
@@ -308,9 +308,10 @@ const command = args[0]
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         confirm,
         canonicalConfigPath,
         undefined,
@@ -325,7 +326,6 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
       const address = await wallet.getAddress()
@@ -384,9 +384,10 @@ const command = args[0]
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        true,
         true,
         canonicalConfigPath,
         undefined,
@@ -401,13 +402,10 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
       const address = await wallet.getAddress()
       newOwner = newOwner !== 'self' ? newOwner : address
-
-      const remoteExecution = args[3] !== 'localhost'
 
       const parsedConfig = await readValidatedChugSplashConfig(
         provider,
@@ -430,7 +428,7 @@ const command = args[0]
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
-        remoteExecution,
+        true,
         parsedConfig,
         cre
       )
@@ -449,7 +447,7 @@ const command = args[0]
 
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         '',
         undefined,
@@ -481,7 +479,7 @@ const command = args[0]
 
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         '',
         undefined,
@@ -513,7 +511,7 @@ const command = args[0]
 
       const cre = await createChugSplashRuntime(
         '',
-        args[3] !== 'localhost',
+        false,
         true,
         '',
         undefined,
@@ -559,7 +557,7 @@ const command = args[0]
 
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         '',
         undefined,
@@ -591,9 +589,10 @@ const command = args[0]
       const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
         fetchPaths(outPath, buildInfoPath)
 
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         canonicalConfigPath,
         undefined,
@@ -608,7 +607,6 @@ const command = args[0]
         buildInfoFolder
       )
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
       await provider.getNetwork()
       await wallet.getAddress()
@@ -650,7 +648,7 @@ const command = args[0]
 
       const cre = await createChugSplashRuntime(
         configPath,
-        args[3] !== 'localhost',
+        false,
         true,
         '',
         undefined,
