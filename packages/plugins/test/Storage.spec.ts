@@ -8,7 +8,7 @@ describe('Storage', () => {
   let MyStorage: Contract
   let MySimpleStorage: Contract
   let Stateless: Contract
-  beforeEach(async () => {
+  before(async () => {
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',
@@ -90,6 +90,18 @@ describe('Storage', () => {
   it('does set immutable contract', async () => {
     expect(await MyStorage.immutableContract()).equals(
       constructorArgs._immutableContract
+    )
+  })
+
+  it('does set immutable contract with reference', async () => {
+    expect(await MySimpleStorage.immutableContractReference()).equals(
+      MyStorage.address
+    )
+  })
+
+  it('does set immutable contract with reference to no-proxy contract', async () => {
+    expect(await MySimpleStorage.immutableStatelessReference()).equals(
+      Stateless.address
     )
   })
 

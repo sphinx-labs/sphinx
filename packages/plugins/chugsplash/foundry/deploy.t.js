@@ -203,6 +203,10 @@ module.exports = {
     },
     MySimpleStorage: {
       contract: 'SimpleStorage',
+      constructorArgs: {
+        _immutableContractReference: '{{ MyStorage }}',
+        _statelessImmutableContractReference: '{{ Stateless }}',
+      },
       variables: {
         myStorage: '{{ MyStorage }}',
         myStateless: '{{ Stateless }}',
@@ -213,6 +217,7 @@ module.exports = {
       kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
+        _immutableContractReference: '{{ MyStorage }}',
       },
     },
   },

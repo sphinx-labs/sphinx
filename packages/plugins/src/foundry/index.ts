@@ -22,6 +22,7 @@ import {
   getContractAddress,
   CHUGSPLASH_REGISTRY_ADDRESS,
   getChugSplashManagerAddress,
+  assertValidConstructorArgs,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 
@@ -686,20 +687,42 @@ const command = args[0]
       )
 
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
-        const { artifactFolder, buildInfoFolder } = fetchPaths(
-          outPath,
-          buildInfoPath
-        )
+        const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
+          fetchPaths(outPath, buildInfoPath)
+
+        // Always skip the storage check b/c it can cause unnecessary failures in this case.
+        for (const contract of Object.values(userConfig.contracts)) {
+          contract.unsafeSkipStorageCheck = true
+        }
+
         const artifactPaths = await getArtifactPaths(
           userConfig.contracts,
           artifactFolder,
           buildInfoFolder
         )
 
+        const cre = await createChugSplashRuntime(
+          configPath,
+          false,
+          true,
+          canonicalConfigPath,
+          undefined,
+          true,
+          process.stdout
+        )
+
+        const { cachedConstructorArgs } = await assertValidConstructorArgs(
+          userConfig,
+          artifactPaths,
+          cre,
+          true,
+          'foundry'
+        )
+
         const address = getContractAddress(
           managerAddress,
           referenceName,
-          userConfig.contracts[referenceName].constructorArgs ?? {},
+          cachedConstructorArgs[referenceName],
           { integration: 'foundry', artifactPaths }
         )
         process.stdout.write(address)

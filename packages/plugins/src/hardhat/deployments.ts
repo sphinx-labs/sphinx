@@ -14,6 +14,7 @@ import {
   readValidatedChugSplashConfig,
   getContractAddress,
   getChugSplashManagerAddress,
+  assertValidConstructorArgs,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -114,15 +115,18 @@ export const getContract = async (
   })
 
   const resolvedConfigs = await Promise.all(
-    filteredConfigNames.map((configFileName) => {
-      return readUnvalidatedChugSplashConfig(configFileName)
+    filteredConfigNames.map(async (configFileName) => {
+      return {
+        config: await readUnvalidatedChugSplashConfig(configFileName),
+        filePath: configFileName,
+      }
     })
   )
 
-  const userConfigs = resolvedConfigs.filter((userCfg) => {
+  const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
     return (
-      Object.keys(userCfg.contracts).includes(referenceName) &&
-      userCfg.options.projectName === projectName
+      Object.keys(resolvedConfig.config.contracts).includes(referenceName) &&
+      resolvedConfig.config.options.projectName === projectName
     )
   })
 
@@ -140,19 +144,46 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
-  const { organizationID, claimer } = userConfig.options
+  const { organizationID, claimer } = userConfig.config.options
   const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
-  const contractConfig = userConfig.contracts[referenceName]
+  const contractConfig = userConfig.config.contracts[referenceName]
 
   let address =
     contractConfig.externalProxy ||
     getDefaultProxyAddress(claimer, organizationID, projectName, referenceName)
   if (contractConfig.kind === 'no-proxy') {
+    // Always skip the storage check b/c it can cause unnecessary failures in this case.
+    for (const contract of Object.values(userConfig.config.contracts)) {
+      contract.unsafeSkipStorageCheck = true
+    }
+
+    const artifactPaths = await getArtifactPaths(
+      hre,
+      userConfig.config.contracts,
+      hre.config.paths.artifacts,
+      path.join(hre.config.paths.artifacts, 'build-info')
+    )
+    const cre = await createChugSplashRuntime(
+      userConfig.filePath,
+      false,
+      true,
+      hre.config.paths.canonicalConfigs,
+      hre,
+      true
+    )
     const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
+
+    const { cachedConstructorArgs } = await assertValidConstructorArgs(
+      userConfig.config,
+      artifactPaths,
+      cre,
+      true,
+      'hardhat'
+    )
     address = getContractAddress(
       managerAddress,
       referenceName,
-      contractConfig.constructorArgs ?? {},
+      cachedConstructorArgs[referenceName],
       artifact
     )
   }
@@ -165,7 +196,7 @@ export const getContract = async (
     address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
-        userConfig.contracts[referenceName].contract
+        userConfig.config.contracts[referenceName].contract
       ).abi
     ),
     hre.ethers.provider.getSigner()
