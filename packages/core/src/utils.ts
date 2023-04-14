@@ -974,18 +974,31 @@ export const getOpenZeppelinUpgradableContract = (
 ): UpgradeableContract => {
   const options = getOpenZeppelinValidationOpts(contractKind, contractConfig)
 
-  const contract = new UpgradeableContract(
-    fullyQualifiedName,
-    compilerInput,
-    // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
-    // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
-    // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
-    // `CompilerOutput`, which is what OpenZeppelin expects.
-    compilerOutput as any,
-    options
-  )
+  // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
+  // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
+  const tmp = console.error
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  console.error = () => {}
 
-  return contract
+  // fetch the contract and validate
+  // We use a try catch and then rethrow any errors because we temporarily disabled console.error
+  try {
+    const contract = new UpgradeableContract(
+      fullyQualifiedName,
+      compilerInput,
+      // Without converting the `compilerOutput` type to `any`, OpenZeppelin throws an error due
+      // to the `SolidityStorageLayout` type that we've added to Hardhat's `CompilerOutput` type.
+      // Converting this type to `any` shouldn't impact anything since we use Hardhat's default
+      // `CompilerOutput`, which is what OpenZeppelin expects.
+      compilerOutput as any,
+      options
+    )
+    // revert to standard console.error
+    console.error = tmp
+    return contract
+  } catch (e) {
+    throw e
+  }
 }
 
 /**
