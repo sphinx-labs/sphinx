@@ -76,9 +76,9 @@ export const writeDeploymentArtifacts = async (
 
     if (deploymentEvent.event === 'DefaultProxyDeployed') {
       const { metadata, storageLayout } =
-        chugsplashBuildInfo.output.contracts['contracts/libraries/Proxy.sol'][
-          'Proxy'
-        ]
+        chugsplashBuildInfo.output.contracts[
+          '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
+        ]['Proxy']
       const { devdoc, userdoc } =
         typeof metadata === 'string'
           ? JSON.parse(metadata).output

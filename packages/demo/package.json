@@ -31,7 +31,6 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "devDependencies": {
-    "@eth-optimism/contracts": "^0.5.29",
     "@eth-optimism/core-utils": "^0.10.1",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
     "@openzeppelin/contracts": "^4.6.0",

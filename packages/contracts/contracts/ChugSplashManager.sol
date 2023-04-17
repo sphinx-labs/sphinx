@@ -11,12 +11,14 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxy } from "./libraries/Proxy.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
-import { Create2 } from "./libraries/Create2.sol";
-import { MerkleTree } from "./libraries/MerkleTree.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import {
+    Lib_MerkleTree as MerkleTree
+} from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -391,10 +393,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public view returns (address payable) {
         return (
             payable(
-                Create2.compute(
-                    address(this),
+                Create2.computeAddress(
                     keccak256(abi.encode(_projectName, _referenceName)),
-                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                    keccak256(abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this))))
                 )
             )
         );
@@ -1023,7 +1024,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function _deployContract(string memory _referenceName, bytes memory _code) internal {
         // Get the expected address of the contract.
-        address expectedAddress = Create2.compute(address(this), bytes32(0), _code);
+        address expectedAddress = Create2.computeAddress(bytes32(0), keccak256(_code));
 
         address actualAddress;
         assembly {
