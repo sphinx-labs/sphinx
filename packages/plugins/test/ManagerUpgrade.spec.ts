@@ -26,7 +26,7 @@ describe('Manager Upgrade', () => {
       '0x10000000000000000000',
     ])
     const registry = await getChugSplashRegistry(signer)
-    await registry.setVersion(Stateless.address, true)
+    await registry.setVersion(Stateless.address, 2, 0, 0)
   })
 
   it('does upgrade chugsplash manager', async () => {
