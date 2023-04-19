@@ -10,6 +10,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     MyFirstContract: {
       contract: 'HelloChugSplash',
+      kind: 'no-proxy',
       variables: {
         number: 1,
         stored: true,

@@ -313,7 +313,6 @@ export const assertValidUserConfigFields = async (
       assertValidContractReferences(
         contractConfig,
         contractConfig.variables,
-        false,
         validReferenceNames,
         noProxyReferenceNames,
         cre
@@ -325,7 +324,6 @@ export const assertValidUserConfigFields = async (
       assertValidContractReferences(
         contractConfig,
         contractConfig.constructorArgs,
-        true,
         validReferenceNames,
         noProxyReferenceNames,
         cre
@@ -1395,7 +1393,6 @@ export const assertStorageCompatiblePreserveKeywords = (
 export const assertValidContractReferences = (
   contract: UserContractConfig,
   variable: UserConfigVariable,
-  isConstructorArg: boolean,
   referenceNames: string[],
   noProxyReferenceNames: string[],
   cre: ChugSplashRuntimeEnvironment
@@ -1413,8 +1410,7 @@ export const assertValidContractReferences = (
         cre.silent,
         cre.stream
       )
-    }
-    if (!variable.endsWith('}}')) {
+    } else if (!variable.endsWith('}}')) {
       logValidationError(
         'error',
         `Contract reference cannot contain trailing spaces: ${variable}`,
@@ -1422,15 +1418,14 @@ export const assertValidContractReferences = (
         cre.silent,
         cre.stream
       )
-    }
+    } else {
+      const contractReference = variable
+        .substring(2, variable.length - 2)
+        .trim()
 
-    const contractReference = variable.substring(2, variable.length - 2).trim()
-
-    if (!referenceNames.includes(contractReference)) {
       if (
         noProxyReferenceNames.includes(contractReference) &&
-        contract.kind === 'no-proxy' &&
-        isConstructorArg
+        contract.kind === 'no-proxy'
       ) {
         logValidationError(
           'error',
@@ -1439,7 +1434,10 @@ export const assertValidContractReferences = (
           cre.silent,
           cre.stream
         )
-      } else if (!noProxyReferenceNames.includes(contractReference)) {
+      } else if (
+        !referenceNames.includes(contractReference) &&
+        !noProxyReferenceNames.includes(contractReference)
+      ) {
         logValidationError(
           'error',
           `Invalid contract reference: ${variable}.\nDid you misspell this contract reference, or forget to define a contract with this reference name?`,
@@ -1454,7 +1452,6 @@ export const assertValidContractReferences = (
       assertValidContractReferences(
         contract,
         element,
-        isConstructorArg,
         referenceNames,
         noProxyReferenceNames,
         cre
@@ -1465,7 +1462,6 @@ export const assertValidContractReferences = (
       assertValidContractReferences(
         contract,
         varName,
-        isConstructorArg,
         referenceNames,
         noProxyReferenceNames,
         cre
@@ -1473,7 +1469,6 @@ export const assertValidContractReferences = (
       assertValidContractReferences(
         contract,
         varValue,
-        isConstructorArg,
         referenceNames,
         noProxyReferenceNames,
         cre
