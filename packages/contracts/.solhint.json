@@ -7,12 +7,14 @@
     "code-complexity": ["warn", 5],
     "max-line-length": ["error", 100],
     "func-param-name-mixedcase": "error",
+    "func-name-mixedcase": "off",
     "modifier-name-mixedcase": "error",
     "ordering": "warn",
+    "avoid-low-level-calls": "off",
+    "no-inline-assembly": "off",
+    "no-empty-blocks": "off",
     "not-rely-on-time": "off",
-    "no-complex-fallback": "off",
-    "not-rely-on-block-hash": "off",
-    "reentrancy": "off",
-    "contract-name-camelcase": "off"
+    "var-name-mixedcase": "off",
+    "func-visibility": ["warn", { "ignoreConstructors": true }]
   }
 }
