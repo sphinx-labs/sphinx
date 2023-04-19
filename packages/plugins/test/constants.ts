@@ -20,6 +20,27 @@ const enum TestEnum {
   'C',
 }
 
+export const invalidValueTypesPartOne = {
+  _arrayInt8: [0, 1, 2],
+  _int8OutsideRange: 255,
+  _uint8OutsideRange: 256,
+  _intAddress: 1,
+  _arrayAddress: ['0x00000000'],
+  _shortAddress: '0x00000000',
+  _intBytes32: 1,
+  _arrayBytes32: [1],
+  _shortBytes32: '0x00000000',
+  _oddStaticBytes: '0xabcdefghijklmno',
+}
+
+export const invalidValueTypesPartTwo = {
+  _longBytes8: '0x' + '11'.repeat(32),
+  _malformedBytes16: '11'.repeat(16),
+  _intBoolean: 1,
+  _stringBoolean: 'true',
+  _arrayBoolean: [true, false],
+}
+
 export const constructorArgs = {
   _immutableInt: ethers.constants.MinInt256.toString(),
   _immutableInt8: -128,
@@ -30,6 +51,9 @@ export const constructorArgs = {
   _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
   _immutableBigNumberUint: ethers.constants.MaxUint256,
   _immutableBigNumberInt: ethers.constants.MinInt256,
+  _immutableAddress: '0x1111111111111111111111111111111111111111',
+  _immutableContract: '0x1111111111111111111111111111111111111111',
+  _immutableEnum: TestEnum.B,
 }
 
 export const variables = {
