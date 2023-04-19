@@ -43,5 +43,9 @@
     "hardhat": "^2.9.9",
     "solhint": "^3.4.1",
     "solhint-plugin-prettier": "^0.0.5"
+  },
+  "dependencies": {
+    "@eth-optimism/contracts": "^0.5.40",
+    "@eth-optimism/contracts-bedrock": "^0.13.2"
   }
 }
