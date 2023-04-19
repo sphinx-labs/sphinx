@@ -10,6 +10,9 @@ const constructorArgs = {
   _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
   _immutableBigNumberUint: ethers.constants.MaxUint256,
   _immutableBigNumberInt: ethers.constants.MinInt256,
+  _immutableAddress: '0x1111111111111111111111111111111111111111',
+  _immutableContract: '0x1111111111111111111111111111111111111111',
+  _immutableEnum: 1,
 }
 
 const variables = {
