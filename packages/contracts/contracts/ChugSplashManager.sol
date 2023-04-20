@@ -23,11 +23,13 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semver.sol";
 
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+
+contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Semver {
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *
@@ -288,8 +290,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
-        uint256 _protocolPaymentPercentage
-    ) {
+        uint256 _protocolPaymentPercentage,
+        uint _major,
+        uint _minor,
+        uint _patch
+    ) Semver(_major, _minor, _patch) {
         registry = _registry;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;

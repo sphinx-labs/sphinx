@@ -57,7 +57,7 @@ import {
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
 import {
-  CHUGSPLASH_MANAGER_V1_ADDRESS,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION,
   CHUGSPLASH_REGISTRY_ADDRESS,
   Integration,
 } from './constants'
@@ -241,7 +241,9 @@ export const claimChugSplashProject = async (
       await ChugSplashRegistry.claim(
         organizationID,
         newOwnerAddress,
-        CHUGSPLASH_MANAGER_V1_ADDRESS,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
         initializerData,
         await getGasPriceOverrides(provider)
       )
