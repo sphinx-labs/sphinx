@@ -63,6 +63,7 @@ const config: UserChugSplashConfig = {
       kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
+        _immutableContractReference: '{{ VariableValidation }}',
       },
       variables: {
         hello: 'world',
