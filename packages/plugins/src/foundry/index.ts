@@ -761,8 +761,7 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      const walletAddress = await wallet.getAddress()
-      await initializeChugSplash(provider, wallet, [walletAddress])
+      await initializeChugSplash(provider, wallet)
       break
     }
   }

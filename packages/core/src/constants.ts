@@ -16,6 +16,7 @@ import {
   OZ_UUPS_UPDATER_ADDRESS,
   OWNER_MULTISIG_ADDRESS,
   ChugSplashRegistryABI,
+  ManagedServiceArtifact,
   ChugSplashManagerABI,
 } from '@chugsplash/contracts'
 import { utils, constants } from 'ethers'
@@ -38,6 +39,8 @@ export const keywords: Keywords = {
   gap: '{gap}',
 }
 
+export const EXECUTOR_ROLE = utils.keccak256(utils.toUtf8Bytes('EXECUTOR_ROLE'))
+
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
 const defaultAdapterSourceName = DefaultAdapterArtifact.sourceName
@@ -55,6 +58,18 @@ const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
 )
 const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
   (input) => input.type
+)
+
+export const MANAGED_SERVICE_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ManagedServiceArtifact.bytecode,
+      utils.defaultAbiCoder.encode(['address'], [OWNER_MULTISIG_ADDRESS]),
+    ]
+  )
 )
 
 export const CHUGSPLASH_REGISTRY_ADDRESS = utils.getCreate2Address(
@@ -80,6 +95,7 @@ export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
 
 export const managerConstructorValues = [
   CHUGSPLASH_REGISTRY_ADDRESS,
+  MANAGED_SERVICE_ADDRESS,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,

@@ -23,6 +23,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semver.sol";
 
 /**
@@ -199,10 +200,19 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         string referenceName
     );
 
+    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+
+    bytes32 public constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
+        keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
+
+    bytes32 public constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
+
     /**
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
+
+    IAccessControl public immutable managedService;
 
     /**
      * @notice Amount that must be deposited in this contract in order to execute a bundle. The
@@ -270,7 +280,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
      */
     modifier onlyExecutor() {
         require(
-            registry.executors(msg.sender) == true,
+            managedService.hasRole(EXECUTOR_ROLE, msg.sender),
             "ChugSplashManager: caller is not an executor"
         );
         _;
@@ -287,6 +297,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
      */
     constructor(
         ChugSplashRegistry _registry,
+        IAccessControl _managedService,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
@@ -296,6 +307,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         uint _patch
     ) Semver(_major, _minor, _patch) {
         registry = _registry;
+        managedService = _managedService;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
@@ -859,7 +871,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
     function claimProtocolPayment() external {
         require(
-            registry.protocolPaymentRecipients(msg.sender) == true,
+            managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender),
             "ChugSplashManager: caller is not a protocol payment recipient"
         );
 
@@ -932,7 +944,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
     function isProposer(address _addr) public view returns (bool) {
         return
-            (allowManagedProposals && registry.managedProposers(_addr) == true) ||
+            (allowManagedProposals && managedService.hasRole(MANAGED_PROPOSER_ROLE, _addr)) ||
             proposers[_addr] == true ||
             _addr == owner();
     }
