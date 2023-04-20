@@ -25,6 +25,10 @@ const config: UserChugSplashConfig = {
     },
     MySimpleStorage: {
       contract: 'SimpleStorage',
+      constructorArgs: {
+        _immutableContractReference: '{{ MyStorage }}',
+        _statelessImmutableContractReference: '{{ Stateless }}',
+      },
       variables: {
         myStorage: '{{ MyStorage }}',
         myStateless: '{{ Stateless }}',
@@ -35,6 +39,7 @@ const config: UserChugSplashConfig = {
       kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
+        _immutableContractReference: '{{ MyStorage }}',
       },
     },
   },

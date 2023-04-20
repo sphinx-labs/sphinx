@@ -8,6 +8,7 @@ import '../dist'
 import { expect } from 'chai'
 import hre from 'hardhat'
 import {
+  assertValidUserConfigFields,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
@@ -18,6 +19,8 @@ import { createChugSplashRuntime } from '../src/utils'
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
 const constructorArgConfigPath =
   './chugsplash/ConstructorArgValidation.config.ts'
+const noProxyContractReferenceConfigPath =
+  './chugsplash/NoProxyContractReference.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
@@ -29,6 +32,9 @@ describe('Validate', () => {
     )
     const constructorArgsValidationUserConfig =
       await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
+    const noProxyValidationUserConfig = await readUnvalidatedChugSplashConfig(
+      noProxyContractReferenceConfigPath
+    )
     const varValidationArtifactPaths = await getArtifactPaths(
       hre,
       varValidationUserConfig.contracts,
@@ -47,17 +53,7 @@ describe('Validate', () => {
       return true
     }
 
-    const creVariableValidate = await createChugSplashRuntime(
-      variableValidateConfigPath,
-      false,
-      true,
-      hre.config.paths.canonicalConfigs,
-      hre,
-      false,
-      process.stderr
-    )
-
-    const creConstructorArg = await createChugSplashRuntime(
+    const cre = await createChugSplashRuntime(
       variableValidateConfigPath,
       false,
       true,
@@ -72,7 +68,7 @@ describe('Validate', () => {
       variableValidateConfigPath,
       varValidationArtifactPaths,
       'hardhat',
-      creVariableValidate,
+      cre,
       false
     )
 
@@ -81,7 +77,14 @@ describe('Validate', () => {
       constructorArgConfigPath,
       constructorArgsValidationArtifactPaths,
       'hardhat',
-      creConstructorArg,
+      cre,
+      false
+    )
+
+    await assertValidUserConfigFields(
+      noProxyValidationUserConfig,
+      provider,
+      cre,
       false
     )
   })
@@ -351,6 +354,12 @@ describe('Validate', () => {
   it('did catch variables in immutable contract', async () => {
     expect(validationOutput).to.have.string(
       `Detected variables for contract 'Stateless', but variables are not supported for non-proxied contracts.`
+    )
+  })
+
+  it('did catch invalid reference to no-proxy contract in constructor arguments of no-proxy contract', async () => {
+    expect(validationOutput).to.have.string(
+      `Invalid contract reference: {{ Stateless }}. Contract references to no-proxy contracts are not allowed in other no-proxy contracts.`
     )
   })
 })
