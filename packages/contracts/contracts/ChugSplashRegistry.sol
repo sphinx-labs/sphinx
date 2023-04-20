@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { ChugSplashManager } from "./ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -91,14 +90,14 @@ contract ChugSplashRegistry is Ownable, Initializable {
     event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
 
     /**
-     * @notice Mapping of claimers to project names to ChugSplashManager contracts.
+     * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
      */
-    mapping(address => mapping(bytes32 => ChugSplashManager)) public projects;
+    mapping(address => mapping(bytes32 => ChugSplashManagerProxy)) public projects;
 
     /**
-     * @notice Mapping of created manager contracts.
+     * @notice Mapping of created manager proxy contracts.
      */
-    mapping(ChugSplashManager => bool) public managers;
+    mapping(ChugSplashManagerProxy => bool) public managers;
 
     /**
      * @notice Addresses that can execute bundles.
@@ -117,7 +116,12 @@ contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Mapping of valid manager implementations
      */
-    mapping(address => bool) public versions;
+    mapping(address => bool) public managerImplementations;
+
+    /**
+     * @notice Mapping of version numbers manager implementations
+     */
+    mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
      * @param _owner Address of the owner of the registry.
@@ -128,18 +132,25 @@ contract ChugSplashRegistry is Ownable, Initializable {
 
     /**
      * @param _executors             Array of executors to add.
+     * @param _major     Major version of the ChugSplashManager implementation.
+     * @param _minor     Minor version of the ChugSplashManager implementation.
+     * @param _patch     Patch version of the ChugSplashManager implementation.
      * @param _initialManagerVersion Initial manager version used for new projects before
      *                               upgrading to the requested version.
      */
     function initialize(
         address _initialManagerVersion,
+        uint _major,
+        uint _minor,
+        uint _patch,
         address[] memory _executors
     ) public initializer {
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
         }
 
-        versions[_initialManagerVersion] = true;
+        versions[_major][_minor][_patch] = _initialManagerVersion;
+        managerImplementations[_initialManagerVersion] = true;
     }
 
     /**
@@ -147,13 +158,17 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *
      * @param _organizationID ID of the new ChugSplash organization.
      * @param _owner     Initial owner for the new organization.
-     * @param _version   Manager version for the new organization.
+     * @param _major     Major version of the ChugSplashManager implementation.
+     * @param _minor     Minor version of the ChugSplashManager implementation.
+     * @param _patch     Patch version of the ChugSplashManager implementation.
      * @param _data      Any data to pass to the ChugSplashManager initalizer.
      */
     function claim(
         bytes32 _organizationID,
         address _owner,
-        address _version,
+        uint _major,
+        uint _minor,
+        uint _patch,
         bytes memory _data
     ) public {
         require(
@@ -161,7 +176,11 @@ contract ChugSplashRegistry is Ownable, Initializable {
             "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
-        require(versions[_version] == true, "ChugSplashRegistry: invalid manager version");
+        address version = versions[_major][_minor][_patch];
+        require(
+            managerImplementations[version] == true,
+            "ChugSplashRegistry: invalid manager version"
+        );
 
         // Deploy the ChugSplashManager proxy and set the implementation to the requested version
         bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
@@ -170,15 +189,15 @@ contract ChugSplashRegistry is Ownable, Initializable {
             address(this)
         );
         managerProxy.upgradeToAndCall(
-            _version,
+            version,
             abi.encodeCall(IChugSplashManager.initialize, _data)
         );
 
         // Change manager proxy admin to the Org owner
         managerProxy.changeAdmin(_owner);
 
-        projects[msg.sender][_organizationID] = ChugSplashManager(payable(address(managerProxy)));
-        managers[ChugSplashManager(payable(address(managerProxy)))] = true;
+        projects[msg.sender][_organizationID] = managerProxy;
+        managers[managerProxy] = true;
 
         emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(managerProxy), _owner);
     }
@@ -190,7 +209,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announce(string memory _event) public {
         require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
+            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -206,7 +225,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announceWithData(string memory _event, bytes memory _data) public {
         require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
+            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -286,7 +305,18 @@ contract ChugSplashRegistry is Ownable, Initializable {
         emit ProtocolPaymentRecipientRemoved(_recipient);
     }
 
-    function setVersion(address _version, bool _isVersion) external onlyOwner {
-        versions[_version] = _isVersion;
+    function setVersion(
+        address _version,
+        uint _major,
+        uint _minor,
+        uint _patch
+    ) external onlyOwner {
+        require(
+            versions[_major][_minor][_patch] == address(0),
+            "ChugSplashRegistry: version already set"
+        );
+
+        managerImplementations[_version] = true;
+        versions[_major][_minor][_patch] = _version;
     }
 }

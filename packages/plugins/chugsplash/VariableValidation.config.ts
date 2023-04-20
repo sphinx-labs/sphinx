@@ -27,12 +27,12 @@ const config: UserChugSplashConfig = {
         arrayBytes32: [1],
         shortBytes32: '0x00000000',
         oddStaticBytes: '0xabcdefghijklmno',
-        oddDynamicBytes: '0xabcde',
         longBytes8: '0x' + '11'.repeat(32),
         malformedBytes16: '11'.repeat(16),
         intBoolean: 1,
         stringBoolean: 'true',
         arrayBoolean: [true, false],
+        oddDynamicBytes: '0xabcde',
         oversizedArray: [1, 2, 3],
         oversizedNestedArray: [
           [1, 2],

@@ -81,6 +81,18 @@ describe('Storage', () => {
     )
   })
 
+  it('does set immutable address', async () => {
+    expect(await MyStorage.immutableAddress()).equals(
+      constructorArgs._immutableAddress
+    )
+  })
+
+  it('does set immutable contract', async () => {
+    expect(await MyStorage.immutableContract()).equals(
+      constructorArgs._immutableContract
+    )
+  })
+
   it('does set contract reference', async () => {
     expect(await MySimpleStorage.myStorage()).equals(MyStorage.address)
   })

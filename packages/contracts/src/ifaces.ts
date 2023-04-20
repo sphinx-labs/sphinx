@@ -5,7 +5,7 @@ import path from 'path'
 export const ChugSplashRegistryArtifact = require('../artifacts/contracts/ChugSplashRegistry.sol/ChugSplashRegistry.json')
 export const ChugSplashManagerArtifact = require('../artifacts/contracts/ChugSplashManager.sol/ChugSplashManager.json')
 export const ChugSplashManagerProxyArtifact = require('../artifacts/contracts/ChugSplashManagerProxy.sol/ChugSplashManagerProxy.json')
-export const ProxyArtifact = require('../artifacts/contracts/libraries/Proxy.sol/Proxy.json')
+export const ProxyArtifact = require('../artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/Proxy.json')
 export const DefaultUpdaterArtifact = require('../artifacts/contracts/updaters/DefaultUpdater.sol/DefaultUpdater.json')
 export const OZUUPSUpdaterArtifact = require('../artifacts/contracts/updaters/OZUUPSUpdater.sol/OZUUPSUpdater.json')
 export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/DefaultAdapter.sol/DefaultAdapter.json')

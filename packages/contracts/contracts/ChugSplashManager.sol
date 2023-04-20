@@ -11,21 +11,25 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxy } from "./libraries/Proxy.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
-import { Create2 } from "./libraries/Create2.sol";
-import { MerkleTree } from "./libraries/MerkleTree.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import {
+    Lib_MerkleTree as MerkleTree
+} from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semver.sol";
 
 /**
  * @title ChugSplashManager
  */
-contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+
+contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Semver {
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *
@@ -286,8 +290,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
-        uint256 _protocolPaymentPercentage
-    ) {
+        uint256 _protocolPaymentPercentage,
+        uint _major,
+        uint _minor,
+        uint _patch
+    ) Semver(_major, _minor, _patch) {
         registry = _registry;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
@@ -391,10 +398,9 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) public view returns (address payable) {
         return (
             payable(
-                Create2.compute(
-                    address(this),
+                Create2.computeAddress(
                     keccak256(abi.encode(_projectName, _referenceName)),
-                    abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this)))
+                    keccak256(abi.encodePacked(type(Proxy).creationCode, abi.encode(address(this))))
                 )
             )
         );
@@ -968,20 +974,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             return;
         }
 
-        uint256 gasPrice;
-        if (block.chainid != 10 && block.chainid != 420) {
-            // Use the gas price for any network that isn't Optimism.
-            gasPrice = tx.gasprice;
-        } else if (block.chainid == 10) {
-            // Optimism mainnet does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1000000;
-        } else {
-            // Optimism Goerli does not include `tx.gasprice` in the transaction, so we hardcode
-            // its value here.
-            gasPrice = 1;
-        }
-
         // Estimate the amount of gas used in this call by subtracting the current gas left from the
         // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
         // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
@@ -991,8 +983,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // the side of safety by adding a larger value.
         uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
 
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
+        uint256 executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = (tx.gasprice * gasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
@@ -1023,7 +1015,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function _deployContract(string memory _referenceName, bytes memory _code) internal {
         // Get the expected address of the contract.
-        address expectedAddress = Create2.compute(address(this), bytes32(0), _code);
+        address expectedAddress = Create2.computeAddress(bytes32(0), keccak256(_code));
 
         address actualAddress;
         assembly {

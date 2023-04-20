@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { Proxy } from "./libraries/Proxy.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
-import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashManagerProxy
@@ -36,7 +35,7 @@ contract ChugSplashManagerProxy is Proxy {
 
     modifier isApprovedImplementation(address _implementation) {
         require(
-            registry.versions(_implementation) == true,
+            registry.managerImplementations(_implementation) == true,
             "ChugSplashManagerProxy: unapproved manager"
         );
         _;

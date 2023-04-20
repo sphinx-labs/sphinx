@@ -72,12 +72,21 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = utils.getCreate2Address(
   )
 )
 
+export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
+  major: 1,
+  minor: 0,
+  patch: 0,
+}
+
 export const managerConstructorValues = [
   CHUGSPLASH_REGISTRY_ADDRESS,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
 ]
 
 const [managerConstructorFragment] = ChugSplashManagerABI.filter(

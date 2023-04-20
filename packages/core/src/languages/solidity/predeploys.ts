@@ -41,6 +41,7 @@ import {
 } from '../../utils'
 import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION,
   CHUGSPLASH_REGISTRY_ADDRESS,
   managerConstructorValues,
   registryConstructorValues,
@@ -88,6 +89,9 @@ export const initializeChugSplash = async (
     await (
       await ChugSplashRegistry.initialize(
         ChugSplashManager.address,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
         executors,
         await getGasPriceOverrides(provider)
       )
