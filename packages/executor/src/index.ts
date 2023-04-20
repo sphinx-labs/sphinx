@@ -141,12 +141,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     }
 
     // Deploy the ChugSplash contracts.
-    await initializeChugSplash(
-      this.state.provider,
-      wallet,
-      executorAddresses,
-      this.logger
-    )
+    await initializeChugSplash(this.state.provider, wallet, this.logger)
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 

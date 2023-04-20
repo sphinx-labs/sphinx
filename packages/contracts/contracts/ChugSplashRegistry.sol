@@ -29,28 +29,6 @@ contract ChugSplashRegistry is Ownable, Initializable {
     );
 
     /**
-     * @notice Emitted when an executor is added.
-     *
-     * @param executor Address of the added executor.
-     */
-    event ExecutorAdded(address indexed executor);
-
-    /**
-     * @notice Emitted when an executor is removed.
-     *
-     * @param executor Address of the removed executor.
-     */
-    event ExecutorRemoved(address indexed executor);
-
-    event ManagedProposerAdded(address indexed proposer);
-
-    event ManagedProposerRemoved(address indexed proposer);
-
-    event ProtocolPaymentRecipientAdded(address indexed executor);
-
-    event ProtocolPaymentRecipientRemoved(address indexed executor);
-
-    /**
      * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
      *         registry. We use this to avoid needing a complex indexing system when we're trying
      *         to find events emitted by the various manager contracts.
@@ -82,12 +60,12 @@ contract ChugSplashRegistry is Ownable, Initializable {
     );
 
     /**
-     * @notice Emitted whenever a new proxy type is added.
+     * @notice Emitted whenever a new contract kind is added.
      *
-     * @param proxyTypeHash Hash representing the proxy type.
+     * @param contractKindHash Hash representing the contract kind.
      * @param adapter   Address of the adapter for the proxy.
      */
-    event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
+    event ContractKindAdded(bytes32 contractKindHash, address adapter);
 
     /**
      * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
@@ -100,18 +78,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
     mapping(ChugSplashManagerProxy => bool) public managers;
 
     /**
-     * @notice Addresses that can execute bundles.
-     */
-    mapping(address => bool) public executors;
-
-    /**
-     * @notice Mapping of proxy types to adapters.
+     * @notice Mapping of contract kinds to adapters.
      */
     mapping(bytes32 => address) public adapters;
-
-    mapping(address => bool) public managedProposers;
-
-    mapping(address => bool) public protocolPaymentRecipients;
 
     /**
      * @notice Mapping of valid manager implementations
@@ -128,29 +97,6 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     constructor(address _owner) {
         _transferOwnership(_owner);
-    }
-
-    /**
-     * @param _executors             Array of executors to add.
-     * @param _major     Major version of the ChugSplashManager implementation.
-     * @param _minor     Minor version of the ChugSplashManager implementation.
-     * @param _patch     Patch version of the ChugSplashManager implementation.
-     * @param _initialManagerVersion Initial manager version used for new projects before
-     *                               upgrading to the requested version.
-     */
-    function initialize(
-        address _initialManagerVersion,
-        uint _major,
-        uint _minor,
-        uint _patch,
-        address[] memory _executors
-    ) public initializer {
-        for (uint i = 0; i < _executors.length; i++) {
-            executors[_executors[i]] = true;
-        }
-
-        versions[_major][_minor][_patch] = _initialManagerVersion;
-        managerImplementations[_initialManagerVersion] = true;
     }
 
     /**
@@ -233,76 +179,20 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Adds a new proxy type with a corresponding adapter.
+     * @notice Adds a new contract kind with a corresponding adapter.
      *
-     * @param _proxyTypeHash Hash representing the proxy type
-     * @param _adapter   Address of the adapter for this proxy type.
+     * @param _contractKindHash Hash representing the contract kind
+     * @param _adapter   Address of the adapter for this contract kind.
      */
-    function addContractKind(bytes32 _proxyTypeHash, address _adapter) external {
+    function addContractKind(bytes32 _contractKindHash, address _adapter) external onlyOwner {
         require(
-            adapters[_proxyTypeHash] == address(0),
-            "ChugSplashRegistry: proxy type has an existing adapter"
+            adapters[_contractKindHash] == address(0),
+            "ChugSplashRegistry: contract kind has an existing adapter"
         );
 
-        adapters[_proxyTypeHash] = _adapter;
+        adapters[_contractKindHash] = _adapter;
 
-        emit ProxyTypeAdded(_proxyTypeHash, _adapter);
-    }
-
-    /**
-     * @notice Add an executor, which can execute bundles on behalf of users. Only callable by the
-     *         owner of this contract.
-     *
-     * @param _executor Address of the executor to add.
-     */
-    function addExecutor(address _executor) external onlyOwner {
-        require(executors[_executor] == false, "ChugSplashRegistry: executor already added");
-        executors[_executor] = true;
-        emit ExecutorAdded(_executor);
-    }
-
-    /**
-     * @notice Remove an executor. Only callable by the owner of this contract.
-     *
-     * @param _executor Address of the executor to remove.
-     */
-    function removeExecutor(address _executor) external onlyOwner {
-        require(executors[_executor] == true, "ChugSplashRegistry: executor already removed");
-        executors[_executor] = false;
-        emit ExecutorRemoved(_executor);
-    }
-
-    function addManagedProposer(address _proposer) external onlyOwner {
-        require(managedProposers[_proposer] == false, "ChugSplashRegistry: proposer already added");
-        managedProposers[_proposer] = true;
-        emit ManagedProposerAdded(_proposer);
-    }
-
-    function removeManagedProposer(address _proposer) external onlyOwner {
-        require(
-            managedProposers[_proposer] == true,
-            "ChugSplashRegistry: proposer already removed"
-        );
-        managedProposers[_proposer] = false;
-        emit ManagedProposerRemoved(_proposer);
-    }
-
-    function addProtocolPaymentRecipient(address _recipient) external onlyOwner {
-        require(
-            protocolPaymentRecipients[_recipient] == false,
-            "ChugSplashRegistry: recipient already added"
-        );
-        protocolPaymentRecipients[_recipient] = true;
-        emit ProtocolPaymentRecipientAdded(_recipient);
-    }
-
-    function removeProtocolPaymentRecipient(address _recipient) external onlyOwner {
-        require(
-            protocolPaymentRecipients[_recipient] == true,
-            "ChugSplashRegistry: recipient already removed"
-        );
-        protocolPaymentRecipients[_recipient] = false;
-        emit ProtocolPaymentRecipientRemoved(_recipient);
+        emit ContractKindAdded(_contractKindHash, _adapter);
     }
 
     function setVersion(

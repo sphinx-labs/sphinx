@@ -1296,3 +1296,13 @@ export const isLiveNetwork = async (
   const network = await provider.getNetwork()
   return network.name !== 'unknown'
 }
+
+export const getImpersonatedSigner = async (
+  address: string,
+  provider: providers.JsonRpcProvider
+): Promise<providers.JsonRpcSigner> => {
+  // This RPC method works for anvil too, since it's an alias for 'anvil_impersonateAccount'.
+  await provider.send('hardhat_impersonateAccount', [address])
+
+  return provider.getSigner(address)
+}
