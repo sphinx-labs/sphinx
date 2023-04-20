@@ -62,6 +62,11 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
+  const managerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
+    parsedConfig.options.organizationID
+  )
+
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {
       throw new Error(`Deployment event has no arguments. Should never happen.`)
@@ -71,9 +76,9 @@ export const writeDeploymentArtifacts = async (
 
     if (deploymentEvent.event === 'DefaultProxyDeployed') {
       const { metadata, storageLayout } =
-        chugsplashBuildInfo.output.contracts['contracts/libraries/Proxy.sol'][
-          'Proxy'
-        ]
+        chugsplashBuildInfo.output.contracts[
+          '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
+        ]['Proxy']
       const { devdoc, userdoc } =
         typeof metadata === 'string'
           ? JSON.parse(metadata).output
@@ -97,9 +102,7 @@ export const writeDeploymentArtifacts = async (
         numDeployments: 1,
         metadata:
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
-        args: [
-          getChugSplashManagerAddress(parsedConfig.options.organizationID),
-        ],
+        args: [managerAddress],
         bytecode: ProxyArtifact.bytecode,
         deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
         devdoc,

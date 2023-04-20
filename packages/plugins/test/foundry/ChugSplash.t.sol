@@ -31,13 +31,15 @@ contract ChugSplashTest is Test {
     IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
+    address claimer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
     bytes32 withdrawOrganizationID = keccak256('Withdraw test');
     string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
 
-    bytes32 registerOrganizationID = keccak256('Register, propose, fund, approve test');
-    string registerConfig = "./chugsplash/foundry/registerProposeFundApprove.t.js";
+    bytes32 proposeFundApproveOrgID = keccak256('Claim, propose, fund, approve test');
+    string claimToApproveConfig = "./chugsplash/foundry/claimProposeFundApprove.t.js";
 
     bytes32 cancelOrganizationID = keccak256('Cancel test');
     string cancelConfig = "./chugsplash/foundry/cancel.t.js";
@@ -61,34 +63,34 @@ contract ChugSplashTest is Test {
         // Setup deployment test
         chugsplash.deploy(deployConfig, true);
 
-        // Deploy claim proxy test
+        // Deploy export proxy test
         chugsplash.deploy(claimConfig, true);
-        chugsplash.claimProxy(claimConfig, "MySimpleStorage", true);
+        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
 
-        // Start transfer proxy test
+        // Start export proxy test
         chugsplash.deploy(transferConfig, true);
-        chugsplash.claimProxy(transferConfig, "MySimpleStorage", true);
+        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
 
-        // Setup register, propose, fund, approve process test
-        chugsplash.register(registerConfig, true);
-        chugsplash.propose(registerConfig, false, true);
-        chugsplash.fund(registerConfig, 1 ether, false, true);
-        chugsplash.approve(registerConfig, true, true);
+        // Setup claim, propose, fund, approve process test
+        chugsplash.claim(claimToApproveConfig, true);
+        chugsplash.propose(claimToApproveConfig, false, true);
+        chugsplash.fund(claimToApproveConfig, 1 ether, false, true);
+        chugsplash.approve(claimToApproveConfig, true, true);
 
         // Setup withdraw test
-        chugsplash.register(withdrawConfig, true);
+        chugsplash.claim(withdrawConfig, true);
         chugsplash.fund(withdrawConfig, 1 ether, false, true);
         chugsplash.withdraw(withdrawConfig, true);
 
         // Setup cancel test
-        chugsplash.register(cancelConfig, true);
+        chugsplash.claim(cancelConfig, true);
         chugsplash.propose(cancelConfig, false, true);
         chugsplash.fund(cancelConfig, 1 ether, false, true);
         chugsplash.approve(cancelConfig, true, true);
         chugsplash.cancel(cancelConfig, true);
 
         // Setup add proposer test
-        chugsplash.register(addProposerConfig, true);
+        chugsplash.claim(addProposerConfig, true);
         chugsplash.addProposer(addProposerConfig, newProposer, true);
         vm.setEnv("PRIVATE_KEY", newProposerPrivateKey);
         chugsplash.propose(addProposerConfig, false, true);
@@ -96,7 +98,7 @@ contract ChugSplashTest is Test {
         // Refresh EVM state to reflect chain state after ChugSplash transactions
         chugsplash.refresh();
 
-        chugsplash.transferProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
+        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
         claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
         transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
@@ -106,38 +108,38 @@ contract ChugSplashTest is Test {
         registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
-    function testDidClaimProxy() public {
+    function testDidexportProxy() public {
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
-    function testDidTransferProxy() public {
-        IChugSplashManager manager = registry.projects(transferOrganizationID);
+    function testDidImportProxy() public {
+        IChugSplashManager manager = registry.projects(claimer, transferOrganizationID);
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
-    function testDidRegister() public {
-        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unregistered project detected");
-        assertFalse(address(registry.projects(registerOrganizationID)) == address(0), "Registered project was not detected");
+    function testDidClaim() public {
+        assertTrue(address(registry.projects(claimer, 'Doesnt exist')) == address(0), "Unclaimed project detected");
+        assertFalse(address(registry.projects(claimer, proposeFundApproveOrgID)) == address(0), "Claimed project was not detected");
     }
 
     function testDidProposeFundApprove() public {
-        IChugSplashManager manager = registry.projects(registerOrganizationID);
+        IChugSplashManager manager = registry.projects(claimer, proposeFundApproveOrgID);
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        IChugSplashManager manager = registry.projects(withdrawOrganizationID);
+        IChugSplashManager manager = registry.projects(claimer, withdrawOrganizationID);
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
     function testDidCancel() public {
-        IChugSplashManager manager = registry.projects(cancelOrganizationID);
+        IChugSplashManager manager = registry.projects(claimer, cancelOrganizationID);
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        IChugSplashManager manager = registry.projects(addProposerOrganizationID);
+        IChugSplashManager manager = registry.projects(claimer, addProposerOrganizationID);
         assertTrue(manager.proposers(newProposer));
     }
 

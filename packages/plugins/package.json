@@ -14,7 +14,7 @@
     "build:contracts": "npx hardhat clean && npx hardhat compile && mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
-    "test:forge": "anvil --code-size-limit 99999999999999 & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
+    "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
     "test:hardhat": "npx hardhat test --config-path ./chugsplash/Storage.config.ts",
     "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && IS_CHUGSPLASH_TEST=true && yarn test",
     "lint": "yarn lint:fix && yarn lint:check",
@@ -35,6 +35,7 @@
     "@chugsplash/contracts": "^0.6.0",
     "@chugsplash/core": "^0.8.0",
     "@chugsplash/executor": "^0.8.0",
+    "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
     "@ethereumjs/vm": "^6.2.0",
@@ -51,6 +52,7 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
+    "@chugsplash/contracts": "^0.6.0",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "chai": "^4.3.7",

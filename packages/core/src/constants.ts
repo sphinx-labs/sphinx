@@ -16,8 +16,13 @@ import {
   OZ_UUPS_UPDATER_ADDRESS,
   OWNER_MULTISIG_ADDRESS,
   ChugSplashRegistryABI,
+  ChugSplashManagerABI,
 } from '@chugsplash/contracts'
 import { utils, constants } from 'ethers'
+import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+
+// Etherscan constants
+export const customChains: CustomChain[] = []
 
 export const EXECUTION_BUFFER_MULTIPLIER = 2
 export type Integration = 'hardhat' | 'foundry'
@@ -43,13 +48,7 @@ const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
 const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
 const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
 
-export const registryConstructorValues = [
-  OWNER_MULTISIG_ADDRESS,
-  OWNER_BOND_AMOUNT,
-  EXECUTION_LOCK_TIME,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  PROTOCOL_PAYMENT_PERCENTAGE,
-]
+export const registryConstructorValues = [OWNER_MULTISIG_ADDRESS]
 
 const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -73,13 +72,44 @@ export const CHUGSPLASH_REGISTRY_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const chugsplashManagerConstructorArgs = {
-  _registry: CHUGSPLASH_REGISTRY_ADDRESS,
-  _executionLockTime: EXECUTION_LOCK_TIME,
-  _ownerBondAmount: OWNER_BOND_AMOUNT.toString(),
-  _executorPaymentPercentage: EXECUTOR_PAYMENT_PERCENTAGE,
-  _protocolPaymentPercentage: PROTOCOL_PAYMENT_PERCENTAGE,
+export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
+  major: 1,
+  minor: 0,
+  patch: 0,
 }
+
+export const managerConstructorValues = [
+  CHUGSPLASH_REGISTRY_ADDRESS,
+  EXECUTION_LOCK_TIME,
+  OWNER_BOND_AMOUNT.toString(),
+  EXECUTOR_PAYMENT_PERCENTAGE,
+  PROTOCOL_PAYMENT_PERCENTAGE,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
+]
+
+const [managerConstructorFragment] = ChugSplashManagerABI.filter(
+  (fragment) => fragment.type === 'constructor'
+)
+const managerConstructorArgTypes = managerConstructorFragment.inputs.map(
+  (input) => input.type
+)
+
+export const CHUGSPLASH_MANAGER_V1_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashManagerArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        managerConstructorArgTypes,
+        managerConstructorValues
+      ),
+    ]
+  )
+)
 
 export const CHUGSPLASH_CONSTRUCTOR_ARGS = {}
 CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistrySourceName] = [
@@ -87,9 +117,8 @@ CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashRegistrySourceName] = [
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
 ]
-CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] = Object.values(
-  chugsplashManagerConstructorArgs
-)
+CHUGSPLASH_CONSTRUCTOR_ARGS[chugsplashManagerSourceName] =
+  managerConstructorValues
 CHUGSPLASH_CONSTRUCTOR_ARGS[defaultAdapterSourceName] = [
   DEFAULT_UPDATER_ADDRESS,
 ]

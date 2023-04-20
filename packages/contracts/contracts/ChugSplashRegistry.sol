@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { ChugSplashManager } from "./ChugSplashManager.sol";
+import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
- *         deployments must be first registered with this contract, which allows clients to easily
+ *         deployments must be first claimed with this contract, which allows clients to easily
  *         find and index these deployments.
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
-     * @notice Emitted whenever a new project is registered.
+     * @notice Emitted whenever a new project is claimed.
      *
      * @param organizationID Organization ID.
-     * @param creator         Address of the creator of the project.
+     * @param claimer         Address of the claimer of the project.
      * @param manager         Address of the ChugSplashManager for this project.
      * @param owner           Address of the initial owner of the project.
      */
-    event ChugSplashProjectRegistered(
+    event ChugSplashProjectClaimed(
         bytes32 indexed organizationID,
-        address indexed creator,
+        address indexed claimer,
         address indexed manager,
         address owner
     );
@@ -89,14 +90,14 @@ contract ChugSplashRegistry is Ownable, Initializable {
     event ProxyTypeAdded(bytes32 proxyTypeHash, address adapter);
 
     /**
-     * @notice Mapping of project names to ChugSplashManager contracts.
+     * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
      */
-    mapping(bytes32 => ChugSplashManager) public projects;
+    mapping(address => mapping(bytes32 => ChugSplashManagerProxy)) public projects;
 
     /**
-     * @notice Mapping of created manager contracts.
+     * @notice Mapping of created manager proxy contracts.
      */
-    mapping(ChugSplashManager => bool) public managers;
+    mapping(ChugSplashManagerProxy => bool) public managers;
 
     /**
      * @notice Addresses that can execute bundles.
@@ -113,80 +114,92 @@ contract ChugSplashRegistry is Ownable, Initializable {
     mapping(address => bool) public protocolPaymentRecipients;
 
     /**
-     * @notice Amount that must be deposited in the ChugSplashManager in order to execute a bundle.
+     * @notice Mapping of valid manager implementations
      */
-    uint256 public immutable ownerBondAmount;
+    mapping(address => bool) public managerImplementations;
 
     /**
-     * @notice Amount of time for an executor to completely execute a bundle after claiming it.
+     * @notice Mapping of version numbers manager implementations
      */
-    uint256 public immutable executionLockTime;
+    mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
-     * @notice Amount that executors are paid, denominated as a percentage of the cost of execution.
+     * @param _owner Address of the owner of the registry.
      */
-    uint256 public immutable executorPaymentPercentage;
-
-    uint256 public immutable protocolPaymentPercentage;
-
-    /**
-     * @param _ownerBondAmount           Amount that must be deposited in the ChugSplashManager in
-     *                                   order to execute a bundle.
-     * @param _executionLockTime         Amount of time for an executor to completely execute a
-     *                                   bundle after claiming it.
-     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
-     *                                   denominated as a percentage.
-     */
-    constructor(
-        address _owner,
-        uint256 _ownerBondAmount,
-        uint256 _executionLockTime,
-        uint256 _executorPaymentPercentage,
-        uint256 _protocolPaymentPercentage
-    ) {
-        ownerBondAmount = _ownerBondAmount;
-        executionLockTime = _executionLockTime;
-        executorPaymentPercentage = _executorPaymentPercentage;
-        protocolPaymentPercentage = _protocolPaymentPercentage;
-
+    constructor(address _owner) {
         _transferOwnership(_owner);
     }
 
     /**
-     * @param _executors        Array of executors to add.
+     * @param _executors             Array of executors to add.
+     * @param _major     Major version of the ChugSplashManager implementation.
+     * @param _minor     Minor version of the ChugSplashManager implementation.
+     * @param _patch     Patch version of the ChugSplashManager implementation.
+     * @param _initialManagerVersion Initial manager version used for new projects before
+     *                               upgrading to the requested version.
      */
-    function initialize(address[] memory _executors) public initializer {
+    function initialize(
+        address _initialManagerVersion,
+        uint _major,
+        uint _minor,
+        uint _patch,
+        address[] memory _executors
+    ) public initializer {
         for (uint i = 0; i < _executors.length; i++) {
             executors[_executors[i]] = true;
         }
+
+        versions[_major][_minor][_patch] = _initialManagerVersion;
+        managerImplementations[_initialManagerVersion] = true;
     }
 
     /**
-     * @notice Registers a new project.
+     * @notice Claims a new project.
      *
-     * @param _organizationID ID of the new ChugSplash project.
-     * @param _owner     Initial owner for the new project.
+     * @param _organizationID ID of the new ChugSplash organization.
+     * @param _owner     Initial owner for the new organization.
+     * @param _major     Major version of the ChugSplashManager implementation.
+     * @param _minor     Minor version of the ChugSplashManager implementation.
+     * @param _patch     Patch version of the ChugSplashManager implementation.
+     * @param _data      Any data to pass to the ChugSplashManager initalizer.
      */
-    function register(address _owner, bytes32 _organizationID, bool _allowManagedProposals) public {
+    function claim(
+        bytes32 _organizationID,
+        address _owner,
+        uint _major,
+        uint _minor,
+        uint _patch,
+        bytes memory _data
+    ) public {
         require(
-            address(projects[_organizationID]) == address(0),
-            "ChugSplashRegistry: organization ID already registered"
+            address(projects[msg.sender][_organizationID]) == address(0),
+            "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
-        // Deploy the ChugSplashManager.
-        ChugSplashManager manager = new ChugSplashManager{ salt: _organizationID }(
+        address version = versions[_major][_minor][_patch];
+        require(
+            managerImplementations[version] == true,
+            "ChugSplashRegistry: invalid manager version"
+        );
+
+        // Deploy the ChugSplashManager proxy and set the implementation to the requested version
+        bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
+        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
-            executionLockTime,
-            ownerBondAmount,
-            executorPaymentPercentage,
-            protocolPaymentPercentage
+            address(this)
         );
-        manager.initialize(_owner, _organizationID, _allowManagedProposals);
+        managerProxy.upgradeToAndCall(
+            version,
+            abi.encodeCall(IChugSplashManager.initialize, _data)
+        );
 
-        projects[_organizationID] = ChugSplashManager(payable(address(manager)));
-        managers[ChugSplashManager(payable(address(manager)))] = true;
+        // Change manager proxy admin to the Org owner
+        managerProxy.changeAdmin(_owner);
 
-        emit ChugSplashProjectRegistered(_organizationID, msg.sender, address(manager), _owner);
+        projects[msg.sender][_organizationID] = managerProxy;
+        managers[managerProxy] = true;
+
+        emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(managerProxy), _owner);
     }
 
     /**
@@ -196,7 +209,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announce(string memory _event) public {
         require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
+            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -212,7 +225,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announceWithData(string memory _event, bytes memory _data) public {
         require(
-            managers[ChugSplashManager(payable(msg.sender))] == true,
+            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -290,5 +303,20 @@ contract ChugSplashRegistry is Ownable, Initializable {
         );
         protocolPaymentRecipients[_recipient] = false;
         emit ProtocolPaymentRecipientRemoved(_recipient);
+    }
+
+    function setVersion(
+        address _version,
+        uint _major,
+        uint _minor,
+        uint _patch
+    ) external onlyOwner {
+        require(
+            versions[_major][_minor][_patch] == address(0),
+            "ChugSplashRegistry: version already set"
+        );
+
+        managerImplementations[_version] = true;
+        versions[_major][_minor][_patch] = _version;
     }
 }

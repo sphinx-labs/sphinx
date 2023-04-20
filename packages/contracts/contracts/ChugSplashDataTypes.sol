@@ -37,6 +37,7 @@ struct ChugSplashBundleState {
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
+    bool remoteExecution;
 }
 
 /**

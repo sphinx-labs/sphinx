@@ -444,7 +444,9 @@ export const parseInplaceArray: VariableHandler<
 }
 
 /**
- * Handles encoding an addresses and contracts.
+ * Interface for parsing addresses and contracts during variable validation.
+ * Calls the generic `parseAddress` function below which has a more slimmed down interface
+ * to make it usable for both variables and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -455,18 +457,28 @@ export const parseInplaceAddress: VariableHandler<
 > = (props: VariableHandlerProps<UserConfigVariable, string>): string => {
   const { variable, storageObj } = props
 
+  // convert to checksum address
+  return parseAddress(variable, storageObj.label)
+}
+
+/**
+ * Handles parsing addresses and contracts for both variables and constructor args.
+ *
+ * @param variable Variable to parse.
+ * @param label Label to use in error messages.
+ * @returns parsed variable string
+ */
+const parseAddress = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'string') {
     throw new InputError(
-      `invalid input type for ${
-        storageObj.label
-      }: ${variable}, expected address string but got ${stringifyVariableType(
+      `invalid input type for ${label}: ${variable}, expected address string but got ${stringifyVariableType(
         variable
       )}`
     )
   }
 
   if (!ethers.utils.isAddress(variable)) {
-    throw new Error(`invalid address for ${storageObj.label}: ${variable}`)
+    throw new Error(`invalid address for ${label}: ${variable}`)
   }
 
   // convert to checksum address
@@ -474,7 +486,9 @@ export const parseInplaceAddress: VariableHandler<
 }
 
 /**
- * Handles parsing and validating booleans.
+ * Interface for parsing booleans during variable validation. Calls the generic `parseAddress`
+ * function below which has a more slimmed down interface to make it usable for both variables
+ * and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -484,11 +498,22 @@ export const parseInplaceBool: VariableHandler<UserConfigVariable, boolean> = (
 ): boolean => {
   const { variable, storageObj } = props
 
+  return parseBool(variable, storageObj.label)
+}
+
+/**
+ * Handles parsing and validating booleans for both variables and constructor args.
+ *
+ * @param variable Variable to parse.
+ * @param label Label to use in error messages.
+ * @returns true or false
+ */
+const parseBool = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'boolean') {
     throw new InputError(
-      `invalid input type for variable ${
-        storageObj.label
-      }, expected boolean but got ${stringifyVariableType(variable)}`
+      `invalid input type for variable ${label}, expected boolean but got ${stringifyVariableType(
+        variable
+      )}`
     )
   }
 
@@ -496,7 +521,9 @@ export const parseInplaceBool: VariableHandler<UserConfigVariable, boolean> = (
 }
 
 /**
- * Handles parsing and validating fixed size bytes
+ * Interface for parsing in place bytes during variable validation. Calls the generic `parseBytes`
+ * function below which has a more slimmed down interface to make it usable for both variables
+ * and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -506,29 +533,48 @@ export const parseInplaceBytes: VariableHandler<UserConfigVariable, string> = (
 ): string => {
   const { variable, variableType, storageObj } = props
 
+  return parseBytes(
+    variable,
+    variableType.label,
+    storageObj.label,
+    variableType.numberOfBytes
+  )
+}
+
+/**
+ * Handles parsing and validating fixed size bytes for both variables and constructor args.
+ *
+ * @param variable Variable to parse.
+ * @param label Label to use in error messages.
+ * @returns DataHexString
+ */
+const parseBytes = (
+  variable: UserConfigVariable,
+  variableType: string,
+  label: string,
+  numberOfBytes: number
+) => {
   // Check that the user entered a string
   if (typeof variable !== 'string') {
     throw new InputError(
-      `invalid input type for ${
-        storageObj.label
-      }: ${variable}, expected DataHexString but got ${stringifyVariableType(
+      `invalid input type for ${label}: ${variable}, expected DataHexString but got ${stringifyVariableType(
         variable
       )}`
     )
   }
 
-  if (variableType.label.startsWith('bytes')) {
+  if (variableType.startsWith('bytes')) {
     // hexDataLength returns null if the input is not a valid hex string.
-    if (ethers.utils.hexDataLength(variable) === null) {
+    if (!ethers.utils.isHexString(variable)) {
       throw new InputError(
-        `invalid input format for variable ${storageObj.label}, expected DataHexString but got ${variable}`
+        `invalid input format for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
 
     // Check that the DataHexString is the correct length
-    if (!ethers.utils.isHexString(variable, variableType.numberOfBytes)) {
+    if (!ethers.utils.isHexString(variable, numberOfBytes)) {
       throw new Error(
-        `invalid length for bytes${variableType.numberOfBytes} variable ${storageObj.label}: ${variable}`
+        `invalid length for bytes${numberOfBytes} variable ${label}: ${variable}`
       )
     }
   }
@@ -537,7 +583,9 @@ export const parseInplaceBytes: VariableHandler<UserConfigVariable, string> = (
 }
 
 /**
- * Handles parsing and validating uints
+ * Interface for parsing uints during variable validation. Calls the generic `parseUnsignedInteger`
+ * function below which has a more slimmed down interface to make it usable for both
+ * variables and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -547,6 +595,24 @@ export const parseInplaceUint: VariableHandler<UserConfigVariable, string> = (
 ): string => {
   const { variable, variableType, storageObj } = props
 
+  return parseUnsignedInteger(
+    variable,
+    storageObj.label,
+    variableType.numberOfBytes
+  )
+}
+
+/**
+ * Handles parsing and validating uints
+ *
+ * @param props standard VariableHandler props. See ./iterator.ts for more information.
+ * @returns
+ */
+const parseUnsignedInteger = (
+  variable: UserConfigVariable,
+  label: string,
+  numberOfBytes: number
+) => {
   if (
     typeof variable !== 'number' &&
     typeof variable !== 'string' &&
@@ -557,24 +623,22 @@ export const parseInplaceUint: VariableHandler<UserConfigVariable, string> = (
     )
   ) {
     throw new InputError(
-      `invalid input type for variable ${
-        storageObj.label
-      } expected number, string, or BigNumber but got ${stringifyVariableType(
+      `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
     )
   }
 
   const maxValue = BigNumber.from(2)
-    .pow(8 * variableType.numberOfBytes)
+    .pow(8 * numberOfBytes)
     .sub(1)
 
   if (
     remove0x(BigNumber.from(variable).toHexString()).length / 2 >
-    variableType.numberOfBytes
+    numberOfBytes
   ) {
     throw new Error(
-      `invalid value for ${storageObj.label}: ${variable}, outside valid range: [0:${maxValue}]`
+      `invalid value for ${label}: ${variable}, outside valid range: [0:${maxValue}]`
     )
   }
 
@@ -582,7 +646,9 @@ export const parseInplaceUint: VariableHandler<UserConfigVariable, string> = (
 }
 
 /**
- * Handles parsing and validating ints
+ * Interface for parsing ints during variable validation. Calls the generic `parseInteger`
+ * function below which has a more slimmed down interface to make it usable for both
+ * variables and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -592,6 +658,20 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
 ): string => {
   const { variable, variableType, storageObj } = props
 
+  return parseInteger(variable, storageObj.label, variableType.numberOfBytes)
+}
+
+/**
+ * Handles parsing integers for both variables and constructor args.
+ *
+ * @param props standard VariableHandler props. See ./iterator.ts for more information.
+ * @returns
+ */
+const parseInteger = (
+  variable: UserConfigVariable,
+  label: string,
+  numberOfBytes: number
+) => {
   if (
     typeof variable !== 'number' &&
     typeof variable !== 'string' &&
@@ -602,9 +682,7 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
     )
   ) {
     throw new InputError(
-      `invalid input type for variable ${
-        storageObj.label
-      } expected number, string, or BigNumber but got ${stringifyVariableType(
+      `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
     )
@@ -613,11 +691,11 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
   // Calculate the minimum and maximum values of the int to ensure that the variable fits within
   // these bounds.
   const minValue = BigNumber.from(2)
-    .pow(8 * variableType.numberOfBytes)
+    .pow(8 * numberOfBytes)
     .div(2)
     .mul(-1)
   const maxValue = BigNumber.from(2)
-    .pow(8 * variableType.numberOfBytes)
+    .pow(8 * numberOfBytes)
     .div(2)
     .sub(1)
   if (
@@ -625,7 +703,7 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
     BigNumber.from(variable).gt(maxValue)
   ) {
     throw new Error(
-      `invalid value for ${storageObj.label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
+      `invalid value for ${label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
     )
   }
 
@@ -697,7 +775,7 @@ export const parseInplaceStruct: VariableHandler<
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
  */
-export const parseBytes: VariableHandler<UserConfigVariable, string> = (
+export const parseDynamicBytes: VariableHandler<UserConfigVariable, string> = (
   props: VariableHandlerProps<UserConfigVariable, string>
 ): string => {
   const { variable, variableType, storageObj } = props
@@ -889,7 +967,7 @@ export const parseAndValidateVariable = (
       int: parseInplaceInt,
       struct: parseInplaceStruct,
     },
-    bytes: parseBytes,
+    bytes: parseDynamicBytes,
     mapping: parseMapping,
     dynamic_array: parseDynamicArray,
     preserve: parsePreserve,
@@ -933,12 +1011,9 @@ const parseContractVariables = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConfigVariables: ParsedConfigVariables = {}
-  if (
-    !contractConfig.variables ||
-    Object.keys(contractConfig.variables).length === 0
-  ) {
-    return {}
-  }
+
+  const userConfigVariables: UserConfigVariables =
+    contractConfig.variables ?? {}
 
   const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
@@ -947,7 +1022,7 @@ const parseContractVariables = (
   const unnecessarilyDefinedVariables: string[] = []
   const missingVariables: string[] = []
 
-  for (const variableName of Object.keys(contractConfig.variables)) {
+  for (const variableName of Object.keys(userConfigVariables)) {
     const existsInLayout = extendedLayout.storage.some(
       (storageObj) => storageObj.configVarName === variableName
     )
@@ -958,7 +1033,7 @@ const parseContractVariables = (
   }
 
   for (const storageObj of Object.values(extendedLayout.storage)) {
-    const configVarValue = contractConfig.variables[storageObj.configVarName]
+    const configVarValue = userConfigVariables[storageObj.configVarName]
     if (configVarValue === undefined) {
       missingVariables.push(storageObj.configVarName)
     }
@@ -1061,11 +1136,18 @@ const parseContractVariables = (
  * @returns complete set of variables parsed into the format expected by the parsed chugsplash config.
  */
 export const parseContractConstructorArgs = (
-  userConstructorArgs: UserConfigVariables,
+  userContractConfig: UserContractConfig,
   referenceName: string,
   abi: Array<Fragment>,
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
+  let userConstructorArgs: UserConfigVariables =
+    userContractConfig.constructorArgs ?? {}
+
+  userConstructorArgs = JSON.parse(
+    Handlebars.compile(JSON.stringify(userConstructorArgs))({})
+  )
+
   const parsedConstructorArgs: ParsedConfigVariables = {}
 
   const constructorFragment = abi.find(
@@ -1090,6 +1172,7 @@ export const parseContractConstructorArgs = (
     (argName) => !constructorArgNames.includes(argName)
   )
   const undefinedConstructorArgNames: string[] = []
+  const inputFormatErrors: string[] = []
 
   constructorFragment.inputs.forEach((input) => {
     const constructorArgValue = userConstructorArgs[input.name]
@@ -1098,12 +1181,77 @@ export const parseContractConstructorArgs = (
       return
     }
 
-    if (typeof constructorArgValue !== 'boolean') {
-      parsedConstructorArgs[input.name] = constructorArgValue.toString()
-    } else {
-      parsedConstructorArgs[input.name] = constructorArgValue
+    const constructorArgType = input.type
+    try {
+      if (
+        constructorArgType.startsWith('uint') ||
+        constructorArgType.startsWith('int')
+      ) {
+        // Since the number of bytes is not easily accessible, we parse it from the type string.
+        const suffix = constructorArgType.replace(/u?int/g, '')
+        const bits = parseInt(suffix, 10)
+        const numberOfBytes = bits / 8
+
+        if (constructorArgType.startsWith('int')) {
+          parsedConstructorArgs[input.name] = parseInteger(
+            constructorArgValue,
+            input.name,
+            numberOfBytes
+          )
+        } else {
+          const returnVal = parseUnsignedInteger(
+            constructorArgValue,
+            input.name,
+            numberOfBytes
+          )
+          parsedConstructorArgs[input.name] = returnVal
+        }
+      } else if (constructorArgType.startsWith('address')) {
+        parsedConstructorArgs[input.name] = parseAddress(
+          constructorArgValue,
+          input.name
+        )
+      } else if (constructorArgType === 'bool') {
+        parsedConstructorArgs[input.name] = parseBool(
+          constructorArgValue,
+          input.name
+        )
+      } else if (constructorArgType.startsWith('bytes')) {
+        const suffix = constructorArgType.replace(/bytes/g, '')
+        const numberOfBytes = parseInt(suffix, 10)
+
+        parsedConstructorArgs[input.name] = parseBytes(
+          constructorArgValue,
+          constructorArgType,
+          input.name,
+          numberOfBytes
+        )
+      } else {
+        // throw or log error
+        throw new InputError(
+          `Unsupported constructor argument type: ${input.type} for argument ${input.name}`
+        )
+      }
+    } catch (e) {
+      inputFormatErrors.push((e as Error).message)
     }
   })
+
+  if (inputFormatErrors.length > 0) {
+    const lines: string[] = []
+
+    for (const error of inputFormatErrors) {
+      lines.push(error)
+    }
+
+    logValidationError(
+      'error',
+      'Detected incorrectly defined constructor arguments:',
+      lines,
+      cre.silent,
+      cre.stream
+    )
+  }
 
   if (
     incorrectConstructorArgNames.length > 0 ||
@@ -1280,6 +1428,7 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
@@ -1358,7 +1507,7 @@ export const assertValidParsedChugSplashFile = async (
             `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
         )}
 If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
-npx hardhat chugsplash-transfer-ownership --network <network> --config-path <path> --proxy <proxyAddress>
+npx hardhat chugsplash-import --network <network> --config-path <path> --proxy <proxyAddress>
 If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
 permission to call the 'upgradeTo' function on each of them.
     `,
@@ -1427,7 +1576,7 @@ permission to call the 'upgradeTo' function on each of them.
 
       const isProxyDeployed =
         (await provider.getCode(contractConfig.proxy)) !== '0x'
-      if (isProxyDeployed && canonicalConfigPath) {
+      if (isProxyDeployed) {
         // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
         // will always be defined so we can safely assert it.
         const newStorageLayout = upgradableContract!.layout
@@ -1689,11 +1838,7 @@ const assertValidConstructorArgs = (
   const cachedConstructorArgs = {}
   const cachedArtifacts = {}
   // Parse and validate all the constructor arguments
-  for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
-  )) {
-    const { constructorArgs } = userContractConfig
-
+  for (const referenceName of Object.keys(userConfig.contracts)) {
     const { output } = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
     cachedCompilerOutput[referenceName] = output
 
@@ -1704,8 +1849,10 @@ const assertValidConstructorArgs = (
     cachedArtifacts[referenceName] = artifact
     const { abi } = artifact
 
+    const userContractConfig = userConfig.contracts[referenceName]
+
     const args = parseContractConstructorArgs(
-      constructorArgs ?? {},
+      userContractConfig,
       referenceName,
       abi,
       cre
@@ -1731,6 +1878,10 @@ const resolveContractAddresses = (
   userConfig: UserChugSplashConfig,
   cachedArtifacts: { [referenceName: string]: ContractArtifact }
 ): { [referenceName: string]: string } => {
+  const { projectName, organizationID, claimer } = userConfig.options
+
+  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+
   // Resolve all the contract addresses so they can be used handle contract references regardless or ordering.
   const contracts: { [referenceName: string]: string } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -1743,8 +1894,9 @@ const resolveContractAddresses = (
     const proxy =
       externalProxy ||
       getDefaultProxyAddress(
-        userConfig.options.organizationID,
-        userConfig.options.projectName,
+        claimer,
+        organizationID,
+        projectName,
         referenceName
       )
 
@@ -1752,7 +1904,7 @@ const resolveContractAddresses = (
       kind !== 'no-proxy'
         ? proxy
         : getContractAddress(
-            userConfig.options.organizationID,
+            managerAddress,
             referenceName,
             userContractConfig.constructorArgs ?? {},
             cachedArtifacts[referenceName]
@@ -1777,41 +1929,41 @@ const assertValidContractVariables = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    if (
-      userContractConfig.kind === 'no-proxy' &&
-      userContractConfig.variables &&
-      Object.entries(userContractConfig.variables).length > 0
-    ) {
-      logValidationError(
-        'error',
-        `Detected variables for contract '${referenceName}', but variables are not supported for non-proxied contracts.`,
-        [],
-        cre.silent,
-        cre.stream
+    if (userContractConfig.kind === 'no-proxy') {
+      if (
+        userContractConfig.variables &&
+        Object.entries(userContractConfig.variables).length > 0
+      ) {
+        logValidationError(
+          'error',
+          `Detected variables for contract '${referenceName}', but variables are not supported for non-proxied contracts.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      }
+      parsedVariables[referenceName] = {}
+    } else {
+      const artifact = cachedArtifacts[referenceName]
+      const { sourceName, contractName } = artifact
+
+      const compilerOutput = cachedCompilerOutput[referenceName]
+      const storageLayout =
+        compilerOutput.contracts[sourceName][contractName].storageLayout
+
+      const parsedContractVariables = parseContractVariables(
+        JSON.parse(
+          Handlebars.compile(JSON.stringify(userContractConfig))({
+            ...contracts,
+          })
+        ),
+        storageLayout,
+        compilerOutput,
+        cre
       )
-      continue
+
+      parsedVariables[referenceName] = parsedContractVariables
     }
-
-    const artifact = cachedArtifacts[referenceName]
-    const { sourceName, contractName } = artifact
-
-    const compilerOutput = cachedCompilerOutput[referenceName]
-    const storageLayout =
-      compilerOutput.contracts[sourceName][contractName].storageLayout
-
-    // Only run the parsing logic if the contract is proxied
-    const parsedContractVariables = parseContractVariables(
-      JSON.parse(
-        Handlebars.compile(JSON.stringify(userContractConfig))({
-          ...contracts,
-        })
-      ),
-      storageLayout,
-      compilerOutput,
-      cre
-    )
-
-    parsedVariables[referenceName] = parsedContractVariables
   }
 
   return parsedVariables

@@ -12,6 +12,7 @@ const config: UserChugSplashConfig = {
       ethers.utils.toUtf8Bytes(projectName)
     ),
     projectName,
+    claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   },
   contracts: {
     Token: {
@@ -27,7 +28,6 @@ const config: UserChugSplashConfig = {
         'UUPSUpgradeable:__gap': '{ gap }',
         _owner: '{ preserve }',
       },
-      externalProxy: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
       kind: 'oz-ownable-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:

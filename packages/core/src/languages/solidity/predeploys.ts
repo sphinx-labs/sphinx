@@ -28,6 +28,8 @@ import {
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZTransparentAdapterArtifact,
   ChugSplashRegistryArtifact,
+  ChugSplashManagerABI,
+  ChugSplashManagerArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 import { sleep } from '@eth-optimism/core-utils'
@@ -39,7 +41,9 @@ import {
 } from '../../utils'
 import {
   CHUGSPLASH_CONSTRUCTOR_ARGS,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION,
   CHUGSPLASH_REGISTRY_ADDRESS,
+  managerConstructorValues,
   registryConstructorValues,
 } from '../../constants'
 
@@ -67,11 +71,27 @@ export const initializeChugSplash = async (
   )
 
   logger?.info('[ChugSplash]: deployed ChugSplashRegistry')
+
+  logger?.info('[ChugSplash]: deploying ChugSplashManager initial version...')
+  const ChugSplashManager = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ChugSplashManagerABI,
+      bytecode: ChugSplashManagerArtifact.bytecode,
+    },
+    args: managerConstructorValues,
+    salt: ethers.constants.HashZero,
+  })
+
   logger?.info('[ChugSplash]: initializing ChugSplashRegistry...')
 
   try {
     await (
       await ChugSplashRegistry.initialize(
+        ChugSplashManager.address,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
+        CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
         executors,
         await getGasPriceOverrides(provider)
       )

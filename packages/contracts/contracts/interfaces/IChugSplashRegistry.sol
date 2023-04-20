@@ -8,5 +8,5 @@ import { IChugSplashManager } from "./IChugSplashManager.sol";
  * @notice Interface that must be inherited the ChugSplash registry.
  */
 interface IChugSplashRegistry {
-    function projects(bytes32) external returns (IChugSplashManager);
+    function projects(address, bytes32) external returns (IChugSplashManager);
 }

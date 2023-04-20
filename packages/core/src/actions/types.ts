@@ -118,4 +118,5 @@ export type ChugSplashBundleState = {
   actionsExecuted: BigNumber
   timeClaimed: BigNumber
   selectedExecutor: string
+  remoteExecution: boolean
 }

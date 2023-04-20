@@ -17,7 +17,7 @@ export const resolveNetworkName = async (
   return networkName
 }
 
-export const errorProjectNotRegistered = async (
+export const errorProjectNotClaimed = async (
   provider: ethers.providers.JsonRpcProvider,
   configPath: string,
   integration: Integration
@@ -25,16 +25,16 @@ export const errorProjectNotRegistered = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   if (integration === 'hardhat') {
-    throw new Error(`This project has not been registered on ${networkName}.
-To register the project on this network, run the following command:
+    throw new Error(`This project has not been claimed on ${networkName}.
+To claim the project on this network, run the following command:
 
-npx hardhat chugsplash-register --network <network> --owner <ownerAddress> --config-path ${configPath}
+npx hardhat chugsplash-claim --network <network> --owner <ownerAddress> --config-path ${configPath}
   `)
   } else {
-    throw new Error(`This project has not been registered on ${networkName}.
-To register the project on this network, call the register function from your script:
+    throw new Error(`This project has not been claimed on ${networkName}.
+To claim the project on this network, call the claim function from your script:
 
-chugsplash.register("${configPath}");
+chugsplash.claim("${configPath}");
 `)
   }
 }

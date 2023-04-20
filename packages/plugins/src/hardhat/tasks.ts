@@ -14,8 +14,7 @@ import {
   getChugSplashRegistry,
   chugsplashFetchSubtask,
   initializeChugSplash,
-  monitorChugSplashSetup,
-  chugsplashRegisterAbstractTask,
+  chugsplashClaimAbstractTask,
   chugsplashCommitAbstractSubtask,
   bundleLocal,
   chugsplashProposeAbstractTask,
@@ -30,9 +29,8 @@ import {
   chugsplashListProjectsAbstractTask,
   chugsplashListProposersAbstractTask,
   chugsplashAddProposersAbstractTask,
-  chugsplashClaimProxyAbstractTask,
-  chugsplashTransferOwnershipAbstractTask,
-  ChugSplashExecutorType,
+  chugsplashExportProxyAbstractTask,
+  chugsplashImportProxyAbstractTask,
   ArtifactPaths,
   bundleRemoteSubtask,
   ChugSplashBundles,
@@ -74,7 +72,7 @@ export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
-export const TASK_CHUGSPLASH_REGISTER = 'chugsplash-register'
+export const TASK_CHUGSPLASH_CLAIM = 'chugsplash-claim'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
 export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
@@ -84,9 +82,8 @@ export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_PROPOSERS = 'chugsplash-list-proposers'
 export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
-export const TASK_CHUGSPLASH_TRANSFER_OWNERSHIP =
-  'chugsplash-transfer-ownership'
-export const TASK_CHUGSPLASH_CLAIM_PROXY = 'chugsplash-claim-proxy'
+export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
+export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
 
 subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
@@ -121,31 +118,19 @@ subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
-    allowManagedProposals: boolean
     newOwner: string
-    ipfsUrl: string
     silent: boolean
     noCompile: boolean
     confirm: boolean
-    noWithdraw: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    allowManagedProposals,
-    newOwner,
-    ipfsUrl,
-    silent,
-    noCompile,
-    confirm,
-    noWithdraw,
-  } = args
-  const remoteExecution = await isRemoteExecution(hre)
+  const { configPath, newOwner, silent, noCompile, confirm } = args
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    false,
     confirm,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -156,23 +141,10 @@ export const chugsplashDeployTask = async (
     })
   }
 
-  const spinner = ora({ isSilent: silent })
-
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   const signerAddress = await signer.getAddress()
   await initializeChugSplash(hre.ethers.provider, signer, [signerAddress])
-
-  let executor: ChugSplashExecutorType | undefined
-  if (remoteExecution) {
-    spinner.start('Waiting for the executor to set up ChugSplash...')
-    await monitorChugSplashSetup(provider)
-  } else {
-    spinner.start('Booting up ChugSplash...')
-    executor = hre.chugsplash.executor
-  }
-
-  spinner.succeed('ChugSplash is ready to go.')
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -196,18 +168,13 @@ export const chugsplashDeployTask = async (
     provider,
     signer,
     configPath,
-    remoteExecution,
-    ipfsUrl,
-    !noWithdraw,
     newOwner ?? signerAddress,
-    allowManagedProposals,
     artifactPaths,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
-    parsedConfig,
-    executor
+    parsedConfig
   )
 }
 
@@ -218,27 +185,15 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
   )
-  .addOptionalParam(
-    'ipfsUrl',
-    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
-  )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
-  .addFlag(
-    'noWithdraw',
-    'Skip withdrawing leftover funds to the project owner.'
-  )
   .addFlag(
     'confirm',
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
   )
-  .addFlag(
-    'allowManagedProposals',
-    'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
-  )
   .setAction(chugsplashDeployTask)
 
-export const chugsplashRegisterTask = async (
+export const chugsplashClaimTask = async (
   args: {
     configPath: string
     allowManagedProposals: boolean
@@ -253,6 +208,7 @@ export const chugsplashRegisterTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -278,7 +234,7 @@ export const chugsplashRegisterTask = async (
     cre
   )
 
-  await chugsplashRegisterAbstractTask(
+  await chugsplashClaimAbstractTask(
     provider,
     signer,
     parsedConfig,
@@ -289,8 +245,8 @@ export const chugsplashRegisterTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_REGISTER)
-  .setDescription('Registers a new ChugSplash project')
+task(TASK_CHUGSPLASH_CLAIM)
+  .setDescription('Claims a new ChugSplash project')
   .addParam('configPath', 'Path to the ChugSplash config file to propose')
   .addFlag(
     'allowManagedProposals',
@@ -298,7 +254,7 @@ task(TASK_CHUGSPLASH_REGISTER)
   )
   .addParam('owner', 'Owner of the ChugSplash project')
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(chugsplashRegisterTask)
+  .setAction(chugsplashClaimTask)
 
 export const chugsplashProposeTask = async (
   args: {
@@ -316,6 +272,7 @@ export const chugsplashProposeTask = async (
     configPath,
     remoteExecution,
     confirm,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -395,6 +352,7 @@ export const chugsplashApproveTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -430,7 +388,6 @@ export const chugsplashApproveTask = async (
     'hardhat',
     canonicalConfigPath,
     deploymentFolder,
-    remoteExecution,
     parsedConfig,
     cre
   )
@@ -458,14 +415,14 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
     )
 
     const events = await ChugSplashRegistry.queryFilter(
-      ChugSplashRegistry.filters.ChugSplashProjectRegistered()
+      ChugSplashRegistry.filters.ChugSplashProjectClaimed()
     )
 
     console.table(
       events.map((event) => {
         if (event.args === undefined) {
           throw new Error(
-            `ChugSplashProjectRegistered event does not have arguments.`
+            `ChugSplashProjectClaimed event does not have arguments.`
           )
         }
 
@@ -529,11 +486,13 @@ subtask(TASK_CHUGSPLASH_COMMIT)
 
 subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
   .setDescription('Lists all bundles for a given project')
+  .addParam('claimer', 'Claimer address')
   .addParam('organizationID', 'Organization ID')
   .addFlag('includeExecuted', 'include bundles that have been executed')
   .setAction(
     async (
       args: {
+        claimer: string
         organizationID: string
         includeExecuted: boolean
       },
@@ -546,7 +505,7 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.organizationID),
+        await ChugSplashRegistry.projects(args.claimer, args.organizationID),
         ChugSplashManagerABI,
         signer
       )
@@ -665,6 +624,7 @@ export const monitorTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -730,6 +690,7 @@ export const chugsplashFundTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -953,7 +914,14 @@ export const chugsplashCancelTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashCancelAbstractTask(
     provider,
@@ -981,7 +949,14 @@ export const chugsplashWithdrawTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    silent
+  )
 
   await chugsplashWithdrawAbstractTask(
     provider,
@@ -1004,7 +979,14 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime('', true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    '',
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashListProjectsAbstractTask(provider, signer, 'hardhat', cre)
 }
@@ -1051,7 +1033,14 @@ export const addProposerTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, false)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
   await chugsplashAddProposersAbstractTask(
     provider,
@@ -1073,7 +1062,7 @@ task(TASK_CHUGSPLASH_ADD_PROPOSER)
   )
   .setAction(addProposerTask)
 
-export const claimProxyTask = async (
+export const exportProxyTask = async (
   args: {
     configPath: string
     referenceName: string
@@ -1087,6 +1076,7 @@ export const claimProxyTask = async (
     configPath,
     remoteExecution,
     true,
+    hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
@@ -1109,7 +1099,7 @@ export const claimProxyTask = async (
     cre
   )
 
-  await chugsplashClaimProxyAbstractTask(
+  await chugsplashExportProxyAbstractTask(
     provider,
     signer,
     configPath,
@@ -1120,7 +1110,7 @@ export const claimProxyTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_CLAIM_PROXY)
+task(TASK_CHUGSPLASH_EXPORT_PROXY)
   .setDescription(
     'Transfers ownership of a proxy from ChugSplash to the caller'
   )
@@ -1133,9 +1123,9 @@ task(TASK_CHUGSPLASH_CLAIM_PROXY)
     'Reference name of the contract that should be transferred to you'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(claimProxyTask)
+  .setAction(exportProxyTask)
 
-export const transferOwnershipTask = async (
+export const importProxyTask = async (
   args: {
     configPath: string
     proxy: string
@@ -1148,9 +1138,16 @@ export const transferOwnershipTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(configPath, true, true, hre, silent)
+  const cre = await createChugSplashRuntime(
+    configPath,
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    silent
+  )
 
-  await chugsplashTransferOwnershipAbstractTask(
+  await chugsplashImportProxyAbstractTask(
     provider,
     signer,
     configPath,
@@ -1160,7 +1157,7 @@ export const transferOwnershipTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
+task(TASK_CHUGSPLASH_IMPORT_PROXY)
   .setDescription('Transfers ownership of a proxy to ChugSplash')
   .addParam(
     'configPath',
@@ -1171,7 +1168,7 @@ task(TASK_CHUGSPLASH_TRANSFER_OWNERSHIP)
     'Address of the contract that should have its ownership transferred to ChugSplash.'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(transferOwnershipTask)
+  .setAction(importProxyTask)
 
 export const chugsplashInitTask = async (
   args: {

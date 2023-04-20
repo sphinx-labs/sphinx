@@ -39,7 +39,7 @@ export const trackExecuted = async (
   )
 }
 
-export const trackRegistered = async (
+export const trackClaimed = async (
   user_id: string,
   organizationID: string,
   projectName: string,
@@ -51,7 +51,7 @@ export const trackRegistered = async (
   }
   await timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash register',
+      event_type: 'chugsplash claim',
       user_id,
       event_properties: {
         organizationID,
@@ -310,7 +310,7 @@ export const trackAddProposers = async (
   )
 }
 
-export const trackClaimProxy = async (
+export const trackExportProxy = async (
   user_id: string,
   organizationID: string,
   projectName: string,
@@ -322,7 +322,7 @@ export const trackClaimProxy = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash claim proxy',
+      event_type: 'chugsplash export proxy',
       user_id,
       event_properties: {
         organizationID,
@@ -335,7 +335,7 @@ export const trackClaimProxy = async (
   )
 }
 
-export const trackTransferProxy = async (
+export const trackImportProxy = async (
   user_id: string,
   organizationID: string,
   projectName: string,
@@ -347,7 +347,7 @@ export const trackTransferProxy = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash transfer proxy',
+      event_type: 'chugsplash import proxy',
       user_id,
       event_properties: {
         organizationID,

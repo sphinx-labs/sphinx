@@ -15,13 +15,14 @@
     "build:contracts": "hardhat clean && hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "forge test",
+    "slither": "./scripts/slither.sh",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:check": "yarn lint:contracts:check && yarn lint:ts:check",
     "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
-    "lint:contracts:check": "yarn solhint -f table '{contracts,test}/**/*.sol'",
-    "lint:contracts:fix": "prettier --write '{contracts,test}/**/*.sol'",
+    "lint:contracts:check": "yarn solhint -f table 'contracts/**/*.sol' && yarn prettier --check 'contracts/**/*.sol'",
+    "lint:contracts:fix": "yarn solhint --fix '{contracts,test}/**/*.sol' && yarn prettier --write '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/contracts#readme",
@@ -40,7 +41,11 @@
     "ethers": "^5.6.9",
     "forge-std": "https://github.com/foundry-rs/forge-std#2a2ce3692b8c1523b29de3ec9d961ee9fbbc43a6",
     "hardhat": "^2.9.9",
-    "solhint": "^3.3.6",
+    "solhint": "^3.4.1",
     "solhint-plugin-prettier": "^0.0.5"
+  },
+  "dependencies": {
+    "@eth-optimism/contracts": "^0.5.40",
+    "@eth-optimism/contracts-bedrock": "^0.13.2"
   }
 }
