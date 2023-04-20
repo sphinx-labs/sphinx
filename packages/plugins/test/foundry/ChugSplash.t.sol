@@ -73,7 +73,7 @@ contract ChugSplashTest is Test {
 
         // Setup claim, propose, fund, approve process test
         chugsplash.claim(claimToApproveConfig, true);
-        chugsplash.propose(claimToApproveConfig, false, true);
+        chugsplash.propose(claimToApproveConfig, true);
         chugsplash.fund(claimToApproveConfig, 1 ether, false, true);
         chugsplash.approve(claimToApproveConfig, true, true);
 
@@ -84,7 +84,7 @@ contract ChugSplashTest is Test {
 
         // Setup cancel test
         chugsplash.claim(cancelConfig, true);
-        chugsplash.propose(cancelConfig, false, true);
+        chugsplash.propose(cancelConfig, true);
         chugsplash.fund(cancelConfig, 1 ether, false, true);
         chugsplash.approve(cancelConfig, true, true);
         chugsplash.cancel(cancelConfig, true);
@@ -93,7 +93,7 @@ contract ChugSplashTest is Test {
         chugsplash.claim(addProposerConfig, true);
         chugsplash.addProposer(addProposerConfig, newProposer, true);
         vm.setEnv("PRIVATE_KEY", newProposerPrivateKey);
-        chugsplash.propose(addProposerConfig, false, true);
+        chugsplash.propose(addProposerConfig, true);
 
         // Refresh EVM state to reflect chain state after ChugSplash transactions
         chugsplash.refresh();

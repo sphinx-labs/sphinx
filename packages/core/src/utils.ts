@@ -1021,10 +1021,11 @@ export const getPreviousStorageLayoutOZFormat = async (
   referenceName: string,
   parsedContractConfig: ParsedContractConfig,
   userContractConfig: UserContractConfig,
-  remoteExecution: boolean,
   canonicalConfigFolderPath: string,
   cre: ChugSplashRuntimeEnvironment
 ): Promise<StorageLayout> => {
+  const { remoteExecution } = cre
+
   if ((await provider.getCode(parsedContractConfig.proxy)) === '0x') {
     throw new Error(
       `Proxy has not been deployed for the contract: ${referenceName}.`
@@ -1287,4 +1288,11 @@ export const getChainId = async (
 ): Promise<number> => {
   const network = await provider.getNetwork()
   return network.chainId
+}
+
+export const isLiveNetwork = async (
+  provider: providers.Provider
+): Promise<boolean> => {
+  const network = await provider.getNetwork()
+  return network.name !== 'unknown'
 }

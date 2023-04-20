@@ -15,7 +15,8 @@ export const createChugSplashRuntime = async (
   return {
     configPath,
     canonicalConfigPath,
-    remoteExecution,
+    remoteExecution:
+      process.env.FORCE_REMOTE_EXECUTION === 'true' ? true : remoteExecution,
     autoConfirm,
     stream,
     silent,

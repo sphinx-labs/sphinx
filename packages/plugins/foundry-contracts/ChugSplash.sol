@@ -109,7 +109,6 @@ contract ChugSplash is Script, Test {
 
     function propose(
         string memory configPath,
-        bool remoteExecution,
         bool silent
     ) external returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
@@ -127,7 +126,6 @@ contract ChugSplash is Script, Test {
         cmds[9] = outPath;
         cmds[10] = buildInfoPath;
         cmds[11] = ipfsUrl;
-        cmds[12] = remoteExecution == true ? "true" : "false";
 
         bytes memory result = vm.ffi(cmds);
 

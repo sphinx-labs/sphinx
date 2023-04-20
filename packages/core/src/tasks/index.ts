@@ -146,12 +146,13 @@ export const chugsplashProposeAbstractTask = async (
   parsedConfig: ParsedChugSplashConfig,
   configPath: string,
   ipfsUrl: string,
-  remoteExecution: boolean,
   integration: Integration,
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   cre: ChugSplashRuntimeEnvironment
 ) => {
+  const { remoteExecution } = cre
+
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   if (integration === 'hardhat') {
     spinner.start('Booting up ChugSplash...')

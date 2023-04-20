@@ -1494,7 +1494,7 @@ export const assertValidParsedChugSplashFile = async (
   artifactPaths: ArtifactPaths,
   cre: ChugSplashRuntimeEnvironment
 ): Promise<boolean> => {
-  const { canonicalConfigPath, remoteExecution } = cre
+  const { canonicalConfigPath } = cre
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
@@ -1641,7 +1641,6 @@ permission to call the 'upgradeTo' function on each of them.
           referenceName,
           contractConfig,
           userContractConfig,
-          remoteExecution,
           canonicalConfigPath,
           cre
         )
