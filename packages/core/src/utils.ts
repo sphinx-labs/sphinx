@@ -1290,6 +1290,14 @@ export const getChainId = async (
   return network.chainId
 }
 
+/**
+ * Returns true and only if the variable is a valid ethers DataHexString:
+ * https://docs.ethers.org/v5/api/utils/bytes/#DataHexString
+ */
+export const isDataHexString = (variable: any): boolean => {
+  return ethers.utils.isHexString(variable) && variable.length % 2 === 0
+}
+
 export const isLiveNetwork = async (
   provider: providers.JsonRpcProvider
 ): Promise<boolean> => {
