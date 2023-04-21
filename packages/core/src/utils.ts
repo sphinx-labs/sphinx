@@ -1291,10 +1291,18 @@ export const getChainId = async (
 }
 
 export const isLiveNetwork = async (
-  provider: providers.Provider
+  provider: providers.JsonRpcProvider
 ): Promise<boolean> => {
-  const network = await provider.getNetwork()
-  return network.name !== 'unknown'
+  try {
+    // This RPC method works on anvil because it's an alias for `anvil_impersonateAccount`
+    // On live networks it will throw an error.
+    await provider.send('hardhat_impersonateAccount', [
+      ethers.constants.AddressZero,
+    ])
+  } catch (err) {
+    return true
+  }
+  return false
 }
 
 export const getImpersonatedSigner = async (
