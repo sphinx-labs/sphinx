@@ -44,6 +44,7 @@ import {
   getOpenZeppelinValidationOpts,
   chugsplashLog,
   getContractAddress,
+  isDataHexString,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -590,14 +591,13 @@ const parseBytes = (
   }
 
   if (variableType.startsWith('bytes')) {
-    // hexDataLength returns null if the input is not a valid hex string.
     if (!ethers.utils.isHexString(variable)) {
       throw new InputError(
         `invalid input format for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
 
-    // Check that the DataHexString is the correct length
+    // Check that the HexString is the correct length
     if (!ethers.utils.isHexString(variable, numberOfBytes)) {
       throw new Error(
         `invalid length for bytes${numberOfBytes} variable ${label}: ${variable}`
@@ -815,8 +815,7 @@ export const parseDynamicBytes: VariableHandler<UserConfigVariable, string> = (
   }
 
   if (variableType.label.startsWith('bytes')) {
-    // hexDataLength returns null if the input is not a valid hex string.
-    if (ethers.utils.hexDataLength(variable) === null) {
+    if (!isDataHexString(variable)) {
       throw new InputError(
         `invalid input type for variable ${storageObj.label}, expected DataHexString but got ${variable}`
       )
