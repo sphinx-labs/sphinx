@@ -5,6 +5,7 @@ import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
+import { Version } from "./Semver.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -66,6 +67,13 @@ contract ChugSplashRegistry is Ownable, Initializable {
      * @param adapter   Address of the adapter for the proxy.
      */
     event ContractKindAdded(bytes32 contractKindHash, address adapter);
+
+    event VersionAdded(
+        uint256 indexed major,
+        uint256 indexed minor,
+        uint256 indexed patch,
+        address manager
+    );
 
     /**
      * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
@@ -195,18 +203,20 @@ contract ChugSplashRegistry is Ownable, Initializable {
         emit ContractKindAdded(_contractKindHash, _adapter);
     }
 
-    function setVersion(
-        address _version,
-        uint _major,
-        uint _minor,
-        uint _patch
-    ) external onlyOwner {
+    function addVersion(address _manager) external onlyOwner {
+        Version memory version = IChugSplashManager(_manager).version();
+        uint256 major = version.major;
+        uint256 minor = version.minor;
+        uint256 patch = version.patch;
+
         require(
-            versions[_major][_minor][_patch] == address(0),
+            versions[major][minor][patch] == address(0),
             "ChugSplashRegistry: version already set"
         );
 
-        managerImplementations[_version] = true;
-        versions[_major][_minor][_patch] = _version;
+        managerImplementations[_manager] = true;
+        versions[major][minor][patch] = _manager;
+
+        emit VersionAdded(major, minor, patch, _manager);
     }
 }

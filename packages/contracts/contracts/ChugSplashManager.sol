@@ -24,7 +24,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { Semver } from "@eth-optimism/contracts-bedrock/contracts/universal/Semver.sol";
+import { Semver } from "./Semver.sol";
 
 /**
  * @title ChugSplashManager
