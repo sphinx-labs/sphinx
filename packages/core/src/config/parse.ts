@@ -2157,6 +2157,13 @@ export const parseAndValidateChugSplashConfig = async (
     cre
   )
 
+  // Exit if validation errors are detected
+  // We also allow the user to disable this behavior by setting `exitOnFailure` to false.
+  // This is useful for testing.
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
+  }
+
   // Confirm upgrade with user
   if (!cre.autoConfirm && upgrade) {
     const userConfirmed = await yesno({
@@ -2165,13 +2172,6 @@ export const parseAndValidateChugSplashConfig = async (
     if (!userConfirmed) {
       throw new Error(`User denied upgrade.`)
     }
-  }
-
-  // Exit if validation errors are detected
-  // We also allow the user to disable this behavior by setting `exitOnFailure` to false.
-  // This is useful for testing.
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
   }
 
   return parsedConfig
