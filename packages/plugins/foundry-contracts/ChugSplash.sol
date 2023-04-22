@@ -244,7 +244,7 @@ contract ChugSplash is Script, Test {
                 ChugSplashContract memory deployed = deployedContracts[i];
                 emit log(string.concat(deployed.referenceName, ': ', vm.toString(deployed.contractAddress)));
             }
-            emit log("\nThank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR\n");
+            emit log("\nThank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np\n");
         }
 
     }

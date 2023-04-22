@@ -164,7 +164,7 @@ Since these steps all occur over the course of a *single* transaction, the proxy
 
 ## Wrapping Up
 
-If you have questions or comments, we'd love to hear from you in our [Discord](https://discord.com/invite/CqUPhgRrxq).
+If you have questions or comments, we'd love to hear from you in our [Discord](https://discord.gg/7Gc3DK33Np).
 
 ## FAQ
 
