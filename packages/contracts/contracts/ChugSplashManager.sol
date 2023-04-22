@@ -630,6 +630,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
+        require(
+            bundle.status == ChugSplashBundleStatus.INITIATED,
+            "ChugSplashManager: bundle status must be initiated"
+        );
+
         assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
 
         uint256 numActions = _actions.length;
