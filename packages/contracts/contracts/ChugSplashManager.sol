@@ -566,32 +566,26 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
                 "ChugSplashManager: invalid bundle target proof"
             );
 
-            if (target.contractKindHash == bytes32(0)) {
-                // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
-                // we're deploying via CREATE2, we can always correctly predict what the proxy
-                // address *should* be and can therefore easily check if it's already populated.
-                address proxy = getDefaultProxyAddress(target.projectName, target.referenceName);
-                if (proxy.code.length == 0) {
-                    bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
-                    Proxy created = new Proxy{ salt: salt }(address(this));
+            if (target.contractKindHash == bytes32(0) && target.proxy.code.length == 0) {
+                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
+                Proxy created = new Proxy{ salt: salt }(address(this));
 
-                    // Could happen if insufficient gas is supplied to this transaction, should not
-                    // happen otherwise. If there's a situation in which this could happen other
-                    // than a standard OOG, then this would halt the entire contract.
-                    require(
-                        address(created) == proxy,
-                        "ChugSplashManager: Proxy was not created correctly"
-                    );
+                // Could happen if insufficient gas is supplied to this transaction, should not
+                // happen otherwise. If there's a situation in which this could happen other
+                // than a standard OOG, then this would halt the entire contract.
+                require(
+                    address(created) == target.proxy,
+                    "ChugSplashManager: Proxy was not created correctly"
+                );
 
-                    emit DefaultProxyDeployed(
-                        salt,
-                        proxy,
-                        activeBundleId,
-                        target.projectName,
-                        target.referenceName
-                    );
-                    registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
-                }
+                emit DefaultProxyDeployed(
+                    salt,
+                    target.proxy,
+                    activeBundleId,
+                    target.projectName,
+                    target.referenceName
+                );
+                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.proxy));
             }
 
             address adapter = registry.adapters(target.contractKindHash);
