@@ -415,7 +415,8 @@ export const makeActionBundleFromConfig = async (
 }
 
 /**
- * Generates a ChugSplash target bundle from a config file.
+ * Generates a ChugSplash target bundle from a config file. Note that non-proxied contract types are
+ * not included in the target bundle.
  *
  * @param config Config file to convert into a bundle.
  * @param env Environment variables to inject into the config file.
@@ -433,18 +434,21 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    targets.push({
-      projectName,
-      referenceName,
-      contractKindHash: contractKindHashes[contractConfig.kind],
-      proxy: contractConfig.proxy,
-      implementation: getContractAddress(
-        managerAddress,
+    // Only add targets for proxies.
+    if (contractConfig.kind !== 'no-proxy') {
+      targets.push({
+        projectName,
         referenceName,
-        contractConfig.constructorArgs,
-        artifacts[referenceName]
-      ),
-    })
+        contractKindHash: contractKindHashes[contractConfig.kind],
+        proxy: contractConfig.proxy,
+        implementation: getContractAddress(
+          managerAddress,
+          referenceName,
+          contractConfig.constructorArgs,
+          artifacts[referenceName]
+        ),
+      })
+    }
   }
 
   // Generate a bundle from the list of actions.
