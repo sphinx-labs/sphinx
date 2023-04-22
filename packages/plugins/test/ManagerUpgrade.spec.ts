@@ -1,7 +1,7 @@
 import '@nomiclabs/hardhat-ethers'
 
 import hre, { chugsplash } from 'hardhat'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 import {
   getChugSplashManagerAddress,
   getChugSplashRegistry,
@@ -26,7 +26,7 @@ describe('Manager Upgrade', () => {
       '0x10000000000000000000',
     ])
     const registry = await getChugSplashRegistry(signer)
-    await registry.setVersion(Stateless.address, 2, 0, 0)
+    await registry.addVersion(Stateless.address)
   })
 
   it('does upgrade chugsplash manager', async () => {
@@ -50,6 +50,7 @@ describe('Manager Upgrade', () => {
       signer
     )
 
-    expect(await StatelessManager.hello()).to.equal('Hello, world!')
+    const version = await StatelessManager.version()
+    expect(version.major).to.deep.equal(BigNumber.from(2))
   })
 })
