@@ -593,6 +593,19 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
                     registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
                 }
             }
+
+            address adapter = registry.adapters(target.contractKindHash);
+
+            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
+            // ChugSplashManager can interact with a proxy that is in the process of being updated.
+            // Note that we use the Updater contract to provide a generic interface for updating a
+            // variety of proxy types.
+            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
+            // cannot have state.
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
+            );
+            require(success, "ChugSplashManager: failed to set implementation to an updater");
         }
 
         // Mark the bundle as initiated.
@@ -670,19 +683,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
                     action.actionType != ChugSplashActionType.SET_STORAGE,
                 "ChugSplashManager: cannot set storage in non-proxied contracts"
             );
-
-            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
-            // ChugSplashManager can interact with a proxy that is in the process of being updated.
-            // Note that we use the Updater contract to provide a generic interface for updating a
-            // variety of proxy types.
-            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
-            // cannot have state.
-            if (action.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH) {
-                (bool success, ) = adapter.delegatecall(
-                    abi.encodeCall(IProxyAdapter.initiateExecution, (action.proxy))
-                );
-                require(success, "ChugSplashManager: failed to set implementation to an updater");
-            }
 
             // Mark the action as executed and update the total number of executed actions.
             bundle.actionsExecuted++;
