@@ -813,7 +813,7 @@ export const chugsplashDeployAbstractTask = async (
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
     spinner.info(
-      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/m8NXjJcvDR"
+      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
   } else {
     return generateFoundryTestArtifacts(parsedConfig)

@@ -2,7 +2,7 @@
 
 Read this guide if you want to use ChugSplash to upgrade an existing proxy that was deployed using the [OpenZeppelin Hardhat Upgrades API](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-hardhat-upgrades).
 
-Currently, ChugSplash only integrates with Transparent proxies, which is the default proxy type used by OpenZeppelin. If you want us to support another proxy type, please let us know in our [Discord](https://discord.com/invite/CqUPhgRrxq)!
+Currently, ChugSplash only integrates with Transparent proxies, which is the default proxy type used by OpenZeppelin. If you want us to support another proxy type, please let us know in our [Discord](https://discord.gg/7Gc3DK33Np)!
 
 ## Prerequisites
 
@@ -165,4 +165,4 @@ When you're ready to upgrade your proxy, you'll fill out the ChugSplash config f
 
 If you haven't already read the [ChugSplash File guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), you should do so next. Note that you'll need to enter a `proxy` field in your contract definition, as explained in [this section](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) of the ChugSplash File guide.
 
-If you have any questions, let us help you in our [Discord](https://discord.com/invite/CqUPhgRrxq)!
+If you have any questions, let us help you in our [Discord](https://discord.gg/7Gc3DK33Np)!

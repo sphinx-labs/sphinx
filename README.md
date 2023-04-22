@@ -6,7 +6,7 @@ Powers the [ChugSplash Managed Service](https://www.chugsplash.io).
 
 > **WARNING**: The code and contracts ChugSplash uses to deploy and upgrade your contracts HAVE NOT been audited. ChugSplash is a BETA product undergoing significant active development. ChugSplash's behavior and APIs are subject to change at any time at our discretion. You should not use ChugSplash if you would be very upset with your project breaking without notice. We make no guarantees about the safety of any contract deployments using the ChugSplash system.
 
-If you want to use ChugSplash in production, ask a question, or request a feature then we'd love to hear from you in the [Discord!](https://discord.com/invite/CqUPhgRrxq)
+If you want to use ChugSplash in production, ask a question, or request a feature then we'd love to hear from you in the [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## Features
 
@@ -56,7 +56,7 @@ The ChugSplash Managed Service is an optional product built on top of the ChugSp
 
 ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
 
-ChugSplash is an experimental product and currently only supports test networks. If you would like to use ChugSplash in production, we'd love to work with you. Please feel free to [join the Discord](https://discord.com/invite/CqUPhgRrxq) and shoot us a message!
+ChugSplash is an experimental product and currently only supports test networks. If you would like to use ChugSplash in production, we'd love to work with you. Please feel free to [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
 
 ## Maintainers
 
