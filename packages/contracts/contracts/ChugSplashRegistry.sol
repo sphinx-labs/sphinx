@@ -112,17 +112,13 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *
      * @param _organizationID ID of the new ChugSplash organization.
      * @param _owner     Initial owner for the new organization.
-     * @param _major     Major version of the ChugSplashManager implementation.
-     * @param _minor     Minor version of the ChugSplashManager implementation.
-     * @param _patch     Patch version of the ChugSplashManager implementation.
+     * @param _version   Version of the ChugSplashManager.
      * @param _data      Any data to pass to the ChugSplashManager initalizer.
      */
     function claim(
         bytes32 _organizationID,
         address _owner,
-        uint _major,
-        uint _minor,
-        uint _patch,
+        Version memory _version,
         bytes memory _data
     ) public {
         require(
@@ -130,9 +126,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
             "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
-        address version = versions[_major][_minor][_patch];
+        address manager = versions[_version.major][_version.minor][_version.patch];
         require(
-            managerImplementations[version] == true,
+            managerImplementations[manager] == true,
             "ChugSplashRegistry: invalid manager version"
         );
 
@@ -143,7 +139,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
             address(this)
         );
         managerProxy.upgradeToAndCall(
-            version,
+            manager,
             abi.encodeCall(IChugSplashManager.initialize, _data)
         );
 
