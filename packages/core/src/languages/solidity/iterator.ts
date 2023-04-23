@@ -37,6 +37,7 @@ export type VariableHandlers<Output> = {
   mapping: VariableHandler<UserConfigVariable, Output>
   dynamic_array: VariableHandler<UserConfigVariable, Output>
   preserve: VariableHandler<UserConfigVariable, Output>
+  function: VariableHandler<UserConfigVariable, Output>
 }
 
 export const isKeyword = (
@@ -348,6 +349,17 @@ export const recursiveLayoutIterator = <Output>(
       })
     } else if (variableType.label.startsWith('struct')) {
       return typeHandlers.inplace.struct({
+        variable,
+        storageObj,
+        storageTypes,
+        nestedSlotOffset,
+        slotKey,
+        variableType,
+        typeHandlers,
+        dereferencer,
+      })
+    } else if (storageObj.type.startsWith('t_function')) {
+      return typeHandlers.function({
         variable,
         storageObj,
         storageTypes,

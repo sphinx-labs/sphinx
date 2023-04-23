@@ -30,4 +30,7 @@ contract VariableValidation {
     // Variables that are not set in the config
     uint public notSetUint;
     string public notSetString;
+
+    // Variables that should not be set in the config (but are)
+    function(uint256) pure internal returns (uint256) functionType;
 }

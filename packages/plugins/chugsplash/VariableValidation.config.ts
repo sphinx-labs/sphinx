@@ -56,6 +56,7 @@ const config: UserChugSplashConfig = {
         // variables that are not in the contract
         extraVar: 214830928,
         anotherExtraVar: [],
+        functionType: {},
       },
     },
     Stateless: {
