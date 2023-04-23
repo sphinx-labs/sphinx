@@ -521,7 +521,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
     function initiateBundleExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
@@ -720,7 +720,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
     function completeBundleExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
