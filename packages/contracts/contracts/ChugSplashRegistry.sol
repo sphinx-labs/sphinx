@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { Version } from "./Semver.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -218,5 +219,24 @@ contract ChugSplashRegistry is Ownable, Initializable {
         versions[major][minor][patch] = _manager;
 
         emit VersionAdded(major, minor, patch, _manager);
+    }
+
+    function getChugSplashManagerProxyAddress(
+        address _claimer,
+        bytes32 _organizationID
+    ) public view returns (address payable) {
+        return (
+            payable(
+                Create2.computeAddress(
+                    keccak256(abi.encode(_claimer, _organizationID)),
+                    keccak256(
+                        abi.encodePacked(
+                            type(ChugSplashManagerProxy).creationCode,
+                            abi.encode(address(this), address(this))
+                        )
+                    )
+                )
+            )
+        );
     }
 }

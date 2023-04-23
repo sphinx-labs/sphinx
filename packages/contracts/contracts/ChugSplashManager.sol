@@ -200,6 +200,13 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         string referenceName
     );
 
+    event ContractDeploymentSkipped(
+        string indexed referenceNameHash,
+        address indexed contractAddress,
+        bytes32 indexed bundleId,
+        string referenceName
+    );
+
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
     bytes32 public constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
@@ -527,7 +534,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
         require(
             bundle.status == ChugSplashBundleStatus.APPROVED,
-            "ChugSplashManager: execution has already been initiated"
+            "ChugSplashManager: bundle status is not approved"
         );
 
         uint256 numTargets = _targets.length;
@@ -569,7 +576,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
                     // Could happen if insufficient gas is supplied to this transaction, should not
                     // happen otherwise. If there's a situation in which this could happen other
-                    // than a standard OOG, then this would halt the entire contract.
+                    // than a standard OOG, then this would halt the entire execution process.
                     require(
                         address(created) == proxy,
                         "ChugSplashManager: Proxy was not created correctly"
@@ -1017,11 +1024,6 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
      *         the very last call of the bundle to avoid a situation where end-users are interacting
      *         with a proxy whose storage has not been fully initialized.
      *
-     *         Note that there can be address collisions between implementations deployed with this
-     *         function if their reference names are the same. This is avoided with off-chain
-     *         tooling by skipping implementations that have the same reference name and creation
-     *         bytecode.
-     *
      * @param _referenceName Reference name that corresponds to the contract.
      * @param _code          Creation bytecode of the contract.
      */
@@ -1029,21 +1031,36 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         // Get the expected address of the contract.
         address expectedAddress = Create2.computeAddress(bytes32(0), keccak256(_code));
 
-        address actualAddress;
-        assembly {
-            actualAddress := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
+        // Check if the contract has already been deployed.
+        if (expectedAddress.code.length > 0) {
+            // Skip deploying the contract if it already exists. Execution would halt if we attempt
+            // to deploy a contract that has already been deployed at the same address.
+            emit ContractDeploymentSkipped(
+                _referenceName,
+                expectedAddress,
+                activeBundleId,
+                _referenceName
+            );
+            registry.announce("ContractDeploymentSkipped");
+        } else {
+            address actualAddress;
+            assembly {
+                actualAddress := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
+            }
+
+            // Could happen if insufficient gas is supplied to this transaction or if the creation
+            // bytecode has logic that causes the call to fail (e.g. a constructor that reverts). We
+            // check that the latter situation cannot occur using off-chain logic. If there's
+            // another situation that could cause an address mismatch, this would halt the entire
+            // execution process.
+            require(
+                expectedAddress == actualAddress,
+                "ChugSplashManager: contract was not deployed correctly"
+            );
+
+            emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
+            registry.announce("ContractDeployed");
         }
-
-        // Could happen if insufficient gas is supplied to this transaction, should not happen
-        // otherwise. If there's a situation in which this could happen other than a standard OOG,
-        // then this would halt the entire contract.
-        require(
-            expectedAddress == actualAddress,
-            "ChugSplashManager: contract was not deployed correctly"
-        );
-
-        emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
-        registry.announce("ContractDeployed");
     }
 
     /**
