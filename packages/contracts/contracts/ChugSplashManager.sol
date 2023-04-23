@@ -13,6 +13,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
+import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
@@ -30,7 +31,12 @@ import { Semver, Version } from "./Semver.sol";
  * @title ChugSplashManager
  */
 
-contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Semver {
+contract ChugSplashManager is
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    Semver,
+    IChugSplashManager
+{
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *

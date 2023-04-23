@@ -1,4 +1,6 @@
 @chugsplash/=../
-@openzeppelin/contracts-upgradeable/=../contracts/node_modules/@openzeppelin/contracts-upgradeable/
-@openzeppelin/contracts/=../contracts/node_modules/@openzeppelin/contracts/
+@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 forge-std/=lib/forge-std/src/
+@eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
+@eth-optimism/contracts/=node_modules/@eth-optimism/contracts/

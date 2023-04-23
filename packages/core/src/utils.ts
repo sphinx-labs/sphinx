@@ -553,7 +553,9 @@ export const isProjectClaimed = async (
     ChugSplashRegistryABI,
     signerOrProvider
   )
-  const isClaimed: boolean = await ChugSplashRegistry.managers(managerAddress)
+  const isClaimed: boolean = await ChugSplashRegistry.managerProxies(
+    managerAddress
+  )
   return isClaimed
 }
 
