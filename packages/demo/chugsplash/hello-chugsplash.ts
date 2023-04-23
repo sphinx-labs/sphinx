@@ -14,7 +14,7 @@ const config: UserChugSplashConfig = {
         number: 1,
         stored: true,
         storageName: 'First',
-        otherStorage: '  {{MyFirstContrfact}}  ',
+        otherStorage: '0x1111111111111111111111111111111111111111',
       },
     },
   },

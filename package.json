@@ -13,12 +13,13 @@
       "packages/demo"
     ],
     "nohoist": [
-      "@chugsplash/contracts/forge-std",
-      "@chugsplash/contracts/ds-test",
-      "@chugsplash/contracts/@openzeppelin/contracts",
-      "@chugsplash/contracts/@openzeppelin/contracts-upgradeable",
-      "@chugsplash/contracts/@eth-optimism/contracts-bedrock",
-      "@chugsplash/contracts/@eth-optimism/contracts"
+      "@chugsplash/{contracts,plugins}/forge-std",
+      "@chugsplash/{contracts,plugins}/ds-test",
+      "@chugsplash/{contracts,plugins}/@openzeppelin/contracts",
+      "@chugsplash/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
+      "@chugsplash/{contracts,plugins}/@eth-optimism/contracts-bedrock",
+      "@chugsplash/{contracts,plugins}/@eth-optimism/contracts",
+      "@chugsplash/plugins/@chugsplash/contracts"
     ]
   },
   "scripts": {

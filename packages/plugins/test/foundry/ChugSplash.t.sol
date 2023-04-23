@@ -6,8 +6,13 @@ import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
 import { Stateless } from "../../contracts/Stateless.sol";
-import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
+import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
+import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
+import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
 import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "@chugsplash/contracts/contracts/interfaces/IProxyUpdater.sol";
 
 /* ChugSplash Foundry Library Tests
  *
@@ -28,7 +33,7 @@ contract ChugSplashTest is Test {
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
     Stateless     myStateless;
-    IChugSplashRegistry registry;
+    ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     address claimer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -105,7 +110,7 @@ contract ChugSplashTest is Test {
         mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
         myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
 
-        registry = IChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
     function testDidexportProxy() public {
@@ -113,7 +118,7 @@ contract ChugSplashTest is Test {
     }
 
     function testDidImportProxy() public {
-        IChugSplashManager manager = registry.projects(claimer, transferOrganizationID);
+        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, transferOrganizationID));
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
@@ -123,23 +128,23 @@ contract ChugSplashTest is Test {
     }
 
     function testDidProposeFundApprove() public {
-        IChugSplashManager manager = registry.projects(claimer, proposeFundApproveOrgID);
+        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, proposeFundApproveOrgID));
         assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
         assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
     }
 
     function testDidWithdraw() public {
-        IChugSplashManager manager = registry.projects(claimer, withdrawOrganizationID);
+        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, withdrawOrganizationID));
         assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
     }
 
     function testDidCancel() public {
-        IChugSplashManager manager = registry.projects(claimer, cancelOrganizationID);
+        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, cancelOrganizationID));
         assertTrue(manager.activeBundleId() == 0, "Bundle still active");
     }
 
     function testDidAddProposer() public {
-        IChugSplashManager manager = registry.projects(claimer, addProposerOrganizationID);
+        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, addProposerOrganizationID));
         assertTrue(manager.proposers(newProposer));
     }
 

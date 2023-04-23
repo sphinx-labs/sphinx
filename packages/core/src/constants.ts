@@ -100,16 +100,11 @@ export const managerConstructorValues = [
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
-  CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
-  CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
-  CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
+  Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
 ]
 
 const [managerConstructorFragment] = ChugSplashManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
-)
-const managerConstructorArgTypes = managerConstructorFragment.inputs.map(
-  (input) => input.type
 )
 
 export const CHUGSPLASH_MANAGER_V1_ADDRESS = utils.getCreate2Address(
@@ -120,7 +115,7 @@ export const CHUGSPLASH_MANAGER_V1_ADDRESS = utils.getCreate2Address(
     [
       ChugSplashManagerArtifact.bytecode,
       utils.defaultAbiCoder.encode(
-        managerConstructorArgTypes,
+        managerConstructorFragment.inputs,
         managerConstructorValues
       ),
     ]

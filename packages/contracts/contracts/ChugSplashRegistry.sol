@@ -5,8 +5,8 @@ import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
-import { Version } from "./Semver.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -79,12 +79,12 @@ contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
      */
-    mapping(address => mapping(bytes32 => ChugSplashManagerProxy)) public projects;
+    mapping(address => mapping(bytes32 => address payable)) public projects;
 
     /**
      * @notice Mapping of created manager proxy contracts.
      */
-    mapping(ChugSplashManagerProxy => bool) public managers;
+    mapping(address => bool) public managerProxies;
 
     /**
      * @notice Mapping of contract kinds to adapters.
@@ -113,17 +113,13 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *
      * @param _organizationID ID of the new ChugSplash organization.
      * @param _owner     Initial owner for the new organization.
-     * @param _major     Major version of the ChugSplashManager implementation.
-     * @param _minor     Minor version of the ChugSplashManager implementation.
-     * @param _patch     Patch version of the ChugSplashManager implementation.
+     * @param _version   Version of the ChugSplashManager.
      * @param _data      Any data to pass to the ChugSplashManager initalizer.
      */
     function claim(
         bytes32 _organizationID,
         address _owner,
-        uint _major,
-        uint _minor,
-        uint _patch,
+        Version memory _version,
         bytes memory _data
     ) public {
         require(
@@ -131,9 +127,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
             "ChugSplashRegistry: organization ID already claimed by the caller"
         );
 
-        address version = versions[_major][_minor][_patch];
+        address manager = versions[_version.major][_version.minor][_version.patch];
         require(
-            managerImplementations[version] == true,
+            managerImplementations[manager] == true,
             "ChugSplashRegistry: invalid manager version"
         );
 
@@ -144,15 +140,15 @@ contract ChugSplashRegistry is Ownable, Initializable {
             address(this)
         );
         managerProxy.upgradeToAndCall(
-            version,
+            manager,
             abi.encodeCall(IChugSplashManager.initialize, _data)
         );
 
         // Change manager proxy admin to the Org owner
         managerProxy.changeAdmin(_owner);
 
-        projects[msg.sender][_organizationID] = managerProxy;
-        managers[managerProxy] = true;
+        projects[msg.sender][_organizationID] = payable(address(managerProxy));
+        managerProxies[address(managerProxy)] = true;
 
         emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(managerProxy), _owner);
     }
@@ -164,7 +160,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announce(string memory _event) public {
         require(
-            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
+            managerProxies[msg.sender] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -180,7 +176,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announceWithData(string memory _event, bytes memory _data) public {
         require(
-            managers[ChugSplashManagerProxy(payable(msg.sender))] == true,
+            managerProxies[msg.sender] == true,
             "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
         );
 
@@ -205,7 +201,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     function addVersion(address _manager) external onlyOwner {
-        Version memory version = IChugSplashManager(_manager).version();
+        Version memory version = Semver(_manager).version();
         uint256 major = version.major;
         uint256 minor = version.minor;
         uint256 patch = version.patch;

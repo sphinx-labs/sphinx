@@ -13,6 +13,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
+import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "./interfaces/IProxyUpdater.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
@@ -24,13 +25,18 @@ import {
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { Semver } from "./Semver.sol";
+import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title ChugSplashManager
  */
 
-contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Semver {
+contract ChugSplashManager is
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    Semver,
+    IChugSplashManager
+{
     /**
      * @notice Emitted when a ChugSplash bundle is proposed.
      *
@@ -214,6 +220,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
 
     bytes32 public constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
 
+    bytes32 public constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
+
     /**
      * @notice Address of the ChugSplashRegistry.
      */
@@ -309,10 +317,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage,
-        uint _major,
-        uint _minor,
-        uint _patch
-    ) Semver(_major, _minor, _patch) {
+        Version memory _version
+    ) Semver(_version.major, _version.minor, _version.patch) {
         registry = _registry;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
@@ -517,7 +523,8 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
     }
 
     /**
-     * @notice Initiate the execution of a bundle.
+     * @notice Initiate the execution of a bundle. Note that non-proxied contracts are not
+     *         included in the target bundle.
      *
      * @param _targets Array of ChugSplashTarget objects.
      * @param _proofs  Array of Merkle proofs.
@@ -525,7 +532,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
     function initiateBundleExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
@@ -547,6 +554,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
             proof = _proofs[i];
 
             require(
+                target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
+                "ChugSplashManager: non-proxied contract not allowed in target bundle"
+            );
+
+            require(
                 MerkleTree.verify(
                     bundle.targetRoot,
                     keccak256(
@@ -565,33 +577,40 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
                 "ChugSplashManager: invalid bundle target proof"
             );
 
-            if (target.contractKindHash == bytes32(0)) {
-                // Make sure the proxy has code in it and deploy the proxy if it doesn't. Since
-                // we're deploying via CREATE2, we can always correctly predict what the proxy
-                // address *should* be and can therefore easily check if it's already populated.
-                address proxy = getDefaultProxyAddress(target.projectName, target.referenceName);
-                if (proxy.code.length == 0) {
-                    bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
-                    Proxy created = new Proxy{ salt: salt }(address(this));
+            if (target.contractKindHash == bytes32(0) && target.proxy.code.length == 0) {
+                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
+                Proxy created = new Proxy{ salt: salt }(address(this));
 
-                    // Could happen if insufficient gas is supplied to this transaction, should not
-                    // happen otherwise. If there's a situation in which this could happen other
-                    // than a standard OOG, then this would halt the entire execution process.
-                    require(
-                        address(created) == proxy,
-                        "ChugSplashManager: Proxy was not created correctly"
-                    );
+                // Could happen if insufficient gas is supplied to this transaction, should not
+                // happen otherwise. If there's a situation in which this could happen other than a
+                // standard OOG, then this would halt the entire execution process.
+                require(
+                    address(created) == target.proxy,
+                    "ChugSplashManager: Proxy was not created correctly"
+                );
 
-                    emit DefaultProxyDeployed(
-                        salt,
-                        proxy,
-                        activeBundleId,
-                        target.projectName,
-                        target.referenceName
-                    );
-                    registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(proxy));
-                }
+                emit DefaultProxyDeployed(
+                    salt,
+                    target.proxy,
+                    activeBundleId,
+                    target.projectName,
+                    target.referenceName
+                );
+                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.proxy));
             }
+
+            address adapter = registry.adapters(target.contractKindHash);
+
+            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
+            // ChugSplashManager can interact with a proxy that is in the process of being updated.
+            // Note that we use the Updater contract to provide a generic interface for updating a
+            // variety of proxy types.
+            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
+            // cannot have state.
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
+            );
+            require(success, "ChugSplashManager: failed to set implementation to an updater");
         }
 
         // Mark the bundle as initiated.
@@ -618,10 +637,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
-        bytes32 noProxyContractKindHash = keccak256("no-proxy");
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+
+        require(
+            bundle.status == ChugSplashBundleStatus.INITIATED,
+            "ChugSplashManager: bundle status must be initiated"
+        );
 
         assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
 
@@ -662,27 +685,14 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
             address adapter = registry.adapters(action.contractKindHash);
 
             require(
-                action.contractKindHash == noProxyContractKindHash || adapter != address(0),
+                action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH || adapter != address(0),
                 "ChugSplashManager: proxy type has no adapter"
             );
             require(
-                action.contractKindHash != noProxyContractKindHash ||
+                action.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH ||
                     action.actionType != ChugSplashActionType.SET_STORAGE,
                 "ChugSplashManager: cannot set storage in non-proxied contracts"
             );
-
-            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
-            // ChugSplashManager can interact with a proxy that is in the process of being updated.
-            // Note that we use the Updater contract to provide a generic interface for updating a
-            // variety of proxy types.
-            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
-            // cannot have state.
-            if (action.contractKindHash != noProxyContractKindHash) {
-                (bool success, ) = adapter.delegatecall(
-                    abi.encodeCall(IProxyAdapter.initiateExecution, (action.proxy))
-                );
-                require(success, "ChugSplashManager: failed to set implementation to an updater");
-            }
 
             // Mark the action as executed and update the total number of executed actions.
             bundle.actionsExecuted++;
@@ -721,7 +731,7 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
     function completeBundleExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
@@ -746,6 +756,11 @@ contract ChugSplashManager is OwnableUpgradeable, ReentrancyGuardUpgradeable, Se
         for (uint256 i = 0; i < numTargets; i++) {
             target = _targets[i];
             proof = _proofs[i];
+
+            require(
+                target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
+                "ChugSplashManager: non-proxied contract not allowed in target bundle"
+            );
 
             require(
                 MerkleTree.verify(
