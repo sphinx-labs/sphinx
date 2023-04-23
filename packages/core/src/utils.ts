@@ -327,16 +327,6 @@ export const chugsplashLog = (
   stream.write(parts.join('\n') + '\n')
 }
 
-export const displayProposerTable = (proposerAddresses: string[]) => {
-  const proposers = {}
-  proposerAddresses.forEach((address, i) => {
-    proposers[i + 1] = {
-      Address: address,
-    }
-  })
-  console.table(proposers)
-}
-
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
