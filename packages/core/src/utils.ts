@@ -241,9 +241,7 @@ export const claimChugSplashProject = async (
       await ChugSplashRegistry.claim(
         organizationID,
         newOwnerAddress,
-        CURRENT_CHUGSPLASH_MANAGER_VERSION.major,
-        CURRENT_CHUGSPLASH_MANAGER_VERSION.minor,
-        CURRENT_CHUGSPLASH_MANAGER_VERSION.patch,
+        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
         initializerData,
         await getGasPriceOverrides(provider)
       )
