@@ -15,10 +15,7 @@ import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
 abstract contract ProxyUpdater is IProxyUpdater {
     /**
      * @notice Replaces a segment of a proxy's storage slot value at a given key and offset. The
-     *         storage value outside of this segment remains the same. Note that it's crucial for
-     *         this function not to revert under any circumstances because this would halt the
-     *         entire execution process. This means overflow checks must occur off-chain before
-     *         execution begins.
+     *         storage value outside of this segment remains the same.
      *
      *         To illustrate how this function works, consider the following example. Say we call
      *         this function on some storage slot key with the input parameters:
@@ -48,6 +45,8 @@ abstract contract ProxyUpdater is IProxyUpdater {
      *                 bytesN value, where N is in the range [1, 32] (inclusive).
      */
     function setStorageValue(bytes32 _key, uint8 _offset, bytes memory _segment) internal {
+        require(_segment.length <= 32, "ProxyUpdater: segment is too large");
+
         bytes32 segmentBytes32 = bytes32(_segment);
 
         // If the length of the new segment equals the size of the storage slot, we can just replace
@@ -69,7 +68,7 @@ abstract contract ProxyUpdater is IProxyUpdater {
 
             // Create a bit mask that will set the values of the existing storage slot to 0 at the
             // location of the new segment. It's worth noting that the expresion:
-            // `(2 ** (valueLengthBits) - 1)` would revert if `valueLengthBits = 256`. However,
+            // `(2 ** (segmentLengthBits) - 1)` would revert if `segmentLengthBits = 256`. However,
             // this will never happen because segments of length 32 are set directly in the
             // if-statement above.
             uint256 mask = ~((2 ** (segmentLengthBits) - 1) << offsetBits);
