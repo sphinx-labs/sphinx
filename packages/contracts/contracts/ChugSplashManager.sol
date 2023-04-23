@@ -22,9 +22,9 @@ import {
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Semver, Version } from "./Semver.sol";
+import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 
 /**
  * @title ChugSplashManager
@@ -153,20 +153,12 @@ contract ChugSplashManager is
     event OwnerWithdrewETH(address indexed owner, uint256 amount);
 
     /**
-     * @notice Emitted when the owner of this contract adds a new proposer.
+     * @notice Emitted when the owner of this contract adds or removes a new proposer.
      *
      * @param proposer Address of the proposer that was added.
      * @param proposer Address of the owner.
      */
-    event ProposerAdded(address indexed proposer, address indexed owner);
-
-    /**
-     * @notice Emitted when the owner of this contract removes an existing proposer.
-     *
-     * @param proposer Address of the proposer that was removed.
-     * @param proposer Address of the owner.
-     */
-    event ProposerRemoved(address indexed proposer, address indexed owner);
+    event ProposerSet(address indexed proposer, bool indexed isProposer, address indexed owner);
 
     event ToggledManagedProposals(bool isManaged, address indexed owner);
 
@@ -225,6 +217,8 @@ contract ChugSplashManager is
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
+
+    IGasPriceCalculator public immutable gasPriceCalculator;
 
     IAccessControl public immutable managedService;
 
@@ -311,6 +305,7 @@ contract ChugSplashManager is
      */
     constructor(
         ChugSplashRegistry _registry,
+        IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
@@ -319,6 +314,7 @@ contract ChugSplashManager is
         Version memory _version
     ) Semver(_version.major, _version.minor, _version.patch) {
         registry = _registry;
+        gasPriceCalculator = _gasPriceCalculator;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
         ownerBondAmount = _ownerBondAmount;
@@ -928,17 +924,15 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Allows the owner of this contract to add a proposer.
+     * @notice Allows the owner of this contract to add or remove a proposer.
      *
-     * @param _proposer Address of the proposer to add.
+     * @param _proposer Address of the proposer to add or remove.
      */
-    function addProposer(address _proposer) external onlyOwner {
-        require(proposers[_proposer] == false, "ChugSplashManager: proposer was already added");
+    function setProposer(address _proposer, bool _isProposer) external onlyOwner {
+        proposers[_proposer] = _isProposer;
 
-        proposers[_proposer] = true;
-
-        emit ProposerAdded(_proposer, msg.sender);
-        registry.announce("ProposerAdded");
+        emit ProposerSet(_proposer, _isProposer, msg.sender);
+        registry.announceWithData("ProposerSet", abi.encodePacked(_isProposer));
     }
 
     function isProposer(address _addr) public view returns (bool) {
@@ -956,20 +950,6 @@ contract ChugSplashManager is
             "ToggledManagedProposals",
             abi.encodePacked(allowManagedProposals)
         );
-    }
-
-    /**
-     * @notice Allows the owner of this contract to remove a proposer.
-     *
-     * @param _proposer Address of the proposer to remove.
-     */
-    function removeProposer(address _proposer) external onlyOwner {
-        require(proposers[_proposer] == true, "ChugSplashManager: proposer was already removed");
-
-        proposers[_proposer] = false;
-
-        emit ProposerRemoved(_proposer, msg.sender);
-        registry.announce("ProposerRemoved");
     }
 
     /**
@@ -994,8 +974,10 @@ contract ChugSplashManager is
         // the side of safety by adding a larger value.
         uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
 
-        uint256 executorPayment = (tx.gasprice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = (tx.gasprice * gasUsed * (protocolPaymentPercentage)) / 100;
+        uint256 gasPrice = gasPriceCalculator.getGasPrice();
+
+        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;

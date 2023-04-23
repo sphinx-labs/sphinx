@@ -1166,14 +1166,14 @@ export const chugsplashListProposersAbstractTask = async (
 
   // Fetch all previous proposers
   const addProposerEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ProposerAdded()
+    ChugSplashManager.filters.ProposerSet(null, true)
   )
 
   // Verify if each previous proposer is still a proposer before adding it to the list
   for (const proposerEvent of addProposerEvents) {
     if (proposerEvent.args === undefined) {
       throw new Error(
-        `No args found for ProposerAdded event. Should never happen.`
+        `No args found for ProposerSet event. Should never happen.`
       )
     }
 
@@ -1254,8 +1254,9 @@ export const chugsplashAddProposersAbstractTask = async (
     }
 
     await (
-      await ChugSplashManager.addProposer(
+      await ChugSplashManager.setProposer(
         newProposer,
+        true,
         await getGasPriceOverrides(provider)
       )
     ).wait()
