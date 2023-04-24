@@ -9,9 +9,9 @@ import { Version } from "../Semver.sol";
  * @notice Interface that must be inherited the ChugSplash manager.
  */
 interface IChugSplashManager {
-    function isExecuting() external view returns (bool);
-
     function initialize(bytes memory) external;
+
+    function isExecuting() external view returns (bool);
 
     function registry() external view returns (ChugSplashRegistry);
 

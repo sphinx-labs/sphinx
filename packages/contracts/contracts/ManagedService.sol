@@ -4,9 +4,9 @@ pragma solidity ^0.8.9;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract ManagedService is AccessControl {
-    event ExecutedCall(address indexed from, address indexed to, uint256 value);
-
     bytes32 public constant CALLER_ROLE = keccak256("CALLER_ROLE");
+
+    event ExecutedCall(address indexed from, address indexed to, uint256 value);
 
     constructor(address _owner) {
         _grantRole(bytes32(0), _owner);

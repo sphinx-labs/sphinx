@@ -19,19 +19,6 @@ contract DefaultUpdater is ProxyUpdater {
         0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
     /**
-     * @notice Queries the owner of the proxy contract.
-     *
-     * @return Owner address.
-     */
-    function _getAdmin() internal view returns (address) {
-        address owner;
-        assembly {
-            owner := sload(OWNER_KEY)
-        }
-        return owner;
-    }
-
-    /**
      * @notice A modifier that reverts if not called by the owner or by address(0) to allow
      *         eth_call to interact with this proxy without needing to use low-level storage
      *         inspection. We assume that nobody is able to trigger calls from address(0) during
@@ -47,5 +34,18 @@ contract DefaultUpdater is ProxyUpdater {
 
     function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external ifAdmin {
         super.setStorageValue(_key, _offset, _segment);
+    }
+
+    /**
+     * @notice Queries the owner of the proxy contract.
+     *
+     * @return Owner address.
+     */
+    function _getAdmin() internal view returns (address) {
+        address owner;
+        assembly {
+            owner := sload(OWNER_KEY)
+        }
+        return owner;
     }
 }

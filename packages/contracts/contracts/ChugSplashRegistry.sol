@@ -16,6 +16,31 @@ import { Semver, Version } from "./Semver.sol";
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
+     * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
+     */
+    mapping(address => mapping(bytes32 => address payable)) public projects;
+
+    /**
+     * @notice Mapping of created manager proxy contracts.
+     */
+    mapping(address => bool) public managerProxies;
+
+    /**
+     * @notice Mapping of contract kinds to adapters.
+     */
+    mapping(bytes32 => address) public adapters;
+
+    /**
+     * @notice Mapping of valid manager implementations
+     */
+    mapping(address => bool) public managerImplementations;
+
+    /**
+     * @notice Mapping of version numbers manager implementations
+     */
+    mapping(uint => mapping(uint => mapping(uint => address))) public versions;
+
+    /**
      * @notice Emitted whenever a new project is claimed.
      *
      * @param organizationID Organization ID.
@@ -77,31 +102,6 @@ contract ChugSplashRegistry is Ownable, Initializable {
     );
 
     /**
-     * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
-     */
-    mapping(address => mapping(bytes32 => address payable)) public projects;
-
-    /**
-     * @notice Mapping of created manager proxy contracts.
-     */
-    mapping(address => bool) public managerProxies;
-
-    /**
-     * @notice Mapping of contract kinds to adapters.
-     */
-    mapping(bytes32 => address) public adapters;
-
-    /**
-     * @notice Mapping of valid manager implementations
-     */
-    mapping(address => bool) public managerImplementations;
-
-    /**
-     * @notice Mapping of version numbers manager implementations
-     */
-    mapping(uint => mapping(uint => mapping(uint => address))) public versions;
-
-    /**
      * @param _owner Address of the owner of the registry.
      */
     constructor(address _owner) {
@@ -121,10 +121,10 @@ contract ChugSplashRegistry is Ownable, Initializable {
         address _owner,
         Version memory _version,
         bytes memory _data
-    ) public {
+    ) external {
         require(
             address(projects[msg.sender][_organizationID]) == address(0),
-            "ChugSplashRegistry: organization ID already claimed by the caller"
+            "ChugSplashRegistry: org ID already claimed by caller"
         );
 
         address manager = versions[_version.major][_version.minor][_version.patch];
@@ -158,10 +158,10 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *
      * @param _event Name of the event to announce.
      */
-    function announce(string memory _event) public {
+    function announce(string memory _event) external {
         require(
             managerProxies[msg.sender] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+            "ChugSplashRegistry: events can only be announced by managers"
         );
 
         emit EventAnnounced(_event, msg.sender, _event);
@@ -174,10 +174,10 @@ contract ChugSplashRegistry is Ownable, Initializable {
      * @param _event Name of the event to announce.
      * @param _data  Arbitrary data to include in the announced event.
      */
-    function announceWithData(string memory _event, bytes memory _data) public {
+    function announceWithData(string memory _event, bytes memory _data) external {
         require(
             managerProxies[msg.sender] == true,
-            "ChugSplashRegistry: events can only be announced by ChugSplashManager contracts"
+            "ChugSplashRegistry: events can only be announced by managers"
         );
 
         emit EventAnnouncedWithData(_event, msg.sender, _data, _event, _data);
@@ -220,7 +220,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
     function getChugSplashManagerProxyAddress(
         address _claimer,
         bytes32 _organizationID
-    ) public view returns (address payable) {
+    ) external view returns (address payable) {
         return (
             payable(
                 Create2.computeAddress(
