@@ -15,6 +15,7 @@
     "no-empty-blocks": "off",
     "not-rely-on-time": "off",
     "var-name-mixedcase": "off",
-    "func-visibility": ["warn", { "ignoreConstructors": true }]
+    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "reason-string": ["warn", { "maxLength": 64}]
   }
 }

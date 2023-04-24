@@ -33,8 +33,18 @@ contract OZUUPSUpdater is ProxyUpdater {
      */
     event Upgraded(address indexed implementation);
 
-    function proxiableUUID() external view virtual returns (bytes32) {
-        return 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    /**
+     * @notice A modifier that reverts if not called by the owner or by address(0) to allow
+     *         eth_call to interact with this proxy without needing to use low-level storage
+     *         inspection. We assume that nobody is able to trigger calls from address(0) during
+     *         normal EVM execution.
+     */
+    modifier ifChugSplashAdmin() {
+        if (msg.sender == _getChugSplashAdmin() || msg.sender == address(0)) {
+            _;
+        } else {
+            revert("OZUUPSUpdater: caller is not admin");
+        }
     }
 
     /**
@@ -45,6 +55,35 @@ contract OZUUPSUpdater is ProxyUpdater {
      */
     function upgradeTo(address _implementation) external ifChugSplashAdmin {
         _setImplementation(_implementation);
+    }
+
+    /**
+     * @notice Sets up the proxy updater when execution is being initiated.
+     */
+    function initiate() external {
+        if (_getChugSplashAdmin() == address(0)) {
+            _setChugSplashAdmin(msg.sender);
+        }
+    }
+
+    /**
+     * @notice Tears down the proxy updater when execution is being completed.
+     */
+    function complete(address _implementation) external ifChugSplashAdmin {
+        _setChugSplashAdmin(address(0));
+        _setImplementation(_implementation);
+    }
+
+    function setStorage(
+        bytes32 _key,
+        uint8 _offset,
+        bytes memory _segment
+    ) external ifChugSplashAdmin {
+        super.setStorageValue(_key, _offset, _segment);
+    }
+
+    function proxiableUUID() external view virtual returns (bytes32) {
+        return 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     }
 
     /**
@@ -81,44 +120,5 @@ contract OZUUPSUpdater is ProxyUpdater {
             chugsplashAdmin := sload(CHUGSPLASH_ADMIN_KEY)
         }
         return chugsplashAdmin;
-    }
-
-    /**
-     * @notice A modifier that reverts if not called by the owner or by address(0) to allow
-     *         eth_call to interact with this proxy without needing to use low-level storage
-     *         inspection. We assume that nobody is able to trigger calls from address(0) during
-     *         normal EVM execution.
-     */
-    modifier ifChugSplashAdmin() {
-        if (msg.sender == _getChugSplashAdmin() || msg.sender == address(0)) {
-            _;
-        } else {
-            revert("OZUUPSUpdater: caller is not admin");
-        }
-    }
-
-    /**
-     * @notice Sets up the proxy updater when execution is being initiated.
-     */
-    function initiate() public {
-        if (_getChugSplashAdmin() == address(0)) {
-            _setChugSplashAdmin(msg.sender);
-        }
-    }
-
-    /**
-     * @notice Tears down the proxy updater when execution is being completed.
-     */
-    function complete(address _implementation) external ifChugSplashAdmin {
-        _setChugSplashAdmin(address(0));
-        _setImplementation(_implementation);
-    }
-
-    function setStorage(
-        bytes32 _key,
-        uint8 _offset,
-        bytes memory _segment
-    ) external ifChugSplashAdmin {
-        super.setStorageValue(_key, _offset, _segment);
     }
 }
