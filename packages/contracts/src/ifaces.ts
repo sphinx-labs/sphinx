@@ -14,6 +14,7 @@ export const OZUUPSOwnableAdapterArtifact = require('../artifacts/contracts/adap
 export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAccessControlAdapter.sol/OZUUPSAccessControlAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
+export const DefaultProxyArtifact = require('../node_modules/@eth-optimism/contracts-bedrock/artifacts/contracts/universal/Proxy.sol/Proxy.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)

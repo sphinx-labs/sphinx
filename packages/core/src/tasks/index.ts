@@ -211,7 +211,6 @@ export const chugsplashProposeAbstractTask = async (
       0,
       parsedConfig.options.claimer,
       parsedConfig.options.organizationID,
-      parsedConfig.options.projectName,
       true
     )
 
@@ -569,7 +568,6 @@ export const chugsplashFundAbstractTask = async (
         0,
         parsedConfig.options.claimer,
         parsedConfig.options.organizationID,
-        parsedConfig.options.projectName,
         true
       )
     : amount

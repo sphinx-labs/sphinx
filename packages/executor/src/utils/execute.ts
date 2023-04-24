@@ -232,8 +232,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       bundles,
       bundleState.actionsExecuted.toNumber(),
       claimer,
-      organizationID,
-      projectName
+      organizationID
     )
   ) {
     logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)

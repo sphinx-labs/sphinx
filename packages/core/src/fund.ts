@@ -1,10 +1,11 @@
-import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
-import { ethers } from 'ethers'
+import { OWNER_BOND_AMOUNT, DefaultProxyArtifact } from '@chugsplash/contracts'
+import { BigNumber, ethers, utils } from 'ethers'
 
 import {
   getChugSplashManager,
-  getDefaultProxyAddress,
+  getChugSplashManagerAddress,
   isContractDeployed,
+  getCreationCodeWithConstructorArgs,
 } from './utils'
 import {
   ChugSplashBundles,
@@ -63,42 +64,56 @@ export const estimateExecutionGas = async (
   bundles: ChugSplashBundles,
   actionsExecuted: number,
   claimer: string,
-  organizationID: string,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
   const actions = bundles.actionBundle.actions
     .map((action) => fromRawChugSplashAction(action.action))
     .slice(actionsExecuted)
 
-  let estimatedGas = ethers.BigNumber.from(150_000).mul(
+  let estimatedGas = ethers.BigNumber.from(45_000).mul(
     actions.filter((action) => isSetStorageAction(action)).length
+  )
+
+  const managerAddress = await getChugSplashManagerAddress(
+    claimer,
+    organizationID
   )
 
   const deployedProxyPromises = actions
     .filter((action) => isDeployContractAction(action))
     .map(async (action) => {
-      return (await isContractDeployed(
-        getDefaultProxyAddress(
-          claimer,
-          organizationID,
-          projectName,
-          action.referenceName
-        ),
-        provider
-      ))
+      const defaultProxyCode = await getCreationCodeWithConstructorArgs(
+        DefaultProxyArtifact.bytecode,
+        {
+          _admin: managerAddress,
+        },
+        DefaultProxyArtifact.abi
+      )
+
+      // If the proxy has already been deployed, then estimate 0 gas. Otherwise, estimate 550k for the default proxy.
+      return (await isContractDeployed(action.proxy, provider))
         ? ethers.BigNumber.from(0)
-        : ethers.BigNumber.from(550_000)
+        : provider.estimateGas({
+            data: defaultProxyCode,
+          })
     })
 
   const deployedContractPromises = actions
     .filter((action) => isDeployContractAction(action))
-    .map(async (action: DeployContractAction) =>
-      ethers.BigNumber.from(350_000).add(
-        await provider.estimateGas({
-          data: action.code,
-        })
+    .map(async (action: DeployContractAction) => {
+      const implementationAddress = utils.getCreate2Address(
+        managerAddress,
+        ethers.constants.HashZero,
+        utils.solidityKeccak256(['bytes'], [action.code])
       )
-    )
+
+      // If the implementation has already been deployed, then estimate 0 gas. Otherwise, estimate the gas to deploy the implementation.
+      return (await isContractDeployed(implementationAddress, provider))
+        ? ethers.BigNumber.from(0)
+        : provider.estimateGas({
+            data: action.code,
+          })
+    })
 
   const resolvedContractDeploymentPromises = await Promise.all(
     deployedProxyPromises.concat(deployedContractPromises)
@@ -112,7 +127,7 @@ export const estimateExecutionGas = async (
 
   estimatedGas = estimatedGas.add(estimatedContractDeploymentGas)
 
-  return estimatedGas
+  return estimatedGas.add(BigNumber.from(400_000))
 }
 
 export const estimateExecutionCost = async (
@@ -120,16 +135,14 @@ export const estimateExecutionCost = async (
   bundles: ChugSplashBundles,
   actionsExecuted: number,
   claimer: string,
-  organizationID: string,
-  projectName: string
+  organizationID: string
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
     provider,
     bundles,
     actionsExecuted,
     claimer,
-    organizationID,
-    projectName
+    organizationID
   )
   const feeData = await provider.getFeeData()
 
@@ -149,8 +162,7 @@ export const hasSufficientFundsForExecution = async (
   bundles: ChugSplashBundles,
   actionsExecuted: number,
   claimer: string,
-  organizationID: string,
-  projectName: string
+  organizationID: string
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
@@ -163,8 +175,7 @@ export const hasSufficientFundsForExecution = async (
     bundles,
     actionsExecuted,
     claimer,
-    organizationID,
-    projectName
+    organizationID
   )
 
   return availableFunds.gte(currExecutionCost)
@@ -176,7 +187,6 @@ export const getAmountToDeposit = async (
   actionsExecuted: number,
   claimer: string,
   organizationID: string,
-  projectName: string,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
@@ -184,8 +194,7 @@ export const getAmountToDeposit = async (
     bundles,
     actionsExecuted,
     claimer,
-    organizationID,
-    projectName
+    organizationID
   )
 
   const availableFunds = await availableFundsForExecution(
