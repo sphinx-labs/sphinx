@@ -965,19 +965,24 @@ contract ChugSplashManager is
             return;
         }
 
-        // Estimate the amount of gas used in this call by subtracting the current gas left from the
-        // initial gas left. We add 152778 to this amount to account for the intrinsic gas cost
-        // (21k), the calldata usage, and the subsequent opcodes that occur when we add the
-        // executorPayment to the debt and total debt. Unfortunately, there is a wide variance in
-        // the gas costs of these last opcodes due to the variable cost of SSTORE. Also, gas refunds
-        // might be contributing to the difficulty of getting a good estimate. For now, we err on
-        // the side of safety by adding a larger value.
-        uint256 gasUsed = 152778 + _initialGasLeft - gasleft();
-
         uint256 gasPrice = gasPriceCalculator.getGasPrice();
 
-        uint256 executorPayment = (gasPrice * gasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = (gasPrice * gasUsed * (protocolPaymentPercentage)) / 100;
+        // Estimate the gas used by the calldata. Note that, in general, 16 gas is used per non-zero
+        // byte of calldata and 4 gas is used per zero-byte of calldata. We use 16 for simplicity
+        // and because we must overestimate the executor's payment to ensure that it doesn't lose
+        // money.
+        uint256 calldataGasUsed = msg.data.length * 16;
+
+        // Estimate the total gas used in this transaction. We calculate this by adding the gas used
+        // by the calldata with the net estimated gas used by this function so far (i.e.
+        // `_initialGasLeft - gasleft()`). We add 100k to account for the intrinsic gas cost (21k)
+        // and the operations that occur after we assign a value to `estGasUsed`. Note that it's
+        // crucial for this estimate to be greater than the actual gas used by this transaction so
+        // that the executor doesn't lose money.
+        uint256 estGasUsed = 100_000 + calldataGasUsed + _initialGasLeft - gasleft();
+
+        uint256 executorPayment = (gasPrice * estGasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = (gasPrice * estGasUsed * (protocolPaymentPercentage)) / 100;
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
