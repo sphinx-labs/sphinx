@@ -12,7 +12,6 @@ import { ethers } from 'ethers'
 import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
   CHUGSPLASH_REGISTRY_ADDRESS,
-  initializeChugSplash,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
@@ -20,6 +19,7 @@ import {
   ExecutorKey,
   isSupportedNetworkOnEtherscan,
   verifyChugSplash,
+  ensureChugSplashInitialized,
 } from '@chugsplash/core'
 import { getChainId } from '@eth-optimism/core-utils'
 import { GraphQLClient } from 'graphql-request'
@@ -141,7 +141,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     }
 
     // Deploy the ChugSplash contracts.
-    await initializeChugSplash(this.state.provider, wallet, this.logger)
+    await ensureChugSplashInitialized(this.state.provider, wallet)
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 
