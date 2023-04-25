@@ -567,6 +567,42 @@ export const encodePreserve: VariableHandler<
 }
 
 /**
+ * Handles encoding function types. Since we do not support defining function types in the
+ * ChugSplash config, we just zero out the storage slot.
+ *
+ * @param props standard VariableHandler props. See ./iterator.ts for more information.
+ * @returns A encoded storage slot with a value of 0 for the function type.
+ */
+export const encodeFunction: VariableHandler<
+  string,
+  Array<StorageSlotSegment>
+> = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
+  const { storageObj, slotKey } = props
+
+  // We want to zero out the storage slot for function types.
+  // Since internal and external functions have different sizes, we need to
+  // zero out the correct number of bytes for each.
+  let value: string
+  if (storageObj.type.startsWith('t_function_internal')) {
+    value = '0x' + '00'.repeat(8)
+  } else if (storageObj.type.startsWith('t_function_external')) {
+    value = '0x' + '00'.repeat(24)
+  } else {
+    throw new Error(
+      'Unknown function type, please report this to the developers'
+    )
+  }
+
+  return [
+    {
+      key: slotKey,
+      offset: storageObj.offset,
+      val: value,
+    },
+  ]
+}
+
+/**
  * Encodes a single variable as a series of key/value storage slot pairs using the Solidity storage
  * layout as instructions for how to perform this encoding. Works recursively with complex data
  * types. ref:
@@ -602,6 +638,7 @@ export const encodeVariable = (
     mapping: encodeMapping,
     dynamic_array: encodeDynamicArray,
     preserve: encodePreserve,
+    function: encodeFunction,
   }
 
   return recursiveLayoutIterator<Array<StorageSlotSegment>>(

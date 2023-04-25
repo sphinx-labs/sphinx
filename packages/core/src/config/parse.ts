@@ -944,6 +944,19 @@ export const parseGap = (
   )
 }
 
+/**
+ * Handles parsing and validating functions, in practice this function does nothing because
+ * functions should not be defined in the ChugSplash config.
+ *
+ * @param props standard VariableHandler props. See ./iterator.ts for more information.
+ * @returns undefined
+ */
+export const parseFunction: VariableHandler<string, string> = (
+  props: VariableHandlerProps<string, string>
+): string => {
+  return props.variable
+}
+
 export const handleParseOnlyKeywords = (
   storageObj: SolidityStorageObj,
   variableType: SolidityStorageType,
@@ -996,6 +1009,7 @@ export const parseAndValidateVariable = (
     mapping: parseMapping,
     dynamic_array: parseDynamicArray,
     preserve: parsePreserve,
+    function: parseFunction,
   }
 
   // Handle any keywords that are only used for parsing, not encoding.
@@ -1059,8 +1073,18 @@ const parseContractVariables = (
 
   for (const storageObj of Object.values(extendedLayout.storage)) {
     const configVarValue = userConfigVariables[storageObj.configVarName]
-    if (configVarValue === undefined) {
+    if (
+      configVarValue === undefined &&
+      !storageObj.type.startsWith('t_function')
+    ) {
       missingVariables.push(storageObj.configVarName)
+    } else if (
+      configVarValue !== undefined &&
+      storageObj.type.startsWith('t_function')
+    ) {
+      inputErrors.push(
+        `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your ChugSplash config.`
+      )
     }
 
     try {

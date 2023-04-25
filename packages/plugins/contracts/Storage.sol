@@ -58,8 +58,10 @@ contract Storage {
         immutableEnum = _immutableEnum;
     }
 
-    int public minInt256;
+    function(uint256) pure internal returns (uint256) internalFunc;
     int8 public minInt8;
+    function(uint256) pure external returns (uint256) externalFunc;
+    int public minInt256;
     int public bigNumberInt256;
     int8 public bigNumberInt8;
     uint public bigNumberUint256;
