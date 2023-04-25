@@ -53,6 +53,22 @@ import {
   CHUGSPLASH_MANAGER_V1_ADDRESS,
 } from '../../constants'
 
+export const ensureChugSplashInitialized = async (
+  provider: ethers.providers.JsonRpcProvider,
+  signer: ethers.Signer
+) => {
+  if (await isLiveNetwork(provider)) {
+    // Throw an error if the ChugSplashRegistry is not deployed on this network
+    if (!(await isContractDeployed(CHUGSPLASH_REGISTRY_ADDRESS, provider))) {
+      throw new Error(
+        `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
+      )
+    }
+  } else {
+    await initializeChugSplash(provider, signer)
+  }
+}
+
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
@@ -269,12 +285,18 @@ export const initializeChugSplash = async (
       })
     ).wait()
 
-    await (
-      await ChugSplashRegistry.connect(multisig).addVersion(
-        ChugSplashManager.address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
+    if (
+      (await ChugSplashRegistry.managerImplementations(
+        ChugSplashManager.address
+      )) === false
+    ) {
+      await (
+        await ChugSplashRegistry.connect(multisig).addVersion(
+          ChugSplashManager.address,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    }
 
     logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
 
