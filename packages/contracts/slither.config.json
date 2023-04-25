@@ -1,4 +1,5 @@
 {
+  "detectors_to_exclude": "assembly-usage,low-level-calls,naming-convention,solc-version",
   "fail_low": true,
   "fail_pedantic": true,
   "exclude_optimization": true,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -16,9 +16,9 @@ contract ManagedService is AccessControl {
         address _to,
         bytes memory _data
     ) external payable onlyRole(CALLER_ROLE) returns (bytes memory) {
+        emit ExecutedCall(msg.sender, _to, msg.value);
         (bool success, bytes memory returnData) = _to.call{ value: msg.value }(_data);
         require(success, "PermissionedCaller: call failed");
-        emit ExecutedCall(msg.sender, _to, msg.value);
         return returnData;
     }
 }

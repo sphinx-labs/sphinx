@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { OZUUPSUpdater } from "../updaters/OZUUPSUpdater.sol";
@@ -19,6 +19,7 @@ abstract contract OZUUPSBaseAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
+        require(_proxyUpdater != address(0), "OZUUPSBaseAdapter: updater cannot be address(0)");
         proxyUpdater = _proxyUpdater;
     }
 

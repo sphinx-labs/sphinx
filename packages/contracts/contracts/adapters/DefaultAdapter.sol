@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
@@ -13,6 +13,7 @@ contract DefaultAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
+        require(_proxyUpdater != address(0), "DefaultAdapter: updater cannot be address(0)");
         proxyUpdater = _proxyUpdater;
     }
 
