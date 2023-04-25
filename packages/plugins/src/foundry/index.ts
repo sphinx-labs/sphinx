@@ -15,7 +15,6 @@ import {
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
   getEIP1967ProxyAdminAddress,
-  initializeChugSplash,
   readValidatedChugSplashConfig,
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
@@ -24,6 +23,7 @@ import {
   getChugSplashManagerAddress,
   isLiveNetwork,
   assertValidConstructorArgs,
+  ensureChugSplashInitialized,
 } from '@chugsplash/core'
 import { BigNumber, ethers } from 'ethers'
 
@@ -761,7 +761,7 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      await initializeChugSplash(provider, wallet)
+      await ensureChugSplashInitialized(provider, wallet)
       break
     }
   }
