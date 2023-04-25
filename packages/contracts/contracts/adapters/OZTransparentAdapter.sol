@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { IProxyAdapter } from "../interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "../interfaces/IProxyUpdater.sol";
@@ -15,6 +15,7 @@ contract OZTransparentAdapter is IProxyAdapter {
     address public immutable proxyUpdater;
 
     constructor(address _proxyUpdater) {
+        require(_proxyUpdater != address(0), "OZTransparentAdapter: updater cannot be address(0)");
         proxyUpdater = _proxyUpdater;
     }
 
@@ -41,6 +42,8 @@ contract OZTransparentAdapter is IProxyAdapter {
         uint8 _offset,
         bytes memory _segment
     ) external {
+        require(_proxy.code.length > 0, "OZTransparentAdapter: invalid proxy");
+
         // We perform a low-level call here to avoid OpenZeppelin's `TransparentUpgradeableProxy`
         // reverting on successful calls, which is likely occurring because its `upgradeToAndCall`
         // function doesn't return any data.

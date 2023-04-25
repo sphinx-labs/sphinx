@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 
@@ -40,11 +40,11 @@ contract OZUUPSUpdater is ProxyUpdater {
      *         normal EVM execution.
      */
     modifier ifChugSplashAdmin() {
-        if (msg.sender == _getChugSplashAdmin() || msg.sender == address(0)) {
-            _;
-        } else {
-            revert("OZUUPSUpdater: caller is not admin");
-        }
+        require(
+            msg.sender == _getChugSplashAdmin() || msg.sender == address(0),
+            "OZUUPSUpdater: caller is not admin"
+        );
+        _;
     }
 
     /**

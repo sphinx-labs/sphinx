@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import {
     ChugSplashBundleState,
@@ -339,7 +339,7 @@ contract ChugSplashManager is
      *              - bool _allowManagedProposals: Whether or not to allow upgrade proposals from
      *                the ChugSplash managed service.
      */
-    function initialize(bytes memory _data) external initializer {
+    function initialize(bytes memory _data) external initializer returns (bytes memory) {
         (address _owner, bytes32 _organizationID, bool _allowManagedProposals) = abi.decode(
             _data,
             (address, bytes32, bool)
@@ -351,6 +351,8 @@ contract ChugSplashManager is
         __ReentrancyGuard_init();
         __Ownable_init();
         _transferOwnership(_owner);
+
+        return "";
     }
 
     /**
@@ -519,10 +521,11 @@ contract ChugSplashManager is
         executorDebt[msg.sender] -= amount;
         totalExecutorDebt -= amount;
 
+        emit ExecutorPaymentClaimed(msg.sender, amount);
+
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw executor funds failed");
 
-        emit ExecutorPaymentClaimed(msg.sender, amount);
         registry.announce("ExecutorPaymentClaimed");
     }
 
@@ -535,15 +538,19 @@ contract ChugSplashManager is
         uint256 amount = totalProtocolDebt;
         totalProtocolDebt = 0;
 
+        emit ProtocolPaymentClaimed(msg.sender, amount);
+
+        // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw protocol funds failed");
 
-        emit ProtocolPaymentClaimed(msg.sender, amount);
         registry.announce("ProtocolPaymentClaimed");
     }
 
     /**
-     * @notice Transfers ownership of a proxy from this contract to a given address.
+     * @notice Transfers ownership of a proxy from this contract to a given address. Note that this
+     *         function allows project owners to send ownership of their proxy to address(0), which
+     *         would make their proxy non-upgradeable.
      *
      * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
      */
@@ -552,18 +559,22 @@ contract ChugSplashManager is
         bytes32 _contractKindHash,
         address _newOwner
     ) external onlyOwner {
+        require(_proxy.code.length > 0, "ChugSplashManager: invalid proxy");
         require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
 
         // Get the adapter that corresponds to this contract type.
         address adapter = registry.adapters(_contractKindHash);
+        require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
+
+        emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
 
         // Delegatecall the adapter to change ownership of the proxy.
+        // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
         );
         require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
 
-        emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
         registry.announce("ProxyOwnershipTransferred");
     }
 
@@ -578,10 +589,12 @@ contract ChugSplashManager is
         );
 
         uint256 amount = address(this).balance - totalDebt();
+
+        emit OwnerWithdrewETH(msg.sender, amount);
+
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw owner funds failed");
 
-        emit OwnerWithdrewETH(msg.sender, amount);
         registry.announce("OwnerWithdrewETH");
     }
 
@@ -707,6 +720,7 @@ contract ChugSplashManager is
             }
 
             address adapter = registry.adapters(target.contractKindHash);
+            require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
@@ -714,6 +728,7 @@ contract ChugSplashManager is
             // variety of proxy types.
             // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
             // cannot have state.
+            // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
                 abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
             );
@@ -765,7 +780,7 @@ contract ChugSplashManager is
             proof = _proofs[i];
 
             require(
-                bundle.actions[actionIndex] == false,
+                !bundle.actions[actionIndex],
                 "ChugSplashManager: action has already been executed"
             );
 
@@ -890,6 +905,7 @@ contract ChugSplashManager is
 
             // Get the proxy type and adapter for this reference name.
             address adapter = registry.adapters(target.contractKindHash);
+            require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
@@ -916,7 +932,7 @@ contract ChugSplashManager is
     function isProposer(address _addr) public view returns (bool) {
         return
             (allowManagedProposals && managedService.hasRole(MANAGED_PROPOSER_ROLE, _addr)) ||
-            proposers[_addr] == true ||
+            proposers[_addr] ||
             _addr == owner();
     }
 
@@ -1054,6 +1070,7 @@ contract ChugSplashManager is
         bytes memory _value
     ) internal {
         // Delegatecall the adapter to call `setStorage` on the proxy.
+        // slither-disable-next-line controlled-delegatecall
         (bool success, ) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -45,14 +45,15 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *
      * @param organizationID Organization ID.
      * @param claimer         Address of the claimer of the project.
-     * @param manager         Address of the ChugSplashManager for this project.
+     * @param managerImpl         Address of the ChugSplashManagerProxy for this project.
      * @param owner           Address of the initial owner of the project.
      */
     event ChugSplashProjectClaimed(
         bytes32 indexed organizationID,
         address indexed claimer,
-        address indexed manager,
-        address owner
+        address indexed managerImpl,
+        address owner,
+        bytes retdata
     );
 
     /**
@@ -127,30 +128,39 @@ contract ChugSplashRegistry is Ownable, Initializable {
             "ChugSplashRegistry: org ID already claimed by caller"
         );
 
-        address manager = versions[_version.major][_version.minor][_version.patch];
-        require(
-            managerImplementations[manager] == true,
-            "ChugSplashRegistry: invalid manager version"
+        address managerImpl = versions[_version.major][_version.minor][_version.patch];
+        require(managerImplementations[managerImpl], "ChugSplashRegistry: invalid manager version");
+
+        address payable managerProxyAddress = getChugSplashManagerProxyAddress(
+            msg.sender,
+            _organizationID
         );
 
-        // Deploy the ChugSplashManager proxy and set the implementation to the requested version
+        projects[msg.sender][_organizationID] = managerProxyAddress;
+        managerProxies[managerProxyAddress] = true;
+
         bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
+
+        // Deploy the ChugSplashManager proxy and set the implementation to the requested version
         ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
             address(this)
         );
-        managerProxy.upgradeToAndCall(
-            manager,
+
+        require(
+            address(managerProxy) == managerProxyAddress,
+            "ChugSplashRegistry: manager proxy not deployed correctly"
+        );
+
+        bytes memory retdata = managerProxy.upgradeToAndCall(
+            managerImpl,
             abi.encodeCall(IChugSplashManager.initialize, _data)
         );
 
         // Change manager proxy admin to the Org owner
         managerProxy.changeAdmin(_owner);
 
-        projects[msg.sender][_organizationID] = payable(address(managerProxy));
-        managerProxies[address(managerProxy)] = true;
-
-        emit ChugSplashProjectClaimed(_organizationID, msg.sender, address(managerProxy), _owner);
+        emit ChugSplashProjectClaimed(_organizationID, msg.sender, managerImpl, _owner, retdata);
     }
 
     /**
@@ -160,7 +170,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announce(string memory _event) external {
         require(
-            managerProxies[msg.sender] == true,
+            managerProxies[msg.sender],
             "ChugSplashRegistry: events can only be announced by managers"
         );
 
@@ -176,7 +186,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      */
     function announceWithData(string memory _event, bytes memory _data) external {
         require(
-            managerProxies[msg.sender] == true,
+            managerProxies[msg.sender],
             "ChugSplashRegistry: events can only be announced by managers"
         );
 
@@ -220,7 +230,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
     function getChugSplashManagerProxyAddress(
         address _claimer,
         bytes32 _organizationID
-    ) external view returns (address payable) {
+    ) public view returns (address payable) {
         return (
             payable(
                 Create2.computeAddress(

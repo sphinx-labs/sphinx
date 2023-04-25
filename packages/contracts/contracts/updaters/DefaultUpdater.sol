@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { ProxyUpdater } from "./ProxyUpdater.sol";
 
@@ -25,11 +25,11 @@ contract DefaultUpdater is ProxyUpdater {
      *         normal EVM execution.
      */
     modifier ifAdmin() {
-        if (msg.sender == _getAdmin() || msg.sender == address(0)) {
-            _;
-        } else {
-            revert("DefaultUpdater: caller is not admin");
-        }
+        require(
+            msg.sender == _getAdmin() || msg.sender == address(0),
+            "DefaultUpdater: caller is not admin"
+        );
+        _;
     }
 
     function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external ifAdmin {

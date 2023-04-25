@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 import { ChugSplashRegistry } from "../ChugSplashRegistry.sol";
 import { Version } from "../Semver.sol";
@@ -9,7 +9,7 @@ import { Version } from "../Semver.sol";
  * @notice Interface that must be inherited the ChugSplash manager.
  */
 interface IChugSplashManager {
-    function initialize(bytes memory) external;
+    function initialize(bytes memory) external returns (bytes memory);
 
     function isExecuting() external view returns (bool);
 
