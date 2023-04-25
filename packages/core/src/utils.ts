@@ -399,10 +399,17 @@ export const claimExecutorPayment = async (
   executor: Wallet,
   ChugSplashManager: Contract
 ) => {
-  const executorDebt = await ChugSplashManager.executorDebt(executor.address)
-  if (executorDebt.gt(0)) {
+  // The amount to withdraw is the minimum of the executor's debt and the ChugSplashManager's
+  // balance.
+  const withdrawAmount = Math.min(
+    await ChugSplashManager.executorDebt(executor.address),
+    await ChugSplashManager.getBalance()
+  )
+
+  if (withdrawAmount > 0) {
     await (
       await ChugSplashManager.claimExecutorPayment(
+        withdrawAmount,
         await getGasPriceOverrides(executor.provider)
       )
     ).wait()

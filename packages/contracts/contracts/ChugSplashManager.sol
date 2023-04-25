@@ -217,9 +217,8 @@ contract ChugSplashManager is
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
-     * @param amount   The ETH amount sent to the executor.
      */
-    event ExecutorPaymentClaimed(address indexed executor, uint256 amount);
+    event ExecutorPaymentClaimed(address indexed executor, uint256 withdrawn, uint256 remaining);
 
     event ProtocolPaymentClaimed(address indexed recipient, uint256 amount);
 
@@ -289,7 +288,7 @@ contract ChugSplashManager is
     modifier onlyExecutor() {
         require(
             managedService.hasRole(EXECUTOR_ROLE, msg.sender),
-            "ChugSplashManager: caller is not an executor"
+            "ChugSplashManager: caller is not executor"
         );
         _;
     }
@@ -373,13 +372,11 @@ contract ChugSplashManager is
     ) external {
         require(isProposer(msg.sender), "ChugSplashManager: caller must be proposer");
 
-        bytes32 bundleId = computeBundleId(
-            _actionRoot,
-            _targetRoot,
-            _numActions,
-            _numTargets,
-            _configUri
+        // Compute the bundle ID.
+        bytes32 bundleId = keccak256(
+            abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri)
         );
+
         ChugSplashBundleState storage bundle = _bundles[bundleId];
 
         ChugSplashBundleStatus status = bundle.status;
@@ -466,7 +463,7 @@ contract ChugSplashManager is
      *         own bond.
      */
     function cancelActiveChugSplashBundle() external onlyOwner {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is active");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
@@ -493,7 +490,7 @@ contract ChugSplashManager is
      *         during the execution process.
      */
     function claimBundle() external onlyExecutor {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is currently active");
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is active");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
@@ -512,18 +509,25 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Allows executors to claim their ETH payments and bond. Executors may only withdraw
-     *         ETH that is owed to them by this contract.
+     * @notice Allows executors to claim their ETH payments. Executors may only withdraw an amount
+     *         less than or equal to the amount of ETH owed to them by this contract. We allow the
+     *         executor to withdraw less than the amount owed to them because it's possible that the
+     *         executor's debt exceeds the amount of ETH stored in this contract. This situation can
+     *         occur when the executor completes an underfunded bundle.
      */
-    function claimExecutorPayment() external onlyExecutor {
-        uint256 amount = executorDebt[msg.sender];
+    function claimExecutorPayment(uint256 _amount) external onlyExecutor {
+        require(_amount > 0, "ChugSplashManager: amount must be greater than 0");
+        require(
+            executorDebt[msg.sender] >= _amount,
+            "ChugSplashManager: insufficient executor debt"
+        );
 
-        executorDebt[msg.sender] -= amount;
-        totalExecutorDebt -= amount;
+        executorDebt[msg.sender] -= _amount;
+        totalExecutorDebt -= _amount;
 
-        emit ExecutorPaymentClaimed(msg.sender, amount);
+        emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
 
-        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         require(success, "ChugSplashManager: call to withdraw executor funds failed");
 
         registry.announce("ExecutorPaymentClaimed");
@@ -560,11 +564,11 @@ contract ChugSplashManager is
         address _newOwner
     ) external onlyOwner {
         require(_proxy.code.length > 0, "ChugSplashManager: invalid proxy");
-        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is currently active");
+        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is active");
 
         // Get the adapter that corresponds to this contract type.
         address adapter = registry.adapters(_contractKindHash);
-        require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
+        require(adapter != address(0), "ChugSplashManager: invalid contract kind");
 
         emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
 
@@ -573,7 +577,7 @@ contract ChugSplashManager is
         (bool success, ) = adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
         );
-        require(success, "ChugSplashManager: delegatecall to change proxy admin failed");
+        require(success, "ChugSplashManager: proxy admin change failed");
 
         registry.announce("ProxyOwnershipTransferred");
     }
@@ -720,7 +724,7 @@ contract ChugSplashManager is
             }
 
             address adapter = registry.adapters(target.contractKindHash);
-            require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
+            require(adapter != address(0), "ChugSplashManager: invalid contract kind");
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
@@ -905,7 +909,7 @@ contract ChugSplashManager is
 
             // Get the proxy type and adapter for this reference name.
             address adapter = registry.adapters(target.contractKindHash);
-            require(adapter != address(0), "ChugSplashManager: invalid contract kind hash");
+            require(adapter != address(0), "ChugSplashManager: invalid contract kind");
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
@@ -950,26 +954,6 @@ contract ChugSplashManager is
     function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
         ChugSplashBundleState storage bundle = _bundles[_bundleId];
         return bundle.selectedExecutor;
-    }
-
-    /**
-     * @notice Computes the bundle ID from the bundle parameters.
-     *
-     * @param _actionRoot Root of the bundle's merkle tree.
-     * @param _numActions Number of elements in the bundle's tree.
-     * @param _configUri  URI pointing to the config file for the bundle.
-     *
-     * @return Unique ID for the bundle.
-     */
-    function computeBundleId(
-        bytes32 _actionRoot,
-        bytes32 _targetRoot,
-        uint256 _numActions,
-        uint256 _numTargets,
-        string memory _configUri
-    ) public pure returns (bytes32) {
-        return
-            keccak256(abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri));
     }
 
     function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
@@ -1046,7 +1030,7 @@ contract ChugSplashManager is
             // execution process.
             require(
                 expectedAddress == actualAddress,
-                "ChugSplashManager: contract was not deployed correctly"
+                "ChugSplashManager: contract incorrectly deployed"
             );
 
             emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
@@ -1074,7 +1058,7 @@ contract ChugSplashManager is
         (bool success, ) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
-        require(success, "ChugSplashManager: delegatecall to set storage failed");
+        require(success, "ChugSplashManager: set storage failed");
     }
 
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
