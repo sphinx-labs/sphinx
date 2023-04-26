@@ -71,6 +71,7 @@ import {
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
 import { ChugSplashRuntimeEnvironment } from '../types'
+import { getStorageLayout } from '../actions/artifacts'
 
 class InputError extends Error {
   constructor(message: string) {
@@ -2054,8 +2055,11 @@ const assertValidContractVariables = (
       const { sourceName, contractName } = artifact
 
       const compilerOutput = cachedCompilerOutput[referenceName]
-      const storageLayout =
-        compilerOutput.contracts[sourceName][contractName].storageLayout
+      const storageLayout = getStorageLayout(
+        compilerOutput,
+        sourceName,
+        contractName
+      )
 
       const parsedContractVariables = parseContractVariables(
         JSON.parse(
