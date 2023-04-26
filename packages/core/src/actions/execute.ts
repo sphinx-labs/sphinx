@@ -1,7 +1,6 @@
 import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
-import { fromRawChugSplashAction, isDeployContractAction } from './bundle'
 import {
   BundledChugSplashAction,
   ChugSplashBundles,
@@ -163,13 +162,6 @@ export const executeTask = async (args: {
     }
   }
 
-  // Find the indices of the first DeployContract and SetImpl actions so we know where to
-  // split up our batches. Actions have already been sorted in the order: SetStorage then
-  // DeployContract.
-  const firstDepImpl = actionBundle.actions.findIndex((action) =>
-    isDeployContractAction(fromRawChugSplashAction(action.action))
-  )
-
   logger?.info(`[ChugSplash]: initiating execution...`)
   await (
     await chugSplashManager.initiateBundleExecution(
@@ -181,15 +173,10 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: execution initiated`)
 
-  // Execute SetStorage actions in batches.
-  logger?.info(`[ChugSplash]: executing SetStorage actions...`)
-  await executeBatchActions(actionBundle.actions.slice(0, firstDepImpl))
-  logger?.info(`[ChugSplash]: executed SetStorage actions`)
-
-  // Execute DeployContract actions in batches.
-  logger?.info(`[ChugSplash]: executing DeployContract actions...`)
-  await executeBatchActions(actionBundle.actions.slice(firstDepImpl))
-  logger?.info(`[ChugSplash]: executed DeployContract actions`)
+  // Execute actions in batches.
+  logger?.info(`[ChugSplash]: executing actions...`)
+  await executeBatchActions(actionBundle.actions)
+  logger?.info(`[ChugSplash]: executed actions`)
 
   logger?.info(`[ChugSplash]: completing execution...`)
   await (

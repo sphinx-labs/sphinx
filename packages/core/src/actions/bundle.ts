@@ -174,30 +174,12 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
 export const makeBundleFromTargets = (
   targets: ChugSplashTarget[]
 ): ChugSplashTargetBundle => {
-  // Now compute the hash for each action.
+  // Compute the hash for each action.
   const elements = targets.map((target) => {
     return getTargetHash(target)
   })
 
-  // Pad the list of elements out with default hashes if len < a power of 2.
-  const filledElements: string[] = []
-  for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
-    if (i < elements.length) {
-      filledElements.push(elements[i])
-    } else {
-      filledElements.push(ethers.utils.keccak256(ethers.constants.HashZero))
-    }
-  }
-
-  // merkletreejs expects things to be buffers.
-  const tree = new MerkleTree(
-    filledElements.map((element) => {
-      return fromHexString(element)
-    }),
-    (el: Buffer | string): Buffer => {
-      return fromHexString(ethers.utils.keccak256(el))
-    }
-  )
+  const tree = makeMerkleTree(elements)
 
   return {
     root: toHexString(tree.getRoot()),
@@ -214,8 +196,7 @@ export const makeBundleFromTargets = (
 
 /**
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
- * provided to the ChugSplashManager contract. This function also sorts the actions so that the
- * SetStorage actions are first and the DeployContract actions are last.
+ * provided to the ChugSplashManager contract.
  *
  * @param actions Series of DeployContract and SetStorage actions to bundle.
  * @return Bundled actions.
@@ -223,21 +204,8 @@ export const makeBundleFromTargets = (
 export const makeBundleFromActions = (
   actions: ChugSplashAction[]
 ): ChugSplashActionBundle => {
-  // Sort the actions to be in the order: SetStorage then DeployContract
-  const sortedActions = actions.sort((a1, a2) => {
-    if (isSetStorageAction(a1)) {
-      // Keep the order of the actions if the first action is SetStorage.
-      return -1
-    } else if (isSetStorageAction(a2)) {
-      // Swap the order of the actions if the second action is SetStorage.
-      return 1
-    }
-    // Keep the same order otherwise.
-    return 0
-  })
-
   // Turn the "nice" action structs into raw actions.
-  const rawActions = sortedActions.map((action) => {
+  const rawActions = actions.map((action) => {
     return toRawChugSplashAction(action)
   })
 
@@ -246,25 +214,7 @@ export const makeBundleFromActions = (
     return getActionHash(action)
   })
 
-  // Pad the list of elements out with default hashes if len < a power of 2.
-  const filledElements: string[] = []
-  for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
-    if (i < elements.length) {
-      filledElements.push(elements[i])
-    } else {
-      filledElements.push(ethers.utils.keccak256(ethers.constants.HashZero))
-    }
-  }
-
-  // merkletreejs expects things to be buffers.
-  const tree = new MerkleTree(
-    filledElements.map((element) => {
-      return fromHexString(element)
-    }),
-    (el: Buffer | string): Buffer => {
-      return fromHexString(ethers.utils.keccak256(el))
-    }
-  )
+  const tree = makeMerkleTree(elements)
 
   return {
     root: toHexString(tree.getRoot()),
@@ -280,6 +230,28 @@ export const makeBundleFromActions = (
       }
     }),
   }
+}
+
+export const makeMerkleTree = (elements: string[]): MerkleTree => {
+  // Pad the list of elements out with default hashes if len < a power of 2.
+  const filledElements: string[] = []
+  for (let i = 0; i < Math.pow(2, Math.ceil(Math.log2(elements.length))); i++) {
+    if (i < elements.length) {
+      filledElements.push(elements[i])
+    } else {
+      filledElements.push(ethers.utils.keccak256(ethers.constants.HashZero))
+    }
+  }
+
+  // merkletreejs expects things to be buffers.
+  return new MerkleTree(
+    filledElements.map((element) => {
+      return fromHexString(element)
+    }),
+    (el: Buffer | string): Buffer => {
+      return fromHexString(ethers.utils.keccak256(el))
+    }
+  )
 }
 
 export const bundleLocal = async (
