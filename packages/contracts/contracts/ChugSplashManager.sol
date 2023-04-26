@@ -814,15 +814,12 @@ contract ChugSplashManager is
             // Get the adapter for this reference name.
             address adapter = registry.adapters(action.contractKindHash);
 
-            require(
-                action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH || adapter != address(0),
-                "ChugSplashManager: proxy type has no adapter"
-            );
-            require(
-                action.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH ||
-                    action.actionType != ChugSplashActionType.SET_STORAGE,
-                "ChugSplashManager: cannot set storage in non-proxied contracts"
-            );
+            action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH
+                ? require(
+                    action.actionType == ChugSplashActionType.DEPLOY_CONTRACT,
+                    "ChugSplashManager: invalid action type for non-proxy contract"
+                )
+                : require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
 
             // Mark the action as executed and update the total number of executed actions.
             bundle.actionsExecuted++;

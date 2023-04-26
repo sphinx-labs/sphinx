@@ -17,9 +17,9 @@ contract ChugSplashManagerProxy is Proxy {
     ChugSplashRegistry public immutable registry;
 
     modifier isNotExecuting() {
+        address impl = _getImplementation();
         require(
-            _getImplementation() == address(0) ||
-                !IChugSplashManager(_getImplementation()).isExecuting(),
+            impl == address(0) || !IChugSplashManager(impl).isExecuting(),
             "ChugSplashManagerProxy: execution in progress"
         );
         _;
