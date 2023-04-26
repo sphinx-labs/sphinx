@@ -8,6 +8,7 @@ import {
 import { ParsedChugSplashConfig } from '../config/types'
 import {
   ArtifactPaths,
+  CompilerOutput,
   SolidityStorageLayout,
 } from '../languages/solidity/types'
 import { Integration } from '../constants'
@@ -23,20 +24,18 @@ import {
 import 'core-js/features/array/at'
 
 /**
- * Reads the storageLayout portion of the compiler artifact for a given contract. Reads the
- * artifact from the local file system.
+ * Gets the storage layout for a contract.
  *
  * @param contractFullyQualifiedName Fully qualified name of the contract.
  * @param artifactFolder Relative path to the folder where artifacts are stored.
  * @return Storage layout object from the compiler output.
  */
-export const readStorageLayout = (
-  buildInfoPath: string,
-  contractFullyQualifiedName: string
+export const getStorageLayout = (
+  compilerOutput: CompilerOutput,
+  sourceName: string,
+  contractName: string
 ): SolidityStorageLayout => {
-  const buildInfo = readBuildInfo(buildInfoPath)
-  const [sourceName, contractName] = contractFullyQualifiedName.split(':')
-  const contractOutput = buildInfo.output.contracts[sourceName][contractName]
+  const contractOutput = compilerOutput.contracts[sourceName][contractName]
 
   // Foundry artifacts do not contain the storage layout field for contracts which have no storage.
   // So we default to an empty storage layout in this case for consistency.
@@ -133,8 +132,12 @@ export const writeDeploymentArtifacts = async (
         referenceName,
         abi
       )
-      const { metadata, storageLayout } =
-        buildInfo.output.contracts[sourceName][contractName]
+      const { metadata } = buildInfo.output.contracts[sourceName][contractName]
+      const storageLayout = getStorageLayout(
+        buildInfo.output,
+        sourceName,
+        contractName
+      )
       const { devdoc, userdoc } =
         typeof metadata === 'string'
           ? JSON.parse(metadata).output

@@ -32,6 +32,7 @@ import {
   RawChugSplashAction,
   SetStorageAction,
 } from './types'
+import { getStorageLayout } from './artifacts'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -334,9 +335,11 @@ export const makeActionBundleFromConfig = async (
       contractName,
     } = artifacts[referenceName]
 
-    // Foundry outputs no storage layout for contracts that don't have any storage variables, so we fill it in with the empty layout.
-    const storageLayout = compilerOutput.contracts[sourceName][contractName]
-      .storageLayout ?? { storage: [], types: {} }
+    const storageLayout = getStorageLayout(
+      compilerOutput,
+      sourceName,
+      contractName
+    )
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
