@@ -15,7 +15,6 @@ import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     Lib_MerkleTree as MerkleTree
 } from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
@@ -23,6 +22,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { ICreate2 } from "./interfaces/ICreate2.sol";
 import { Semver, Version } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 
@@ -36,19 +36,21 @@ contract ChugSplashManager is
     Semver,
     IChugSplashManager
 {
-    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+    bytes32 internal constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
-    bytes32 public constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
+    bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
         keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
 
-    bytes32 public constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
+    bytes32 internal constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
 
-    bytes32 public constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
+    bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
 
     /**
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
+
+    ICreate2 public immutable create2;
 
     IGasPriceCalculator public immutable gasPriceCalculator;
 
@@ -304,6 +306,7 @@ contract ChugSplashManager is
      */
     constructor(
         ChugSplashRegistry _registry,
+        ICreate2 _create2,
         IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
         uint256 _executionLockTime,
@@ -313,6 +316,7 @@ contract ChugSplashManager is
         Version memory _version
     ) Semver(_version.major, _version.minor, _version.patch) {
         registry = _registry;
+        create2 = _create2;
         gasPriceCalculator = _gasPriceCalculator;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
@@ -463,7 +467,7 @@ contract ChugSplashManager is
      *         own bond.
      */
     function cancelActiveChugSplashBundle() external onlyOwner {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is active");
+        require(activeBundleId != bytes32(0), "ChugSplashManager: no active bundle");
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
@@ -494,11 +498,11 @@ contract ChugSplashManager is
 
         ChugSplashBundleState storage bundle = _bundles[activeBundleId];
 
-        require(bundle.remoteExecution, "ChugSplashManager: bundle must be executed locally");
+        require(bundle.remoteExecution, "ChugSplashManager: local execution only");
 
         require(
             block.timestamp > bundle.timeClaimed + executionLockTime,
-            "ChugSplashManager: bundle is currently claimed by an executor"
+            "ChugSplashManager: bundle already claimed"
         );
 
         bundle.timeClaimed = block.timestamp;
@@ -516,7 +520,7 @@ contract ChugSplashManager is
      *         occur when the executor completes an underfunded bundle.
      */
     function claimExecutorPayment(uint256 _amount) external onlyExecutor {
-        require(_amount > 0, "ChugSplashManager: amount must be greater than 0");
+        require(_amount > 0, "ChugSplashManager: amount cannot be 0");
         require(
             executorDebt[msg.sender] >= _amount,
             "ChugSplashManager: insufficient executor debt"
@@ -528,7 +532,7 @@ contract ChugSplashManager is
         emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
 
         (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw executor funds failed");
+        require(success, "ChugSplashManager: failed to withdraw");
 
         registry.announce("ExecutorPaymentClaimed");
     }
@@ -536,7 +540,7 @@ contract ChugSplashManager is
     function claimProtocolPayment() external {
         require(
             managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender),
-            "ChugSplashManager: caller is not a protocol payment recipient"
+            "ChugSplashManager: caller is not payment recipient"
         );
 
         uint256 amount = totalProtocolDebt;
@@ -546,7 +550,7 @@ contract ChugSplashManager is
 
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw protocol funds failed");
+        require(success, "ChugSplashManager: failed to withdraw funds");
 
         registry.announce("ProtocolPaymentClaimed");
     }
@@ -1004,7 +1008,11 @@ contract ChugSplashManager is
      */
     function _deployContract(string memory _referenceName, bytes memory _code) internal {
         // Get the expected address of the contract.
-        address expectedAddress = Create2.computeAddress(bytes32(0), keccak256(_code));
+        address expectedAddress = create2.computeAddress(
+            bytes32(0),
+            keccak256(_code),
+            address(this)
+        );
 
         // Check if the contract has already been deployed.
         if (expectedAddress.code.length > 0) {

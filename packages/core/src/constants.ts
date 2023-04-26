@@ -19,6 +19,7 @@ import {
   ManagedServiceArtifact,
   ChugSplashManagerABI,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
+  DEFAULT_CREATE2_ADDRESS,
 } from '@chugsplash/contracts'
 import { utils, constants } from 'ethers'
 import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
@@ -96,6 +97,7 @@ export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
 
 export const managerConstructorValues = [
   CHUGSPLASH_REGISTRY_ADDRESS,
+  DEFAULT_CREATE2_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   MANAGED_SERVICE_ADDRESS,
   EXECUTION_LOCK_TIME,
