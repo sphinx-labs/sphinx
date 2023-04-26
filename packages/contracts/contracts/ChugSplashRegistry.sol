@@ -5,7 +5,6 @@ import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { Semver, Version } from "./Semver.sol";
 
 /**
@@ -131,26 +130,20 @@ contract ChugSplashRegistry is Ownable, Initializable {
         address managerImpl = versions[_version.major][_version.minor][_version.patch];
         require(managerImplementations[managerImpl], "ChugSplashRegistry: invalid manager version");
 
-        address payable managerProxyAddress = getChugSplashManagerProxyAddress(
-            msg.sender,
-            _organizationID
-        );
-
-        projects[msg.sender][_organizationID] = managerProxyAddress;
-        managerProxies[managerProxyAddress] = true;
-
         bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
 
-        // Deploy the ChugSplashManager proxy and set the implementation to the requested version
         ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
             address(this)
         );
 
         require(
-            address(managerProxy) == managerProxyAddress,
-            "ChugSplashRegistry: manager proxy not deployed correctly"
+            address(managerProxy) != address(0),
+            "ChugSplashRegistry: failed to deploy manager proxy"
         );
+
+        projects[msg.sender][_organizationID] = payable(address(managerProxy));
+        managerProxies[address(managerProxy)] = true;
 
         bytes memory retdata = managerProxy.upgradeToAndCall(
             managerImpl,
@@ -225,24 +218,5 @@ contract ChugSplashRegistry is Ownable, Initializable {
         versions[major][minor][patch] = _manager;
 
         emit VersionAdded(major, minor, patch, _manager);
-    }
-
-    function getChugSplashManagerProxyAddress(
-        address _claimer,
-        bytes32 _organizationID
-    ) public view returns (address payable) {
-        return (
-            payable(
-                Create2.computeAddress(
-                    keccak256(abi.encode(_claimer, _organizationID)),
-                    keccak256(
-                        abi.encodePacked(
-                            type(ChugSplashManagerProxy).creationCode,
-                            abi.encode(address(this), address(this))
-                        )
-                    )
-                )
-            )
-        );
     }
 }
