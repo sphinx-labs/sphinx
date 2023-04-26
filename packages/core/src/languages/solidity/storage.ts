@@ -250,7 +250,8 @@ export const encodeInplaceBool: VariableHandler<
 }
 
 /**
- * Handles encoding fixed size bytes
+ * Handles encoding fixed size bytesN, where N is in the range [1, 32]. Dynamic bytes are handled
+ * elsewhere.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -259,25 +260,13 @@ export const encodeInplaceBytes: VariableHandler<
   string,
   Array<StorageSlotSegment>
 > = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
-  const { storageObj, variable, slotKey, variableType } = props
+  const { storageObj, variable, slotKey } = props
 
-  // Since this variable's encoding is `inplace`, it is a bytesN, where N is in the range [1,
-  // 32]. Dynamic bytes have an encoding of `bytes`, and are handled elsewhere in this function.
-
-  // Check that the user entered a valid bytes array or string
-  if (!ethers.utils.isBytesLike(variable)) {
-    throw new Error(
-      `invalid bytes object for bytes${variableType.numberOfBytes} variable: ${variable}`
-    )
-  }
-
-  // Convert the bytes object, which may be an array, into a hex-encoded string
-  const hexStringVariable = ethers.utils.hexlify(variable)
   return [
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: hexStringVariable,
+      val: variable,
     },
   ]
 }
