@@ -8,6 +8,7 @@ import {
   OZUUPSOwnableAdapterArtifact,
   OZUUPSAccessControlAdapterArtifact,
   DefaultGasPriceCalculatorArtifact,
+  DefaultCreate2Artifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
@@ -42,6 +43,12 @@ export const OWNER_BOND_AMOUNT = ethers.utils.parseEther('0.001')
 export const EXECUTION_LOCK_TIME = 15 * 60
 export const EXECUTOR_PAYMENT_PERCENTAGE = 20
 export const PROTOCOL_PAYMENT_PERCENTAGE = 20
+
+export const DEFAULT_CREATE2_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  ethers.constants.HashZero,
+  ethers.utils.solidityKeccak256(['bytes'], [DefaultCreate2Artifact.bytecode])
+)
 
 export const DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS =
   ethers.utils.getCreate2Address(

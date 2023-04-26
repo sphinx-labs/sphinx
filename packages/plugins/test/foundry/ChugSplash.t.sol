@@ -14,6 +14,7 @@ import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/I
 import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "@chugsplash/contracts/contracts/interfaces/IProxyUpdater.sol";
 import { IGasPriceCalculator } from "@chugsplash/contracts/contracts/interfaces/IGasPriceCalculator.sol";
+import { ICreate2 } from "@chugsplash/contracts/contracts/interfaces/ICreate2.sol";
 
 /* ChugSplash Foundry Library Tests
  *

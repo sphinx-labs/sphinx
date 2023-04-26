@@ -35,6 +35,9 @@ import {
   DefaultGasPriceCalculatorABI,
   DefaultGasPriceCalculatorArtifact,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
+  DefaultCreate2Artifact,
+  DefaultCreate2ABI,
+  DEFAULT_CREATE2_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -74,6 +77,23 @@ export const initializeChugSplash = async (
   deployer: ethers.Signer,
   logger?: Logger
 ): Promise<void> => {
+  logger?.info('[ChugSplash]: deploying DefaultGasPriceCalculator...')
+
+  const DefaultCreate2 = await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: DefaultCreate2ABI,
+      bytecode: DefaultCreate2Artifact.bytecode,
+    },
+    args: [],
+    salt: ethers.constants.HashZero,
+  })
+
+  assert(
+    DEFAULT_CREATE2_ADDRESS === DefaultCreate2.address,
+    'DefaultGasPriceCalculator has incorrect address'
+  )
+
   logger?.info('[ChugSplash]: deploying DefaultGasPriceCalculator...')
 
   const DefaultGasPriceCalculator = await doDeterministicDeploy(provider, {

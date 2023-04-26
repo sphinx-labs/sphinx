@@ -14,6 +14,7 @@ export const OZUUPSOwnableAdapterArtifact = require('../artifacts/contracts/adap
 export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAccessControlAdapter.sol/OZUUPSAccessControlAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
+export const DefaultCreate2Artifact = require('../artifacts/contracts/DefaultCreate2.sol/DefaultCreate2.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)
@@ -39,3 +40,4 @@ export const OZUUPSAccessControlAdapterABI =
 export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
 export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
+export const DefaultCreate2ABI = DefaultCreate2Artifact.abi
