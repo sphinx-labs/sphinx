@@ -140,8 +140,17 @@ export class ChugSplashExecutor extends BaseServiceV2<
       executorAddresses.push(w.address)
     }
 
+    const executors = this.state.keys.map(
+      (el) => new ethers.Wallet(el.privateKey).address
+    )
+
     // Deploy the ChugSplash contracts.
-    await ensureChugSplashInitialized(this.state.provider, wallet)
+    await ensureChugSplashInitialized(
+      this.state.provider,
+      wallet,
+      executors,
+      this.logger
+    )
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 

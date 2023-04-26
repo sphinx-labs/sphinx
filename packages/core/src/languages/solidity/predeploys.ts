@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { ethers } from 'ethers'
+import { ethers, utils } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   DefaultAdapterABI,
@@ -40,6 +40,7 @@ import {
   DEFAULT_CREATE2_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
+import { toUtf8Bytes } from 'ethers/lib/utils'
 
 import {
   isContractDeployed,
@@ -54,11 +55,14 @@ import {
   managerConstructorValues,
   registryConstructorValues,
   CHUGSPLASH_MANAGER_V1_ADDRESS,
+  EXECUTOR_ROLE,
 } from '../../constants'
 
 export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer
+  signer: ethers.Signer,
+  executors: string[] = [],
+  logger?: Logger
 ) => {
   if (await isLiveNetwork(provider)) {
     // Throw an error if the ChugSplashRegistry is not deployed on this network
@@ -68,13 +72,14 @@ export const ensureChugSplashInitialized = async (
       )
     }
   } else {
-    await initializeChugSplash(provider, signer)
+    await initializeChugSplash(provider, signer, executors, logger)
   }
 }
 
 export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
+  executors: string[],
   logger?: Logger
 ): Promise<void> => {
   logger?.info('[ChugSplash]: deploying DefaultGasPriceCalculator...')
@@ -319,6 +324,32 @@ export const initializeChugSplash = async (
     }
 
     logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
+
+    logger?.info('[ChugSplash]: assigning executor roles...')
+    const impersonatedSigner = await getImpersonatedSigner(
+      OWNER_MULTISIG_ADDRESS,
+      provider
+    )
+    const ImpersonatedManagedService =
+      ManagedService.connect(impersonatedSigner)
+    await deployer.sendTransaction({
+      value: utils.parseEther('1'),
+      to: OWNER_MULTISIG_ADDRESS,
+    })
+    for (const executor of executors) {
+      if (
+        (await ImpersonatedManagedService.hasRole(
+          utils.defaultAbiCoder.encode(['bytes32'], [EXECUTOR_ROLE]),
+          executor
+        )) === false
+      ) {
+        await ImpersonatedManagedService.grantRole(
+          utils.defaultAbiCoder.encode(['bytes32'], [EXECUTOR_ROLE]),
+          executor
+        )
+      }
+    }
+    logger?.info('[ChugSplash]: finished assigning executor roles')
 
     logger?.info(
       '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
