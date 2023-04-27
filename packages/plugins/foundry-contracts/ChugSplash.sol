@@ -18,7 +18,6 @@ contract ChugSplash is Script, Test {
     string network = vm.envOr("NETWORK", DEFAULT_NETWORK);
     address newOwnerAddress = vm.envOr("NEW_OWNER", vm.addr(vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY_UINT)));
     string newOwner = vm.toString(newOwnerAddress);
-    bool withdrawFunds = vm.envOr("WITHDRAW_FUNDS", true);
     string ipfsUrl = vm.envOr("IPFS_URL", NONE);
     bool skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
     bool allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
@@ -137,71 +136,6 @@ contract ChugSplash is Script, Test {
         return result;
     }
 
-    function fund(
-        string memory configPath,
-        uint amount,
-        bool autoEstimate,
-        bool silent
-    ) external returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "fund";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = vm.toString(amount);
-        cmds[12] = autoEstimate == true ? "true" : "false";
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function approve(
-        string memory configPath,
-        bool skipMonitorStatus,
-        bool silent
-    ) external returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "approve";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = withdrawFunds == true ? "true" : "false";
-        cmds[12] = skipMonitorStatus == true ? "true" : "false";
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
     function deploy(
         string memory configPath
     ) external {
@@ -249,37 +183,6 @@ contract ChugSplash is Script, Test {
 
     }
 
-    function monitor(
-        string memory configPath,
-        bool silent
-    ) external returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](12);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "monitor";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = newOwner;
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-
     function cancel(
         string memory configPath
     ) external {
@@ -309,31 +212,6 @@ contract ChugSplash is Script, Test {
         return result;
     }
 
-    function withdraw(
-        string memory configPath,
-        bool silent
-    ) external returns (bytes memory) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "withdraw";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
     function listProjects() external returns (bytes memory) {
         string[] memory cmds = new string[](7);
         cmds[0] = "npx";
@@ -347,58 +225,6 @@ contract ChugSplash is Script, Test {
         bytes memory result = vm.ffi(cmds);
         emit log(string(result));
         emit log(string("\n"));
-
-        return result;
-    }
-
-    function listProposers(
-        string memory configPath
-    ) external returns (bytes memory) {
-        string[] memory cmds = new string[](8);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "listProposers";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-
-        bytes memory result = vm.ffi(cmds);
-        emit log(string(result));
-        emit log(string("\n"));
-
-        return result;
-    }
-
-    function addProposer(
-        string memory configPath,
-        address newProposer
-    ) external {
-        addProposer(configPath, newProposer, false);
-    }
-
-    function addProposer(
-        string memory configPath,
-        address newProposer,
-        bool silent
-    ) public returns (bytes memory) {
-        string[] memory cmds = new string[](9);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "addProposer";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = vm.toString(newProposer);
-
-        bytes memory result = vm.ffi(cmds);
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
 
         return result;
     }

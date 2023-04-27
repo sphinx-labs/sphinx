@@ -2,7 +2,7 @@ import * as path from 'path'
 import '@chugsplash/plugins'
 
 import hre, { chugsplash } from 'hardhat'
-import { BigNumber, Contract } from 'ethers'
+import { Contract } from 'ethers'
 import {
   chugsplashApproveAbstractTask,
   chugsplashClaimAbstractTask,
@@ -71,8 +71,6 @@ describe('Remote Execution', () => {
       provider,
       signer,
       configPath,
-      BigNumber.from(0),
-      true,
       artifactPaths,
       'hardhat',
       parsedConfig,
@@ -96,7 +94,6 @@ describe('Remote Execution', () => {
       provider,
       signer,
       configPath,
-      true,
       false,
       artifactPaths,
       'hardhat',

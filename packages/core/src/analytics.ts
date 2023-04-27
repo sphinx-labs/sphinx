@@ -139,56 +139,6 @@ export const trackDeployed = async (
   )
 }
 
-export const trackFund = async (
-  user_id: string,
-  organizationID: string,
-  projectName: string,
-  networkName: string,
-  integration: Integration
-) => {
-  if (disableAnalytics) {
-    return
-  }
-  timeout(
-    await amplitudeClient.logEvent({
-      event_type: 'chugsplash fund',
-      user_id,
-      event_properties: {
-        organizationID,
-        projectName,
-        network: networkName,
-        integration,
-      },
-    }),
-    10000
-  )
-}
-
-export const trackMonitor = async (
-  user_id: string,
-  organizationID: string,
-  projectName: string,
-  networkName: string,
-  integration: Integration
-) => {
-  if (disableAnalytics) {
-    return
-  }
-  timeout(
-    await amplitudeClient.logEvent({
-      event_type: 'chugsplash monitor',
-      user_id,
-      event_properties: {
-        organizationID,
-        projectName,
-        network: networkName,
-        integration,
-      },
-    }),
-    10000
-  )
-}
-
 export const trackCancel = async (
   user_id: string,
   organizationID: string,
@@ -214,31 +164,6 @@ export const trackCancel = async (
   )
 }
 
-export const trackWithdraw = async (
-  user_id: string,
-  organizationID: string,
-  projectName: string,
-  networkName: string,
-  integration: Integration
-) => {
-  if (disableAnalytics) {
-    return
-  }
-  timeout(
-    await amplitudeClient.logEvent({
-      event_type: 'chugsplash withdraw',
-      user_id,
-      event_properties: {
-        organizationID,
-        projectName,
-        network: networkName,
-        integration,
-      },
-    }),
-    10000
-  )
-}
-
 export const trackListProjects = async (
   user_id: string,
   networkName: string,
@@ -252,56 +177,6 @@ export const trackListProjects = async (
       event_type: 'chugsplash list projects',
       user_id,
       event_properties: {
-        network: networkName,
-        integration,
-      },
-    }),
-    10000
-  )
-}
-
-export const trackListProposers = async (
-  user_id: string,
-  organizationID: string,
-  projectName: string,
-  networkName: string,
-  integration: Integration
-) => {
-  if (disableAnalytics) {
-    return
-  }
-  timeout(
-    await amplitudeClient.logEvent({
-      event_type: 'chugsplash list proposers',
-      user_id,
-      event_properties: {
-        organizationID,
-        projectName,
-        network: networkName,
-        integration,
-      },
-    }),
-    10000
-  )
-}
-
-export const trackAddProposers = async (
-  user_id: string,
-  organizationID: string,
-  projectName: string,
-  networkName: string,
-  integration: Integration
-) => {
-  if (disableAnalytics) {
-    return
-  }
-  timeout(
-    await amplitudeClient.logEvent({
-      event_type: 'chugsplash add proposer',
-      user_id,
-      event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },

@@ -1,16 +1,10 @@
 import * as fs from 'fs'
 
 import {
-  chugsplashApproveAbstractTask,
   chugsplashDeployAbstractTask,
-  chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
   chugsplashClaimAbstractTask,
-  chugsplashMonitorAbstractTask,
-  chugsplashAddProposersAbstractTask,
-  chugsplashWithdrawAbstractTask,
   chugsplashListProjectsAbstractTask,
-  chugsplashListProposersAbstractTask,
   chugsplashCancelAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
@@ -25,7 +19,7 @@ import {
   assertValidConstructorArgs,
   ensureChugSplashInitialized,
 } from '@chugsplash/core'
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { createChugSplashRuntime } from '../utils'
@@ -155,131 +149,6 @@ const command = args[0]
       )
       break
     }
-    case 'fund': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-      const silent = args[5] === 'true'
-      const outPath = cleanPath(args[6])
-      const buildInfoPath = cleanPath(args[7])
-      const amount = BigNumber.from(args[8])
-      const autoEstimate = args[9] === 'true'
-
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const cre = await createChugSplashRuntime(
-        configPath,
-        false,
-        true,
-        canonicalConfigPath,
-        undefined,
-        silent,
-        process.stdout
-      )
-
-      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
-
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-
-      const parsedConfig = await readValidatedChugSplashConfig(
-        provider,
-        configPath,
-        artifactPaths,
-        'foundry',
-        cre
-      )
-
-      if (!silent) {
-        console.log('-- ChugSplash Fund --')
-      }
-      await chugsplashFundAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        amount,
-        autoEstimate,
-        artifactPaths,
-        'foundry',
-        parsedConfig,
-        cre
-      )
-      break
-    }
-    case 'approve': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-      const silent = args[5] === 'true'
-      const outPath = cleanPath(args[6])
-      const buildInfoPath = cleanPath(args[7])
-      const withdrawFunds = args[8] === 'true'
-      const skipMonitorStatus = args[9] === 'true'
-
-      const {
-        artifactFolder,
-        buildInfoFolder,
-        deploymentFolder,
-        canonicalConfigPath,
-      } = fetchPaths(outPath, buildInfoPath)
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const cre = await createChugSplashRuntime(
-        configPath,
-        false,
-        true,
-        canonicalConfigPath,
-        undefined,
-        silent,
-        process.stdout
-      )
-
-      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
-
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
-
-      const parsedConfig = await readValidatedChugSplashConfig(
-        provider,
-        configPath,
-        artifactPaths,
-        'foundry',
-        cre
-      )
-
-      if (!silent) {
-        console.log('-- ChugSplash Approve --')
-      }
-      await chugsplashApproveAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        !withdrawFunds,
-        skipMonitorStatus,
-        artifactPaths,
-        'foundry',
-        canonicalConfigPath,
-        deploymentFolder,
-        parsedConfig,
-        cre
-      )
-      break
-    }
     case 'deploy': {
       const configPath = args[1]
       const rpcUrl = args[2]
@@ -367,74 +236,6 @@ const command = args[0]
       process.stdout.write(encodedArtifacts)
       break
     }
-    case 'monitor': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-      const silent = args[5] === 'true'
-      const outPath = cleanPath(args[6])
-      const buildInfoPath = cleanPath(args[7])
-      const withdrawFunds = args[8] === 'true'
-      let newOwner = args[9]
-
-      const {
-        artifactFolder,
-        buildInfoFolder,
-        deploymentFolder,
-        canonicalConfigPath,
-      } = fetchPaths(outPath, buildInfoPath)
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const cre = await createChugSplashRuntime(
-        configPath,
-        true,
-        true,
-        canonicalConfigPath,
-        undefined,
-        silent,
-        process.stdout
-      )
-
-      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
-
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      const address = await wallet.getAddress()
-      newOwner = newOwner !== 'self' ? newOwner : address
-
-      const parsedConfig = await readValidatedChugSplashConfig(
-        provider,
-        configPath,
-        artifactPaths,
-        'foundry',
-        cre
-      )
-
-      if (!silent) {
-        console.log('-- ChugSplash Monitor --')
-      }
-      await chugsplashMonitorAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        !withdrawFunds,
-        newOwner,
-        artifactPaths,
-        canonicalConfigPath,
-        deploymentFolder,
-        'foundry',
-        true,
-        parsedConfig,
-        cre
-      )
-      break
-    }
     case 'cancel': {
       const configPath = args[1]
       const rpcUrl = args[2]
@@ -466,40 +267,6 @@ const command = args[0]
       )
       break
     }
-    case 'withdraw': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-      const silent = args[5] === 'true'
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
-
-      const cre = await createChugSplashRuntime(
-        configPath,
-        false,
-        true,
-        '',
-        undefined,
-        silent,
-        process.stdout
-      )
-
-      if (!silent) {
-        console.log('-- ChugSplash Withdraw --')
-      }
-      await chugsplashWithdrawAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        'foundry',
-        cre
-      )
-      break
-    }
     case 'listProjects': {
       const rpcUrl = args[1]
       const network = args[2] !== 'localhost' ? args[2] : undefined
@@ -522,59 +289,6 @@ const command = args[0]
 
       console.log('-- ChugSplash List Projects --')
       await chugsplashListProjectsAbstractTask(provider, wallet, 'foundry', cre)
-      break
-    }
-    case 'listProposers': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
-
-      console.log('-- ChugSplash List Proposers --')
-      await chugsplashListProposersAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        'foundry'
-      )
-      break
-    }
-    case 'addProposer': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const network = args[3] !== 'localhost' ? args[3] : undefined
-      const privateKey = args[4]
-      const newProposer = args[5]
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
-
-      const cre = await createChugSplashRuntime(
-        configPath,
-        false,
-        true,
-        '',
-        undefined,
-        false,
-        process.stdout
-      )
-
-      console.log('-- ChugSplash Add Proposer --')
-      await chugsplashAddProposersAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        [newProposer],
-        'foundry',
-        cre
-      )
       break
     }
     case 'exportProxy': {
