@@ -830,7 +830,6 @@ export const getContractAddress = (
   const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
     bytecode,
     constructorArgs ?? {},
-    referenceName,
     abi
   )
 
@@ -843,7 +842,6 @@ export const getContractAddress = (
 
 export const getConstructorArgs = (
   constructorArgs: UserConfigVariables,
-  referenceName: string,
   abi: Array<Fragment>
 ): {
   constructorArgTypes: Array<string>
@@ -872,12 +870,10 @@ export const getConstructorArgs = (
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
   constructorArgs: UserConfigVariables,
-  referenceName: string,
   abi: any
 ): string => {
   const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
     constructorArgs,
-    referenceName,
     abi
   )
 
@@ -1238,7 +1234,6 @@ export const getCanonicalConfigArtifacts = async (
           getCreationCodeWithConstructorArgs(
             add0x(contractOutput.evm.bytecode.object),
             contractConfig.constructorArgs,
-            referenceName,
             contractOutput.abi
           )
 

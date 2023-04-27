@@ -203,9 +203,7 @@ export const chugsplashProposeAbstractTask = async (
       provider,
       bundles,
       0,
-      parsedConfig.options.claimer,
-      parsedConfig.options.organizationID,
-      parsedConfig.options.projectName,
+      parsedConfig,
       true
     )
 
@@ -542,9 +540,7 @@ export const chugsplashFundAbstractTask = async (
     provider,
     await bundleLocal(provider, parsedConfig, artifactPaths, integration),
     0,
-    parsedConfig.options.claimer,
-    parsedConfig.options.organizationID,
-    parsedConfig.options.projectName,
+    parsedConfig,
     true
   )
 

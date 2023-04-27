@@ -40,7 +40,6 @@ import {
   DEFAULT_CREATE2_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
-import { toUtf8Bytes } from 'ethers/lib/utils'
 
 import {
   isContractDeployed,
