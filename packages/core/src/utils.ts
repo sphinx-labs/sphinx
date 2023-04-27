@@ -401,12 +401,15 @@ export const claimExecutorPayment = async (
 ) => {
   // The amount to withdraw is the minimum of the executor's debt and the ChugSplashManager's
   // balance.
-  const withdrawAmount = Math.min(
-    await ChugSplashManager.executorDebt(executor.address),
-    await ChugSplashManager.getBalance()
+  const debt = BigNumber.from(
+    await ChugSplashManager.executorDebt(executor.address)
   )
+  const balance = BigNumber.from(
+    await executor.provider.getBalance(ChugSplashManager.address)
+  )
+  const withdrawAmount = debt.lt(balance) ? debt : balance
 
-  if (withdrawAmount > 0) {
+  if (withdrawAmount.gt(0)) {
     await (
       await ChugSplashManager.claimExecutorPayment(
         withdrawAmount,

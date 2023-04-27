@@ -34,7 +34,6 @@
   "dependencies": {
     "@chugsplash/contracts": "^0.6.0",
     "@chugsplash/core": "^0.8.0",
-    "@chugsplash/executor": "^0.8.0",
     "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
