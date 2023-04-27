@@ -863,7 +863,7 @@ export const parseMapping: VariableHandler<
       storageTypes,
       variableType,
       mappingKey,
-      '0x00',
+      '0x',
       storageObj,
       dereferencer
     )
@@ -2096,7 +2096,7 @@ const constructParsedConfig = (
     userConfig.contracts
   )) {
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
-    // executor to create the `CanonicalConfigArtifacts` when it eventually compiles the canonical
+    // executor to create the `ConfigArtifacts` when it eventually compiles the canonical
     // config.
     const artifact = cachedArtifacts[referenceName]
     const { sourceName, contractName } = artifact

@@ -24,7 +24,7 @@ import {
   ChugSplashRegistryArtifact,
   DefaultAdapterArtifact,
   DEFAULT_ADAPTER_ADDRESS,
-  buildInfo,
+  buildInfo as chugsplashBuildInfo,
   DefaultUpdaterArtifact,
   DEFAULT_UPDATER_ADDRESS,
   OZTransparentAdapterArtifact,
@@ -48,8 +48,8 @@ import {
 } from './constants'
 import { CanonicalChugSplashConfig } from './config/types'
 import {
-  getCanonicalConfigArtifacts,
   getChugSplashManagerAddress,
+  getConfigArtifactsRemote,
   getConstructorArgs,
   getContractAddress,
 } from './utils'
@@ -82,11 +82,11 @@ export const verifyChugSplashConfig = async (
     customChains
   )
 
-  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
+  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
   )) {
-    const artifact = artifacts[referenceName]
+    const { artifact, buildInfo } = artifacts[referenceName]
     const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
@@ -112,7 +112,7 @@ export const verifyChugSplashConfig = async (
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
-      artifact.compilerOutput.contracts,
+      buildInfo.output.contracts,
       sourceName,
       contractName
     )
@@ -191,8 +191,8 @@ export const verifyChugSplash = async (
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
-      buildInfo.input,
-      buildInfo.output.contracts,
+      chugsplashBuildInfo.input,
+      chugsplashBuildInfo.output.contracts,
       sourceName,
       contractName
     )
@@ -207,7 +207,7 @@ export const verifyChugSplash = async (
       abi,
       apiKey,
       minimumCompilerInput,
-      buildInfo.solcVersion,
+      chugsplashBuildInfo.solcVersion,
       CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
     )
   }

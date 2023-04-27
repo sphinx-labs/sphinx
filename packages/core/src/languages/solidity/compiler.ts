@@ -9,7 +9,7 @@ import { providers } from 'ethers'
 import { CanonicalChugSplashConfig } from '../../config/types'
 import { ChugSplashBundles, makeBundlesFromConfig } from '../../actions'
 import { CompilerOutputContracts, CompilerOutputMetadata } from './types'
-import { getCanonicalConfigArtifacts } from '../../utils'
+import { getConfigArtifactsRemote } from '../../utils'
 
 export const bundleRemoteSubtask = async (args: {
   provider: providers.Provider
@@ -17,7 +17,7 @@ export const bundleRemoteSubtask = async (args: {
 }): Promise<ChugSplashBundles> => {
   const { provider, canonicalConfig } = args
 
-  const artifacts = await getCanonicalConfigArtifacts(canonicalConfig)
+  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
 
   return makeBundlesFromConfig(provider, canonicalConfig, artifacts)
 }

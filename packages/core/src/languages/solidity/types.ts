@@ -32,7 +32,11 @@ export interface SolidityStorageType {
   key?: string
   value?: string
   base?: string
-  members?: any[]
+  members?: SolidityStorageObj[]
+}
+
+export interface SolidityStorageTypes {
+  [name: string]: SolidityStorageType
 }
 
 /**
@@ -41,9 +45,7 @@ export interface SolidityStorageType {
  */
 export interface SolidityStorageLayout {
   storage: SolidityStorageObj[]
-  types: {
-    [name: string]: SolidityStorageType
-  }
+  types: SolidityStorageTypes
 }
 
 export interface ExtendedStorageLayout extends SolidityStorageLayout {

@@ -45,7 +45,6 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CanonicalChugSplashConfig,
-  CanonicalConfigArtifacts,
   ExternalContractKind,
   externalContractKinds,
   ParsedChugSplashConfig,
@@ -54,6 +53,8 @@ import {
   UserConfigVariable,
   UserConfigVariables,
   UserContractConfig,
+  ParsedConfigVariables,
+  ConfigArtifacts,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
 import {
@@ -351,15 +352,20 @@ export const displayDeploymentTable = (
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) => {
-        // if contract is an unproxied, then we must resolve it's true address
+        const artifact = readContractArtifact(
+          artifactPaths[referenceName].contractArtifactPath,
+          integration
+        )
+
+        // if contract is an unproxied, then we must resolve its true address
         const address =
           contractConfig.kind !== 'no-proxy'
             ? contractConfig.proxy
             : getContractAddress(
                 managerAddress,
                 referenceName,
-                parsedConfig.contracts[referenceName].constructorArgs,
-                { integration, artifactPaths }
+                contractConfig.constructorArgs,
+                artifact
               )
 
         const contractName = contractConfig.contract.includes(':')
@@ -817,26 +823,14 @@ export const isEqualType = (
 export const getContractAddress = (
   managerAddress: string,
   referenceName: string,
-  constructorArgs: UserConfigVariables,
-  maybeArtifact:
-    | ContractArtifact
-    | {
-        integration: Integration
-        artifactPaths: ArtifactPaths
-      }
+  constructorArgs: ParsedConfigVariables,
+  artifact: ContractArtifact
 ): string => {
-  // Resolve the artifact either from the maybeArtifcat object itself, or from the artifactPaths
-  const { abi, bytecode } =
-    'abi' in maybeArtifact
-      ? maybeArtifact
-      : readContractArtifact(
-          maybeArtifact.artifactPaths[referenceName].contractArtifactPath,
-          maybeArtifact.integration
-        )
+  const { abi, bytecode } = artifact
 
   const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
     bytecode,
-    constructorArgs ?? {},
+    constructorArgs,
     referenceName,
     abi
   )
@@ -880,7 +874,7 @@ export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
   constructorArgs: UserConfigVariables,
   referenceName: string,
-  abi: any
+  abi: ContractArtifact['abi']
 ): string => {
   const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
     constructorArgs,
@@ -1071,15 +1065,15 @@ export const getPreviousStorageLayoutOZFormat = async (
       userContractConfig
     ).layout
   } else if (previousCanonicalConfig !== undefined) {
-    const prevCanonicalConfigArtifacts = await getCanonicalConfigArtifacts(
+    const prevConfigArtifacts = await getConfigArtifactsRemote(
       previousCanonicalConfig
     )
-    const { sourceName, contractName, compilerInput, compilerOutput } =
-      prevCanonicalConfigArtifacts[referenceName]
+    const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
     return getOpenZeppelinUpgradableContract(
       `${sourceName}:${contractName}`,
-      compilerInput,
-      compilerOutput,
+      buildInfo.input,
+      buildInfo.output,
       parsedContractConfig.kind,
       userContractConfig
     ).layout
@@ -1186,13 +1180,10 @@ export const getPreviousCanonicalConfig = async (
   }
 }
 
-export const getCanonicalConfigArtifacts = async (
+export const getConfigArtifactsRemote = async (
   canonicalConfig: CanonicalChugSplashConfig
-): Promise<CanonicalConfigArtifacts> => {
-  const solcArray: {
-    compilerInput: CompilerInput
-    compilerOutput: CompilerOutput
-  }[] = []
+): Promise<ConfigArtifacts> => {
+  const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
   for (const chugsplashInput of canonicalConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(chugsplashInput.solcVersion)
@@ -1223,12 +1214,15 @@ export const getCanonicalConfigArtifacts = async (
     }
 
     solcArray.push({
-      compilerInput: chugsplashInput.input,
-      compilerOutput,
+      input: chugsplashInput.input,
+      output: compilerOutput,
+      id: chugsplashInput.id,
+      solcLongVersion: chugsplashInput.solcLongVersion,
+      solcVersion: chugsplashInput.solcVersion,
     })
   }
 
-  const artifacts: CanonicalConfigArtifacts = {}
+  const artifacts: ConfigArtifacts = {}
   // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
@@ -1236,27 +1230,19 @@ export const getCanonicalConfigArtifacts = async (
     // Split the contract's fully qualified name into its source name and contract name.
     const [sourceName, contractName] = contractConfig.contract.split(':')
 
-    for (const { compilerInput, compilerOutput } of solcArray) {
+    for (const buildInfo of solcArray) {
       const contractOutput =
-        compilerOutput.contracts?.[sourceName]?.[contractName]
+        buildInfo.output.contracts[sourceName][contractName]
 
       if (contractOutput !== undefined) {
-        const creationCodeWithConstructorArgs =
-          getCreationCodeWithConstructorArgs(
-            add0x(contractOutput.evm.bytecode.object),
-            contractConfig.constructorArgs,
-            referenceName,
-            contractOutput.abi
-          )
-
         artifacts[referenceName] = {
-          creationCodeWithConstructorArgs,
-          abi: contractOutput.abi,
-          compilerInput,
-          compilerOutput,
-          sourceName,
-          contractName,
-          bytecode: add0x(contractOutput.evm.bytecode.object),
+          buildInfo,
+          artifact: {
+            abi: contractOutput.abi,
+            sourceName,
+            contractName,
+            bytecode: add0x(contractOutput.evm.bytecode.object),
+          },
         }
       }
     }

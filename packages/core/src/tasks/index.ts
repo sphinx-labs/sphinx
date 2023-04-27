@@ -299,6 +299,7 @@ export const chugsplashCommitAbstractSubtask = async (
       const chugsplashInput: ChugSplashInput = {
         solcVersion: buildInfo.solcVersion,
         solcLongVersion: buildInfo.solcLongVersion,
+        id: buildInfo.id,
         input: {
           language,
           settings,
