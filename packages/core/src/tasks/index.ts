@@ -77,22 +77,23 @@ dotenv.config()
 export const chugsplashClaimAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   claimer: ethers.Signer,
-  config: UserChugSplashConfig | ParsedChugSplashConfig,
   allowManagedProposals: boolean,
   owner: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
 ) => {
-  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
+  const { parsedConfig, silent, stream } = cre
 
-  spinner.start(`Claiming ${config.options.projectName}...`)
+  const spinner = ora({ isSilent: silent, stream })
+
+  spinner.start(`Claiming ${parsedConfig.options.projectName}...`)
 
   const signerAddress = await claimer.getAddress()
   const {
     projectName,
     organizationID,
     claimer: claimerAddress,
-  } = config.options
+  } = parsedConfig.options
 
   if (
     ethers.utils.getAddress(signerAddress) !==

@@ -10,8 +10,9 @@ import {
 } from '@chugsplash/core'
 
 export const getBuildInfo = (
-  buildInfoFolder: string,
-  sourceName: string
+  sourceName: string,
+  contractName: string,
+  buildInfoFolder: string
 ): BuildInfo => {
   const completeFilePath = path.join(buildInfoFolder)
 
@@ -29,7 +30,7 @@ export const getBuildInfo = (
 
   // Find the correct build info file
   for (const input of inputs) {
-    if (input?.output?.sources[sourceName] !== undefined) {
+    if (input?.output?.sources[sourceName][contractName] !== undefined) {
       return input
     }
   }
@@ -75,7 +76,7 @@ export const getArtifactPaths = async (
       contractConfig.contract,
       artifactFolder
     )
-    const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
+    const buildInfo = getBuildInfo(sourceName, contractName, buildInfoFolder)
 
     const folderName = `${contractName}.sol`
     const fileName = `${contractName}.json`

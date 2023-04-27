@@ -13,7 +13,11 @@ import {
   computeStorageSegments,
   extendStorageLayout,
 } from '../languages/solidity/storage'
-import { ArtifactPaths } from '../languages/solidity/types'
+import {
+  ArtifactPaths,
+  BuildInfo,
+  ContractArtifact,
+} from '../languages/solidity/types'
 import {
   getContractAddress,
   readContractArtifact,
@@ -296,7 +300,7 @@ export const bundleLocal = async (
 export const makeBundlesFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): Promise<ChugSplashBundles> => {
   const actionBundle = await makeActionBundleFromConfig(
     provider,
@@ -305,6 +309,14 @@ export const makeBundlesFromConfig = async (
   )
   const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
   return { actionBundle, targetBundle }
+}
+
+// TODO mv
+export type ConfigArtifacts = {
+  [referenceName: string]: {
+    buildInfo: BuildInfo
+    artifact: ContractArtifact
+  }
 }
 
 /**
@@ -317,7 +329,7 @@ export const makeBundlesFromConfig = async (
 export const makeActionBundleFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.claimer,
@@ -328,17 +340,20 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const {
-      creationCodeWithConstructorArgs,
-      compilerOutput,
-      sourceName,
-      contractName,
-    } = artifacts[referenceName]
+    const { buildInfo, artifact } = artifacts[referenceName]
+    const { sourceName, contractName, abi, bytecode } = artifact
 
     const storageLayout = getStorageLayout(
-      compilerOutput,
+      buildInfo.output,
       sourceName,
       contractName
+    )
+
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+      bytecode,
+      contractConfig.constructorArgs,
+      referenceName,
+      abi
     )
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
@@ -348,7 +363,7 @@ export const makeActionBundleFromConfig = async (
           managerAddress,
           referenceName,
           contractConfig.constructorArgs,
-          artifacts[referenceName]
+          artifact
         )
       )) === '0x'
     ) {
@@ -361,7 +376,7 @@ export const makeActionBundleFromConfig = async (
       })
     }
 
-    const dereferencer = astDereferencer(compilerOutput)
+    const dereferencer = astDereferencer(buildInfo.output)
 
     const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
@@ -399,7 +414,7 @@ export const makeActionBundleFromConfig = async (
  */
 export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): ChugSplashTargetBundle => {
   const { projectName, organizationID, claimer } = parsedConfig.options
 
@@ -409,6 +424,8 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { artifact } = artifacts[referenceName]
+
     // Only add targets for proxies.
     if (contractConfig.kind !== 'no-proxy') {
       targets.push({
@@ -420,7 +437,7 @@ export const makeTargetBundleFromConfig = (
           managerAddress,
           referenceName,
           contractConfig.constructorArgs,
-          artifacts[referenceName]
+          artifact
         ),
       })
     }
