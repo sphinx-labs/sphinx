@@ -81,6 +81,7 @@ export type ContractArtifact = {
   sourceName: string
   contractName: string
   bytecode: string
+  deployedBytecode: string
 }
 
 export interface CompilerOutputMetadata {

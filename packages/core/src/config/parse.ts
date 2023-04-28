@@ -45,6 +45,7 @@ import {
   chugsplashLog,
   getContractAddress,
   isDataHexString,
+  isLiveNetwork,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -56,7 +57,12 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
 } from './types'
-import { Integration, Keyword, keywords } from '../constants'
+import {
+  CONTRACT_SIZE_LIMIT,
+  Integration,
+  Keyword,
+  keywords,
+} from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -100,7 +106,7 @@ const logValidationError = (
  * @returns The parsed ChugSplash config file.
  */
 export const readValidatedChugSplashConfig = async (
-  provider: providers.Provider,
+  provider: providers.JsonRpcProvider,
   configPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration,
@@ -2121,7 +2127,7 @@ const constructParsedConfig = (
  * @return Parsed config file with template variables replaced.
  */
 export const parseAndValidateChugSplashConfig = async (
-  provider: providers.Provider,
+  provider: providers.JsonRpcProvider,
   userConfig: UserChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration,
@@ -2174,6 +2180,10 @@ export const parseAndValidateChugSplashConfig = async (
   // Validate the contracts
   assertValidContracts(parsedConfig, artifactPaths, cre)
 
+  if (await isLiveNetwork(provider)) {
+    await assertContractsBelowSizeLimit(parsedConfig, cachedArtifacts, cre)
+  }
+
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
   const upgrade = await assertValidParsedChugSplashFile(
@@ -2202,4 +2212,38 @@ export const parseAndValidateChugSplashConfig = async (
   }
 
   return parsedConfig
+}
+
+/**
+ * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
+ */
+export const assertContractsBelowSizeLimit = async (
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: {
+    [referenceName: string]: ContractArtifact
+  },
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  const tooLarge: string[] = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const deployedBytecode = artifacts[referenceName].deployedBytecode
+
+    const numBytes = (deployedBytecode.length - 2) / 2
+    if (numBytes > CONTRACT_SIZE_LIMIT) {
+      tooLarge.push(contractConfig.contract)
+    }
+  }
+
+  if (tooLarge.length > 0) {
+    const uniqueNames = [...new Set(tooLarge)]
+    logValidationError(
+      'error',
+      `The following contracts are too large to be deployed on a live network:`,
+      uniqueNames.map((name) => `  - ${name}`),
+      cre.silent,
+      cre.stream
+    )
+  }
 }
