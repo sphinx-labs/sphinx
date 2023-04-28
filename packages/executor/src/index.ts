@@ -17,11 +17,8 @@ import {
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
-  isSupportedNetworkOnEtherscan,
-  verifyChugSplash,
   ensureChugSplashInitialized,
 } from '@chugsplash/core'
-import { getChainId } from '@eth-optimism/core-utils'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
@@ -153,42 +150,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
     )
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
-
-    // verify ChugSplash contracts on etherscan
-    try {
-      // Verify the ChugSplash contracts if the current network is supported.
-      if (
-        isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
-      ) {
-        const apiKey = process.env.ETHERSCAN_API_KEY
-        if (apiKey) {
-          this.logger.info(
-            '[ChugSplash]: attempting to verify the chugsplash contracts...'
-          )
-          await verifyChugSplash(
-            this.state.provider,
-            this.options.network,
-            apiKey
-          )
-          this.logger.info(
-            '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-          )
-        } else {
-          this.logger.info(
-            `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
-          )
-        }
-      } else {
-        this.logger.info(
-          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
-        )
-      }
-    } catch (e) {
-      this.logger.error(
-        `[ChugSplash]: error: failed to verify chugsplash contracts on ${this.options.network}`,
-        e
-      )
-    }
   }
 
   async main() {
