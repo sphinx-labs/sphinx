@@ -155,7 +155,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName, organizationID, claimer } = canonicalConfig.options
+  const { projectName, organizationID } = canonicalConfig.options
 
   const expectedBundleId = computeBundleId(
     bundles.actionBundle.root,
@@ -231,12 +231,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
       rpcProvider,
       bundles,
       bundleState.actionsExecuted.toNumber(),
-      claimer,
-      organizationID,
-      projectName
+      canonicalConfig
     )
   ) {
     logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
+
     // execute bundle
     try {
       await executeTask({

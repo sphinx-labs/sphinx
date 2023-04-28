@@ -276,7 +276,6 @@ export const bundleLocal = async (
     const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
       bytecode,
       contractConfig.constructorArgs,
-      referenceName,
       abi
     )
     artifacts[referenceName] = {
