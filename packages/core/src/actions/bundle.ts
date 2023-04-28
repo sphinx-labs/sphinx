@@ -4,7 +4,7 @@ import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
-  CanonicalConfigArtifacts,
+  ConfigArtifacts,
   ParsedChugSplashConfig,
   contractKindHashes,
 } from '../config/types'
@@ -261,31 +261,17 @@ export const bundleLocal = async (
   artifactPaths: ArtifactPaths,
   integration: Integration
 ): Promise<ChugSplashBundles> => {
-  const artifacts: CanonicalConfigArtifacts = {}
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { input, output } = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath
-    )
+  const artifacts: ConfigArtifacts = {}
+  for (const referenceName of Object.keys(parsedConfig.contracts)) {
+    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
-    const { abi, bytecode, sourceName, contractName } = readContractArtifact(
+    const artifact = readContractArtifact(
       artifactPaths[referenceName].contractArtifactPath,
       integration
     )
-    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
-      bytecode,
-      contractConfig.constructorArgs,
-      abi
-    )
     artifacts[referenceName] = {
-      compilerInput: input,
-      compilerOutput: output,
-      creationCodeWithConstructorArgs,
-      abi,
-      sourceName,
-      contractName,
-      bytecode,
+      buildInfo,
+      artifact,
     }
   }
 
@@ -295,7 +281,7 @@ export const bundleLocal = async (
 export const makeBundlesFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): Promise<ChugSplashBundles> => {
   const actionBundle = await makeActionBundleFromConfig(
     provider,
@@ -316,7 +302,7 @@ export const makeBundlesFromConfig = async (
 export const makeActionBundleFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.claimer,
@@ -327,27 +313,16 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const {
-      creationCodeWithConstructorArgs,
-      compilerOutput,
-      sourceName,
-      contractName,
-    } = artifacts[referenceName]
-
-    const storageLayout = getStorageLayout(
-      compilerOutput,
-      sourceName,
-      contractName
-    )
+    const { buildInfo, artifact } = artifacts[referenceName]
+    const { sourceName, contractName, abi, bytecode } = artifact
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
       (await provider.getCode(
         getContractAddress(
           managerAddress,
-          referenceName,
           contractConfig.constructorArgs,
-          artifacts[referenceName]
+          artifact
         )
       )) === '0x'
     ) {
@@ -356,12 +331,20 @@ export const makeActionBundleFromConfig = async (
         referenceName,
         proxy: contractConfig.proxy,
         contractKindHash: contractKindHashes[contractConfig.kind],
-        code: creationCodeWithConstructorArgs,
+        code: getCreationCodeWithConstructorArgs(
+          bytecode,
+          contractConfig.constructorArgs,
+          abi
+        ),
       })
     }
 
-    const dereferencer = astDereferencer(compilerOutput)
-
+    const storageLayout = getStorageLayout(
+      buildInfo.output,
+      sourceName,
+      contractName
+    )
+    const dereferencer = astDereferencer(buildInfo.output)
     const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
     // Compute our storage segments.
@@ -398,7 +381,7 @@ export const makeActionBundleFromConfig = async (
  */
 export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: CanonicalConfigArtifacts
+  artifacts: ConfigArtifacts
 ): ChugSplashTargetBundle => {
   const { projectName, organizationID, claimer } = parsedConfig.options
 
@@ -408,6 +391,8 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { artifact } = artifacts[referenceName]
+
     // Only add targets for proxies.
     if (contractConfig.kind !== 'no-proxy') {
       targets.push({
@@ -417,9 +402,8 @@ export const makeTargetBundleFromConfig = (
         proxy: contractConfig.proxy,
         implementation: getContractAddress(
           managerAddress,
-          referenceName,
           contractConfig.constructorArgs,
-          artifacts[referenceName]
+          artifact
         ),
       })
     }

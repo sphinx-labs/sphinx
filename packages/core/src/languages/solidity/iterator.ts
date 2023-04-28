@@ -1,17 +1,18 @@
-import { add0x, remove0x } from '@eth-optimism/core-utils'
 import { BigNumber, utils } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 
-import { UserConfigVariable } from '../../config'
+import { ParsedConfigVariable, UserConfigVariable } from '../../config'
 import { keywords } from '../../constants'
-import { SolidityStorageObj, SolidityStorageType } from './types'
+import {
+  SolidityStorageObj,
+  SolidityStorageType,
+  SolidityStorageTypes,
+} from './types'
 
 export type VariableHandlerProps<Input, Output> = {
   variable: Extract<Input, UserConfigVariable>
   storageObj: SolidityStorageObj
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  }
+  storageTypes: SolidityStorageTypes
   nestedSlotOffset: string
   slotKey: string
   variableType: SolidityStorageType
@@ -99,15 +100,10 @@ export const variableContainsKeyword = (
  */
 export const addStorageSlotKeys = (
   firstSlotKey: string,
-  nestedSlotOffset: string
+  secondSlotKey: string
 ): string => {
-  return add0x(
-    remove0x(
-      BigNumber.from(firstSlotKey)
-        .add(BigNumber.from(nestedSlotOffset))
-        .toHexString()
-    ).padStart(64, '0')
-  )
+  const added = BigNumber.from(firstSlotKey).add(BigNumber.from(secondSlotKey))
+  return utils.hexZeroPad(added.toHexString(), 32)
 }
 
 /**
@@ -121,9 +117,7 @@ export const addStorageSlotKeys = (
  * @returns
  */
 export const buildMappingStorageObj = (
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  },
+  storageTypes: SolidityStorageTypes,
   variableType: SolidityStorageType,
   mappingKey: string,
   slotKey: string,
@@ -170,7 +164,7 @@ export const buildMappingStorageObj = (
     // This error should never occur unless Solidity adds a new encoding type, or allows dynamic
     // arrays or mappings to be mapping keys.
     throw new Error(
-      `unsupported mapping key encoding: ${mappingKeyStorageType.encoding}`
+      `Unsupported mapping key encoding: ${mappingKeyStorageType.encoding}. Should never happen.`
     )
   }
 
@@ -196,9 +190,7 @@ export const buildMappingStorageObj = (
 
 export const getStorageType = (
   variableType: string,
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  },
+  storageTypes: SolidityStorageTypes,
   dereferencer: ASTDereferencer
 ): SolidityStorageType => {
   if (!variableType.startsWith('t_userDefinedValueType')) {
@@ -235,11 +227,9 @@ export const getStorageType = (
 }
 
 export const recursiveLayoutIterator = <Output>(
-  variable: any,
+  variable: ParsedConfigVariable | UserConfigVariable,
   storageObj: SolidityStorageObj,
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  },
+  storageTypes: SolidityStorageTypes,
   nestedSlotOffset: string,
   typeHandlers: VariableHandlers<Output>,
   dereferencer: ASTDereferencer
@@ -358,7 +348,10 @@ export const recursiveLayoutIterator = <Output>(
         typeHandlers,
         dereferencer,
       })
-    } else if (storageObj.type.startsWith('t_function')) {
+    } else if (
+      storageObj.type.startsWith('t_function_internal') ||
+      storageObj.type.startsWith('t_function_external')
+    ) {
       return typeHandlers.function({
         variable,
         storageObj,
@@ -371,7 +364,7 @@ export const recursiveLayoutIterator = <Output>(
       })
     } else {
       throw new Error(
-        `Could not encode: ${variableType.label}. Should never happen.`
+        `Could not encode inplace variable: ${variableType.label}. Should never happen.`
       )
     }
   } else if (variableType.encoding === 'bytes') {

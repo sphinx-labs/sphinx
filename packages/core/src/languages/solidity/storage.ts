@@ -1,16 +1,19 @@
-import { add0x, fromHexString, remove0x } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 import { ContractDefinition } from 'solidity-ast'
 import 'core-js/features/array/at'
 
-import { ParsedContractConfig, UserConfigVariable } from '../../config/types'
+import {
+  ParsedContractConfig,
+  ParsedConfigVariable,
+  ParsedConfigVariables,
+} from '../../config/types'
 import {
   ExtendedSolidityStorageObj,
   ExtendedStorageLayout,
   SolidityStorageLayout,
   SolidityStorageObj,
-  SolidityStorageType,
+  SolidityStorageTypes,
   StorageSlotSegment,
 } from './types'
 import {
@@ -22,22 +25,6 @@ import {
   VariableHandlerProps,
   VariableHandlers,
 } from './iterator'
-
-/**
- * Takes a slot value (in hex), left-pads it with zeros, and displaces it by a given offset.
- *
- * @param val Hex string value to pad.
- * @param offset Number of bytes to offset from the right.
- * @return Padded hex string.
- */
-export const padHexSlotValue = (val: string, offset: number): string => {
-  return add0x(
-    remove0x(val)
-      .padStart(64 - offset * 2, '0') // Pad the start with 64 - offset zero bytes.
-      .padEnd(64, '0') // Pad the end (up to 64 bytes) with zero bytes.
-      .toLowerCase() // Making this lower case makes assertions more consistent later.
-  )
-}
 
 /**
  * Encodes the elements of an array as a series of key/value storage slot pairs using the Solidity
@@ -53,11 +40,9 @@ export const padHexSlotValue = (val: string, offset: number): string => {
  * @returns Array encoded as a series of key/value slot pairs.
  */
 export const encodeArrayElements = (
-  array: any[],
+  array: ParsedConfigVariable[],
   storageObj: SolidityStorageObj,
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  },
+  storageTypes: SolidityStorageTypes,
   elementSlotKey: string,
   nestedSlotOffset: string,
   typeHandlers: VariableHandlers<Array<StorageSlotSegment>>,
@@ -94,7 +79,7 @@ export const encodeArrayElements = (
   let slots: Array<StorageSlotSegment> = []
   for (const element of array) {
     slots = slots.concat(
-      recursiveLayoutIterator(
+      recursiveLayoutIterator<Array<StorageSlotSegment>>(
         element,
         // We must manually create a `storageObj` for each element since the Solidity
         // compiler does not create them.
@@ -137,33 +122,33 @@ export const encodeArrayElements = (
  * @returns Array encoded as a series of key/value slot pairs.
  */
 export const encodeBytesArrayElements = (
-  array: Uint8Array | Buffer,
+  array: Uint8Array,
   elementSlotKey: string
 ): Array<StorageSlotSegment> => {
-  // Iterate over the array and encode each element in it.
   const slots: Array<StorageSlotSegment> = []
-  for (let i = 0; i <= array.length; i += 32) {
-    if (i + 32 <= array.length) {
-      // beginning or middle chunk of the array
-      slots.push({
-        key: elementSlotKey,
-        offset: 0,
-        val: ethers.utils.hexlify(array.subarray(i, i + 32)),
-      })
 
-      elementSlotKey = addStorageSlotKeys(elementSlotKey, '1')
-    } else {
-      const arr = ethers.utils
-        .concat([array, ethers.constants.HashZero])
-        .slice(i, i + 32)
-      // end chunk of the array
-      slots.push({
-        key: elementSlotKey,
-        offset: 0, // Always 0 because the storage value spans the entire slot regardless of size
-        val: ethers.utils.hexlify(arr),
-      })
-    }
+  // Iterate over the beginning and middle chunks of the array and encode each element in it.
+  let i = 0
+  while (i + 32 < array.length) {
+    slots.push({
+      key: elementSlotKey,
+      offset: 0,
+      val: ethers.utils.hexlify(array.subarray(i, i + 32)),
+    })
+    elementSlotKey = addStorageSlotKeys(elementSlotKey, '1')
+    i += 32
   }
+
+  // Encode the last chunk of the array.
+  const endChunk = array.subarray(i, i + 32)
+  const zeros = new Array(32 - endChunk.length).fill(0)
+
+  slots.push({
+    key: elementSlotKey,
+    offset: 0, // Always 0 because the storage value spans the entire slot regardless of size
+    val: ethers.utils.hexConcat([endChunk, zeros]),
+  })
+
   return slots
 }
 
@@ -174,11 +159,11 @@ export const encodeBytesArrayElements = (
  * @returns
  */
 export const encodeInplaceArray: VariableHandler<
-  Array<UserConfigVariable>,
+  Array<ParsedConfigVariable>,
   Array<StorageSlotSegment>
 > = (
   props: VariableHandlerProps<
-    Array<UserConfigVariable>,
+    Array<ParsedConfigVariable>,
     Array<StorageSlotSegment>
   >
 ) => {
@@ -223,7 +208,7 @@ export const encodeInplaceAddress: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: ethers.utils.getAddress(variable), // Ensures the address is hex-encoded
+      val: variable,
     },
   ]
 }
@@ -325,17 +310,10 @@ export const encodeInplaceInt: VariableHandler<
  * @returns
  */
 export const encodeInplaceStruct: VariableHandler<
-  {
-    [name: string]: UserConfigVariable
-  },
+  ParsedConfigVariables,
   Array<StorageSlotSegment>
 > = (
-  props: VariableHandlerProps<
-    {
-      [name: string]: UserConfigVariable
-    },
-    Array<StorageSlotSegment>
-  >
+  props: VariableHandlerProps<ParsedConfigVariables, Array<StorageSlotSegment>>
 ) => {
   const {
     variable,
@@ -349,9 +327,23 @@ export const encodeInplaceStruct: VariableHandler<
   // Structs are encoded recursively, as defined by their `members` field.
   let slots: Array<StorageSlotSegment> = []
   for (const [varName, varVal] of Object.entries(variable)) {
-    const memberStorageObj = variableType.members?.find((member) => {
+    if (!variableType.members) {
+      // Solidiy prevents defining empty structs.
+      throw new Error(
+        `Struct does not contain a \`members\` field. Should never happen.`
+      )
+    }
+
+    const memberStorageObj = variableType.members.find((member) => {
       return member.label === varName
     })
+
+    if (!memberStorageObj) {
+      throw new Error(
+        `Struct member ${varName} not found in storage type ${variableType.label}. Should never happen.`
+      )
+    }
+
     slots = slots.concat(
       recursiveLayoutIterator<Array<StorageSlotSegment>>(
         varVal,
@@ -377,14 +369,15 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
 ) => {
   const { variable, storageObj, variableType, slotKey } = props
 
-  // `string` types are converted to utf8 bytes, `bytes` are left as-is (assuming 0x prefixed).
+  // Convert the variable to a Uint8Array.
   const bytes =
     variableType.label === 'string'
       ? ethers.utils.toUtf8Bytes(variable)
-      : fromHexString(variable)
+      : utils.arrayify(variable)
 
-  // `string` types are converted to utf8 bytes, `bytes` are left as-is (assuming 0x prefixed).
-  if (variable.length < 32) {
+  if (bytes.length < 32) {
+    const zeros = new Array(32 - bytes.length - 1).fill(0)
+
     // Solidity docs (see above) specifies that strings or bytes with a length of 31 bytes
     // should be placed into a storage slot where the last byte of the storage slot is the length
     // of the variable in bytes * 2.
@@ -392,14 +385,7 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
       {
         key: slotKey,
         offset: storageObj.offset,
-        val: ethers.utils.hexlify(
-          ethers.utils.concat([
-            ethers.utils
-              .concat([bytes, ethers.constants.HashZero])
-              .slice(0, 31),
-            ethers.BigNumber.from(bytes.length * 2).toHexString(),
-          ])
-        ),
+        val: ethers.utils.hexConcat([bytes, zeros, [bytes.length * 2]]),
       },
     ]
   } else {
@@ -407,7 +393,7 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
       {
         key: slotKey,
         offset: storageObj.offset,
-        val: padHexSlotValue((bytes.length * 2 + 1).toString(16), 0),
+        val: ethers.utils.hexZeroPad([bytes.length * 2 + 1], 32),
       },
     ]
 
@@ -428,17 +414,10 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
  * @returns
  */
 export const encodeMapping: VariableHandler<
-  {
-    [name: string]: UserConfigVariable
-  },
+  ParsedConfigVariables,
   Array<StorageSlotSegment>
 > = (
-  props: VariableHandlerProps<
-    {
-      [name: string]: UserConfigVariable
-    },
-    Array<StorageSlotSegment>
-  >
+  props: VariableHandlerProps<ParsedConfigVariables, Array<StorageSlotSegment>>
 ) => {
   const {
     variable,
@@ -446,6 +425,7 @@ export const encodeMapping: VariableHandler<
     variableType,
     slotKey,
     storageTypes,
+    typeHandlers,
     dereferencer,
   } = props
 
@@ -471,11 +451,12 @@ export const encodeMapping: VariableHandler<
     // `nestedSlotOffset` to '0' because it isn't used when calculating the storage slot
     // key (we already calculated the storage slot key above).
     slots = slots.concat(
-      encodeVariable(
+      recursiveLayoutIterator<Array<StorageSlotSegment>>(
         mappingVal,
         mappingValStorageObj,
         storageTypes,
         '0',
+        typeHandlers,
         dereferencer
       )
     )
@@ -490,11 +471,11 @@ export const encodeMapping: VariableHandler<
  * @returns
  */
 export const encodeDynamicArray: VariableHandler<
-  Array<UserConfigVariable>,
+  Array<ParsedConfigVariable>,
   Array<StorageSlotSegment>
 > = (
   props: VariableHandlerProps<
-    Array<UserConfigVariable>,
+    Array<ParsedConfigVariable>,
     Array<StorageSlotSegment>
   >
 ) => {
@@ -514,7 +495,7 @@ export const encodeDynamicArray: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: padHexSlotValue(variable.length.toString(16), 0),
+      val: ethers.utils.hexZeroPad([variable.length], 32),
     },
   ]
 
@@ -566,27 +547,16 @@ export const encodeFunction: VariableHandler<
   string,
   Array<StorageSlotSegment>
 > = (props: VariableHandlerProps<string, Array<StorageSlotSegment>>) => {
-  const { storageObj, slotKey } = props
+  const { storageObj, slotKey, variableType } = props
 
   // We want to zero out the storage slot for function types.
   // Since internal and external functions have different sizes, we need to
   // zero out the correct number of bytes for each.
-  let value: string
-  if (storageObj.type.startsWith('t_function_internal')) {
-    value = '0x' + '00'.repeat(8)
-  } else if (storageObj.type.startsWith('t_function_external')) {
-    value = '0x' + '00'.repeat(24)
-  } else {
-    throw new Error(
-      'Unknown function type, please report this to the developers'
-    )
-  }
-
   return [
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: value,
+      val: '0x' + '00'.repeat(variableType.numberOfBytes),
     },
   ]
 }
@@ -605,11 +575,9 @@ export const encodeFunction: VariableHandler<
  * @returns Variable encoded as a series of key/value slot pairs.
  */
 export const encodeVariable = (
-  variable: any,
+  variable: ParsedConfigVariable,
   storageObj: SolidityStorageObj,
-  storageTypes: {
-    [name: string]: SolidityStorageType
-  },
+  storageTypes: SolidityStorageTypes,
   nestedSlotOffset: string,
   dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {

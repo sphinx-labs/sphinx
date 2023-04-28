@@ -21,7 +21,12 @@ import {
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
+import {
+  cleanPath,
+  fetchPaths,
+  getArtifactPaths,
+  getContractArtifact,
+} from './utils'
 import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
@@ -431,11 +436,15 @@ const command = args[0]
           'foundry'
         )
 
+        const artifact = getContractArtifact(
+          userConfig.contracts[referenceName].contract,
+          artifactFolder
+        )
+
         const address = getContractAddress(
           managerAddress,
-          referenceName,
           cachedConstructorArgs[referenceName],
-          { integration: 'foundry', artifactPaths }
+          artifact
         )
         process.stdout.write(address)
       } else {

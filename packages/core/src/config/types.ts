@@ -6,10 +6,9 @@ import {
   NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { BigNumber, constants } from 'ethers'
-import { Fragment } from 'ethers/lib/utils'
 import { CompilerInput } from 'hardhat/types'
 
-import { CompilerOutput } from '../languages/solidity/types'
+import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 
 export const externalContractKinds = [
   'oz-transparent',
@@ -148,16 +147,12 @@ export type ChugSplashInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
+  id: string
 }
 
-export type CanonicalConfigArtifacts = {
+export type ConfigArtifacts = {
   [referenceName: string]: {
-    compilerInput: CompilerInput
-    compilerOutput: CompilerOutput
-    creationCodeWithConstructorArgs: string
-    abi: Array<Fragment>
-    bytecode: string
-    sourceName: string
-    contractName: string
+    buildInfo: BuildInfo
+    artifact: ContractArtifact
   }
 }

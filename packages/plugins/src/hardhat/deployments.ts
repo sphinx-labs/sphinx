@@ -182,7 +182,6 @@ export const getContract = async (
     )
     address = getContractAddress(
       managerAddress,
-      referenceName,
       cachedConstructorArgs[referenceName],
       artifact
     )
