@@ -135,7 +135,7 @@ export const verifyChugSplashConfig = async (
       await linkProxyWithImplementation(
         etherscanApiEndpoints.urls,
         apiKey,
-        contractConfig.proxy,
+        contractConfig.address,
         implementationAddress,
         contractName
       )

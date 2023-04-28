@@ -328,7 +328,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           contracts.push({
             referenceName,
             contractName: contractConfig.contract,
-            address: contractConfig.proxy,
+            address: contractConfig.address,
           })
         }
       )

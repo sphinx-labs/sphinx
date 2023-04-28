@@ -120,7 +120,7 @@ export type UserConfigVariables = {
  */
 export type ParsedContractConfig = {
   contract: string
-  proxy: string
+  address: string
   kind: ContractKind
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables

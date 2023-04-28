@@ -693,7 +693,7 @@ contract ChugSplashManager is
                         abi.encode(
                             target.projectName,
                             target.referenceName,
-                            target.proxy,
+                            target.addr,
                             target.implementation,
                             target.contractKindHash
                         )
@@ -705,7 +705,7 @@ contract ChugSplashManager is
                 "ChugSplashManager: invalid bundle target proof"
             );
 
-            if (target.contractKindHash == bytes32(0) && target.proxy.code.length == 0) {
+            if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
                 bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
                 Proxy created = new Proxy{ salt: salt }(address(this));
 
@@ -713,18 +713,18 @@ contract ChugSplashManager is
                 // happen otherwise. If there's a situation in which this could happen other than a
                 // standard OOG, then this would halt the entire execution process.
                 require(
-                    address(created) == target.proxy,
+                    address(created) == target.addr,
                     "ChugSplashManager: Proxy was not created correctly"
                 );
 
                 emit DefaultProxyDeployed(
                     salt,
-                    target.proxy,
+                    target.addr,
                     activeBundleId,
                     target.projectName,
                     target.referenceName
                 );
-                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.proxy));
+                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.addr));
             }
 
             address adapter = registry.adapters(target.contractKindHash);
@@ -738,7 +738,7 @@ contract ChugSplashManager is
             // cannot have state.
             // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateExecution, (target.proxy))
+                abi.encodeCall(IProxyAdapter.initiateExecution, (target.addr))
             );
             require(success, "ChugSplashManager: failed to set implementation to an updater");
         }
@@ -798,7 +798,7 @@ contract ChugSplashManager is
                     keccak256(
                         abi.encode(
                             action.referenceName,
-                            action.proxy,
+                            action.addr,
                             action.actionType,
                             action.contractKindHash,
                             action.data
@@ -833,13 +833,13 @@ contract ChugSplashManager is
                     action.data,
                     (bytes32, uint8, bytes)
                 );
-                _setProxyStorage(action.proxy, adapter, key, offset, val);
+                _setProxyStorage(action.addr, adapter, key, offset, val);
             } else {
                 revert("ChugSplashManager: unknown action type");
             }
 
-            emit ChugSplashActionExecuted(activeBundleId, action.proxy, msg.sender, actionIndex);
-            registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.proxy));
+            emit ChugSplashActionExecuted(activeBundleId, action.addr, msg.sender, actionIndex);
+            registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.addr));
         }
 
         _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
@@ -896,7 +896,7 @@ contract ChugSplashManager is
                         abi.encode(
                             target.projectName,
                             target.referenceName,
-                            target.proxy,
+                            target.addr,
                             target.implementation,
                             target.contractKindHash
                         )
@@ -916,7 +916,7 @@ contract ChugSplashManager is
             (bool success, ) = adapter.delegatecall(
                 abi.encodeCall(
                     IProxyAdapter.completeExecution,
-                    (target.proxy, target.implementation)
+                    (target.addr, target.implementation)
                 )
             );
             require(success, "ChugSplashManger: failed to complete execution");

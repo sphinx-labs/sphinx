@@ -949,7 +949,7 @@ export const chugsplashExportProxyAbstractTask = async (
 
   await (
     await manager.exportProxy(
-      parsedConfig.contracts[referenceName].proxy,
+      parsedConfig.contracts[referenceName].address,
       contractKindHashes[parsedConfig.contracts[referenceName].kind],
       signerAddress,
       await getGasPriceOverrides(provider)

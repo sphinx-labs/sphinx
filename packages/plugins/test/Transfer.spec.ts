@@ -240,7 +240,7 @@ describe('Transfer', () => {
       false
     )
     // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].proxy = UUPSUpgradableTokenV1.address
+    parsedConfig.contracts['Token'].address = UUPSUpgradableTokenV1.address
 
     await chugsplashDeployAbstractTask(
       provider,
@@ -379,7 +379,7 @@ describe('Transfer', () => {
       false
     )
     // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].proxy =
+    parsedConfig.contracts['Token'].address =
       UUPSAccessControlUpgradableTokenV1.address
 
     await chugsplashDeployAbstractTask(

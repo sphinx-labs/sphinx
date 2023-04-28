@@ -170,7 +170,7 @@ export const checkIsUpgrade = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (await isContractDeployed(contractConfig.proxy, provider)) {
+    if (await isContractDeployed(contractConfig.address, provider)) {
       return referenceName
     }
   }
@@ -345,7 +345,7 @@ export const displayDeploymentTable = (
         // if contract is an unproxied, then we must resolve its true address
         const address =
           contractConfig.kind !== 'no-proxy'
-            ? contractConfig.proxy
+            ? contractConfig.address
             : getContractAddress(
                 managerAddress,
                 contractConfig.constructorArgs,
@@ -379,7 +379,7 @@ export const generateFoundryTestArtifacts = (
       (artifacts[i] = {
         referenceName,
         contractName: contractConfig.contract.split(':')[1],
-        contractAddress: contractConfig.proxy,
+        contractAddress: contractConfig.address,
       })
   )
   return artifacts
@@ -1009,7 +1009,7 @@ export const getPreviousStorageLayoutOZFormat = async (
 ): Promise<StorageLayout> => {
   const { remoteExecution } = cre
 
-  if ((await provider.getCode(parsedContractConfig.proxy)) === '0x') {
+  if ((await provider.getCode(parsedContractConfig.address)) === '0x') {
     throw new Error(
       `Proxy has not been deployed for the contract: ${referenceName}.`
     )
@@ -1017,7 +1017,7 @@ export const getPreviousStorageLayoutOZFormat = async (
 
   const previousCanonicalConfig = await getPreviousCanonicalConfig(
     provider,
-    parsedContractConfig.proxy,
+    parsedContractConfig.address,
     remoteExecution,
     canonicalConfigFolderPath
   )

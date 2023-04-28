@@ -27,14 +27,14 @@ export interface RawChugSplashAction {
   actionType: ChugSplashActionType
   referenceName: string
   data: string
-  proxy: string
+  addr: string
   contractKindHash: string
 }
 
 export interface ChugSplashTarget {
   projectName: string
   referenceName: string
-  proxy: string
+  addr: string
   implementation: string
   contractKindHash: string
 }
@@ -44,7 +44,7 @@ export interface ChugSplashTarget {
  */
 export interface SetStorageAction {
   referenceName: string
-  proxy: string
+  addr: string
   contractKindHash: string
   key: string
   offset: number
@@ -56,7 +56,7 @@ export interface SetStorageAction {
  */
 export interface DeployContractAction {
   referenceName: string
-  proxy: string
+  addr: string
   contractKindHash: string
   code: string
 }
