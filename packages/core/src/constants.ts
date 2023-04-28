@@ -24,6 +24,8 @@ import {
 import { utils, constants } from 'ethers'
 import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 
+export const CONTRACT_SIZE_LIMIT = 24576 // bytes
+
 // Etherscan constants
 export const customChains: CustomChain[] = []
 

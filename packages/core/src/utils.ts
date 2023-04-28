@@ -761,13 +761,14 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
  */
 export const parseFoundryArtifact = (artifact: any): ContractArtifact => {
   const abi = artifact.abi
-  const bytecode = artifact.bytecode.object
+  const bytecode = add0x(artifact.bytecode.object)
+  const deployedBytecode = add0x(artifact.deployedBytecode.object)
 
   const compilationTarget = artifact.metadata.settings.compilationTarget
   const sourceName = Object.keys(compilationTarget)[0]
   const contractName = compilationTarget[sourceName]
 
-  return { abi, bytecode, sourceName, contractName }
+  return { abi, bytecode, sourceName, contractName, deployedBytecode }
 }
 
 export const isEqualType = (
@@ -1227,6 +1228,7 @@ export const getConfigArtifactsRemote = async (
             sourceName,
             contractName,
             bytecode: add0x(contractOutput.evm.bytecode.object),
+            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
           },
         }
       }

@@ -113,9 +113,9 @@ export const estimateExecutionGas = async (
       ethers.BigNumber.from(0)
     )
 
-  // We also tack on an extra 100k gas for each proxy target (including any that are not being upgraded) to account
+  // We also tack on an extra 200k gas for each proxy target (including any that are not being upgraded) to account
   // for the variable cost of the `initiateBundleExecution` and `completeBundleExecution` functions.
-  const initiateAndCompleteCost = ethers.BigNumber.from(100_000).mul(
+  const initiateAndCompleteCost = ethers.BigNumber.from(200_000).mul(
     bundles.targetBundle.targets.length
   )
 
