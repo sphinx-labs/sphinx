@@ -13,6 +13,12 @@ import {
 
 export const OWNER_MULTISIG_ADDRESS =
   '0xF2a21e4E9F22AAfD7e8Bf47578a550b4102732a9'
+export const getOwnerAddress = () => {
+  return process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY
+    ? new ethers.Wallet(process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY)
+        .address
+    : OWNER_MULTISIG_ADDRESS
+}
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
 export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(

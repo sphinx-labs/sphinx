@@ -11,7 +11,7 @@ import {
 import { ethers } from 'ethers'
 import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
-  CHUGSPLASH_REGISTRY_ADDRESS,
+  getChugSplashRegistryAddress,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
@@ -95,7 +95,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
-      CHUGSPLASH_REGISTRY_ADDRESS,
+      getChugSplashRegistryAddress(),
       ChugSplashRegistryABI,
       this.state.provider
     )
