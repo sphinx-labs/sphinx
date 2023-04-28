@@ -56,11 +56,8 @@ import {
   ParsedConfigVariable,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
-import {
-  CURRENT_CHUGSPLASH_MANAGER_VERSION,
-  CHUGSPLASH_REGISTRY_ADDRESS,
-  Integration,
-} from './constants'
+import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
+import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
@@ -192,7 +189,7 @@ export const getChugSplashManagerAddress = (
   )
 
   return utils.getCreate2Address(
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
     salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
@@ -200,7 +197,7 @@ export const getChugSplashManagerAddress = (
         ChugSplashManagerProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'address'],
-          [CHUGSPLASH_REGISTRY_ADDRESS, CHUGSPLASH_REGISTRY_ADDRESS]
+          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
         ),
       ]
     )
@@ -284,8 +281,7 @@ export const getChugSplashRegistry = (
   signerOrProvider: Signer | providers.Provider
 ): Contract => {
   return new Contract(
-    // CHUGSPLASH_REGISTRY_ADDRESS,
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
     ChugSplashRegistryABI,
     signerOrProvider
   )
@@ -553,7 +549,7 @@ export const isProjectClaimed = async (
   managerAddress: string
 ) => {
   const ChugSplashRegistry = new ethers.Contract(
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
     ChugSplashRegistryABI,
     signerOrProvider
   )
@@ -568,7 +564,7 @@ export const isInternalDefaultProxy = async (
   proxyAddress: string
 ): Promise<boolean> => {
   const ChugSplashRegistry = new Contract(
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
     ChugSplashRegistryABI,
     provider
   )
@@ -1090,7 +1086,7 @@ export const getPreviousCanonicalConfig = async (
   canonicalConfigFolderPath: string
 ): Promise<CanonicalChugSplashConfig | undefined> => {
   const ChugSplashRegistry = new Contract(
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
     ChugSplashRegistryABI,
     provider
   )

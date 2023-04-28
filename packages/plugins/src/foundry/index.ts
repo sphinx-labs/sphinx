@@ -13,7 +13,7 @@ import {
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
   getContractAddress,
-  CHUGSPLASH_REGISTRY_ADDRESS,
+  getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
   isLiveNetwork,
   assertValidConstructorArgs,
@@ -461,7 +461,7 @@ const command = args[0]
       break
     }
     case 'getRegistryAddress': {
-      process.stdout.write(CHUGSPLASH_REGISTRY_ADDRESS)
+      process.stdout.write(getChugSplashRegistryAddress())
       break
     }
     case 'getEIP1967ProxyAdminAddress': {

@@ -40,12 +40,12 @@ import {
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
+import { customChains } from './constants'
 import {
-  CHUGSPLASH_CONSTRUCTOR_ARGS,
-  CHUGSPLASH_REGISTRY_ADDRESS,
-  CHUGSPLASH_MANAGER_V1_ADDRESS,
-  customChains,
-} from './constants'
+  getChugSplashConstructorArgs,
+  getChugSplashRegistryAddress,
+  getChugSplashManagerV1Address,
+} from './addresses'
 import { CanonicalChugSplashConfig } from './config/types'
 import {
   getChugSplashManagerAddress,
@@ -161,7 +161,7 @@ export const verifyChugSplash = async (
   const contracts = [
     {
       artifact: ChugSplashManagerArtifact,
-      address: CHUGSPLASH_MANAGER_V1_ADDRESS,
+      address: getChugSplashManagerV1Address(),
     },
     { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
@@ -180,7 +180,7 @@ export const verifyChugSplash = async (
     },
     {
       artifact: ChugSplashRegistryArtifact,
-      address: CHUGSPLASH_REGISTRY_ADDRESS,
+      address: getChugSplashRegistryAddress(),
     },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
   ]
@@ -195,6 +195,8 @@ export const verifyChugSplash = async (
       contractName
     )
 
+    const chugSplashConstructorArgs = getChugSplashConstructorArgs()
+
     await attemptVerification(
       provider,
       networkName,
@@ -206,7 +208,7 @@ export const verifyChugSplash = async (
       apiKey,
       minimumCompilerInput,
       chugsplashBuildInfo.solcVersion,
-      CHUGSPLASH_CONSTRUCTOR_ARGS[sourceName]
+      chugSplashConstructorArgs[sourceName]
     )
   }
 
@@ -214,8 +216,8 @@ export const verifyChugSplash = async (
   await linkProxyWithImplementation(
     etherscanApiEndpoints.urls,
     apiKey,
-    CHUGSPLASH_REGISTRY_ADDRESS,
-    CHUGSPLASH_REGISTRY_ADDRESS,
+    getChugSplashRegistryAddress(),
+    getChugSplashRegistryAddress(),
     'ChugSplashRegistry'
   )
 }
