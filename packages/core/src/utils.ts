@@ -50,11 +50,10 @@ import {
   ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
-  UserConfigVariable,
-  UserConfigVariables,
   UserContractConfig,
   ParsedConfigVariables,
   ConfigArtifacts,
+  ParsedConfigVariable,
 } from './config/types'
 import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
 import {
@@ -328,16 +327,6 @@ export const chugsplashLog = (
   stream.write(parts.join('\n') + '\n')
 }
 
-export const displayProposerTable = (proposerAddresses: string[]) => {
-  const proposers = {}
-  proposerAddresses.forEach((address, i) => {
-    proposers[i + 1] = {
-      Address: address,
-    }
-  })
-  console.table(proposers)
-}
-
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
@@ -363,7 +352,6 @@ export const displayDeploymentTable = (
             ? contractConfig.proxy
             : getContractAddress(
                 managerAddress,
-                referenceName,
                 contractConfig.constructorArgs,
                 artifact
               )
@@ -407,12 +395,15 @@ export const claimExecutorPayment = async (
 ) => {
   // The amount to withdraw is the minimum of the executor's debt and the ChugSplashManager's
   // balance.
-  const withdrawAmount = Math.min(
-    await ChugSplashManager.executorDebt(executor.address),
-    await ChugSplashManager.getBalance()
+  const debt = BigNumber.from(
+    await ChugSplashManager.executorDebt(executor.address)
   )
+  const balance = BigNumber.from(
+    await executor.provider.getBalance(ChugSplashManager.address)
+  )
+  const withdrawAmount = debt.lt(balance) ? debt : balance
 
-  if (withdrawAmount > 0) {
+  if (withdrawAmount.gt(0)) {
     await (
       await ChugSplashManager.claimExecutorPayment(
         withdrawAmount,
@@ -822,7 +813,6 @@ export const isEqualType = (
  */
 export const getContractAddress = (
   managerAddress: string,
-  referenceName: string,
   constructorArgs: ParsedConfigVariables,
   artifact: ContractArtifact
 ): string => {
@@ -831,7 +821,6 @@ export const getContractAddress = (
   const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
     bytecode,
     constructorArgs,
-    referenceName,
     abi
   )
 
@@ -843,15 +832,14 @@ export const getContractAddress = (
 }
 
 export const getConstructorArgs = (
-  constructorArgs: UserConfigVariables,
-  referenceName: string,
+  constructorArgs: ParsedConfigVariables,
   abi: Array<Fragment>
 ): {
   constructorArgTypes: Array<string>
-  constructorArgValues: UserConfigVariable[]
+  constructorArgValues: Array<ParsedConfigVariable>
 } => {
   const constructorArgTypes: Array<string> = []
-  const constructorArgValues: Array<UserConfigVariable> = []
+  const constructorArgValues: Array<ParsedConfigVariable> = []
 
   const constructorFragment = abi.find(
     (fragment) => fragment.type === 'constructor'
@@ -862,9 +850,8 @@ export const getConstructorArgs = (
   }
 
   constructorFragment.inputs.forEach((input) => {
-    const constructorArgValue = constructorArgs[input.name]
     constructorArgTypes.push(input.type)
-    constructorArgValues.push(constructorArgValue)
+    constructorArgValues.push(constructorArgs[input.name])
   })
 
   return { constructorArgTypes, constructorArgValues }
@@ -872,13 +859,11 @@ export const getConstructorArgs = (
 
 export const getCreationCodeWithConstructorArgs = (
   bytecode: string,
-  constructorArgs: UserConfigVariables,
-  referenceName: string,
+  constructorArgs: ParsedConfigVariables,
   abi: ContractArtifact['abi']
 ): string => {
   const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
     constructorArgs,
-    referenceName,
     abi
   )
 

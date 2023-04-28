@@ -321,7 +321,6 @@ export const makeActionBundleFromConfig = async (
       (await provider.getCode(
         getContractAddress(
           managerAddress,
-          referenceName,
           contractConfig.constructorArgs,
           artifact
         )
@@ -335,7 +334,6 @@ export const makeActionBundleFromConfig = async (
         code: getCreationCodeWithConstructorArgs(
           bytecode,
           contractConfig.constructorArgs,
-          referenceName,
           abi
         ),
       })
@@ -404,7 +402,6 @@ export const makeTargetBundleFromConfig = (
         proxy: contractConfig.proxy,
         implementation: getContractAddress(
           managerAddress,
-          referenceName,
           contractConfig.constructorArgs,
           artifact
         ),

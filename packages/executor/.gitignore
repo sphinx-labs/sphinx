@@ -1,3 +1,7 @@
 dist/
 .env*
 cache
+.canonical-configs
+artifacts
+cache
+deployments/

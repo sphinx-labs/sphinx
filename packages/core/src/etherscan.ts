@@ -90,12 +90,10 @@ export const verifyChugSplashConfig = async (
     const { abi, contractName, sourceName } = artifact
     const { constructorArgValues } = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
-      referenceName,
       abi
     )
     const implementationAddress = getContractAddress(
       managerAddress,
-      referenceName,
       contractConfig.constructorArgs,
       artifact
     )

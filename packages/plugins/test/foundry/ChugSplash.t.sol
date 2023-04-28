@@ -42,21 +42,7 @@ contract ChugSplashTest is Test {
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
-    bytes32 withdrawOrganizationID = keccak256('Withdraw test');
-    string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
-
-    bytes32 proposeFundApproveOrgID = keccak256('Claim, propose, fund, approve test');
-    string claimToApproveConfig = "./chugsplash/foundry/claimProposeFundApprove.t.js";
-
-    bytes32 cancelOrganizationID = keccak256('Cancel test');
-    string cancelConfig = "./chugsplash/foundry/cancel.t.js";
-
-    // This is just an anvil test key
-    string newProposerPrivateKey = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    address newProposer = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    bytes32 addProposerOrganizationID = keccak256('Add proposer test');
-    string addProposerConfig = "./chugsplash/foundry/addProposer.t.js";
-
+    bytes32 claimOrgID = keccak256('Claim test');
     string claimConfig = "./chugsplash/foundry/claim.t.js";
 
     bytes32 transferOrganizationID = keccak256('Transfer test');
@@ -77,30 +63,6 @@ contract ChugSplashTest is Test {
         // Start export proxy test
         chugsplash.deploy(transferConfig, true);
         chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
-
-        // Setup claim, propose, fund, approve process test
-        chugsplash.claim(claimToApproveConfig, true);
-        chugsplash.propose(claimToApproveConfig, true);
-        chugsplash.fund(claimToApproveConfig, 1 ether, false, true);
-        chugsplash.approve(claimToApproveConfig, true, true);
-
-        // Setup withdraw test
-        chugsplash.claim(withdrawConfig, true);
-        chugsplash.fund(withdrawConfig, 1 ether, false, true);
-        chugsplash.withdraw(withdrawConfig, true);
-
-        // Setup cancel test
-        chugsplash.claim(cancelConfig, true);
-        chugsplash.propose(cancelConfig, true);
-        chugsplash.fund(cancelConfig, 1 ether, false, true);
-        chugsplash.approve(cancelConfig, true, true);
-        chugsplash.cancel(cancelConfig, true);
-
-        // Setup add proposer test
-        chugsplash.claim(addProposerConfig, true);
-        chugsplash.addProposer(addProposerConfig, newProposer, true);
-        vm.setEnv("PRIVATE_KEY", newProposerPrivateKey);
-        chugsplash.propose(addProposerConfig, true);
 
         // Refresh EVM state to reflect chain state after ChugSplash transactions
         chugsplash.refresh();
@@ -126,28 +88,7 @@ contract ChugSplashTest is Test {
 
     function testDidClaim() public {
         assertTrue(address(registry.projects(claimer, 'Doesnt exist')) == address(0), "Unclaimed project detected");
-        assertFalse(address(registry.projects(claimer, proposeFundApproveOrgID)) == address(0), "Claimed project was not detected");
-    }
-
-    function testDidProposeFundApprove() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, proposeFundApproveOrgID));
-        assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
-        assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
-    }
-
-    function testDidWithdraw() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, withdrawOrganizationID));
-        assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
-    }
-
-    function testDidCancel() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, cancelOrganizationID));
-        assertTrue(manager.activeBundleId() == 0, "Bundle still active");
-    }
-
-    function testDidAddProposer() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, addProposerOrganizationID));
-        assertTrue(manager.proposers(newProposer));
+        assertFalse(address(registry.projects(claimer, claimOrgID)) == address(0), "Claimed project was not detected");
     }
 
     function testDeployStatelessImmutableContract() public {

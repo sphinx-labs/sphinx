@@ -11,7 +11,7 @@ import {
   writeDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
-import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
+import { Integration } from '../constants'
 import { getAmountToDeposit } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
@@ -90,9 +90,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       bundleState.actionsExecuted.toNumber(),
-      claimer,
-      organizationID,
-      projectName,
+      parsedConfig,
       false
     )
     if (amountToDeposit.gt(0)) {
@@ -100,13 +98,7 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
-  Run the following command to add funds to your deployment so it can be completed:
-
-  npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
-    EXECUTION_BUFFER_MULTIPLIER
-  )} --config-path <configPath>
-          `
+        `${projectName} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
       )
     }
 

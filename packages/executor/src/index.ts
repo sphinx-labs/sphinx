@@ -59,7 +59,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           desc: 'Command delimited list of private keys for signing deployment transactions',
           validator: validators.str,
           default:
-            '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
+            '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
         },
         logLevel: {
           desc: 'Executor log level',
@@ -140,8 +140,17 @@ export class ChugSplashExecutor extends BaseServiceV2<
       executorAddresses.push(w.address)
     }
 
+    const executors = this.state.keys.map(
+      (el) => new ethers.Wallet(el.privateKey).address
+    )
+
     // Deploy the ChugSplash contracts.
-    await ensureChugSplashInitialized(this.state.provider, wallet)
+    await ensureChugSplashInitialized(
+      this.state.provider,
+      wallet,
+      executors,
+      this.logger
+    )
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
 

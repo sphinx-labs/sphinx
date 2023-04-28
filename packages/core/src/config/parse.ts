@@ -1993,7 +1993,6 @@ export const assertValidConstructorArgs = (
 
     contractReferences[referenceName] = getContractAddress(
       managerAddress,
-      referenceName,
       cachedConstructorArgs[referenceName],
       artifact
     )

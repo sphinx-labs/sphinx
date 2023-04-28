@@ -17,17 +17,11 @@ import {
   chugsplashCommitAbstractSubtask,
   bundleLocal,
   chugsplashProposeAbstractTask,
-  chugsplashApproveAbstractTask,
-  chugsplashFundAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,
-  chugsplashMonitorAbstractTask,
   chugsplashCancelAbstractTask,
-  chugsplashWithdrawAbstractTask,
   chugsplashListProjectsAbstractTask,
-  chugsplashListProposersAbstractTask,
-  chugsplashAddProposersAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
   ArtifactPaths,
@@ -65,22 +59,15 @@ export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
-export const TASK_CHUGSPLASH_VERIFY_BUNDLE = 'chugsplash-check-bundle'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
-export const TASK_CHUGSPLASH_UPGRADE = 'chugsplash-upgrade'
 export const TASK_CHUGSPLASH_CLAIM = 'chugsplash-claim'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
-export const TASK_CHUGSPLASH_FUND = 'chugsplash-fund'
-export const TASK_CHUGSPLASH_APPROVE = 'chugsplash-approve'
-export const TASK_CHUGSPLASH_MONITOR = 'chugsplash-monitor'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
-export const TASK_CHUGSPLASH_WITHDRAW = 'chugsplash-withdraw'
 export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
-export const TASK_CHUGSPLASH_LIST_PROPOSERS = 'chugsplash-list-proposers'
 export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
 export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
@@ -331,73 +318,6 @@ task(TASK_CHUGSPLASH_PROPOSE)
   )
   .setAction(chugsplashProposeTask)
 
-export const chugsplashApproveTask = async (
-  args: {
-    configPath: string
-    noWithdraw: boolean
-    silent: boolean
-    skipMonitorStatus: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, noWithdraw, silent, skipMonitorStatus } = args
-
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const cre = await createChugSplashRuntime(
-    configPath,
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-
-  await ensureChugSplashInitialized(provider, signer)
-
-  const deploymentFolder = hre.config.paths.deployments
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    'hardhat',
-    cre
-  )
-
-  await chugsplashApproveAbstractTask(
-    provider,
-    signer,
-    configPath,
-    noWithdraw,
-    skipMonitorStatus,
-    artifactPaths,
-    'hardhat',
-    canonicalConfigPath,
-    deploymentFolder,
-    parsedConfig,
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_APPROVE)
-  .setDescription('Allows a manager to approve a bundle to be executed.')
-  .addFlag(
-    'noWithdraw',
-    'Skip withdrawing leftover funds to the project owner.'
-  )
-  .addParam('configPath', 'Path to the ChugSplash config file to approve')
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(chugsplashApproveTask)
-
 subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
   .setDescription('Lists all existing ChugSplash projects')
   .setAction(async (_, hre) => {
@@ -603,135 +523,6 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
     }
   )
 
-export const monitorTask = async (
-  args: {
-    configPath: string
-    noWithdraw: boolean
-    silent: boolean
-    newOwner: string
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, noWithdraw, silent, newOwner } = args
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const cre = await createChugSplashRuntime(
-    configPath,
-    true,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-
-  await ensureChugSplashInitialized(provider, signer)
-
-  const deploymentFolder = hre.config.paths.deployments
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    'hardhat',
-    cre
-  )
-
-  await chugsplashMonitorAbstractTask(
-    provider,
-    signer,
-    configPath,
-    noWithdraw,
-    newOwner,
-    artifactPaths,
-    canonicalConfigPath,
-    deploymentFolder,
-    'hardhat',
-    true,
-    parsedConfig,
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_MONITOR)
-  .setDescription('Displays the status of a ChugSplash bundle')
-  .addParam('configPath', 'Path to the ChugSplash config file to monitor')
-  .addFlag(
-    'noWithdraw',
-    'Skip withdrawing leftover funds to the project owner.'
-  )
-  .setAction(monitorTask)
-
-export const chugsplashFundTask = async (
-  args: {
-    configPath: string
-    amount: string | undefined
-    silent: boolean
-    autoEstimate: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { amount, silent, configPath, autoEstimate } = args
-  const cre = await createChugSplashRuntime(
-    configPath,
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-
-  await ensureChugSplashInitialized(provider, signer)
-
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    artifactPaths,
-    'hardhat',
-    cre
-  )
-
-  await chugsplashFundAbstractTask(
-    provider,
-    signer,
-    configPath,
-    amount ? ethers.BigNumber.from(amount) : ethers.BigNumber.from(0),
-    autoEstimate,
-    artifactPaths,
-    'hardhat',
-    parsedConfig,
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_FUND)
-  .setDescription('Fund a ChugSplash deployment')
-  .addOptionalParam('amount', 'Amount to send in wei')
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addParam('configPath', 'Path to the ChugSplash config file')
-  .addFlag(
-    'autoEstimate',
-    'Automatically estimate the amount necessary to fund the deployment'
-  )
-  .setAction(chugsplashFundTask)
-
 task(TASK_NODE)
   .addFlag('deployAll', 'Deploy all ChugSplash config files on startup')
   .addFlag(
@@ -927,44 +718,6 @@ task(TASK_CHUGSPLASH_CANCEL)
   .addParam('configPath', 'Path to the ChugSplash config file to cancel')
   .setAction(chugsplashCancelTask)
 
-export const chugsplashWithdrawTask = async (
-  args: {
-    configPath: string
-    silent: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, silent } = args
-
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  const cre = await createChugSplashRuntime(
-    configPath,
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  await chugsplashWithdrawAbstractTask(
-    provider,
-    signer,
-    configPath,
-    'hardhat',
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_WITHDRAW)
-  .setDescription(
-    'Withdraw funds in a ChugSplash project belonging to the project owner.'
-  )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addParam('configPath', 'Path to the ChugSplash config file')
-  .setAction(chugsplashWithdrawTask)
-
 export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -984,73 +737,6 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
 task(TASK_CHUGSPLASH_LIST_PROJECTS)
   .setDescription('Lists all projects that are owned by the caller.')
   .setAction(listProjectsTask)
-
-export const listProposersTask = async (
-  args: { configPath: string },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath } = args
-
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  await chugsplashListProposersAbstractTask(
-    provider,
-    signer,
-    configPath,
-    'hardhat'
-  )
-}
-
-task(TASK_CHUGSPLASH_LIST_PROPOSERS)
-  .setDescription('Lists all of the approved proposers for this project')
-  .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .setAction(listProposersTask)
-
-export const addProposerTask = async (
-  args: {
-    configPath: string
-    newProposers: string[]
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, newProposers } = args
-
-  if (newProposers.length === 0) {
-    throw new Error('You must specify at least one proposer to add.')
-  }
-
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  const cre = await createChugSplashRuntime(
-    configPath,
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    false
-  )
-
-  await chugsplashAddProposersAbstractTask(
-    provider,
-    signer,
-    configPath,
-    newProposers,
-    'hardhat',
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_ADD_PROPOSER)
-  .setDescription('Adds a new proposer to the list of approved proposers')
-  .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .addVariadicPositionalParam(
-    'newProposers',
-    'Paths to ChugSplash config files',
-    []
-  )
-  .setAction(addProposerTask)
 
 export const exportProxyTask = async (
   args: {
