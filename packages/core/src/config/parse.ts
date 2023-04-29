@@ -46,6 +46,7 @@ import {
   getContractAddress,
   isDataHexString,
   isLiveNetwork,
+  isContractDeployed,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2184,6 +2185,8 @@ export const parseAndValidateChugSplashConfig = async (
     await assertContractsBelowSizeLimit(parsedConfig, cachedArtifacts, cre)
   }
 
+  await assertValidBundleSize(provider, parsedConfig, cre)
+
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
   const upgrade = await assertValidParsedChugSplashFile(
@@ -2212,6 +2215,50 @@ export const parseAndValidateChugSplashConfig = async (
   }
 
   return parsedConfig
+}
+
+/**
+ * Asserts that the ChugSplash config can be initiated in a single transaction.
+ */
+export const assertValidBundleSize = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+
+  const deployedProxyPromises = Object.values(parsedConfig.contracts).map(
+    async (contract) =>
+      contract.kind === 'internal-default' &&
+      !(await isContractDeployed(contract.address, provider))
+        ? ethers.BigNumber.from(550_000)
+        : ethers.BigNumber.from(0)
+  )
+
+  const resolvedPromises = await Promise.all(deployedProxyPromises)
+
+  const defaultProxyGasCosts = resolvedPromises.reduce(
+    (a, b) => a.add(b),
+    ethers.BigNumber.from(0)
+  )
+
+  const numTargets = Object.values(parsedConfig.contracts).filter(
+    (contract) => contract.kind !== 'no-proxy'
+  ).length
+  const initiationGasCost = ethers.BigNumber.from(100_000).mul(numTargets)
+
+  const totalInitiationGasCost = defaultProxyGasCosts.add(initiationGasCost)
+  const costWithBuffer = totalInitiationGasCost.mul(12).div(10)
+
+  if (costWithBuffer.gt(blockGasLimit)) {
+    logValidationError(
+      'error',
+      `Too many contracts in your ChugSplash config.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 }
 
 /**
