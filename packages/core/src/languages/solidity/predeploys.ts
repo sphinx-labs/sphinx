@@ -47,6 +47,7 @@ import {
   getGasPriceOverrides,
   isLiveNetwork,
   getImpersonatedSigner,
+  assertValidBlockGasLimit,
 } from '../../utils'
 import { EXECUTOR_ROLE } from '../../constants'
 import {
@@ -82,12 +83,7 @@ export const initializeChugSplash = async (
   executors: string[],
   logger?: Logger
 ): Promise<void> => {
-  // Check that the block gas limit is reasonably high on this network. Although we can lower 15M to
-  // 10M or less, we err on the side of safety for now. This number should never be lower than 6M
-  // because it costs ~5.3M gas to deploy the ChugSplashManager V1, which is at the contract size
-  // limit.
-  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-  assert(blockGasLimit.gte(15_000_000), `Block gas limit is too low.`)
+  await assertValidBlockGasLimit(provider)
 
   const chugsplashConstructorArgs = getChugSplashConstructorArgs()
 

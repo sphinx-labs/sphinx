@@ -47,6 +47,7 @@ import {
   isDataHexString,
   isLiveNetwork,
   isContractDeployed,
+  assertValidBlockGasLimit,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2140,6 +2141,8 @@ export const parseAndValidateChugSplashConfig = async (
 
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
+
+  await assertValidBlockGasLimit(provider)
 
   // Validate top level config and contract options
   await assertValidUserConfigFields(userConfig, provider, cre, exitOnFailure)
