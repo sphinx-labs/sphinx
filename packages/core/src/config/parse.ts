@@ -1540,7 +1540,7 @@ export const assertValidParsedChugSplashFile = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if ((await provider.getCode(contractConfig.proxy)) !== '0x') {
+    if ((await provider.getCode(contractConfig.address)) !== '0x') {
       isUpgrade = true
 
       if (
@@ -1555,7 +1555,7 @@ export const assertValidParsedChugSplashFile = async (
           provider
         )
         const UUPSProxy = new ethers.Contract(
-          contractConfig.proxy,
+          contractConfig.address,
           ProxyABI,
           chugsplashManager
         )
@@ -1576,20 +1576,20 @@ export const assertValidParsedChugSplashFile = async (
           // mechanism the UUPS proxy uses.
           requiresOwnershipTransfer.push({
             name: referenceName,
-            proxyAddress: contractConfig.proxy,
+            proxyAddress: contractConfig.address,
             currentAdminAddress: 'unknown',
           })
         }
       } else {
         const proxyAdmin = await getEIP1967ProxyAdminAddress(
           provider,
-          contractConfig.proxy
+          contractConfig.address
         )
 
         if (proxyAdmin !== chugSplashManagerAddress) {
           requiresOwnershipTransfer.push({
             name: referenceName,
-            proxyAddress: contractConfig.proxy,
+            proxyAddress: contractConfig.address,
             currentAdminAddress: proxyAdmin,
           })
         }
@@ -1660,7 +1660,7 @@ permission to call the 'upgradeTo' function on each of them.
       // Perform upgrade specific validation
 
       const isProxyDeployed =
-        (await provider.getCode(contractConfig.proxy)) !== '0x'
+        (await provider.getCode(contractConfig.address)) !== '0x'
       if (isProxyDeployed) {
         // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
         // will always be defined so we can safely assert it.
@@ -2109,7 +2109,7 @@ const constructParsedConfig = (
 
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
-      proxy: contractReferences[referenceName],
+      address: contractReferences[referenceName],
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
       constructorArgs: cachedConstructorArgs[referenceName],

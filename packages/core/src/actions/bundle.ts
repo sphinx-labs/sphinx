@@ -75,7 +75,7 @@ export const toRawChugSplashAction = (
   if (isSetStorageAction(action)) {
     return {
       actionType: ChugSplashActionType.SET_STORAGE,
-      proxy: action.proxy,
+      addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
       data: ethers.utils.defaultAbiCoder.encode(
@@ -86,7 +86,7 @@ export const toRawChugSplashAction = (
   } else if (isDeployContractAction(action)) {
     return {
       actionType: ChugSplashActionType.DEPLOY_CONTRACT,
-      proxy: action.proxy,
+      addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
       data: action.code,
@@ -112,7 +112,7 @@ export const fromRawChugSplashAction = (
     )
     return {
       referenceName: rawAction.referenceName,
-      proxy: rawAction.proxy,
+      addr: rawAction.addr,
       contractKindHash: rawAction.contractKindHash,
       key,
       offset,
@@ -121,7 +121,7 @@ export const fromRawChugSplashAction = (
   } else if (rawAction.actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
     return {
       referenceName: rawAction.referenceName,
-      proxy: rawAction.proxy,
+      addr: rawAction.addr,
       contractKindHash: rawAction.contractKindHash,
       code: rawAction.data,
     }
@@ -142,7 +142,7 @@ export const getActionHash = (action: RawChugSplashAction): string => {
       ['string', 'address', 'uint8', 'bytes32', 'bytes'],
       [
         action.referenceName,
-        action.proxy,
+        action.addr,
         action.actionType,
         action.contractKindHash,
         action.data,
@@ -164,7 +164,7 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
       [
         target.projectName,
         target.referenceName,
-        target.proxy,
+        target.addr,
         target.implementation,
         target.contractKindHash,
       ]
@@ -329,7 +329,7 @@ export const makeActionBundleFromConfig = async (
       // Add a DEPLOY_CONTRACT action.
       actions.push({
         referenceName,
-        proxy: contractConfig.proxy,
+        addr: contractConfig.address,
         contractKindHash: contractKindHashes[contractConfig.kind],
         code: getCreationCodeWithConstructorArgs(
           bytecode,
@@ -358,7 +358,7 @@ export const makeActionBundleFromConfig = async (
     for (const segment of segments) {
       actions.push({
         referenceName,
-        proxy: contractConfig.proxy,
+        addr: contractConfig.address,
         contractKindHash: contractKindHashes[contractConfig.kind],
         key: segment.key,
         offset: segment.offset,
@@ -399,7 +399,7 @@ export const makeTargetBundleFromConfig = (
         projectName,
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
-        proxy: contractConfig.proxy,
+        addr: contractConfig.address,
         implementation: getContractAddress(
           managerAddress,
           contractConfig.constructorArgs,

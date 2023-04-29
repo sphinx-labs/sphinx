@@ -46,7 +46,7 @@ struct ChugSplashBundleState {
 struct ChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
-    address payable proxy;
+    address payable addr;
     bytes32 contractKindHash;
     string referenceName;
 }
@@ -57,7 +57,7 @@ struct ChugSplashAction {
 struct ChugSplashTarget {
     string projectName;
     string referenceName;
-    address payable proxy;
+    address payable addr;
     address implementation;
     bytes32 contractKindHash;
 }

@@ -109,7 +109,7 @@ export const importOpenZeppelinStorageLayout = async (
     kind === 'oz-ownable-uups' ||
     kind === 'oz-access-control-uups'
   ) {
-    const proxy = parsedContractConfig.proxy
+    const proxy = parsedContractConfig.address
     const isProxyDeployed = (await hre.ethers.provider.getCode(proxy)) !== '0x'
     if (isProxyDeployed) {
       const manifest = await Manifest.forNetwork(hre.network.provider)

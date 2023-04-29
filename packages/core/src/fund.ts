@@ -81,7 +81,7 @@ export const estimateExecutionGas = async (
   const deployedProxyPromises = Object.values(parsedConfig.contracts).map(
     async (contract) =>
       // If the proxy has already been deployed, then estimate 0 gas. Otherwise, estimate 550k for the default proxy.
-      (await isContractDeployed(contract.proxy, provider))
+      (await isContractDeployed(contract.address, provider))
         ? ethers.BigNumber.from(0)
         : ethers.BigNumber.from(550_000)
   )
