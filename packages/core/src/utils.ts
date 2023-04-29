@@ -1298,3 +1298,21 @@ export const getImpersonatedSigner = async (
 
   return provider.getSigner(address)
 }
+
+/**
+ * Assert that the block gas limit is reasonably high on a network.
+ */
+export const assertValidBlockGasLimit = async (
+  provider: providers.Provider
+) => {
+  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+
+  // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
+  //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
+  //  ChugSplashManager V1, which is at the contract size limit.
+  if (blockGasLimit.lt(15_000_000)) {
+    throw new Error(
+      `Block gas limit is too low. Got: ${blockGasLimit.toString()}. Expected: 15M+`
+    )
+  }
+}
