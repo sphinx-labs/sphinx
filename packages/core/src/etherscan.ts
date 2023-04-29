@@ -36,6 +36,11 @@ import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   ChugSplashManagerArtifact,
+  DefaultCreate2Artifact,
+  DEFAULT_CREATE2_ADDRESS,
+  DefaultGasPriceCalculatorArtifact,
+  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
+  ManagedServiceArtifact,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
@@ -45,6 +50,7 @@ import {
   getChugSplashConstructorArgs,
   getChugSplashRegistryAddress,
   getChugSplashManagerV1Address,
+  getManagedServiceAddress,
 } from './addresses'
 import { CanonicalChugSplashConfig } from './config/types'
 import {
@@ -160,16 +166,14 @@ export const verifyChugSplash = async (
 
   const contracts = [
     {
+      artifact: ChugSplashRegistryArtifact,
+      address: getChugSplashRegistryAddress(),
+    },
+    {
       artifact: ChugSplashManagerArtifact,
       address: getChugSplashManagerV1Address(),
     },
-    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
     { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
-    {
-      artifact: OZTransparentAdapterArtifact,
-      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
-    },
-    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
     {
       artifact: OZUUPSOwnableAdapterArtifact,
       address: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
@@ -179,10 +183,17 @@ export const verifyChugSplash = async (
       address: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
     },
     {
-      artifact: ChugSplashRegistryArtifact,
-      address: getChugSplashRegistryAddress(),
+      artifact: OZTransparentAdapterArtifact,
+      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
     },
-    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
+    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
+    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
+    { artifact: DefaultCreate2Artifact, address: DEFAULT_CREATE2_ADDRESS },
+    {
+      artifact: DefaultGasPriceCalculatorArtifact,
+      address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
+    },
+    { artifact: ManagedServiceArtifact, address: getManagedServiceAddress() },
   ]
 
   for (const { artifact, address } of contracts) {
@@ -211,15 +222,6 @@ export const verifyChugSplash = async (
       chugSplashConstructorArgs[sourceName]
     )
   }
-
-  // Link the ChugSplashRegistry's implementation with its proxy
-  await linkProxyWithImplementation(
-    etherscanApiEndpoints.urls,
-    apiKey,
-    getChugSplashRegistryAddress(),
-    getChugSplashRegistryAddress(),
-    'ChugSplashRegistry'
-  )
 }
 
 export const attemptVerification = async (
