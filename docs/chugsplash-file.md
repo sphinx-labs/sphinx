@@ -13,7 +13,9 @@ A ChugSplash config file contains all of the information necessary to deploy and
 
 ## Layout of a ChugSplash File
 
-ChugSplash config files can be defined in TypeScript, JavaScript, or JSON. A sample ChugSplash config file in TypeScript is shown below.
+When using ChugSplash's Hardhat plugin, config files can be defined in TypeScript, JavaScript, or JSON. When using ChugSplash's Foundry library, config files can only be defined in JavaScript or JSON.
+
+A sample ChugSplash config file in TypeScript is shown below.
 
 ```ts
 {

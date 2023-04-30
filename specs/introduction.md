@@ -16,7 +16,7 @@ contract MyContract {
 
 Notice that this contract does not contain a constructor or initializer function.
 
-To deploy this contract, the user defines a declarative configuration file (also known as a config file). The config file contains the information necessary to deploy all of the contracts in a project. A simplified version of the config for this project would look like:
+To deploy this contract, the user defines a declarative configuration file known as a **ChugSplash config file**. The config file contains the information necessary to deploy all of the contracts in a project. A simplified version of the config for this project would look like:
 
 ```ts
 {

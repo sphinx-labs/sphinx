@@ -1,10 +1,8 @@
 # ChugSplash Config Specification
 
+A ChugSplash config file is where a user declaratively defines the information necessary to deploy or upgrade all of the smart contracts in a project. Config files may be written in JavaScript, TypeScript, or JSON. This document describes the structure of a valid config file.
 
-
-ChugSplash config files may be written in Javascript, Typescript, or JSON. For Javascript and Typescript users, their config file must have a default export that is either a valid ChugSplash config object or an asynchronous function which resolves to a valid ChugSplash config object. JSON users may only export a valid ChugSplash config object. The rest of this document outlines what a valid config file is.
-
-> Note that when using the ChugSplash Foundry library, users are limited to either Javascript or JSON.
+TODO: move this to docs? Config files written in JavaScript or TypeScript must have a default export that is either a valid ChugSplash config object or an asynchronous function which resolves to a valid ChugSplash config object. JSON users may only export a valid ChugSplash config object.
 
 # Table of Contents
 - [Contract Config Definitions](#contract-config-definition)
@@ -23,6 +21,33 @@ ChugSplash config files may be written in Javascript, Typescript, or JSON. For J
 - [Mappings](#mappings)
 - [Structs](#structs)
 - [Arbitary Nested Types](#arbitary-nested-types)
+
+## Config Layout
+
+The most basic version of a config file is the following:
+
+```ts
+{
+    options: {
+        projectName: 'My ERC20 Project',
+        organizationID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    },
+    contracts: {
+        MyToken: {
+            contract: 'ERC20'
+            variables: {
+                name: 'My Token',
+                symbol: 'MYT',
+                decimals: 18,
+                totalSupply: 1000,
+            }
+        },
+        // Other contract definitions:
+        ...
+    }
+}
+```
 
 # Options
 There are three config option fields `organizationID`, `claimer`, and `projectName`. Each of these values impacts the addresses of contracts deployed using ChugSplash. All three of these fields are required for ChugSplash to uniquely identify the correct organization, project, and contract when performing a deployment or upgrade.
