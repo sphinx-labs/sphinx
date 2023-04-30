@@ -84,7 +84,7 @@ The `ChugSplashManager` contains the logic for:
 * Approving deployments via a multisig or governance.
 * Executing deployments via the project owner or trustlessly via a remote executor.
 * Paying the remote executor for deploying a project.
-* Exporting proxies from the ChugSplash system.
+* Exporting proxies out of the ChugSplash system.
 
 ## Execution
 
