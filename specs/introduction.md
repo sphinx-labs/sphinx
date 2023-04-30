@@ -70,14 +70,14 @@ The variable encoding process uses the contract's storage layout, and operates a
 With ChugSplash, a team can approve a deployment by submitting a single tiny transaction on-chain from their multisig. Once this transaction occurs, a remote executor trustlessly completes the deployment on behalf of the team. In order for this process to be trustless, the encoded config is converted into a Merkle tree, known as an **action bundle**.
 
 An action bundle's leafs are known as **actions**. There are two types of actions:
-1. `SET_STORAGE`: Sets a state variable in a proxy using a storage slot segment.
+1. `SET_STORAGE`: Sets a state variable in a proxy using a [storage slot segment](TODO).
 2. `DEPLOY_CONTRACT`: Deploys a contract's bytecode.
 
-During the approval step, the project owner approves the action bundle's Merkle root. The remote executor must supply the Merkle proof of each action during the deployment, or else the transaction will revert. This prevents the executor from supplying incorrect actions.
+During the approval step, the project owner approves the action bundle's Merkle root (in addition to a few other pieces of info). The remote executor must supply the Merkle proof of each action during the deployment, or else the transaction will revert. This prevents the executor from supplying incorrect actions.
 
 ## The `ChugSplashManager`
 
-All of the on-chain activity for a project occurs in the `ChugSplashManager` contract. Each team should have a single `ChugSplashManager`, which is owned exclusively by them. This contract is similar to the `ProxyAdmin` contract used by OpenZeppelin's Upgrades Plugin in the sense that the `ChugSplashManager` owns a team's proxies, and, in turn, the team owns the `ChugSplashManager`. However, the `ChugSplashManager` has additional functionality that does not exist in a `ProxyAdmin`.
+All of the on-chain activity for a project occurs in a `ChugSplashManager` contract. Each team has a single `ChugSplashManager`, which is owned exclusively by them. This contract is similar to the `ProxyAdmin` contract used by OpenZeppelin's Upgrades Plugin in the sense that the `ChugSplashManager` owns a team's proxies, and, in turn, the team owns the `ChugSplashManager`. However, the `ChugSplashManager` has additional functionality that does not exist in a `ProxyAdmin`.
 
 The `ChugSplashManager` contains the logic for:
 * Proposing deployments.
@@ -91,7 +91,7 @@ The `ChugSplashManager` contains the logic for:
 A deployment is executed in three phases, which must occur in order. These steps ensure that execution is **atomic**, which means the proxies are upgraded as a single unit.
 
 The steps are:
-1. **Initiation**: In the first transaction, all of the proxies in the config are disabled by setting their implementations to a contract This essentially disables all of the , preventing any account other than the team's `ChugSplashManager` contract. This step is only necessary for contracts that are being upgraded.
-2. `executeAction`: The deployment is executed using the `SetStorage` and `DeployImplementation` actions. This can consist of many transactions for a larger deployment.
-3. `completeExecution`: Each proxy is upgraded to its new implementation in a single transaction at the very end.
+1. **Initiate execution**: In the first transaction, all of the proxies in the config are disabled by setting their implementations to a contract that can only be called by the team's `ChugSplashManager` contract. This prevents end-users from interacting with the smart contracts while the upgrade is occurring. Although this step is only necessary for contracts that are being upgraded, it occurs for fresh deployments too.
+2. **Execute actions**: The deployment is executed using the `SetStorage` and `DeployImplementation` actions. This can consist of many transactions for a larger deployment.
+3. **Complete execution**: Each proxy is upgraded to its new implementation in a single transaction at the end of the deployment.
 
