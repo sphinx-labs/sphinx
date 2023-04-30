@@ -7,7 +7,7 @@ import {
   isContractDeployed,
 } from './utils'
 import {
-  ChugSplashBundles,
+  ChugSplashMerkleTrees,
   DeployContractAction,
   fromRawChugSplashAction,
   isDeployContractAction,
@@ -49,7 +49,7 @@ export const getOwnerWithdrawableAmount = async (
   )
 
   if (
-    (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+    (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
   ) {
     return ethers.BigNumber.from(0)
   }
@@ -61,11 +61,11 @@ export const getOwnerWithdrawableAmount = async (
 
 export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  trees: ChugSplashMerkleTrees,
   actionsExecuted: number,
   parsedConfig: ParsedChugSplashConfig
 ): Promise<ethers.BigNumber> => {
-  const actions = bundles.actionBundle.actions
+  const actions = trees.actionTree.actions
     .map((action) => fromRawChugSplashAction(action.action))
     .slice(actionsExecuted)
 
@@ -114,9 +114,9 @@ export const estimateExecutionGas = async (
     )
 
   // We also tack on an extra 200k gas for each proxy target (including any that are not being upgraded) to account
-  // for the variable cost of the `initiateBundleExecution` and `completeBundleExecution` functions.
+  // for the variable cost of the `initiateExecution` and `completeExecution` functions.
   const initiateAndCompleteCost = ethers.BigNumber.from(200_000).mul(
-    bundles.targetBundle.targets.length
+    trees.targetTree.targets.length
   )
 
   return estimatedGas
@@ -126,13 +126,13 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  trees: ChugSplashMerkleTrees,
   actionsExecuted: number,
   parsedConfig: ParsedChugSplashConfig
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
     provider,
-    bundles,
+    trees,
     actionsExecuted,
     parsedConfig
   )
@@ -151,7 +151,7 @@ export const estimateExecutionCost = async (
 
 export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  trees: ChugSplashMerkleTrees,
   actionsExecuted: number,
   parsedConfig: ParsedChugSplashConfig
 ): Promise<boolean> => {
@@ -163,7 +163,7 @@ export const hasSufficientFundsForExecution = async (
 
   const currExecutionCost = await estimateExecutionCost(
     provider,
-    bundles,
+    trees,
     actionsExecuted,
     parsedConfig
   )
@@ -173,14 +173,14 @@ export const hasSufficientFundsForExecution = async (
 
 export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  trees: ChugSplashMerkleTrees,
   actionsExecuted: number,
   parsedConfig: ParsedChugSplashConfig,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
     provider,
-    bundles,
+    trees,
     actionsExecuted,
     parsedConfig
   )

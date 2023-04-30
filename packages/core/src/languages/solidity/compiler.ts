@@ -7,19 +7,19 @@ import {
 import { providers } from 'ethers'
 
 import { CanonicalChugSplashConfig } from '../../config/types'
-import { ChugSplashBundles, makeBundlesFromConfig } from '../../actions'
+import { ChugSplashMerkleTrees, makeMerkleTreesFromConfig } from '../../actions'
 import { CompilerOutputContracts, CompilerOutputMetadata } from './types'
 import { getConfigArtifactsRemote } from '../../utils'
 
-export const bundleRemoteSubtask = async (args: {
+export const createMerkleTreesRemoteSubtask = async (args: {
   provider: providers.Provider
   canonicalConfig: CanonicalChugSplashConfig
-}): Promise<ChugSplashBundles> => {
+}): Promise<ChugSplashMerkleTrees> => {
   const { provider, canonicalConfig } = args
 
   const artifacts = await getConfigArtifactsRemote(canonicalConfig)
 
-  return makeBundlesFromConfig(provider, canonicalConfig, artifacts)
+  return makeMerkleTreesFromConfig(provider, canonicalConfig, artifacts)
 }
 
 // Credit: NomicFoundation

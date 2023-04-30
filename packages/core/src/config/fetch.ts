@@ -1,9 +1,9 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { ChugSplashBundles } from '../actions/types'
-import { bundleRemoteSubtask } from '../languages/solidity/compiler'
-import { callWithTimeout, computeBundleId } from '../utils'
+import { ChugSplashMerkleTrees } from '../actions/types'
+import { createMerkleTreesRemoteSubtask } from '../languages/solidity/compiler'
+import { callWithTimeout, computeDeploymentId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 
 export const chugsplashFetchSubtask = async (args: {
@@ -50,10 +50,10 @@ export const chugsplashFetchSubtask = async (args: {
   return config
 }
 
-export const verifyBundle = async (
+export const verifyDeployment = async (
   provider: providers.Provider,
   configUri: string,
-  bundleId: string,
+  deploymentId: string,
   ipfsUrl: string
 ) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
@@ -62,39 +62,39 @@ export const verifyBundle = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const { actionBundle, targetBundle } = await bundleRemoteSubtask({
+  const { actionTree, targetTree } = await createMerkleTreesRemoteSubtask({
     provider,
     canonicalConfig: config,
   })
 
   if (
-    bundleId !==
-    computeBundleId(
-      actionBundle.root,
-      targetBundle.root,
-      actionBundle.actions.length,
-      targetBundle.targets.length,
+    deploymentId !==
+    computeDeploymentId(
+      actionTree.root,
+      targetTree.root,
+      actionTree.actions.length,
+      targetTree.targets.length,
       configUri
     )
   ) {
     throw new Error(
-      'Bundle ID generated from downloaded config does NOT match given hash. Please report this error.'
+      'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
   }
 }
 
 /**
- * Compiles a remote ChugSplashBundle from a uri.
+ * Compiles a remote ChugSplashDeployment from a uri.
  *
- * @param configUri URI of the ChugSplashBundle to compile.
+ * @param configUri URI of the ChugSplashDeployment to compile.
  * @param provider JSON RPC provider.
- * @returns Compiled ChugSplashBundle.
+ * @returns Compiled ChugSplashDeployment.
  */
-export const compileRemoteBundles = async (
+export const compileRemoteMerkleTrees = async (
   provider: providers.Provider,
   configUri: string
 ): Promise<{
-  bundles: ChugSplashBundles
+  trees: ChugSplashMerkleTrees
   canonicalConfig: CanonicalChugSplashConfig
 }> => {
   const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
@@ -103,6 +103,9 @@ export const compileRemoteBundles = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = await bundleRemoteSubtask({ provider, canonicalConfig })
-  return { bundles, canonicalConfig }
+  const trees = await createMerkleTreesRemoteSubtask({
+    provider,
+    canonicalConfig,
+  })
+  return { trees, canonicalConfig }
 }

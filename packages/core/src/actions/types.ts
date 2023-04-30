@@ -11,7 +11,7 @@ export enum ChugSplashActionType {
 /**
  * The status of a given ChugSplash action.
  */
-export enum ChugSplashBundleStatus {
+export enum DeploymentStatus {
   EMPTY,
   PROPOSED,
   APPROVED,
@@ -61,9 +61,9 @@ export interface DeployContractAction {
   code: string
 }
 
-export interface ChugSplashBundles {
-  actionBundle: ChugSplashActionBundle
-  targetBundle: ChugSplashTargetBundle
+export interface ChugSplashMerkleTrees {
+  actionTree: ChugSplashActionTree
+  targetTree: ChugSplashTargetTree
 }
 
 /**
@@ -72,9 +72,9 @@ export interface ChugSplashBundles {
 export type ChugSplashAction = SetStorageAction | DeployContractAction
 
 /**
- * ChugSplash action that is part of a bundle.
+ * Action with its Merkle proof.
  */
-export type BundledChugSplashAction = {
+export type ActionWithProof = {
   action: RawChugSplashAction
   proof: {
     actionIndex: number
@@ -83,34 +83,34 @@ export type BundledChugSplashAction = {
 }
 
 /**
- * Bundle of ChugSplash targets.
+ * Target with its Merkle proof.
  */
-export interface BundledChugSplashTarget {
+export interface TargetWithProof {
   target: ChugSplashTarget
   siblings: string[]
 }
 
 /**
- * Bundle of ChugSplash actions.
+ * Merkle tree of ChugSplash actions.
  */
-export interface ChugSplashActionBundle {
+export interface ChugSplashActionTree {
   root: string
-  actions: BundledChugSplashAction[]
+  actions: ActionWithProof[]
 }
 
 /**
- * Bundle of ChugSplash targets.
+ * Merkle tree of ChugSplash actions.
  */
-export interface ChugSplashTargetBundle {
+export interface ChugSplashTargetTree {
   root: string
-  targets: BundledChugSplashTarget[]
+  targets: TargetWithProof[]
 }
 
 /**
- * The state of a ChugSplash bundle.
+ * The state of a ChugSplash deployment.
  */
-export type ChugSplashBundleState = {
-  status: ChugSplashBundleStatus
+export type ChugSplashDeploymentState = {
+  status: DeploymentStatus
   actions: boolean[]
   actionRoot: string
   targetRoot: string

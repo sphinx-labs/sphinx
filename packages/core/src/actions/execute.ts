@@ -2,31 +2,31 @@ import { ethers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
-  BundledChugSplashAction,
-  ChugSplashBundles,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
+  ActionWithProof,
+  ChugSplashMerkleTrees,
+  ChugSplashDeploymentState,
+  DeploymentStatus,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
-  bundles: ChugSplashBundles
-  bundleState: ChugSplashBundleState
+  trees: ChugSplashMerkleTrees
+  deploymentState: ChugSplashDeploymentState
   executor: ethers.Signer
   provider: ethers.providers.Provider
   projectName: string
   logger?: Logger | undefined
 }) => {
-  const { bundles, bundleState, executor, provider, projectName, logger } = args
+  const { trees, deploymentState, executor, provider, projectName, logger } = args
 
   const chugSplashManager = args.chugSplashManager.connect(executor)
 
-  const { actionBundle, targetBundle } = bundles
+  const { actionTree, targetTree } = trees
 
   logger?.info(`[ChugSplash]: preparing to execute the project...`)
 
-  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+  if (deploymentState.status === DeploymentStatus.COMPLETED) {
     logger?.info(`[ChugSplash]: already executed: ${projectName}`)
     return
   }
@@ -48,7 +48,7 @@ export const executeTask = async (args: {
    * @returns Maximum number of actions that can be executed.
    */
   const findMaxBatchSize = async (
-    actions: BundledChugSplashAction[]
+    actions: ActionWithProof[]
   ): Promise<number> => {
     /**
      * Helper function that determines if a given batch is executable.
@@ -57,7 +57,7 @@ export const executeTask = async (args: {
      * @returns True if the batch is executable, false otherwise.
      */
     const executable = async (
-      selected: BundledChugSplashAction[]
+      selected: ActionWithProof[]
     ): Promise<boolean> => {
       try {
         await chugSplashManager.callStatic.executeActions(
@@ -110,11 +110,11 @@ export const executeTask = async (args: {
    *
    * @param actions List of actions to execute.
    */
-  const executeBatchActions = async (actions: BundledChugSplashAction[]) => {
-    // Pull the bundle state from the contract so we're guaranteed to be up to date.
-    const activeBundleId = await chugSplashManager.activeBundleId()
-    const state: ChugSplashBundleState = await chugSplashManager.bundles(
-      activeBundleId
+  const executeBatchActions = async (actions: ActionWithProof[]) => {
+    // Pull the deployment state from the contract so we're guaranteed to be up to date.
+    const activeDeploymentId = await chugSplashManager.activeDeploymentId()
+    const state: ChugSplashDeploymentState = await chugSplashManager.deployments(
+      activeDeploymentId
     )
 
     // Filter out any actions that have already been executed, sort by ascending action index.
@@ -164,9 +164,9 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: initiating execution...`)
   await (
-    await chugSplashManager.initiateBundleExecution(
-      targetBundle.targets.map((target) => target.target),
-      targetBundle.targets.map((target) => target.siblings),
+    await chugSplashManager.initiateExecution(
+      targetTree.targets.map((target) => target.target),
+      targetTree.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
     )
   ).wait()
@@ -175,14 +175,14 @@ export const executeTask = async (args: {
 
   // Execute actions in batches.
   logger?.info(`[ChugSplash]: executing actions...`)
-  await executeBatchActions(actionBundle.actions)
+  await executeBatchActions(actionTree.actions)
   logger?.info(`[ChugSplash]: executed actions`)
 
   logger?.info(`[ChugSplash]: completing execution...`)
   await (
-    await chugSplashManager.completeBundleExecution(
-      targetBundle.targets.map((target) => target.target),
-      targetBundle.targets.map((target) => target.siblings),
+    await chugSplashManager.completeExecution(
+      targetTree.targets.map((target) => target.target),
+      targetTree.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
     )
   ).wait()

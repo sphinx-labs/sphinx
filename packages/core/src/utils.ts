@@ -55,7 +55,7 @@ import {
   ConfigArtifacts,
   ParsedConfigVariable,
 } from './config/types'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
+import { ChugSplashActionTree, ChugSplashActionType } from './actions/types'
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
@@ -69,7 +69,7 @@ import {
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 
-export const computeBundleId = (
+export const computeDeploymentId = (
   actionRoot: string,
   targetRoot: string,
   numActions: number,
@@ -414,10 +414,10 @@ export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
 }
 
 export const getCurrentChugSplashActionType = (
-  bundle: ChugSplashActionBundle,
+  deployment: ChugSplashActionTree,
   actionsExecuted: ethers.BigNumber
 ): ChugSplashActionType => {
-  return bundle.actions[actionsExecuted.toNumber()].action.actionType
+  return deployment.actions[actionsExecuted.toNumber()].action.actionType
 }
 
 export const isContractDeployed = async (
@@ -1133,18 +1133,18 @@ export const getPreviousCanonicalConfig = async (
 
   const latestProposalEvent = (
     await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashBundleProposed(
-        latestExecutionEvent.args.bundleId
+      ChugSplashManager.filters.ChugSplashDeploymentProposed(
+        latestExecutionEvent.args.deploymentId
       )
     )
   ).at(-1)
 
   if (latestProposalEvent === undefined) {
     throw new Error(
-      `ChugSplashManager emitted a ChugSplashActionExecuted event but not a ChugSplashBundleProposed event`
+      `ChugSplashManager emitted a ChugSplashActionExecuted event but not a ChugSplashDeploymentProposed event`
     )
   } else if (latestProposalEvent.args === undefined) {
-    throw new Error(`ChugSplashBundleProposed event does not have args`)
+    throw new Error(`ChugSplashDeploymentProposed event does not have args`)
   }
 
   if (remoteExecution) {
@@ -1235,23 +1235,23 @@ export const getConfigArtifactsRemote = async (
 
 export const getDeploymentEvents = async (
   ChugSplashManager: ethers.Contract,
-  bundleId: string
+  deploymentId: string
 ): Promise<ethers.Event[]> => {
   const [approvalEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleApproved(bundleId)
+    ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
   )
   const [completedEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashBundleCompleted(bundleId)
+    ChugSplashManager.filters.ChugSplashDeploymentCompleted(deploymentId)
   )
 
   const proxyDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.DefaultProxyDeployed(null, null, bundleId),
+    ChugSplashManager.filters.DefaultProxyDeployed(null, null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
 
   const contractDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ContractDeployed(null, null, bundleId),
+    ChugSplashManager.filters.ContractDeployed(null, null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )

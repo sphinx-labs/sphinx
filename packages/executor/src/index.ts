@@ -106,9 +106,9 @@ export class ChugSplashExecutor extends BaseServiceV2<
       level: options.logLevel,
     })
 
-    // This represents a queue of "BundleApproved" events to execute.
+    // This represents a queue of "DeploymentApproved" events to execute.
     this.state.eventsQueue = []
-    // This represents a cache of "BundleApproved" events which are currently being executed.
+    // This represents a cache of "DeploymentApproved" events which are currently being executed.
     this.state.executionCache = []
 
     const keyStrings = options.privateKeys.split(',')
@@ -166,7 +166,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnounced('ChugSplashBundleApproved'),
+      registry.filters.EventAnnounced('ChugSplashDeploymentApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )
@@ -204,7 +204,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     // execution, and we only want to attempt to execute each element once.
     const eventsCopy = this.state.eventsQueue.slice()
 
-    // execute all approved bundles
+    // execute all approved trees
     for (const executorEvent of eventsCopy) {
       this.logger.info('[ChugSplash]: detected a project...')
 

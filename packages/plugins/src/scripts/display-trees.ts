@@ -19,13 +19,13 @@ if (typeof chugsplashFilePath !== 'string') {
 }
 
 /**
- * Display a ChugSplash bundle. This script can be called by running:
- * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/chugsplash/file>
+ * Display a ChugSplash deployment. This script can be called by running:
+ * npx ts-node --require hardhat/register src/scripts/display-deployment-info.ts <path/to/chugsplash/file>
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
- * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
+ * This makes it easy to generate trees to be used when unit testing the ChugSplashManager.*
  */
-const displayBundleInfo = async () => {
+const displayDeploymentInfo = async () => {
   const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
   const artifactPaths = await getArtifactPaths(
     hre,
@@ -51,7 +51,7 @@ const displayBundleInfo = async () => {
     cre
   )
 
-  const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
+  const { configUri, trees } = await chugsplashCommitAbstractSubtask(
     hre.ethers.provider,
     parsedConfig,
     '',
@@ -62,15 +62,15 @@ const displayBundleInfo = async () => {
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.
-  for (const action of bundles.actionBundle.actions) {
+  for (const action of trees.actionTree.actions) {
     action.proof.siblings = action.proof.siblings.map((sibling) =>
       utils.hexlify(sibling)
     )
   }
 
-  const bundleInfo = { configUri, bundles }
+  const deploymentInfo = { configUri, trees }
 
-  process.stdout.write(JSON.stringify(bundleInfo, null, 2))
+  process.stdout.write(JSON.stringify(deploymentInfo, null, 2))
 }
 
-displayBundleInfo()
+displayDeploymentInfo()

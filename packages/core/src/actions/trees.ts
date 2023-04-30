@@ -23,11 +23,11 @@ import {
 } from '../utils'
 import {
   ChugSplashAction,
-  ChugSplashActionBundle,
+  ChugSplashActionTree,
   ChugSplashActionType,
-  ChugSplashBundles,
+  ChugSplashMerkleTrees,
   ChugSplashTarget,
-  ChugSplashTargetBundle,
+  ChugSplashTargetTree,
   DeployContractAction,
   RawChugSplashAction,
   SetStorageAction,
@@ -172,9 +172,9 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
   )
 }
 
-export const makeBundleFromTargets = (
+export const makeTargetTree = (
   targets: ChugSplashTarget[]
-): ChugSplashTargetBundle => {
+): ChugSplashTargetTree => {
   // Compute the hash for each action.
   const elements = targets.map((target) => {
     return getTargetHash(target)
@@ -196,15 +196,15 @@ export const makeBundleFromTargets = (
 }
 
 /**
- * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
+ * Generates an action tree from a set of actions. Effectively encodes the inputs that will be
  * provided to the ChugSplashManager contract.
  *
- * @param actions Series of DeployContract and SetStorage actions to bundle.
- * @return Bundled actions.
+ * @param actions Series of DeployContract and SetStorage actions to deployment.
+ * @return Merkle tree of actions.
  */
-export const makeBundleFromActions = (
+export const makeActionTree = (
   actions: ChugSplashAction[]
-): ChugSplashActionBundle => {
+): ChugSplashActionTree => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
     return toRawChugSplashAction(action)
@@ -255,12 +255,12 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const bundleLocal = async (
+export const createMerkleTreesLocal = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   integration: Integration
-): Promise<ChugSplashBundles> => {
+): Promise<ChugSplashMerkleTrees> => {
   const artifacts: ConfigArtifacts = {}
   for (const referenceName of Object.keys(parsedConfig.contracts)) {
     const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
@@ -275,35 +275,35 @@ export const bundleLocal = async (
     }
   }
 
-  return makeBundlesFromConfig(provider, parsedConfig, artifacts)
+  return makeMerkleTreesFromConfig(provider, parsedConfig, artifacts)
 }
 
-export const makeBundlesFromConfig = async (
+export const makeMerkleTreesFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifacts: ConfigArtifacts
-): Promise<ChugSplashBundles> => {
-  const actionBundle = await makeActionBundleFromConfig(
+): Promise<ChugSplashMerkleTrees> => {
+  const actionTree = await makeActionTreeFromConfig(
     provider,
     parsedConfig,
     artifacts
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
-  return { actionBundle, targetBundle }
+  const targetTree = makeTargetTreeFromConfig(parsedConfig, artifacts)
+  return { actionTree, targetTree }
 }
 
 /**
- * Generates a ChugSplash action bundle from a config file.
+ * Generates a ChugSplash action tree from a config file.
  *
- * @param config Config file to convert into a bundle.
+ * @param config Config file to convert into a deployment.
  * @param env Environment variables to inject into the config file.
- * @returns Action bundle generated from the parsed config file.
+ * @returns Action tree generated from the parsed config file.
  */
-export const makeActionBundleFromConfig = async (
+export const makeActionTreeFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   artifacts: ConfigArtifacts
-): Promise<ChugSplashActionBundle> => {
+): Promise<ChugSplashActionTree> => {
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.claimer,
     parsedConfig.options.organizationID
@@ -367,22 +367,22 @@ export const makeActionBundleFromConfig = async (
     }
   }
 
-  // Generate a bundle from the list of actions.
-  return makeBundleFromActions(actions)
+  // Generate a deployment from the list of actions.
+  return makeActionTree(actions)
 }
 
 /**
- * Generates a ChugSplash target bundle from a config file. Note that non-proxied contract types are
- * not included in the target bundle.
+ * Generates a ChugSplash target tree from a config file. Note that non-proxied contract types are
+ * not included in the target tree.
  *
- * @param config Config file to convert into a bundle.
+ * @param config Config file to convert into a deployment.
  * @param env Environment variables to inject into the config file.
- * @returns Target bundle generated from the parsed config file.
+ * @returns target tree generated from the parsed config file.
  */
-export const makeTargetBundleFromConfig = (
+export const makeTargetTreeFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: ConfigArtifacts
-): ChugSplashTargetBundle => {
+): ChugSplashTargetTree => {
   const { projectName, organizationID, claimer } = parsedConfig.options
 
   const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
@@ -409,6 +409,6 @@ export const makeTargetBundleFromConfig = (
     }
   }
 
-  // Generate a bundle from the list of actions.
-  return makeBundleFromTargets(targets)
+  // Generate a deployment from the list of actions.
+  return makeTargetTree(targets)
 }

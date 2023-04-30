@@ -2,36 +2,22 @@
 pragma solidity ^0.8.15;
 
 /**
- * @notice Struct representing an entire ChugSplash bundle.
+ * @notice Struct representing the state of a ChugSplash deployment.
+ *
+ * @custom:field status           Status of the deployment.
+ * @custom:field actions          Array indicating which actions in the deployment have been executed.
+ * @custom:field numTargets          Number of targets in the deployment.
+ * @custom:field actionRoot       Root of the Merkle tree of actions in the deployment.
+ * @custom:field targetRoot       Root of the Merkle tree of targets in the deployment.
+ * @custom:field actionsExecuted  Number of actions that have been executed in the deployment.
+ * @custom:field timeClaimed      Timestamp at which the deployment was claimed.
+ * @custom:field selectedExecutor Address of the selected executor for the deployment.
+ * @custom:field remoteExecution  Whether the deployment should be executed remotely.
  */
-struct ChugSplashBundle {
-    ChugSplashActionWithProof[] actions;
-    bytes32 root;
-}
-
-/**
- * @notice Struct representing a single ChugSplash action along with its Merkle proof.
- */
-struct ChugSplashActionWithProof {
-    ChugSplashAction action;
-    ChugSplashProof proof;
-}
-
-/**
- * @notice Struct representing a Merkle proof for a single ChugSplash action.
- */
-struct ChugSplashProof {
-    uint256 actionIndex;
-    bytes32[] siblings;
-}
-
-/**
- * @notice Struct representing the state of a ChugSplash bundle.
- */
-struct ChugSplashBundleState {
-    ChugSplashBundleStatus status;
+struct ChugSplashDeploymentState {
+    DeploymentStatus status;
     bool[] actions;
-    uint256 targets;
+    uint256 numTargets;
     bytes32 actionRoot;
     bytes32 targetRoot;
     uint256 actionsExecuted;
@@ -42,6 +28,12 @@ struct ChugSplashBundleState {
 
 /**
  * @notice Struct representing a ChugSplash action.
+ *
+ * @custom:field actionType       Type of the action (set storage or deploy contract).
+ * @custom:field data             Data associated with the action.
+ * @custom:field addr             Address of the contract associated with the action.
+ * @custom:field contractKindHash Hash of the contract kind associated with the action.
+ * @custom:field referenceName    Reference name associated with the action.
  */
 struct ChugSplashAction {
     ChugSplashActionType actionType;
@@ -53,6 +45,12 @@ struct ChugSplashAction {
 
 /**
  * @notice Struct representing a ChugSplash target.
+ *
+ * @custom:field projectName     Name of the project associated with the target.
+ * @custom:field referenceName   Reference name associated with the target.
+ * @custom:field addr            Address of the target.
+ * @custom:field implementation  Address of the implementation associated with the target.
+ * @custom:field contractKindHash Hash of the contract kind associated with the target.
  */
 struct ChugSplashTarget {
     string projectName;
@@ -64,6 +62,9 @@ struct ChugSplashTarget {
 
 /**
  * @notice Enum representing possible ChugSplash action types.
+ *
+ * @custom:member SET_STORAGE
+ * @custom:member DEPLOY_CONTRACT
  */
 enum ChugSplashActionType {
     SET_STORAGE,
@@ -72,8 +73,15 @@ enum ChugSplashActionType {
 
 /**
  * @notice Enum representing the status of a given ChugSplash action.
+ *
+ * @custom:member EMPTY
+ * @custom:member PROPOSED
+ * @custom:member APPROVED
+ * @custom:member INITIATED
+ * @custom:member COMPLETED
+ * @custom:member CANCELLED
  */
-enum ChugSplashBundleStatus {
+enum DeploymentStatus {
     EMPTY,
     PROPOSED,
     APPROVED,

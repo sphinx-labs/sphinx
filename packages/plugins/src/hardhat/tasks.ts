@@ -15,7 +15,7 @@ import {
   chugsplashFetchSubtask,
   chugsplashClaimAbstractTask,
   chugsplashCommitAbstractSubtask,
-  bundleLocal,
+  createMerkleTreesLocal,
   chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
@@ -25,8 +25,8 @@ import {
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
   ArtifactPaths,
-  bundleRemoteSubtask,
-  ChugSplashBundles,
+  createMerkleTreesRemoteSubtask,
+  ChugSplashMerkleTrees,
   readValidatedChugSplashConfig,
   readUnvalidatedChugSplashConfig,
   isLiveNetwork,
@@ -55,10 +55,12 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
-export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
+export const TASK_CHUGSPLASH_CREATE_TREES_LOCAL =
+  'chugsplash-create-trees-local'
+export const TASK_CHUGSPLASH_CREATE_TREES_REMOTE =
+  'chugsplash-create-trees-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-export const TASK_CHUGSPLASH_LIST_BUNDLES = 'chugsplash-list-bundles'
+export const TASK_CHUGSPLASH_LIST_TREES = 'chugsplash-list-trees'
 export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
@@ -77,11 +79,11 @@ subtask(TASK_CHUGSPLASH_FETCH)
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(chugsplashFetchSubtask)
 
-subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
+subtask(TASK_CHUGSPLASH_CREATE_TREES_REMOTE)
   .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(bundleRemoteSubtask)
+  .setAction(createMerkleTreesRemoteSubtask)
 
-export const bundleLocalSubtask = async (
+export const createMerkleTreesLocalSubtask = async (
   args: {
     parsedConfig: ParsedChugSplashConfig
     artifactPaths: ArtifactPaths
@@ -90,7 +92,7 @@ export const bundleLocalSubtask = async (
 ) => {
   const { parsedConfig, artifactPaths } = args
 
-  return bundleLocal(
+  return createMerkleTreesLocal(
     hre.ethers.provider,
     parsedConfig,
     artifactPaths,
@@ -98,9 +100,9 @@ export const bundleLocalSubtask = async (
   )
 }
 
-subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
+subtask(TASK_CHUGSPLASH_CREATE_TREES_LOCAL)
   .addParam('parsedConfig', undefined, undefined)
-  .setAction(bundleLocalSubtask)
+  .setAction(createMerkleTreesLocalSubtask)
 
 export const chugsplashDeployTask = async (
   args: {
@@ -360,9 +362,9 @@ export const chugsplashCommitSubtask = async (
   },
   hre: HardhatRuntimeEnvironment
 ): Promise<{
-  bundles: ChugSplashBundles
+  trees: ChugSplashMerkleTrees
   configUri: string
-  bundleId: string
+  deploymentId: string
 }> => {
   const {
     parsedConfig,
@@ -399,11 +401,11 @@ subtask(TASK_CHUGSPLASH_COMMIT)
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(chugsplashCommitSubtask)
 
-subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
-  .setDescription('Lists all bundles for a given project')
+subtask(TASK_CHUGSPLASH_LIST_TREES)
+  .setDescription('Lists all trees for a given project')
   .addParam('claimer', 'Claimer address')
   .addParam('organizationID', 'Organization ID')
-  .addFlag('includeExecuted', 'include bundles that have been executed')
+  .addFlag('includeExecuted', 'include trees that have been executed')
   .setAction(
     async (
       args: {
@@ -425,98 +427,104 @@ subtask(TASK_CHUGSPLASH_LIST_BUNDLES)
         signer
       )
 
-      // Get events for all bundles that have been proposed. This array includes
+      // Get events for all trees that have been proposed. This array includes
       // events that have been approved and executed, which will be filtered out.
       const proposedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashBundleProposed()
+        ChugSplashManager.filters.ChugSplashDeploymentProposed()
       )
 
       // Exit early if there are no proposals for the project.
       if (proposedEvents.length === 0) {
-        console.log('There are no bundles for this project.')
+        console.log('There are no trees for this project.')
         return
       }
 
-      // Filter out the approved bundle event if there is a currently active bundle
-      const activeBundleId = await ChugSplashManager.activeBundleId()
+      // Filter out the approved deployment event if there is a currently active deployment
+      const activeDeploymentId = await ChugSplashManager.activeDeploymentId()
 
       let approvedEvent: any
-      if (activeBundleId !== ethers.constants.HashZero) {
+      if (activeDeploymentId !== ethers.constants.HashZero) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const proposedEvent = proposedEvents[i]
           if (proposedEvent.args === undefined) {
-            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+            throw new Error(
+              `ChugSplashDeploymentProposed does not have arguments.`
+            )
           }
 
-          const bundleId = proposedEvent.args.bundleId
-          if (bundleId === activeBundleId) {
-            // Remove the active bundle event in-place and return it.
+          const deploymentId = proposedEvent.args.deploymentId
+          if (deploymentId === activeDeploymentId) {
+            // Remove the active deployment event in-place and return it.
             approvedEvent = proposedEvents.splice(i, 1)
 
             // It's fine to break out of the loop here since there is only one
-            // active bundle at a time.
+            // active deployment at a time.
             break
           }
         }
       }
 
       const executedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashBundleCompleted()
+        ChugSplashManager.filters.ChugSplashDeploymentCompleted()
       )
 
       for (const executed of executedEvents) {
         for (let i = 0; i < proposedEvents.length; i++) {
           const proposed = proposedEvents[i]
           if (proposed.args === undefined) {
-            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+            throw new Error(
+              `ChugSplashDeploymentProposed does not have arguments.`
+            )
           } else if (executed.args === undefined) {
             throw new Error(
-              `ChugSplashBundleCompleted event does not have arguments.`
+              `ChugSplashDeploymentCompleted event does not have arguments.`
             )
           }
-          // Remove the event if the bundle hashes match
-          if (proposed.args.bundleId === executed.args.bundleId) {
+          // Remove the event if the deployment hashes match
+          if (proposed.args.deploymentId === executed.args.deploymentId) {
             proposedEvents.splice(i, 1)
           }
         }
       }
 
       if (proposedEvents.length === 0) {
-        // Accounts for the case where there is only one bundle, and it is approved.
-        console.log('There are currently no proposed bundles.')
+        // Accounts for the case where there is only one deployment, and it is approved.
+        console.log('There are currently no proposed trees.')
       } else {
-        // Display the proposed bundles
+        // Display the proposed trees
         console.log(`Proposals:`)
         proposedEvents.forEach((event) => {
           if (event.args === undefined) {
-            throw new Error(`ChugSplashBundleProposed does not have arguments.`)
+            throw new Error(
+              `ChugSplashDeploymentProposed does not have arguments.`
+            )
           }
           console.log(
-            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
+            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
           )
         })
       }
 
-      // Display the approved bundle if it exists
-      if (activeBundleId !== ethers.constants.HashZero) {
+      // Display the approved deployment if it exists
+      if (activeDeploymentId !== ethers.constants.HashZero) {
         console.log('Approved:')
         console.log(
-          `Bundle ID: ${activeBundleId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
+          `Deployment ID: ${activeDeploymentId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
         )
       }
 
-      // Display the executed bundles if the user has specified to do so
+      // Display the executed trees if the user has specified to do so
       if (args.includeExecuted) {
         console.log('\n')
         console.log('Executed:')
         executedEvents.forEach((event) => {
           if (event.args === undefined) {
             throw new Error(
-              `ChugSplashBundleCompleted event does not have arguments.`
+              `ChugSplashDeploymentCompleted event does not have arguments.`
             )
           }
           console.log(
-            `Bundle ID: ${event.args.bundleId}\t\tConfig URI: ${event.args.configUri}`
+            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
           )
         })
       }

@@ -14,10 +14,10 @@ import {
   contractKindHashes,
   readUnvalidatedChugSplashConfig,
   UserChugSplashConfig,
-  verifyBundle,
+  verifyDeployment,
 } from '../config'
 import {
-  computeBundleId,
+  computeDeploymentId,
   displayDeploymentTable,
   formatEther,
   generateFoundryTestArtifacts,
@@ -46,10 +46,10 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import {
-  bundleLocal,
-  ChugSplashBundles,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
+  createMerkleTreesLocal,
+  ChugSplashMerkleTrees,
+  ChugSplashDeploymentState,
+  DeploymentStatus,
   executeTask,
   writeDeploymentArtifacts,
 } from '../actions'
@@ -165,10 +165,10 @@ export const chugsplashProposeAbstractTask = async (
     spinner.succeed('ChugSplash is ready to go.')
   }
 
-  // Get the bundle info by calling the commit subtask locally (i.e. without publishing the
-  // bundle to IPFS). This allows us to ensure that the bundle state is empty before we submit
+  // Get the deployment info by calling the commit subtask locally (i.e. without publishing the
+  // deployment to IPFS). This allows us to ensure that the deployment state is empty before we submit
   // it to IPFS.
-  const { bundles, configUri, bundleId } =
+  const { trees, configUri, deploymentId } =
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
@@ -181,33 +181,32 @@ export const chugsplashProposeAbstractTask = async (
 
   spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
 
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
+  const deploymentState: ChugSplashDeploymentState =
+    await ChugSplashManager.deployments(deploymentId)
 
   const networkName = await resolveNetworkName(provider, integration)
   if (
-    bundleState.status === ChugSplashBundleStatus.APPROVED ||
-    bundleState.status === ChugSplashBundleStatus.INITIATED
+    deploymentState.status === DeploymentStatus.APPROVED ||
+    deploymentState.status === DeploymentStatus.INITIATED
   ) {
     spinner.fail(
       `Project was already proposed and is currently being executed on ${networkName}.`
     )
   } else {
-    // If we make it to this point, we know that the bundle is either currently proposed or can be
+    // If we make it to this point, we know that the deployment is either currently proposed or can be
     // proposed.
 
-    // Get the amount that the user must send to the ChugSplashManager to execute the bundle
+    // Get the amount that the user must send to the ChugSplashManager to execute the deployment
     // including a buffer in case the gas price increases during execution.
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundles,
+      trees,
       0,
       parsedConfig,
       true
     )
 
-    if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+    if (deploymentState.status === DeploymentStatus.PROPOSED) {
       spinner.fail(
         await alreadyProposedMessage(
           provider,
@@ -220,11 +219,11 @@ export const chugsplashProposeAbstractTask = async (
       spinner.succeed(`${parsedConfig.options.projectName} can be proposed.`)
       spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
-      await proposeChugSplashBundle(
+      await proposeChugSplashDeployment(
         provider,
         signer,
         parsedConfig,
-        bundles,
+        trees,
         configUri,
         remoteExecution,
         ipfsUrl,
@@ -254,9 +253,9 @@ export const chugsplashCommitAbstractSubtask = async (
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
-  bundles: ChugSplashBundles
+  trees: ChugSplashMerkleTrees
   configUri: string
-  bundleId: string
+  deploymentId: string
 }> => {
   const networkName = await resolveNetworkName(provider, integration)
   if (spinner) {
@@ -348,7 +347,7 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundles = await bundleLocal(
+  const trees = await createMerkleTreesLocal(
     provider,
     parsedConfig,
     artifactPaths,
@@ -356,11 +355,11 @@ IPFS_API_KEY_SECRET: ...
   )
 
   const configUri = `ipfs://${ipfsHash}`
-  const bundleId = computeBundleId(
-    bundles.actionBundle.root,
-    bundles.targetBundle.root,
-    bundles.actionBundle.actions.length,
-    bundles.targetBundle.targets.length,
+  const deploymentId = computeDeploymentId(
+    trees.actionTree.root,
+    trees.targetTree.root,
+    trees.actionTree.actions.length,
+    trees.targetTree.targets.length,
     configUri
   )
 
@@ -384,7 +383,7 @@ IPFS_API_KEY_SECRET: ...
         )
   }
 
-  return { bundles, configUri, bundleId }
+  return { trees, configUri, deploymentId }
 }
 
 export const chugsplashApproveAbstractTask = async (
@@ -426,9 +425,9 @@ Caller's address: ${signerAddress}
 Owner's address: ${projectOwnerAddress}`)
   }
 
-  // Call the commit subtask locally to get the bundle ID without publishing
+  // Call the commit subtask locally to get the deployment ID without publishing
   // anything to IPFS.
-  const { bundleId, bundles } = await chugsplashCommitAbstractSubtask(
+  const { deploymentId, trees } = await chugsplashCommitAbstractSubtask(
     provider,
     parsedConfig,
     '',
@@ -439,32 +438,31 @@ Owner's address: ${projectOwnerAddress}`)
     spinner
   )
 
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
-  const activeBundleId = await ChugSplashManager.activeBundleId()
-  if (bundleState.status === ChugSplashBundleStatus.EMPTY) {
+  const deploymentState: ChugSplashDeploymentState =
+    await ChugSplashManager.deployments(deploymentId)
+  const activeDeploymentId = await ChugSplashManager.activeDeploymentId()
+  if (deploymentState.status === DeploymentStatus.EMPTY) {
     throw new Error(`You must first propose the project before it can be approved.
 To propose the project, run the command:
 
 npx hardhat chugsplash-propose --network <network> --config-path ${configPath}`)
-  } else if (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+  } else if (deploymentState.status === DeploymentStatus.APPROVED) {
     spinner.succeed(
       `Project has already been approved. It should be executed shortly.`
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+  } else if (deploymentState.status === DeploymentStatus.COMPLETED) {
     spinner.succeed(`Project was already completed on ${networkName}.`)
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+  } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
     throw new Error(`Project was already cancelled on ${networkName}.`)
-  } else if (activeBundleId !== ethers.constants.HashZero) {
+  } else if (activeDeploymentId !== ethers.constants.HashZero) {
     throw new Error(
       `Another project is currently being executed.
 Please wait a couple minutes then try again.`
     )
-  } else if (bundleState.status === ChugSplashBundleStatus.PROPOSED) {
+  } else if (deploymentState.status === DeploymentStatus.PROPOSED) {
     await (
-      await ChugSplashManager.approveChugSplashBundle(
-        bundleId,
+      await ChugSplashManager.approveChugSplashDeployment(
+        deploymentId,
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -486,15 +484,15 @@ Please wait a couple minutes then try again.`
         provider,
         signer,
         parsedConfig,
-        bundles,
-        bundleId,
+        trees,
+        deploymentId,
         spinner
       )
       await postExecutionActions(
         provider,
         signer,
         parsedConfig,
-        await getDeploymentEvents(ChugSplashManager, bundleId),
+        await getDeploymentEvents(ChugSplashManager, deploymentId),
         networkName,
         deploymentFolderPath,
         artifactPaths,
@@ -539,7 +537,12 @@ export const chugsplashFundAbstractTask = async (
 
   const amountToDeposit = await getAmountToDeposit(
     provider,
-    await bundleLocal(provider, parsedConfig, artifactPaths, integration),
+    await createMerkleTreesLocal(
+      provider,
+      parsedConfig,
+      artifactPaths,
+      integration
+    ),
     0,
     parsedConfig,
     true
@@ -609,8 +612,8 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`Successfully claimed ${projectName}.`)
   }
 
-  // Get the bundle ID without publishing anything to IPFS.
-  const { bundleId, bundles, configUri } =
+  // Get the deployment ID without publishing anything to IPFS.
+  const { deploymentId, trees, configUri } =
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
@@ -623,16 +626,15 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
-  )
-  let currBundleStatus = bundleState.status
+  const deploymentState: ChugSplashDeploymentState =
+    await ChugSplashManager.deployments(deploymentId)
+  let currDeploymentStatus = deploymentState.status
 
-  if (currBundleStatus === ChugSplashBundleStatus.COMPLETED) {
+  if (currDeploymentStatus === DeploymentStatus.COMPLETED) {
     await writeDeploymentArtifacts(
       provider,
       parsedConfig,
-      await getDeploymentEvents(ChugSplashManager, bundleId),
+      await getDeploymentEvents(ChugSplashManager, deploymentId),
       networkName,
       deploymentFolder,
       artifactPaths,
@@ -650,21 +652,21 @@ export const chugsplashDeployAbstractTask = async (
     } else {
       return generateFoundryTestArtifacts(parsedConfig)
     }
-  } else if (currBundleStatus === ChugSplashBundleStatus.CANCELLED) {
+  } else if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
     spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
     throw new Error(
       `${projectName} was previously cancelled on ${networkName}.`
     )
   }
 
-  if (currBundleStatus === ChugSplashBundleStatus.EMPTY) {
+  if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
     spinner.start(`Proposing ${projectName}...`)
-    await proposeChugSplashBundle(
+    await proposeChugSplashDeployment(
       provider,
       signer,
       parsedConfig,
-      bundles,
+      trees,
       configUri,
       false,
       '',
@@ -673,10 +675,10 @@ export const chugsplashDeployAbstractTask = async (
       canonicalConfigPath,
       integration
     )
-    currBundleStatus = ChugSplashBundleStatus.PROPOSED
+    currDeploymentStatus = DeploymentStatus.PROPOSED
   }
 
-  if (currBundleStatus === ChugSplashBundleStatus.PROPOSED) {
+  if (currDeploymentStatus === DeploymentStatus.PROPOSED) {
     // Approve the deployment.
     await chugsplashApproveAbstractTask(
       provider,
@@ -691,17 +693,17 @@ export const chugsplashDeployAbstractTask = async (
       cre
     )
 
-    currBundleStatus = ChugSplashBundleStatus.APPROVED
+    currDeploymentStatus = DeploymentStatus.APPROVED
   }
 
-  // At this point, we know that the bundle is active.
+  // At this point, we know that the deployment is active.
 
   spinner.start(`Executing ${projectName}...`)
 
   await executeTask({
     chugSplashManager: ChugSplashManager,
-    bundles,
-    bundleState,
+    trees,
+    deploymentState,
     executor: signer,
     provider,
     projectName,
@@ -713,7 +715,7 @@ export const chugsplashDeployAbstractTask = async (
     provider,
     signer,
     parsedConfig,
-    await getDeploymentEvents(ChugSplashManager, bundleId),
+    await getDeploymentEvents(ChugSplashManager, deploymentId),
     networkName,
     deploymentFolder,
     artifactPaths,
@@ -749,7 +751,7 @@ export const chugsplashDeployAbstractTask = async (
     }
   }
 
-  // At this point, the bundle has been completed.
+  // At this point, the deployment has been completed.
   if (integration === 'hardhat') {
     displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
     spinner.info(
@@ -790,9 +792,9 @@ export const chugsplashCancelAbstractTask = async (
 You attempted to cancel the project using the address: ${await signer.getAddress()}`)
   }
 
-  const activeBundleId = await ChugSplashManager.activeBundleId()
+  const activeDeploymentId = await ChugSplashManager.activeDeploymentId()
 
-  if (activeBundleId === ethers.constants.HashZero) {
+  if (activeDeploymentId === ethers.constants.HashZero) {
     spinner.fail(
       `${projectName} is not an active project, so there is nothing to cancel.`
     )
@@ -800,7 +802,7 @@ You attempted to cancel the project using the address: ${await signer.getAddress
   }
 
   await (
-    await ChugSplashManager.cancelActiveChugSplashBundle(
+    await ChugSplashManager.cancelActiveChugSplashDeployment(
       await getGasPriceOverrides(provider)
     )
   ).wait()
@@ -867,8 +869,9 @@ export const chugsplashListProjectsAbstractTask = async (
     const projectOwnerAddress = await getProjectOwnerAddress(ChugSplashManager)
     if (projectOwnerAddress === signerAddress) {
       numProjectsOwned += 1
-      const hasActiveBundle =
-        (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+      const hasActiveDeployment =
+        (await ChugSplashManager.activeDeploymentId()) !==
+        ethers.constants.HashZero
       const totalEthBalance = await provider.getBalance(
         ChugSplashManager.address
       )
@@ -887,7 +890,7 @@ export const chugsplashListProjectsAbstractTask = async (
 
       projects[numProjectsOwned] = {
         'Organization ID': event.args.organizationID,
-        'Is Active': hasActiveBundle ? 'Yes' : 'No',
+        'Is Active': hasActiveDeployment ? 'Yes' : 'No',
         "Project Owner's ETH": formattedOwnerBalance,
         'Total ETH Stored': formattedTotalEthBalance,
       }
@@ -939,8 +942,8 @@ export const chugsplashExportProxyAbstractTask = async (
   spinner.succeed('Project registration detected')
   spinner.start('Claiming proxy ownership...')
 
-  const activeBundleId = await manager.activeBundleId()
-  if (activeBundleId !== ethers.constants.HashZero) {
+  const activeDeploymentId = await manager.activeDeploymentId()
+  if (activeDeploymentId !== ethers.constants.HashZero) {
     throw new Error(
       `A project is currently being executed. Proxy ownership has not been transferred.
   Please wait a couple of minutes before trying again.`
@@ -1053,11 +1056,11 @@ If you believe this is a mistake, please reach out to the developers or open an 
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
 
-export const proposeChugSplashBundle = async (
+export const proposeChugSplashDeployment = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  bundles: ChugSplashBundles,
+  trees: ChugSplashMerkleTrees,
   configUri: string,
   remoteExecution: boolean,
   ipfsUrl: string,
@@ -1099,24 +1102,24 @@ export const proposeChugSplashBundle = async (
       spinner
     )
 
-    const bundleId = computeBundleId(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
+    const deploymentId = computeDeploymentId(
+      trees.actionTree.root,
+      trees.targetTree.root,
+      trees.actionTree.actions.length,
+      trees.targetTree.targets.length,
       configUri
     )
 
-    // Verify that the bundle has been committed to IPFS with the correct bundle hash.
-    await verifyBundle(provider, configUri, bundleId, ipfsUrl)
+    // Verify that the deployment has been committed to IPFS with the correct deployment hash.
+    await verifyDeployment(provider, configUri, deploymentId, ipfsUrl)
   }
-  // Propose the bundle.
+  // Propose the deployment.
   await (
-    await ChugSplashManager.proposeChugSplashBundle(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
+    await ChugSplashManager.proposeChugSplashDeployment(
+      trees.actionTree.root,
+      trees.targetTree.root,
+      trees.actionTree.actions.length,
+      trees.targetTree.targets.length,
       configUri,
       remoteExecution,
       await getGasPriceOverrides(provider)

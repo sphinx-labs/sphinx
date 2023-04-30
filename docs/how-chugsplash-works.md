@@ -120,7 +120,7 @@ In addition to committing this info to IPFS, the user also submits a single `pro
 2. The root of the Merkle tree. Each Merkle proof supplied by the executor must yield this Merkle root.
 3. The number of leafs in the Merkle tree (i.e. the number of `SetStorage` and `DeployImplementation` actions). It's necessary to explicitly specify this to ensure that each action is only executed exactly once.
 
-These three inputs are hashed to yield a 32-byte **bundle ID**, which is the unique identifier for the entire deployment. This bundle will be approved by the project's owner during the next step. It's called a bundle ID because the set of `DeployImplementation` and `SetStorage` actions are referred to as a bundle internally.
+These three inputs are hashed to yield a 32-byte **deployment ID**, which is the unique identifier for the entire deployment. This deployment will be approved by the project's owner during the next step. It's called a deployment ID because the set of `DeployImplementation` and `SetStorage` actions are referred to as a deployment internally.
 
 As a side effect of using `SetStorage` actions, it becomes easy to view the effects of a proposed upgrade as a git-style diff against the existing system, including state variables, before the upgrade occurs. This specific feature is not available yet, and will be implemented soon.
 
@@ -128,7 +128,7 @@ This entire process occurs in a single `propose` command, which is available as 
 
 ### Approval
 
-Once a team has decided to proceed with a deployment or upgrade, the proposed deployment is approved by the project's owner, which is usually governance or a multisig. This occurs via an `approve` transaction on the project's `ChugSplashManager`. This transaction has a single input: the 32-byte bundle ID created in the proposal step.
+Once a team has decided to proceed with a deployment or upgrade, the proposed deployment is approved by the project's owner, which is usually governance or a multisig. This occurs via an `approve` transaction on the project's `ChugSplashManager`. This transaction has a single input: the 32-byte deployment ID created in the proposal step.
 
 ### Execution
 
