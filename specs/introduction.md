@@ -4,7 +4,7 @@ This document gives an overview of ChugSplash to provide context for the rest of
 
 Throughout this document and the rest of the specification, the term "deployment" and "upgrade" are used interchangeably. This is because ChugSplash is designed specifically for upgradeable contracts. In practice, the same exact process occurs when deploying a new upgradeable contract and upgrading an existing one.
 
-* Guarantee that deployments are deterministic. To accomplish this, ChugSplash does not use constructors or initializer functions. This is because they may contain arbitrary logic that reverts under certain conditions or yields an unpredictable result. Instead, ChugSplash sets the values of variables in proxies via `SSTORE`.
+* TODO: Guarantee that deployments are deterministic. To accomplish this, ChugSplash does not use constructors or initializer functions. This is because they may contain arbitrary logic that reverts under certain conditions or yields an unpredictable result. Instead, ChugSplash sets the values of variables in proxies via `SSTORE`.
 
 ## Defining a Deployment
 
