@@ -1,4 +1,7 @@
 # ChugSplash Config Specification
+
+
+
 ChugSplash config files may be written in Javascript, Typescript, or JSON. For Javascript and Typescript users, their config file must have a default export that is either a valid ChugSplash config object or an asynchronous function which resolves to a valid ChugSplash config object. JSON users may only export a valid ChugSplash config object. The rest of this document outlines what a valid config file is.
 
 > Note that when using the ChugSplash Foundry library, users are limited to either Javascript or JSON.

@@ -47,6 +47,7 @@ import {
   getGasPriceOverrides,
   isLiveNetwork,
   getImpersonatedSigner,
+  assertValidBlockGasLimit,
 } from '../../utils'
 import { EXECUTOR_ROLE } from '../../constants'
 import {
@@ -82,6 +83,8 @@ export const initializeChugSplash = async (
   executors: string[],
   logger?: Logger
 ): Promise<void> => {
+  await assertValidBlockGasLimit(provider)
+
   const chugsplashConstructorArgs = getChugSplashConstructorArgs()
 
   logger?.info('[ChugSplash]: deploying DefaultCreate2...')

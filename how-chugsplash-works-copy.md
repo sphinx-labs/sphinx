@@ -1,12 +1,9 @@
 # How ChugSplash Works
 
-* **Initializer functions.** Uninitialized proxies are often the cause of vulnerabilities on upgradeable contracts.
-
 ## Enter ChugSplash
 
 ChugSplash lets you:
 * Reference contracts using simple template syntax (i.e. `{{ MyContract }}`) instead of keeping track of a web of contract dependencies.
-* Import your own existing proxies into ChugSplash, including Transparent and UUPS proxies.
 
 ## How ChugSplash Works
 
@@ -14,50 +11,9 @@ The rest of this document will focus on the ChugSplash Core Protocol, which is t
 
 ## The Brief Version
 
-This section will give a brief overview of how ChugSplash achieves the goals outlined above.
-
-**Fully deterministic.** ChugSplash guarantees that your deployments and upgrades cannot halt for any reason because it sets the values of state variables in your proxies via `SSTORE`. We wouldn't be able to make this guarantee if we called functions on the contract because they can contain arbitrary logic (i.e. logic that reverts under certain conditions). Using `SSTORE` also removes the need for initializer functions, which are commonly used by attackers to hijack proxies (including notable vulnerabilities such as the Nomad bridge hack, the $10 million bug bounty paid by Wormhole, and the $2 million bug bounty paid by Arbitrum).
-
-**Atomic upgrades**. ChugSplash sets each proxy's implementation to `address(0)` in a single transaction at the very beginning of an upgrade. Each proxy is upgraded to its new implementation in a single transaction at the very end of the upgrade. This is critical because it ensures end-users aren't interacting with a partially initialized set of smart contracts while the upgrade is occurring.
-
-**Approve deployments or upgrades of any size with a single small transaction from governance or a multisig.** This is possible because ChugSplash uses a network of remote executors that trustlessly complete the deployment or upgrade once the project owner approves it. The executor retrieves the deployment info from IPFS, which is committed by the user during the proposal step.
-
-**Trustless remote execution**. During the proposal step, the user's ChugSplash config file is converted into a Merkle tree where each leaf represents an action to be executed during the deployment or upgrade. More specifically, each leaf either contains a storage slot key/value pair or a contract's creation bytecode. The Merkle root is submitted on-chain by the user during the proposal step, and must be approved by the project owner before being executed. The remote executor must supply the Merkle proof of each leaf in the Merkle tree, or else the transaction will revert. Currently, executors must be whitelisted by ChugSplash. In a future version of ChugSplash, execution will be totally permissionless, meaning anyone can be an executor (and get paid to complete deployments).
+The executor retrieves the deployment info from IPFS, which is committed by the user during the proposal step.
 
 ## The Long Version
-
-In the next few sections, we'll describe exactly how ChugSplash works by walking through a simple deployment. It's worth noting that the same exact process occurs for both deployments and upgrades.
-
-All of the on-chain logic in the following sections exists in your project's `ChugSplashManager` contract, which is basically a `ProxyAdmin` contract on steroids. The `ChugSplashManager` owns your proxies and is responsible for upgrading them. In turn, you're the owner of the `ChugSplashManager`.
-
-### Defining a Deployment
-
-You begin by creating a ChugSplash config file, which contains all of the information necessary to deploy or upgrade a project. The ChugSplash config file for this contract would look something like:
-
-```ts
-{
-  MyContract: {
-    myVariable: 1234
-  },
-  ... // config options
-}
-```
-
-### Proposal
-
-During the proposal step, the ChugSplash config file is first converted into a format that can be executed on-chain. There are two components: the contract's state variables and its creation bytecode.
-
-The state variable definitions in the ChugSplash config file are encoded into a series of 32-byte storage slot key/value pairs:
-
-```
-[0x000...000, 0x000...04D2]
-```
-
-This encoding occurs off-chain using the contract's storage layout.
-
-These key/value pairs, called `SetStorage` actions, are encoded as leafs in a Merkle tree. Additionally, each contract's creation bytecode appended with its constructor arguments is encoded as a leaf in the Merkle tree. These leafs are called `DeployImplementation` actions. The remote executor must supply the Merkle proof of each `SetStorage` and `DeployImplementation` action during the deployment, or else the transaction will revert.
-
-If you're wondering why we use a Merkle tree instead of a simple hash of the deployment, the answer is that using a simple hash would make it impossible to support arbitrarily large deployments. This is because the executor would need to supply the entire deployment's data in a single transaction, which is capped at the block gas limit.
 
 In order for the executor to complete the deployment remotely, it must be able to fetch the deployment info and re-create the Merkle tree.
 
