@@ -4,8 +4,6 @@ This document gives an overview of ChugSplash to provide context for the rest of
 
 Throughout this document and the rest of the specification, the term "deployment" and "upgrade" are used interchangeably. This is because ChugSplash is designed specifically for upgradeable contracts. In practice, the same exact process occurs when deploying a new upgradeable contract and upgrading an existing one.
 
-* TODO: Guarantee that deployments are deterministic. To accomplish this, ChugSplash does not use constructors or initializer functions. This is because they may contain arbitrary logic that reverts under certain conditions or yields an unpredictable result. Instead, ChugSplash sets the values of variables in proxies via `SSTORE`.
-
 ## Defining a Deployment
 
 We start with a simple contract, which will exist behind a standard EIP-1967 proxy.
@@ -43,6 +41,10 @@ There is more validation and parsing that occurs other than these examples, but 
 
 Next, the state variable definitions in the config are encoded into a format that can be executed deterministically on-chain.
 
+To guarantee that deployments are deterministic, ChugSplash does not use constructors or initializer functions. This is because they may contain arbitrary logic that reverts under certain conditions or yields an unpredictable result. Initializer functions are also used by attackers to hijack proxies (including notable vulnerabilities such as the Nomad bridge hack, the $10 million bug bounty paid by Wormhole, and the $2 million bug bounty paid by Arbitrum).
+
+Instead of using constructors or initializers, ChugSplash sets the values of variables in proxies via `SSTORE`.
+
 Each state variable definition is converted into a **storage slot segment** (also known as a segment):
 
 ```ts
@@ -75,6 +77,8 @@ An action bundle's leafs are known as **actions**. There are two types of action
 
 During the approval step, the project owner approves the action bundle's Merkle root (in addition to a few other pieces of info). The remote executor must supply the Merkle proof of each action during the deployment, or else the transaction will revert. This prevents the executor from supplying incorrect actions.
 
+In the current version of ChugSplash, the remote executor is either the ChugSplash team or another whitelisted party. In a future version of ChugSplash, execution will be totally permissionless, which will allow anyone to get paid to execute deployments on behalf of users.
+
 ## The `ChugSplashManager`
 
 All of the on-chain activity for a project occurs in a `ChugSplashManager` contract. Each team has a single `ChugSplashManager`, which is owned exclusively by them. This contract is similar to the `ProxyAdmin` contract used by OpenZeppelin's Upgrades Plugin in the sense that the `ChugSplashManager` owns a team's proxies, and, in turn, the team owns the `ChugSplashManager`. However, the `ChugSplashManager` has additional functionality that does not exist in a `ProxyAdmin`.
@@ -85,6 +89,8 @@ The `ChugSplashManager` contains the logic for:
 * Executing deployments via the project owner or trustlessly via a remote executor.
 * Paying the remote executor for deploying a project.
 * Exporting proxies out of the ChugSplash system.
+
+The `ChugSplashManager` is designed to be extensible to new proxy types. It currently supports Transparent and UUPS proxies, including those that have been deployed using OpenZeppelin's Upgrades Plugin.
 
 ## Execution
 
