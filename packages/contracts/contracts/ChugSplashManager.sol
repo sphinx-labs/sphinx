@@ -2,11 +2,11 @@
 pragma solidity ^0.8.15;
 
 import {
-    ChugSplashBundleState,
+    DeploymentState,
     ChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
-    ChugSplashBundleStatus
+    DeploymentStatus
 } from "./ChugSplashDataTypes.sol";
 import {
     OwnableUpgradeable
@@ -57,25 +57,27 @@ contract ChugSplashManager is
     IAccessControl public immutable managedService;
 
     /**
-     * @notice Amount that must be deposited in this contract in order to execute a bundle. The
-     *         project owner can withdraw this amount whenever a bundle is not active. This bond
-     *         will be forfeited if the project owner cancels a bundle that is in progress, which is
+     * @notice Amount that must be deposited in this contract in order to execute a deployment. The
+     *         project owner can withdraw this amount whenever a deployment is not active. This bond
+     *         will be forfeited if the project owner cancels a deployment that is in progress,
+               which is
      *         necessary to prevent owners from trolling the executor by immediately cancelling and
      *         withdrawing funds.
      */
     uint256 public immutable ownerBondAmount;
 
     /**
-     * @notice Amount of time for an executor to finish executing a bundle once they have claimed
-     *         it. If the owner cancels an active bundle within this time period, their bond is
+     * @notice Amount of time for an executor to finish executing a deployment once they have
+       claimed
+     *         it. If the owner cancels an active deployment within this time period, their bond is
      *         forfeited to the executor. This prevents users from trolling executors by immediately
-     *         cancelling active bundles.
+     *         cancelling active deployments.
      */
     uint256 public immutable executionLockTime;
 
     /**
      * @notice Amount that the executor is paid, denominated as a percentage of the cost of
-     *         execution. For example: if a bundle costs 1 gwei to execute and the
+     *         execution. For example: if a deployment costs 1 gwei to execute and the
      *         executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
      */
     uint256 public immutable executorPaymentPercentage;
@@ -89,14 +91,15 @@ contract ChugSplashManager is
     mapping(address => uint256) public executorDebt;
 
     /**
-     * @notice Maps an address to a boolean indicating if the address is allowed to propose bundles.
+     * @notice Maps an address to a boolean indicating if the address is allowed to propose
+       deployments.
      */
     mapping(address => bool) public proposers;
 
     /**
-     * @notice Mapping of bundle IDs to bundle state.
+     * @notice Mapping of deployment IDs to deployment state.
      */
-    mapping(bytes32 => ChugSplashBundleState) internal _bundles;
+    mapping(bytes32 => DeploymentState) internal _deployments;
 
     /**
      * @notice ID of the organization this contract is managing.
@@ -104,9 +107,9 @@ contract ChugSplashManager is
     bytes32 public organizationID;
 
     /**
-     * @notice ID of the currently active bundle.
+     * @notice ID of the currently active deployment.
      */
-    bytes32 public activeBundleId;
+    bytes32 public activeDeploymentId;
 
     /**
      * @notice ETH amount that is owed to the executor.
@@ -118,15 +121,15 @@ contract ChugSplashManager is
     bool public allowManagedProposals;
 
     /**
-     * @notice Emitted when a ChugSplash bundle is proposed.
+     * @notice Emitted when a ChugSplash deployment is proposed.
      *
-     * @param bundleId   ID of the bundle being proposed.
-     * @param actionRoot Root of the proposed bundle's merkle tree.
-     * @param numActions Number of steps in the proposed bundle.
-     * @param configUri  URI of the config file that can be used to re-generate the bundle.
+     * @param deploymentId   ID of the deployment being proposed.
+     * @param actionRoot Root of the proposed deployment's merkle tree.
+     * @param numActions Number of steps in the proposed deployment.
+     * @param configUri  URI of the config file that can be used to re-generate the deployment.
      */
-    event ChugSplashBundleProposed(
-        bytes32 indexed bundleId,
+    event ChugSplashDeploymentProposed(
+        bytes32 indexed deploymentId,
         bytes32 actionRoot,
         bytes32 targetRoot,
         uint256 numActions,
@@ -137,57 +140,57 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Emitted when a ChugSplash bundle is approved.
+     * @notice Emitted when a ChugSplash deployment is approved.
      *
-     * @param bundleId ID of the bundle being approved.
+     * @param deploymentId ID of the deployment being approved.
      */
-    event ChugSplashBundleApproved(bytes32 indexed bundleId);
+    event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
 
     /**
      * @notice Emitted when a ChugSplash action is executed.
      *
-     * @param bundleId    Unique ID for the bundle.
+     * @param deploymentId    Unique ID for the deployment.
      * @param proxy       Address of the proxy on which the event was executed.
      * @param executor    Address of the executor that executed the action.
-     * @param actionIndex Index within the bundle hash of the action that was executed.
+     * @param actionIndex Index within the deployment hash of the action that was executed.
      */
     event ChugSplashActionExecuted(
-        bytes32 indexed bundleId,
+        bytes32 indexed deploymentId,
         address indexed proxy,
         address indexed executor,
         uint256 actionIndex
     );
 
     /**
-     * @notice Emitted when a ChugSplash bundle is initiated.
+     * @notice Emitted when a ChugSplash deployment is initiated.
      *
-     * @param bundleId        Unique ID for the bundle.
-     * @param executor        Address of the executor that initiated the bundle.
+     * @param deploymentId        Unique ID for the deployment.
+     * @param executor        Address of the executor that initiated the deployment.
      */
-    event ChugSplashBundleInitiated(bytes32 indexed bundleId, address indexed executor);
+    event ChugSplashDeploymentInitiated(bytes32 indexed deploymentId, address indexed executor);
 
     /**
-     * @notice Emitted when a ChugSplash bundle is completed.
+     * @notice Emitted when a ChugSplash deployment is completed.
      *
-     * @param bundleId        Unique ID for the bundle.
-     * @param executor        Address of the executor that completed the bundle.
+     * @param deploymentId        Unique ID for the deployment.
+     * @param executor        Address of the executor that completed the deployment.
      * @param actionsExecuted Total number of completed actions.
      */
-    event ChugSplashBundleCompleted(
-        bytes32 indexed bundleId,
+    event ChugSplashDeploymentCompleted(
+        bytes32 indexed deploymentId,
         address indexed executor,
         uint256 actionsExecuted
     );
 
     /**
-     * @notice Emitted when an active ChugSplash bundle is cancelled.
+     * @notice Emitted when an active ChugSplash deployment is cancelled.
      *
-     * @param bundleId        Bundle ID that was cancelled.
+     * @param deploymentId        Deployment ID that was cancelled.
      * @param owner           Owner of the ChugSplashManager.
      * @param actionsExecuted Total number of completed actions before cancellation.
      */
-    event ChugSplashBundleCancelled(
-        bytes32 indexed bundleId,
+    event ChugSplashDeploymentCancelled(
+        bytes32 indexed deploymentId,
         address indexed owner,
         uint256 actionsExecuted
     );
@@ -208,12 +211,12 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Emitted when a bundle is claimed by an executor.
+     * @notice Emitted when a deployment is claimed by an executor.
      *
-     * @param bundleId ID of the bundle that was claimed.
-     * @param executor Address of the executor that claimed the bundle ID for the project.
+     * @param deploymentId ID of the deployment that was claimed.
+     * @param executor Address of the executor that claimed the deployment ID for the project.
      */
-    event ChugSplashBundleClaimed(bytes32 indexed bundleId, address indexed executor);
+    event ChugSplashDeploymentClaimed(bytes32 indexed deploymentId, address indexed executor);
 
     /**
      * @notice Emitted when an executor claims a payment.
@@ -251,13 +254,13 @@ contract ChugSplashManager is
      * @notice Emitted when a default proxy is deployed by this contract.
      *
      * @param proxy             Address of the deployed proxy.
-     * @param bundleId          ID of the bundle in which the proxy was deployed.
+     * @param deploymentId          ID of the deployment in which the proxy was deployed.
      * @param referenceName     String reference name.
      */
     event DefaultProxyDeployed(
         bytes32 indexed salt,
         address indexed proxy,
-        bytes32 indexed bundleId,
+        bytes32 indexed deploymentId,
         string projectName,
         string referenceName
     );
@@ -267,20 +270,20 @@ contract ChugSplashManager is
      *
      * @param referenceNameHash Hash of the reference name.
      * @param contractAddress   Address of the deployed contract.
-     * @param bundleId          ID of the bundle in which the contract was deployed.
+     * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
      */
     event ContractDeployed(
         string indexed referenceNameHash,
         address indexed contractAddress,
-        bytes32 indexed bundleId,
+        bytes32 indexed deploymentId,
         string referenceName
     );
 
     event ContractDeploymentSkipped(
         string indexed referenceNameHash,
         address indexed contractAddress,
-        bytes32 indexed bundleId,
+        bytes32 indexed deploymentId,
         string referenceName
     );
 
@@ -298,10 +301,11 @@ contract ChugSplashManager is
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
      * @param _executionLockTime         Amount of time for an executor to completely execute a
-     *                                   bundle after claiming it.
+     *                                   deployment after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
-     *                                   execute a bundle.
-     * @param _executorPaymentPercentage Amount that an executor will earn from completing a bundle,
+     *                                   execute a deployment.
+     * @param _executorPaymentPercentage Amount that an executor will earn from completing a
+       deployment,
      *                                   denominated as a percentage.
      */
     constructor(
@@ -359,14 +363,15 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Propose a new ChugSplash bundle to be approved. Only callable by the owner of this
+     * @notice Propose a new ChugSplash deployment to be approved. Only callable by the owner of
+       this
      *         contract or a proposer. These permissions are required to prevent spam.
      *
-     * @param _actionRoot Root of the bundle's merkle tree.
-     * @param _numActions Number of elements in the bundle's tree.
-     * @param _configUri  URI pointing to the config file for the bundle.
+     * @param _actionRoot Root of the deployment's merkle tree.
+     * @param _numActions Number of elements in the deployment's tree.
+     * @param _configUri  URI pointing to the config file for the deployment.
      */
-    function proposeChugSplashBundle(
+    function proposeChugSplashDeployment(
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -376,30 +381,30 @@ contract ChugSplashManager is
     ) external {
         require(isProposer(msg.sender), "ChugSplashManager: caller must be proposer");
 
-        // Compute the bundle ID.
-        bytes32 bundleId = keccak256(
+        // Compute the deployment ID.
+        bytes32 deploymentId = keccak256(
             abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri)
         );
 
-        ChugSplashBundleState storage bundle = _bundles[bundleId];
+        DeploymentState storage deployment = _deployments[deploymentId];
 
-        ChugSplashBundleStatus status = bundle.status;
+        DeploymentStatus status = deployment.status;
         require(
-            status == ChugSplashBundleStatus.EMPTY ||
-                status == ChugSplashBundleStatus.COMPLETED ||
-                status == ChugSplashBundleStatus.CANCELLED,
-            "ChugSplashManager: bundle cannot be proposed"
+            status == DeploymentStatus.EMPTY ||
+                status == DeploymentStatus.COMPLETED ||
+                status == DeploymentStatus.CANCELLED,
+            "ChugSplashManager: deployment cannot be proposed"
         );
 
-        bundle.status = ChugSplashBundleStatus.PROPOSED;
-        bundle.actionRoot = _actionRoot;
-        bundle.targetRoot = _targetRoot;
-        bundle.actions = new bool[](_numActions);
-        bundle.targets = _numTargets;
-        bundle.remoteExecution = _remoteExecution;
+        deployment.status = DeploymentStatus.PROPOSED;
+        deployment.actionRoot = _actionRoot;
+        deployment.targetRoot = _targetRoot;
+        deployment.actions = new bool[](_numActions);
+        deployment.targets = _numTargets;
+        deployment.remoteExecution = _remoteExecution;
 
-        emit ChugSplashBundleProposed(
-            bundleId,
+        emit ChugSplashDeploymentProposed(
+            deploymentId,
             _actionRoot,
             _targetRoot,
             _numActions,
@@ -408,22 +413,23 @@ contract ChugSplashManager is
             _remoteExecution,
             msg.sender
         );
-        registry.announceWithData("ChugSplashBundleProposed", abi.encodePacked(msg.sender));
+        registry.announceWithData("ChugSplashDeploymentProposed", abi.encodePacked(msg.sender));
     }
 
     /**
-     * @notice Allows the owner to approve a bundle to be executed. There must be at least
-     *         `ownerBondAmount` deposited in this contract in order for a bundle to be approved.
+     * @notice Allows the owner to approve a deployment to be executed. There must be at least
+     *         `ownerBondAmount` deposited in this contract in order for a deployment to be
+               approved.
      *         The owner can send the bond to this contract via a call to `depositETH` or `receive`.
-     *         This bond will be forfeited if the project owner cancels an approved bundle. Also
-     *         note that the bundle can be executed as soon as it is approved.
+     *         This bond will be forfeited if the project owner cancels an approved deployment. Also
+     *         note that the deployment can be executed as soon as it is approved.
      *
-     * @param _bundleId ID of the bundle to approve
+     * @param _deploymentId ID of the deployment to approve
      */
-    function approveChugSplashBundle(bytes32 _bundleId) external onlyOwner {
-        ChugSplashBundleState storage bundle = _bundles[_bundleId];
+    function approveChugSplashDeployment(bytes32 _deploymentId) external onlyOwner {
+        DeploymentState storage deployment = _deployments[_deploymentId];
 
-        if (bundle.remoteExecution) {
+        if (deployment.remoteExecution) {
             require(
                 address(this).balance - totalDebt() >= ownerBondAmount,
                 "ChugSplashManager: insufficient balance in manager"
@@ -431,85 +437,100 @@ contract ChugSplashManager is
         }
 
         require(
-            bundle.status == ChugSplashBundleStatus.PROPOSED,
-            "ChugSplashManager: bundle must be proposed"
+            deployment.status == DeploymentStatus.PROPOSED,
+            "ChugSplashManager: deployment must be proposed"
         );
 
-        require(activeBundleId == bytes32(0), "ChugSplashManager: another bundle is active");
+        require(
+            activeDeploymentId == bytes32(0),
+            "ChugSplashManager: another deployment is active"
+        );
 
-        activeBundleId = _bundleId;
-        bundle.status = ChugSplashBundleStatus.APPROVED;
+        activeDeploymentId = _deploymentId;
+        deployment.status = DeploymentStatus.APPROVED;
 
-        emit ChugSplashBundleApproved(_bundleId);
-        registry.announce("ChugSplashBundleApproved");
+        emit ChugSplashDeploymentApproved(_deploymentId);
+        registry.announce("ChugSplashDeploymentApproved");
     }
 
-    function executeEntireBundle(
+    function executeEntireDeployment(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _actionProofs
     ) external {
-        initiateBundleExecution(_targets, _targetProofs);
+        initiateExecution(_targets, _targetProofs);
         executeActions(_actions, _actionIndexes, _actionProofs);
-        completeBundleExecution(_targets, _targetProofs);
+        completeExecution(_targets, _targetProofs);
     }
 
     /**
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
      *
-     *         Cancels an active ChugSplash bundle. If an executor has not claimed the bundle,
+     *         Cancels an active ChugSplash deployment. If an executor has not claimed the
+               deployment,
      *         the owner is simply allowed to withdraw their bond via a subsequent call to
-     *         `withdrawOwnerETH`. Otherwise, cancelling a bundle will cause the project owner to
+     *         `withdrawOwnerETH`. Otherwise, cancelling a deployment will cause the project owner
+               to
      *         forfeit their bond to the executor, and will also allow the executor to refund their
      *         own bond.
      */
-    function cancelActiveChugSplashBundle() external onlyOwner {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no active bundle");
+    function cancelActiveChugSplashDeployment() external onlyOwner {
+        require(activeDeploymentId != bytes32(0), "ChugSplashManager: no active deployment");
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        if (bundle.remoteExecution && bundle.timeClaimed + executionLockTime >= block.timestamp) {
-            // Give the owner's bond to the executor if the bundle is cancelled within the
+        if (
+            deployment.remoteExecution &&
+            deployment.timeClaimed + executionLockTime >= block.timestamp
+        ) {
+            // Give the owner's bond to the executor if the deployment is cancelled within the
             // `executionLockTime` window.
             totalExecutorDebt += ownerBondAmount;
         }
 
-        bytes32 cancelledBundleId = activeBundleId;
-        activeBundleId = bytes32(0);
-        bundle.status = ChugSplashBundleStatus.CANCELLED;
+        bytes32 cancelledDeploymentId = activeDeploymentId;
+        activeDeploymentId = bytes32(0);
+        deployment.status = DeploymentStatus.CANCELLED;
 
-        emit ChugSplashBundleCancelled(cancelledBundleId, msg.sender, bundle.actionsExecuted);
-        registry.announce("ChugSplashBundleCancelled");
+        emit ChugSplashDeploymentCancelled(
+            cancelledDeploymentId,
+            msg.sender,
+            deployment.actionsExecuted
+        );
+        registry.announce("ChugSplashDeploymentCancelled");
     }
 
     /**
      * @notice Allows an executor to post a bond of `executorBondAmount` to claim the sole right to
-     *         execute actions for a bundle over a period of `executionLockTime`. Only the first
-     *         executor to post a bond gains this right. Executors must finish executing the bundle
-     *         within `executionLockTime` or else another executor may claim the bundle. Note that
-     *         this strategy creates a PGA for the transaction to claim the bundle but removes PGAs
+     *         execute actions for a deployment over a period of `executionLockTime`. Only the first
+     *         executor to post a bond gains this right. Executors must finish executing the
+               deployment
+     *         within `executionLockTime` or else another executor may claim the deployment. Note
+               that
+     *         this strategy creates a PGA for the transaction to claim the deployment but removes
+               PGAs
      *         during the execution process.
      */
-    function claimBundle() external onlyExecutor {
-        require(activeBundleId != bytes32(0), "ChugSplashManager: no bundle is active");
+    function claimDeployment() external onlyExecutor {
+        require(activeDeploymentId != bytes32(0), "ChugSplashManager: no deployment is active");
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        require(bundle.remoteExecution, "ChugSplashManager: local execution only");
+        require(deployment.remoteExecution, "ChugSplashManager: local execution only");
 
         require(
-            block.timestamp > bundle.timeClaimed + executionLockTime,
-            "ChugSplashManager: bundle already claimed"
+            block.timestamp > deployment.timeClaimed + executionLockTime,
+            "ChugSplashManager: deployment already claimed"
         );
 
-        bundle.timeClaimed = block.timestamp;
-        bundle.selectedExecutor = msg.sender;
+        deployment.timeClaimed = block.timestamp;
+        deployment.selectedExecutor = msg.sender;
 
-        emit ChugSplashBundleClaimed(activeBundleId, msg.sender);
-        registry.announce("ChugSplashBundleClaimed");
+        emit ChugSplashDeploymentClaimed(activeDeploymentId, msg.sender);
+        registry.announce("ChugSplashDeploymentClaimed");
     }
 
     /**
@@ -517,7 +538,7 @@ contract ChugSplashManager is
      *         less than or equal to the amount of ETH owed to them by this contract. We allow the
      *         executor to withdraw less than the amount owed to them because it's possible that the
      *         executor's debt exceeds the amount of ETH stored in this contract. This situation can
-     *         occur when the executor completes an underfunded bundle.
+     *         occur when the executor completes an underfunded deployment.
      */
     function claimExecutorPayment(uint256 _amount) external onlyExecutor {
         require(_amount > 0, "ChugSplashManager: amount cannot be 0");
@@ -568,7 +589,7 @@ contract ChugSplashManager is
         address _newOwner
     ) external onlyOwner {
         require(_proxy.code.length > 0, "ChugSplashManager: invalid proxy");
-        require(activeBundleId == bytes32(0), "ChugSplashManager: bundle is active");
+        require(activeDeploymentId == bytes32(0), "ChugSplashManager: deployment is active");
 
         // Get the adapter that corresponds to this contract type.
         address adapter = registry.adapters(_contractKindHash);
@@ -576,8 +597,8 @@ contract ChugSplashManager is
 
         emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
 
-        // Delegatecall the adapter to change ownership of the proxy.
-        // slither-disable-next-line controlled-delegatecall
+        // Delegatecall the adapter to change ownership of the proxy. slither-disable-next-line
+        // controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
         );
@@ -588,12 +609,12 @@ contract ChugSplashManager is
 
     /**
      * @notice Allows the project owner to withdraw all funds in this contract minus the debt
-     *         owed to the executor. Cannot be called when there is an active bundle.
+     *         owed to the executor. Cannot be called when there is an active deployment.
      */
     function withdrawOwnerETH() external onlyOwner {
         require(
-            activeBundleId == bytes32(0),
-            "ChugSplashManager: cannot withdraw funds while bundle is active"
+            activeDeploymentId == bytes32(0),
+            "ChugSplashManager: cannot withdraw during active deployment"
         );
 
         uint256 amount = address(this).balance - totalDebt();
@@ -629,51 +650,51 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Gets the ChugSplashBundleState struct for a given bundle ID. Note that we explicitly
+     * @notice Gets the DeploymentState struct for a given deployment ID. Note that we explicitly
      *         define this function because the getter auto-generated by Solidity doesn't return
      *         array members of structs: https://github.com/ethereum/solidity/issues/12792. Without
-     *         this function, we wouldn't be able to return `ChugSplashBundleState.actions`.
+     *         this function, we wouldn't be able to return `DeploymentState.actions`.
      *
-     * @param _bundleId Bundle ID.
+     * @param _deploymentId Deployment ID.
      *
-     * @return ChugSplashBundleState struct.
+     * @return DeploymentState struct.
      */
-    function bundles(bytes32 _bundleId) external view returns (ChugSplashBundleState memory) {
-        return _bundles[_bundleId];
+    function deployments(bytes32 _deploymentId) external view returns (DeploymentState memory) {
+        return _deployments[_deploymentId];
     }
 
     /**
-     * @notice Returns whether or not a bundle is currently being executed.
+     * @notice Returns whether or not a deployment is currently being executed.
      *         Used to determine if the manager implementation can safely be upgraded.
      */
     function isExecuting() external view returns (bool) {
-        return activeBundleId != bytes32(0);
+        return activeDeploymentId != bytes32(0);
     }
 
     /**
-     * @notice Initiate the execution of a bundle. Note that non-proxied contracts are not
-     *         included in the target bundle.
+     * @notice Initiate the execution of a deployment. Note that non-proxied contracts are not
+     *         included in the target deployment.
      *
      * @param _targets Array of ChugSplashTarget objects.
      * @param _proofs  Array of Merkle proofs.
      */
-    function initiateBundleExecution(
+    function initiateExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        _assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
         require(
-            bundle.status == ChugSplashBundleStatus.APPROVED,
-            "ChugSplashManager: bundle status is not approved"
+            deployment.status == DeploymentStatus.APPROVED,
+            "ChugSplashManager: deployment status is not approved"
         );
 
         uint256 numTargets = _targets.length;
-        require(numTargets == bundle.targets, "ChugSplashManager: incorrect number of targets");
+        require(numTargets == deployment.targets, "ChugSplashManager: incorrect number of targets");
 
         ChugSplashTarget memory target;
         bytes32[] memory proof;
@@ -683,12 +704,12 @@ contract ChugSplashManager is
 
             require(
                 target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
-                "ChugSplashManager: only proxies allowed in target bundle"
+                "ChugSplashManager: only proxies allowed in target deployment"
             );
 
             require(
                 MerkleTree.verify(
-                    bundle.targetRoot,
+                    deployment.targetRoot,
                     keccak256(
                         abi.encode(
                             target.projectName,
@@ -700,9 +721,9 @@ contract ChugSplashManager is
                     ),
                     i,
                     proof,
-                    bundle.targets
+                    deployment.targets
                 ),
-                "ChugSplashManager: invalid bundle target proof"
+                "ChugSplashManager: invalid deployment target proof"
             );
 
             if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
@@ -720,7 +741,7 @@ contract ChugSplashManager is
                 emit DefaultProxyDeployed(
                     salt,
                     target.addr,
-                    activeBundleId,
+                    activeDeploymentId,
                     target.projectName,
                     target.referenceName
                 );
@@ -733,27 +754,27 @@ contract ChugSplashManager is
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
             // Note that we use the Updater contract to provide a generic interface for updating a
-            // variety of proxy types.
-            // Note no adapter is necessary for non-proxied contracts as they are not upgradable and
-            // cannot have state.
-            // slither-disable-next-line controlled-delegatecall
+            // variety of proxy types. Note no adapter is necessary for non-proxied contracts as
+            // they are not upgradable and cannot have state. slither-disable-next-line
+            // controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
                 abi.encodeCall(IProxyAdapter.initiateExecution, (target.addr))
             );
             require(success, "ChugSplashManager: failed to set implementation to an updater");
         }
 
-        // Mark the bundle as initiated.
-        bundle.status = ChugSplashBundleStatus.INITIATED;
+        // Mark the deployment as initiated.
+        deployment.status = DeploymentStatus.INITIATED;
 
-        emit ChugSplashBundleInitiated(activeBundleId, msg.sender);
-        registry.announce("ChugSplashBundleInitiated");
+        emit ChugSplashDeploymentInitiated(activeDeploymentId, msg.sender);
+        registry.announce("ChugSplashDeploymentInitiated");
 
-        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
-     * @notice Executes multiple ChugSplash actions within the current active bundle for a project.
+     * @notice Executes multiple ChugSplash actions within the current active deployment for a
+       project.
      *         Actions can only be executed once. A re-entrancy guard is added to prevent a
      *         contract's constructor from calling another contract which in turn
      *         calls back into this function. Only callable by the executor.
@@ -769,14 +790,14 @@ contract ChugSplashManager is
     ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
 
         require(
-            bundle.status == ChugSplashBundleStatus.INITIATED,
-            "ChugSplashManager: bundle status must be initiated"
+            deployment.status == DeploymentStatus.INITIATED,
+            "ChugSplashManager: deployment status must be initiated"
         );
 
-        _assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
         uint256 numActions = _actions.length;
         ChugSplashAction memory action;
@@ -788,13 +809,13 @@ contract ChugSplashManager is
             proof = _proofs[i];
 
             require(
-                !bundle.actions[actionIndex],
+                !deployment.actions[actionIndex],
                 "ChugSplashManager: action has already been executed"
             );
 
             require(
                 MerkleTree.verify(
-                    bundle.actionRoot,
+                    deployment.actionRoot,
                     keccak256(
                         abi.encode(
                             action.referenceName,
@@ -806,9 +827,9 @@ contract ChugSplashManager is
                     ),
                     actionIndex,
                     proof,
-                    bundle.actions.length
+                    deployment.actions.length
                 ),
-                "ChugSplashManager: invalid bundle action proof"
+                "ChugSplashManager: invalid deployment action proof"
             );
 
             // Get the adapter for this reference name.
@@ -822,8 +843,8 @@ contract ChugSplashManager is
                 : require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
 
             // Mark the action as executed and update the total number of executed actions.
-            bundle.actionsExecuted++;
-            bundle.actions[actionIndex] = true;
+            deployment.actionsExecuted++;
+            deployment.actions[actionIndex] = true;
 
             // Next, we execute the ChugSplash action by calling deployContract/setStorage.
             if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
@@ -838,15 +859,15 @@ contract ChugSplashManager is
                 revert("ChugSplashManager: unknown action type");
             }
 
-            emit ChugSplashActionExecuted(activeBundleId, action.addr, msg.sender, actionIndex);
+            emit ChugSplashActionExecuted(activeDeploymentId, action.addr, msg.sender, actionIndex);
             registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.addr));
         }
 
-        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
-     * @notice Completes the bundle by upgrading all proxies to their new implementations. This
+     * @notice Completes the deployment by upgrading all proxies to their new implementations. This
      *         occurs in a single transaction to ensure that all proxies are initialized at the same
      *         time. Note that this function will revert if it is called before all of the SetCode
      *         and DeployContract actions have been executed in `executeChugSplashAction`.
@@ -855,28 +876,28 @@ contract ChugSplashManager is
      * @param _targets Array of ChugSplashTarget objects.
      * @param _proofs  Array of Merkle proofs.
      */
-    function completeBundleExecution(
+    function completeExecution(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
-        ChugSplashBundleState storage bundle = _bundles[activeBundleId];
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        _assertCallerIsOwnerOrSelectedExecutor(bundle.remoteExecution);
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
         require(
-            activeBundleId != bytes32(0),
-            "ChugSplashManager: no bundle has been approved for execution"
+            activeDeploymentId != bytes32(0),
+            "ChugSplashManager: no deployment has been approved for execution"
         );
 
         require(
-            bundle.actionsExecuted == bundle.actions.length,
-            "ChugSplashManager: bundle was not executed completely"
+            deployment.actionsExecuted == deployment.actions.length,
+            "ChugSplashManager: deployment was not executed completely"
         );
 
         uint256 numTargets = _targets.length;
-        require(numTargets == bundle.targets, "ChugSplashManager: incorrect number of targets");
+        require(numTargets == deployment.targets, "ChugSplashManager: incorrect number of targets");
 
         ChugSplashTarget memory target;
         bytes32[] memory proof;
@@ -886,12 +907,12 @@ contract ChugSplashManager is
 
             require(
                 target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
-                "ChugSplashManager: only proxies allowed in target bundle"
+                "ChugSplashManager: only proxies allowed in target deployment"
             );
 
             require(
                 MerkleTree.verify(
-                    bundle.targetRoot,
+                    deployment.targetRoot,
                     keccak256(
                         abi.encode(
                             target.projectName,
@@ -903,9 +924,9 @@ contract ChugSplashManager is
                     ),
                     i,
                     proof,
-                    bundle.targets
+                    deployment.targets
                 ),
-                "ChugSplashManager: invalid bundle target proof"
+                "ChugSplashManager: invalid deployment target proof"
             );
 
             // Get the proxy type and adapter for this reference name.
@@ -922,16 +943,20 @@ contract ChugSplashManager is
             require(success, "ChugSplashManger: failed to complete execution");
         }
 
-        // Mark the bundle as completed and reset the active bundle hash so that a new bundle can be
-        // executed.
-        bundle.status = ChugSplashBundleStatus.COMPLETED;
-        bytes32 completedBundleId = activeBundleId;
-        activeBundleId = bytes32(0);
+        // Mark the deployment as completed and reset the active deployment hash so that a new
+        // deployment can be executed.
+        deployment.status = DeploymentStatus.COMPLETED;
+        bytes32 completedDeploymentId = activeDeploymentId;
+        activeDeploymentId = bytes32(0);
 
-        emit ChugSplashBundleCompleted(completedBundleId, msg.sender, bundle.actionsExecuted);
-        registry.announce("ChugSplashBundleCompleted");
+        emit ChugSplashDeploymentCompleted(
+            completedDeploymentId,
+            msg.sender,
+            deployment.actionsExecuted
+        );
+        registry.announce("ChugSplashDeploymentCompleted");
 
-        _payExecutorAndProtocol(initialGasLeft, bundle.remoteExecution);
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     function isProposer(address _addr) public view returns (bool) {
@@ -946,15 +971,15 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Queries the selected executor for a given project/bundle.
+     * @notice Queries the selected executor for a given project/deployment.
      *
-     * @param _bundleId ID of the bundle currently being executed.
+     * @param _deploymentId ID of the deployment currently being executed.
      *
      * @return Address of the selected executor.
      */
-    function getSelectedExecutor(bytes32 _bundleId) public view returns (address) {
-        ChugSplashBundleState storage bundle = _bundles[_bundleId];
-        return bundle.selectedExecutor;
+    function getSelectedExecutor(bytes32 _deploymentId) public view returns (address) {
+        DeploymentState storage deployment = _deployments[_deploymentId];
+        return deployment.selectedExecutor;
     }
 
     function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
@@ -997,7 +1022,8 @@ contract ChugSplashManager is
      *         contract's address.
      *
      *         Note that we wait to set the proxy's implementation address until
-     *         the very last call of the bundle to avoid a situation where end-users are interacting
+     *         the very last call of the deployment to avoid a situation where end-users are
+               interacting
      *         with a proxy whose storage has not been fully initialized.
      *
      * @param _referenceName Reference name that corresponds to the contract.
@@ -1018,7 +1044,7 @@ contract ChugSplashManager is
             emit ContractDeploymentSkipped(
                 _referenceName,
                 expectedAddress,
-                activeBundleId,
+                activeDeploymentId,
                 _referenceName
             );
             registry.announce("ContractDeploymentSkipped");
@@ -1038,7 +1064,12 @@ contract ChugSplashManager is
                 "ChugSplashManager: contract incorrectly deployed"
             );
 
-            emit ContractDeployed(_referenceName, actualAddress, activeBundleId, _referenceName);
+            emit ContractDeployed(
+                _referenceName,
+                actualAddress,
+                activeDeploymentId,
+                _referenceName
+            );
             registry.announce("ContractDeployed");
         }
     }
@@ -1058,8 +1089,8 @@ contract ChugSplashManager is
         uint8 _offset,
         bytes memory _value
     ) internal {
-        // Delegatecall the adapter to call `setStorage` on the proxy.
-        // slither-disable-next-line controlled-delegatecall
+        // Delegatecall the adapter to call `setStorage` on the proxy. slither-disable-next-line
+        // controlled-delegatecall
         (bool success, ) = _adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
         );
@@ -1069,7 +1100,7 @@ contract ChugSplashManager is
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
         _remoteExecution
             ? require(
-                getSelectedExecutor(activeBundleId) == msg.sender,
+                getSelectedExecutor(activeDeploymentId) == msg.sender,
                 "ChugSplashManager: caller is not approved executor"
             )
             : require(owner() == msg.sender, "ChugSplashManager: caller is not owner");

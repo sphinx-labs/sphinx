@@ -3,7 +3,7 @@ dotenv.config()
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import {
   CanonicalChugSplashConfig,
-  ChugSplashBundleState,
+  DeploymentState,
   claimExecutorPayment,
   compileRemoteBundles,
   executeTask,
@@ -13,7 +13,7 @@ import {
   getProjectOwnerAddress,
   hasSufficientFundsForExecution,
   trackExecuted,
-  computeBundleId,
+  computeDeploymentId,
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
@@ -116,30 +116,30 @@ export const handleExecution = async (data: ExecutorMessage) => {
     wallet
   )
 
-  // get active bundle id for this project
-  const activeBundleId = await manager.activeBundleId()
+  // get active deployment ID for this project
+  const activeDeploymentId = await manager.activeDeploymentId()
 
-  const bundleState: ChugSplashBundleState = await manager.bundles(
-    activeBundleId
+  const deploymentState: DeploymentState = await manager.deployments(
+    activeDeploymentId
   )
 
-  if (!bundleState.remoteExecution) {
-    logger.info('[ChugSplash]: skipping local bundle')
+  if (!deploymentState.remoteExecution) {
+    logger.info('[ChugSplash]: skipping local deployment')
     process.send({ action: 'discard', payload: executorEvent })
     return
-  } else if (activeBundleId === ethers.constants.HashZero) {
-    logger.info('[ChugSplash]: no active bundle in project')
+  } else if (activeDeploymentId === ethers.constants.HashZero) {
+    logger.info('[ChugSplash]: no active deployment in project')
     process.send({ action: 'discard', payload: executorEvent })
     return
   }
 
   // Retrieve the corresponding proposal event to get the config URI.
   const [proposalEvent] = await manager.queryFilter(
-    manager.filters.ChugSplashBundleProposed(activeBundleId)
+    manager.filters.ChugSplashDeploymentProposed(activeDeploymentId)
   )
 
-  logger.info('[ChugSplash]: retrieving the bundle...')
-  // Compile the bundle using either the provided localBundleId (when running the in-process
+  logger.info('[ChugSplash]: retrieving the deployment...')
+  // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
   let bundles: ChugSplashBundles
   let canonicalConfig: CanonicalChugSplashConfig
@@ -157,7 +157,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
   const { projectName, organizationID } = canonicalConfig.options
 
-  const expectedBundleId = computeBundleId(
+  const expectedDeploymentId = computeDeploymentId(
     bundles.actionBundle.root,
     bundles.targetBundle.root,
     bundles.actionBundle.actions.length,
@@ -165,15 +165,15 @@ export const handleExecution = async (data: ExecutorMessage) => {
     proposalEvent.args.configUri
   )
 
-  // ensure compiled bundle ID matches proposed bundle ID
-  if (expectedBundleId !== proposalEvent.args.bundleId) {
-    // We cannot execute the current bundle, so we dicard the event
+  // ensure compiled deployment ID matches proposed deployment ID
+  if (expectedDeploymentId !== proposalEvent.args.deploymentId) {
+    // We cannot execute the current deployment, so we dicard the event
     // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
     process.send({ action: 'discard', payload: executorEvent })
 
     // log error and return
     logger.error(
-      '[ChugSplash]: error: compiled bundle root does not match proposal event bundle root',
+      '[ChugSplash]: error: compiled deployment id does not match proposal event deployment id',
       canonicalConfig.options
     )
     return
@@ -181,28 +181,28 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[ChugSplash]: compiled ${projectName} on: ${network}.`)
 
-  if (bundleState.selectedExecutor === ethers.constants.AddressZero) {
+  if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
     try {
       await (
-        await manager.claimBundle(await getGasPriceOverrides(rpcProvider))
+        await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
       ).wait()
     } catch (err) {
       if (
         err.message.includes(
-          'ChugSplashManager: bundle is currently claimed by an executor'
+          'ChugSplashManager: deployment is currently claimed by an executor'
         )
       ) {
         logger.info(
-          '[ChugSplash]: a different executor claimed the bundle right before this executor'
+          '[ChugSplash]: a different executor claimed the deployment right before this executor'
         )
 
-        // Do not retry the bundle since it will be handled by another executor
+        // Do not retry the deployment since it will be handled by another executor
         process.send({ action: 'discard', payload: executorEvent })
       } else {
-        // A different error occurred. This most likely means the owner cancelled the bundle
+        // A different error occurred. This most likely means the owner cancelled the deployment
         // before it could be claimed. We'll log the error message.
         logger.error(
-          '[ChugSplash]: error: claiming bundle error',
+          '[ChugSplash]: error: claiming deployment error',
           err,
           canonicalConfig.options
         )
@@ -212,17 +212,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
         process.send({ action: 'retry', payload: retryEvent })
       }
 
-      // Since we can't execute the bundle, return
+      // Since we can't execute the deployment, return
       return
     }
-  } else if (bundleState.selectedExecutor !== wallet.address) {
+  } else if (deploymentState.selectedExecutor !== wallet.address) {
     logger.info(
-      '[ChugSplash]: a different executor has already claimed the bundle'
+      '[ChugSplash]: a different executor has already claimed the deployment'
     )
     return
   }
 
-  // If we make it to the point, we know that this executor is selected to claim the bundle.
+  // If we make it to the point, we know that this executor is selected to claim the deployment.
 
   logger.info(`[ChugSplash]: checking that the project is funded...`)
 
@@ -230,17 +230,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
     await hasSufficientFundsForExecution(
       rpcProvider,
       bundles,
-      bundleState.actionsExecuted.toNumber(),
+      deploymentState.actionsExecuted.toNumber(),
       canonicalConfig
     )
   ) {
     logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
 
-    // execute bundle
+    // execute deployment
     try {
       await executeTask({
         chugSplashManager: manager,
-        bundleState,
+        deploymentState,
         bundles,
         executor: wallet,
         provider: rpcProvider,
@@ -248,13 +248,13 @@ export const handleExecution = async (data: ExecutorMessage) => {
         logger,
       })
     } catch (e) {
-      // check if the error was due to the bundle being claimed by another executor, and discard if so
-      const errorBundleState: ChugSplashBundleState = await manager.bundles(
-        activeBundleId
+      // check if the error was due to the deployment being claimed by another executor, and discard if so
+      const errorDeploymentState: DeploymentState = await manager.deployments(
+        activeDeploymentId
       )
-      if (errorBundleState.selectedExecutor !== wallet.address) {
+      if (errorDeploymentState.selectedExecutor !== wallet.address) {
         logger.info(
-          '[ChugSplash]: execution failed due to bundle being claimed by another executor'
+          '[ChugSplash]: execution failed due to deployment being claimed by another executor'
         )
         process.send({ action: 'discard', payload: executorEvent })
         return
@@ -267,7 +267,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         canonicalConfig.options
       )
 
-      // retry the bundle later
+      // retry the deployment later
       const retryEvent = generateRetryEvent(executorEvent)
       process.send({ action: 'retry', payload: retryEvent })
       return
@@ -276,7 +276,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // Update status in the ChugSplash managed database
     if (graphQLClient) {
       try {
-        await updateDeployment(graphQLClient, activeBundleId, 'executed', [])
+        await updateDeployment(
+          graphQLClient,
+          activeDeploymentId,
+          'executed',
+          []
+        )
       } catch (error) {
         logger.error('[ChugSplash]: error: deployment update error', error)
       }
@@ -336,7 +341,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       try {
         await updateDeployment(
           graphQLClient,
-          activeBundleId,
+          activeDeploymentId,
           'verified',
           contracts
         )
@@ -355,8 +360,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
   } else {
     logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
 
-    // Continue to the next bundle if there is an insufficient amount of funds in the
-    // ChugSplashManager. We will make attempts to execute the bundle on
+    // Continue to the next deployment if there is an insufficient amount of funds in the
+    // ChugSplashManager. We will make attempts to execute the deployment on
     // subsequent iterations of the BaseService for up to 30 minutes.
     const retryEvent = generateRetryEvent(executorEvent, 100, 30000)
     process.send({ action: 'retry', payload: retryEvent })
@@ -365,13 +370,13 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[ChugSplash]: claiming executor's payment...`)
 
-  // Withdraw any debt owed to the executor. Note that even if a bundle is cancelled by the
+  // Withdraw any debt owed to the executor. Note that even if a deployment is cancelled by the
   // project owner during execution, the executor will still be able to claim funds here.
   await claimExecutorPayment(wallet, manager)
 
   logger.info(`[ChugSplash]: claimed executor's payment`)
 
-  // If we make it to this point, we know that the executor has executed the bundle (or that it
+  // If we make it to this point, we know that the executor has executed the deployment (or that it
   // has been cancelled by the owner), and that the executor has claimed its payment.
   logger.info('[ChugSplash]: execution successful')
   process.send({ action: 'success', payload: executorEvent })
