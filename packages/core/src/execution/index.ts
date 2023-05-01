@@ -6,8 +6,8 @@ import {
   ChugSplashActionBundle,
   ChugSplashActionType,
   ChugSplashBundles,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
+  DeploymentState,
+  DeploymentStatus,
   writeDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
@@ -38,7 +38,7 @@ export const monitorExecution = async (
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
   bundles: ChugSplashBundles,
-  bundleId: string,
+  deploymentId: string,
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
@@ -49,39 +49,39 @@ export const monitorExecution = async (
     organizationID
   )
 
-  // Get the bundle state of the bundle ID.
-  let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
+  // Get the deployment state of the deployment ID.
+  let deploymentState: DeploymentState = await ChugSplashManager.deployments(
+    deploymentId
   )
 
-  while (bundleState.selectedExecutor !== ethers.constants.AddressZero) {
+  while (deploymentState.selectedExecutor !== ethers.constants.AddressZero) {
     // Wait for one second.
     await sleep(1000)
 
-    // Get the current bundle state.
-    bundleState = await ChugSplashManager.bundles(bundleId)
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
   }
 
   spinner.succeed('Executor has claimed the project.')
   spinner.start('Waiting for execution to be initiated...')
 
-  while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+  while (deploymentState.status === DeploymentStatus.APPROVED) {
     // Wait for one second.
     await sleep(1000)
 
-    // Get the current bundle state.
-    bundleState = await ChugSplashManager.bundles(bundleId)
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
   }
 
   spinner.succeed('Execution initiated.')
 
   const totalNumActions = bundles.actionBundle.actions.length
-  while (bundleState.status === ChugSplashBundleStatus.INITIATED) {
-    if (bundleState.actionsExecuted.toNumber() === totalNumActions) {
+  while (deploymentState.status === DeploymentStatus.INITIATED) {
+    if (deploymentState.actionsExecuted.toNumber() === totalNumActions) {
       spinner.start(`All actions have been executed. Completing execution...`)
     } else {
       spinner.start(
-        `Number of actions executed: ${bundleState.actionsExecuted.toNumber()} out of ${totalNumActions}`
+        `Number of actions executed: ${deploymentState.actionsExecuted.toNumber()} out of ${totalNumActions}`
       )
     }
 
@@ -89,7 +89,7 @@ export const monitorExecution = async (
     const amountToDeposit = await getAmountToDeposit(
       provider,
       bundles,
-      bundleState.actionsExecuted.toNumber(),
+      deploymentState.actionsExecuted.toNumber(),
       parsedConfig,
       false
     )
@@ -105,31 +105,31 @@ export const monitorExecution = async (
     // Wait for one second.
     await sleep(1000)
 
-    // Get the current bundle state.
-    bundleState = await ChugSplashManager.bundles(bundleId)
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
   }
 
-  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+  if (deploymentState.status === DeploymentStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
-      bundleId
+      deploymentId
     )
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+  } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
   } else {
     spinner.fail(
-      `Project was never active. Current status: ${bundleState.status}`
+      `Project was never active. Current status: ${deploymentState.status}`
     )
   }
 }
 
 /**
- * Performs actions on behalf of the project owner after the successful execution of a bundle.
+ * Performs actions on behalf of the project owner after the successful execution of a deployment.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param parsedConfig Parsed ParsedChugSplashConfig.

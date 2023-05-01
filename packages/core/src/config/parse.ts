@@ -2188,7 +2188,7 @@ export const parseAndValidateChugSplashConfig = async (
     await assertContractsBelowSizeLimit(parsedConfig, cachedArtifacts, cre)
   }
 
-  await assertValidBundleSize(provider, parsedConfig, cre)
+  await assertValidDeploymentSize(provider, parsedConfig, cre)
 
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
@@ -2223,7 +2223,7 @@ export const parseAndValidateChugSplashConfig = async (
 /**
  * Asserts that the ChugSplash config can be initiated in a single transaction.
  */
-export const assertValidBundleSize = async (
+export const assertValidDeploymentSize = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment
