@@ -9,43 +9,54 @@ import { Semver, Version } from "./Semver.sol";
 
 /**
  * @title ChugSplashRegistry
- * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. All
- *         deployments must be first claimed with this contract, which allows clients to easily
- *         find and index these deployments.
+ * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. This
+ *         contract allows callers to register new projects. Also, every event emitted in the
+ *         ChugSplash system is announced through this contract. This makes it easy for clients to
+ *         find and index events that occur throughout the deployment process. Lastly, the owner of
+ *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
+           Transparent proxy). The owner can also new versions of the ChugSplashManager
+           implementation.
+ *
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
-     * @notice Mapping of claimers to project names to ChugSplashManagerProxy contracts.
+     * @notice Mapping of claimers to organization IDs to ChugSplashManagerProxy addresses.
      */
     mapping(address => mapping(bytes32 => address payable)) public projects;
 
     /**
-     * @notice Mapping of created manager proxy contracts.
+     * @notice Mapping of ChugSplashManagerProxy addresses to a boolean indicating whether or not
+     *         it was deployed by this contract.
      */
     mapping(address => bool) public managerProxies;
 
     /**
-     * @notice Mapping of contract kinds to adapters.
+     * @notice Mapping of contract kind hashes to adapter contract addresses.
      */
     mapping(bytes32 => address) public adapters;
 
     /**
-     * @notice Mapping of valid manager implementations
+     * @notice Mapping of ChugSplashManager implementations to a boolean indicating whether or not
+     *         it's a valid implementation.
      */
     mapping(address => bool) public managerImplementations;
 
     /**
-     * @notice Mapping of version numbers manager implementations
+     * @notice Mapping of (major, minor, patch) versions to ChugSplashManager implementation
+     *         address.
      */
     mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
      * @notice Emitted whenever a new project is claimed.
      *
-     * @param organizationID Organization ID.
-     * @param claimer         Address of the claimer of the project.
-     * @param managerImpl         Address of the ChugSplashManagerProxy for this project.
-     * @param owner           Address of the initial owner of the project.
+     * @param organizationID Organization ID that was claimed.
+     * @param claimer        Address of the claimer of the project. This is equivalent to the
+     *                       `msg.sender`.
+     * @param managerImpl    Address of the initial ChugSplashManager implementation for this
+     *                       project.
+     * @param owner          Address of the initial owner of the project.
+     * @param retdata        Return data from the ChugSplashManager initializer.
      */
     event ChugSplashProjectClaimed(
         bytes32 indexed organizationID,
@@ -56,12 +67,12 @@ contract ChugSplashRegistry is Ownable, Initializable {
     );
 
     /**
-     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
-     *         registry. We use this to avoid needing a complex indexing system when we're trying
-     *         to find events emitted by the various manager contracts.
+     * @notice Emitted whenever a ChugSplashManager contract announces an event on the registry. We
+     *         use this to avoid needing a complex indexing system when we're trying to find events
+     *         emitted by the various manager contracts.
      *
      * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
+     * @param manager       Address of the ChugSplashManagerProxy announcing an event.
      * @param eventName     Name of the event being announced.
      */
     event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
@@ -73,8 +84,8 @@ contract ChugSplashRegistry is Ownable, Initializable {
      *         manager contracts.
      *
      * @param eventNameHash Hash of the name of the event being announced.
-     * @param manager       Address of the ChugSplashManager announcing an event.
-     * @param dataHash      Hash of the extra data.
+     * @param manager       Address of the ChugSplashManagerProxy announcing an event.
+     * @param dataHash      Hash of the extra data sent by the ChugSplashManager.
      * @param eventName     Name of the event being announced.
      * @param data          The extra data.
      */
@@ -90,10 +101,18 @@ contract ChugSplashRegistry is Ownable, Initializable {
      * @notice Emitted whenever a new contract kind is added.
      *
      * @param contractKindHash Hash representing the contract kind.
-     * @param adapter   Address of the adapter for the proxy.
+     * @param adapter          Address of the adapter for the contract kind.
      */
     event ContractKindAdded(bytes32 contractKindHash, address adapter);
 
+    /**
+     * @notice Emitted whenever a new ChugSplashManager implementation is added.
+     *
+     * @param major  Major version of the ChugSplashManager.
+     * @param minor     Minor version of the ChugSplashManager.
+     * @param patch    Patch version of the ChugSplashManager.
+     * @param manager Address of the ChugSplashManager implementation.
+     */
     event VersionAdded(
         uint256 indexed major,
         uint256 indexed minor,
@@ -109,12 +128,17 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Claims a new project.
+     * @notice Claims a new project by deploying a new ChugSplashManagerProxy
+     * contract and setting the provided owner as the initial owner of the new project. It also
+       checks that the
+     * organization ID being claimed has not already been claimed by the caller, and that the
+       specified version
+     * of the ChugSplashManager is a valid implementation.
      *
-     * @param _organizationID ID of the new ChugSplash organization.
-     * @param _owner     Initial owner for the new organization.
-     * @param _version   Version of the ChugSplashManager.
-     * @param _data      Any data to pass to the ChugSplashManager initalizer.
+     * @param _organizationID Organization ID to claim.
+     * @param _owner        Initial owner for the new project.
+     * @param _version   Version of the ChugSplashManager implementation.
+     * @param _data      Any data to pass to the ChugSplashManager initializer.
      */
     function claim(
         bytes32 _organizationID,
@@ -157,7 +181,8 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Allows ChugSplashManager contracts to announce events.
+     * @notice Allows ChugSplashManager contracts to announce events. Only callable by
+       ChugSplashManagerProxy contracts.
      *
      * @param _event Name of the event to announce.
      */
@@ -172,7 +197,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
 
     /**
      * @notice Allows ChugSplashManager contracts to announce events, including a field for
-     *         arbitrary data.
+     *         arbitrary data.  Only callable by ChugSplashManagerProxy contracts.
      *
      * @param _event Name of the event to announce.
      * @param _data  Arbitrary data to include in the announced event.
@@ -187,9 +212,10 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Adds a new contract kind with a corresponding adapter.
+     * @notice Adds a new contract kind with a corresponding adapter. Only callable by the owner of
+       the ChugSplashRegistry.
      *
-     * @param _contractKindHash Hash representing the contract kind
+     * @param _contractKindHash Hash representing the contract kind.
      * @param _adapter   Address of the adapter for this contract kind.
      */
     function addContractKind(bytes32 _contractKindHash, address _adapter) external onlyOwner {
@@ -203,6 +229,15 @@ contract ChugSplashRegistry is Ownable, Initializable {
         emit ContractKindAdded(_contractKindHash, _adapter);
     }
 
+    /**
+     * @notice Adds a new version of the ChugSplashManager implementation. Only callable by the
+       owner of the ChugSplashRegistry.
+     *  The version is specified by the `Semver` contract
+     *      attached to the implementation. Throws an error if the version
+     *      has already been set.
+     *
+     * @param _manager Address of the ChugSplashManager implementation to add.
+     */
     function addVersion(address _manager) external onlyOwner {
         Version memory version = Semver(_manager).version();
         uint256 major = version.major;
