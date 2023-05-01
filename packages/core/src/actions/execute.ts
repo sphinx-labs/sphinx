@@ -4,21 +4,22 @@ import { Logger } from '@eth-optimism/common-ts'
 import {
   BundledChugSplashAction,
   ChugSplashBundles,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
+  DeploymentState,
+  DeploymentStatus,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
   bundles: ChugSplashBundles
-  bundleState: ChugSplashBundleState
+  deploymentState: DeploymentState
   executor: ethers.Signer
   provider: ethers.providers.Provider
   projectName: string
   logger?: Logger | undefined
 }) => {
-  const { bundles, bundleState, executor, provider, projectName, logger } = args
+  const { bundles, deploymentState, executor, provider, projectName, logger } =
+    args
 
   const chugSplashManager = args.chugSplashManager.connect(executor)
 
@@ -26,7 +27,7 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: preparing to execute the project...`)
 
-  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+  if (deploymentState.status === DeploymentStatus.COMPLETED) {
     logger?.info(`[ChugSplash]: already executed: ${projectName}`)
     return
   }
@@ -111,10 +112,10 @@ export const executeTask = async (args: {
    * @param actions List of actions to execute.
    */
   const executeBatchActions = async (actions: BundledChugSplashAction[]) => {
-    // Pull the bundle state from the contract so we're guaranteed to be up to date.
-    const activeBundleId = await chugSplashManager.activeBundleId()
-    const state: ChugSplashBundleState = await chugSplashManager.bundles(
-      activeBundleId
+    // Pull the deployment state from the contract so we're guaranteed to be up to date.
+    const activeDeploymentId = await chugSplashManager.activeDeploymentId()
+    const state: DeploymentState = await chugSplashManager.deployments(
+      activeDeploymentId
     )
 
     // Filter out any actions that have already been executed, sort by ascending action index.
@@ -164,7 +165,7 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: initiating execution...`)
   await (
-    await chugSplashManager.initiateBundleExecution(
+    await chugSplashManager.initiateExecution(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
@@ -180,7 +181,7 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: completing execution...`)
   await (
-    await chugSplashManager.completeBundleExecution(
+    await chugSplashManager.completeExecution(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)

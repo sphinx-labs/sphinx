@@ -172,7 +172,7 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
   )
 }
 
-export const makeBundleFromTargets = (
+export const makeTargetBundle = (
   targets: ChugSplashTarget[]
 ): ChugSplashTargetBundle => {
   // Compute the hash for each action.
@@ -202,7 +202,7 @@ export const makeBundleFromTargets = (
  * @param actions Series of DeployContract and SetStorage actions to bundle.
  * @return Bundled actions.
  */
-export const makeBundleFromActions = (
+export const makeActionBundle = (
   actions: ChugSplashAction[]
 ): ChugSplashActionBundle => {
   // Turn the "nice" action structs into raw actions.
@@ -368,7 +368,7 @@ export const makeActionBundleFromConfig = async (
   }
 
   // Generate a bundle from the list of actions.
-  return makeBundleFromActions(actions)
+  return makeActionBundle(actions)
 }
 
 /**
@@ -410,5 +410,5 @@ export const makeTargetBundleFromConfig = (
   }
 
   // Generate a bundle from the list of actions.
-  return makeBundleFromTargets(targets)
+  return makeTargetBundle(targets)
 }

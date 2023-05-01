@@ -3,7 +3,7 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { ChugSplashBundles } from '../actions/types'
 import { bundleRemoteSubtask } from '../languages/solidity/compiler'
-import { callWithTimeout, computeBundleId } from '../utils'
+import { callWithTimeout, computeDeploymentId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 
 export const chugsplashFetchSubtask = async (args: {
@@ -50,10 +50,10 @@ export const chugsplashFetchSubtask = async (args: {
   return config
 }
 
-export const verifyBundle = async (
+export const verifyDeployment = async (
   provider: providers.Provider,
   configUri: string,
-  bundleId: string,
+  deploymentId: string,
   ipfsUrl: string
 ) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
@@ -68,8 +68,8 @@ export const verifyBundle = async (
   })
 
   if (
-    bundleId !==
-    computeBundleId(
+    deploymentId !==
+    computeDeploymentId(
       actionBundle.root,
       targetBundle.root,
       actionBundle.actions.length,
@@ -78,7 +78,7 @@ export const verifyBundle = async (
     )
   ) {
     throw new Error(
-      'Bundle ID generated from downloaded config does NOT match given hash. Please report this error.'
+      'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
   }
 }

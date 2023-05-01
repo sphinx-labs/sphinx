@@ -11,7 +11,7 @@ export enum ChugSplashActionType {
 /**
  * The status of a given ChugSplash action.
  */
-export enum ChugSplashBundleStatus {
+export enum DeploymentStatus {
   EMPTY,
   PROPOSED,
   APPROVED,
@@ -109,8 +109,8 @@ export interface ChugSplashTargetBundle {
 /**
  * The state of a ChugSplash bundle.
  */
-export type ChugSplashBundleState = {
-  status: ChugSplashBundleStatus
+export type DeploymentState = {
+  status: DeploymentStatus
   actions: boolean[]
   actionRoot: string
   targetRoot: string
