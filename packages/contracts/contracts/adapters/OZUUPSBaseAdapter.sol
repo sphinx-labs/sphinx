@@ -7,17 +7,20 @@ import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy
 
 /**
  * @title OZUUPSBaseAdapter
- * @notice Base adapter for an OpenZeppelin UUPS Upgradeable proxy.
- *         OZUUPSOwnableAdapter and OZUUPAccessControlAdapter both inherit from this contract
- *         and implement their respective mechanisms for users to reclaim ownership of proxies
- *         from the ChugSplash protocol.
- *
- *         To learn more about the uups proxy pattern, see:
- *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent-vs-uups
+ * @notice An abstract proxy adapter for OpenZeppelin UUPS Upgradeable proxies. Child contracts must
+           implement their own access control mechanism for the `changeProxyAdmin` function since
+           UUPS proxies do not have a standard access control mechanism like Transparent proxies.
  */
 abstract contract OZUUPSBaseAdapter is IProxyAdapter {
+    /**
+     * @notice Address of the ProxyUpdater contract that will be set as the OpenZeppelin UUPS
+       proxy's implementation during the deployment.
+     */
     address public immutable proxyUpdater;
 
+    /**
+     * @param _proxyUpdater Address of the ProxyUpdater contract.
+     */
     constructor(address _proxyUpdater) {
         require(_proxyUpdater != address(0), "OZUUPSBaseAdapter: updater cannot be address(0)");
         proxyUpdater = _proxyUpdater;
@@ -45,8 +48,15 @@ abstract contract OZUUPSBaseAdapter is IProxyAdapter {
         address payable _proxy,
         bytes32 _key,
         uint8 _offset,
-        bytes memory _segment
+        bytes memory _value
     ) external {
-        OZUUPSUpdater(_proxy).setStorage(_key, _offset, _segment);
+        OZUUPSUpdater(_proxy).setStorage(_key, _offset, _value);
     }
+
+    /**
+        Must be overridden in child contracts in order to transfer ownership using the UUPS proxy's
+        current acccess control mechanism (e.g. `Ownable.transferOwnership`).
+     * @inheritdoc IProxyAdapter
+     */
+    function changeProxyAdmin(address payable _proxy, address _newAdmin) external virtual;
 }

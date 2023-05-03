@@ -127,7 +127,8 @@ export const encodeBytesArrayElements = (
 ): Array<StorageSlotSegment> => {
   const slots: Array<StorageSlotSegment> = []
 
-  // Iterate over the beginning and middle chunks of the array and encode each element in it.
+  // Iterate over the beginning and middle chunks of the array and encode each element in it. We use
+  // a while loop instead of a for loop because we need to use `i` after the loop terminates.
   let i = 0
   while (i + 32 < array.length) {
     slots.push({

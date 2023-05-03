@@ -5,10 +5,8 @@ import { ProxyUpdater } from "./ProxyUpdater.sol";
 
 /**
  * @title DefaultUpdater
- * @notice Proxy Updater for an OpenZeppelin Transparent Upgradeable proxy. This is the proxy
- *         updater used by default proxies in the ChugSplash system. To learn more about the
- *         transparent proxy pattern, see:
- *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @notice Proxy updater that works with Transparent proxies, including the default Proxy contracts
+   used in the ChugSplash system.
  */
 contract DefaultUpdater is ProxyUpdater {
     /**
@@ -32,8 +30,12 @@ contract DefaultUpdater is ProxyUpdater {
         _;
     }
 
-    function setStorage(bytes32 _key, uint8 _offset, bytes memory _segment) external ifAdmin {
-        super.setStorageValue(_key, _offset, _segment);
+    /**
+     * Only callable by the owner.
+     * @inheritdoc ProxyUpdater
+     */
+    function setStorage(bytes32 _key, uint8 _offset, bytes memory _value) public override ifAdmin {
+        super.setStorage(_key, _offset, _value);
     }
 
     /**

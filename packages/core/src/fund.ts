@@ -49,7 +49,7 @@ export const getOwnerWithdrawableAmount = async (
   )
 
   if (
-    (await ChugSplashManager.activeBundleId()) !== ethers.constants.HashZero
+    (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
   ) {
     return ethers.BigNumber.from(0)
   }
