@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+/**
+ * @notice Version number as a struct.
+ *
+ * @custom:field major Major version number.
+ * @custom:field minor Minor version number.
+ * @custom:field patch Patch version number.
+ */
 struct Version {
     uint256 major;
     uint256 minor;
@@ -41,7 +48,7 @@ contract Semver {
     /**
      * @notice Returns the full semver contract version.
      *
-     * @return Semver contract version as a tuple.
+     * @return Semver contract version as a struct.
      */
     function version() public view returns (Version memory) {
         return Version(MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION);

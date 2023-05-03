@@ -46,7 +46,7 @@ contract ChugSplashManager is
     bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
 
     /**
-     * @notice Role required to collect the protocol's fee.
+     * @notice Role required to collect the protocol creator's payment.
      */
     bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
         keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
@@ -406,18 +406,14 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Initializes this contract. Must only be callable one time, which should occur
-       immediately after contract creation. This is necessary because this contract is meant to
-       exist as an implementation behind proxies. Note that the implementation must be initialized
-       with all zero-bytes to prevent anyone from owning it.
+     * @inheritdoc IChugSplashManager
      *
-     * @param _data Arbitrary initialization data. This ensures that a consistent interface can be
-                    used to initialize future versions of the ChugSplashManager. In this version, we
-                    expect the following data:
+     * @param _data Initialization data. We expect the following data, ABI-encoded:
      *              - address _owner: Address of the owner of this contract.
      *              - bytes32 _organizationID: Organization ID for this contract.
      *              - bool _allowManagedProposals: Whether or not to allow upgrade proposals from
      *                the ManagedService contract.
+     *
      * @return Empty bytes.
      */
     function initialize(bytes memory _data) external initializer returns (bytes memory) {
@@ -758,9 +754,7 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Indicates whether or not a deployment is currently being executed.
-     *
-     * @return Whether or not a deployment is currently being executed.
+     * @inheritdoc IChugSplashManager
      */
     function isExecuting() external view returns (bool) {
         return activeDeploymentId != bytes32(0);
