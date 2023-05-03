@@ -28,21 +28,38 @@ import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 
 /**
  * @title ChugSplashManager
+ * @custom:version 1.0.0
+ * @notice This contract contains the logic for managing the entire lifecycle of a project's
+   deployments. It contains the functionality for proposing, approving, and executing deployments,
+   paying remote executors, and exporting proxies out of the ChugSplash system if desired. It exists
+   as a single implementation contract behind ChugSplashManagerProxy contracts.
  */
-
 contract ChugSplashManager is
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     Semver,
     IChugSplashManager
 {
-    bytes32 internal constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+    /**
+     * @notice Role required to be a remote executor for a deployment.
+     */
+    bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
 
+    /**
+     * @notice Role required to collect the protocol's fee.
+     */
     bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
         keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
 
+    /**
+     * @notice Role required to propose deployments through the ManagedService contract.
+     */
     bytes32 internal constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
 
+    /**
+     * @notice The contract kind hash for contracts that do not use a proxy (i.e. immutable
+       contracts).
+     */
     bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
 
     /**
@@ -50,38 +67,52 @@ contract ChugSplashManager is
      */
     ChugSplashRegistry public immutable registry;
 
+    /**
+     * @notice Address of the Create2 contract.
+     */
     ICreate2 public immutable create2;
 
+    /**
+     * @notice Address of the GasPriceCalculator contract.
+     */
     IGasPriceCalculator public immutable gasPriceCalculator;
 
+    /**
+     * @notice Address of the ManagedService contract.
+     */
     IAccessControl public immutable managedService;
 
     /**
-     * @notice Amount that must be deposited in this contract in order to execute a deployment. The
-     *         project owner can withdraw this amount whenever a deployment is not active. This bond
-     *         will be forfeited if the project owner cancels a deployment that is in progress,
-               which is
-     *         necessary to prevent owners from trolling the executor by immediately cancelling and
-     *         withdrawing funds.
+     * @notice Amount that must be stored in this contract in order to remotely execute a
+       deployment. It is not necessary to deposit this amount if the owner is self-executing their
+       deployment. The bond can be deposited by any account.
+
+       The owner can withdraw this amount whenever a deployment is not active. However, this amount
+       will be forfeited if the owner cancels a deployment that is in progress and within the
+       `executionLockTime`. This is necessary to prevent owners from trolling the remote executor by
+       immediately cancelling and withdrawing funds.
      */
     uint256 public immutable ownerBondAmount;
 
     /**
-     * @notice Amount of time for an executor to finish executing a deployment once they have
-       claimed
-     *         it. If the owner cancels an active deployment within this time period, their bond is
-     *         forfeited to the executor. This prevents users from trolling executors by immediately
-     *         cancelling active deployments.
+     * @notice Amount of time for a remote executor to finish executing a deployment once they have
+       claimed it.
      */
     uint256 public immutable executionLockTime;
 
     /**
-     * @notice Amount that the executor is paid, denominated as a percentage of the cost of
-     *         execution. For example: if a deployment costs 1 gwei to execute and the
-     *         executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
+     * @notice Percentage that the remote executor profits from a deployment. This is denominated as
+       a percentage of the cost of execution. For example, if a deployment costs 1 gwei to execute
+       and the executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
      */
     uint256 public immutable executorPaymentPercentage;
 
+    /**
+     * @notice Percentage that the protocol creators profit during a remotely executed deployment.
+       This is denominated as a percentage of the cost of execution. For example, if a deployment
+       costs 1 gwei to execute and the protocolPaymentPercentage is 10, then the protocol will
+       profit 0.1 gwei. Note that the protocol does not profit during a self-executed deployment.
+     */
     uint256 public immutable protocolPaymentPercentage;
 
     /**
@@ -91,8 +122,9 @@ contract ChugSplashManager is
     mapping(address => uint256) public executorDebt;
 
     /**
-     * @notice Maps an address to a boolean indicating if the address is allowed to propose
-       deployments.
+     * @notice Maps an address to a boolean indicating if the address has been approved by the owner
+       to propose deployments. Note that this does include proposers from the managed service (see
+       `isProposer`).
      */
     mapping(address => bool) public proposers;
 
@@ -102,7 +134,7 @@ contract ChugSplashManager is
     mapping(bytes32 => DeploymentState) internal _deployments;
 
     /**
-     * @notice ID of the organization this contract is managing.
+     * @notice Organization ID for this contract.
      */
     bytes32 public organizationID;
 
@@ -112,21 +144,32 @@ contract ChugSplashManager is
     bytes32 public activeDeploymentId;
 
     /**
-     * @notice ETH amount that is owed to the executor.
+     * @notice Total ETH amount stored in this contract that is owed to remote executors.
      */
     uint256 public totalExecutorDebt;
 
+    /**
+     * @notice Total ETH amount stored in this contract that is owed to the protocol creators.
+     */
     uint256 public totalProtocolDebt;
 
+    /**
+     * @notice A boolean indicating if the owner of this contract has approved the ManagedService
+       contract to propose deployments on their behalf.
+     */
     bool public allowManagedProposals;
 
     /**
-     * @notice Emitted when a ChugSplash deployment is proposed.
-     *
-     * @param deploymentId   ID of the deployment being proposed.
-     * @param actionRoot Root of the proposed deployment's merkle tree.
-     * @param numActions Number of steps in the proposed deployment.
-     * @param configUri  URI of the config file that can be used to re-generate the deployment.
+     * @notice Emitted when a deployment is proposed.
+
+     * @param deploymentId   ID of the deployment that was proposed.
+     * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
+     * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
+     * @param numActions   Number of actions in the deployment.
+     * @param numTargets   Number of targets in the deployment.
+     * @param configUri  URI of the config file that can be used to fetch the deployment.
+     * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
+     * @param proposer     Address of the account that proposed the deployment.
      */
     event ChugSplashDeploymentProposed(
         bytes32 indexed deploymentId,
@@ -142,17 +185,17 @@ contract ChugSplashManager is
     /**
      * @notice Emitted when a ChugSplash deployment is approved.
      *
-     * @param deploymentId ID of the deployment being approved.
+     * @param deploymentId ID of the deployment that was approved.
      */
     event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
 
     /**
-     * @notice Emitted when a ChugSplash action is executed.
+     * @notice Emitted when an action is executed.
      *
-     * @param deploymentId    Unique ID for the deployment.
-     * @param proxy       Address of the proxy on which the event was executed.
-     * @param executor    Address of the executor that executed the action.
-     * @param actionIndex Index within the deployment hash of the action that was executed.
+     * @param deploymentId   ID of the active deployment.
+     * @param proxy       Address of the proxy that corresponds to this action.
+     * @param executor    Address of the caller that executed the action.
+     * @param actionIndex Index of the action that was executed.
      */
     event ChugSplashActionExecuted(
         bytes32 indexed deploymentId,
@@ -162,31 +205,26 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Emitted when a ChugSplash deployment is initiated.
+     * @notice Emitted when a deployment is initiated.
      *
-     * @param deploymentId        Unique ID for the deployment.
-     * @param executor        Address of the executor that initiated the deployment.
+     * @param deploymentId   ID of the active deployment.
+     * @param executor        Address of the caller that initiated the deployment.
      */
     event ChugSplashDeploymentInitiated(bytes32 indexed deploymentId, address indexed executor);
 
     /**
-     * @notice Emitted when a ChugSplash deployment is completed.
+     * @notice Emitted when a deployment is completed.
      *
-     * @param deploymentId        Unique ID for the deployment.
-     * @param executor        Address of the executor that completed the deployment.
-     * @param actionsExecuted Total number of completed actions.
+     * @param deploymentId   ID of the active deployment.
+     * @param executor        Address of the caller that initiated the deployment.
      */
-    event ChugSplashDeploymentCompleted(
-        bytes32 indexed deploymentId,
-        address indexed executor,
-        uint256 actionsExecuted
-    );
+    event ChugSplashDeploymentCompleted(bytes32 indexed deploymentId, address indexed executor);
 
     /**
-     * @notice Emitted when an active ChugSplash deployment is cancelled.
+     * @notice Emitted when the owner of this contract cancels an active deployment.
      *
      * @param deploymentId        Deployment ID that was cancelled.
-     * @param owner           Owner of the ChugSplashManager.
+     * @param owner           Address of the owner that cancelled the deployment.
      * @param actionsExecuted Total number of completed actions before cancellation.
      */
     event ChugSplashDeploymentCancelled(
@@ -196,25 +234,19 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Emitted when ownership of a proxy is transferred from the ProxyAdmin to the project
-     *         owner.
+     * @notice Emitted when ownership of a proxy is transferred away from this contract.
      *
-     * @param proxy            Address of the proxy that is the subject of the ownership transfer.
-     * @param contractKindHash The contract kind. I.e transparent, UUPS, or no proxy.
-     * @param newOwner         Address of the project owner that is receiving ownership of the
-     *                         proxy.
+     * @param proxy            Address of the proxy that was exported.
+     * @param contractKindHash The proxy's contract kind hash, which indicates the proxy's type.
+     * @param newOwner         Address of the new owner of the proxy.
      */
-    event ProxyOwnershipTransferred(
-        address indexed proxy,
-        bytes32 indexed contractKindHash,
-        address newOwner
-    );
+    event ProxyExported(address indexed proxy, bytes32 indexed contractKindHash, address newOwner);
 
     /**
-     * @notice Emitted when a deployment is claimed by an executor.
+     * @notice Emitted when a deployment is claimed by a remote executor.
      *
      * @param deploymentId ID of the deployment that was claimed.
-     * @param executor Address of the executor that claimed the deployment ID for the project.
+     * @param executor Address of the executor that claimed the deployment.
      */
     event ChugSplashDeploymentClaimed(bytes32 indexed deploymentId, address indexed executor);
 
@@ -222,40 +254,62 @@ contract ChugSplashManager is
      * @notice Emitted when an executor claims a payment.
      *
      * @param executor The executor being paid.
+     * @param withdrawn   Amount of ETH withdrawn.
+     * @param remaining  Amount of ETH remaining to be withdrawn by the executor.
      */
     event ExecutorPaymentClaimed(address indexed executor, uint256 withdrawn, uint256 remaining);
 
+    /**
+     * @notice Emitted when a protocol payment recipient claims a payment.
+     *
+     * @param recipient The recipient that withdrew the funds.
+     * @param amount    Amount of ETH withdrawn.
+     */
     event ProtocolPaymentClaimed(address indexed recipient, uint256 amount);
 
     /**
      * @notice Emitted when the owner withdraws ETH from this contract.
      *
-     * @param owner  Address that initiated the withdrawal.
+     * @param owner  Address of the owner.
      * @param amount ETH amount withdrawn.
      */
     event OwnerWithdrewETH(address indexed owner, uint256 amount);
 
     /**
-     * @notice Emitted when the owner of this contract adds or removes a new proposer.
+     * @notice Emitted when the owner of this contract adds or removes a proposer.
      *
-     * @param proposer Address of the proposer that was added.
-     * @param proposer Address of the owner.
+     * @param proposer Address of the proposer that was added or removed.
+     * @param isProposer Boolean indicating if the proposer was added or removed.
+     * @param owner Address of the owner.
      */
     event ProposerSet(address indexed proposer, bool indexed isProposer, address indexed owner);
 
+    /**
+     * @notice Emitted when the owner of this contract toggles the ability of the ManagedService
+       contract to propose deployments.
+     *
+        * @param isManaged Boolean indicating if the ManagedService contract is allowed to propose
+          deployments.
+        * @param owner Address of the owner.
+     */
     event ToggledManagedProposals(bool isManaged, address indexed owner);
 
     /**
-     * @notice Emitted when ETH is deposited in this contract
+     * @notice Emitted when ETH is deposited in this contract.
+     *
+     * @param from   Address of the account that deposited ETH.
+     * @param amount ETH amount deposited.
      */
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     /**
-     * @notice Emitted when a default proxy is deployed by this contract.
+     * @notice Emitted when a Proxy is deployed by this contract.
      *
-     * @param proxy             Address of the deployed proxy.
-     * @param deploymentId          ID of the deployment in which the proxy was deployed.
-     * @param referenceName     String reference name.
+     * @param salt           Salt used to deploy the proxy.
+     * @param proxy          Address of the deployed proxy.
+     * @param deploymentId   ID of the deployment in which the proxy was deployed.
+     * @param projectName    Name of the project that the proxy belongs to.
+     * @param referenceName  Reference name that corresponds to this proxy.
      */
     event DefaultProxyDeployed(
         bytes32 indexed salt,
@@ -266,9 +320,9 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Emitted when a contract is deployed.
+     * @notice Emitted when a contract is deployed by this contract.
      *
-     * @param referenceNameHash Hash of the reference name.
+     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
@@ -280,6 +334,15 @@ contract ChugSplashManager is
         string referenceName
     );
 
+    /**
+     * @notice Emitted when a contract deployment is skipped. This occurs when a contract already
+       exists at the CREATE2 address.
+     *
+     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
+     * @param contractAddress   Address of the deployed contract.
+     * @param deploymentId          ID of the deployment in which the contract was deployed.
+     * @param referenceName     String reference name.
+     */
     event ContractDeploymentSkipped(
         string indexed referenceNameHash,
         address indexed contractAddress,
@@ -288,11 +351,11 @@ contract ChugSplashManager is
     );
 
     /**
-     * @notice Modifier that restricts access to the executor.
+     * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
         require(
-            managedService.hasRole(EXECUTOR_ROLE, msg.sender),
+            managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender),
             "ChugSplashManager: caller is not executor"
         );
         _;
@@ -300,13 +363,18 @@ contract ChugSplashManager is
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _executionLockTime         Amount of time for an executor to completely execute a
-     *                                   deployment after claiming it.
+     * @param _create2                   Address of the Create2 contract.
+     * @param _gasPriceCalculator        Address of the GasPriceCalculator contract.
+     * @param _managedService            Address of the ManagedService contract.
+     * @param _executionLockTime         Amount of time for a remote executor to completely execute
+       a deployment after claiming it.
      * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
-     *                                   execute a deployment.
-     * @param _executorPaymentPercentage Amount that an executor will earn from completing a
-       deployment,
-     *                                   denominated as a percentage.
+     *                                   remote execute a deployment.
+     * @param _executorPaymentPercentage Percentage that an executor will profit from completing a
+       deployment.
+     * @param _protocolPaymentPercentage Percentage that the protocol creators will profit from
+         completing a deployment.
+     * @param _version                   Version of this contract.
      */
     constructor(
         ChugSplashRegistry _registry,
@@ -338,13 +406,19 @@ contract ChugSplashManager is
     }
 
     /**
-     * @param _data Arbitrary initialization data, allows for future manager versions to use the
-     *               same interface.
-     *              In this version, we expect the following data:
+     * @notice Initializes this contract. Must only be callable one time, which should occur
+       immediately after contract creation. This is necessary because this contract is meant to
+       exist as an implementation behind proxies. Note that the implementation must be initialized
+       with all zero-bytes to prevent anyone from owning it.
+     *
+     * @param _data Arbitrary initialization data. This ensures that a consistent interface can be
+                    used to initialize future versions of the ChugSplashManager. In this version, we
+                    expect the following data:
      *              - address _owner: Address of the owner of this contract.
-     *              - bytes32 _organizationID: ID of the organization this contract is managing.
+     *              - bytes32 _organizationID: Organization ID for this contract.
      *              - bool _allowManagedProposals: Whether or not to allow upgrade proposals from
-     *                the ChugSplash managed service.
+     *                the ManagedService contract.
+     * @return Empty bytes.
      */
     function initialize(bytes memory _data) external initializer returns (bytes memory) {
         (address _owner, bytes32 _organizationID, bool _allowManagedProposals) = abi.decode(
@@ -363,15 +437,19 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Propose a new ChugSplash deployment to be approved. Only callable by the owner of
-       this
-     *         contract or a proposer. These permissions are required to prevent spam.
+     * @notice Propose a new deployment. No action can be taken on the deployment until it is
+       approved via the `approve` function. Only callable by the owner of this contract, a proposer
+       that has been approved by the owner, or the ManagedService contract, if
+       `allowManagedProposals` is true. These permissions prevent spam.
      *
-     * @param _actionRoot Root of the deployment's merkle tree.
-     * @param _numActions Number of elements in the deployment's tree.
+     * @param _actionRoot Root of the Merkle tree containing the actions for the deployment.
+     * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
+     * @param _numActions Number of actions in the deployment.
+     * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
+     * @param _remoteExecution Whether or not to allow remote execution of the deployment.
      */
-    function proposeChugSplashDeployment(
+    function propose(
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -417,16 +495,13 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Allows the owner to approve a deployment to be executed. There must be at least
-     *         `ownerBondAmount` deposited in this contract in order for a deployment to be
-               approved.
-     *         The owner can send the bond to this contract via a call to `depositETH` or `receive`.
-     *         This bond will be forfeited if the project owner cancels an approved deployment. Also
-     *         note that the deployment can be executed as soon as it is approved.
+     * @notice Allows the owner to approve a deployment to be executed. If remote execution is
+       enabled, there must be at least `ownerBondAmount` deposited in this contract before the
+       deployment can be approved. The deployment must be proposed before it can be approved.
      *
      * @param _deploymentId ID of the deployment to approve
      */
-    function approveChugSplashDeployment(bytes32 _deploymentId) external onlyOwner {
+    function approve(bytes32 _deploymentId) external onlyOwner {
         DeploymentState storage deployment = _deployments[_deploymentId];
 
         if (deployment.remoteExecution) {
@@ -453,6 +528,16 @@ contract ChugSplashManager is
         registry.announce("ChugSplashDeploymentApproved");
     }
 
+    /**
+     * @notice Executes an entire deployment in a single transaction. Deployments must be approved
+       before they can be executed.
+
+     * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
+     * @param _targetProofs Array of Merkle proofs for the targets.
+     * @param _actions Array of ChugSplashAction structs containing the actions for the deployment.
+     * @param _actionIndexes Array of indexes into the actions array for each target.
+     * @param _actionProofs Array of Merkle proofs for the actions.
+     */
     function executeEntireDeployment(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
@@ -469,13 +554,11 @@ contract ChugSplashManager is
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
      *
-     *         Cancels an active ChugSplash deployment. If an executor has not claimed the
-               deployment,
-     *         the owner is simply allowed to withdraw their bond via a subsequent call to
-     *         `withdrawOwnerETH`. Otherwise, cancelling a deployment will cause the project owner
-               to
-     *         forfeit their bond to the executor, and will also allow the executor to refund their
-     *         own bond.
+     *         Allows the owner to cancel an active deployment that was approved. If an executor has
+               not claimed the deployment, the owner is simply allowed to withdraw their bond via a
+               subsequent call to `withdrawOwnerETH`. Otherwise, cancelling a deployment will cause
+               the owner to forfeit their bond to the executor. This is necessary to prevent owners
+               from trolling the remote executor by immediately cancelling and withdrawing funds.
      */
     function cancelActiveChugSplashDeployment() external onlyOwner {
         require(activeDeploymentId != bytes32(0), "ChugSplashManager: no active deployment");
@@ -504,15 +587,10 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Allows an executor to post a bond of `executorBondAmount` to claim the sole right to
-     *         execute actions for a deployment over a period of `executionLockTime`. Only the first
-     *         executor to post a bond gains this right. Executors must finish executing the
-               deployment
-     *         within `executionLockTime` or else another executor may claim the deployment. Note
-               that
-     *         this strategy creates a PGA for the transaction to claim the deployment but removes
-               PGAs
-     *         during the execution process.
+     * @notice Allows a remote executor to claim the sole right to execute a deployment over a
+               period of `executionLockTime`. Only the first executor to post a bond gains this
+               right. Executors must finish executing the deployment within `executionLockTime` or
+               else another executor may claim the deployment.
      */
     function claimDeployment() external onlyExecutor {
         require(activeDeploymentId != bytes32(0), "ChugSplashManager: no deployment is active");
@@ -534,11 +612,13 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Allows executors to claim their ETH payments. Executors may only withdraw an amount
-     *         less than or equal to the amount of ETH owed to them by this contract. We allow the
-     *         executor to withdraw less than the amount owed to them because it's possible that the
-     *         executor's debt exceeds the amount of ETH stored in this contract. This situation can
-     *         occur when the executor completes an underfunded deployment.
+     * @notice Allows an executor to claim its ETH payment that was earned by completing a
+       deployment. Executors may only withdraw an amount less than or equal to the amount of ETH
+       owed to them by this contract. We allow the executor to withdraw less than the amount owed to
+       them because it's possible that the executor's debt exceeds the amount of ETH stored in this
+       contract. This situation can occur when the executor completes an underfunded deployment.
+
+     * @param _amount Amount of ETH to withdraw.
      */
     function claimExecutorPayment(uint256 _amount) external onlyExecutor {
         require(_amount > 0, "ChugSplashManager: amount cannot be 0");
@@ -558,6 +638,10 @@ contract ChugSplashManager is
         registry.announce("ExecutorPaymentClaimed");
     }
 
+    /**
+     * @notice Allows the protocol creators to claim their royalty, which is only earned during
+       remotely executed deployments.
+     */
     function claimProtocolPayment() external {
         require(
             managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender),
@@ -577,11 +661,13 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Transfers ownership of a proxy from this contract to a given address. Note that this
-     *         function allows project owners to send ownership of their proxy to address(0), which
-     *         would make their proxy non-upgradeable.
+     * @notice Transfers ownership of a proxy away from this contract to a specified address. Only
+       callable by the owner. Note that this function allows the owner to send ownership of their
+       proxy to address(0), which would make their proxy non-upgradeable.
      *
-     * @param _newOwner  Address of the project owner that is receiving ownership of the proxy.
+     * @param _proxy  Address of the proxy to transfer ownership of.
+     * @param _contractKindHash  Hash of the contract kind, which represents the proxy type.
+     * @param _newOwner  Address of the owner to receive ownership of the proxy.
      */
     function exportProxy(
         address payable _proxy,
@@ -595,7 +681,7 @@ contract ChugSplashManager is
         address adapter = registry.adapters(_contractKindHash);
         require(adapter != address(0), "ChugSplashManager: invalid contract kind");
 
-        emit ProxyOwnershipTransferred(_proxy, _contractKindHash, _newOwner);
+        emit ProxyExported(_proxy, _contractKindHash, _newOwner);
 
         // Delegatecall the adapter to change ownership of the proxy. slither-disable-next-line
         // controlled-delegatecall
@@ -604,12 +690,13 @@ contract ChugSplashManager is
         );
         require(success, "ChugSplashManager: proxy admin change failed");
 
-        registry.announce("ProxyOwnershipTransferred");
+        registry.announce("ProxyExported");
     }
 
     /**
-     * @notice Allows the project owner to withdraw all funds in this contract minus the debt
-     *         owed to the executor. Cannot be called when there is an active deployment.
+     * @notice Allows the owner to withdraw all funds in this contract minus the debt
+     *         owed to the executor and protocol. Cannot be called when there is an active
+               deployment, as this would rug the remote executor.
      */
     function withdrawOwnerETH() external onlyOwner {
         require(
@@ -631,6 +718,7 @@ contract ChugSplashManager is
      * @notice Allows the owner of this contract to add or remove a proposer.
      *
      * @param _proposer Address of the proposer to add or remove.
+     * @param _isProposer Whether or not the proposer should be added or removed.
      */
     function setProposer(address _proposer, bool _isProposer) external onlyOwner {
         proposers[_proposer] = _isProposer;
@@ -639,6 +727,10 @@ contract ChugSplashManager is
         registry.announceWithData("ProposerSet", abi.encodePacked(_isProposer));
     }
 
+    /**
+     * @notice Allows the owner to toggle whether or not proposals via the ManagedService contract
+       is allowed.
+     */
     function toggleAllowManagedProposals() external onlyOwner {
         allowManagedProposals = !allowManagedProposals;
 
@@ -651,9 +743,11 @@ contract ChugSplashManager is
 
     /**
      * @notice Gets the DeploymentState struct for a given deployment ID. Note that we explicitly
-     *         define this function because the getter auto-generated by Solidity doesn't return
+     *         define this function because the getter function auto-generated by Solidity doesn't
+               return
      *         array members of structs: https://github.com/ethereum/solidity/issues/12792. Without
-     *         this function, we wouldn't be able to return `DeploymentState.actions`.
+     *         this function, we wouldn't be able to retrieve the full `DeploymentState.actions`
+               array.
      *
      * @param _deploymentId Deployment ID.
      *
@@ -664,19 +758,24 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Returns whether or not a deployment is currently being executed.
-     *         Used to determine if the manager implementation can safely be upgraded.
+     * @notice Indicates whether or not a deployment is currently being executed.
+     *
+     * @return Whether or not a deployment is currently being executed.
      */
     function isExecuting() external view returns (bool) {
         return activeDeploymentId != bytes32(0);
     }
 
     /**
-     * @notice Initiate the execution of a deployment. Note that non-proxied contracts are not
-     *         included in the target deployment.
-     *
-     * @param _targets Array of ChugSplashTarget objects.
-     * @param _proofs  Array of Merkle proofs.
+     * @notice Initiate the execution of a deployment. This must be called after the deployment is
+       approved, and before the rest of the execution process occurs. In this function, all of the
+       proxies in the deployment are disabled by setting their implementations to a contract that
+       can only be called by the team's ChugSplashManagerProxy. This must occur in a single
+       transaction to make the process atomic, which means the proxies are upgraded as a single
+       unit.
+
+     * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
+     * @param _proofs Array of Merkle proofs for the targets.
      */
     function initiateExecution(
         ChugSplashTarget[] memory _targets,
@@ -773,15 +872,11 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Executes multiple ChugSplash actions within the current active deployment for a
-       project.
-     *         Actions can only be executed once. A re-entrancy guard is added to prevent a
-     *         contract's constructor from calling another contract which in turn
-     *         calls back into this function. Only callable by the executor.
+     * @notice Executes a deployment by setting proxy state variables and deploying contracts.
      *
-     * @param _actions       Array of SetStorage/DeployContract actions to execute.
+     * @param _actions Array of ChugSplashAction structs containing the actions for the deployment.
      * @param _actionIndexes Array of action indexes.
-     * @param _proofs        Array of Merkle proofs for each action.
+     * @param _proofs Array of Merkle proofs for the actions.
      */
     function executeActions(
         ChugSplashAction[] memory _actions,
@@ -868,13 +963,10 @@ contract ChugSplashManager is
 
     /**
      * @notice Completes the deployment by upgrading all proxies to their new implementations. This
-     *         occurs in a single transaction to ensure that all proxies are initialized at the same
-     *         time. Note that this function will revert if it is called before all of the SetCode
-     *         and DeployContract actions have been executed in `executeChugSplashAction`.
-     *         Only callable by the executor.
+     *         occurs in a single transaction to ensure that the upgrade is atomic.
      *
-     * @param _targets Array of ChugSplashTarget objects.
-     * @param _proofs  Array of Merkle proofs.
+     * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
+     * @param _proofs Array of Merkle proofs for the targets.
      */
     function completeExecution(
         ChugSplashTarget[] memory _targets,
@@ -949,16 +1041,19 @@ contract ChugSplashManager is
         bytes32 completedDeploymentId = activeDeploymentId;
         activeDeploymentId = bytes32(0);
 
-        emit ChugSplashDeploymentCompleted(
-            completedDeploymentId,
-            msg.sender,
-            deployment.actionsExecuted
-        );
+        emit ChugSplashDeploymentCompleted(completedDeploymentId, msg.sender);
         registry.announce("ChugSplashDeploymentCompleted");
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
+    /**
+     * @notice Determines if a given address is allowed to propose deployments.
+     *
+     * @param _addr Address to check.
+     *
+     * @return True if the address is allowed to propose deployments, otherwise false.
+     */
     function isProposer(address _addr) public view returns (bool) {
         return
             (allowManagedProposals && managedService.hasRole(MANAGED_PROPOSER_ROLE, _addr)) ||
@@ -966,14 +1061,20 @@ contract ChugSplashManager is
             _addr == owner();
     }
 
+    /**
+     * @notice Returns the total debt owed to executors and the protocol creators.
+     *
+     * @return Total debt owed to executors and the protocol creators.
+     */
     function totalDebt() public view returns (uint256) {
         return totalExecutorDebt + totalProtocolDebt;
     }
 
     /**
-     * @notice Queries the selected executor for a given project/deployment.
+     * @notice Queries the selected executor for a given project/deployment. This will return
+       address(0) if the deployment is being self-executed by the owner.
      *
-     * @param _deploymentId ID of the deployment currently being executed.
+     * @param _deploymentId ID of the deployment to query.
      *
      * @return Address of the selected executor.
      */
@@ -982,6 +1083,14 @@ contract ChugSplashManager is
         return deployment.selectedExecutor;
     }
 
+    /**
+     * @notice Pay the executor and protocol creator based on the transaction's gas price and the
+       gas used. Note that no payment occurs for self-executed deployments.
+
+        * @param _initialGasLeft Gas left at the beginning of this transaction.
+        * @param _remoteExecution True if the deployment is being executed remotely, otherwise
+          false.
+     */
     function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
         if (!_remoteExecution) {
             return;
@@ -1017,17 +1126,9 @@ contract ChugSplashManager is
     /**
      * @notice Deploys a contract using the CREATE2 opcode.
      *
-     *         If the user is deploying a proxied contract, then we deploy the implementation
-     *         contract first and later set the proxy's implementation address to the implementation
-     *         contract's address.
-     *
-     *         Note that we wait to set the proxy's implementation address until
-     *         the very last call of the deployment to avoid a situation where end-users are
-               interacting
-     *         with a proxy whose storage has not been fully initialized.
-     *
-     * @param _referenceName Reference name that corresponds to the contract.
-     * @param _code          Creation bytecode of the contract.
+     * @param _referenceName Reference name that corresponds to the contract. Used for logging.
+     * @param _code          Creation bytecode of the contract, which includes constructor
+       arguments.
      */
     function _deployContract(string memory _referenceName, bytes memory _code) internal {
         // Get the expected address of the contract.
@@ -1075,12 +1176,13 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Modifies a storage slot within the proxy contract.
+     * @notice Modifies a storage slot value within a proxy contract.
      *
-     * @param _proxy   Address of the proxy.
+     * @param _proxy   Address of the proxy to modify.
      * @param _adapter Address of the adapter for this proxy.
-     * @param _key     Storage key to modify.
-     * @param _value   New value for the storage key.
+     * @param _key     Storage slot key to modify.
+     * @param _offset  Offset within the storage slot to modify.
+     * @param _value   New value for the storage slot key.
      */
     function _setProxyStorage(
         address payable _proxy,
@@ -1097,6 +1199,14 @@ contract ChugSplashManager is
         require(success, "ChugSplashManager: set storage failed");
     }
 
+    /**
+     * @notice If the deployment is being executed remotely, this function will check that the
+     * caller is the selected executor. If the deployment is being executed locally, this function
+     * will check that the caller is the owner. Throws an error otherwise.
+
+       @param _remoteExecution True if the deployment is being executed remotely, otherwise false.
+
+     */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
         _remoteExecution
             ? require(

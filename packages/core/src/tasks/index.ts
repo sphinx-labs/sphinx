@@ -463,7 +463,7 @@ Please wait a couple minutes then try again.`
     )
   } else if (deploymentState.status === DeploymentStatus.PROPOSED) {
     await (
-      await ChugSplashManager.approveChugSplashDeployment(
+      await ChugSplashManager.approve(
         deploymentId,
         await getGasPriceOverrides(provider)
       )
@@ -1113,7 +1113,7 @@ export const proposeChugSplashDeployment = async (
   }
   // Propose the deployment.
   await (
-    await ChugSplashManager.proposeChugSplashDeployment(
+    await ChugSplashManager.propose(
       bundles.actionBundle.root,
       bundles.targetBundle.root,
       bundles.actionBundle.actions.length,

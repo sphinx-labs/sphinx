@@ -7,13 +7,18 @@ import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy
 
 /**
  * @title OZTransparentAdapter
- * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy.To learn more about the
- *         transparent proxy pattern, see:
- *         https://docs.openzeppelin.com/contracts/4.x/api/proxy#transparent_proxy
+ * @notice Adapter for an OpenZeppelin Transparent Upgradeable proxy.
  */
 contract OZTransparentAdapter is IProxyAdapter {
+    /**
+     * @notice Address of the ProxyUpdater contract that will be set as the Transparent proxy's
+       implementation during the deployment.
+     */
     address public immutable proxyUpdater;
 
+    /**
+     * @param _proxyUpdater Address of the ProxyUpdater contract.
+     */
     constructor(address _proxyUpdater) {
         require(_proxyUpdater != address(0), "OZTransparentAdapter: updater cannot be address(0)");
         proxyUpdater = _proxyUpdater;
@@ -40,7 +45,7 @@ contract OZTransparentAdapter is IProxyAdapter {
         address payable _proxy,
         bytes32 _key,
         uint8 _offset,
-        bytes memory _segment
+        bytes memory _value
     ) external {
         require(_proxy.code.length > 0, "OZTransparentAdapter: invalid proxy");
 
@@ -50,7 +55,7 @@ contract OZTransparentAdapter is IProxyAdapter {
         (bool success, ) = _proxy.call(
             abi.encodeCall(
                 Proxy.upgradeToAndCall,
-                (proxyUpdater, abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _segment)))
+                (proxyUpdater, abi.encodeCall(IProxyUpdater.setStorage, (_key, _offset, _value)))
             )
         );
         require(success, "OZTransparentAdapter: call to set storage failed");
