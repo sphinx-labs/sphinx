@@ -1,4 +1,49 @@
-# ChugSplashManager Speed Spec
+# ChugSplashManager
+
+The `ChugSplashManager` contract contains the logic for managing the entire lifecycle of a project's
+deployments. This includes proposing, approving, and executing deployments, as well as paying remote
+executors and exporting proxies out of the ChugSplash system. It exists as a single immutable implementation
+contract behind upgradeable `ChugSplashManagerProxy` contracts.
+
+The `ChugSplashManager` interface is minimal so that future versions of the `ChugSplashManager` can easily conform to a consistent interface. The interface is:
+
+```sol
+interface IChugSplashManager {
+    function initialize(bytes memory) external returns (bytes memory);
+    function isExecuting() external view returns (bool);
+    function registry() external view returns (ChugSplashRegistry);
+    function organizationID() external view returns (bytes32);
+}
+```
+
+## Expected Behavior
+
+* This contract must be owned by a single address.
+* The version of this contract must be `1, 0, 0` (major, minor, patch).
+* This contract must inherit from `IChugSplashManager`.
+* The state of this contract must be initializable through a `ChugSplashManagerProxy`.
+* It must be impossible to `selfdestruct` this contract.
+* It must be impossible for executors to replay deployments that are completed or cancelled.
+
+
+## Function Invariants
+
+### `receive`
+
+```sol
+receive() external payable;
+```
+
+* Allows anyone to send ETH to this contract.
+* Emits an `ETHDeposited` event.
+* Announces an `ETHDeposited` event on the `ChugSplashRegistry` without data.
+
+###
+
+```sol
+
+```
+
 
 ## Deployment states
 

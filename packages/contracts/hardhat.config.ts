@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from 'hardhat/types'
 import * as dotenv from 'dotenv'
+import 'hardhat-interface-generator'
 
 // Load environment variables from .env
 dotenv.config()
