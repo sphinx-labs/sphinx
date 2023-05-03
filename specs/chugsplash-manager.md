@@ -183,4 +183,4 @@ const getProxyByName = (
 * The `admin` of the `ChugSplashManager` MUST be the only address that can transfer proxy ownership from the ChugSplashManager.
 * There MUST NOT be an active deployment ID.
 * The delegatecall to transfer proxy ownership MUST succeed.
-* The ChugSplashManager MUST emit the ProxyOwnershipTransferred event with the name of the target corresponding to the proxy (indexed and unindexed), the address of the proxy, and the new owner of the proxy. The ChugSplashManager MUST announce this event to the registry.
+* The ChugSplashManager MUST emit the ProxyExported event with the name of the target corresponding to the proxy (indexed and unindexed), the address of the proxy, and the new owner of the proxy. The ChugSplashManager MUST announce this event to the registry.

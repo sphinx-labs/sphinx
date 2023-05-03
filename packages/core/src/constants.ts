@@ -20,7 +20,9 @@ export const keywords: Keywords = {
   gap: '{gap}',
 }
 
-export const EXECUTOR_ROLE = utils.keccak256(utils.toUtf8Bytes('EXECUTOR_ROLE'))
+export const REMOTE_EXECUTOR_ROLE = utils.keccak256(
+  utils.toUtf8Bytes('REMOTE_EXECUTOR_ROLE')
+)
 
 export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
   major: 1,

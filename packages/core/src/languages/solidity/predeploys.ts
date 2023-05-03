@@ -49,7 +49,7 @@ import {
   getImpersonatedSigner,
   assertValidBlockGasLimit,
 } from '../../utils'
-import { EXECUTOR_ROLE } from '../../constants'
+import { REMOTE_EXECUTOR_ROLE } from '../../constants'
 import {
   getChugSplashConstructorArgs,
   getChugSplashRegistryAddress,
@@ -360,8 +360,13 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: assigning executor roles...')
   for (const executor of executors) {
-    if ((await ManagedService.hasRole(EXECUTOR_ROLE, executor)) === false) {
-      await ManagedService.connect(signer).grantRole(EXECUTOR_ROLE, executor)
+    if (
+      (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
+    ) {
+      await ManagedService.connect(signer).grantRole(
+        REMOTE_EXECUTOR_ROLE,
+        executor
+      )
     }
   }
   logger?.info('[ChugSplash]: finished assigning executor roles')
