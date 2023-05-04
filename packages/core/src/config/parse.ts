@@ -357,6 +357,19 @@ export const assertValidUserConfigFields = async (
         )
       }
     }
+
+    if (
+      contractConfig.unsafeAllowFlexibleConstructor === true &&
+      contractConfig.kind !== 'no-proxy'
+    ) {
+      logValidationError(
+        'error',
+        `Detected the 'unsafeAllowFlexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
   }
 
   if (validationErrors && exitOnFailure) {
@@ -819,8 +832,8 @@ export const parseDynamicBytes: VariableHandler<UserConfigVariable, string> = (
 
   return parseBytes(
     variable,
+    storageObj.label,
     variableType.label,
-    storageObj.type,
     storageObj.offset
   )
 }
@@ -1237,27 +1250,61 @@ const parseArrayConstructorArg = (
   return parsedValues
 }
 
+export const parseStructConstructorArg = (
+  paramType: ParamType,
+  constructorArgValue: UserConfigVariable
+) => {
+  if (typeof constructorArgValue !== 'object') {
+    throw new InputError(
+      `Expected object for ${
+        paramType.name
+      } but got ${typeof constructorArgValue}`
+    )
+  }
+
+  const parsedValues: ParsedConfigVariable = {}
+  for (const [key, value] of Object.entries(constructorArgValue)) {
+    const inputChild = paramType.components.find((component) => {
+      return component.name === key
+    })
+    if (inputChild === undefined) {
+      throw new InputError(
+        `User entered incorrect member in ${paramType.name}: ${key}`
+      )
+    }
+    parsedValues[key] = parseAndValidateConstructorArg(inputChild, value)
+  }
+
+  return parsedValues
+}
+
 const parseAndValidateConstructorArg = (
   input: ParamType,
   constructorArgValue: UserConfigVariable
 ): ParsedConfigVariable => {
   const constructorArgType = input.type
-  if (input.baseType.startsWith('uint') || input.baseType.startsWith('int')) {
+  // We fetch a new ParamType using the input type even though input is a ParamType object
+  // This is b/c input is an incomplete object, so fetching the new ParamType yields
+  // an object with more useful information on it
+  const paramType =
+    input.type === 'tuple' ? input : ethers.utils.ParamType.from(input.type)
+  const name = input.name
+  if (
+    paramType.baseType &&
+    (paramType.baseType.startsWith('uint') ||
+      paramType.baseType.startsWith('int'))
+  ) {
     // Since the number of bytes is not easily accessible, we parse it from the type string.
     const suffix = constructorArgType.replace(/u?int/g, '')
     const bits = parseInt(suffix, 10)
     const numberOfBytes = bits / 8
 
     if (constructorArgType.startsWith('int')) {
-      return parseInteger(constructorArgValue, input.name, numberOfBytes)
+      return parseInteger(constructorArgValue, name, numberOfBytes)
     } else {
-      return parseUnsignedInteger(
-        constructorArgValue,
-        input.name,
-        numberOfBytes
-      )
+      return parseUnsignedInteger(constructorArgValue, name, numberOfBytes)
     }
-  } else if (input.baseType === 'address') {
+  } else if (paramType.baseType === 'address') {
     // if the value is a contract reference, then we don't parse it and assume it is correct given
     // that we handle validating contract references elsewhere.
     // Note that references to any proxied contracts will have already been resolved at this point,
@@ -1270,28 +1317,28 @@ const parseAndValidateConstructorArg = (
     ) {
       return constructorArgValue
     } else {
-      return parseAddress(constructorArgValue, input.name)
+      return parseAddress(constructorArgValue, name)
     }
-  } else if (input.baseType === 'bool') {
-    return parseBool(constructorArgValue, input.name)
-  } else if (input.baseType.startsWith('bytes')) {
+  } else if (paramType.baseType === 'bool') {
+    return parseBool(constructorArgValue, name)
+  } else if (paramType.baseType && paramType.baseType.startsWith('bytes')) {
     const suffix = constructorArgType.replace(/bytes/g, '')
     const numberOfBytes = parseInt(suffix, 10)
 
     return parseFixedBytes(
       constructorArgValue,
       constructorArgType,
-      input.name,
+      name,
       numberOfBytes
     )
-  } else if (input.baseType === 'string') {
-    return parseBytes(constructorArgValue, input.name, input.type, 0)
-  } else if (input.baseType === 'array') {
-    return parseArrayConstructorArg(input, constructorArgValue)
+  } else if (paramType.baseType === 'string') {
+    return parseBytes(constructorArgValue, name, paramType.type, 0)
+  } else if (paramType.baseType === 'array') {
+    return parseArrayConstructorArg(paramType, constructorArgValue)
   } else {
     // throw or log error
     throw new InputError(
-      `Unsupported constructor argument type: ${input.type} for argument ${input.name}`
+      `Unsupported constructor argument type: ${paramType.type} for argument ${name}`
     )
   }
 }
@@ -1331,9 +1378,22 @@ export const parseContractConstructorArgs = (
     }
   }
 
-  const constructorArgNames = constructorFragment.inputs.map(
-    (input) => input.name
+  const functionConstructorArgs = constructorFragment.inputs.filter(
+    (el) => el.type === 'function'
   )
+  if (functionConstructorArgs.length > 0) {
+    logValidationError(
+      'error',
+      `Detected function type in constructor arguments for ${referenceName}. Function types are not allowed in constructor arugments.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const constructorArgNames = constructorFragment.inputs
+    .filter((el) => el.type !== 'function')
+    .map((input) => input.name)
   const incorrectConstructorArgNames = Object.keys(userConstructorArgs).filter(
     (argName) => !constructorArgNames.includes(argName)
   )
@@ -1341,6 +1401,10 @@ export const parseContractConstructorArgs = (
   const inputFormatErrors: string[] = []
 
   constructorFragment.inputs.forEach((input) => {
+    if (input.type === 'function') {
+      return
+    }
+
     const constructorArgValue = userConstructorArgs[input.name]
     if (constructorArgValue === undefined) {
       undefinedConstructorArgNames.push(input.name)
@@ -1348,16 +1412,11 @@ export const parseContractConstructorArgs = (
     }
 
     try {
-      // We fetch a new ParamType using the input type even though input is a ParamType object
-      // This is b/c input is an incomplete object, so fetching the new ParamType yields
-      // an object with more useful information on it
-      const paramType = ethers.utils.ParamType.from(input.type)
       parsedConstructorArgs[input.name] = parseAndValidateConstructorArg(
-        paramType,
+        input,
         constructorArgValue
       )
     } catch (e) {
-      throw e
       inputFormatErrors.push((e as Error).message)
     }
   })
@@ -2047,6 +2106,12 @@ export const assertValidConstructorArgs = (
     cachedConstructorArgs[referenceName] = args
   }
 
+  // Exit if any validation errors were detected up to this point. We exit early here because invalid
+  // constructor args can cause the rest of the parsing logic to fail with cryptic errors
+  if (validationErrors && exitOnFailure) {
+    process.exit(1)
+  }
+
   // Resolve any no-proxy contract addresses that are left
   // We have do this separately b/c we need to parse all the constructor args and resolve all the proxied contract addresses
   // before we can resolve the addresses of no-proxy contracts which might include contract references in their contructor args
@@ -2074,12 +2139,6 @@ export const assertValidConstructorArgs = (
       ...contractReferences,
     })
   )
-
-  // Exit if any validation errors were detected up to this point. We exit early here because invalid
-  // constructor args can cause the rest of the parsing logic to fail with cryptic errors
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
 
   // We return the cached values so we can use them in later steps without rereading the files
   return {

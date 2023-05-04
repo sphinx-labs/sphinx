@@ -2,6 +2,8 @@
 pragma solidity ^0.8.9;
 
 contract ComplexConstructorArgs {
+    type UserDefinedType is uint256;
+
     string public str;
     bytes public dynamicBytes;
     uint64[5] public uint64FixedArray;
