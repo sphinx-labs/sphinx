@@ -11,7 +11,7 @@ Our aim is to design a system that is:
 * **Atomic**: ChugSplash ensures that upgrades are atomic, which means that all of the contracts in a configuration file are upgraded as a single unit. This ensures that the system is never in a partially initialized state during the upgrade process, which can lead to bugs or vulnerabilities.
 * **Flexible**: ChugSplash should be able to support a variety of proxy types, including proxies that have already been deployed with another tool, such as OpenZeppelin's Upgrades plugin.
 * **Lightweight**: Users should optionally be able to approve a deployment or upgrade by submitting a single tiny transaction on-chain from their multisig or governance. Once this occurs, the deployment or upgrade should be executed by a remote party in a quick and trustless manner. If users prefer to execute their deployments or upgrades themselves, they should have the option to do so.
-* **Multichain**: ChugSplash should be able to deploy the contracts in a project at consistent addresses across networks.
+* **Portable**: ChugSplash should be able to deploy projects predictably and repeatably across networks. Contracts deployed with ChugSplash should have consistent addresses across networks.
 
 ## Specification Contents
 
