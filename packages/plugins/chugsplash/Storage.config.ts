@@ -1,7 +1,11 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-import { variables, constructorArgs } from '../test/constants'
+import {
+  variables,
+  constructorArgs,
+  complexConstructorArgs,
+} from '../test/constants'
 
 const projectName = 'My First Project'
 export const orgId = ethers.utils.keccak256(
@@ -22,6 +26,12 @@ const config: UserChugSplashConfig = {
       contract: 'Storage',
       constructorArgs,
       variables,
+    },
+    ComplexConstructorArgs: {
+      contract: 'ComplexConstructorArgs',
+      kind: 'no-proxy',
+      unsafeAllowFlexibleConstructor: true,
+      constructorArgs: complexConstructorArgs,
     },
     MySimpleStorage: {
       contract: 'SimpleStorage',

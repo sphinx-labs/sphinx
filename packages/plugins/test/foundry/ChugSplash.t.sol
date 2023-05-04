@@ -6,6 +6,7 @@ import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
 import { Stateless } from "../../contracts/Stateless.sol";
+import { ComplexConstructorArgs } from "../../contracts/ComplexConstructorArgs.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
@@ -35,6 +36,7 @@ contract ChugSplashTest is Test {
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
     Stateless     myStateless;
+    ComplexConstructorArgs myComplexConstructorArgs;
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
@@ -417,5 +419,43 @@ contract ChugSplashTest is Test {
 
     function testSetMultiNestedMapping() public {
         assertEq(myStorage.multiNestedMapping(1, 'testKey', 0x1111111111111111111111111111111111111111), 2);
+    }
+
+    function testSetMutableStringConstructorArg() public {
+        assertEq(myComplexConstructorArgs.str(), 'testString');
+    }
+
+    function testSetMutableDyanmicBytesConstructorArg() public {
+        assertEq(myComplexConstructorArgs.dynamicBytes(), hex"abcd1234");
+    }
+
+    function testSetMutableUint64FixedArrayConstructorArg() public {
+        uint64[5] memory uint64FixedArray = [1, 10, 100, 1_000, 10_000];
+        for (uint i = 0; i < uint64FixedArray.length; i++) {
+            assertEq(myComplexConstructorArgs.uint64FixedArray(i), uint64FixedArray[i]);
+        }
+    }
+
+    function testSetMutableInt64DynamicArrayConstructorArg() public {
+        int64[] memory int64DynamicArray = [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000];
+        for (uint i = 0; i < int64DynamicArray.length; i++) {
+            assertEq(myComplexConstructorArgs.int64DynamicArray(i), int64DynamicArray[i]);
+        }
+    }
+
+    function testSetMutableUint64FixedNestedArrayConstructorArg() public {
+        uint64[] memory uint64FixedNestedArray = [
+            [1, 2, 3, 4, 5],
+            [6, 7, 8, 9, 10],
+            [11, 12, 13, 14, 15],
+            [16, 17, 18, 19, 20],
+            [21, 22, 23, 24, 25],
+            [26, 27, 28, 29, 30]
+        ];
+        for (uint i = 0; i < uint64FixedNestedArray.length; i++) {
+            for (uint j = 0; j < uint64FixedNestedArray[i].length; i++) {
+                assertEq(myComplexConstructorArgs.uint64FixedNestedArray(i, j), uint64FixedNestedArray[i][j]);
+            }
+        }
     }
 }

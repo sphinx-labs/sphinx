@@ -56,6 +56,32 @@ export const constructorArgs = {
   _immutableEnum: TestEnum.B,
 }
 
+export const complexConstructorArgs = {
+  _str: 'testString',
+  _dynamicBytes: '0xabcd1234',
+  _uint64FixedArray: [1, 10, 100, 1_000, 10_000],
+  _int64DynamicArray: [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000],
+  _uint64FixedNestedArray: [
+    [1, 2, 3, 4, 5],
+    [6, 7, 8, 9, 10],
+    [11, 12, 13, 14, 15],
+    [16, 17, 18, 19, 20],
+    [21, 22, 23, 24, 25],
+    [26, 27, 28, 29, 30],
+  ],
+  _uint64DynamicMultiNestedArray: [
+    [
+      [1, 2, 3],
+      [4, 5, 6],
+    ],
+    [
+      [7, 8, 9],
+      [10, 11, 12],
+    ],
+    [[13, 14, 15]],
+  ],
+}
+
 export const variables = {
   minInt256: ethers.constants.MinInt256.toString(),
   minInt8: -128,

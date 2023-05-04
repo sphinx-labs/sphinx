@@ -11,7 +11,7 @@ import {
   findAll,
 } from 'solidity-ast/utils'
 import { remove0x } from '@eth-optimism/core-utils'
-import { Fragment } from 'ethers/lib/utils'
+import { Fragment, ParamType } from 'ethers/lib/utils'
 import {
   assertStorageUpgradeSafe,
   StorageLayout,
@@ -557,7 +557,7 @@ const parseBool = (variable: UserConfigVariable, label: string) => {
 }
 
 /**
- * Interface for parsing in place bytes during variable validation. Calls the generic `parseBytes`
+ * Interface for parsing in place bytes during variable validation. Calls the generic `parseFixedBytes`
  * function below which has a more slimmed down interface to make it usable for both variables
  * and constructor args.
  *
@@ -569,7 +569,7 @@ export const parseInplaceBytes: VariableHandler<UserConfigVariable, string> = (
 ): string => {
   const { variable, variableType, storageObj } = props
 
-  return parseBytes(
+  return parseFixedBytes(
     variable,
     variableType.label,
     storageObj.label,
@@ -584,7 +584,7 @@ export const parseInplaceBytes: VariableHandler<UserConfigVariable, string> = (
  * @param label Label to use in error messages.
  * @returns DataHexString
  */
-const parseBytes = (
+const parseFixedBytes = (
   variable: UserConfigVariable,
   variableType: string,
   label: string,
@@ -805,7 +805,9 @@ export const parseInplaceStruct: VariableHandler<
 }
 
 /**
- * Handles parsing and validating dynamic bytes
+ * Interface for parsing dynamic bytes during variable validation. Calls the generic `parseBytes`
+ * function below which has a more slimmed down interface to make it usable for both variables
+ * and constructor args.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns
@@ -815,25 +817,47 @@ export const parseDynamicBytes: VariableHandler<UserConfigVariable, string> = (
 ): string => {
   const { variable, variableType, storageObj } = props
 
+  return parseBytes(
+    variable,
+    variableType.label,
+    storageObj.type,
+    storageObj.offset
+  )
+}
+
+/**
+ * Handles parsing and validating dynamically sized bytes for both variables and constructor args.
+ *
+ * @param variable Variable to parse.
+ * @param label Label to use in error messages.
+ * @param offset Offset of the variable in the slot.
+ * @returns DataHexString
+ */
+const parseBytes = (
+  variable: UserConfigVariable,
+  label: string,
+  type: string,
+  offset: number
+) => {
   if (typeof variable !== 'string') {
     throw new InputError(
-      `invalid input type for ${
-        storageObj.label
-      }, expected DataHexString but got ${stringifyVariableType(variable)}`
+      `invalid input type for ${label}, expected DataHexString but got ${stringifyVariableType(
+        variable
+      )}`
     )
   }
 
-  if (variableType.label.startsWith('bytes')) {
+  if (type.startsWith('bytes')) {
     if (!isDataHexString(variable)) {
       throw new InputError(
-        `invalid input type for variable ${storageObj.label}, expected DataHexString but got ${variable}`
+        `invalid input type for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
   }
 
   // The Solidity compiler uses the "bytes" encoding for strings and dynamic bytes.
   // ref: https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html#bytes-and-string
-  if (storageObj.offset !== 0) {
+  if (offset !== 0) {
     // Strings and dynamic bytes are *not* packed by Solidity.
     throw new Error(
       `Got offset for string/bytes type, should never happen. Please report this to the developers.`
@@ -1185,6 +1209,93 @@ const parseContractVariables = (
   return parsedConfigVariables
 }
 
+const parseArrayConstructorArg = (
+  input: ParamType,
+  constructorArgValue: UserConfigVariable
+): ParsedConfigVariable[] => {
+  if (!Array.isArray(constructorArgValue)) {
+    throw new InputError(
+      `Expected array for ${input.name} but got ${typeof constructorArgValue}`
+    )
+  }
+
+  if (input.arrayLength !== -1) {
+    if (constructorArgValue.length !== input.arrayLength) {
+      throw new InputError(
+        `Expected array of length ${input.arrayLength} for ${input.name} but got array of length ${constructorArgValue.length}`
+      )
+    }
+  }
+
+  const parsedValues: ParsedConfigVariable = []
+  for (const element of constructorArgValue) {
+    parsedValues.push(
+      parseAndValidateConstructorArg(input.arrayChildren, element)
+    )
+  }
+
+  return parsedValues
+}
+
+const parseAndValidateConstructorArg = (
+  input: ParamType,
+  constructorArgValue: UserConfigVariable
+): ParsedConfigVariable => {
+  const constructorArgType = input.type
+  if (input.baseType.startsWith('uint') || input.baseType.startsWith('int')) {
+    // Since the number of bytes is not easily accessible, we parse it from the type string.
+    const suffix = constructorArgType.replace(/u?int/g, '')
+    const bits = parseInt(suffix, 10)
+    const numberOfBytes = bits / 8
+
+    if (constructorArgType.startsWith('int')) {
+      return parseInteger(constructorArgValue, input.name, numberOfBytes)
+    } else {
+      return parseUnsignedInteger(
+        constructorArgValue,
+        input.name,
+        numberOfBytes
+      )
+    }
+  } else if (input.baseType === 'address') {
+    // if the value is a contract reference, then we don't parse it and assume it is correct given
+    // that we handle validating contract references elsewhere.
+    // Note that references to any proxied contracts will have already been resolved at this point,
+    // so any references here will be those to no-proxied contracts which must be resolve separately
+    // after we've parsed the constructor args.
+    if (
+      typeof constructorArgValue === 'string' &&
+      constructorArgValue.startsWith('{{') &&
+      constructorArgValue.endsWith('}}')
+    ) {
+      return constructorArgValue
+    } else {
+      return parseAddress(constructorArgValue, input.name)
+    }
+  } else if (input.baseType === 'bool') {
+    return parseBool(constructorArgValue, input.name)
+  } else if (input.baseType.startsWith('bytes')) {
+    const suffix = constructorArgType.replace(/bytes/g, '')
+    const numberOfBytes = parseInt(suffix, 10)
+
+    return parseFixedBytes(
+      constructorArgValue,
+      constructorArgType,
+      input.name,
+      numberOfBytes
+    )
+  } else if (input.baseType === 'string') {
+    return parseBytes(constructorArgValue, input.name, input.type, 0)
+  } else if (input.baseType === 'array') {
+    return parseArrayConstructorArg(input, constructorArgValue)
+  } else {
+    // throw or log error
+    throw new InputError(
+      `Unsupported constructor argument type: ${input.type} for argument ${input.name}`
+    )
+  }
+}
+
 /**
  * Parses and validates constructor args for a single contract in a config file.
  *
@@ -1236,71 +1347,17 @@ export const parseContractConstructorArgs = (
       return
     }
 
-    const constructorArgType = input.type
     try {
-      if (
-        constructorArgType.startsWith('uint') ||
-        constructorArgType.startsWith('int')
-      ) {
-        // Since the number of bytes is not easily accessible, we parse it from the type string.
-        const suffix = constructorArgType.replace(/u?int/g, '')
-        const bits = parseInt(suffix, 10)
-        const numberOfBytes = bits / 8
-
-        if (constructorArgType.startsWith('int')) {
-          parsedConstructorArgs[input.name] = parseInteger(
-            constructorArgValue,
-            input.name,
-            numberOfBytes
-          )
-        } else {
-          const returnVal = parseUnsignedInteger(
-            constructorArgValue,
-            input.name,
-            numberOfBytes
-          )
-          parsedConstructorArgs[input.name] = returnVal
-        }
-      } else if (constructorArgType.startsWith('address')) {
-        // if the value is a contract reference, then we don't parse it and assume it is correct given
-        // that we handle validating contract references elsewhere.
-        // Note that references to any proxied contracts will have already been resolved at this point,
-        // so any references here will be those to no-proxied contracts which must be resolve separately
-        // after we've parsed the constructor args.
-        if (
-          typeof constructorArgValue === 'string' &&
-          constructorArgValue.startsWith('{{') &&
-          constructorArgValue.endsWith('}}')
-        ) {
-          parsedConstructorArgs[input.name] = constructorArgValue
-        } else {
-          parsedConstructorArgs[input.name] = parseAddress(
-            constructorArgValue,
-            input.name
-          )
-        }
-      } else if (constructorArgType === 'bool') {
-        parsedConstructorArgs[input.name] = parseBool(
-          constructorArgValue,
-          input.name
-        )
-      } else if (constructorArgType.startsWith('bytes')) {
-        const suffix = constructorArgType.replace(/bytes/g, '')
-        const numberOfBytes = parseInt(suffix, 10)
-
-        parsedConstructorArgs[input.name] = parseBytes(
-          constructorArgValue,
-          constructorArgType,
-          input.name,
-          numberOfBytes
-        )
-      } else {
-        // throw or log error
-        throw new InputError(
-          `Unsupported constructor argument type: ${input.type} for argument ${input.name}`
-        )
-      }
+      // We fetch a new ParamType using the input type even though input is a ParamType object
+      // This is b/c input is an incomplete object, so fetching the new ParamType yields
+      // an object with more useful information on it
+      const paramType = ethers.utils.ParamType.from(input.type)
+      parsedConstructorArgs[input.name] = parseAndValidateConstructorArg(
+        paramType,
+        constructorArgValue
+      )
     } catch (e) {
+      throw e
       inputFormatErrors.push((e as Error).message)
     }
   })
@@ -1764,75 +1821,80 @@ export const assertValidContracts = (
 
     // Iterate over the child ContractDefinition node and its parent ContractDefinition nodes.
     for (const contractDef of baseContractDefs.concat(childContractDef)) {
-      for (const node of contractDef.nodes) {
-        if (
-          isNodeType('FunctionDefinition', node) &&
-          node.kind === 'constructor' &&
-          node?.body?.statements
-        ) {
-          for (const statementNode of node.body.statements) {
-            if (
-              !isNodeType('ExpressionStatement', statementNode) ||
-              !isNodeType('Assignment', statementNode.expression) ||
-              !isNodeType(
-                'Identifier',
-                statementNode.expression.leftHandSide
-              ) ||
-              typeof statementNode.expression.leftHandSide
-                .referencedDeclaration !== 'number' ||
-              dereferencer(
-                'VariableDeclaration',
-                statementNode.expression.leftHandSide.referencedDeclaration
-              ).mutability !== 'immutable' ||
-              isNodeType('FunctionCall', statementNode.expression.rightHandSide)
+      if (!contractConfig.unsafeAllowFlexibleConstructor) {
+        for (const node of contractDef.nodes) {
+          if (
+            isNodeType('FunctionDefinition', node) &&
+            node.kind === 'constructor' &&
+            node?.body?.statements
+          ) {
+            for (const statementNode of node.body.statements) {
+              if (
+                !isNodeType('ExpressionStatement', statementNode) ||
+                !isNodeType('Assignment', statementNode.expression) ||
+                !isNodeType(
+                  'Identifier',
+                  statementNode.expression.leftHandSide
+                ) ||
+                typeof statementNode.expression.leftHandSide
+                  .referencedDeclaration !== 'number' ||
+                dereferencer(
+                  'VariableDeclaration',
+                  statementNode.expression.leftHandSide.referencedDeclaration
+                ).mutability !== 'immutable' ||
+                isNodeType(
+                  'FunctionCall',
+                  statementNode.expression.rightHandSide
+                )
+              ) {
+                logValidationError(
+                  'error',
+                  `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                    node
+                  )}.`,
+                  [
+                    'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
+                    'can deterministically deploy your contracts.',
+                  ],
+                  cre.silent,
+                  cre.stream
+                )
+              }
+            }
+          } else if (isNodeType('VariableDeclaration', node)) {
+            if (node.mutability === 'mutable' && node.value) {
+              logValidationError(
+                'error',
+                `Attempted to assign a value to a non-immutable state variable '${
+                  node.name
+                }' at: ${decodeSrc(node)}`,
+                [
+                  'This is not allowed because the value will not exist in the upgradeable contract.',
+                  'Please remove the value in the contract and define it in your ChugSplash file instead',
+                  `Alternatively, you can also set '${node.name}' to be a constant or immutable variable.`,
+                ],
+                cre.silent,
+                cre.stream
+              )
+            } else if (
+              node.mutability === 'immutable' &&
+              node.value &&
+              isNodeType('FunctionCall', node.value)
             ) {
               logValidationError(
                 'error',
-                `Detected an unallowed expression in the constructor at: ${decodeSrc(
+                `Attempted to assign the immutable variable '${
+                  node.name
+                }' to the return value of a function call at: ${decodeSrc(
                   node
                 )}.`,
                 [
-                  'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
-                  'can deterministically deploy your contracts.',
+                  'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
                 ],
                 cre.silent,
                 cre.stream
               )
             }
-          }
-        } else if (isNodeType('VariableDeclaration', node)) {
-          if (node.mutability === 'mutable' && node.value) {
-            logValidationError(
-              'error',
-              `Attempted to assign a value to a non-immutable state variable '${
-                node.name
-              }' at: ${decodeSrc(node)}`,
-              [
-                'This is not allowed because the value will not exist in the upgradeable contract.',
-                'Please remove the value in the contract and define it in your ChugSplash file instead',
-                `Alternatively, you can also set '${node.name}' to be a constant or immutable variable.`,
-              ],
-              cre.silent,
-              cre.stream
-            )
-          } else if (
-            node.mutability === 'immutable' &&
-            node.value &&
-            isNodeType('FunctionCall', node.value)
-          ) {
-            logValidationError(
-              'error',
-              `Attempted to assign the immutable variable '${
-                node.name
-              }' to the return value of a function call at: ${decodeSrc(
-                node
-              )}.`,
-              [
-                'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
-              ],
-              cre.silent,
-              cre.stream
-            )
           }
         }
       }
@@ -2115,6 +2177,9 @@ const constructParsedConfig = (
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
       constructorArgs: cachedConstructorArgs[referenceName],
+      unsafeAllowEmptyPush: userContractConfig.unsafeAllowEmptyPush,
+      unsafeAllowFlexibleConstructor:
+        userContractConfig.unsafeAllowFlexibleConstructor,
     }
   }
 
