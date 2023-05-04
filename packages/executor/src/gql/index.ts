@@ -4,7 +4,7 @@ const updateDeploymentMutation = gql`
   mutation UpdateDeployment($input: UpdateDeploymentInput!) {
     UpdateDeployment(input: $input) {
       id
-      bundleId
+      deploymentId
     }
   }
 `
@@ -31,14 +31,14 @@ type Contract = {
 
 export const updateDeployment = async (
   client: GraphQLClient,
-  bundleId: string,
+  deploymentId: string,
   status: DeploymentStatus,
   contracts: Contract[]
 ) => {
   if (contracts.length > 0) {
     await client.request(createContractsMutation, {
       input: {
-        bundleId,
+        deploymentId,
         contracts,
         publicKey: process.env.MANAGED_PUBLIC_KEY,
       },
@@ -47,7 +47,7 @@ export const updateDeployment = async (
 
   await client.request(updateDeploymentMutation, {
     input: {
-      bundleId,
+      deploymentId,
       status,
       publicKey: process.env.MANAGED_PUBLIC_KEY,
     },
