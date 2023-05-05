@@ -2,12 +2,13 @@ import { chugsplash } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { constructorArgs, variables } from './constants'
+import { complexConstructorArgs, constructorArgs, variables } from './constants'
 
 describe('Storage', () => {
   let MyStorage: Contract
   let MySimpleStorage: Contract
   let Stateless: Contract
+  let ComplexConstructorArgs: Contract
   before(async () => {
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
     MySimpleStorage = await chugsplash.getContract(
@@ -15,6 +16,10 @@ describe('Storage', () => {
       'MySimpleStorage'
     )
     Stateless = await chugsplash.getContract('My First Project', 'Stateless')
+    ComplexConstructorArgs = await chugsplash.getContract(
+      'My First Project',
+      'ComplexConstructorArgs'
+    )
   })
 
   it('does deploy stateless immutable contract', async () => {
@@ -467,5 +472,82 @@ describe('Storage', () => {
     expect(
       await MyStorage.multiNestedMapping(firstKey, secondKey, thirdKey)
     ).to.deep.equal(BigNumber.from(val))
+  })
+
+  it('does set mutable string constructor arg', async () => {
+    expect(await ComplexConstructorArgs.str()).to.equal(
+      complexConstructorArgs._str
+    )
+  })
+
+  it('does set mutable bytes constructor arg', async () => {
+    expect(await ComplexConstructorArgs.dynamicBytes()).to.equal(
+      complexConstructorArgs._dynamicBytes
+    )
+  })
+
+  it('does set mutable uint64 fixed size array constructor arg', async () => {
+    for (let i = 0; i < complexConstructorArgs._uint64FixedArray.length; i++) {
+      expect(await ComplexConstructorArgs.uint64FixedArray(i)).deep.equals(
+        BigNumber.from(complexConstructorArgs._uint64FixedArray[i])
+      )
+    }
+  })
+
+  it('does set mutable int64 dynamic array constructor arg', async () => {
+    for (let i = 0; i < complexConstructorArgs._int64DynamicArray.length; i++) {
+      expect(await ComplexConstructorArgs.int64DynamicArray(i)).deep.equals(
+        BigNumber.from(complexConstructorArgs._int64DynamicArray[i])
+      )
+    }
+  })
+
+  it('does set mutable uint64 fixed size nested array constructor arg', async () => {
+    for (
+      let i = 0;
+      i < complexConstructorArgs._uint64FixedNestedArray.length;
+      i++
+    ) {
+      for (
+        let j = 0;
+        j < complexConstructorArgs._uint64FixedNestedArray[i].length;
+        j++
+      ) {
+        expect(
+          await ComplexConstructorArgs.uint64FixedNestedArray(i, j)
+        ).deep.equals(
+          BigNumber.from(complexConstructorArgs._uint64FixedNestedArray[i][j])
+        )
+      }
+    }
+  })
+
+  it('does set mutable uint64 dynamic multi nested array constructor arg', async () => {
+    for (
+      let i = 0;
+      i < complexConstructorArgs._uint64DynamicMultiNestedArray.length;
+      i++
+    ) {
+      for (
+        let j = 0;
+        j < complexConstructorArgs._uint64DynamicMultiNestedArray[i].length;
+        j++
+      ) {
+        for (
+          let k = 0;
+          k <
+          complexConstructorArgs._uint64DynamicMultiNestedArray[i][j].length;
+          k++
+        ) {
+          expect(
+            await ComplexConstructorArgs.uint64DynamicMultiNestedArray(i, j, k)
+          ).deep.equals(
+            BigNumber.from(
+              complexConstructorArgs._uint64DynamicMultiNestedArray[i][j][k]
+            )
+          )
+        }
+      }
+    }
   })
 })

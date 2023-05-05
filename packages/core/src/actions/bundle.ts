@@ -182,8 +182,10 @@ export const makeTargetBundle = (
 
   const tree = makeMerkleTree(elements)
 
+  const root = toHexString(tree.getRoot())
+
   return {
-    root: toHexString(tree.getRoot()),
+    root: root !== '0x' ? root : ethers.constants.HashZero,
     targets: targets.map((target, idx) => {
       return {
         target,

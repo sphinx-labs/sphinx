@@ -98,6 +98,7 @@ export type UserContractConfig = {
   unsafeAllowEmptyPush?: boolean
   unsafeAllowRenames?: boolean
   unsafeSkipStorageCheck?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
   unsafeAllow?: {
     delegatecall?: boolean
     selfdestruct?: boolean
@@ -125,6 +126,7 @@ export type ParsedContractConfig = {
   variables: ParsedConfigVariables
   constructorArgs: ParsedConfigVariables
   unsafeAllowEmptyPush?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
 }
 
 export type ParsedContractConfigs = {
