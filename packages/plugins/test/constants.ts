@@ -20,7 +20,7 @@ const enum TestEnum {
   'C',
 }
 
-export const invalidValueTypesPartOne = {
+export const invalidConstructorArgsPartOne = {
   _arrayInt8: [0, 1, 2],
   _int8OutsideRange: 255,
   _uint8OutsideRange: 256,
@@ -33,12 +33,23 @@ export const invalidValueTypesPartOne = {
   _oddStaticBytes: '0xabcdefghijklmno',
 }
 
-export const invalidValueTypesPartTwo = {
+export const invalidConstructorArgsPartTwo = {
   _longBytes8: '0x' + '11'.repeat(32),
   _malformedBytes16: '11'.repeat(16),
   _intBoolean: 1,
   _stringBoolean: 'true',
   _arrayBoolean: [true, false],
+  _invalidBaseTypeArray: ['hello', 'world'],
+  _invalidNestedBaseTypeArray: [['hello', 'world']],
+  _incorrectlySizedArray: [1, 2, 3, 4, 5],
+  _incorrectlySizedNestedArray: [
+    [1, 2, 3],
+    [4, 5, 6],
+  ],
+  _structMissingMembers: {
+    a: 1,
+    z: 2,
+  },
 }
 
 export const constructorArgs = {
@@ -83,6 +94,16 @@ export const complexConstructorArgs = {
       [16, 17, 18],
     ],
   ],
+  _complexStruct: {
+    b: 2,
+    a: '0x' + 'aa'.repeat(32),
+    c: 3,
+    d: [1, 2],
+    e: [
+      [1, 2, 3],
+      [4, 5, 6],
+    ],
+  },
 }
 
 export const variables = {

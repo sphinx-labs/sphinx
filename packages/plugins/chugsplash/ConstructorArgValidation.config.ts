@@ -2,8 +2,8 @@ import { UserChugSplashConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
 import {
-  invalidValueTypesPartOne,
-  invalidValueTypesPartTwo,
+  invalidConstructorArgsPartOne,
+  invalidConstructorArgsPartTwo,
 } from '../test/constants'
 
 const projectName = 'Constructor Args Validation'
@@ -21,14 +21,14 @@ const config: UserChugSplashConfig = {
     ConstructorArgsValidationPartOne: {
       contract: 'ConstructorArgsValidationPartOne',
       constructorArgs: {
-        ...invalidValueTypesPartOne,
+        ...invalidConstructorArgsPartOne,
         _immutableUint: 1,
       },
     },
     ConstructorArgsValidationPartTwo: {
       contract: 'ConstructorArgsValidationPartTwo',
       constructorArgs: {
-        ...invalidValueTypesPartTwo,
+        ...invalidConstructorArgsPartTwo,
       },
     },
   },

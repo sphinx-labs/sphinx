@@ -550,4 +550,27 @@ describe('Storage', () => {
       }
     }
   })
+
+  it('does set mutable struct constructor arg', async () => {
+    const { a, b, c, d, e } = await ComplexConstructorArgs.getComplexStruct()
+    expect(a).equals(complexConstructorArgs._complexStruct.a)
+    expect(b).deep.equals(
+      BigNumber.from(complexConstructorArgs._complexStruct.b)
+    )
+    expect(c).deep.equals(
+      BigNumber.from(complexConstructorArgs._complexStruct.c)
+    )
+    for (let i = 0; i < d.length; i++) {
+      expect(d[i]).deep.equals(
+        BigNumber.from(complexConstructorArgs._complexStruct.d[i])
+      )
+    }
+    for (let i = 0; i < e.length; i++) {
+      for (let j = 0; j < e[i].length; j++) {
+        expect(e[i][j]).deep.equals(
+          BigNumber.from(complexConstructorArgs._complexStruct.e[i][j])
+        )
+      }
+    }
+  })
 })
