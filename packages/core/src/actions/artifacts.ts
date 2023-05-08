@@ -127,7 +127,7 @@ export const writeDeploymentArtifacts = async (
       const buildInfo = readBuildInfo(
         artifactPaths[referenceName].buildInfoPath
       )
-      const { constructorArgValues } = getConstructorArgs(
+      const constructorArgValues = getConstructorArgs(
         parsedConfig.contracts[referenceName].constructorArgs,
         abi
       )

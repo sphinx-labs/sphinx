@@ -2,6 +2,8 @@
 pragma solidity ^0.8.9;
 
 contract VariableValidation {
+    struct SimpleStruct { uint a; uint b; }
+
     int8 public arrayInt8;
     int8 public int8OutsideRange;
     uint8 public uint8OutsideRange;
@@ -26,6 +28,8 @@ contract VariableValidation {
     mapping(string => string) public invalidStringStringMapping;
     mapping(string => int) public invalidStringIntMapping;
     mapping(string => mapping(string => int)) public invalidNestedStringIntBoolMapping;
+    SimpleStruct public extraMemberStruct;
+    SimpleStruct public missingMemberStruct;
 
     // Variables that are not set in the config
     uint public notSetUint;

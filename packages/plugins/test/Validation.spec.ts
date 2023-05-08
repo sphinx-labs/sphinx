@@ -317,6 +317,18 @@ describe('Validate', () => {
     )
   })
 
+  it('did catch struct with extra member', async () => {
+    expect(validationOutput).to.have.string(
+      'Extra member(s) detected in struct VariableValidation.SimpleStruct, extraMemberStruct: c'
+    )
+  })
+
+  it('did catch struct with missing member', async () => {
+    expect(validationOutput).to.have.string(
+      'Missing member(s) in struct struct VariableValidation.SimpleStruct, missingMemberStruct: a'
+    )
+  })
+
   it('did catch missing variables', async () => {
     expect(validationOutput).to.have.string(
       'were not defined in the ChugSplash config file'
@@ -366,6 +378,42 @@ describe('Validate', () => {
   it('did catch invalid definition of function type', async () => {
     expect(validationOutput).to.have.string(
       `Detected value for functionType which is a function. Function variables should be ommitted from your ChugSplash config.`
+    )
+  })
+
+  it('did catch invalid array base type in constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      `invalid value for _invalidBaseTypeArray, expected a valid number but got: hello`
+    )
+  })
+
+  it('did catch invalid nested array base type in constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      `invalid value for _invalidNestedBaseTypeArray, expected a valid number but got: hello`
+    )
+  })
+
+  it('did catch incorrect array size in constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      `Expected array of length 2 for _incorrectlySizedArray but got array of length 5`
+    )
+  })
+
+  it('did catch incorrect nested array size in constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      `Expected array of length 2 for _incorrectlySizedNestedArray but got array of length 3`
+    )
+  })
+
+  it('did catch incorrect member in constructor arg struct', async () => {
+    expect(validationOutput).to.have.string(
+      `Extra member(s) in struct _structMissingMembers: z`
+    )
+  })
+
+  it('did catch struct with missing members in constructor arg', async () => {
+    expect(validationOutput).to.have.string(
+      `Missing member(s) in struct _structMissingMembers: b`
     )
   })
 })

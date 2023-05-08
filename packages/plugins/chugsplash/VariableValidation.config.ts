@@ -53,6 +53,14 @@ const config: UserChugSplashConfig = {
             testKey: true,
           },
         },
+        extraMemberStruct: {
+          a: 1,
+          b: 2,
+          c: 3,
+        },
+        missingMemberStruct: {
+          b: 2,
+        },
         // variables that are not in the contract
         extraVar: 214830928,
         anotherExtraVar: [],

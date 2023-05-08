@@ -42,6 +42,16 @@ const complexConstructorArgs = {
       [16, 17, 18],
     ],
   ],
+  _complexStruct: {
+    b: 2,
+    a: '0x' + 'aa'.repeat(32),
+    c: 3,
+    d: [1, 2],
+    e: [
+      [1, 2, 3],
+      [4, 5, 6],
+    ],
+  },
 }
 
 const variables = {

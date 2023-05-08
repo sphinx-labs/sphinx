@@ -97,7 +97,9 @@ const logValidationError = (
   silent: boolean,
   stream: NodeJS.WritableStream
 ) => {
-  validationErrors = true
+  if (logLevel === 'error') {
+    validationErrors = true
+  }
   chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
@@ -681,13 +683,23 @@ const parseUnsignedInteger = (
     .pow(8 * numberOfBytes)
     .sub(1)
 
-  if (
-    remove0x(BigNumber.from(variable).toHexString()).length / 2 >
-    numberOfBytes
-  ) {
-    throw new Error(
-      `invalid value for ${label}: ${variable}, outside valid range: [0:${maxValue}]`
-    )
+  try {
+    if (
+      remove0x(BigNumber.from(variable).toHexString()).length / 2 >
+      numberOfBytes
+    ) {
+      throw new Error(
+        `invalid value for ${label}: ${variable}, outside valid range: [0:${maxValue}]`
+      )
+    }
+  } catch (e) {
+    if (e.message.includes('invalid BigNumber string')) {
+      throw new Error(
+        `invalid value for ${label}, expected a valid number but got: ${variable}`
+      )
+    } else {
+      throw e
+    }
   }
 
   return BigNumber.from(variable).toString()
@@ -746,13 +758,23 @@ const parseInteger = (
     .pow(8 * numberOfBytes)
     .div(2)
     .sub(1)
-  if (
-    BigNumber.from(variable).lt(minValue) ||
-    BigNumber.from(variable).gt(maxValue)
-  ) {
-    throw new Error(
-      `invalid value for ${label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
-    )
+  try {
+    if (
+      BigNumber.from(variable).lt(minValue) ||
+      BigNumber.from(variable).gt(maxValue)
+    ) {
+      throw new Error(
+        `invalid value for ${label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
+      )
+    }
+  } catch (e) {
+    if (e.message.includes('invalid BigNumber string')) {
+      throw new Error(
+        `invalid value for ${label}, expected a valid number but got: ${variable}`
+      )
+    } else {
+      throw e
+    }
   }
 
   return BigNumber.from(variable).toString()
@@ -802,7 +824,7 @@ export const parseInplaceStruct: VariableHandler<
     })
     if (memberStorageObj === undefined) {
       throw new InputError(
-        `User entered incorrect member in ${variableType.label}: ${varName}`
+        `Extra member(s) detected in ${variableType.label}, ${storageObj.label}: ${varName}`
       )
     }
     parsedVariable[varName] = parseAndValidateVariable(
@@ -811,6 +833,21 @@ export const parseInplaceStruct: VariableHandler<
       storageTypes,
       nestedSlotOffset,
       dereferencer
+    )
+  }
+
+  // Find any members missing from the struct
+  const missingMembers: string[] = []
+  for (const member of variableType.members) {
+    if (parsedVariable[member.label] === undefined) {
+      missingMembers.push(member.label)
+    }
+  }
+
+  if (missingMembers.length > 0) {
+    throw new InputError(
+      `Missing member(s) in struct ${variableType.label}, ${storageObj.label}: ` +
+        missingMembers.join(', ')
     )
   }
 
@@ -1224,7 +1261,9 @@ const parseContractVariables = (
 
 const parseArrayConstructorArg = (
   input: ParamType,
-  constructorArgValue: UserConfigVariable
+  name: string,
+  constructorArgValue: UserConfigVariable,
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable[] => {
   if (!Array.isArray(constructorArgValue)) {
     throw new InputError(
@@ -1235,7 +1274,7 @@ const parseArrayConstructorArg = (
   if (input.arrayLength !== -1) {
     if (constructorArgValue.length !== input.arrayLength) {
       throw new InputError(
-        `Expected array of length ${input.arrayLength} for ${input.name} but got array of length ${constructorArgValue.length}`
+        `Expected array of length ${input.arrayLength} for ${name} but got array of length ${constructorArgValue.length}`
       )
     }
   }
@@ -1243,7 +1282,7 @@ const parseArrayConstructorArg = (
   const parsedValues: ParsedConfigVariable = []
   for (const element of constructorArgValue) {
     parsedValues.push(
-      parseAndValidateConstructorArg(input.arrayChildren, element)
+      parseAndValidateConstructorArg(input.arrayChildren, name, element, cre)
     )
   }
 
@@ -1252,7 +1291,9 @@ const parseArrayConstructorArg = (
 
 export const parseStructConstructorArg = (
   paramType: ParamType,
-  constructorArgValue: UserConfigVariable
+  name: string,
+  constructorArgValue: UserConfigVariable,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   if (typeof constructorArgValue !== 'object') {
     throw new InputError(
@@ -1262,17 +1303,41 @@ export const parseStructConstructorArg = (
     )
   }
 
+  const memberErrors: string[] = []
   const parsedValues: ParsedConfigVariable = {}
   for (const [key, value] of Object.entries(constructorArgValue)) {
     const inputChild = paramType.components.find((component) => {
       return component.name === key
     })
     if (inputChild === undefined) {
-      throw new InputError(
-        `User entered incorrect member in ${paramType.name}: ${key}`
+      memberErrors.push(`Extra member(s) in struct ${paramType.name}: ${key}`)
+    } else {
+      parsedValues[key] = parseAndValidateConstructorArg(
+        inputChild,
+        `${name}.${key}`,
+        value,
+        cre
       )
     }
-    parsedValues[key] = parseAndValidateConstructorArg(inputChild, value)
+  }
+
+  // Find any members missing from the struct
+  const missingMembers: string[] = []
+  for (const member of paramType.components) {
+    if (parsedValues[member.name] === undefined) {
+      missingMembers.push(member.name)
+    }
+  }
+
+  if (missingMembers.length > 0) {
+    memberErrors.push(
+      `Missing member(s) in struct ${paramType.name}: ` +
+        missingMembers.join(', ')
+    )
+  }
+
+  if (memberErrors.length > 0) {
+    throw new InputError(memberErrors.join('\n'))
   }
 
   return parsedValues
@@ -1280,7 +1345,9 @@ export const parseStructConstructorArg = (
 
 const parseAndValidateConstructorArg = (
   input: ParamType,
-  constructorArgValue: UserConfigVariable
+  name: string,
+  constructorArgValue: UserConfigVariable,
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable => {
   const constructorArgType = input.type
   // We fetch a new ParamType using the input type even though input is a ParamType object
@@ -1288,7 +1355,6 @@ const parseAndValidateConstructorArg = (
   // an object with more useful information on it
   const paramType =
     input.type === 'tuple' ? input : ethers.utils.ParamType.from(input.type)
-  const name = input.name
   if (
     paramType.baseType &&
     (paramType.baseType.startsWith('uint') ||
@@ -1334,7 +1400,9 @@ const parseAndValidateConstructorArg = (
   } else if (paramType.baseType === 'string') {
     return parseBytes(constructorArgValue, name, paramType.type, 0)
   } else if (paramType.baseType === 'array') {
-    return parseArrayConstructorArg(paramType, constructorArgValue)
+    return parseArrayConstructorArg(paramType, name, constructorArgValue, cre)
+  } else if (paramType.type === 'tuple') {
+    return parseStructConstructorArg(paramType, name, constructorArgValue, cre)
   } else {
     // throw or log error
     throw new InputError(
@@ -1414,7 +1482,9 @@ export const parseContractConstructorArgs = (
     try {
       parsedConstructorArgs[input.name] = parseAndValidateConstructorArg(
         input,
-        constructorArgValue
+        input.name,
+        constructorArgValue,
+        cre
       )
     } catch (e) {
       inputFormatErrors.push((e as Error).message)
@@ -1958,7 +2028,10 @@ export const assertValidContracts = (
         }
       }
 
-      if (!contractConfig.unsafeAllowEmptyPush) {
+      if (
+        !contractConfig.unsafeAllowEmptyPush &&
+        contractConfig.kind !== 'no-proxy'
+      ) {
         for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
           const typeIdentifier =
             memberAccessNode.expression.typeDescriptions.typeIdentifier

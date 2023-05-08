@@ -831,11 +831,7 @@ export const getContractAddress = (
 export const getConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: Array<Fragment>
-): {
-  constructorArgTypes: Array<string>
-  constructorArgValues: Array<ParsedConfigVariable>
-} => {
-  const constructorArgTypes: Array<string> = []
+): Array<ParsedConfigVariable> => {
   const constructorArgValues: Array<ParsedConfigVariable> = []
 
   const constructorFragment = abi.find(
@@ -843,15 +839,14 @@ export const getConstructorArgs = (
   )
 
   if (constructorFragment === undefined) {
-    return { constructorArgTypes, constructorArgValues }
+    return constructorArgValues
   }
 
   constructorFragment.inputs.forEach((input) => {
-    constructorArgTypes.push(input.type)
     constructorArgValues.push(constructorArgs[input.name])
   })
 
-  return { constructorArgTypes, constructorArgValues }
+  return constructorArgValues
 }
 
 export const getCreationCodeWithConstructorArgs = (
@@ -859,15 +854,12 @@ export const getCreationCodeWithConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: ContractArtifact['abi']
 ): string => {
-  const { constructorArgTypes, constructorArgValues } = getConstructorArgs(
-    constructorArgs,
-    abi
-  )
+  const constructorArgValues = getConstructorArgs(constructorArgs, abi)
+
+  const iface = new ethers.utils.Interface(abi)
 
   const creationCodeWithConstructorArgs = bytecode.concat(
-    remove0x(
-      utils.defaultAbiCoder.encode(constructorArgTypes, constructorArgValues)
-    )
+    remove0x(iface.encodeDeploy(constructorArgValues))
   )
 
   return creationCodeWithConstructorArgs
