@@ -33,6 +33,14 @@ import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
    deployments. It contains the functionality for proposing, approving, and executing deployments,
    paying remote executors, and exporting proxies out of the ChugSplash system if desired. It exists
    as a single implementation contract behind ChugSplashManagerProxy contracts.
+
+   After a deployment is approved, it is executed in the following steps, which must occur in order.
+    1. Execute all of the `DEPLOY_CONTRACT` actions using the `executeActions` function. This is
+       first because it's possible for the constructor of a deployed contract to revert. If this
+       happens, we cancel the deployment before the proxies are modified in any way.
+    2. The `initiateProxies` function.
+    3. Execute all of the `SET_STORAGE` actions using the `executeActions` function.
+    4. The `completeUpgrade` function.
  */
 contract ChugSplashManager is
     OwnableUpgradeable,
@@ -167,6 +175,7 @@ contract ChugSplashManager is
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
      * @param numActions   Number of actions in the deployment.
      * @param numTargets   Number of targets in the deployment.
+     * @param numNonProxyContracts   Number of non-proxy contracts in the deployment.
      * @param configUri  URI of the config file that can be used to fetch the deployment.
      * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
      * @param proposer     Address of the account that proposed the deployment.
@@ -177,6 +186,7 @@ contract ChugSplashManager is
         bytes32 targetRoot,
         uint256 numActions,
         uint256 numTargets,
+        uint256 numNonProxyContracts,
         string configUri,
         bool remoteExecution,
         address proposer
@@ -190,14 +200,14 @@ contract ChugSplashManager is
     event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
 
     /**
-     * @notice Emitted when an action is executed.
+     * @notice Emitted when a storage slot in a proxy is modified.
      *
-     * @param deploymentId   ID of the active deployment.
-     * @param proxy       Address of the proxy that corresponds to this action.
-     * @param executor    Address of the caller that executed the action.
-     * @param actionIndex Index of the action that was executed.
+     * @param deploymentId Current deployment ID.
+     * @param proxy        Address of the proxy.
+     * @param executor Address of the caller for this transaction.
+     * @param actionIndex Index of this action.
      */
-    event ChugSplashActionExecuted(
+    event SetProxyStorage(
         bytes32 indexed deploymentId,
         address indexed proxy,
         address indexed executor,
@@ -210,7 +220,7 @@ contract ChugSplashManager is
      * @param deploymentId   ID of the active deployment.
      * @param executor        Address of the caller that initiated the deployment.
      */
-    event ChugSplashDeploymentInitiated(bytes32 indexed deploymentId, address indexed executor);
+    event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
 
     /**
      * @notice Emitted when a deployment is completed.
@@ -326,12 +336,14 @@ contract ChugSplashManager is
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
+     * @param actionIndex Index of the action that deployed the contract.
      */
     event ContractDeployed(
         string indexed referenceNameHash,
         address indexed contractAddress,
         bytes32 indexed deploymentId,
-        string referenceName
+        string referenceName,
+        uint256 actionIndex
     );
 
     /**
@@ -342,22 +354,205 @@ contract ChugSplashManager is
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
+     * @param actionIndex Index of the action that attempted to deploy the contract.
      */
     event ContractDeploymentSkipped(
         string indexed referenceNameHash,
         address indexed contractAddress,
         bytes32 indexed deploymentId,
-        string referenceName
+        string referenceName,
+        uint256 actionIndex
     );
+
+    /**
+     * @notice Emitted when a deployment fails. This should only occur if the constructor of a
+       deployed contract reverts.
+     *
+     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
+     * @param expectedAddress   Expected CREATE2 address of the contract.
+     * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
+     * @param referenceName     String reference name.
+     * @param actionIndex Index of the action that attempted to deploy the contract.
+     */
+    event DeploymentFailed(
+        string indexed referenceNameHash,
+        address indexed expectedAddress,
+        bytes32 indexed deploymentId,
+        string referenceName,
+        uint256 actionIndex
+    );
+
+    /**
+     * @notice Reverts if the caller is not a remote executor.
+     */
+    error CallerIsNotRemoteExecutor();
+
+    /**
+     * @notice Reverts if the caller is not a proposer.
+     */
+    error CallerIsNotProposer();
+
+    /**
+     * @notice Reverts if the deployment state is not proposable.
+     */
+    error DeploymentStateIsNotProposable();
+
+    /**
+     * @notice Reverts if there isn't at least `OWNER_BOND_AMOUNT` in this contract. Only applies
+       to deployments that will be remotely executed.
+     */
+    error InsufficientOwnerBond();
+
+    /**
+     * @notice Reverts if the deployment state is not proposed.
+     */
+    error DeploymentIsNotProposed();
+
+    /**
+     * @notice Reverts if there is another active deployment ID.
+     */
+    error AnotherDeploymentInProgress();
+
+    /**
+     * @notice Reverts if there is currently no active deployment ID.
+     */
+    error NoActiveDeployment();
+
+    /**
+     * @notice Reverts if a deployment can only be self-executed by the owner.
+     */
+    error RemoteExecutionDisabled();
+
+    /**
+     * @notice Reverts if the deployment has already been claimed by another remote executor.
+     */
+    error DeploymentAlreadyClaimed();
+
+    /**
+     * @notice Reverts if the amount equals zero.
+     */
+    error AmountMustBeGreaterThanZero();
+
+    /**
+     * @notice Reverts if the remote executor has insufficient debt in this contract.
+     */
+    error InsufficientExecutorDebt();
+
+    /**
+     * @notice Reverts if a withdrawal transaction fails. This is likely due to insufficient funds
+       in this contract.
+     */
+    error WithdrawalFailed();
+
+    /**
+     * @notice Reverts if the caller is not a protocol payment recipient.
+     */
+    error CallerIsNotProtocolPaymentRecipient();
+
+    /**
+     * @notice Reverts if there is no bytecode at a given address.
+     */
+    error ContractDoesNotExist();
+
+    /**
+     * @notice Reverts if an invalid contract kind is provided.
+     */
+    error InvalidContractKind();
+
+    /**
+     * @notice Reverts if the call to export ownership of a proxy from this contract fails.
+     */
+    error ProxyExportFailed();
+
+    /**
+     * @notice Reverts if an empty actions array is provided as input to the transaction.
+     */
+    error EmptyActionsArray();
+
+    /**
+     * @notice Reverts if the action has already been executed in this deployment.
+     */
+    error ActionAlreadyExecuted();
+
+    /**
+     * @notice Reverts if an invalid Merkle proof is provided.
+     */
+    error InvalidMerkleProof();
+
+    /**
+     * @notice Reverts if the action type is not `DEPLOY_CONTRACT` or `SET_STORAGE`.
+     */
+    error InvalidActionType();
+
+    /**
+     * @notice Reverts if an upgrade is initiated before all of the contracts are deployed via
+       `executeActions`.
+     */
+    error InitiatedUpgradeTooEarly();
+
+    /**
+     * @notice Reverts if the deployment is not in the `APPROVED` state.
+     */
+    error DeploymentIsNotApproved();
+
+    /**
+     * @notice Reverts if the provided number of targets does not match the actual number of targets
+       in the deployment.
+     */
+    error IncorrectNumberOfTargets();
+
+    /**
+     * @notice Reverts if a non-proxy contract type is used instead of a proxy type.
+     */
+    error OnlyProxiesAllowed();
+
+    /**
+     * @notice Reverts if the contract creation for a `Proxy` fails.
+     */
+    error ProxyDeploymentFailed();
+
+    /**
+     * @notice Reverts if the call to initiate an upgrade on a proxy fails.
+     */
+    error FailedToInitiateUpgrade();
+
+    /**
+     * @notice Reverts if an upgrade is completed before all of the actions have been executed.
+     */
+    error FinalizedUpgradeTooEarly();
+
+    /**
+     * @notice Reverts if the call to finalize an upgrade on a proxy fails.
+     */
+    error FailedToFinalizeUpgrade();
+
+    /**
+     * @notice Reverts if the deployment is not in the `PROXIES_INITIATED` state.
+     */
+    error ProxiesAreNotInitiated();
+
+    /**
+     * @notice Reverts if the call to modify a proxy's storage slot value fails.
+     */
+    error SetStorageFailed();
+
+    /**
+     * @notice Reverts if the caller is not a selected executor.
+     */
+    error CallerIsNotSelectedExecutor();
+
+    /**
+     * @notice Reverts if the caller is not the owner.
+     */
+    error CallerIsNotOwner();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
-        require(
-            managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender),
-            "ChugSplashManager: caller is not executor"
-        );
+        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
+            revert CallerIsNotRemoteExecutor();
+        }
         _;
     }
 
@@ -439,7 +634,10 @@ contract ChugSplashManager is
        `allowManagedProposals` is true. These permissions prevent spam.
      *
      * @param _actionRoot Root of the Merkle tree containing the actions for the deployment.
+     * This may be `bytes32(0)` if there are no actions in the deployment.
      * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
+     * This may be `bytes32(0)` if there are no targets in the deployment.
+     * @param _numNonProxyContracts Number of non-proxy contracts in the deployment.
      * @param _numActions Number of actions in the deployment.
      * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
@@ -450,29 +648,42 @@ contract ChugSplashManager is
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
+        uint256 _numNonProxyContracts,
         string memory _configUri,
         bool _remoteExecution
     ) external {
-        require(isProposer(msg.sender), "ChugSplashManager: caller must be proposer");
+        if (!isProposer(msg.sender)) {
+            revert CallerIsNotProposer();
+        }
 
         // Compute the deployment ID.
         bytes32 deploymentId = keccak256(
-            abi.encode(_actionRoot, _targetRoot, _numActions, _numTargets, _configUri)
+            abi.encode(
+                _actionRoot,
+                _targetRoot,
+                _numActions,
+                _numTargets,
+                _numNonProxyContracts,
+                _configUri
+            )
         );
 
         DeploymentState storage deployment = _deployments[deploymentId];
 
         DeploymentStatus status = deployment.status;
-        require(
-            status == DeploymentStatus.EMPTY ||
-                status == DeploymentStatus.COMPLETED ||
-                status == DeploymentStatus.CANCELLED,
-            "ChugSplashManager: deployment cannot be proposed"
-        );
+        if (
+            status != DeploymentStatus.EMPTY &&
+            status != DeploymentStatus.COMPLETED &&
+            status != DeploymentStatus.CANCELLED &&
+            status != DeploymentStatus.FAILED
+        ) {
+            revert DeploymentStateIsNotProposable();
+        }
 
         deployment.status = DeploymentStatus.PROPOSED;
         deployment.actionRoot = _actionRoot;
         deployment.targetRoot = _targetRoot;
+        deployment.numNonProxyContracts = _numNonProxyContracts;
         deployment.actions = new bool[](_numActions);
         deployment.targets = _numTargets;
         deployment.remoteExecution = _remoteExecution;
@@ -483,6 +694,7 @@ contract ChugSplashManager is
             _targetRoot,
             _numActions,
             _numTargets,
+            _numNonProxyContracts,
             _configUri,
             _remoteExecution,
             msg.sender
@@ -500,22 +712,17 @@ contract ChugSplashManager is
     function approve(bytes32 _deploymentId) external onlyOwner {
         DeploymentState storage deployment = _deployments[_deploymentId];
 
-        if (deployment.remoteExecution) {
-            require(
-                address(this).balance - totalDebt() >= ownerBondAmount,
-                "ChugSplashManager: insufficient balance in manager"
-            );
+        if (deployment.remoteExecution && address(this).balance - totalDebt() < ownerBondAmount) {
+            revert InsufficientOwnerBond();
         }
 
-        require(
-            deployment.status == DeploymentStatus.PROPOSED,
-            "ChugSplashManager: deployment must be proposed"
-        );
+        if (deployment.status != DeploymentStatus.PROPOSED) {
+            revert DeploymentIsNotProposed();
+        }
 
-        require(
-            activeDeploymentId == bytes32(0),
-            "ChugSplashManager: another deployment is active"
-        );
+        if (activeDeploymentId != bytes32(0)) {
+            revert AnotherDeploymentInProgress();
+        }
 
         activeDeploymentId = _deploymentId;
         deployment.status = DeploymentStatus.APPROVED;
@@ -525,8 +732,9 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Executes an entire deployment in a single transaction. Deployments must be approved
-       before they can be executed.
+     * @notice Helper function that executes an entire upgrade in a single transaction. This allows
+       the proxies in smaller upgrades to have zero downtime. This must occur after all of the
+       `DEPLOY_CONTRACT` actions have been executed.
 
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _targetProofs Array of Merkle proofs for the targets.
@@ -534,16 +742,21 @@ contract ChugSplashManager is
      * @param _actionIndexes Array of indexes into the actions array for each target.
      * @param _actionProofs Array of Merkle proofs for the actions.
      */
-    function executeEntireDeployment(
+    function executeEntireUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
         ChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _actionProofs
     ) external {
-        initiateExecution(_targets, _targetProofs);
-        executeActions(_actions, _actionIndexes, _actionProofs);
-        completeExecution(_targets, _targetProofs);
+        initiateUpgrade(_targets, _targetProofs);
+
+        // Execute the `SET_STORAGE` actions if there are any.
+        if (_actions.length > 0) {
+            executeActions(_actions, _actionIndexes, _actionProofs);
+        }
+
+        finalizeUpgrade(_targets, _targetProofs);
     }
 
     /**
@@ -557,7 +770,9 @@ contract ChugSplashManager is
                from trolling the remote executor by immediately cancelling and withdrawing funds.
      */
     function cancelActiveChugSplashDeployment() external onlyOwner {
-        require(activeDeploymentId != bytes32(0), "ChugSplashManager: no active deployment");
+        if (activeDeploymentId == bytes32(0)) {
+            revert NoActiveDeployment();
+        }
 
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
@@ -567,6 +782,7 @@ contract ChugSplashManager is
         ) {
             // Give the owner's bond to the executor if the deployment is cancelled within the
             // `executionLockTime` window.
+            executorDebt[msg.sender] += ownerBondAmount;
             totalExecutorDebt += ownerBondAmount;
         }
 
@@ -589,16 +805,19 @@ contract ChugSplashManager is
                else another executor may claim the deployment.
      */
     function claimDeployment() external onlyExecutor {
-        require(activeDeploymentId != bytes32(0), "ChugSplashManager: no deployment is active");
+        if (activeDeploymentId == bytes32(0)) {
+            revert NoActiveDeployment();
+        }
 
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        require(deployment.remoteExecution, "ChugSplashManager: local execution only");
+        if (!deployment.remoteExecution) {
+            revert RemoteExecutionDisabled();
+        }
 
-        require(
-            block.timestamp > deployment.timeClaimed + executionLockTime,
-            "ChugSplashManager: deployment already claimed"
-        );
+        if (block.timestamp <= deployment.timeClaimed + executionLockTime) {
+            revert DeploymentAlreadyClaimed();
+        }
 
         deployment.timeClaimed = block.timestamp;
         deployment.selectedExecutor = msg.sender;
@@ -617,11 +836,12 @@ contract ChugSplashManager is
      * @param _amount Amount of ETH to withdraw.
      */
     function claimExecutorPayment(uint256 _amount) external onlyExecutor {
-        require(_amount > 0, "ChugSplashManager: amount cannot be 0");
-        require(
-            executorDebt[msg.sender] >= _amount,
-            "ChugSplashManager: insufficient executor debt"
-        );
+        if (_amount == 0) {
+            revert AmountMustBeGreaterThanZero();
+        }
+        if (executorDebt[msg.sender] < _amount) {
+            revert InsufficientExecutorDebt();
+        }
 
         executorDebt[msg.sender] -= _amount;
         totalExecutorDebt -= _amount;
@@ -629,7 +849,9 @@ contract ChugSplashManager is
         emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
 
         (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        require(success, "ChugSplashManager: failed to withdraw");
+        if (!success) {
+            revert WithdrawalFailed();
+        }
 
         registry.announce("ExecutorPaymentClaimed");
     }
@@ -639,10 +861,9 @@ contract ChugSplashManager is
        remotely executed deployments.
      */
     function claimProtocolPayment() external {
-        require(
-            managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender),
-            "ChugSplashManager: caller is not payment recipient"
-        );
+        if (!managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender)) {
+            revert CallerIsNotProtocolPaymentRecipient();
+        }
 
         uint256 amount = totalProtocolDebt;
         totalProtocolDebt = 0;
@@ -651,7 +872,9 @@ contract ChugSplashManager is
 
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        require(success, "ChugSplashManager: failed to withdraw funds");
+        if (!success) {
+            revert WithdrawalFailed();
+        }
 
         registry.announce("ProtocolPaymentClaimed");
     }
@@ -670,21 +893,30 @@ contract ChugSplashManager is
         bytes32 _contractKindHash,
         address _newOwner
     ) external onlyOwner {
-        require(_proxy.code.length > 0, "ChugSplashManager: invalid proxy");
-        require(activeDeploymentId == bytes32(0), "ChugSplashManager: deployment is active");
+        if (_proxy.code.length == 0) {
+            revert ContractDoesNotExist();
+        }
+
+        if (activeDeploymentId != bytes32(0)) {
+            revert AnotherDeploymentInProgress();
+        }
 
         // Get the adapter that corresponds to this contract type.
         address adapter = registry.adapters(_contractKindHash);
-        require(adapter != address(0), "ChugSplashManager: invalid contract kind");
+        if (adapter == address(0)) {
+            revert InvalidContractKind();
+        }
 
         emit ProxyExported(_proxy, _contractKindHash, _newOwner);
 
-        // Delegatecall the adapter to change ownership of the proxy. slither-disable-next-line
-        // controlled-delegatecall
+        // Delegatecall the adapter to change ownership of the proxy.
+        // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
             abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
         );
-        require(success, "ChugSplashManager: proxy admin change failed");
+        if (!success) {
+            revert ProxyExportFailed();
+        }
 
         registry.announce("ProxyExported");
     }
@@ -695,17 +927,18 @@ contract ChugSplashManager is
                deployment, as this would rug the remote executor.
      */
     function withdrawOwnerETH() external onlyOwner {
-        require(
-            activeDeploymentId == bytes32(0),
-            "ChugSplashManager: cannot withdraw during active deployment"
-        );
+        if (activeDeploymentId != bytes32(0)) {
+            revert AnotherDeploymentInProgress();
+        }
 
         uint256 amount = address(this).balance - totalDebt();
 
         emit OwnerWithdrewETH(msg.sender, amount);
 
         (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        require(success, "ChugSplashManager: call to withdraw owner funds failed");
+        if (!success) {
+            revert WithdrawalFailed();
+        }
 
         registry.announce("OwnerWithdrewETH");
     }
@@ -761,112 +994,9 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Initiate the execution of a deployment. This must be called after the deployment is
-       approved, and before the rest of the execution process occurs. In this function, all of the
-       proxies in the deployment are disabled by setting their implementations to a contract that
-       can only be called by the team's ChugSplashManagerProxy. This must occur in a single
-       transaction to make the process atomic, which means the proxies are upgraded as a single
-       unit.
-
-     * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
-     * @param _proofs Array of Merkle proofs for the targets.
-     */
-    function initiateExecution(
-        ChugSplashTarget[] memory _targets,
-        bytes32[][] memory _proofs
-    ) public nonReentrant {
-        uint256 initialGasLeft = gasleft();
-
-        DeploymentState storage deployment = _deployments[activeDeploymentId];
-
-        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
-
-        require(
-            deployment.status == DeploymentStatus.APPROVED,
-            "ChugSplashManager: deployment status is not approved"
-        );
-
-        uint256 numTargets = _targets.length;
-        require(numTargets == deployment.targets, "ChugSplashManager: incorrect number of targets");
-
-        ChugSplashTarget memory target;
-        bytes32[] memory proof;
-        for (uint256 i = 0; i < numTargets; i++) {
-            target = _targets[i];
-            proof = _proofs[i];
-
-            require(
-                target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
-                "ChugSplashManager: only proxies allowed in target deployment"
-            );
-
-            require(
-                MerkleTree.verify(
-                    deployment.targetRoot,
-                    keccak256(
-                        abi.encode(
-                            target.projectName,
-                            target.referenceName,
-                            target.addr,
-                            target.implementation,
-                            target.contractKindHash
-                        )
-                    ),
-                    i,
-                    proof,
-                    deployment.targets
-                ),
-                "ChugSplashManager: invalid deployment target proof"
-            );
-
-            if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
-                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
-                Proxy created = new Proxy{ salt: salt }(address(this));
-
-                // Could happen if insufficient gas is supplied to this transaction, should not
-                // happen otherwise. If there's a situation in which this could happen other than a
-                // standard OOG, then this would halt the entire execution process.
-                require(
-                    address(created) == target.addr,
-                    "ChugSplashManager: Proxy was not created correctly"
-                );
-
-                emit DefaultProxyDeployed(
-                    salt,
-                    target.addr,
-                    activeDeploymentId,
-                    target.projectName,
-                    target.referenceName
-                );
-                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.addr));
-            }
-
-            address adapter = registry.adapters(target.contractKindHash);
-            require(adapter != address(0), "ChugSplashManager: invalid contract kind");
-
-            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
-            // ChugSplashManager can interact with a proxy that is in the process of being updated.
-            // Note that we use the Updater contract to provide a generic interface for updating a
-            // variety of proxy types. Note no adapter is necessary for non-proxied contracts as
-            // they are not upgradable and cannot have state. slither-disable-next-line
-            // controlled-delegatecall
-            (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateExecution, (target.addr))
-            );
-            require(success, "ChugSplashManager: failed to set implementation to an updater");
-        }
-
-        // Mark the deployment as initiated.
-        deployment.status = DeploymentStatus.INITIATED;
-
-        emit ChugSplashDeploymentInitiated(activeDeploymentId, msg.sender);
-        registry.announce("ChugSplashDeploymentInitiated");
-
-        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
-    }
-
-    /**
-     * @notice Executes a deployment by setting proxy state variables and deploying contracts.
+     * @notice Deploys non-proxy contracts and sets proxy state variables. If the deployment does
+       not contain any proxies, it will be completed after all of the non-proxy contracts have been
+       deployed in this function.
      *
      * @param _actions Array of ChugSplashAction structs containing the actions for the deployment.
      * @param _actionIndexes Array of action indexes.
@@ -881,14 +1011,16 @@ contract ChugSplashManager is
 
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
-        require(
-            deployment.status == DeploymentStatus.INITIATED,
-            "ChugSplashManager: deployment status must be initiated"
-        );
-
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
         uint256 numActions = _actions.length;
+
+        // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
+        // cause the executor to be paid for doing nothing.
+        if (numActions == 0) {
+            revert EmptyActionsArray();
+        }
+
         ChugSplashAction memory action;
         uint256 actionIndex;
         bytes32[] memory proof;
@@ -897,13 +1029,12 @@ contract ChugSplashManager is
             actionIndex = _actionIndexes[i];
             proof = _proofs[i];
 
-            require(
-                !deployment.actions[actionIndex],
-                "ChugSplashManager: action has already been executed"
-            );
+            if (deployment.actions[actionIndex]) {
+                revert ActionAlreadyExecuted();
+            }
 
-            require(
-                MerkleTree.verify(
+            if (
+                !MerkleTree.verify(
                     deployment.actionRoot,
                     keccak256(
                         abi.encode(
@@ -917,52 +1048,47 @@ contract ChugSplashManager is
                     actionIndex,
                     proof,
                     deployment.actions.length
-                ),
-                "ChugSplashManager: invalid deployment action proof"
-            );
-
-            // Get the adapter for this reference name.
-            address adapter = registry.adapters(action.contractKindHash);
-
-            action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH
-                ? require(
-                    action.actionType == ChugSplashActionType.DEPLOY_CONTRACT,
-                    "ChugSplashManager: invalid action type for non-proxy contract"
                 )
-                : require(adapter != address(0), "ChugSplashManager: proxy type has no adapter");
+            ) {
+                revert InvalidMerkleProof();
+            }
 
             // Mark the action as executed and update the total number of executed actions.
             deployment.actionsExecuted++;
             deployment.actions[actionIndex] = true;
 
-            // Next, we execute the ChugSplash action by calling deployContract/setStorage.
             if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
-                _deployContract(action.referenceName, action.data);
-            } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
-                (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-                    action.data,
-                    (bytes32, uint8, bytes)
-                );
-                _setProxyStorage(action.addr, adapter, key, offset, val);
-            } else {
-                revert("ChugSplashManager: unknown action type");
-            }
+                _attemptContractDeployment(deployment, action, actionIndex);
 
-            emit ChugSplashActionExecuted(activeDeploymentId, action.addr, msg.sender, actionIndex);
-            registry.announceWithData("ChugSplashActionExecuted", abi.encodePacked(action.addr));
+                if (
+                    deployment.actionsExecuted == deployment.actions.length &&
+                    deployment.targets == 0 &&
+                    deployment.status != DeploymentStatus.FAILED
+                ) {
+                    _completeDeployment(deployment);
+                }
+            } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
+                _setProxyStorage(deployment, action, actionIndex);
+            } else {
+                revert InvalidActionType();
+            }
         }
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
-     * @notice Completes the deployment by upgrading all proxies to their new implementations. This
-     *         occurs in a single transaction to ensure that the upgrade is atomic.
-     *
+     * @notice Initiate the proxies in an upgrade. This must be called after the contracts are
+       deployment is approved, and before the rest of the execution process occurs. In this
+       function, all of the proxies in the deployment are disabled by setting their implementations
+       to a contract that can only be called by the team's ChugSplashManagerProxy. This must occur
+       in a single transaction to make the process atomic, which means the proxies are upgraded as a
+       single unit.
+
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _proofs Array of Merkle proofs for the targets.
      */
-    function completeExecution(
+    function initiateUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) public nonReentrant {
@@ -972,18 +1098,19 @@ contract ChugSplashManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        require(
-            activeDeploymentId != bytes32(0),
-            "ChugSplashManager: no deployment has been approved for execution"
-        );
+        if (deployment.actionsExecuted != deployment.numNonProxyContracts) {
+            revert InitiatedUpgradeTooEarly();
+        }
 
-        require(
-            deployment.actionsExecuted == deployment.actions.length,
-            "ChugSplashManager: deployment was not executed completely"
-        );
+        // Ensures that the deployment status isn't `FAILED`.
+        if (deployment.status != DeploymentStatus.APPROVED) {
+            revert DeploymentIsNotApproved();
+        }
 
         uint256 numTargets = _targets.length;
-        require(numTargets == deployment.targets, "ChugSplashManager: incorrect number of targets");
+        if (numTargets != deployment.targets) {
+            revert IncorrectNumberOfTargets();
+        }
 
         ChugSplashTarget memory target;
         bytes32[] memory proof;
@@ -991,13 +1118,12 @@ contract ChugSplashManager is
             target = _targets[i];
             proof = _proofs[i];
 
-            require(
-                target.contractKindHash != NO_PROXY_CONTRACT_KIND_HASH,
-                "ChugSplashManager: only proxies allowed in target deployment"
-            );
+            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+                revert OnlyProxiesAllowed();
+            }
 
-            require(
-                MerkleTree.verify(
+            if (
+                !MerkleTree.verify(
                     deployment.targetRoot,
                     keccak256(
                         abi.encode(
@@ -1011,32 +1137,136 @@ contract ChugSplashManager is
                     i,
                     proof,
                     deployment.targets
-                ),
-                "ChugSplashManager: invalid deployment target proof"
+                )
+            ) {
+                revert InvalidMerkleProof();
+            }
+
+            if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
+                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
+                Proxy created = new Proxy{ salt: salt }(address(this));
+
+                // Could happen if insufficient gas is supplied to this transaction, should not
+                // happen otherwise. If there's a situation in which this could happen other than a
+                // standard OOG, then this would halt the entire execution process.
+                if (address(created) != target.addr) {
+                    revert ProxyDeploymentFailed();
+                }
+
+                emit DefaultProxyDeployed(
+                    salt,
+                    target.addr,
+                    activeDeploymentId,
+                    target.projectName,
+                    target.referenceName
+                );
+                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.addr));
+            }
+
+            address adapter = registry.adapters(target.contractKindHash);
+            if (adapter == address(0)) {
+                revert InvalidContractKind();
+            }
+
+            // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
+            // ChugSplashManager can interact with a proxy that is in the process of being updated.
+            // Note that we use the Updater contract to provide a generic interface for updating a
+            // variety of proxy types. Note no adapter is necessary for non-proxied contracts as
+            // they are not upgradable and cannot have state.
+            // slither-disable-next-line controlled-delegatecall
+            (bool success, ) = adapter.delegatecall(
+                abi.encodeCall(IProxyAdapter.initiateUpgrade, (target.addr))
             );
+            if (!success) {
+                revert FailedToInitiateUpgrade();
+            }
+        }
+
+        // Mark the deployment as initiated.
+        deployment.status = DeploymentStatus.PROXIES_INITIATED;
+
+        emit ProxiesInitiated(activeDeploymentId, msg.sender);
+        registry.announce("ProxiesInitiated");
+
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
+    }
+
+    /**
+     * @notice Finalizes the upgrade by upgrading all proxies to their new implementations. This
+     *         occurs in a single transaction to ensure that the upgrade is atomic.
+     *
+     * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
+     * @param _proofs Array of Merkle proofs for the targets.
+     */
+    function finalizeUpgrade(
+        ChugSplashTarget[] memory _targets,
+        bytes32[][] memory _proofs
+    ) public nonReentrant {
+        uint256 initialGasLeft = gasleft();
+
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
+
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+
+        if (activeDeploymentId == bytes32(0)) {
+            revert NoActiveDeployment();
+        }
+
+        if (deployment.actionsExecuted != deployment.actions.length) {
+            revert FinalizedUpgradeTooEarly();
+        }
+
+        uint256 numTargets = _targets.length;
+        if (numTargets != deployment.targets) {
+            revert IncorrectNumberOfTargets();
+        }
+
+        ChugSplashTarget memory target;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numTargets; i++) {
+            target = _targets[i];
+            proof = _proofs[i];
+
+            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+                revert OnlyProxiesAllowed();
+            }
+
+            if (
+                !MerkleTree.verify(
+                    deployment.targetRoot,
+                    keccak256(
+                        abi.encode(
+                            target.projectName,
+                            target.referenceName,
+                            target.addr,
+                            target.implementation,
+                            target.contractKindHash
+                        )
+                    ),
+                    i,
+                    proof,
+                    deployment.targets
+                )
+            ) {
+                revert InvalidMerkleProof();
+            }
 
             // Get the proxy type and adapter for this reference name.
             address adapter = registry.adapters(target.contractKindHash);
-            require(adapter != address(0), "ChugSplashManager: invalid contract kind");
+            if (adapter == address(0)) {
+                revert InvalidContractKind();
+            }
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(
-                    IProxyAdapter.completeExecution,
-                    (target.addr, target.implementation)
-                )
+                abi.encodeCall(IProxyAdapter.finalizeUpgrade, (target.addr, target.implementation))
             );
-            require(success, "ChugSplashManger: failed to complete execution");
+            if (!success) {
+                revert FailedToFinalizeUpgrade();
+            }
         }
 
-        // Mark the deployment as completed and reset the active deployment hash so that a new
-        // deployment can be executed.
-        deployment.status = DeploymentStatus.COMPLETED;
-        bytes32 completedDeploymentId = activeDeploymentId;
-        activeDeploymentId = bytes32(0);
-
-        emit ChugSplashDeploymentCompleted(completedDeploymentId, msg.sender);
-        registry.announce("ChugSplashDeploymentCompleted");
+        _completeDeployment(deployment);
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
@@ -1075,6 +1305,143 @@ contract ChugSplashManager is
     function getSelectedExecutor(bytes32 _deploymentId) public view returns (address) {
         DeploymentState storage deployment = _deployments[_deploymentId];
         return deployment.selectedExecutor;
+    }
+
+    /**
+     * @notice Modifies a storage slot value within a proxy contract.
+     *
+     * @param _deployment The current deployment state struct.
+     * @param _action The `SET_STORAGE` action to execute.
+     * @param _actionIndex The index of the action.
+     */
+    function _setProxyStorage(
+        DeploymentState memory _deployment,
+        ChugSplashAction memory _action,
+        uint256 _actionIndex
+    ) internal {
+        if (_deployment.status != DeploymentStatus.PROXIES_INITIATED) {
+            revert ProxiesAreNotInitiated();
+        }
+
+        // Get the adapter for this reference name.
+        address adapter = registry.adapters(_action.contractKindHash);
+
+        if (_action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+            revert OnlyProxiesAllowed();
+        }
+
+        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+            _action.data,
+            (bytes32, uint8, bytes)
+        );
+        // Delegatecall the adapter to call `setStorage` on the proxy.
+        // slither-disable-next-line controlled-delegatecall
+        (bool success, ) = adapter.delegatecall(
+            abi.encodeCall(IProxyAdapter.setStorage, (_action.addr, key, offset, val))
+        );
+        if (!success) {
+            revert SetStorageFailed();
+        }
+
+        emit SetProxyStorage(activeDeploymentId, _action.addr, msg.sender, _actionIndex);
+        registry.announceWithData("SetProxyStorage", abi.encodePacked(_action.addr));
+    }
+
+    /**
+     * @notice Attempts to deploy a non-proxy contract. The deployment will be skipped if a contract
+     * already exists at the CREATE2 address. The entire deployment will be cancelled if the
+       contract fails to be deployed, which should only occur if its constructor reverts.
+     *
+     * @param _deployment The current deployment state struct. The data location is "storage"
+       because we
+     * may modify one of the struct's fields.
+     * @param _action The `DEPLOY_CONTRACT` action to execute.
+     * @param _actionIndex The index of the action.
+     */
+    function _attemptContractDeployment(
+        DeploymentState storage _deployment,
+        ChugSplashAction memory _action,
+        uint256 _actionIndex
+    ) internal {
+        if (_deployment.status != DeploymentStatus.APPROVED) {
+            revert DeploymentIsNotApproved();
+        }
+
+        bytes memory creationCode = _action.data;
+        string memory referenceName = _action.referenceName;
+
+        // Get the expected address of the contract.
+        address expectedAddress = create2.computeAddress(
+            bytes32(0),
+            keccak256(creationCode),
+            address(this)
+        );
+
+        // Check if the contract has already been deployed.
+        if (expectedAddress.code.length > 0) {
+            // Skip deploying the contract if it already exists. Execution would halt if we attempt
+            // to deploy a contract that has already been deployed at the same address.
+            emit ContractDeploymentSkipped(
+                referenceName,
+                expectedAddress,
+                activeDeploymentId,
+                referenceName,
+                _actionIndex
+            );
+            registry.announce("ContractDeploymentSkipped");
+        } else {
+            address actualAddress;
+            assembly {
+                actualAddress := create2(0x0, add(creationCode, 0x20), mload(creationCode), 0x0)
+            }
+
+            if (expectedAddress == actualAddress) {
+                // Contract was deployed successfully.
+                emit ContractDeployed(
+                    referenceName,
+                    actualAddress,
+                    activeDeploymentId,
+                    referenceName,
+                    _actionIndex
+                );
+                registry.announce("ContractDeployed");
+            } else {
+                // Contract deployment failed. Could happen if insufficient gas is supplied to this
+                // transaction or if the creation bytecode has logic that causes the call to fail
+                // (e.g. a constructor that reverts).
+
+                // Give the owner's bond to the executor.
+                executorDebt[msg.sender] += ownerBondAmount;
+                totalExecutorDebt += ownerBondAmount;
+
+                emit DeploymentFailed(
+                    referenceName,
+                    expectedAddress,
+                    activeDeploymentId,
+                    referenceName,
+                    _actionIndex
+                );
+                registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
+
+                activeDeploymentId = bytes32(0);
+                _deployment.status = DeploymentStatus.FAILED;
+            }
+        }
+    }
+
+    /**
+     * @notice Mark the deployment as completed and reset the active deployment ID.
+
+     * @param _deployment The current deployment state struct. The data location is "s  rage"
+       because we modify the struct.
+     */
+    function _completeDeployment(DeploymentState storage _deployment) internal {
+        _deployment.status = DeploymentStatus.COMPLETED;
+
+        emit ChugSplashDeploymentCompleted(activeDeploymentId, msg.sender);
+        registry.announce("ChugSplashDeploymentCompleted");
+
+        activeDeploymentId = bytes32(0);
     }
 
     /**
@@ -1118,82 +1485,6 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Deploys a contract using the CREATE2 opcode.
-     *
-     * @param _referenceName Reference name that corresponds to the contract. Used for logging.
-     * @param _code          Creation bytecode of the contract, which includes constructor
-       arguments.
-     */
-    function _deployContract(string memory _referenceName, bytes memory _code) internal {
-        // Get the expected address of the contract.
-        address expectedAddress = create2.computeAddress(
-            bytes32(0),
-            keccak256(_code),
-            address(this)
-        );
-
-        // Check if the contract has already been deployed.
-        if (expectedAddress.code.length > 0) {
-            // Skip deploying the contract if it already exists. Execution would halt if we attempt
-            // to deploy a contract that has already been deployed at the same address.
-            emit ContractDeploymentSkipped(
-                _referenceName,
-                expectedAddress,
-                activeDeploymentId,
-                _referenceName
-            );
-            registry.announce("ContractDeploymentSkipped");
-        } else {
-            address actualAddress;
-            assembly {
-                actualAddress := create2(0x0, add(_code, 0x20), mload(_code), 0x0)
-            }
-
-            // Could happen if insufficient gas is supplied to this transaction or if the creation
-            // bytecode has logic that causes the call to fail (e.g. a constructor that reverts). We
-            // check that the latter situation cannot occur using off-chain logic. If there's
-            // another situation that could cause an address mismatch, this would halt the entire
-            // execution process.
-            require(
-                expectedAddress == actualAddress,
-                "ChugSplashManager: contract incorrectly deployed"
-            );
-
-            emit ContractDeployed(
-                _referenceName,
-                actualAddress,
-                activeDeploymentId,
-                _referenceName
-            );
-            registry.announce("ContractDeployed");
-        }
-    }
-
-    /**
-     * @notice Modifies a storage slot value within a proxy contract.
-     *
-     * @param _proxy   Address of the proxy to modify.
-     * @param _adapter Address of the adapter for this proxy.
-     * @param _key     Storage slot key to modify.
-     * @param _offset  Offset within the storage slot to modify.
-     * @param _value   New value for the storage slot key.
-     */
-    function _setProxyStorage(
-        address payable _proxy,
-        address _adapter,
-        bytes32 _key,
-        uint8 _offset,
-        bytes memory _value
-    ) internal {
-        // Delegatecall the adapter to call `setStorage` on the proxy. slither-disable-next-line
-        // controlled-delegatecall
-        (bool success, ) = _adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setStorage, (_proxy, _key, _offset, _value))
-        );
-        require(success, "ChugSplashManager: set storage failed");
-    }
-
-    /**
      * @notice If the deployment is being executed remotely, this function will check that the
      * caller is the selected executor. If the deployment is being executed locally, this function
      * will check that the caller is the owner. Throws an error otherwise.
@@ -1202,11 +1493,10 @@ contract ChugSplashManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        _remoteExecution
-            ? require(
-                getSelectedExecutor(activeDeploymentId) == msg.sender,
-                "ChugSplashManager: caller is not approved executor"
-            )
-            : require(owner() == msg.sender, "ChugSplashManager: caller is not owner");
+        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != msg.sender) {
+            revert CallerIsNotSelectedExecutor();
+        } else if (owner() != msg.sender) {
+            revert CallerIsNotOwner();
+        }
     }
 }

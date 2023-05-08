@@ -113,7 +113,7 @@ const getProxyByName = (
 * Otherwise, if the current action is `DEPLOY_IMPLEMENTATION`:
   * A call to `_deployImplementation` MUST be executed with `proxy`, `contractKind`, and `data` as arguments.
 * Otherwise, the current call MUST revert.
-* The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active deployment ID, the executor's address, and the action index.
+* The ChugSplashManager MUST emit the event SetProxyStorage with the active deployment ID, the executor's address, and the action index.
 * The ChugSplashManager MUST announce this event to the registry.
 * Executing an action MUST increase the `totalDebt` and the current executor's `debt` by `block.basefee * gasUsed * (100 + executorPaymentPercentage) / 100)`, where `gasUsed` is calculated using `gasleft()` plus the intrinsic gas (21k) plus the calldata usage.
 
@@ -127,7 +127,7 @@ const getProxyByName = (
   * The current `_actionIndex` MUST be set to `true`.
   * A call to `_upgradeProxyTo` MUST be executed with the corresponding `proxy`, `adapter`, and `implementation` as arguments.
   * The ChugSplashManager MUST increase the current executor's `debt` and the `totalDebt` by `block.basefee * gasUsed * (100 + executorPaymentPercentage) / 100)`, where `gasUsed` is calculated using `gasleft()` plus the intrinsic gas (21k) plus the calldata usage.
-  * The ChugSplashManager MUST emit the event ChugSplashActionExecuted with the active deployment ID, the executor's address, and the action index.
+  * The ChugSplashManager MUST emit the event SetProxyStorage with the active deployment ID, the executor's address, and the action index.
   * The ChugSplashManager MUST announce this event to the registry.
 * The call MUST revert if all of the actions in the deployment were not executed.
 * The deployment status MUST be set to `COMPLETED`.

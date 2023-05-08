@@ -8,13 +8,21 @@ const config: UserChugSplashConfig = {
     claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   },
   contracts: {
-    ExecutorTest: {
-      contract: 'ExecutorTest',
+    ExecutorProxyTest: {
+      contract: 'ExecutorProxyTest',
       variables: {
         number: 1,
         stored: true,
         storageName: 'First',
         otherStorage: '0x1111111111111111111111111111111111111111',
+      },
+    },
+    ExecutorNonProxyTest: {
+      contract: 'ExecutorNonProxyTest',
+      kind: 'no-proxy',
+      unsafeAllowFlexibleConstructor: true,
+      constructorArgs: {
+        _val: 1,
       },
     },
   },

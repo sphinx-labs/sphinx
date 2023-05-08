@@ -76,7 +76,7 @@ export const monitorExecution = async (
   spinner.succeed('Execution initiated.')
 
   const totalNumActions = bundles.actionBundle.actions.length
-  while (deploymentState.status === DeploymentStatus.INITIATED) {
+  while (deploymentState.status === DeploymentStatus.PROXIES_INITIATED) {
     if (deploymentState.actionsExecuted.toNumber() === totalNumActions) {
       spinner.start(`All actions have been executed. Completing execution...`)
     } else {

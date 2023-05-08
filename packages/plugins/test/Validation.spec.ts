@@ -416,4 +416,16 @@ describe('Validate', () => {
       `Missing member(s) in struct _structMissingMembers: b`
     )
   })
+
+  it('did catch non-proxy contract constructor reverting', async () => {
+    expect(validationOutput).to.have.string(
+      `The following constructors will revert:`
+    )
+    expect(validationOutput).to.have.string(
+      `- Reverter1. Reason: 'Reverter: revert'`
+    )
+    expect(validationOutput).to.have.string(
+      `- Reverter2. Reason: 'Reverter: revert'`
+    )
+  })
 })

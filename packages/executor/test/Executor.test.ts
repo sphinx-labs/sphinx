@@ -19,8 +19,9 @@ import { createChugSplashRuntime } from '../../plugins/src/utils'
 const configPath = './chugsplash/ExecutorTest.config.ts'
 
 describe('Remote Execution', () => {
-  let ExecutorTest: Contract
-  beforeEach(async () => {
+  let Proxy: Contract
+  let NonProxy: Contract
+  before(async () => {
     const provider = hre.ethers.provider
     const signer = provider.getSigner()
     const signerAddress = await signer.getAddress()
@@ -103,18 +104,27 @@ describe('Remote Execution', () => {
       cre
     )
 
-    ExecutorTest = await chugsplash.getContract(
+    Proxy = await chugsplash.getContract(
       parsedConfig.options.projectName,
-      'ExecutorTest'
+      'ExecutorProxyTest'
+    )
+
+    NonProxy = await chugsplash.getContract(
+      parsedConfig.options.projectName,
+      'ExecutorNonProxyTest'
     )
   })
 
-  it('does deploy remotely', async () => {
-    expect(await ExecutorTest.number()).to.equal(1)
-    expect(await ExecutorTest.stored()).to.equal(true)
-    expect(await ExecutorTest.storageName()).to.equal('First')
-    expect(await ExecutorTest.otherStorage()).to.equal(
+  it('does deploy proxied contract remotely', async () => {
+    expect(await Proxy.number()).to.equal(1)
+    expect(await Proxy.stored()).to.equal(true)
+    expect(await Proxy.storageName()).to.equal('First')
+    expect(await Proxy.otherStorage()).to.equal(
       '0x1111111111111111111111111111111111111111'
     )
+  })
+
+  it('does deploy non-proxy contract remotely', async () => {
+    expect(await NonProxy.val()).equals(1)
   })
 })

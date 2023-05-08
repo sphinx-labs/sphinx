@@ -51,6 +51,7 @@ import {
   DeploymentState,
   DeploymentStatus,
   executeTask,
+  getDeployContractActions,
   writeDeploymentArtifacts,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
@@ -188,7 +189,7 @@ export const chugsplashProposeAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
   if (
     deploymentState.status === DeploymentStatus.APPROVED ||
-    deploymentState.status === DeploymentStatus.INITIATED
+    deploymentState.status === DeploymentStatus.PROXIES_INITIATED
   ) {
     spinner.fail(
       `Project was already proposed and is currently being executed on ${networkName}.`
@@ -361,6 +362,7 @@ IPFS_API_KEY_SECRET: ...
     bundles.targetBundle.root,
     bundles.actionBundle.actions.length,
     bundles.targetBundle.targets.length,
+    getDeployContractActions(bundles.actionBundle).length,
     configUri
   )
 
@@ -698,7 +700,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start(`Executing ${projectName}...`)
 
-  await executeTask({
+  const success = await executeTask({
     chugSplashManager: ChugSplashManager,
     bundles,
     deploymentState,
@@ -706,6 +708,12 @@ export const chugsplashDeployAbstractTask = async (
     provider,
     projectName,
   })
+
+  if (!success) {
+    throw new Error(
+      `Failed to execute ${projectName}, likely because one of the user's constructors reverted during the deployment.`
+    )
+  }
 
   spinner.succeed(`Executed ${projectName}.`)
 
@@ -1105,6 +1113,7 @@ export const proposeChugSplashDeployment = async (
       bundles.targetBundle.root,
       bundles.actionBundle.actions.length,
       bundles.targetBundle.targets.length,
+      getDeployContractActions(bundles.actionBundle).length,
       configUri
     )
 
@@ -1118,6 +1127,7 @@ export const proposeChugSplashDeployment = async (
       bundles.targetBundle.root,
       bundles.actionBundle.actions.length,
       bundles.targetBundle.targets.length,
+      getDeployContractActions(bundles.actionBundle).length,
       configUri,
       remoteExecution,
       await getGasPriceOverrides(provider)

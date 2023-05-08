@@ -13,7 +13,7 @@ interface IProxyAdapter {
      *
      * @param _proxy Address of the proxy.
      */
-    function initiateExecution(address payable _proxy) external;
+    function initiateUpgrade(address payable _proxy) external;
 
     /**
      * @notice Complete a deployment or upgrade of a proxy.
@@ -21,7 +21,7 @@ interface IProxyAdapter {
      * @param _proxy          Address of the proxy.
      * @param _implementation Address of the proxy's final implementation.
      */
-    function completeExecution(address payable _proxy, address _implementation) external;
+    function finalizeUpgrade(address payable _proxy, address _implementation) external;
 
     /**
      * @notice Sets a proxy's storage slot value at a given storage slot key and offset.
