@@ -1,5 +1,7 @@
+import * as path from 'path'
 import assert from 'assert'
 
+import { getChainId } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -49,7 +51,11 @@ import {
   getImpersonatedSigner,
   assertValidBlockGasLimit,
 } from '../../utils'
-import { REMOTE_EXECUTOR_ROLE } from '../../constants'
+import {
+  CALLER_ROLE,
+  MANAGED_PROPOSER_ROLE,
+  REMOTE_EXECUTOR_ROLE,
+} from '../../constants'
 import {
   getChugSplashConstructorArgs,
   getChugSplashRegistryAddress,
@@ -58,6 +64,83 @@ import {
   getRegistryConstructorValues,
   getChugSplashManagerV1Address,
 } from '../../addresses'
+import {
+  isSupportedNetworkOnEtherscan,
+  verifyChugSplash,
+} from '../../etherscan'
+import { ChugSplashSystemConfig } from './types'
+
+const fetchChugSplashSystemConfig = (configPath: string) => {
+  delete require.cache[require.resolve(path.resolve(configPath))]
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const exported: ChugSplashSystemConfig = require(path.resolve(
+    configPath
+  )).default
+  if (
+    typeof exported === 'object' &&
+    exported.callers.length > 0 &&
+    exported.executors.length > 0 &&
+    exported.proposers.length > 0
+  ) {
+    return exported
+  } else {
+    throw new Error(
+      'Config file must export a valid config object with a list of executors, callers, and proposers.'
+    )
+  }
+}
+
+export const initializeAndVerifyChugSplash = async (
+  systemConfigPath: string,
+  provider: ethers.providers.JsonRpcProvider
+) => {
+  const config = fetchChugSplashSystemConfig(systemConfigPath)
+
+  const logger = new Logger({
+    name: 'deploy',
+  })
+
+  // Deploy Contracts
+  await initializeChugSplash(
+    provider,
+    await provider.getSigner(),
+    config.executors,
+    config.proposers,
+    config.callers,
+    logger
+  )
+
+  // Verify ChugSplash contracts on etherscan
+  try {
+    // Verify the ChugSplash contracts if the current network is supported.
+    if (isSupportedNetworkOnEtherscan(await getChainId(provider))) {
+      const apiKey = process.env.ETHERSCAN_API_KEY
+      if (apiKey) {
+        logger.info(
+          '[ChugSplash]: attempting to verify the chugsplash contracts...'
+        )
+        await verifyChugSplash(provider, provider.network.name, apiKey)
+        logger.info(
+          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
+        )
+      } else {
+        logger.info(
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
+        )
+      }
+    } else {
+      logger.info(
+        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${provider.network.name}`
+      )
+    }
+  } catch (e) {
+    logger.error(
+      `[ChugSplash]: error: failed to verify chugsplash contracts on ${provider.network.name}`,
+      e
+    )
+  }
+}
 
 export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -73,7 +156,7 @@ export const ensureChugSplashInitialized = async (
       )
     }
   } else {
-    await initializeChugSplash(provider, signer, executors, logger)
+    await initializeChugSplash(provider, signer, executors, [], [], logger)
   }
 }
 
@@ -81,6 +164,8 @@ export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
   executors: string[],
+  proposers: string[],
+  callers: string[],
   logger?: Logger
 ): Promise<void> => {
   await assertValidBlockGasLimit(provider)
@@ -370,6 +455,27 @@ export const initializeChugSplash = async (
     }
   }
   logger?.info('[ChugSplash]: finished assigning executor roles')
+
+  logger?.info('[ChugSplash]: assigning proposer roles...')
+  for (const proposer of proposers) {
+    if (
+      (await ManagedService.hasRole(MANAGED_PROPOSER_ROLE, proposer)) === false
+    ) {
+      await ManagedService.connect(signer).grantRole(
+        MANAGED_PROPOSER_ROLE,
+        proposer
+      )
+    }
+  }
+  logger?.info('[ChugSplash]: finished assigning proposer roles')
+
+  logger?.info('[ChugSplash]: assigning caller roles...')
+  for (const caller of callers) {
+    if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
+      await ManagedService.connect(signer).grantRole(CALLER_ROLE, caller)
+    }
+  }
+  logger?.info('[ChugSplash]: finished assigning caller roles')
 
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
