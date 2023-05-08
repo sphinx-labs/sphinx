@@ -480,6 +480,11 @@
     human-id "^1.0.2"
     prettier "^2.7.1"
 
+"@connext/interfaces@^2.0.5":
+  version "2.0.5"
+  resolved "https://registry.yarnpkg.com/@connext/interfaces/-/interfaces-2.0.5.tgz#c9a5072a12ce7b6ce4e2f6eddfc8157aa0cb788f"
+  integrity sha512-b657mNb6z/kLGZMNhqDHJmYmPWa3QZYdtZ4TEjtrYe3289aO0dbRrMIEYd0fQVEtqNjPVl7YnwberfOmz1QehA==
+
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"

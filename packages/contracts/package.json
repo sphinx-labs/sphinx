@@ -33,6 +33,7 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "devDependencies": {
+    "@connext/interfaces": "^2.0.5",
     "@eth-optimism/core-utils": "^0.9.0",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.6.0",

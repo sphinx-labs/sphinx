@@ -34,7 +34,7 @@ npx hardhat chugsplash-claim --network <network> --owner <ownerAddress> --config
     throw new Error(`This project has not been claimed on ${networkName}.
 To claim the project on this network, call the claim function from your script:
 
-chugsplash.claim("${configPath}");
+chugsplash.finalizeRegistration("${configPath}");
 `)
   }
 }
