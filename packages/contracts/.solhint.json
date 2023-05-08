@@ -4,7 +4,7 @@
   "rules": {
     "prettier/prettier": "error",
     "compiler-version": "off",
-    "code-complexity": ["warn", 5],
+    "code-complexity": "off",
     "max-line-length": ["error", 100],
     "func-param-name-mixedcase": "error",
     "func-name-mixedcase": "off",

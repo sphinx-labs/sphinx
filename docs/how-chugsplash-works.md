@@ -137,9 +137,9 @@ As soon as the `approve` transaction is submitted, the deployment can be execute
 Once the executor notices an approval event, it must be able to re-create the Merkle tree in order to execute the deployment. It does this by retrieving the IPFS URI that was submitted on-chain as part of the `propose` transaction. It uses the URI to fetch the ChugSplash config file and the compiler inputs from IPFS. Then, it uses these two sources to re-create the Merkle tree.
 
 The deployment is executed in three phases, which must occur in order:
-1. `initiateExecution`: Each proxy's implementation is set `address(0)` in a single transaction at the very beginning. This step is only necessary for contracts that are being upgraded.
+1. `initiateUpgrade`: Each proxy's implementation is set `address(0)` in a single transaction at the very beginning. This step is only necessary for contracts that are being upgraded.
 2. `executeAction`: The deployment is executed using the `SetStorage` and `DeployImplementation` actions. This can consist of many transactions for a larger deployment.
-3. `completeExecution`: Each proxy is upgraded to its new implementation in a single transaction at the very end.
+3. `finalizeUpgrade`: Each proxy is upgraded to its new implementation in a single transaction at the very end.
 
 Each of these functions exists on the `ChugSplashManager`. If the executor attempts to send a transaction that isn't in the correct order, the call will revert.
 

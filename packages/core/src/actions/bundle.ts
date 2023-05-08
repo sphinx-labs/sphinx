@@ -62,6 +62,14 @@ export const isDeployContractAction = (
   return (action as DeployContractAction).code !== undefined
 }
 
+export const getDeployContractActions = (
+  actionBundle: ChugSplashActionBundle
+): Array<DeployContractAction> => {
+  return actionBundle.actions
+    .map((action) => fromRawChugSplashAction(action.action))
+    .filter(isDeployContractAction)
+}
+
 /**
  * Converts the "nice" action structs into a "raw" action struct (better for Solidity but
  * worse for users here).

@@ -27,14 +27,14 @@ contract OZTransparentAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function initiateExecution(address payable _proxy) external {
+    function initiateUpgrade(address payable _proxy) external {
         Proxy(_proxy).upgradeTo(proxyUpdater);
     }
 
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation) external {
+    function finalizeUpgrade(address payable _proxy, address _implementation) external {
         Proxy(_proxy).upgradeTo(_implementation);
     }
 

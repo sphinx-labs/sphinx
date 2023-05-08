@@ -5,6 +5,7 @@ import { ChugSplashBundles } from '../actions/types'
 import { bundleRemoteSubtask } from '../languages/solidity/compiler'
 import { callWithTimeout, computeDeploymentId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
+import { getDeployContractActions } from '../actions/bundle'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
@@ -74,6 +75,7 @@ export const verifyDeployment = async (
       targetBundle.root,
       actionBundle.actions.length,
       targetBundle.targets.length,
+      getDeployContractActions(actionBundle).length,
       configUri
     )
   ) {

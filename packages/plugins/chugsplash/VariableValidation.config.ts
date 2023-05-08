@@ -78,6 +78,16 @@ const config: UserChugSplashConfig = {
         hello: 'world',
       },
     },
+    Reverter1: {
+      contract: 'Reverter',
+      kind: 'no-proxy',
+      unsafeAllowFlexibleConstructor: true,
+    },
+    Reverter2: {
+      contract: 'Reverter',
+      kind: 'no-proxy',
+      unsafeAllowFlexibleConstructor: true,
+    },
   },
 }
 

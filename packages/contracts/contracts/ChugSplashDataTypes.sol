@@ -10,6 +10,7 @@ pragma solidity ^0.8.15;
  * @custom:field targets The number of targets in the deployment.
  * @custom:field actionRoot The root of the Merkle tree of actions.
  * @custom:field targetRoot The root of the Merkle tree of targets.
+ * @custom:field numNonProxyContracts The number of non-proxy contracts in the deployment.
  * @custom:field actionsExecuted The number of actions that have been executed so far in the
    deployment.
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
@@ -22,6 +23,7 @@ struct DeploymentState {
     uint256 targets;
     bytes32 actionRoot;
     bytes32 targetRoot;
+    uint256 numNonProxyContracts;
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
@@ -81,15 +83,17 @@ enum ChugSplashActionType {
  * @custom:value EMPTY The deployment does not exist.
  * @custom:value PROPOSED The deployment has been proposed.
  * @custom:value APPROVED The deployment has been approved by the owner.
- * @custom:value INITIATED The deployment has been initiated.
+ * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
  * @custom:value COMPLETED The deployment has been completed.
  * @custom:value CANCELLED The deployment has been cancelled.
+ * @custom:value FAILED The deployment has failed.
  */
 enum DeploymentStatus {
     EMPTY,
     PROPOSED,
     APPROVED,
-    INITIATED,
+    PROXIES_INITIATED,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
+    FAILED
 }

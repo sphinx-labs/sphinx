@@ -68,18 +68,27 @@ import {
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
+import { getDeployContractActions } from './actions/bundle'
 
 export const computeDeploymentId = (
   actionRoot: string,
   targetRoot: string,
   numActions: number,
   numTargets: number,
+  numNonProxyContracts: number,
   configUri: string
 ): string => {
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'string'],
-      [actionRoot, targetRoot, numActions, numTargets, configUri]
+      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
+      [
+        actionRoot,
+        targetRoot,
+        numActions,
+        numTargets,
+        numNonProxyContracts,
+        configUri,
+      ]
     )
   )
 }
@@ -1085,7 +1094,7 @@ export const getPreviousCanonicalConfig = async (
 
   const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
     ChugSplashRegistry.filters.EventAnnouncedWithData(
-      'ChugSplashActionExecuted',
+      'SetProxyStorage',
       null,
       proxyAddress
     )
@@ -1100,7 +1109,7 @@ export const getPreviousCanonicalConfig = async (
   if (latestRegistryEvent === undefined) {
     return undefined
   } else if (latestRegistryEvent.args === undefined) {
-    throw new Error(`ChugSplashActionExecuted event has no args.`)
+    throw new Error(`SetProxyStorage event has no args.`)
   }
 
   const ChugSplashManager = new Contract(
@@ -1111,16 +1120,16 @@ export const getPreviousCanonicalConfig = async (
 
   const latestExecutionEvent = (
     await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashActionExecuted(null, proxyAddress)
+      ChugSplashManager.filters.SetProxyStorage(null, proxyAddress)
     )
   ).at(-1)
 
   if (latestExecutionEvent === undefined) {
     throw new Error(
-      `ChugSplashActionExecuted event detected in registry but not in manager contract`
+      `SetProxyStorage event detected in registry but not in manager contract`
     )
   } else if (latestExecutionEvent.args === undefined) {
-    throw new Error(`ChugSplashActionExecuted event has no args.`)
+    throw new Error(`SetProxyStorage event has no args.`)
   }
 
   const latestProposalEvent = (
@@ -1133,7 +1142,7 @@ export const getPreviousCanonicalConfig = async (
 
   if (latestProposalEvent === undefined) {
     throw new Error(
-      `ChugSplashManager emitted a ChugSplashActionExecuted event but not a ChugSplashDeploymentProposed event`
+      `ChugSplashManager emitted a SetProxyStorage event but not a ChugSplashDeploymentProposed event`
     )
   } else if (latestProposalEvent.args === undefined) {
     throw new Error(`ChugSplashDeploymentProposed event does not have args`)
@@ -1307,4 +1316,36 @@ export const assertValidBlockGasLimit = async (
       `Block gas limit is too low. Got: ${blockGasLimit.toString()}. Expected: 15M+`
     )
   }
+}
+
+/**
+ * Checks if one of the `DEPLOY_CONTRACT` actions reverts. This does not guarantee that the
+ * deployment will or will not revert, but it will return the correct result in most cases.
+ */
+export const deploymentDoesRevert = async (
+  provider: ethers.providers.JsonRpcProvider,
+  managerAddress: string,
+  actionBundle: ChugSplashActionBundle,
+  actionsExecuted: number
+): Promise<boolean> => {
+  // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
+  const deployContractActions =
+    getDeployContractActions(actionBundle).slice(actionsExecuted)
+
+  try {
+    // Attempt to estimate the gas of the deployment transactions. This will throw an error if
+    // gas estimation fails, which should only occur if a constructor reverts.
+    await Promise.all(
+      deployContractActions.map(async (action) =>
+        provider.estimateGas({
+          from: managerAddress,
+          data: action.code,
+        })
+      )
+    )
+  } catch (e) {
+    // At least one of the constructors reverted.
+    return true
+  }
+  return false
 }

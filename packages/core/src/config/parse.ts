@@ -48,6 +48,7 @@ import {
   isLiveNetwork,
   isContractDeployed,
   assertValidBlockGasLimit,
+  getCreationCodeWithConstructorArgs,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2381,6 +2382,19 @@ export const parseAndValidateChugSplashConfig = async (
   // Validate the contracts
   assertValidContracts(parsedConfig, artifactPaths, cre)
 
+  const managerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.claimer,
+    parsedConfig.options.organizationID
+  )
+  await assertNonProxyDeploymentsDoNotRevert(
+    provider,
+    managerAddress,
+    parsedConfig,
+    cachedArtifacts,
+    cachedConstructorArgs,
+    cre
+  )
+
   if (await isLiveNetwork(provider)) {
     await assertContractsBelowSizeLimit(parsedConfig, cachedArtifacts, cre)
   }
@@ -2489,6 +2503,57 @@ export const assertContractsBelowSizeLimit = async (
       'error',
       `The following contracts are too large to be deployed on a live network:`,
       uniqueNames.map((name) => `  - ${name}`),
+      cre.silent,
+      cre.stream
+    )
+  }
+}
+
+export const assertNonProxyDeploymentsDoNotRevert = async (
+  provider: providers.Provider,
+  managerAddress: string,
+  parsedConfig: ParsedChugSplashConfig,
+  artifacts: { [referenceName: string]: ContractArtifact },
+  constructorArgs: { [referenceName: string]: ParsedConfigVariables },
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  const revertingDeployments: { [referenceName: string]: string } = {}
+
+  for (const [referenceName, artifact] of Object.entries(artifacts)) {
+    // Skip proxies. We check that they have deterministic constructors elsewhere (in
+    // `assertValidContracts`).
+    if (parsedConfig.contracts[referenceName].kind !== 'no-proxy') {
+      continue
+    }
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+      artifact.bytecode,
+      constructorArgs[referenceName],
+      artifact.abi
+    )
+
+    try {
+      // Attempt to estimate the gas of the deployment.
+      await provider.estimateGas({
+        from: managerAddress,
+        data: creationCodeWithConstructorArgs,
+      })
+    } catch (e) {
+      // This should only throw an error if the constructor reverts.
+      revertingDeployments[referenceName] = e.reason
+    }
+  }
+
+  if (Object.keys(revertingDeployments).length > 0) {
+    logValidationError(
+      'error',
+      `The following constructors will revert:`,
+      Object.entries(revertingDeployments).map(([referenceName, reason]) => {
+        const shortReason = reason.replace(
+          'VM Exception while processing transaction: reverted with reason string ',
+          ''
+        )
+        return `  - ${referenceName}. Reason: ${shortReason}`
+      }),
       cre.silent,
       cre.stream
     )

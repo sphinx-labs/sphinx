@@ -29,7 +29,7 @@ abstract contract OZUUPSBaseAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function initiateExecution(address payable _proxy) external {
+    function initiateUpgrade(address payable _proxy) external {
         OZUUPSUpdater(_proxy).upgradeTo(proxyUpdater);
         OZUUPSUpdater(_proxy).initiate();
     }
@@ -37,7 +37,7 @@ abstract contract OZUUPSBaseAdapter is IProxyAdapter {
     /**
      * @inheritdoc IProxyAdapter
      */
-    function completeExecution(address payable _proxy, address _implementation) external {
+    function finalizeUpgrade(address payable _proxy, address _implementation) external {
         OZUUPSUpdater(_proxy).complete(_implementation);
     }
 

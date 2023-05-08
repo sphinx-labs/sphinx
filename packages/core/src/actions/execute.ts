@@ -8,6 +8,11 @@ import {
   DeploymentStatus,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
+import {
+  fromRawChugSplashAction,
+  isDeployContractAction,
+  isSetStorageAction,
+} from './bundle'
 
 export const executeTask = async (args: {
   chugSplashManager: ethers.Contract
@@ -17,7 +22,7 @@ export const executeTask = async (args: {
   provider: ethers.providers.Provider
   projectName: string
   logger?: Logger | undefined
-}) => {
+}): Promise<boolean> => {
   const { bundles, deploymentState, executor, provider, projectName, logger } =
     args
 
@@ -29,7 +34,7 @@ export const executeTask = async (args: {
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
     logger?.info(`[ChugSplash]: already executed: ${projectName}`)
-    return
+    return true
   }
   // We execute all actions in batches to reduce the total number of transactions and reduce the
   // cost of a deployment in general. Approaching the maximum block gas limit can cause
@@ -111,10 +116,12 @@ export const executeTask = async (args: {
    *
    * @param actions List of actions to execute.
    */
-  const executeBatchActions = async (actions: BundledChugSplashAction[]) => {
+  const executeBatchActions = async (
+    actions: BundledChugSplashAction[]
+  ): Promise<DeploymentStatus> => {
     // Pull the deployment state from the contract so we're guaranteed to be up to date.
     const activeDeploymentId = await chugSplashManager.activeDeploymentId()
-    const state: DeploymentState = await chugSplashManager.deployments(
+    let state: DeploymentState = await chugSplashManager.deployments(
       activeDeploymentId
     )
 
@@ -130,7 +137,7 @@ export const executeTask = async (args: {
     // We can return early if there are no actions to execute.
     if (filtered.length === 0) {
       logger?.info('[ChugSplash]: no actions left to execute')
-      return
+      return state.status
     }
 
     let executed = 0
@@ -158,30 +165,54 @@ export const executeTask = async (args: {
         )
       ).wait()
 
+      state = await chugSplashManager.deployments(activeDeploymentId)
+      if (state.status === DeploymentStatus.FAILED) {
+        return state.status
+      }
+
       // Move on to the next batch if necessary.
       executed += batchSize
     }
+
+    return state.status
   }
 
-  logger?.info(`[ChugSplash]: initiating execution...`)
+  const deployContractActions = actionBundle.actions.filter((action) =>
+    isDeployContractAction(fromRawChugSplashAction(action.action))
+  )
+  const setStorageActions = actionBundle.actions.filter((action) =>
+    isSetStorageAction(fromRawChugSplashAction(action.action))
+  )
+
+  logger?.info(`[ChugSplash]: executing 'DEPLOY_CONTRACT' actions...`)
+  const status = await executeBatchActions(deployContractActions)
+  if (status === DeploymentStatus.FAILED) {
+    logger?.error(`[ChugSplash]: failed to execute 'DEPLOY_CONTRACT' actions`)
+    return false
+  } else if (status === DeploymentStatus.COMPLETED) {
+    logger?.info(`[ChugSplash]: finished non-proxied deployment early`)
+    return true
+  } else {
+    logger?.info(`[ChugSplash]: executed 'DEPLOY_CONTRACT' actions`)
+  }
+
+  logger?.info(`[ChugSplash]: initiating upgrade...`)
   await (
-    await chugSplashManager.initiateExecution(
+    await chugSplashManager.initiateUpgrade(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
     )
   ).wait()
+  logger?.info(`[ChugSplash]: initiated upgrde`)
 
-  logger?.info(`[ChugSplash]: execution initiated`)
+  logger?.info(`[ChugSplash]: executing 'SET_STORAGE' actions...`)
+  await executeBatchActions(setStorageActions)
+  logger?.info(`[ChugSplash]: executed 'SET_STORAGE' actions`)
 
-  // Execute actions in batches.
-  logger?.info(`[ChugSplash]: executing actions...`)
-  await executeBatchActions(actionBundle.actions)
-  logger?.info(`[ChugSplash]: executed actions`)
-
-  logger?.info(`[ChugSplash]: completing execution...`)
+  logger?.info(`[ChugSplash]: finalizing upgrade...`)
   await (
-    await chugSplashManager.completeExecution(
+    await chugSplashManager.finalizeUpgrade(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
@@ -190,4 +221,5 @@ export const executeTask = async (args: {
 
   // We're done!
   logger?.info(`[ChugSplash]: successfully executed: ${projectName}`)
+  return true
 }

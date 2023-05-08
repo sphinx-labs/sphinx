@@ -17,6 +17,8 @@ import {
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
+  getDeployContractActions,
+  deploymentDoesRevert,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { getChainId } from '@eth-optimism/core-utils'
@@ -162,6 +164,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     bundles.targetBundle.root,
     bundles.actionBundle.actions.length,
     bundles.targetBundle.targets.length,
+    getDeployContractActions(bundles.actionBundle).length,
     proposalEvent.args.configUri
   )
 
@@ -182,6 +185,20 @@ export const handleExecution = async (data: ExecutorMessage) => {
   logger.info(`[ChugSplash]: compiled ${projectName} on: ${network}.`)
 
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
+    logger.info(`[ChugSplash]: checking if any of the constructors revert...`)
+
+    if (
+      await deploymentDoesRevert(
+        rpcProvider,
+        manager.address,
+        bundles.actionBundle,
+        deploymentState.actionsExecuted.toNumber()
+      )
+    ) {
+      process.send({ action: 'discard', payload: executorEvent })
+      return
+    }
+
     try {
       await (
         await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
@@ -222,7 +239,10 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  // If we make it to the point, we know that this executor is selected to claim the deployment.
+  // If we make it to the point, we know that this executor is selected to claim the deployment and
+  // that the deployment should execute without an error (i.e. a constructor reverting).
+
+  logger.info(`[ChugSplash]: constructors probably won't revert.`)
 
   logger.info(`[ChugSplash]: checking that the project is funded...`)
 
@@ -238,7 +258,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     // execute deployment
     try {
-      await executeTask({
+      const success = await executeTask({
         chugSplashManager: manager,
         deploymentState,
         bundles,
@@ -247,6 +267,13 @@ export const handleExecution = async (data: ExecutorMessage) => {
         projectName,
         logger,
       })
+
+      if (!success) {
+        // This likely means one of the user's constructors reverted during execution. We already
+        // logged the error inside `executeTask`, so we just discard the event and return.
+        process.send({ action: 'discard', payload: executorEvent })
+        return
+      }
     } catch (e) {
       // check if the error was due to the deployment being claimed by another executor, and discard if so
       const errorDeploymentState: DeploymentState = await manager.deployments(
