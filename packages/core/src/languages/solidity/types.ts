@@ -142,3 +142,9 @@ export interface CompilerOutputBytecode {
     [key: string]: Array<{ start: number; length: number }>
   }
 }
+
+export type ChugSplashSystemConfig = {
+  executors: string[]
+  proposers: string[]
+  callers: string[]
+}

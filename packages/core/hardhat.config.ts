@@ -1,9 +1,12 @@
-import { HardhatUserConfig } from 'hardhat/types'
+import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
+import { task } from 'hardhat/config'
 import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
+
+import { initializeAndVerifyChugSplash } from './src/languages/solidity/predeploys'
 
 // Load environment variables from .env
 dotenv.config()
@@ -66,5 +69,22 @@ const config: HardhatUserConfig = {
     },
   },
 }
+
+task('deploy-system')
+  .setDescription('Deploys the ChugSplash contracts to the specified network')
+  .addParam('systemConfig', 'Path to a ChugSplash system config file')
+  .setAction(
+    async (
+      args: {
+        systemConfig: string
+      },
+      hre: HardhatRuntimeEnvironment
+    ) => {
+      await initializeAndVerifyChugSplash(
+        args.systemConfig,
+        hre.ethers.provider
+      )
+    }
+  )
 
 export default config
