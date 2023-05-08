@@ -48,9 +48,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
     mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
-     * @notice Emitted whenever a new project is claimed.
+     * @notice Emitted whenever registration is finalized for a given organization ID.
      *
-     * @param organizationID Organization ID that was claimed.
+     * @param organizationID Organization ID that was registered.
      * @param claimer        Address of the claimer of the project. This is equivalent to the
      *                       `msg.sender`.
      * @param managerImpl    Address of the initial ChugSplashManager implementation for this
@@ -58,7 +58,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
      * @param owner          Address of the initial owner of the project.
      * @param retdata        Return data from the ChugSplashManager initializer.
      */
-    event ChugSplashProjectClaimed(
+    event ChugSplashRegistrationFinalized(
         bytes32 indexed organizationID,
         address indexed claimer,
         address indexed managerImpl,
@@ -128,19 +128,16 @@ contract ChugSplashRegistry is Ownable, Initializable {
     }
 
     /**
-     * @notice Claims a new project by deploying a new ChugSplashManagerProxy
-     * contract and setting the provided owner as the initial owner of the new project. It also
-       checks that the
-     * organization ID being claimed has not already been claimed by the caller, and that the
-       specified version
-     * of the ChugSplashManager is a valid implementation.
+     * @notice Finalizes the registration of an organization ID by deploying a new
+       ChugSplashManagerProxy contract and setting the provided owner as the initial owner of the
+       new project.
      *
-     * @param _organizationID Organization ID to claim.
+     * @param _organizationID Organization ID being registered.
      * @param _owner        Initial owner for the new project.
      * @param _version   Version of the ChugSplashManager implementation.
      * @param _data      Any data to pass to the ChugSplashManager initializer.
      */
-    function claim(
+    function finalizeRegistration(
         bytes32 _organizationID,
         address _owner,
         Version memory _version,
@@ -177,7 +174,13 @@ contract ChugSplashRegistry is Ownable, Initializable {
         // Change manager proxy admin to the Org owner
         managerProxy.changeAdmin(_owner);
 
-        emit ChugSplashProjectClaimed(_organizationID, msg.sender, managerImpl, _owner, retdata);
+        emit ChugSplashRegistrationFinalized(
+            _organizationID,
+            msg.sender,
+            managerImpl,
+            _owner,
+            retdata
+        );
     }
 
     /**

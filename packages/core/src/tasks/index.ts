@@ -34,7 +34,7 @@ import {
   isUUPSProxy,
   readBuildInfo,
   readCanonicalConfig,
-  claimChugSplashProject,
+  finalizeRegistration,
   writeCanonicalConfig,
 } from '../utils'
 import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
@@ -64,7 +64,7 @@ import {
   trackDeployed,
   trackListProjects,
   trackProposed,
-  trackClaimed,
+  trackRegistrationFinalized,
   trackImportProxy,
 } from '../analytics'
 import {
@@ -106,7 +106,7 @@ export const chugsplashClaimAbstractTask = async (
     )
   }
 
-  const isFirstTimeClaimed = await claimChugSplashProject(
+  const isFirstTimeClaimed = await finalizeRegistration(
     provider,
     claimer,
     organizationID,
@@ -116,7 +116,7 @@ export const chugsplashClaimAbstractTask = async (
 
   const networkName = await resolveNetworkName(provider, integration)
 
-  await trackClaimed(
+  await trackRegistrationFinalized(
     await getProjectOwnerAddress(
       getChugSplashManager(provider, claimerAddress, organizationID)
     ),
@@ -601,7 +601,7 @@ export const chugsplashDeployAbstractTask = async (
     spinner.start(`Claiming ${projectName}...`)
     // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
     // transfer ownership to the project owner specified in the config.
-    await claimChugSplashProject(
+    await finalizeRegistration(
       provider,
       signer,
       organizationID,
