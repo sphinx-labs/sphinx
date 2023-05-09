@@ -20,9 +20,9 @@ import { Semver, Version } from "./Semver.sol";
  */
 contract ChugSplashRegistry is Ownable, Initializable {
     /**
-     * @notice Mapping of claimers to organization IDs to ChugSplashManagerProxy addresses.
+     * @notice Mapping of organization IDs to ChugSplashManagerProxy addresses.
      */
-    mapping(address => mapping(bytes32 => address payable)) public projects;
+    mapping(bytes32 => address payable) public projects;
 
     /**
      * @notice Mapping of ChugSplashManagerProxy addresses to a boolean indicating whether or not
@@ -51,18 +51,17 @@ contract ChugSplashRegistry is Ownable, Initializable {
      * @notice Emitted whenever registration is finalized for a given organization ID.
      *
      * @param organizationID Organization ID that was registered.
-     * @param claimer        Address of the claimer of the project. This is equivalent to the
-     *                       `msg.sender`.
      * @param managerImpl    Address of the initial ChugSplashManager implementation for this
      *                       project.
      * @param owner          Address of the initial owner of the project.
+     * @param caller         Address that finalized registration.
      * @param retdata        Return data from the ChugSplashManager initializer.
      */
     event ChugSplashRegistrationFinalized(
         bytes32 indexed organizationID,
-        address indexed claimer,
         address indexed managerImpl,
         address owner,
+        address caller,
         bytes retdata
     );
 
@@ -144,16 +143,14 @@ contract ChugSplashRegistry is Ownable, Initializable {
         bytes memory _data
     ) external {
         require(
-            address(projects[msg.sender][_organizationID]) == address(0),
-            "ChugSplashRegistry: org ID already claimed by caller"
+            address(projects[_organizationID]) == address(0),
+            "ChugSplashRegistry: org ID already registered"
         );
 
         address managerImpl = versions[_version.major][_version.minor][_version.patch];
         require(managerImplementations[managerImpl], "ChugSplashRegistry: invalid manager version");
 
-        bytes32 salt = keccak256(abi.encode(msg.sender, _organizationID));
-
-        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
+        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: _organizationID }(
             this,
             address(this)
         );
@@ -163,7 +160,7 @@ contract ChugSplashRegistry is Ownable, Initializable {
             "ChugSplashRegistry: failed to deploy manager proxy"
         );
 
-        projects[msg.sender][_organizationID] = payable(address(managerProxy));
+        projects[_organizationID] = payable(address(managerProxy));
         managerProxies[address(managerProxy)] = true;
 
         bytes memory retdata = managerProxy.upgradeToAndCall(
@@ -176,9 +173,9 @@ contract ChugSplashRegistry is Ownable, Initializable {
 
         emit ChugSplashRegistrationFinalized(
             _organizationID,
-            msg.sender,
             managerImpl,
             _owner,
+            msg.sender,
             retdata
         );
     }

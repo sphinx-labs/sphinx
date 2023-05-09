@@ -401,13 +401,11 @@ subtask(TASK_CHUGSPLASH_COMMIT)
 
 subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
   .setDescription('Lists all deployments for a given project')
-  .addParam('claimer', 'Claimer address')
   .addParam('organizationID', 'Organization ID')
   .addFlag('includeExecuted', 'include deployments that have been executed')
   .setAction(
     async (
       args: {
-        claimer: string
         organizationID: string
         includeExecuted: boolean
       },
@@ -420,7 +418,7 @@ subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
       const ChugSplashRegistry = getChugSplashRegistry(signer)
 
       const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.claimer, args.organizationID),
+        await ChugSplashRegistry.projects(args.organizationID),
         ChugSplashManagerABI,
         signer
       )

@@ -77,7 +77,7 @@ dotenv.config()
 
 export const chugsplashClaimAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
-  claimer: ethers.Signer,
+  signer: ethers.Signer,
   config: UserChugSplashConfig | ParsedChugSplashConfig,
   allowManagedProposals: boolean,
   owner: string,
@@ -88,27 +88,11 @@ export const chugsplashClaimAbstractTask = async (
 
   spinner.start(`Claiming ${config.options.projectName}...`)
 
-  const signerAddress = await claimer.getAddress()
-  const {
-    projectName,
-    organizationID,
-    claimer: claimerAddress,
-  } = config.options
-
-  if (
-    ethers.utils.getAddress(signerAddress) !==
-    ethers.utils.getAddress(claimerAddress)
-  ) {
-    throw new Error(
-      `The 'claimer' field in the config must match the caller's address.\n` +
-        `Expected claimer: ${claimerAddress}\n` +
-        `Caller's address ${signerAddress}:`
-    )
-  }
+  const { projectName, organizationID } = config.options
 
   const isFirstTimeClaimed = await finalizeRegistration(
     provider,
-    claimer,
+    signer,
     organizationID,
     owner,
     allowManagedProposals
@@ -118,7 +102,7 @@ export const chugsplashClaimAbstractTask = async (
 
   await trackRegistrationFinalized(
     await getProjectOwnerAddress(
-      getChugSplashManager(provider, claimerAddress, organizationID)
+      getChugSplashManager(provider, organizationID)
     ),
     organizationID,
     projectName,
@@ -155,7 +139,6 @@ export const chugsplashProposeAbstractTask = async (
 
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   if ((await isProjectClaimed(signer, ChugSplashManager.address)) === false) {
@@ -408,14 +391,10 @@ export const chugsplashApproveAbstractTask = async (
     `Approving ${parsedConfig.options.projectName} on ${networkName}...`
   )
 
-  const { projectName, organizationID, claimer } = parsedConfig.options
+  const { projectName, organizationID } = parsedConfig.options
   const signerAddress = await signer.getAddress()
 
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   if (!(await isProjectClaimed(signer, ChugSplashManager.address))) {
     await errorProjectNotClaimed(provider, configPath, integration)
@@ -527,12 +506,8 @@ export const chugsplashFundAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const { projectName, organizationID, claimer } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(
-    provider,
-    claimer,
-    organizationID
-  )
+  const { projectName, organizationID } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(provider, organizationID)
   const signerBalance = await signer.getBalance()
 
   if (!(await isProjectClaimed(signer, ChugSplashManager.address))) {
@@ -584,13 +559,9 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start('Parsing ChugSplash config file...')
 
-  const { organizationID, projectName, claimer } = parsedConfig.options
+  const { organizationID, projectName } = parsedConfig.options
 
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   const projectPreviouslyClaimed = await isProjectClaimed(
     signer,
@@ -778,15 +749,11 @@ export const chugsplashCancelAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   const unvalidatedConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const { projectName, organizationID, claimer } = unvalidatedConfig.options
+  const { projectName, organizationID } = unvalidatedConfig.options
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   if (!(await isProjectClaimed(signer, ChugSplashManager.address))) {
     await errorProjectNotClaimed(provider, configPath, integration)
@@ -869,7 +836,6 @@ export const chugsplashListProjectsAbstractTask = async (
 
     const ChugSplashManager = getChugSplashManager(
       signer,
-      event.args.claimer,
       event.args.organizationID
     )
     const projectOwnerAddress = await getProjectOwnerAddress(ChugSplashManager)
@@ -883,7 +849,6 @@ export const chugsplashListProjectsAbstractTask = async (
       )
       const ownerBalance = await getOwnerWithdrawableAmount(
         provider,
-        event.args.claimer,
         event.args.organizationID
       )
 
@@ -927,9 +892,9 @@ export const chugsplashExportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const { projectName, organizationID, claimer } = parsedConfig.options
+  const { projectName, organizationID } = parsedConfig.options
 
-  const manager = getChugSplashManager(signer, claimer, organizationID)
+  const manager = getChugSplashManager(signer, organizationID)
 
   // Throw an error if the project has not been claimed
   if ((await isProjectClaimed(signer, manager.address)) === false) {
@@ -989,12 +954,8 @@ export const chugsplashImportProxyAbstractTask = async (
   spinner.start('Checking project registration...')
 
   const parsedConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const { projectName, organizationID, claimer } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const { projectName, organizationID } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   // Throw an error if the project has not been claimed
   if ((await isProjectClaimed(signer, ChugSplashManager.address)) === false) {
@@ -1075,12 +1036,8 @@ export const proposeChugSplashDeployment = async (
   canonicalConfigPath: string,
   integration: Integration
 ) => {
-  const { projectName, organizationID, claimer } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const { projectName, organizationID } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
   const signerAddress = await signer.getAddress()
 
   spinner.start(`Checking if the caller is a proposer...`)

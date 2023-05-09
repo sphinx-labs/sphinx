@@ -42,12 +42,8 @@ export const monitorExecution = async (
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const { projectName, organizationID, claimer } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(
-    signer,
-    claimer,
-    organizationID
-  )
+  const { projectName, organizationID } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await ChugSplashManager.deployments(
@@ -152,7 +148,6 @@ export const postExecutionActions = async (
 ) => {
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   const currProjectOwner = await getProjectOwnerAddress(ChugSplashManager)
