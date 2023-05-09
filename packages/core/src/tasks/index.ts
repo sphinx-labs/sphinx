@@ -36,6 +36,7 @@ import {
   readCanonicalConfig,
   finalizeRegistration,
   writeCanonicalConfig,
+  isLiveNetwork,
 } from '../utils'
 import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -71,6 +72,7 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
+import { signMetaTxRequest } from '../metatxs'
 
 // Load environment variables from .env
 dotenv.config()
@@ -204,7 +206,7 @@ export const chugsplashProposeAbstractTask = async (
       spinner.succeed(`${parsedConfig.options.projectName} can be proposed.`)
       spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
-      await proposeChugSplashDeployment(
+      const metatxs = await proposeChugSplashDeployment(
         provider,
         signer,
         parsedConfig,
@@ -224,6 +226,8 @@ export const chugsplashProposeAbstractTask = async (
         integration
       )
       spinner.succeed(message)
+
+      return metatxs
     }
   }
 }
@@ -1053,6 +1057,15 @@ export const proposeChugSplashDeployment = async (
 
   spinner.start(`Proposing ${projectName}...`)
 
+  const deploymentId = computeDeploymentId(
+    bundles.actionBundle.root,
+    bundles.targetBundle.root,
+    bundles.actionBundle.actions.length,
+    bundles.targetBundle.targets.length,
+    getDeployContractActions(bundles.actionBundle).length,
+    configUri
+  )
+
   if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(
       provider,
@@ -1065,31 +1078,60 @@ export const proposeChugSplashDeployment = async (
       spinner
     )
 
-    const deploymentId = computeDeploymentId(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
-      getDeployContractActions(bundles.actionBundle).length,
-      configUri
-    )
-
     // Verify that the deployment has been committed to IPFS with the correct bundle hash.
     await verifyDeployment(provider, configUri, deploymentId, ipfsUrl)
   }
+
   // Propose the deployment.
-  await (
-    await ChugSplashManager.propose(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
-      getDeployContractActions(bundles.actionBundle).length,
-      configUri,
-      remoteExecution,
-      await getGasPriceOverrides(provider)
+  if (
+    process.env.CHUGSPLASH_API_KEY &&
+    ((await isLiveNetwork(provider)) ||
+      process.env.LOCAL_TEST_METATX_PROPOSE === 'true')
+  ) {
+    if (!process.env.PRIVATE_KEY) {
+      throw new Error(
+        'Must provide a PRIVATE_KEY environment variable to sign gasless proposal transactions'
+      )
+    }
+
+    const { signature, request } = await signMetaTxRequest(
+      provider,
+      process.env.PRIVATE_KEY,
+      {
+        from: signerAddress,
+        to: ChugSplashManager.address,
+        data: ChugSplashManager.interface.encodeFunctionData(
+          'gaslesslyPropose',
+          [
+            bundles.actionBundle.root,
+            bundles.targetBundle.root,
+            bundles.actionBundle.actions.length,
+            bundles.targetBundle.targets.length,
+            getDeployContractActions(bundles.actionBundle).length,
+            configUri,
+            remoteExecution,
+          ]
+        ),
+      }
     )
-  ).wait()
+    // TODO: CHU-242 - Call the meta txs API endpoint in the managed service
+
+    // Returning these values allows us to test meta transactions locally.
+    return { signature, request, deploymentId }
+  } else {
+    await (
+      await ChugSplashManager.propose(
+        bundles.actionBundle.root,
+        bundles.targetBundle.root,
+        bundles.actionBundle.actions.length,
+        bundles.targetBundle.targets.length,
+        getDeployContractActions(bundles.actionBundle).length,
+        configUri,
+        remoteExecution,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
 
   const networkName = await resolveNetworkName(provider, integration)
   await trackProposed(

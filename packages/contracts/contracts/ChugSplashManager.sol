@@ -25,6 +25,12 @@ import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.so
 import { ICreate2 } from "./interfaces/ICreate2.sol";
 import { Semver, Version } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
+import {
+    ERC2771ContextUpgradeable
+} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
+import {
+    ContextUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 /**
  * @title ChugSplashManager
@@ -46,18 +52,13 @@ contract ChugSplashManager is
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     Semver,
-    IChugSplashManager
+    IChugSplashManager,
+    ERC2771ContextUpgradeable
 {
     /**
      * @notice Role required to be a remote executor for a deployment.
      */
     bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
-
-    /**
-     * @notice Role required to collect the protocol creator's payment.
-     */
-    bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
-        keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
 
     /**
      * @notice Role required to propose deployments through the ManagedService contract.
@@ -270,14 +271,6 @@ contract ChugSplashManager is
     event ExecutorPaymentClaimed(address indexed executor, uint256 withdrawn, uint256 remaining);
 
     /**
-     * @notice Emitted when a protocol payment recipient claims a payment.
-     *
-     * @param recipient The recipient that withdrew the funds.
-     * @param amount    Amount of ETH withdrawn.
-     */
-    event ProtocolPaymentClaimed(address indexed recipient, uint256 amount);
-
-    /**
      * @notice Emitted when the owner withdraws ETH from this contract.
      *
      * @param owner  Address of the owner.
@@ -439,15 +432,16 @@ contract ChugSplashManager is
     error InsufficientExecutorDebt();
 
     /**
+     * @notice Reverts if there's not enough funds in the contract pay the protocol fee and the
+     *  withdraw amount requested by the executor.
+     */
+    error InsufficientFunds();
+
+    /**
      * @notice Reverts if a withdrawal transaction fails. This is likely due to insufficient funds
        in this contract.
      */
     error WithdrawalFailed();
-
-    /**
-     * @notice Reverts if the caller is not a protocol payment recipient.
-     */
-    error CallerIsNotProtocolPaymentRecipient();
 
     /**
      * @notice Reverts if there is no bytecode at a given address.
@@ -550,7 +544,7 @@ contract ChugSplashManager is
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
-        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
+        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, _msgSender())) {
             revert CallerIsNotRemoteExecutor();
         }
         _;
@@ -580,8 +574,12 @@ contract ChugSplashManager is
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage,
-        Version memory _version
-    ) Semver(_version.major, _version.minor, _version.patch) {
+        Version memory _version,
+        address _trustedForwarder
+    )
+        Semver(_version.major, _version.minor, _version.patch)
+        ERC2771ContextUpgradeable(_trustedForwarder)
+    {
         registry = _registry;
         create2 = _create2;
         gasPriceCalculator = _gasPriceCalculator;
@@ -596,7 +594,7 @@ contract ChugSplashManager is
      * @notice Allows anyone to send ETH to this contract.
      */
     receive() external payable {
-        emit ETHDeposited(msg.sender, msg.value);
+        emit ETHDeposited(_msgSender(), msg.value);
         registry.announce("ETHDeposited");
     }
 
@@ -651,8 +649,8 @@ contract ChugSplashManager is
         uint256 _numNonProxyContracts,
         string memory _configUri,
         bool _remoteExecution
-    ) external {
-        if (!isProposer(msg.sender)) {
+    ) public {
+        if (!isProposer(_msgSender())) {
             revert CallerIsNotProposer();
         }
 
@@ -697,9 +695,48 @@ contract ChugSplashManager is
             _numNonProxyContracts,
             _configUri,
             _remoteExecution,
-            msg.sender
+            _msgSender()
         );
-        registry.announceWithData("ChugSplashDeploymentProposed", abi.encodePacked(msg.sender));
+        registry.announceWithData("ChugSplashDeploymentProposed", abi.encodePacked(_msgSender()));
+    }
+
+    /**
+     * @notice Wrapper on the propose function which allows for a gasless proposal where the cost of
+     *         the using proposal is added to the protocol debt. This allows us to provide gasless
+     *         proposals using meta transactions while collecting the cost from the user after
+     *         execution completes.
+     */
+    function gaslesslyPropose(
+        bytes32 _actionRoot,
+        bytes32 _targetRoot,
+        uint256 _numActions,
+        uint256 _numTargets,
+        uint256 _numNonProxyContracts,
+        string memory _configUri,
+        bool _remoteExecution
+    ) external {
+        uint256 initialGasLeft = gasleft();
+
+        propose(
+            _actionRoot,
+            _targetRoot,
+            _numActions,
+            _numTargets,
+            _numNonProxyContracts,
+            _configUri,
+            _remoteExecution
+        );
+
+        // Get the gas price
+        uint256 gasPrice = gasPriceCalculator.getGasPrice();
+        // Estimate the cost of the call data
+        uint256 calldataGasUsed = _msgData().length * 16;
+        // Calculate the gas used for the entire transaction, and add a buffer of 50k.
+        uint256 estGasUsed = 100_000 + calldataGasUsed + initialGasLeft - gasleft();
+        uint256 proposalCost = gasPrice * estGasUsed;
+
+        // Add the cost of the proposal to the protocol debt
+        totalProtocolDebt += proposalCost;
     }
 
     /**
@@ -782,7 +819,7 @@ contract ChugSplashManager is
         ) {
             // Give the owner's bond to the executor if the deployment is cancelled within the
             // `executionLockTime` window.
-            executorDebt[msg.sender] += ownerBondAmount;
+            executorDebt[_msgSender()] += ownerBondAmount;
             totalExecutorDebt += ownerBondAmount;
         }
 
@@ -792,7 +829,7 @@ contract ChugSplashManager is
 
         emit ChugSplashDeploymentCancelled(
             cancelledDeploymentId,
-            msg.sender,
+            _msgSender(),
             deployment.actionsExecuted
         );
         registry.announce("ChugSplashDeploymentCancelled");
@@ -820,9 +857,9 @@ contract ChugSplashManager is
         }
 
         deployment.timeClaimed = block.timestamp;
-        deployment.selectedExecutor = msg.sender;
+        deployment.selectedExecutor = _msgSender();
 
-        emit ChugSplashDeploymentClaimed(activeDeploymentId, msg.sender);
+        emit ChugSplashDeploymentClaimed(activeDeploymentId, _msgSender());
         registry.announce("ChugSplashDeploymentClaimed");
     }
 
@@ -839,44 +876,31 @@ contract ChugSplashManager is
         if (_amount == 0) {
             revert AmountMustBeGreaterThanZero();
         }
-        if (executorDebt[msg.sender] < _amount) {
+        if (executorDebt[_msgSender()] < _amount) {
             revert InsufficientExecutorDebt();
         }
+        if (_amount + totalProtocolDebt > address(this).balance) {
+            revert InsufficientFunds();
+        }
 
-        executorDebt[msg.sender] -= _amount;
+        executorDebt[_msgSender()] -= _amount;
         totalExecutorDebt -= _amount;
 
-        emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
+        emit ExecutorPaymentClaimed(_msgSender(), _amount, executorDebt[_msgSender()]);
 
-        (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        if (!success) {
+        (bool paidExecutor, ) = payable(_msgSender()).call{ value: _amount }(new bytes(0));
+        if (!paidExecutor) {
+            revert WithdrawalFailed();
+        }
+
+        (bool paidProtocol, ) = payable(address(managedService)).call{ value: totalProtocolDebt }(
+            new bytes(0)
+        );
+        if (!paidProtocol) {
             revert WithdrawalFailed();
         }
 
         registry.announce("ExecutorPaymentClaimed");
-    }
-
-    /**
-     * @notice Allows the protocol creators to claim their royalty, which is only earned during
-       remotely executed deployments.
-     */
-    function claimProtocolPayment() external {
-        if (!managedService.hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender)) {
-            revert CallerIsNotProtocolPaymentRecipient();
-        }
-
-        uint256 amount = totalProtocolDebt;
-        totalProtocolDebt = 0;
-
-        emit ProtocolPaymentClaimed(msg.sender, amount);
-
-        // slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
-        if (!success) {
-            revert WithdrawalFailed();
-        }
-
-        registry.announce("ProtocolPaymentClaimed");
     }
 
     /**
@@ -933,9 +957,9 @@ contract ChugSplashManager is
 
         uint256 amount = address(this).balance - totalDebt();
 
-        emit OwnerWithdrewETH(msg.sender, amount);
+        emit OwnerWithdrewETH(_msgSender(), amount);
 
-        (bool success, ) = payable(msg.sender).call{ value: amount }(new bytes(0));
+        (bool success, ) = payable(_msgSender()).call{ value: amount }(new bytes(0));
         if (!success) {
             revert WithdrawalFailed();
         }
@@ -952,7 +976,7 @@ contract ChugSplashManager is
     function setProposer(address _proposer, bool _isProposer) external onlyOwner {
         proposers[_proposer] = _isProposer;
 
-        emit ProposerSet(_proposer, _isProposer, msg.sender);
+        emit ProposerSet(_proposer, _isProposer, _msgSender());
         registry.announceWithData("ProposerSet", abi.encodePacked(_isProposer));
     }
 
@@ -963,7 +987,7 @@ contract ChugSplashManager is
     function toggleAllowManagedProposals() external onlyOwner {
         allowManagedProposals = !allowManagedProposals;
 
-        emit ToggledManagedProposals(allowManagedProposals, msg.sender);
+        emit ToggledManagedProposals(allowManagedProposals, _msgSender());
         registry.announceWithData(
             "ToggledManagedProposals",
             abi.encodePacked(allowManagedProposals)
@@ -1185,7 +1209,7 @@ contract ChugSplashManager is
         // Mark the deployment as initiated.
         deployment.status = DeploymentStatus.PROXIES_INITIATED;
 
-        emit ProxiesInitiated(activeDeploymentId, msg.sender);
+        emit ProxiesInitiated(activeDeploymentId, _msgSender());
         registry.announce("ProxiesInitiated");
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
@@ -1343,7 +1367,7 @@ contract ChugSplashManager is
             revert SetStorageFailed();
         }
 
-        emit SetProxyStorage(activeDeploymentId, _action.addr, msg.sender, _actionIndex);
+        emit SetProxyStorage(activeDeploymentId, _action.addr, _msgSender(), _actionIndex);
         registry.announceWithData("SetProxyStorage", abi.encodePacked(_action.addr));
     }
 
@@ -1411,7 +1435,7 @@ contract ChugSplashManager is
                 // (e.g. a constructor that reverts).
 
                 // Give the owner's bond to the executor.
-                executorDebt[msg.sender] += ownerBondAmount;
+                executorDebt[_msgSender()] += ownerBondAmount;
                 totalExecutorDebt += ownerBondAmount;
 
                 emit DeploymentFailed(
@@ -1438,7 +1462,7 @@ contract ChugSplashManager is
     function _completeDeployment(DeploymentState storage _deployment) internal {
         _deployment.status = DeploymentStatus.COMPLETED;
 
-        emit ChugSplashDeploymentCompleted(activeDeploymentId, msg.sender);
+        emit ChugSplashDeploymentCompleted(activeDeploymentId, _msgSender());
         registry.announce("ChugSplashDeploymentCompleted");
 
         activeDeploymentId = bytes32(0);
@@ -1463,7 +1487,7 @@ contract ChugSplashManager is
         // byte of calldata and 4 gas is used per zero-byte of calldata. We use 16 for simplicity
         // and because we must overestimate the executor's payment to ensure that it doesn't lose
         // money.
-        uint256 calldataGasUsed = msg.data.length * 16;
+        uint256 calldataGasUsed = _msgData().length * 16;
 
         // Estimate the total gas used in this transaction. We calculate this by adding the gas used
         // by the calldata with the net estimated gas used by this function so far (i.e.
@@ -1478,7 +1502,7 @@ contract ChugSplashManager is
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
-        executorDebt[msg.sender] += executorPayment;
+        executorDebt[_msgSender()] += executorPayment;
 
         // Add the protocol's payment to the protocol debt.
         totalProtocolDebt += protocolPayment;
@@ -1493,10 +1517,34 @@ contract ChugSplashManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != msg.sender) {
+        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != _msgSender()) {
             revert CallerIsNotSelectedExecutor();
-        } else if (owner() != msg.sender) {
+        } else if (owner() != _msgSender()) {
             revert CallerIsNotOwner();
         }
+    }
+
+    /**
+     * @notice Use the ERC2771Recipient implementation to get the sender of the current call.
+     */
+    function _msgSender()
+        internal
+        view
+        override(ContextUpgradeable, ERC2771ContextUpgradeable)
+        returns (address sender)
+    {
+        sender = ERC2771ContextUpgradeable._msgSender();
+    }
+
+    /**
+     * @notice Use the ERC2771Recipient implementation to get the data of the current call.
+     */
+    function _msgData()
+        internal
+        view
+        override(ContextUpgradeable, ERC2771ContextUpgradeable)
+        returns (bytes calldata)
+    {
+        return ERC2771ContextUpgradeable._msgData();
     }
 }

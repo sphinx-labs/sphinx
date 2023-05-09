@@ -9,6 +9,7 @@ import {
   OZUUPSAccessControlAdapterArtifact,
   DefaultGasPriceCalculatorArtifact,
   DefaultCreate2Artifact,
+  ForwarderArtifact,
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
@@ -137,4 +138,10 @@ export const OZ_TRANSPARENT_ADAPTER_ADDRESS = ethers.utils.getCreate2Address(
       ),
     ]
   )
+)
+
+export const FORWARDER_ADDRESS = ethers.utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  ethers.constants.HashZero,
+  ethers.utils.solidityKeccak256(['bytes'], [ForwarderArtifact.bytecode])
 )

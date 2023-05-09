@@ -20,7 +20,8 @@
       "@chugsplash/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts",
-      "@chugsplash/plugins/@chugsplash/contracts"
+      "@chugsplash/plugins/@chugsplash/contracts",
+      "@chugsplash/contracts/@thirdweb-dev/contracts"
     ]
   },
   "scripts": {
