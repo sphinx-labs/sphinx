@@ -5,6 +5,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ICrossChainAdapter } from "./interfaces/ICrossChainAdapter.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { Version } from "./Semver.sol";
+import { RegistrationInfo, CrossChainMessageInfo } from "./ChugSplashDataTypes.sol";
 
 /**
  * @title ChugSplashClaimer
@@ -54,18 +55,6 @@ contract ChugSplashClaimer is Ownable {
         emit OrganizationIDClaimed(_orgID, _owner);
     }
 
-    struct CrossChainMessageInfo {
-        address payable originEndpoint;
-        uint32 destDomainID;
-        uint256 relayerFee;
-    }
-
-    struct RegistrationInfo {
-        Version version;
-        address owner;
-        bytes managerInitializerData;
-    }
-
     function initiateRegistration(
         bytes32 _orgID,
         CrossChainMessageInfo[] memory _messages,
@@ -95,20 +84,10 @@ contract ChugSplashClaimer is Ownable {
                 "ChugSplashClaimer: invalid crossChain adapter"
             );
 
-            bytes memory registryCalldata = abi.encodeCall(
-                ChugSplashRegistry.finalizeRegistration,
-                (_orgID, registration.owner, version, registration.managerInitializerData)
-            );
-
             (bool success, ) = crossChainAdapter.delegatecall(
                 abi.encodeCall(
                     ICrossChainAdapter.initiateRegistration,
-                    (
-                        messageInfo.originEndpoint,
-                        messageInfo.destDomainID,
-                        messageInfo.relayerFee,
-                        registryCalldata
-                    )
+                    (_orgID, registration, messageInfo)
                 )
             );
             require(success, "ChugSplashClaimer: failed to initiate registration");
