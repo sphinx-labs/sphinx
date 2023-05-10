@@ -1717,7 +1717,6 @@ export const assertValidParsedChugSplashFile = async (
 
   // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   const requiresOwnershipTransfer: {
@@ -2115,8 +2114,8 @@ export const assertValidConstructorArgs = (
   cachedArtifacts: { [referenceName: string]: ContractArtifact }
   contractReferences: { [referenceName: string]: string }
 } => {
-  const { projectName, organizationID, claimer } = userConfig.options
-  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+  const { projectName, organizationID } = userConfig.options
+  const managerAddress = getChugSplashManagerAddress(organizationID)
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedCompilerOutput = {}
   const cachedConstructorArgs = {}
@@ -2145,12 +2144,7 @@ export const assertValidConstructorArgs = (
     // used by ChugSplash.
     const proxy =
       externalProxy ||
-      getDefaultProxyAddress(
-        claimer,
-        organizationID,
-        projectName,
-        referenceName
-      )
+      getDefaultProxyAddress(organizationID, projectName, referenceName)
 
     contractReferences[referenceName] = proxy
   }
@@ -2383,7 +2377,6 @@ export const parseAndValidateChugSplashConfig = async (
   assertValidContracts(parsedConfig, artifactPaths, cre)
 
   const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   await assertNonProxyDeploymentsDoNotRevert(

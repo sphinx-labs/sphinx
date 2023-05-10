@@ -23,14 +23,9 @@ import { ParsedChugSplashConfig } from './config'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  claimer: string,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManager(
-    provider,
-    claimer,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManager(provider, organizationID)
 
   const managerBalance = await provider.getBalance(ChugSplashManager.address)
   const totalDebt = await ChugSplashManager.totalDebt()
@@ -39,14 +34,9 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
-  claimer: string,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManager(
-    provider,
-    claimer,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManager(provider, organizationID)
 
   if (
     (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
@@ -74,7 +64,6 @@ export const estimateExecutionGas = async (
   )
 
   const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
 
@@ -157,7 +146,6 @@ export const hasSufficientFundsForExecution = async (
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
 
@@ -187,7 +175,6 @@ export const getAmountToDeposit = async (
 
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
 

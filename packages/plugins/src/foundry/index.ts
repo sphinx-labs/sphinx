@@ -397,11 +397,8 @@ const command = args[0]
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-      const { projectName, organizationID, claimer } = userConfig.options
-      const managerAddress = getChugSplashManagerAddress(
-        claimer,
-        organizationID
-      )
+      const { projectName, organizationID } = userConfig.options
+      const managerAddress = getChugSplashManagerAddress(organizationID)
 
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
         const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
@@ -450,12 +447,7 @@ const command = args[0]
       } else {
         const proxy =
           userConfig.contracts[referenceName].externalProxy ||
-          getDefaultProxyAddress(
-            claimer,
-            organizationID,
-            projectName,
-            referenceName
-          )
+          getDefaultProxyAddress(organizationID, projectName, referenceName)
         process.stdout.write(proxy)
       }
       break

@@ -315,7 +315,6 @@ export const makeActionBundleFromConfig = async (
   artifacts: ConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
   const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
 
@@ -393,9 +392,9 @@ export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
   artifacts: ConfigArtifacts
 ): ChugSplashTargetBundle => {
-  const { projectName, organizationID, claimer } = parsedConfig.options
+  const { projectName, organizationID } = parsedConfig.options
 
-  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+  const managerAddress = getChugSplashManagerAddress(organizationID)
 
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(

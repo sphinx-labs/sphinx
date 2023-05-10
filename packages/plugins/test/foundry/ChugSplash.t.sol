@@ -40,8 +40,6 @@ contract ChugSplashTest is Test {
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
-    address claimer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
     bytes32 claimOrgID = keccak256('Claim test');
@@ -85,13 +83,13 @@ contract ChugSplashTest is Test {
     }
 
     function testDidImportProxy() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(claimer, transferOrganizationID));
+        ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
         assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
     function testDidClaim() public {
-        assertTrue(address(registry.projects(claimer, 'Doesnt exist')) == address(0), "Unclaimed project detected");
-        assertFalse(address(registry.projects(claimer, claimOrgID)) == address(0), "Claimed project was not detected");
+        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
+        assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
     }
 
     function testDeployStatelessImmutableContract() public {

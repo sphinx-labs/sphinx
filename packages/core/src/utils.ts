@@ -142,15 +142,11 @@ export const writeDeploymentArtifact = (
  * @returns Address of the default EIP-1967 proxy used by ChugSplash.
  */
 export const getDefaultProxyAddress = (
-  claimer: string,
   organizationID: string,
   projectName: string,
   referenceName: string
 ): string => {
-  const chugSplashManagerAddress = getChugSplashManagerAddress(
-    claimer,
-    organizationID
-  )
+  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
 
   const salt = utils.keccak256(
     utils.defaultAbiCoder.encode(
@@ -186,20 +182,10 @@ export const checkIsUpgrade = async (
   return false
 }
 
-export const getChugSplashManagerAddress = (
-  claimer: string,
-  organizationID: string
-) => {
-  const salt = utils.keccak256(
-    utils.defaultAbiCoder.encode(
-      ['address', 'bytes32'],
-      [claimer, organizationID]
-    )
-  )
-
+export const getChugSplashManagerAddress = (organizationID: string) => {
   return utils.getCreate2Address(
     getChugSplashRegistryAddress(),
-    salt,
+    organizationID,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
@@ -224,16 +210,15 @@ export const getChugSplashManagerAddress = (
  */
 export const finalizeRegistration = async (
   provider: providers.JsonRpcProvider,
-  claimer: Signer,
+  signer: Signer,
   organizationID: string,
   newOwnerAddress: string,
   allowManagedProposals: boolean
 ): Promise<boolean> => {
-  const ChugSplashRegistry = getChugSplashRegistry(claimer)
-  const claimerAddress = await claimer.getAddress()
+  const ChugSplashRegistry = getChugSplashRegistry(signer)
 
   if (
-    (await ChugSplashRegistry.projects(claimerAddress, organizationID)) ===
+    (await ChugSplashRegistry.projects(organizationID)) ===
     constants.AddressZero
   ) {
     // Encode the initialization arguments for the ChugSplashManager contract.
@@ -255,7 +240,7 @@ export const finalizeRegistration = async (
     return true
   } else {
     const existingOwnerAddress = await getProjectOwnerAddress(
-      getChugSplashManager(provider, claimerAddress, organizationID)
+      getChugSplashManager(provider, organizationID)
     )
     if (existingOwnerAddress !== newOwnerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
@@ -298,11 +283,10 @@ export const getChugSplashRegistry = (
 
 export const getChugSplashManager = (
   signerOrProvider: Signer | providers.Provider,
-  claimer: string,
   organizationID: string
 ) => {
   return new Contract(
-    getChugSplashManagerAddress(claimer, organizationID),
+    getChugSplashManagerAddress(organizationID),
     ChugSplashManagerABI,
     signerOrProvider
   )
@@ -339,7 +323,6 @@ export const displayDeploymentTable = (
   silent: boolean
 ) => {
   const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
   if (!silent) {

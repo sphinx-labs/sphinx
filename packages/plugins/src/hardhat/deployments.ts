@@ -144,13 +144,13 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
-  const { organizationID, claimer } = userConfig.config.options
-  const managerAddress = getChugSplashManagerAddress(claimer, organizationID)
+  const { organizationID } = userConfig.config.options
+  const managerAddress = getChugSplashManagerAddress(organizationID)
   const contractConfig = userConfig.config.contracts[referenceName]
 
   let address =
     contractConfig.externalProxy ||
-    getDefaultProxyAddress(claimer, organizationID, projectName, referenceName)
+    getDefaultProxyAddress(organizationID, projectName, referenceName)
   if (contractConfig.kind === 'no-proxy') {
     // Always skip the storage check b/c it can cause unnecessary failures in this case.
     for (const contract of Object.values(userConfig.config.contracts)) {

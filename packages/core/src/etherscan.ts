@@ -76,7 +76,6 @@ export const verifyChugSplashConfig = async (
   apiKey: string
 ) => {
   const managerAddress = getChugSplashManagerAddress(
-    canonicalConfig.options.claimer,
     canonicalConfig.options.organizationID
   )
 

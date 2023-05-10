@@ -31,10 +31,7 @@ describe('Manager Upgrade', () => {
 
   it('does upgrade chugsplash manager', async () => {
     const signer = hre.ethers.provider.getSigner()
-    const managerProxyAddress = getChugSplashManagerAddress(
-      await signer.getAddress(),
-      orgId
-    )
+    const managerProxyAddress = getChugSplashManagerAddress(orgId)
 
     const managerProxy = new Contract(
       managerProxyAddress,

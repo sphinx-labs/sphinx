@@ -103,7 +103,6 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -219,7 +218,6 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -273,7 +271,6 @@ describe('Transfer', () => {
     // test claim ownership
     const manager = getChugSplashManager(
       signer,
-      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
 
@@ -353,7 +350,6 @@ describe('Transfer', () => {
     )
 
     const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.claimer,
       userConfig.options.organizationID
     )
 
@@ -415,7 +411,6 @@ describe('Transfer', () => {
     // test claiming back ownership
     const manager = getChugSplashManager(
       signer,
-      parsedConfig.options.claimer,
       parsedConfig.options.organizationID
     )
     await manager.exportProxy(

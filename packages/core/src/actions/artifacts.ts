@@ -62,7 +62,6 @@ export const writeDeploymentArtifacts = async (
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
   const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.claimer,
     parsedConfig.options.organizationID
   )
 

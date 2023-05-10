@@ -4,7 +4,6 @@ const config: UserChugSplashConfig = {
   options: {
     organizationID: '0x0000000000000000000000000000000000000000000000000000000000000000',
     projectName: 'Hello ChugSplash',
-    claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
   },
   contracts: {
     MyFirstContract: {
@@ -28,7 +27,6 @@ module.exports = {
   options: {
     organizationID: '0x0000000000000000000000000000000000000000000000000000000000000000',
     projectName: 'Hello ChugSplash',
-    claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
   },
   contracts: {
     MyFirstContract: {
