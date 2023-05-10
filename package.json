@@ -13,6 +13,7 @@
       "packages/demo"
     ],
     "nohoist": [
+      "@chugsplash/contracts/@connext/interfaces",
       "@chugsplash/{contracts,plugins}/forge-std",
       "@chugsplash/{contracts,plugins}/ds-test",
       "@chugsplash/{contracts,plugins}/@openzeppelin/contracts",

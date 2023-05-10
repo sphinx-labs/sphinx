@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import { Version } from "./Semver.sol";
+
 /**
  * @notice Struct representing the state of a deployment.
  *
@@ -96,4 +98,16 @@ enum DeploymentStatus {
     COMPLETED,
     CANCELLED,
     FAILED
+}
+
+struct CrossChainMessageInfo {
+    address payable originEndpoint;
+    uint32 destDomainID;
+    uint256 relayerFee;
+}
+
+struct RegistrationInfo {
+    Version version;
+    address owner;
+    bytes managerInitializerData;
 }

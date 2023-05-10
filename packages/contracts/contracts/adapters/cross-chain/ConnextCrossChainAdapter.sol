@@ -3,6 +3,8 @@ pragma solidity ^0.8.15;
 
 import { ICrossChainAdapter } from "../../interfaces/ICrossChainAdapter.sol";
 import { IConnext } from "@connext/interfaces/core/IConnext.sol";
+import { RegistrationInfo, CrossChainMessageInfo } from "../../ChugSplashDataTypes.sol";
+import { ChugSplashRegistry } from "../../ChugSplashRegistry.sol";
 
 /**
  * @title ConnextCrossChainAdapter
@@ -15,19 +17,28 @@ contract ConnextCrossChainAdapter is ICrossChainAdapter {
     }
 
     function initiateRegistration(
-        address payable _originEndpoint,
-        uint32 _destDomainID,
-        uint256 _relayerFee,
-        bytes memory _calldata
+        bytes32 _orgID,
+        RegistrationInfo memory _registration,
+        CrossChainMessageInfo memory _message
     ) external {
-        IConnext(_originEndpoint).xcall{ value: _relayerFee }(
-            _destDomainID, // _destination: Domain ID of the destination chain
+        bytes memory registryCalldata = abi.encodeCall(
+            ChugSplashRegistry.finalizeRegistration,
+            (
+                _orgID,
+                _registration.owner,
+                _registration.version,
+                _registration.managerInitializerData
+            )
+        );
+
+        IConnext(_message.originEndpoint).xcall{ value: _message.relayerFee }(
+            _message.destDomainID, // _destination: Domain ID of the destination chain
             registry, // _to: address of the target contract on the destination chain
             address(0), // _asset: address of the token contract (this is unused)
             msg.sender, // _delegate: address that can revert or forceLocal on destination
             0, // _amount: amount of tokens to transfer (this is unused)
             0, // _slippage: this is unused
-            _calldata // _callData: the encoded calldata to send
+            registryCalldata // _callData: the encoded calldata to send
         );
     }
 }

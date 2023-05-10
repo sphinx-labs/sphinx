@@ -15,7 +15,7 @@ import { Semver, Version } from "./Semver.sol";
  *         find and index events that occur throughout the deployment process. Lastly, the owner of
  *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
            Transparent proxy). The owner can also new versions of the ChugSplashManager
-           implementation.
+ *         implementation.
  *
  */
 contract ChugSplashRegistry is Ownable, Initializable {
