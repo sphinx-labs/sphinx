@@ -214,15 +214,15 @@ export const getChugSplashManagerAddress = (
 }
 
 /**
- * Claims a new ChugSplash project.
+ * Finalizes the registration of an organization ID.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
  * @param organizationID ID of the organization.
  * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
- * @returns True if the project was claimed for the first time in this call, and false if the
- * project was already claimed by the caller.
+ * @returns True if the organization ID was already registered for the first time in this call, and
+ * false if the project was already registered by the caller.
  */
-export const claimChugSplashProject = async (
+export const finalizeRegistration = async (
   provider: providers.JsonRpcProvider,
   claimer: Signer,
   organizationID: string,
@@ -244,7 +244,7 @@ export const claimChugSplashProject = async (
     )
 
     await (
-      await ChugSplashRegistry.claim(
+      await ChugSplashRegistry.finalizeRegistration(
         organizationID,
         newOwnerAddress,
         Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
