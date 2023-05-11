@@ -306,6 +306,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         await updateDeployment(
           graphQLClient,
           activeDeploymentId,
+          rpcProvider.network.chainId,
           'executed',
           []
         )
@@ -369,6 +370,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         await updateDeployment(
           graphQLClient,
           activeDeploymentId,
+          rpcProvider.network.chainId,
           'verified',
           contracts
         )

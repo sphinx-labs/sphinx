@@ -49,10 +49,11 @@ contract ManagedService is AccessControl {
      */
     function executeCall(
         address _to,
-        bytes memory _data
+        bytes memory _data,
+        uint256 _value
     ) external payable onlyRole(CALLER_ROLE) returns (bytes memory) {
-        emit ExecutedCall(msg.sender, _to, msg.value);
-        (bool success, bytes memory returnData) = _to.call{ value: msg.value }(_data);
+        emit ExecutedCall(msg.sender, _to, _value);
+        (bool success, bytes memory returnData) = _to.call{ value: _value }(_data);
         require(success, "PermissionedCaller: call failed");
         return returnData;
     }
@@ -77,4 +78,9 @@ contract ManagedService is AccessControl {
             revert("ManagedService: Failed to withdraw protocol payment");
         }
     }
+
+    /**
+     * @notice Allows for this contract to receive ETH.
+     */
+    receive() external payable {}
 }
