@@ -101,8 +101,8 @@ enum DeploymentStatus {
 }
 
 struct CrossChainMessageInfo {
-    address payable originEndpoint;
-    uint32 destDomainID;
+    address payable localEndpoint;
+    uint256 remoteDomainID;
     uint256 relayerFee;
 }
 

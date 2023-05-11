@@ -16,16 +16,13 @@ contract LocalAdapter is ICrossChainAdapter {
         registry = _registry;
     }
 
-    function initiateRegistration(
-        bytes32 _orgID,
-        RegistrationInfo memory _registration,
-        CrossChainMessageInfo memory
-    ) external {
-        registry.finalizeRegistration(
-            _orgID,
-            _registration.owner,
-            _registration.version,
-            _registration.managerInitializerData
-        );
+    function initiateCall(CrossChainMessageInfo memory _message, bytes calldata _data) external {
+
+        // registry.finalizeRegistration(
+        //     _orgID,
+        //     _registration.owner,
+        //     _registration.version,
+        //     _registration.managerInitializerData
+        // );
     }
 }
