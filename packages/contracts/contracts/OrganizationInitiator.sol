@@ -34,7 +34,15 @@ contract OrganizationInitiator is Ownable {
         address crossChainAdapter
     );
 
+    // TODO: later: move to ChugSplashDataTypes (same with hub)
+    enum CrossChainService {
+        LOCAL,
+        LAYER_ZERO
+    }
+
     ChugSplashRegistry public immutable registry;
+
+    address public immutable organizationHub;
 
     mapping(bytes32 => address) public initiatedClaim;
 
@@ -43,11 +51,14 @@ contract OrganizationInitiator is Ownable {
     // local endpoint => remote Domain ID => crossChainAdapter
     mapping(address => mapping(uint256 => address)) public crossChainAdapters;
 
+    mapping(CrossChainService => address) public localEndpoints;
+
     /**
      * @param _owner Address of the owner of the registry.
      */
-    constructor(address _owner, ChugSplashRegistry _registry) {
+    constructor(ChugSplashRegistry _registry, address _organizationHub, address _owner) {
         registry = _registry;
+        organizationHub = _organizationHub;
         _transferOwnership(_owner);
     }
 
@@ -72,23 +83,27 @@ contract OrganizationInitiator is Ownable {
         require(success, "OrganizationInitiator: failed to initiate registration");
     }
 
-    // function lzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64, bytes memory _payload) override external {
-    //     bytes32 orgID = abi.decode(_payload, (bytes32));
-    //     address remoteEndpoint = _endpoints[CrossChainService.LayerZero][_srcChainId];
-    //     require(msg.sender == address(remoteEndpoint));
-    //     require(keccak256(_srcAddress) == keccak256(abi.encodePacked(initiator)));
+    function lzReceive(uint16 _remoteDomainID, bytes memory _remoteSender, uint64, bytes memory _payload) override external {
+        bytes32 orgID = abi.decode(_payload, (bytes32));
+        address remoteSender;
+        assembly {
+            remoteSender := mload(add(_remoteSender, 20))
+        }
 
-    //     address remoteSender;
-    //     assembly {
-    //         remoteSender := mload(add(_srcAddress, 20))
-    //     }
-    //     _finalizeClaim(orgID);
-    // }
+        address localEndpoint = localEndpoints[CrossChainService.LAYER_ZERO];
 
-    function _finalizeClaim(bytes32 _orgID) internal {
-        // TODO: use LZ interface
+        _finalizeClaim(orgID, remoteSender, localEndpoint);
+    }
 
-        // TODO: require call is from hub on the remote chain
+    function setLocalEndpoint(CrossChainService _service, address _localEndpoint) external onlyOwner {
+        localEndpoints[_service] = _localEndpoint;
+    }
+
+    function _finalizeClaim(bytes32 _orgID, address _remoteSender, address _localEndpoint) internal {
+        require(msg.sender == address(_localEndpoint), "OrganizationInitiator: invalid msg.sender");
+        require(_remoteSender == organizationHub, "OrganizationInitiator: remote sender must be hub");
+
+        require(claimers[_orgID] == address(0), "OrganizationInitiator: already finalized");
         require(initiatedClaim[_orgID] != address(0), "OrganizationInitiator: must be initiated");
 
         address claimer = initiatedClaim[_orgID];

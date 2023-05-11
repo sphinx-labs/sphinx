@@ -15,21 +15,14 @@ contract OrganizationHub is ILayerZeroReceiver, Ownable {
     OrganizationInitiator public immutable initiator;
 
     enum CrossChainService {
-        LayerZero
+        LOCAL,
+        LAYER_ZERO
     }
 
     // TODO: later: consider mapping this to something else
     mapping(bytes32 => bool) public organizations;
 
-    // TODO: origin/src -> local
-    // TODO: dest -> remote
-
-    struct Thing {
-        mapping(address => address) origins; // originDomainID => localEndpoint
-        uint32 localEndpoint;
-    }
-
-    mapping(CrossChainService => Thing) internal _endpoints;
+    mapping(CrossChainService => address) public localEndpoints;
 
     /**
      * @param _initiator Address of the OrganizationInitiator contract.
@@ -45,20 +38,28 @@ contract OrganizationHub is ILayerZeroReceiver, Ownable {
         assembly {
             remoteSender := mload(add(_remoteSender, 20))
         }
-        // TODO: thing
-        Thing thing = _endpoints[CrossChainService.LayerZero];
 
-        _claim(orgID, remoteSender, thing.localEndpoint);
+        address localEndpoint = localEndpoints[CrossChainService.LAYER_ZERO];
 
-        address localEndpoint = thing.origins[_remoteDomainID];
-TODO: you have this backwards! i.e. crossChainAdapters is backwards
-        address adapter = initiator.crossChainAdapters([localEndpoint][_message.localDomainID]);
-        require(adapter != address(0), "OrganizationInitiator: invalid adapter");
+        _claim(orgID, remoteSender, localEndpoint);
+
+        address adapter = initiator.crossChainAdapters(localEndpoint, _remoteDomainID);
+        require(adapter != address(0), "OrganizationHub: invalid adapter");
+
+        CrossChainMessageInfo memory messageInfo = CrossChainMessageInfo({
+                localEndpoint: localEndpoint,
+                remoteDomainID: _remoteDomainID,
+                relayerFee: TODO
+            });
 
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(ICrossChainAdapter.initiateCall, (_message, abi.encodePacked(_orgID)))
+            abi.encodeCall(ICrossChainAdapter.initiateCall, (messageInfo, _payload))
         );
-        require(success, "OrganizationInitiator: failed to initiate registration");
+        require(success, "OrganizationHub: failed to initiate registration");
+    }
+
+    function setLocalEndpoint(CrossChainService _service, address _localEndpoint) external onlyOwner {
+        localEndpoints[_service] = _localEndpoint;
     }
 
     // TODO: later: use a fallback function instead of hard-coding each interface. or maybe not a
@@ -67,10 +68,12 @@ TODO: you have this backwards! i.e. crossChainAdapters is backwards
 
 // TODO: later: some troller will probably claim all of the popular org names (uniswap, optimism, etc). how should we handle this?
 
-    function _claim(bytes32 _orgID, address _originSender, address _localEndpoint) internal {
+    function _claim(bytes32 _orgID, address _remoteSender, address _localEndpoint) internal {
         require(msg.sender == address(_localEndpoint), "OrganizationHub: invalid msg.sender");
-        require(_originSender == initiator, "OrganizationHub: invalid origin sender");
+        require(_remoteSender == initiator, "OrganizationHub: invalid remote sender");
+
         require(!organizations[_orgID], "OrganizationHub: already claimed");
+
         organizations[_orgID] = true;
         // TODO: later: emit event
     }
