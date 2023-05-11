@@ -18,6 +18,8 @@ import {
   OZUUPSOwnableAdapterABI,
   OZUUPSAccessControlAdapterABI,
   OZTransparentAdapterABI,
+  ForwarderABI,
+  ForwarderArtifact,
   OZUUPSUpdaterArtifact,
   OZUUPSOwnableAdapterArtifact,
   OZUUPSAccessControlAdapterArtifact,
@@ -247,6 +249,20 @@ export const initializeChugSplash = async (
   )
 
   logger?.info('[ChugSplash]: deployed ChugSplashRegistry')
+
+  logger?.info('[ChugSplash]: deploying Forwarder...')
+
+  await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ForwarderABI,
+      bytecode: ForwarderArtifact.bytecode,
+    },
+    args: [],
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: deployed Forwarder')
 
   logger?.info('[ChugSplash]: deploying ChugSplashManager initial version...')
 

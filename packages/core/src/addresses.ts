@@ -22,6 +22,7 @@ import {
   OZTransparentAdapterArtifact,
   DefaultCreate2Artifact,
   DefaultGasPriceCalculatorArtifact,
+  FORWARDER_ADDRESS,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -89,6 +90,7 @@ export const getManagerConstructorValues = () => [
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
   Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
+  FORWARDER_ADDRESS,
 ]
 
 const [managerConstructorFragment] = ChugSplashManagerABI.filter(
