@@ -6,6 +6,7 @@ import {
   MessageTypes,
 } from '@metamask/eth-sig-util'
 import { ForwarderABI, FORWARDER_ADDRESS } from '@chugsplash/contracts'
+import axios from 'axios'
 
 const EIP712Domain = [
   { name: 'name', type: 'string' },
@@ -20,7 +21,7 @@ type BaseForwardRequestType = {
   data: string
 }
 
-type ForwardRequestType = BaseForwardRequestType & {
+export type ForwardRequestType = BaseForwardRequestType & {
   value: number
   gas: number
   nonce: number
@@ -96,4 +97,26 @@ export const signMetaTxRequest = async (
   const toSign = await buildTypedData(forwarder, request)
   const signature = await signMessage(privateKey, toSign)
   return { signature, request }
+}
+
+export const relaySignedRequest = async (
+  signature: string,
+  request: ForwardRequestType,
+  orgId: string
+) => {
+  const baseUrl = process.env.CHUGSPLASH_MANAGED_BASE_URL
+    ? process.env.CHUGSPLASH_MANAGED_BASE_URL
+    : 'https://www.chugsplash.io'
+  try {
+    await axios.post(`${baseUrl}/api/relay`, {
+      apiKey: process.env.CHUGSPLASH_API_KEY,
+      orgId,
+      signature,
+      request,
+    })
+  } catch (e) {
+    throw new Error(
+      `Error relaying signed request, are you sure your API key and org ID are correct? + \n ${e.message}`
+    )
+  }
 }

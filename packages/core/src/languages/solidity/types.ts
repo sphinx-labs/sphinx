@@ -146,5 +146,4 @@ export interface CompilerOutputBytecode {
 export type ChugSplashSystemConfig = {
   executors: string[]
   proposers: string[]
-  callers: string[]
 }

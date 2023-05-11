@@ -53,11 +53,7 @@ import {
   getImpersonatedSigner,
   assertValidBlockGasLimit,
 } from '../../utils'
-import {
-  CALLER_ROLE,
-  MANAGED_PROPOSER_ROLE,
-  REMOTE_EXECUTOR_ROLE,
-} from '../../constants'
+import { MANAGED_PROPOSER_ROLE, REMOTE_EXECUTOR_ROLE } from '../../constants'
 import {
   getChugSplashConstructorArgs,
   getChugSplashRegistryAddress,
@@ -81,14 +77,13 @@ const fetchChugSplashSystemConfig = (configPath: string) => {
   )).default
   if (
     typeof exported === 'object' &&
-    exported.callers.length > 0 &&
     exported.executors.length > 0 &&
     exported.proposers.length > 0
   ) {
     return exported
   } else {
     throw new Error(
-      'Config file must export a valid config object with a list of executors, callers, and proposers.'
+      'Config file must export a valid config object with a list of executors and proposers.'
     )
   }
 }
@@ -109,7 +104,6 @@ export const initializeAndVerifyChugSplash = async (
     await provider.getSigner(),
     config.executors,
     config.proposers,
-    config.callers,
     logger
   )
 
@@ -158,7 +152,7 @@ export const ensureChugSplashInitialized = async (
       )
     }
   } else {
-    await initializeChugSplash(provider, signer, executors, [], [], logger)
+    await initializeChugSplash(provider, signer, executors, [], logger)
   }
 }
 
@@ -167,7 +161,6 @@ export const initializeChugSplash = async (
   deployer: ethers.Signer,
   executors: string[],
   proposers: string[],
-  callers: string[],
   logger?: Logger
 ): Promise<void> => {
   await assertValidBlockGasLimit(provider)
@@ -484,14 +477,6 @@ export const initializeChugSplash = async (
     }
   }
   logger?.info('[ChugSplash]: finished assigning proposer roles')
-
-  logger?.info('[ChugSplash]: assigning caller roles...')
-  for (const caller of callers) {
-    if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
-      await ManagedService.connect(signer).grantRole(CALLER_ROLE, caller)
-    }
-  }
-  logger?.info('[ChugSplash]: finished assigning caller roles')
 
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'

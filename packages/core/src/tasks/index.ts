@@ -72,7 +72,7 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-import { signMetaTxRequest } from '../metatxs'
+import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
 
 // Load environment variables from .env
 dotenv.config()
@@ -1114,9 +1114,17 @@ export const proposeChugSplashDeployment = async (
         ),
       }
     )
-    // TODO: CHU-242 - Call the meta txs API endpoint in the managed service
 
-    // Returning these values allows us to test meta transactions locally.
+    // Send the signed meta transaction to the ChugSplashManager via relay
+    if (process.env.LOCAL_TEST_METATX_PROPOSE !== 'true') {
+      await relaySignedRequest(
+        signature,
+        request,
+        parsedConfig.options.organizationID
+      )
+    }
+
+    // Returning these values allows us to test meta transactions locally
     return { signature, request, deploymentId }
   } else {
     await (
