@@ -118,19 +118,18 @@ for (const tx of broadcast.transactions) {
   //     unsafeAllowFlexibleConstructor?: boolean;
   // };
 
-  parsedContractConfigs[tx.contractName] = {
-    contract: TODO
-    address: ethers.utils.getCreate2Address(managerAddress, ethers.constants.HashZero, ethers.utils.keccak256())
-  }
+  // parsedContractConfigs[tx.contractName] = {
+  //   contract: TODO
+  //   address: ethers.utils.getCreate2Address(managerAddress, ethers.constants.HashZero, ethers.utils.keccak256())
+  // }
 }
+
 
 const [buildInfoFileName] = fs.readdirSync(tmpDir)
 const buildInfoPath = path.join(tmpDir, buildInfoFileName)
 
 const buildInfo = readBuildInfo(buildInfoPath)
 
-// TODO: what are we going to do about the salt of the contracts?
+// TODO: replace all instances of addresses before calculating the real create3 address of each contract
 
-// TODO: the contract addresses in the constructor args will be incorrect
-
-// TODO: rm .chugsplash-internal file
+// TODO: remove .chugsplash-internal directory when the script is done. also turn off the anvil instance
