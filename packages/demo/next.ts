@@ -6,8 +6,10 @@ import { ethers } from 'ethers'
 import {
   ParsedContractConfigs,
   getChugSplashManagerAddress,
+  getCreate3Address,
   readBuildInfo,
 } from '@chugsplash/core'
+import { remove0x } from '@eth-optimism/core-utils'
 
 type BroadcastedTransactionReceipt = {
   hash: string | null
@@ -33,6 +35,7 @@ type BroadcastedTransactionReceipt = {
 type MinimalChugSplashConfig = {
   options: {
     organizationID: string
+    projectName: string
   }
 }
 
@@ -80,15 +83,7 @@ const broadcast: {
 
 const functionCalls: string[] = []
 for (const tx of broadcast.transactions) {
-  if (typeof tx.contractName !== 'string') {
-    throw new Error(
-      `Could not find contract name. Please report this error to the ChugSplash team.`
-    )
-  }
-
-  if (tx.transactionType === 'CREATE') {
-    tx.contractAddress
-  } else {
+  if (tx.transactionType !== 'CREATE') {
     functionCalls.push(tx.function ?? 'unknown')
   }
 }
@@ -102,11 +97,30 @@ if (functionCalls.length > 0) {
   )
 }
 
-const managerAddress = getChugSplashManagerAddress(
-  minimalConfig.options.organizationID
-)
+const { organizationID, projectName } = minimalConfig.options
+const managerAddress = getChugSplashManagerAddress(organizationID)
 const parsedContractConfigs: ParsedContractConfigs = {}
-for (const tx of broadcast.transactions) {
+for (const currTx of broadcast.transactions) {
+  const { contractName } = currTx
+  if (typeof contractName !== 'string') {
+    throw new Error(
+      `Could not find contract name. Please report this error to the ChugSplash team.`
+    )
+  }
+
+  const newAddress = getCreate3Address(
+    managerAddress,
+    projectName,
+    contractName,
+    ethers.constants.HashZero
+  )
+
+  for (const tx of broadcast.transactions) {
+    // Replace all instances of the current contract address with the new Create3 address
+    tx.transaction.data = tx.transaction.data
+      .split(remove0x(tx.contractAddress))
+      .join(remove0x(newAddress))
+  }
 
   //   export type ParsedContractConfig = {
   //     contract: string;
@@ -124,12 +138,13 @@ for (const tx of broadcast.transactions) {
   // }
 }
 
-
 const [buildInfoFileName] = fs.readdirSync(tmpDir)
 const buildInfoPath = path.join(tmpDir, buildInfoFileName)
 
 const buildInfo = readBuildInfo(buildInfoPath)
 
 // TODO: replace all instances of addresses before calculating the real create3 address of each contract
+
+// TODO: we should have the fully qualified name instead of the contractName
 
 // TODO: remove .chugsplash-internal directory when the script is done. also turn off the anvil instance

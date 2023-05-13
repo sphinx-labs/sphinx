@@ -7,3 +7,7 @@ contract HelloChugSplash {
     address public otherStorage;
     string public storageName;
 }
+
+contract Counter {
+    uint public constant x = 2;
+}
