@@ -1,7 +1,7 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-const projectName = 'Variable Validation'
+const projectName = 'No Proxy Contract Reference'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
