@@ -9,7 +9,6 @@ module.exports = {
       ethers.utils.toUtf8Bytes(projectName)
     ),
     projectName,
-    claimer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   },
   contracts: {
     MySimpleStorage: {

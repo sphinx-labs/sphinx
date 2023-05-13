@@ -582,6 +582,9 @@ task(TASK_NODE)
   )
 
 task(TASK_TEST)
+  .setDescription(
+    `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
+  )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag(
     'skipDeploy',
@@ -589,7 +592,11 @@ task(TASK_TEST)
   )
   .addOptionalParam(
     'configPath',
-    'Optional path to the ChugSplash config file to test, omit this param to test all configs'
+    'Optional path to the single ChugSplash config file to test.'
+  )
+  .addOptionalParam(
+    'configPaths',
+    'Optional paths to ChugSplash config files to test. Format must be a comma-separated string.'
   )
   .setAction(
     async (
@@ -598,12 +605,14 @@ task(TASK_TEST)
         noCompile: boolean
         confirm: boolean
         configPath: string
+        configPaths: string
         skipDeploy: string
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { silent, noCompile, configPath, skipDeploy } = args
+      const { silent, noCompile, configPath, configPaths, skipDeploy } = args
+
       const liveNetwork = await isLiveNetwork(hre.ethers.provider)
 
       const signer = hre.ethers.provider.getSigner()
@@ -634,12 +643,19 @@ task(TASK_TEST)
             })
           }
           if (!skipDeploy) {
-            await deployAllChugSplashConfigs(
-              hre,
-              silent,
-              '',
-              configPath ? [configPath] : undefined
-            )
+            let configPathArray: string[] | undefined
+            if (configPath && configPaths) {
+              throw new Error(
+                `Cannot specify both '--config-path' and '--config-paths'.`
+              )
+            } else if (configPath) {
+              configPathArray = [configPath]
+            } else if (configPaths) {
+              // Remove all whitespace and split by commas
+              configPathArray = configPaths.replace(/\s+/g, '').split(',')
+            }
+
+            await deployAllChugSplashConfigs(hre, silent, '', configPathArray)
           }
         }
         await writeSnapshotId(

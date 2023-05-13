@@ -12,9 +12,8 @@ import {
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
-  getContractAddress,
+  getCreate3Address,
   getChugSplashManagerAddress,
-  assertValidConstructorArgs,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -106,7 +105,8 @@ export const deployAllChugSplashConfigs = async (
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
-  referenceName: string
+  referenceName: string,
+  userSalt?: string
 ): Promise<ethers.Contract> => {
   const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.chugsplash
@@ -124,9 +124,11 @@ export const getContract = async (
   )
 
   const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
+    const { options, contracts } = resolvedConfig.config
     return (
-      Object.keys(resolvedConfig.config.contracts).includes(referenceName) &&
-      resolvedConfig.config.options.projectName === projectName
+      Object.keys(contracts).includes(referenceName) &&
+      options.projectName === projectName &&
+      contracts[referenceName].salt === userSalt
     )
   })
 
@@ -152,43 +154,16 @@ export const getContract = async (
     contractConfig.externalProxy ||
     getDefaultProxyAddress(organizationID, projectName, referenceName)
   if (contractConfig.kind === 'no-proxy') {
-    // Always skip the storage check b/c it can cause unnecessary failures in this case.
-    for (const contract of Object.values(userConfig.config.contracts)) {
-      contract.unsafeSkipStorageCheck = true
-    }
-
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.config.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
-    const cre = await createChugSplashRuntime(
-      userConfig.filePath,
-      false,
-      true,
-      hre.config.paths.canonicalConfigs,
-      hre,
-      true
-    )
-    const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
-
-    const { cachedConstructorArgs } = assertValidConstructorArgs(
-      userConfig.config,
-      artifactPaths,
-      cre,
-      true,
-      'hardhat'
-    )
-    address = getContractAddress(
+    address = getCreate3Address(
       managerAddress,
-      cachedConstructorArgs[referenceName],
-      artifact
+      projectName,
+      referenceName,
+      contractConfig.salt ?? ethers.constants.HashZero
     )
   }
 
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
-    throw new Error(`The proxy for ${referenceName} has not been deployed.`)
+    throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }
 
   const Proxy = new ethers.Contract(
