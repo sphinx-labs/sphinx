@@ -93,6 +93,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  salt?: string
   unsafeAllowEmptyPush?: boolean
   unsafeAllowRenames?: boolean
   unsafeSkipStorageCheck?: boolean
@@ -122,6 +123,7 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
+  userSalt: string
   constructorArgs: ParsedConfigVariables
   unsafeAllowEmptyPush?: boolean
   unsafeAllowFlexibleConstructor?: boolean

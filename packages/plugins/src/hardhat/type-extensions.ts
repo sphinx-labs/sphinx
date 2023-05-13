@@ -29,7 +29,8 @@ declare module 'hardhat/types/runtime' {
       reset: () => Promise<void>
       getContract: (
         projectName: string,
-        referenceName: string
+        referenceName: string,
+        salt?: string
       ) => Promise<ethers.Contract>
     }
   }
@@ -52,9 +53,15 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
       },
       getContract: async (
         projectName: string,
-        referenceName: string
+        referenceName: string,
+        salt?: string
       ): Promise<ethers.Contract> => {
-        const contract = await getContract(hre, projectName, referenceName)
+        const contract = await getContract(
+          hre,
+          projectName,
+          referenceName,
+          salt
+        )
         return contract
       },
     }

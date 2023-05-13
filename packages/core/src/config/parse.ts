@@ -43,7 +43,7 @@ import {
   isEqualType,
   getOpenZeppelinValidationOpts,
   chugsplashLog,
-  getContractAddress,
+  getCreate3Address,
   isDataHexString,
   isLiveNetwork,
   isContractDeployed,
@@ -368,6 +368,27 @@ export const assertValidUserConfigFields = async (
       logValidationError(
         'error',
         `Detected the 'unsafeAllowFlexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    if (contractConfig.kind !== 'no-proxy' && contractConfig.salt) {
+      logValidationError(
+        'error',
+        `Detected a 'salt' field for the proxied contract ${referenceName} in the ChugSplash config file. This field can only be used for non-proxied contracts.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    } else if (
+      contractConfig.salt &&
+      !ethers.utils.isHexString(contractConfig.salt, 32)
+    ) {
+      logValidationError(
+        'error',
+        `The 'salt' field for ${referenceName} in the ChugSplash config file must be a 32-byte Hexstring.`,
         [],
         cre.silent,
         cre.stream
@@ -1768,7 +1789,7 @@ export const assertValidParsedChugSplashFile = async (
             currentAdminAddress: 'unknown',
           })
         }
-      } else {
+      } else if (contractConfig.kind !== 'no-proxy') {
         const proxyAdmin = await getEIP1967ProxyAdminAddress(
           provider,
           contractConfig.address
@@ -1908,7 +1929,7 @@ permission to call the 'upgradeTo' function on each of them.
   return isUpgrade
 }
 
-export const assertValidContracts = (
+export const assertValidSourceCode = (
   parsedConfig: ParsedChugSplashConfig,
   artifactPaths: ArtifactPaths,
   cre: ChugSplashRuntimeEnvironment
@@ -2192,12 +2213,11 @@ export const assertValidConstructorArgs = (
       continue
     }
 
-    const artifact = cachedArtifacts[referenceName]
-
-    contractReferences[referenceName] = getContractAddress(
+    contractReferences[referenceName] = getCreate3Address(
       managerAddress,
-      cachedConstructorArgs[referenceName],
-      artifact
+      projectName,
+      referenceName,
+      userContractConfig.salt ?? ethers.constants.HashZero
     )
   }
 
@@ -2304,6 +2324,7 @@ const constructParsedConfig = (
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
       constructorArgs: cachedConstructorArgs[referenceName],
+      userSalt: userContractConfig.salt ?? ethers.constants.HashZero,
       unsafeAllowEmptyPush: userContractConfig.unsafeAllowEmptyPush,
       unsafeAllowFlexibleConstructor:
         userContractConfig.unsafeAllowFlexibleConstructor,
@@ -2373,8 +2394,9 @@ export const parseAndValidateChugSplashConfig = async (
     cachedConstructorArgs
   )
 
-  // Validate the contracts
-  assertValidContracts(parsedConfig, artifactPaths, cre)
+  assertValidSourceCode(parsedConfig, artifactPaths, cre)
+
+  await assertAvailableCreate3Addresses(provider, parsedConfig, cre)
 
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
@@ -2514,7 +2536,7 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
 
   for (const [referenceName, artifact] of Object.entries(artifacts)) {
     // Skip proxies. We check that they have deterministic constructors elsewhere (in
-    // `assertValidContracts`).
+    // `assertValidSourceCode`).
     if (parsedConfig.contracts[referenceName].kind !== 'no-proxy') {
       continue
     }
@@ -2546,6 +2568,39 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
           ''
         )
         return `  - ${referenceName}. Reason: ${shortReason}`
+      }),
+      cre.silent,
+      cre.stream
+    )
+  }
+}
+
+const assertAvailableCreate3Addresses = async (
+  provider: providers.Provider,
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
+): Promise<void> => {
+  // List of reference names that correspond to the unavailable Create3 addresses
+  const unavailable: string[] = []
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    if (
+      contractConfig.kind === 'no-proxy' &&
+      (await provider.getCode(contractConfig.address)) !== '0x'
+    ) {
+      unavailable.push(referenceName)
+    }
+  }
+
+  if (unavailable.length > 0) {
+    logValidationError(
+      'error',
+      `A contract has already been deployed at the Create3 address for the following contracts.\n` +
+        `Please add a new 'salt' field for each of these contracts in the config.`,
+      unavailable.map((referenceName) => {
+        return `  - ${referenceName}`
       }),
       cre.silent,
       cre.stream
