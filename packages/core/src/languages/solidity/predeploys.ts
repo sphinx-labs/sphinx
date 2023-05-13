@@ -40,9 +40,9 @@ import {
   DefaultGasPriceCalculatorABI,
   DefaultGasPriceCalculatorArtifact,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  DefaultCreate2Artifact,
-  DefaultCreate2ABI,
-  DEFAULT_CREATE2_ADDRESS,
+  DefaultCreate3Artifact,
+  DefaultCreate3ABI,
+  DEFAULT_CREATE3_ADDRESS,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -174,24 +174,24 @@ export const initializeChugSplash = async (
 
   const chugsplashConstructorArgs = getChugSplashConstructorArgs()
 
-  logger?.info('[ChugSplash]: deploying DefaultCreate2...')
+  logger?.info('[ChugSplash]: deploying DefaultCreate3...')
 
-  const DefaultCreate2 = await doDeterministicDeploy(provider, {
+  const DefaultCreate3 = await doDeterministicDeploy(provider, {
     signer: deployer,
     contract: {
-      abi: DefaultCreate2ABI,
-      bytecode: DefaultCreate2Artifact.bytecode,
+      abi: DefaultCreate3ABI,
+      bytecode: DefaultCreate3Artifact.bytecode,
     },
     args: [],
     salt: ethers.constants.HashZero,
   })
 
   assert(
-    DEFAULT_CREATE2_ADDRESS === DefaultCreate2.address,
+    DEFAULT_CREATE3_ADDRESS === DefaultCreate3.address,
     'DefaultGasPriceCalculator has incorrect address'
   )
 
-  logger?.info('[ChugSplash]: deployed DefaultCreate2')
+  logger?.info('[ChugSplash]: deployed DefaultCreate3')
 
   logger?.info('[ChugSplash]: deploying DefaultGasPriceCalculator...')
 

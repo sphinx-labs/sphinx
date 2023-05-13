@@ -329,19 +329,15 @@ export const displayDeploymentTable = (
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) => {
-        const artifact = readContractArtifact(
-          artifactPaths[referenceName].contractArtifactPath,
-          integration
-        )
-
         // if contract is an unproxied, then we must resolve its true address
         const address =
           contractConfig.kind !== 'no-proxy'
             ? contractConfig.address
-            : getContractAddress(
+            : getCreate3Address(
                 managerAddress,
-                contractConfig.constructorArgs,
-                artifact
+                parsedConfig.options.projectName,
+                referenceName,
+                contractConfig.userSalt
               )
 
         const contractName = contractConfig.contract.includes(':')
@@ -788,36 +784,52 @@ export const isEqualType = (
   return isEqual
 }
 
+export const getCreate3Salt = (
+  projectName: string,
+  referenceName: string,
+  userSalt: string
+): string => {
+  return utils.solidityKeccak256(
+    ['string', 'string', 'bytes32'],
+    [projectName, referenceName, userSalt]
+  )
+}
+
 /**
- * Returns the Create2 address of a contract deployed by ChugSplash, which is calculated as a
- * function of the organizationID and the corresponding contract's reference name. Note that the
- * contract may not yet be deployed at this address since it's calculated via Create2.
+ * Returns the Create3 address of a non-proxy contract deployed by ChugSplash, which is calculated
+ * as a function of the ChugSplashManager address, the project name, the contract's reference name,
+ * and an optional 32-byte salt provided by the user. Note that the contract may
+ * not yet be deployed at this address since it's calculated via Create3.
  *
- * @param organizationID ID of the organization.
- * @param referenceName Reference name of the contract that corresponds to the proxy.
- * @param constructorArgs Constructor arguments for the contract.
- * @param maybeArtifact Contract artifact, or an object containing the artifactPaths and the
- * integration so the artifact can be resolved.
  * @returns Address of the contract.
  */
-export const getContractAddress = (
+export const getCreate3Address = (
   managerAddress: string,
-  constructorArgs: ParsedConfigVariables,
-  artifact: ContractArtifact
+  projectName: string,
+  referenceName: string,
+  userSalt: string
 ): string => {
-  const { abi, bytecode } = artifact
+  // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
+  // library for details.
+  const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
 
-  const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
-    bytecode,
-    constructorArgs,
-    abi
-  )
+  const salt = getCreate3Salt(projectName, referenceName, userSalt)
 
-  return utils.getCreate2Address(
+  const proxyAddress = utils.getCreate2Address(
     managerAddress,
-    ethers.constants.HashZero,
-    utils.solidityKeccak256(['bytes'], [creationCodeWithConstructorArgs])
+    salt,
+    utils.keccak256(proxyBytecode)
   )
+
+  const addressHash = utils.keccak256(
+    utils.hexConcat(['0xd694', proxyAddress, '0x01'])
+  )
+
+  // Return the last 20 bytes of the address hash
+  const last20Bytes = utils.hexDataSlice(addressHash, 12)
+
+  // Return the checksum the address
+  return ethers.utils.getAddress(last20Bytes)
 }
 
 export const getConstructorArgs = (

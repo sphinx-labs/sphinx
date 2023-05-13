@@ -22,7 +22,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { ICreate2 } from "./interfaces/ICreate2.sol";
+import { ICreate3 } from "./interfaces/ICreate3.sol";
 import { Semver, Version } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 import {
@@ -77,9 +77,9 @@ contract ChugSplashManager is
     ChugSplashRegistry public immutable registry;
 
     /**
-     * @notice Address of the Create2 contract.
+     * @notice Address of the Create3 contract.
      */
-    ICreate2 public immutable create2;
+    address public immutable create3;
 
     /**
      * @notice Address of the GasPriceCalculator contract.
@@ -341,7 +341,7 @@ contract ChugSplashManager is
 
     /**
      * @notice Emitted when a contract deployment is skipped. This occurs when a contract already
-       exists at the CREATE2 address.
+       exists at the Create3 address.
      *
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param contractAddress   Address of the deployed contract.
@@ -362,7 +362,7 @@ contract ChugSplashManager is
        deployed contract reverts.
      *
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param expectedAddress   Expected CREATE2 address of the contract.
+     * @param expectedAddress   Expected Create3 address of the contract.
      * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
      * @param referenceName     String reference name.
      * @param actionIndex Index of the action that attempted to deploy the contract.
@@ -541,6 +541,16 @@ contract ChugSplashManager is
     error CallerIsNotOwner();
 
     /**
+     * @notice Reverts if the low-level delegatecall to get an address fails.
+     */
+    error FailedToGetAddress();
+
+    /**
+     * @notice Reverts if a contract fails to be deployed.
+     */
+    error FailedToDeployContract();
+
+    /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
@@ -552,7 +562,7 @@ contract ChugSplashManager is
 
     /**
      * @param _registry                  Address of the ChugSplashRegistry.
-     * @param _create2                   Address of the Create2 contract.
+     * @param _create3                   Address of the Create3 contract.
      * @param _gasPriceCalculator        Address of the GasPriceCalculator contract.
      * @param _managedService            Address of the ManagedService contract.
      * @param _executionLockTime         Amount of time for a remote executor to completely execute
@@ -567,7 +577,7 @@ contract ChugSplashManager is
      */
     constructor(
         ChugSplashRegistry _registry,
-        ICreate2 _create2,
+        address _create3,
         IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
         uint256 _executionLockTime,
@@ -581,7 +591,7 @@ contract ChugSplashManager is
         ERC2771ContextUpgradeable(_trustedForwarder)
     {
         registry = _registry;
-        create2 = _create2;
+        create3 = _create3;
         gasPriceCalculator = _gasPriceCalculator;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
@@ -1373,7 +1383,7 @@ contract ChugSplashManager is
 
     /**
      * @notice Attempts to deploy a non-proxy contract. The deployment will be skipped if a contract
-     * already exists at the CREATE2 address. The entire deployment will be cancelled if the
+     * already exists at the Create3 address. The entire deployment will be cancelled if the
        contract fails to be deployed, which should only occur if its constructor reverts.
      *
      * @param _deployment The current deployment state struct. The data location is "storage"
@@ -1391,15 +1401,21 @@ contract ChugSplashManager is
             revert DeploymentIsNotApproved();
         }
 
-        bytes memory creationCode = _action.data;
+        (bytes32 salt, bytes memory creationCode) = abi.decode(_action.data, (bytes32, bytes));
+
         string memory referenceName = _action.referenceName;
 
-        // Get the expected address of the contract.
-        address expectedAddress = create2.computeAddress(
-            bytes32(0),
-            keccak256(creationCode),
-            address(this)
+        // Get the expected address of the contract. We delegatecall the Create3 contract because
+        // the deployer of the contract is the ChugSplashManager.
+        (bool success, bytes memory expectedAddressBytes) = create3.delegatecall(
+            abi.encodeCall(ICreate3.getAddress, (salt))
         );
+
+        if (!success) {
+            revert FailedToGetAddress();
+        }
+
+        address expectedAddress = abi.decode(expectedAddressBytes, (address));
 
         // Check if the contract has already been deployed.
         if (expectedAddress.code.length > 0) {
@@ -1414,10 +1430,17 @@ contract ChugSplashManager is
             );
             registry.announce("ContractDeploymentSkipped");
         } else {
-            address actualAddress;
-            assembly {
-                actualAddress := create2(0x0, add(creationCode, 0x20), mload(creationCode), 0x0)
+            // We delegatecall the Create3 contract so that the ChugSplashManager address is used in
+            // the address calculation of the deployed contract.
+            (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
+                abi.encodeCall(ICreate3.deploy, (salt, creationCode, 0))
+            );
+
+            if (!deploySuccess) {
+                revert FailedToDeployContract();
             }
+
+            address actualAddress = abi.decode(actualAddressBytes, (address));
 
             if (expectedAddress == actualAddress) {
                 // Contract was deployed successfully.

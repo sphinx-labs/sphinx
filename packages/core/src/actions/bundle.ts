@@ -15,11 +15,12 @@ import {
 } from '../languages/solidity/storage'
 import { ArtifactPaths } from '../languages/solidity/types'
 import {
-  getContractAddress,
+  getCreate3Address,
   readContractArtifact,
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
   getChugSplashManagerAddress,
+  getCreate3Salt,
 } from '../utils'
 import {
   ChugSplashAction,
@@ -97,7 +98,10 @@ export const toRawChugSplashAction = (
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
-      data: action.code,
+      data: ethers.utils.defaultAbiCoder.encode(
+        ['bytes32', 'bytes'],
+        [action.salt, action.code]
+      ),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -127,11 +131,16 @@ export const fromRawChugSplashAction = (
       value,
     }
   } else if (rawAction.actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
+    const [salt, code] = ethers.utils.defaultAbiCoder.decode(
+      ['bytes32', 'bytes'],
+      rawAction.data
+    )
     return {
       referenceName: rawAction.referenceName,
       addr: rawAction.addr,
       contractKindHash: rawAction.contractKindHash,
-      code: rawAction.data,
+      salt,
+      code,
     }
   } else {
     throw new Error(`unknown action type`)
@@ -298,7 +307,7 @@ export const makeBundlesFromConfig = async (
     parsedConfig,
     artifacts
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
+  const targetBundle = makeTargetBundleFromConfig(parsedConfig)
   return { actionBundle, targetBundle }
 }
 
@@ -317,6 +326,7 @@ export const makeActionBundleFromConfig = async (
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
   )
+  const projectName = parsedConfig.options.projectName
 
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -328,10 +338,11 @@ export const makeActionBundleFromConfig = async (
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
       (await provider.getCode(
-        getContractAddress(
+        getCreate3Address(
           managerAddress,
-          contractConfig.constructorArgs,
-          artifact
+          projectName,
+          referenceName,
+          contractConfig.userSalt
         )
       )) === '0x'
     ) {
@@ -340,6 +351,11 @@ export const makeActionBundleFromConfig = async (
         referenceName,
         addr: contractConfig.address,
         contractKindHash: contractKindHashes[contractConfig.kind],
+        salt: getCreate3Salt(
+          projectName,
+          referenceName,
+          contractConfig.userSalt
+        ),
         code: getCreationCodeWithConstructorArgs(
           bytecode,
           contractConfig.constructorArgs,
@@ -389,8 +405,7 @@ export const makeActionBundleFromConfig = async (
  * @returns Target bundle generated from the parsed config file.
  */
 export const makeTargetBundleFromConfig = (
-  parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
+  parsedConfig: ParsedChugSplashConfig
 ): ChugSplashTargetBundle => {
   const { projectName, organizationID } = parsedConfig.options
 
@@ -400,8 +415,6 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { artifact } = artifacts[referenceName]
-
     // Only add targets for proxies.
     if (contractConfig.kind !== 'no-proxy') {
       targets.push({
@@ -409,10 +422,11 @@ export const makeTargetBundleFromConfig = (
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
-        implementation: getContractAddress(
+        implementation: getCreate3Address(
           managerAddress,
-          contractConfig.constructorArgs,
-          artifact
+          projectName,
+          referenceName,
+          contractConfig.userSalt
         ),
       })
     }

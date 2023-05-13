@@ -10,7 +10,7 @@ import {
   OZ_UUPS_UPDATER_ADDRESS,
   ChugSplashManagerABI,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  DEFAULT_CREATE2_ADDRESS,
+  DEFAULT_CREATE3_ADDRESS,
   OWNER_BOND_AMOUNT,
   ChugSplashRegistryArtifact,
   ChugSplashManagerArtifact,
@@ -20,7 +20,7 @@ import {
   DefaultUpdaterArtifact,
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
-  DefaultCreate2Artifact,
+  DefaultCreate3Artifact,
   DefaultGasPriceCalculatorArtifact,
   FORWARDER_ADDRESS,
 } from '@chugsplash/contracts'
@@ -37,7 +37,7 @@ const OZUUPSAccessControlAdapterSourceName =
 const defaultUpdaterSourceName = DefaultUpdaterArtifact.sourceName
 const OZUUPSUpdaterSourceName = OZUUPSUpdaterArtifact.sourceName
 const OZTransparentAdapterSourceName = OZTransparentAdapterArtifact.sourceName
-const DefaultCreate2SourceName = DefaultCreate2Artifact.sourceName
+const DefaultCreate3SourceName = DefaultCreate3Artifact.sourceName
 const DefaultGasPriceCalculatorSourceName =
   DefaultGasPriceCalculatorArtifact.sourceName
 const ManagedServiceSourceName = ManagedServiceArtifact.sourceName
@@ -82,7 +82,7 @@ export const getManagedServiceAddress = () =>
 
 export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
-  DEFAULT_CREATE2_ADDRESS,
+  DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress(),
   EXECUTION_LOCK_TIME,
@@ -123,7 +123,7 @@ export const getChugSplashConstructorArgs = () => {
     [OZTransparentAdapterSourceName]: [DEFAULT_UPDATER_ADDRESS],
     [defaultUpdaterSourceName]: [],
     [OZUUPSUpdaterSourceName]: [],
-    [DefaultCreate2SourceName]: [],
+    [DefaultCreate3SourceName]: [],
     [DefaultGasPriceCalculatorSourceName]: [],
     [ManagedServiceSourceName]: [getOwnerAddress()],
   }

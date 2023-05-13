@@ -36,8 +36,8 @@ import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   ChugSplashManagerArtifact,
-  DefaultCreate2Artifact,
-  DEFAULT_CREATE2_ADDRESS,
+  DefaultCreate3Artifact,
+  DEFAULT_CREATE3_ADDRESS,
   DefaultGasPriceCalculatorArtifact,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   ManagedServiceArtifact,
@@ -57,7 +57,7 @@ import {
   getChugSplashManagerAddress,
   getConfigArtifactsRemote,
   getConstructorArgs,
-  getContractAddress,
+  getCreate3Address,
 } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
@@ -97,10 +97,11 @@ export const verifyChugSplashConfig = async (
       canonicalConfig.contracts[referenceName].constructorArgs,
       abi
     )
-    const implementationAddress = getContractAddress(
+    const implementationAddress = getCreate3Address(
       managerAddress,
-      contractConfig.constructorArgs,
-      artifact
+      canonicalConfig.options.projectName,
+      referenceName,
+      contractConfig.userSalt
     )
 
     const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
@@ -187,7 +188,7 @@ export const verifyChugSplash = async (
     },
     { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
     { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
-    { artifact: DefaultCreate2Artifact, address: DEFAULT_CREATE2_ADDRESS },
+    { artifact: DefaultCreate3Artifact, address: DEFAULT_CREATE3_ADDRESS },
     {
       artifact: DefaultGasPriceCalculatorArtifact,
       address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,

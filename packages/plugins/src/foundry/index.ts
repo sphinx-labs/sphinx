@@ -12,21 +12,15 @@ import {
   readValidatedChugSplashConfig,
   getDefaultProxyAddress,
   readUnvalidatedChugSplashConfig,
-  getContractAddress,
+  getCreate3Address,
   getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
   isLiveNetwork,
-  assertValidConstructorArgs,
   ensureChugSplashInitialized,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-import {
-  cleanPath,
-  fetchPaths,
-  getArtifactPaths,
-  getContractArtifact,
-} from './utils'
+import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
@@ -392,8 +386,6 @@ const command = args[0]
     case 'getAddress': {
       const configPath = args[1]
       const referenceName = args[2]
-      const outPath = cleanPath(args[3])
-      const buildInfoPath = cleanPath(args[4])
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
@@ -401,47 +393,11 @@ const command = args[0]
       const managerAddress = getChugSplashManagerAddress(organizationID)
 
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
-        const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-          fetchPaths(outPath, buildInfoPath)
-
-        // Always skip the storage check b/c it can cause unnecessary failures in this case.
-        for (const contract of Object.values(userConfig.contracts)) {
-          contract.unsafeSkipStorageCheck = true
-        }
-
-        const artifactPaths = await getArtifactPaths(
-          userConfig.contracts,
-          artifactFolder,
-          buildInfoFolder
-        )
-
-        const cre = await createChugSplashRuntime(
-          configPath,
-          false,
-          true,
-          canonicalConfigPath,
-          undefined,
-          true,
-          process.stdout
-        )
-
-        const { cachedConstructorArgs } = assertValidConstructorArgs(
-          userConfig,
-          artifactPaths,
-          cre,
-          true,
-          'foundry'
-        )
-
-        const artifact = getContractArtifact(
-          userConfig.contracts[referenceName].contract,
-          artifactFolder
-        )
-
-        const address = getContractAddress(
+        const address = getCreate3Address(
           managerAddress,
-          cachedConstructorArgs[referenceName],
-          artifact
+          projectName,
+          referenceName,
+          userConfig.contracts[referenceName].salt ?? ethers.constants.HashZero
         )
         process.stdout.write(address)
       } else {
