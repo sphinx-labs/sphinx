@@ -8,6 +8,3 @@ contract HelloChugSplash {
     string public storageName;
 }
 
-contract Counter {
-    uint public constant x = 2;
-}

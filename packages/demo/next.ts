@@ -4,12 +4,15 @@ import { execSync } from 'child_process'
 
 import { ethers } from 'ethers'
 import {
+  ConfigArtifacts,
   ParsedContractConfigs,
+  chugsplashProposeAbstractTask,
   getChugSplashManagerAddress,
   getCreate3Address,
   readBuildInfo,
 } from '@chugsplash/core'
 import { remove0x } from '@eth-optimism/core-utils'
+import { findAll, isNodeType } from 'solidity-ast/utils'
 
 type BroadcastedTransactionReceipt = {
   hash: string | null
@@ -63,6 +66,11 @@ const indexOfChugSplashConfigPath = args.indexOf('--config') + 1
 const chugsplashConfigPath = args[indexOfChugSplashConfigPath]
 const minimalConfig = readMinimalChugSplashConfig(chugsplashConfigPath)
 
+const [buildInfoFileName] = fs.readdirSync(tmpDir)
+const buildInfoPath = path.join(tmpDir, buildInfoFileName)
+
+const buildInfo = readBuildInfo(buildInfoPath)
+
 execSync(
   `forge script ${scriptPath} --rpc-url http://localhost:8545 --broadcast`
 )
@@ -104,11 +112,12 @@ for (const currTx of broadcast.transactions) {
   const { contractName } = currTx
   if (typeof contractName !== 'string') {
     throw new Error(
+      // TODO: make it clear that this is because there are two contracts with the same name in this repo. change one to fix the error.
       `Could not find contract name. Please report this error to the ChugSplash team.`
     )
   }
 
-  const newAddress = getCreate3Address(
+  const create3Address = getCreate3Address(
     managerAddress,
     projectName,
     contractName,
@@ -119,8 +128,34 @@ for (const currTx of broadcast.transactions) {
     // Replace all instances of the current contract address with the new Create3 address
     tx.transaction.data = tx.transaction.data
       .split(remove0x(tx.contractAddress))
-      .join(remove0x(newAddress))
+      .join(remove0x(create3Address))
   }
+
+  const potentialSourceNames: string[] = []
+  for (const [currSourceName, outputSource] of Object.entries(
+    buildInfo.output.sources
+  )) {
+    for (const _ of findAll(
+      ['ContractDefinition'],
+      outputSource.ast,
+      (node) =>
+        isNodeType('ContractDefinition', node) && node.name === contractName
+    )) {
+      potentialSourceNames.push(currSourceName)
+    }
+  }
+
+  if (potentialSourceNames.length === 0) {
+    throw new Error(`Could not find source name for ${contractName}.`)
+  } else if (potentialSourceNames.length > 1) {
+    throw new Error(
+      `Found multiple source names for ${contractName}: ${potentialSourceNames.join(
+        ', '
+      )}`
+    )
+  }
+
+  const sourceName = potentialSourceNames[0]
 
   //   export type ParsedContractConfig = {
   //     contract: string;
@@ -132,19 +167,45 @@ for (const currTx of broadcast.transactions) {
   //     unsafeAllowFlexibleConstructor?: boolean;
   // };
 
-  // parsedContractConfigs[tx.contractName] = {
-  //   contract: TODO
-  //   address: ethers.utils.getCreate2Address(managerAddress, ethers.constants.HashZero, ethers.utils.keccak256())
-  // }
+  parsedContractConfigs[tx.contractName] = {
+    contract: `${sourceName}:${contractName}`,
+    address: create3Address,
+    kind: 'no-proxy',
+
+  }
 }
 
-const [buildInfoFileName] = fs.readdirSync(tmpDir)
-const buildInfoPath = path.join(tmpDir, buildInfoFileName)
+const configArtifacts: ConfigArtifacts = {}
+for (const currTx of broadcast.transactions) {
+  const contractName = currTx.contractName as string
+  configArtifacts[contractName] = {
+    buildInfo,
+    artifact: {
+      sourceName,
+      contractName,
+      creationCodeWithConstructorArgs: currTx.transaction.data,
+    },
+  }
+}
 
-const buildInfo = readBuildInfo(buildInfoPath)
+// await chugsplashProposeAbstractTask(
+//   provider,
+//   wallet,
+//   config,
+//   configPath,
+//   ipfsUrl,
+//   'foundry',
+//   configArtifacts,
+//   canonicalConfigPath,
+//   cre
+// )
 
 // TODO: replace all instances of addresses before calculating the real create3 address of each contract
 
 // TODO: we should have the fully qualified name instead of the contractName
 
 // TODO: remove .chugsplash-internal directory when the script is done. also turn off the anvil instance
+
+// TODO: i don't think this works if there are two generated build info files
+
+// TODO: throw an error if you read more than one build info file. this'd happen in e.g. optimism's repo

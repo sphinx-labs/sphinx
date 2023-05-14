@@ -1213,14 +1213,19 @@ export const getConfigArtifactsRemote = async (
         buildInfo.output.contracts[sourceName][contractName]
 
       if (contractOutput !== undefined) {
+        const creationCodeWithConstructorArgs =
+          getCreationCodeWithConstructorArgs(
+            add0x(contractOutput.evm.bytecode.object),
+            contractConfig.constructorArgs,
+            contractOutput.abi
+          )
+
         artifacts[referenceName] = {
           buildInfo,
           artifact: {
-            abi: contractOutput.abi,
+            creationCodeWithConstructorArgs,
             sourceName,
             contractName,
-            bytecode: add0x(contractOutput.evm.bytecode.object),
-            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
           },
         }
       }

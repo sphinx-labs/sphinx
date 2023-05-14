@@ -139,10 +139,11 @@ const command = args[0]
         provider,
         wallet,
         config,
+        bundles,
         configPath,
         ipfsUrl,
         'foundry',
-        artifactPaths,
+        configArtifacts,
         canonicalConfigPath,
         cre
       )

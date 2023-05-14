@@ -15,6 +15,7 @@ import {
   readUnvalidatedChugSplashConfig,
   UserChugSplashConfig,
   verifyDeployment,
+  ConfigArtifacts,
 } from '../config'
 import {
   computeDeploymentId,
@@ -47,12 +48,12 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import {
-  bundleLocal,
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
   executeTask,
   getDeployContractActions,
+  makeBundlesFromConfig,
   writeDeploymentArtifacts,
 } from '../actions'
 import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
@@ -128,7 +129,7 @@ export const chugsplashProposeAbstractTask = async (
   configPath: string,
   ipfsUrl: string,
   integration: Integration,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   cre: ChugSplashRuntimeEnvironment
 ) => {
@@ -154,13 +155,13 @@ export const chugsplashProposeAbstractTask = async (
   // Get the deployment info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the deployment state is empty before we submit
   // it to IPFS.
-  const { bundles, configUri, deploymentId } =
+  const { configUri, deploymentId, bundles } =
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
       '',
       false,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration
     )
@@ -215,7 +216,7 @@ export const chugsplashProposeAbstractTask = async (
         remoteExecution,
         ipfsUrl,
         spinner,
-        artifactPaths,
+        configArtifacts,
         canonicalConfigPath,
         integration
       )
@@ -237,7 +238,7 @@ export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
   ipfsUrl: string,
   commitToIpfs: boolean,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -259,7 +260,7 @@ export const chugsplashCommitAbstractSubtask = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
+    const { buildInfo } = configArtifacts[referenceName]
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -336,11 +337,10 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundles = await bundleLocal(
+  const bundles = await makeBundlesFromConfig(
     provider,
     parsedConfig,
-    artifactPaths,
-    integration
+    configArtifacts
   )
 
   const configUri = `ipfs://${ipfsHash}`
@@ -503,7 +503,7 @@ export const chugsplashFundAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   parsedConfig: ParsedChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment
@@ -520,7 +520,7 @@ export const chugsplashFundAbstractTask = async (
 
   const amountToDeposit = await getAmountToDeposit(
     provider,
-    await bundleLocal(provider, parsedConfig, artifactPaths, integration),
+    await makeBundlesFromConfig(provider, parsedConfig, configArtifacts),
     0,
     parsedConfig,
     true
@@ -1036,7 +1036,7 @@ export const proposeChugSplashDeployment = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   spinner: ora.Ora = ora({ isSilent: true }),
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   integration: Integration
 ) => {
@@ -1070,9 +1070,10 @@ export const proposeChugSplashDeployment = async (
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
+      bundles,
       ipfsUrl,
       true,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration,
       spinner

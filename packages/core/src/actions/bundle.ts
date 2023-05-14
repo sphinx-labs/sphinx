@@ -274,29 +274,6 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const bundleLocal = async (
-  provider: providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
-): Promise<ChugSplashBundles> => {
-  const artifacts: ConfigArtifacts = {}
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
-
-    const artifact = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
-    artifacts[referenceName] = {
-      buildInfo,
-      artifact,
-    }
-  }
-
-  return makeBundlesFromConfig(provider, parsedConfig, artifacts)
-}
-
 export const makeBundlesFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
@@ -321,7 +298,7 @@ export const makeBundlesFromConfig = async (
 export const makeActionBundleFromConfig = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ): Promise<ChugSplashActionBundle> => {
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
@@ -332,8 +309,9 @@ export const makeActionBundleFromConfig = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { buildInfo, artifact } = artifacts[referenceName]
-    const { sourceName, contractName, abi, bytecode } = artifact
+    const { buildInfo, artifact } = configArtifacts[referenceName]
+    const { sourceName, contractName, creationCodeWithConstructorArgs } =
+      artifact
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
@@ -356,11 +334,7 @@ export const makeActionBundleFromConfig = async (
           referenceName,
           contractConfig.userSalt
         ),
-        code: getCreationCodeWithConstructorArgs(
-          bytecode,
-          contractConfig.constructorArgs,
-          abi
-        ),
+        code: creationCodeWithConstructorArgs,
       })
     }
 
