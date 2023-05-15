@@ -759,7 +759,11 @@ contract ChugSplashManager is
     function approve(bytes32 _deploymentId) external onlyOwner {
         DeploymentState storage deployment = _deployments[_deploymentId];
 
-        if (deployment.remoteExecution && address(this).balance - totalDebt() < ownerBondAmount) {
+        if (
+            deployment.remoteExecution &&
+            address(this).balance > totalDebt() &&
+            address(this).balance - totalDebt() < ownerBondAmount
+        ) {
             revert InsufficientOwnerBond();
         }
 
@@ -1540,9 +1544,9 @@ contract ChugSplashManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution && getSelectedExecutor(activeDeploymentId) != _msgSender()) {
+        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != _msgSender()) {
             revert CallerIsNotSelectedExecutor();
-        } else if (owner() != _msgSender()) {
+        } else if (_remoteExecution == false && owner() != _msgSender()) {
             revert CallerIsNotOwner();
         }
     }

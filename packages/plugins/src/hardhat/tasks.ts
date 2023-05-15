@@ -252,10 +252,9 @@ export const chugsplashProposeTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, ipfsUrl, silent, noCompile, confirm } = args
-  const remoteExecution = await isLiveNetwork(hre.ethers.provider)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    true,
     confirm,
     hre.config.paths.canonicalConfigs,
     hre,

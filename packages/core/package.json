@@ -18,7 +18,8 @@
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "deploy": "npx hardhat deploy-system"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/core#readme",
   "license": "MIT",
@@ -38,6 +39,7 @@
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.20.6",
+    "axios": "^1.4.0",
     "chalk": "^4.1.2",
     "core-js": "^3.27.1",
     "dotenv": "^16.0.3",

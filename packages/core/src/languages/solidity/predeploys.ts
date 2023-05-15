@@ -449,12 +449,18 @@ export const initializeChugSplash = async (
       ChugSplashManager.address
     )) === false
   ) {
-    await (
-      await ChugSplashRegistry.connect(signer).addVersion(
-        ChugSplashManager.address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
+    try {
+      await (
+        await ChugSplashRegistry.connect(signer).addVersion(
+          ChugSplashManager.address,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    } catch (e) {
+      if (!e.message.includes('version already set')) {
+        throw e
+      }
+    }
   }
 
   logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
@@ -488,7 +494,13 @@ export const initializeChugSplash = async (
   logger?.info('[ChugSplash]: assigning caller roles...')
   for (const caller of callers) {
     if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
-      await ManagedService.connect(signer).grantRole(CALLER_ROLE, caller)
+      await (
+        await ManagedService.connect(signer).grantRole(
+          CALLER_ROLE,
+          caller,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
   }
   logger?.info('[ChugSplash]: finished assigning caller roles')
