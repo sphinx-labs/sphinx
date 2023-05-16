@@ -172,16 +172,25 @@ export class ChugSplashExecutor extends BaseServiceV2<
     )
 
     const currentTime = new Date()
-    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents.map(
-      (event) => {
+    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents
+      .map((event) => {
         return {
           retry: 1,
           nextTry: currentTime,
           waitingPeriodMs: 15000,
           event,
         }
-      }
-    )
+      })
+      // Filter out events that are already in the queue (happens due to some node providers doing inclusive filtering on block numbers)
+      .filter((e) => {
+        for (const event of this.state.eventsQueue) {
+          if (event.event.transactionHash === e.event.transactionHash) {
+            return false
+          }
+        }
+
+        return true
+      })
 
     // Concatenate the new approval events to the array
     this.state.eventsQueue = this.state.eventsQueue.concat(newExecutorEvents)

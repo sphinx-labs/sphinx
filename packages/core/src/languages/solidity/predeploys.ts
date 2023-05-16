@@ -43,6 +43,10 @@ import {
   DefaultCreate3Artifact,
   DefaultCreate3ABI,
   DEFAULT_CREATE3_ADDRESS,
+  ChugSplashManagerProxyABI,
+  ChugSplashManagerProxyArtifact,
+  ProxyABI,
+  ProxyArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -394,6 +398,34 @@ export const initializeChugSplash = async (
   )
 
   logger?.info('[ChugSplash]: DefaultAdapter deployed')
+
+  logger?.info('[ChugSplash]: deploying reference ChugSplashManagerProxy')
+
+  await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ChugSplashManagerProxyABI,
+      bytecode: ChugSplashManagerProxyArtifact.bytecode,
+    },
+    args: chugsplashConstructorArgs[ChugSplashManagerProxyArtifact.sourceName],
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: deployed reference ChugSplashManagerProxy')
+
+  logger?.info('[ChugSplash]: deploying reference Default Proxy')
+
+  await doDeterministicDeploy(provider, {
+    signer: deployer,
+    contract: {
+      abi: ProxyABI,
+      bytecode: ProxyArtifact.bytecode,
+    },
+    args: chugsplashConstructorArgs[ProxyArtifact.sourceName],
+    salt: ethers.constants.HashZero,
+  })
+
+  logger?.info('[ChugSplash]: deployed reference Default Proxy')
 
   // Make sure the addresses match, just in case.
   assert(

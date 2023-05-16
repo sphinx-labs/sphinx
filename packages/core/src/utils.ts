@@ -1086,11 +1086,23 @@ export const getPreviousCanonicalConfig = async (
     )
   )
 
-  if (actionExecutedEvents.length === 0) {
+  const defaultProxyDeployedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
+      'DefaultProxyDeployed',
+      null,
+      proxyAddress
+    )
+  )
+
+  if (
+    actionExecutedEvents.length === 0 &&
+    defaultProxyDeployedEvents.length === 0
+  ) {
     return undefined
   }
 
-  const latestRegistryEvent = actionExecutedEvents.at(-1)
+  const latestRegistryEvent =
+    actionExecutedEvents.at(-1) ?? defaultProxyDeployedEvents.at(-1)
 
   if (latestRegistryEvent === undefined) {
     return undefined
@@ -1104,18 +1116,26 @@ export const getPreviousCanonicalConfig = async (
     provider
   )
 
-  const latestExecutionEvent = (
-    await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.SetProxyStorage(null, proxyAddress)
-    )
-  ).at(-1)
+  const latestExecutionEvent =
+    (
+      await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.SetProxyStorage(null, proxyAddress)
+      )
+    ).at(-1) ??
+    (
+      await ChugSplashManager.queryFilter(
+        ChugSplashManager.filters.DefaultProxyDeployed(null, proxyAddress)
+      )
+    ).at(-1)
 
   if (latestExecutionEvent === undefined) {
     throw new Error(
-      `SetProxyStorage event detected in registry but not in manager contract`
+      `SetProxyStorage or DefaultProxyDeployed event detected in registry but not in manager contract`
     )
   } else if (latestExecutionEvent.args === undefined) {
-    throw new Error(`SetProxyStorage event has no args.`)
+    throw new Error(
+      `SetProxyStorage or DefaultProxyDeployed event has no args.`
+    )
   }
 
   const latestProposalEvent = (
