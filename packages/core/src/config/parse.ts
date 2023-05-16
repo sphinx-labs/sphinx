@@ -2648,7 +2648,7 @@ const assertAvailableCreate3Addresses = async (
       if (match) {
         logValidationError(
           'warning',
-          `Skipping deployment of ${referenceName}. Add a new 'salt' value to re-deploy it at a new address.`,
+          `Skipping deployment of ${referenceName} since it has already been deployed and has not changed. Add a new 'salt' value to re-deploy it at a new address.`,
           [],
           cre.silent,
           cre.stream
