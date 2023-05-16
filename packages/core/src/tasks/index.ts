@@ -210,6 +210,12 @@ export const chugsplashProposeAbstractTask = async (
       spinner.succeed(`${parsedConfig.options.projectName} can be proposed.`)
       spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
 
+      const shouldRelay =
+        process.env.CHUGSPLASH_API_KEY !== undefined &&
+        ((await isLiveNetwork(provider)) ||
+          process.env.LOCAL_TEST_METATX_PROPOSE === 'true' ||
+          process.env.LOCAL_MANAGED_SERVICE === 'true')
+
       const metatxs = await proposeChugSplashDeployment(
         provider,
         signer,
@@ -221,7 +227,8 @@ export const chugsplashProposeAbstractTask = async (
         spinner,
         artifactPaths,
         canonicalConfigPath,
-        integration
+        integration,
+        shouldRelay
       )
       const message = await successfulProposalMessage(
         provider,
@@ -652,7 +659,8 @@ export const chugsplashDeployAbstractTask = async (
       spinner,
       artifactPaths,
       canonicalConfigPath,
-      integration
+      integration,
+      false
     )
     currDeploymentStatus = DeploymentStatus.PROPOSED
   }
@@ -1042,7 +1050,8 @@ export const proposeChugSplashDeployment = async (
   spinner: ora.Ora = ora({ isSilent: true }),
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
-  integration: Integration
+  integration: Integration,
+  shouldRelay: boolean
 ) => {
   const { projectName, organizationID } = parsedConfig.options
   const ChugSplashManager = getChugSplashManager(signer, organizationID)
@@ -1087,12 +1096,7 @@ export const proposeChugSplashDeployment = async (
   }
 
   // Propose the deployment.
-  if (
-    process.env.CHUGSPLASH_API_KEY &&
-    ((await isLiveNetwork(provider)) ||
-      process.env.LOCAL_TEST_METATX_PROPOSE === 'true' ||
-      process.env.LOCAL_MANAGED_SERVICE === 'true')
-  ) {
+  if (shouldRelay) {
     if (!process.env.PRIVATE_KEY) {
       throw new Error(
         'Must provide a PRIVATE_KEY environment variable to sign gasless proposal transactions'
