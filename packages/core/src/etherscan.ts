@@ -99,9 +99,7 @@ export const verifyChugSplashConfig = async (
     )
     const implementationAddress = getCreate3Address(
       managerAddress,
-      canonicalConfig.options.projectName,
-      referenceName,
-      contractConfig.userSalt
+      contractConfig.salt
     )
 
     const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>

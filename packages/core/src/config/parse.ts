@@ -49,6 +49,8 @@ import {
   isContractDeployed,
   assertValidBlockGasLimit,
   getCreationCodeWithConstructorArgs,
+  getDeployedCreationCodeWithArgsHash,
+  getNonProxyCreate3Salt,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -1865,7 +1867,7 @@ permission to call the 'upgradeTo' function on each of them.
       }
     }
 
-    if (isUpgrade) {
+    if (isUpgrade && contractConfig.kind !== 'no-proxy') {
       // Perform upgrade specific validation
 
       const isProxyDeployed =
@@ -2215,9 +2217,11 @@ export const assertValidConstructorArgs = (
 
     contractReferences[referenceName] = getCreate3Address(
       managerAddress,
-      projectName,
-      referenceName,
-      userContractConfig.salt ?? ethers.constants.HashZero
+      getNonProxyCreate3Salt(
+        userConfig.options.projectName,
+        referenceName,
+        userContractConfig.salt ?? ethers.constants.HashZero
+      )
     )
   }
 
@@ -2311,20 +2315,36 @@ const constructParsedConfig = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
+    const constructorArgs = cachedConstructorArgs[referenceName]
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `ConfigArtifacts` when it eventually compiles the canonical
     // config.
-    const artifact = cachedArtifacts[referenceName]
-    const { sourceName, contractName } = artifact
+    const { sourceName, contractName, bytecode, abi } =
+      cachedArtifacts[referenceName]
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
+
+    // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
+    // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
+    // of the creation code appended with its constructor arguments. This essentially turns the
+    // Create3 call into a Create2 call when deploying the proxy's implementation contract.
+    const salt =
+      userContractConfig.kind === 'no-proxy'
+        ? getNonProxyCreate3Salt(
+            userConfig.options.projectName,
+            referenceName,
+            userContractConfig.salt ?? ethers.constants.HashZero
+          )
+        : ethers.utils.keccak256(
+            getCreationCodeWithConstructorArgs(bytecode, constructorArgs, abi)
+          )
 
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
       address: contractReferences[referenceName],
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
-      constructorArgs: cachedConstructorArgs[referenceName],
-      userSalt: userContractConfig.salt ?? ethers.constants.HashZero,
+      constructorArgs,
+      salt,
       unsafeAllowEmptyPush: userContractConfig.unsafeAllowEmptyPush,
       unsafeAllowFlexibleConstructor:
         userContractConfig.unsafeAllowFlexibleConstructor,
@@ -2396,7 +2416,13 @@ export const parseAndValidateChugSplashConfig = async (
 
   assertValidSourceCode(parsedConfig, artifactPaths, cre)
 
-  await assertAvailableCreate3Addresses(provider, parsedConfig, cre)
+  await assertAvailableCreate3Addresses(
+    provider,
+    parsedConfig,
+    artifactPaths,
+    cre,
+    integration
+  )
 
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
@@ -2578,7 +2604,9 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
 const assertAvailableCreate3Addresses = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  cre: ChugSplashRuntimeEnvironment
+  artifactPaths: ArtifactPaths,
+  cre: ChugSplashRuntimeEnvironment,
+  integration: Integration
 ): Promise<void> => {
   // List of reference names that correspond to the unavailable Create3 addresses
   const unavailable: string[] = []
@@ -2590,7 +2618,44 @@ const assertAvailableCreate3Addresses = async (
       contractConfig.kind === 'no-proxy' &&
       (await provider.getCode(contractConfig.address)) !== '0x'
     ) {
-      unavailable.push(referenceName)
+      const { bytecode, abi } = readContractArtifact(
+        artifactPaths[referenceName].contractArtifactPath,
+        integration
+      )
+
+      const deployedHash = await getDeployedCreationCodeWithArgsHash(
+        provider,
+        parsedConfig.options.organizationID,
+        referenceName,
+        contractConfig.address
+      )
+
+      if (!deployedHash) {
+        throw new Error(
+          `Could not retrieve creation code hash for deployed contract. Should never happen.`
+        )
+      }
+
+      const currHash = ethers.utils.keccak256(
+        getCreationCodeWithConstructorArgs(
+          bytecode,
+          contractConfig.constructorArgs,
+          abi
+        )
+      )
+
+      const match = BigNumber.from(deployedHash).eq(BigNumber.from(currHash))
+      if (match) {
+        logValidationError(
+          'warning',
+          `Skipping deployment of ${referenceName}. Add a new 'salt' value to re-deploy it at a new address.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      } else {
+        unavailable.push(referenceName)
+      }
     }
   }
 

@@ -14,6 +14,7 @@ import {
   readValidatedChugSplashConfig,
   getCreate3Address,
   getChugSplashManagerAddress,
+  getNonProxyCreate3Salt,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -156,9 +157,11 @@ export const getContract = async (
   if (contractConfig.kind === 'no-proxy') {
     address = getCreate3Address(
       managerAddress,
-      projectName,
-      referenceName,
-      contractConfig.salt ?? ethers.constants.HashZero
+      getNonProxyCreate3Salt(
+        projectName,
+        referenceName,
+        contractConfig.salt ?? ethers.constants.HashZero
+      )
     )
   }
 

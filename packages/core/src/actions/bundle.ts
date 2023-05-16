@@ -20,7 +20,6 @@ import {
   getCreationCodeWithConstructorArgs,
   readBuildInfo,
   getChugSplashManagerAddress,
-  getCreate3Salt,
 } from '../utils'
 import {
   ChugSplashAction,
@@ -236,8 +235,10 @@ export const makeActionBundle = (
 
   const tree = makeMerkleTree(elements)
 
+  const root = toHexString(tree.getRoot())
+
   return {
-    root: toHexString(tree.getRoot()),
+    root: root !== '0x' ? root : ethers.constants.HashZero,
     actions: rawActions.map((action, idx) => {
       return {
         action,
@@ -326,7 +327,6 @@ export const makeActionBundleFromConfig = async (
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
   )
-  const projectName = parsedConfig.options.projectName
 
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -338,12 +338,7 @@ export const makeActionBundleFromConfig = async (
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
     if (
       (await provider.getCode(
-        getCreate3Address(
-          managerAddress,
-          projectName,
-          referenceName,
-          contractConfig.userSalt
-        )
+        getCreate3Address(managerAddress, contractConfig.salt)
       )) === '0x'
     ) {
       // Add a DEPLOY_CONTRACT action.
@@ -351,11 +346,7 @@ export const makeActionBundleFromConfig = async (
         referenceName,
         addr: contractConfig.address,
         contractKindHash: contractKindHashes[contractConfig.kind],
-        salt: getCreate3Salt(
-          projectName,
-          referenceName,
-          contractConfig.userSalt
-        ),
+        salt: contractConfig.salt,
         code: getCreationCodeWithConstructorArgs(
           bytecode,
           contractConfig.constructorArgs,
@@ -422,12 +413,7 @@ export const makeTargetBundleFromConfig = (
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
-        implementation: getCreate3Address(
-          managerAddress,
-          projectName,
-          referenceName,
-          contractConfig.userSalt
-        ),
+        implementation: getCreate3Address(managerAddress, contractConfig.salt),
       })
     }
   }

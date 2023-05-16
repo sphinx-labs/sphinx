@@ -17,6 +17,7 @@ import {
   getChugSplashManagerAddress,
   isLiveNetwork,
   ensureChugSplashInitialized,
+  getNonProxyCreate3Salt,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
@@ -395,9 +396,12 @@ const command = args[0]
       if (userConfig.contracts[referenceName].kind === 'no-proxy') {
         const address = getCreate3Address(
           managerAddress,
-          projectName,
-          referenceName,
-          userConfig.contracts[referenceName].salt ?? ethers.constants.HashZero
+          getNonProxyCreate3Salt(
+            projectName,
+            referenceName,
+            userConfig.contracts[referenceName].salt ??
+              ethers.constants.HashZero
+          )
         )
         process.stdout.write(address)
       } else {

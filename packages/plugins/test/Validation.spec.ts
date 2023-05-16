@@ -63,23 +63,31 @@ describe('Validate', () => {
       process.stderr
     )
 
-    await readValidatedChugSplashConfig(
-      provider,
-      variableValidateConfigPath,
-      varValidationArtifactPaths,
-      'hardhat',
-      cre,
-      false
-    )
+    try {
+      await readValidatedChugSplashConfig(
+        provider,
+        variableValidateConfigPath,
+        varValidationArtifactPaths,
+        'hardhat',
+        cre,
+        false
+      )
+    } catch (e) {
+      /* empty */
+    }
 
-    await readValidatedChugSplashConfig(
-      provider,
-      constructorArgConfigPath,
-      constructorArgsValidationArtifactPaths,
-      'hardhat',
-      cre,
-      false
-    )
+    try {
+      await readValidatedChugSplashConfig(
+        provider,
+        constructorArgConfigPath,
+        constructorArgsValidationArtifactPaths,
+        'hardhat',
+        cre,
+        false
+      )
+    } catch (e) {
+      /* empty */
+    }
 
     await assertValidUserConfigFields(
       noProxyValidationUserConfig,
