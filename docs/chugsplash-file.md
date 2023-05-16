@@ -20,6 +20,7 @@ ChugSplash config files can be defined in TypeScript, JavaScript, or JSON. A sam
     // Configuration settings:
     options: {
         projectName: 'My ERC20 Project',
+        organizationId: '0x0000000000000000000000000000000000000000000000000000000000000000'
     },
     // Contract definitions:
     contracts: {
@@ -49,7 +50,17 @@ ChugSplash config files can be defined in TypeScript, JavaScript, or JSON. A sam
 
 ### Configuration settings
 
-The `options` property in your ChugSplash config file contains only a single field, `projectName`. The project name can be any name you choose, but they're reserved on a first-come, first-served basis. Once you've deployed a project using ChugSplash, you must keep the same `projectName` for subsequent upgrades. Note that project names are case sensitive.
+The `options` property in your ChugSplash config file contains two fields, `projectName` and `organizationId`. The project
+name can be any name you choose and should uniquely identify a project within your organization. The Organization Id is a
+unique 32 byte hex string that identifies your organization. If you're using ChugSplash managed, we will provide you with
+an organization id. If not, then you will need to generate one yourself using ethers:
+```
+organizationID: ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes(projectName)
+),
+```
+
+Once you've deployed a project using ChugSplash, you must keep the same `organizationId` and `projectName` for subsequent upgrades. Note that both project names and organization ids are case sensitive.
 
 ### Contract definitions
 
@@ -60,6 +71,7 @@ Each contract definition is keyed by a **reference name**, which can be any name
 Each contract definition has the following fields:
 * `contract`: The contract name in your Solidity source file. For example: `'ERC20'`
 * `variables`: Object containing the contract's state variables and their values.
+* `constructorArgs`: Object containing the contract's constructor arguments and their values.
 * `proxy` (optional): The address of your proxy. This is only required if the proxy was originally deployed using a tool other than ChugSplash. Otherwise, leave it blank.
 
 ### State variables
