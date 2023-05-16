@@ -23,6 +23,8 @@ import {
   DefaultCreate3Artifact,
   DefaultGasPriceCalculatorArtifact,
   FORWARDER_ADDRESS,
+  ChugSplashManagerProxyArtifact,
+  ProxyArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -41,6 +43,9 @@ const DefaultCreate3SourceName = DefaultCreate3Artifact.sourceName
 const DefaultGasPriceCalculatorSourceName =
   DefaultGasPriceCalculatorArtifact.sourceName
 const ManagedServiceSourceName = ManagedServiceArtifact.sourceName
+const chugsplashManagerProxySourceName =
+  ChugSplashManagerProxyArtifact.sourceName
+const proxyArtifactSourceName = ProxyArtifact.sourceName
 
 export const getRegistryConstructorValues = () => [getOwnerAddress()]
 
@@ -76,6 +81,38 @@ export const getManagedServiceAddress = () =>
       [
         ManagedServiceArtifact.bytecode,
         utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
+      ]
+    )
+  )
+
+export const getReferenceChugSplashManagerProxyAddress = () =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashManagerProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+        ),
+      ]
+    )
+  )
+
+export const getReferenceDefaultProxyAddress = () =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address'],
+          [getChugSplashRegistryAddress()]
+        ),
       ]
     )
   )
@@ -126,5 +163,10 @@ export const getChugSplashConstructorArgs = () => {
     [DefaultCreate3SourceName]: [],
     [DefaultGasPriceCalculatorSourceName]: [],
     [ManagedServiceSourceName]: [getOwnerAddress()],
+    [chugsplashManagerProxySourceName]: [
+      getChugSplashRegistryAddress(),
+      getChugSplashRegistryAddress(),
+    ],
+    [proxyArtifactSourceName]: [getChugSplashRegistryAddress()],
   }
 }

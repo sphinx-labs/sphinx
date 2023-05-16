@@ -6,6 +6,7 @@ import {
   getVerificationStatus,
   verifyContract,
   delay,
+  EtherscanResponse,
 } from '@nomiclabs/hardhat-etherscan/dist/src/etherscan/EtherscanService'
 import {
   toVerifyRequest,
@@ -41,6 +42,8 @@ import {
   DefaultGasPriceCalculatorArtifact,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   ManagedServiceArtifact,
+  ChugSplashManagerProxyArtifact,
+  ProxyArtifact,
 } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
@@ -51,6 +54,8 @@ import {
   getChugSplashRegistryAddress,
   getChugSplashManagerV1Address,
   getManagedServiceAddress,
+  getReferenceChugSplashManagerProxyAddress,
+  getReferenceDefaultProxyAddress,
 } from './addresses'
 import { CanonicalChugSplashConfig } from './config/types'
 import {
@@ -121,33 +126,29 @@ export const verifyChugSplashConfig = async (
       contractName
     )
 
-    try {
-      // Verify the implementation
-      await attemptVerification(
-        provider,
-        networkName,
-        etherscanApiEndpoints.urls,
-        implementationAddress,
-        sourceName,
-        contractName,
-        abi,
-        apiKey,
-        minimumCompilerInput,
-        solcVersion,
-        constructorArgValues
-      )
+    // Verify the implementation
+    await attemptVerification(
+      provider,
+      networkName,
+      etherscanApiEndpoints.urls,
+      implementationAddress,
+      sourceName,
+      contractName,
+      abi,
+      apiKey,
+      minimumCompilerInput,
+      solcVersion,
+      constructorArgValues
+    )
 
-      // Link the proxy with its implementation
-      await linkProxyWithImplementation(
-        etherscanApiEndpoints.urls,
-        apiKey,
-        contractConfig.address,
-        implementationAddress,
-        contractName
-      )
-    } catch (err) {
-      console.error(err)
-    }
+    // Link the proxy with its implementation
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints.urls,
+      apiKey,
+      contractConfig.address,
+      implementationAddress,
+      contractName
+    )
   }
 }
 
@@ -194,6 +195,14 @@ export const verifyChugSplash = async (
       address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
     },
     { artifact: ManagedServiceArtifact, address: getManagedServiceAddress() },
+    {
+      artifact: ChugSplashManagerProxyArtifact,
+      address: getReferenceChugSplashManagerProxyAddress(),
+    },
+    {
+      artifact: ProxyArtifact,
+      address: getReferenceDefaultProxyAddress(),
+    },
   ]
 
   for (const { artifact, address } of contracts) {
@@ -297,7 +306,7 @@ export const attemptVerification = async (
 
   // Compilation is bound to take some time so there's no sense in requesting status immediately.
   await delay(700)
-  let verificationStatus
+  let verificationStatus: EtherscanResponse
   try {
     verificationStatus = await getVerificationStatus(urls.apiURL, pollRequest)
   } catch (err) {

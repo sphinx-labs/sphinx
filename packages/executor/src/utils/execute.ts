@@ -55,6 +55,93 @@ const generateRetryEvent = (
   }
 }
 
+const tryVerification = async (
+  logger: Logger,
+  canonicalConfig: CanonicalChugSplashConfig,
+  rpcProvider: ethers.providers.JsonRpcProvider,
+  projectName: string,
+  network: string,
+  graphQLClient: GraphQLClient,
+  activeDeploymentId: string,
+  attempts: number = 0
+) => {
+  // verify on etherscan
+  try {
+    if (isSupportedNetworkOnEtherscan(await getChainId(rpcProvider))) {
+      const apiKey = process.env.ETHERSCAN_API_KEY
+      if (apiKey) {
+        logger.info(
+          `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
+        )
+        await verifyChugSplashConfig(
+          canonicalConfig,
+          rpcProvider,
+          network,
+          apiKey
+        )
+        logger.info(
+          `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
+        )
+      } else {
+        logger.info(
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
+        )
+      }
+    } else {
+      logger.info(
+        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${network}`
+      )
+    }
+  } catch (e) {
+    logger.error('[ChugSplash]: error: verification error', e)
+    if (attempts < 6) {
+      // Try again in 30 seconds
+      setTimeout(async () => {
+        await tryVerification(
+          logger,
+          canonicalConfig,
+          rpcProvider,
+          projectName,
+          network,
+          graphQLClient,
+          activeDeploymentId,
+          attempts + 1
+        )
+      }, 10000)
+    }
+  }
+
+  // Update status in the ChugSplash managed database
+  if (graphQLClient) {
+    const contracts: {
+      referenceName: string
+      contractName: string
+      address: string
+    }[] = []
+    Object.entries(canonicalConfig.contracts).forEach(
+      ([referenceName, contractConfig]) => {
+        contracts.push({
+          referenceName,
+          contractName: contractConfig.contract,
+          address: contractConfig.address,
+        })
+      }
+    )
+
+    try {
+      await updateDeployment(
+        graphQLClient,
+        activeDeploymentId,
+        rpcProvider.network.chainId,
+        'verified',
+        contracts
+      )
+    } catch (error) {
+      logger.error('[ChugSplash]: error: deployment update error', error)
+    }
+  }
+}
+
 export type ExecutorMessage = {
   executorEvent: ExecutorEvent
   key: ExecutorKey
@@ -314,70 +401,18 @@ export const handleExecution = async (data: ExecutorMessage) => {
         logger.error('[ChugSplash]: error: deployment update error', error)
       }
     }
-    // verify on etherscan
-    try {
-      if (isSupportedNetworkOnEtherscan(await getChainId(rpcProvider))) {
-        const apiKey = process.env.ETHERSCAN_API_KEY
-        if (apiKey) {
-          logger.info(
-            `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
-          )
-          await verifyChugSplashConfig(
-            canonicalConfig,
-            rpcProvider,
-            network,
-            apiKey
-          )
-          logger.info(
-            `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
-          )
-        } else {
-          logger.info(
-            `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
-          )
-        }
-      } else {
-        logger.info(
-          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${network}`
-        )
-      }
-    } catch (e) {
-      logger.error(
-        '[ChugSplash]: error: verification error',
-        e,
-        canonicalConfig.options
-      )
-    }
 
-    // Update status in the ChugSplash managed database
-    if (graphQLClient) {
-      const contracts: {
-        referenceName: string
-        contractName: string
-        address: string
-      }[] = []
-      Object.entries(canonicalConfig.contracts).forEach(
-        ([referenceName, contractConfig]) => {
-          contracts.push({
-            referenceName,
-            contractName: contractConfig.contract,
-            address: contractConfig.address,
-          })
-        }
-      )
-
-      try {
-        await updateDeployment(
-          graphQLClient,
-          activeDeploymentId,
-          rpcProvider.network.chainId,
-          'verified',
-          contracts
-        )
-      } catch (error) {
-        logger.error('[ChugSplash]: error: deployment update error', error)
-      }
-    }
+    // verify on etherscan 10s later
+    await tryVerification(
+      logger,
+      canonicalConfig,
+      rpcProvider,
+      projectName,
+      network,
+      graphQLClient,
+      activeDeploymentId,
+      1
+    )
 
     await trackExecuted(
       await getProjectOwnerAddress(manager),
