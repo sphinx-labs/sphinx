@@ -123,7 +123,7 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  userSalt: string
+  salt: string
   constructorArgs: ParsedConfigVariables
   unsafeAllowEmptyPush?: boolean
   unsafeAllowFlexibleConstructor?: boolean

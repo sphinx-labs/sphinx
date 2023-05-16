@@ -3,7 +3,7 @@ import { chugsplash } from 'hardhat'
 import { Contract, ethers } from 'ethers'
 import '@nomiclabs/hardhat-ethers'
 
-describe('Salt', () => {
+describe('Create3', () => {
   let Stateless: Contract
   let StatelessWithSalt: Contract
   before(async () => {
