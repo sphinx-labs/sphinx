@@ -37,6 +37,7 @@ import {
   finalizeRegistration,
   writeCanonicalConfig,
   isLiveNetwork,
+  writeSnapshotId,
 } from '../utils'
 import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -604,6 +605,14 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
+  if (
+    bundles.actionBundle.actions.length === 0 &&
+    bundles.targetBundle.targets.length === 0
+  ) {
+    spinner.succeed(`Nothing to execute in this deployment.`)
+    return
+  }
+
   const deploymentState: DeploymentState = await ChugSplashManager.deployments(
     deploymentId
   )
@@ -738,6 +747,12 @@ export const chugsplashDeployAbstractTask = async (
 
   // At this point, the deployment has been completed.
   if (integration === 'hardhat') {
+    if (!(await isLiveNetwork(provider))) {
+      // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
+      // against the most recently deployed contracts.
+      await writeSnapshotId(provider, networkName, deploymentFolder)
+    }
+
     displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
     spinner.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"

@@ -330,13 +330,15 @@ contract ChugSplashManager is
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
      * @param actionIndex Index of the action that deployed the contract.
+     * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
         string indexed referenceNameHash,
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
-        uint256 actionIndex
+        uint256 actionIndex,
+        bytes32 creationCodeWithArgsHash
     );
 
     /**
@@ -1405,7 +1407,10 @@ contract ChugSplashManager is
             revert DeploymentIsNotApproved();
         }
 
-        (bytes32 salt, bytes memory creationCode) = abi.decode(_action.data, (bytes32, bytes));
+        (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
+            _action.data,
+            (bytes32, bytes)
+        );
 
         string memory referenceName = _action.referenceName;
 
@@ -1437,7 +1442,7 @@ contract ChugSplashManager is
             // We delegatecall the Create3 contract so that the ChugSplashManager address is used in
             // the address calculation of the deployed contract.
             (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
-                abi.encodeCall(ICreate3.deploy, (salt, creationCode, 0))
+                abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
             );
 
             if (!deploySuccess) {
@@ -1453,7 +1458,8 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
-                    _actionIndex
+                    _actionIndex,
+                    keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");
             } else {

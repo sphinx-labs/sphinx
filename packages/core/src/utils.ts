@@ -333,12 +333,7 @@ export const displayDeploymentTable = (
         const address =
           contractConfig.kind !== 'no-proxy'
             ? contractConfig.address
-            : getCreate3Address(
-                managerAddress,
-                parsedConfig.options.projectName,
-                referenceName,
-                contractConfig.userSalt
-              )
+            : getCreate3Address(managerAddress, contractConfig.salt)
 
         const contractName = contractConfig.contract.includes(':')
           ? contractConfig.contract.split(':').at(-1)
@@ -784,7 +779,7 @@ export const isEqualType = (
   return isEqual
 }
 
-export const getCreate3Salt = (
+export const getNonProxyCreate3Salt = (
   projectName: string,
   referenceName: string,
   userSalt: string
@@ -805,15 +800,11 @@ export const getCreate3Salt = (
  */
 export const getCreate3Address = (
   managerAddress: string,
-  projectName: string,
-  referenceName: string,
-  userSalt: string
+  salt: string
 ): string => {
   // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
   // library for details.
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
-
-  const salt = getCreate3Salt(projectName, referenceName, userSalt)
 
   const proxyAddress = utils.getCreate2Address(
     managerAddress,
@@ -1363,4 +1354,24 @@ export const deploymentDoesRevert = async (
     return true
   }
   return false
+}
+
+export const getDeployedCreationCodeWithArgsHash = async (
+  provider: providers.Provider,
+  organizationID: string,
+  referenceName: string,
+  contractAddress: string
+): Promise<string | undefined> => {
+  const ChugSplashManager = getChugSplashManager(provider, organizationID)
+
+  const events = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ContractDeployed(referenceName, contractAddress)
+  )
+
+  const latestEvent = events.at(-1)
+  if (!latestEvent || !latestEvent.args) {
+    return undefined
+  } else {
+    return latestEvent.args.creationCodeWithArgsHash
+  }
 }
