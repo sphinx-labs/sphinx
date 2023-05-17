@@ -13,7 +13,7 @@ import {
 } from './ifaces'
 
 export const OWNER_MULTISIG_ADDRESS =
-  '0xB2f556018A3eaF71795Baf3DEaE9808BDa32C851'
+  '0x226F14C3e19788934Ff37C653Cf5e24caD198341'
 export const getOwnerAddress = () => {
   return process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY
     ? new ethers.Wallet(process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY)
