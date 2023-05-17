@@ -1,5 +1,107 @@
 # @chugsplash/core
 
+## 0.9.0
+
+### Minor Changes
+
+- c319493: Deploy contracts before modifying proxies during execution
+- c309331: Add organization ID
+- 57cd798: Make ChugSplash non-upgradeable
+- e797869: Add claimer field to config
+- 11fd15c: Make chugsplash-deploy task execute locally by default
+- ac40b0b: Require that proposers are approved by the project owner
+
+### Patch Changes
+
+- 7ee54af: Assert that the block gas limit is at least 15 million
+- 5896c7c: Remove unused `getMinimumSourceNames` function
+- 1c5e99a: Add support for async config files
+- c43c960: Add input validation for config variables
+- ea4bc1e: Add a protocol fee to be collected during execution
+- 41f420c: Allow function types in contracts
+- 06c9af9: Only initialize ChugSplash on local networks
+- e2392ad: Update remoteExecution parameter to only be true when proposing on a live network
+- d7dc1ba: Resolve inherited private variable conflicts
+- fb9442a: Add support for user defined types
+- 0ef343d: Write artifacts for proxy and implementation contracts
+- e5b9f81: Add ChugSplashClaimer which will exist on L1
+- 2a0939a: Separate local canonical config files by network
+- b7e779f: Assert that the contracts in the config are below the contract size limit
+- d652952: Use create3 to deploy non-proxy contracts
+- 9fccb34: Merge execution functions in the ChugSplashManager
+- a26ab46: Validate usage of the preserve keyword
+- ed81039: Assert block gas limit is sufficiently high in parsing logic
+- bf1fde7: Add parsing and validation on constructor arugments
+- 1d54d12: Add support for flexible constructors and mutable constructor arguments
+- dffa427: Fix bug encoding address payable
+- f1cf9ac: Fix bug parsing proxied config variables
+- c2712bf: Allow executor to withdraw specified amount of debt
+- d540efc: Change documentation for mapping value label
+- 69dcfba: Add support for opt-in manager upgrades
+- fba0fa0: Add `isDataHexString` helper function
+- cccb052: Ensure storageLayout field is never undefined
+- b204c6e: Allow bundles to be proposed after being completed or cancelled
+- 1eeba58: Assert valid bundle size
+- 02220c4: Add { gap } keyword
+- ff87792: Fix behavior of contracts deployed using Create3
+- 3f023b2: Restrict Solidity versions to >0.5.x
+- da576c3: Split UUPS adapter into ownable and access control adapters
+- 8eb6686: Add support for other OpenZeppelin storage safety check options
+- f72b185: Use general Create2 contract
+- 99ef1a7: Allow configurable system owner
+- b05b489: Replace TODOs with Linear tickets
+- 1ba3adc: Make contract execution atomic
+- 89c3fe2: Support contract references in constructor arguments
+- 3d9f9c2: Add support for deploying stateless non-proxied contracts
+- f433bc2: Remove claimer from config and registry
+- 26ab2ad: Get previous storage layout using OpenZeppelin's format
+- ff58a7d: Add support for struct constructor args
+- 1dee798: Fixes a couple errors when deploying no-proxy contracts
+- ab983d4: Refactor encoding logic into separate encoding and parsing processes
+- be43435: Change proxy ownership transfer tasks to remove ambiguity
+- c69aa51: Remove extra CLI tasks
+- Updated dependencies [b8952d1]
+- Updated dependencies [ea4bc1e]
+- Updated dependencies [1ac2ebd]
+- Updated dependencies [49a4934]
+- Updated dependencies [ddbea87]
+- Updated dependencies [c319493]
+- Updated dependencies [28e807d]
+- Updated dependencies [c309331]
+- Updated dependencies [73277b5]
+- Updated dependencies [491683b]
+- Updated dependencies [e5b9f81]
+- Updated dependencies [d652952]
+- Updated dependencies [9fccb34]
+- Updated dependencies [d2f9fae]
+- Updated dependencies [992e2fb]
+- Updated dependencies [c2712bf]
+- Updated dependencies [69dcfba]
+- Updated dependencies [57cd798]
+- Updated dependencies [aa7051a]
+- Updated dependencies [b41ec91]
+- Updated dependencies [34790fa]
+- Updated dependencies [b204c6e]
+- Updated dependencies [ff87792]
+- Updated dependencies [da576c3]
+- Updated dependencies [f72b185]
+- Updated dependencies [ae6641d]
+- Updated dependencies [99ef1a7]
+- Updated dependencies [0c045f9]
+- Updated dependencies [c87c4a3]
+- Updated dependencies [15368e8]
+- Updated dependencies [2b9f72c]
+- Updated dependencies [b05b489]
+- Updated dependencies [1ba3adc]
+- Updated dependencies [1c8fc74]
+- Updated dependencies [e797869]
+- Updated dependencies [5e6feaa]
+- Updated dependencies [3d9f9c2]
+- Updated dependencies [f433bc2]
+- Updated dependencies [11fd15c]
+- Updated dependencies [ac40b0b]
+  - @chugsplash/contracts@0.7.0
+
 ## 0.8.1
 
 ### Patch Changes

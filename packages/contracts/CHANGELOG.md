@@ -1,5 +1,53 @@
 # @chugsplash/contracts
 
+## 0.7.0
+
+### Minor Changes
+
+- ea4bc1e: Add a protocol fee to be collected during execution
+- c319493: Deploy contracts before modifying proxies during execution
+- e5b9f81: Add ChugSplashClaimer which will exist on L1
+- d652952: Use create3 to deploy non-proxy contracts
+- d2f9fae: Add local adapter contract
+- 57cd798: Make ChugSplash non-upgradeable
+- 34790fa: Add helper function on ChugSplashManager to execute entire bundle in one transaction
+- 1ba3adc: Make contract execution atomic
+- 1c8fc74: Support rollbacks in the contracts
+- e797869: Add claimer field to config
+- ac40b0b: Require that proposers are approved by the project owner
+
+### Patch Changes
+
+- b8952d1: Remove TODOs in the ChugSplashManager
+- 1ac2ebd: Optimize gas in contract for loops
+- 49a4934: Support arbitrary contract calls from the ManagedService contract
+- ddbea87: Add Semver versioning to ChugSplashManager
+- 28e807d: Fix incorrect fee calculation
+- c309331: Add organization ID
+- 73277b5: Add reentrancy guards to the bundle initiation and completion functions
+- 491683b: Move `adapter.initiateExecution` function into the corresponding function in the ChugSplashManager
+- 9fccb34: Merge execution functions in the ChugSplashManager
+- 992e2fb: Resolve build info files automatically
+- c2712bf: Allow executor to withdraw specified amount of debt
+- 69dcfba: Add support for opt-in manager upgrades
+- aa7051a: Skip deploying a contract if it already exists
+- b41ec91: Remove unnecessary receive and fallback functions in updater contracts
+- b204c6e: Allow bundles to be proposed after being completed or cancelled
+- ff87792: Fix behavior of contracts deployed using Create3
+- da576c3: Split UUPS adapter into ownable and access control adapters
+- f72b185: Use general Create2 contract
+- ae6641d: Add propoer address to bundle proposed event
+- 99ef1a7: Allow configurable system owner
+- 0c045f9: Remove Optimism-specific logic for tx.gasprice in ChugSplashManager
+- c87c4a3: Resolve slither warnings
+- 15368e8: Add PermissionedCaller contract
+- 2b9f72c: Check that the bundle has been initiated in the `executeActions` function
+- b05b489: Replace TODOs with Linear tickets
+- 5e6feaa: Improve gas estimation on-chain
+- 3d9f9c2: Add support for deploying stateless non-proxied contracts
+- f433bc2: Remove claimer from config and registry
+- 11fd15c: Make chugsplash-deploy task execute locally by default
+
 ## 0.6.0
 
 ### Minor Changes
