@@ -60,60 +60,6 @@ With npm:
 npm install --save-dev @chugsplash/plugins
 ```
 
-## Setup ChugSplash using JavaScript
-
-If you have a JavaScript Hardhat project, follow these instructions. Otherwise, go to [the TypeScript instructions](#setup-chugsplash-using-typescript) instead.
-
-To setup ChugSplash, you **must** update `hardhat.config.js` to include the following:
-
-```js
-... // Other plugin imports go here
-
-require('@chugsplash/plugins')
-
-module.exports = {
-  ... // Other Hardhat settings go here
-  solidity: {
-    ... // Other Solidity settings go here
-    compilers: [
-      {
-        version: ... , // Solidity compiler version (e.g. 0.8.15)
-        settings: {
-          outputSelection: {
-            '*': {
-              '*': ['storageLayout'],
-            },
-          },
-        },
-      },
-      // Other compiler config objects go here (optional)
-    ]
-  }
-}
-```
-
-Next, create a sample ChugSplash project:
-```
-npx hardhat chugsplash-init
-```
-
-This command created a `chugsplash/` folder, which is will contain your deployments.
-
-It also created a few files:
-* `chugsplash/hello-chugsplash.js`: The ChugSplash file where your first deployment is defined.
-* `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
-* `test/HelloChugSplash.test.js`: The test file for your deployment.
-
-To deploy `HelloChugSplash.sol` locally:
-```
-npx hardhat chugsplash-deploy --config-path chugsplash/hello-chugsplash.js
-```
-
-To test your deployment:
-```
-npx hardhat test test/HelloChugSplash.test.js
-```
-
 ## Setup ChugSplash using TypeScript
 
 If you have a TypeScript Hardhat project, follow these instructions. Otherwise, go to [the JavaScript instructions](#setup-chugsplash-using-javascript) instead.
@@ -156,7 +102,7 @@ npx hardhat chugsplash-init
 This command created a `chugsplash/` folder, which is will contain your deployments.
 
 It also created a few files:
-* `chugsplash/hello-chugsplash.ts`: The ChugSplash file where your first deployment is defined.
+* `chugsplash/hello-chugsplash.ts`: The ChugSplash config file where your first deployment is defined.
 * `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
 * `test/HelloChugSplash.spec.ts`: The test file for your deployment.
 
@@ -168,6 +114,71 @@ npx hardhat chugsplash-deploy --config-path chugsplash/hello-chugsplash.ts
 To test your deployment:
 ```
 npx hardhat test test/HelloChugSplash.spec.ts
+```
+
+## Update your Organization Id
+Before deploying on a live network, you'll want to update the organization id in your ChugSplash config file. The organization id must be unique to you. If you are using ChugSplash managed, then we will provide one for you and
+you should just copy paste it into your config. If you are not using ChugSplash managed, then you will have to
+generate a unique organization id yourself. It must be a 32 byte hex string. You can easily generate one using ethers
+like so:
+```
+organizationID: ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('random-string')
+),
+```
+
+## Setup ChugSplash using JavaScript
+
+If you have a JavaScript Hardhat project, follow these instructions. Otherwise, go to [the TypeScript instructions](#setup-chugsplash-using-typescript) instead.
+
+To setup ChugSplash, you **must** update `hardhat.config.js` to include the following:
+
+```js
+... // Other plugin imports go here
+
+require('@chugsplash/plugins')
+
+module.exports = {
+  ... // Other Hardhat settings go here
+  solidity: {
+    ... // Other Solidity settings go here
+    compilers: [
+      {
+        version: ... , // Solidity compiler version (e.g. 0.8.15)
+        settings: {
+          outputSelection: {
+            '*': {
+              '*': ['storageLayout'],
+            },
+          },
+        },
+      },
+      // Other compiler config objects go here (optional)
+    ]
+  }
+}
+```
+
+Next, create a sample ChugSplash project:
+```
+npx hardhat chugsplash-init
+```
+
+This command created a `chugsplash/` folder, which is will contain your deployments.
+
+It also created a few files:
+* `chugsplash/hello-chugsplash.js`: The ChugSplash config file where your first deployment is defined.
+* `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
+* `test/HelloChugSplash.test.js`: The test file for your deployment.
+
+To deploy `HelloChugSplash.sol` locally:
+```
+npx hardhat chugsplash-deploy --config-path chugsplash/hello-chugsplash.js
+```
+
+To test your deployment:
+```
+npx hardhat test test/HelloChugSplash.test.js
 ```
 
 ## Learn More

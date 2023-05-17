@@ -18,7 +18,8 @@
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "deploy": "npx hardhat deploy-system"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/core#readme",
   "license": "MIT",
@@ -34,8 +35,14 @@
     "@eth-optimism/contracts-bedrock": "^0.8.0",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethersproject/abstract-provider": "^5.7.0",
+    "@metamask/eth-sig-util": "^5.1.0",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.20.6",
+    "axios": "^1.4.0",
+    "chalk": "^4.1.2",
     "core-js": "^3.27.1",
+    "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
     "fs": "^0.0.1-security",
     "handlebars": "^4.7.7",
@@ -48,9 +55,11 @@
     "ora": "^5.4.1",
     "semver": "^7.3.8",
     "solidity-ast": "^0.4.45",
+    "undici": "^5.21.1",
     "yesno": "^0.4.0"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.1",
     "hardhat": "^2.10.0"
   }
 }

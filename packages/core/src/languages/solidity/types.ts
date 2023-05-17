@@ -1,4 +1,6 @@
 import { Fragment } from 'ethers/lib/utils'
+import { CompilerInput } from 'hardhat/types'
+import { SourceUnit } from 'solidity-ast'
 
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the structure of
@@ -14,6 +16,10 @@ export interface SolidityStorageObj {
   type: string
 }
 
+export interface ExtendedSolidityStorageObj extends SolidityStorageObj {
+  configVarName: string
+}
+
 /**
  * Represents the JSON objects outputted by the Solidity compiler that describe the types used for
  * the various pieces of state in the contract. See
@@ -26,7 +32,11 @@ export interface SolidityStorageType {
   key?: string
   value?: string
   base?: string
-  members?: any[]
+  members?: SolidityStorageObj[]
+}
+
+export interface SolidityStorageTypes {
+  [name: string]: SolidityStorageType
 }
 
 /**
@@ -35,9 +45,11 @@ export interface SolidityStorageType {
  */
 export interface SolidityStorageLayout {
   storage: SolidityStorageObj[]
-  types: {
-    [name: string]: SolidityStorageType
-  }
+  types: SolidityStorageTypes
+}
+
+export interface ExtendedStorageLayout extends SolidityStorageLayout {
+  storage: ExtendedSolidityStorageObj[]
 }
 
 /**
@@ -56,35 +68,20 @@ export interface StorageSlotSegment {
   val: string
 }
 
-export interface CompilerInput {
-  language: string
-  sources: { [sourceName: string]: { content: string } }
-  settings: {
-    optimizer: { runs?: number; enabled?: boolean }
-    metadata?: { useLiteralContent: boolean }
-    outputSelection: {
-      [sourceName: string]: {
-        [contractName: string]: string[]
-      }
-    }
-    evmVersion?: string
-    libraries?: {
-      [libraryFileName: string]: {
-        [libraryName: string]: string
-      }
-    }
-  }
+export type BuildInfo = {
+  id: string
+  solcVersion: string
+  solcLongVersion: string
+  input: CompilerInput
+  output: CompilerOutput
 }
-
-// TODO
-export type BuildInfo = any
-export type ContractASTNode = any
 
 export type ContractArtifact = {
   abi: Array<Fragment>
   sourceName: string
   contractName: string
   bytecode: string
+  deployedBytecode: string
 }
 
 export interface CompilerOutputMetadata {
@@ -95,10 +92,12 @@ export interface CompilerOutputMetadata {
       urls: string[]
     }
   }
+  output: any
 }
 
 export interface CompilerOutputContract {
-  abi: any
+  abi: Array<Fragment>
+  storageLayout?: SolidityStorageLayout
   evm: {
     bytecode: CompilerOutputBytecode
     deployedBytecode: CompilerOutputBytecode
@@ -106,7 +105,7 @@ export interface CompilerOutputContract {
       [methodSignature: string]: string
     }
   }
-  metadata?: string | CompilerOutputMetadata
+  metadata: string | CompilerOutputMetadata
 }
 
 export interface CompilerOutputContracts {
@@ -123,11 +122,7 @@ export interface CompilerOutput {
 
 export interface CompilerOutputSource {
   id: number
-  ast: {
-    id: number
-    exportedSymbols: { [contractName: string]: number[] }
-    nodes?: any
-  }
+  ast: SourceUnit
 }
 
 export interface CompilerOutputSources {
@@ -146,4 +141,10 @@ export interface CompilerOutputBytecode {
   immutableReferences?: {
     [key: string]: Array<{ start: number; length: number }>
   }
+}
+
+export type ChugSplashSystemConfig = {
+  executors: string[]
+  proposers: string[]
+  callers: string[]
 }

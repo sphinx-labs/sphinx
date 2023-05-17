@@ -5,9 +5,17 @@ import "forge-std/Test.sol";
 import "../../foundry-contracts/ChugSplash.sol";
 import "../../contracts/Storage.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
+import { Stateless } from "../../contracts/Stateless.sol";
+import { ComplexConstructorArgs } from "../../contracts/ComplexConstructorArgs.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
-import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
+import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
+import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
+import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "@chugsplash/contracts/contracts/interfaces/IProxyUpdater.sol";
+import { IGasPriceCalculator } from "@chugsplash/contracts/contracts/interfaces/IGasPriceCalculator.sol";
+import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.sol";
 
 /* ChugSplash Foundry Library Tests
  *
@@ -20,34 +28,24 @@ import { Proxy } from "@chugsplash/contracts/contracts/libraries/Proxy.sol";
  */
 
 contract ChugSplashTest is Test {
-    Proxy claimedProxy;
-    Proxy transferredProxy;
+    type UserDefinedType is uint256;
+
+    address claimedProxy;
+    address transferredProxy;
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
+    Stateless     myStateless;
+    ComplexConstructorArgs myComplexConstructorArgs;
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     string deployConfig = "./chugsplash/foundry/deploy.t.js";
 
-    string withdrawProjectName = "Withdraw test";
-    string withdrawConfig = "./chugsplash/foundry/withdraw.t.js";
-
-    string registerProjectName = 'Register, propose, fund, approve test';
-    string registerConfig = "./chugsplash/foundry/registerProposeFundApprove.t.js";
-
-    string cancelProjectName = "Cancel test";
-    string cancelConfig = "./chugsplash/foundry/cancel.t.js";
-
-    // This is just an anvil test key
-    string newProposerPrivateKey = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-    address newProposer = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    string addProposerProjectName = "Add proposer test";
-    string addProposerConfig = "./chugsplash/foundry/addProposer.t.js";
-
+    bytes32 claimOrgID = keccak256('Claim test');
     string claimConfig = "./chugsplash/foundry/claim.t.js";
 
-    string transferProjectName = "Transfer test";
+    bytes32 transferOrganizationID = keccak256('Transfer test');
     string transferConfig = "./chugsplash/foundry/transfer.t.js";
 
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
@@ -58,83 +56,86 @@ contract ChugSplashTest is Test {
         // Setup deployment test
         chugsplash.deploy(deployConfig, true);
 
-        // Deploy claim proxy test
+        // Deploy export proxy test
         chugsplash.deploy(claimConfig, true);
-        chugsplash.claimProxy(claimConfig, "MySimpleStorage", true);
+        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
 
-        // Start transfer proxy test
+        // Start export proxy test
         chugsplash.deploy(transferConfig, true);
-        chugsplash.claimProxy(transferConfig, "MySimpleStorage", true);
-
-        // Setup register, propose, fund, approve process test
-        chugsplash.register(registerConfig, true);
-        chugsplash.propose(registerConfig, false, true);
-        chugsplash.fund(registerConfig, 1 ether, false, true);
-        chugsplash.approve(registerConfig, true, true);
-
-        // Setup withdraw test
-        chugsplash.register(withdrawConfig, true);
-        chugsplash.fund(withdrawConfig, 1 ether, false, true);
-        chugsplash.withdraw(withdrawConfig, true);
-
-        // Setup cancel test
-        chugsplash.register(cancelConfig, true);
-        chugsplash.propose(cancelConfig, false, true);
-        chugsplash.fund(cancelConfig, 1 ether, false, true);
-        chugsplash.approve(cancelConfig, true, true);
-        chugsplash.cancel(cancelConfig, true);
-
-        // Setup add proposer test
-        chugsplash.register(addProposerConfig, true);
-        chugsplash.addProposer(addProposerConfig, newProposer, true);
-        vm.setEnv("PRIVATE_KEY", newProposerPrivateKey);
-        chugsplash.propose(addProposerConfig, false, true);
+        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
 
         // Refresh EVM state to reflect chain state after ChugSplash transactions
         chugsplash.refresh();
 
-        chugsplash.transferProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = Proxy(payable(chugsplash.getAddress(claimConfig, "MySimpleStorage")));
-        transferredProxy = Proxy(payable(chugsplash.getAddress(transferConfig, "MySimpleStorage")));
+        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
+        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
+        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
         mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
+        myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
+        myComplexConstructorArgs = ComplexConstructorArgs(chugsplash.getAddress(deployConfig, "ComplexConstructorArgs"));
 
         registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
     }
 
-    function testDidClaimProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(claimedProxy)), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    function testDidexportProxy() public {
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
-    function testDidTransferProxy() public {
-        ChugSplashManager manager = registry.projects(transferProjectName);
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(address(transferredProxy)), address(manager));
+    function testDidImportProxy() public {
+        ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
+        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
-    function testDidRegister() public {
-        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unregistered project detected");
-        assertFalse(address(registry.projects(registerProjectName)) == address(0), "Registered project was not detected");
+    function testDidClaim() public {
+        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
+        assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
     }
 
-    function testDidProposeFundApprove() public {
-        ChugSplashManager manager = registry.projects(registerProjectName);
-        assertTrue(address(manager).balance == 1 ether, "Manager was not funded");
-        assertTrue(manager.activeBundleId() != 0, "No active bundle id detected");
+    function testDeployStatelessImmutableContract() public {
+        assertEq(myStateless.hello(), 'Hello, world!');
+        assertEq(myStateless.immutableUint(), 1);
     }
 
-    function testDidWithdraw() public {
-        ChugSplashManager manager = registry.projects(withdrawProjectName);
-        assertTrue(address(manager).balance == 0 ether, "Manager balance not properly withdrawn");
+    function testDoesResolveReferenceToNonProxiedContract() public {
+        assertEq(address(mySimpleStorage.myStateless()), address(myStateless));
+        assertEq(mySimpleStorage.hello(), 'Hello, world!');
     }
 
-    function testDidCancel() public {
-        ChugSplashManager manager = registry.projects(cancelProjectName);
-        assertTrue(manager.activeBundleId() == 0, "Bundle still active");
+    function testSetImmutableInt() public {
+        assertEq(myStorage.immutableInt(), type(int256).min);
     }
 
-    function testDidAddProposer() public {
-        ChugSplashManager manager = registry.projects(addProposerProjectName);
-        assertTrue(manager.proposers(newProposer));
+    function testSetImmutableInt8() public {
+        assertEq(myStorage.immutableInt8(), type(int8).min);
+    }
+
+    function testSetImmutableUint256() public {
+        assertEq(myStorage.immutableUint(), type(uint256).max);
+    }
+
+    function testSetImmutableUint8() public {
+        assertEq(myStorage.immutableUint8(), type(uint8).max);
+    }
+
+    function testSetImmutableBool() public {
+        assertEq(myStorage.immutableBool(), true);
+    }
+
+    function testSetImmutableBytes32() public {
+        assertEq(myStorage.immutableBytes32(), 0x1111111111111111111111111111111111111111111111111111111111111111);
+    }
+
+    function testSetImmutableUserDefinedType() public {
+        assertEq(Storage.UserDefinedType.unwrap(myStorage.immutableUserDefinedType()), type(uint256).max);
+    }
+
+    function testSetImmutableBigNumberUint() public {
+        assertEq(myStorage.immutableBigNumberUint(), type(uint256).max);
+    }
+
+    function testSetImmutableBigNumberInt() public {
+        assertEq(myStorage.immutableBigNumberInt(), type(int256).min);
     }
 
     function testSetContractReference() public {
@@ -147,6 +148,22 @@ contract ChugSplashTest is Test {
 
     function testSetMinInt8() public {
         assertEq(myStorage.minInt8(), type(int8).min);
+    }
+
+    function testSetBigNumberInt256() public {
+        assertEq(myStorage.bigNumberInt256(), type(int256).max);
+    }
+
+    function testSetBigNumberInt8() public {
+        assertEq(myStorage.bigNumberInt8(), type(int8).min);
+    }
+
+    function testSetBigNumberUint256() public {
+        assertEq(myStorage.bigNumberUint256(), type(uint256).max);
+    }
+
+    function testSetBigNumberUint8() public {
+        assertEq(myStorage.bigNumberUint8(), type(uint8).max);
     }
 
     function testSetMinUint8() public {
@@ -169,6 +186,77 @@ contract ChugSplashTest is Test {
         assertEq(myStorage.bytesTest(), hex"abcd1234");
     }
 
+    function testSetUserDefinedType() public {
+        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+    }
+
+    function testSetUserDefinedBytes() public {
+        assertEq(Storage.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()), 0x1111111111111111111111111111111111111111111111111111111111111111);
+    }
+
+    function testSetUserDefinedInt() public {
+        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedInt()),  type(int256).min);
+    }
+
+    function testSetUserDefinedInt8() public {
+        assertEq(Storage.UserDefinedInt8.unwrap(myStorage.userDefinedInt8()), type(int8).min);
+    }
+
+    function testSetUserDefinedUint8() public {
+        assertEq(Storage.UserDefinedUint8.unwrap(myStorage.userDefinedUint8()), 255);
+    }
+
+    function testSetUserDefinedBool() public {
+        assertEq(Storage.UserDefinedBool.unwrap(myStorage.userDefinedBool()), true);
+    }
+
+    function testSetUserDefinedBigNumberInt() public {
+        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedBigNumberInt()), 0);
+    }
+
+    function testSetStringToUserDefinedTypeMapping() public {
+        (Storage.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
+        assertEq(Storage.UserDefinedType.unwrap(a), 1000000000000000000);
+    }
+
+    function testSetUserDefinedTypeToStringMapping() public {
+        assertEq(myStorage.userDefinedToStringMapping(Storage.UserDefinedType.wrap(1000000000000000000)), 'testVal');
+    }
+
+    function testSetComplexStruct() public {
+        (int32 a, Storage.UserDefinedType c) = myStorage.complexStruct();
+        assertEq(a, 4);
+        assertEq(Storage.UserDefinedType.unwrap(c), 1000000000000000000);
+        assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
+    }
+
+    function testSetUserDefinedFixedArray() public {
+        uint64[2] memory uintFixedArray = [1000000000000000000, 1000000000000000000];
+        for (uint i = 0; i < uintFixedArray.length; i++) {
+            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)), uintFixedArray[i]);
+        }
+    }
+
+    function testSetUserDefinedNestedArray() public {
+        uint64[2][2] memory nestedArray = [
+            [1000000000000000000, 1000000000000000000],
+            [1000000000000000000, 1000000000000000000]
+        ];
+
+        for (uint i = 0; i < nestedArray.length; i++) {
+            for (uint j = 0; j < nestedArray[i].length; j++) {
+                assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)), nestedArray[i][j]);
+            }
+        }
+    }
+
+    function testSetUserDefinedDynamicArray() public {
+        uint64[3] memory uintDynamicArray = [1000000000000000000, 1000000000000000000, 1000000000000000000];
+        for (uint i = 0; i < uintDynamicArray.length; i++) {
+            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)), uintDynamicArray[i]);
+        }
+    }
+
     function testSetLongBytes() public {
         assertEq(myStorage.longBytesTest(), hex"123456789101112131415161718192021222324252627282930313233343536373839404142434445464");
     }
@@ -179,6 +267,10 @@ contract ChugSplashTest is Test {
 
     function testSetEnum() public {
         assertEq(uint(myStorage.enumTest()), 1);
+    }
+
+    function testSetBigNumberEnum() public {
+        assertEq(uint(myStorage.bigNumberEnumTest()), 1);
     }
 
     function testSetStruct() public {
@@ -216,16 +308,17 @@ contract ChugSplashTest is Test {
         assertEq(myStorage.longStringToLongStringMapping(key), key);
     }
 
-    function testSetComplexStruct() public {
-        (int32 a) = myStorage.complexStruct();
-        assertEq(a, 4);
-        assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
-    }
-
     function testSetUint64FixedSizeArray() public {
         uint16[5] memory expectedValues = [1, 10, 100, 1_000, 10_000];
         for (uint i = 0; i < 5; i++) {
             assertEq(myStorage.uint64FixedArray(i), expectedValues[i]);
+        }
+    }
+
+    function testSetUint64MixedTypesArray() public {
+        uint16[5] memory expectedValues = [1, 10, 100, 1_000, 10_000];
+        for (uint i = 0; i < 5; i++) {
+            assertEq(myStorage.mixedTypesUint64FixedArray(i), expectedValues[i]);
         }
     }
 
@@ -294,6 +387,10 @@ contract ChugSplashTest is Test {
         assertEq(myStorage.uint128ToStringMapping(1234), 'testVal');
     }
 
+    function testSetStringToBigNumberUintMapping() public {
+        assertEq(myStorage.stringToBigNumberUintMapping('testKey'), 1234);
+    }
+
     function testSetInt256MappingToString() public {
         assertEq(myStorage.int256ToStringMapping(-1), 'testVal');
     }
@@ -321,5 +418,68 @@ contract ChugSplashTest is Test {
 
     function testSetMultiNestedMapping() public {
         assertEq(myStorage.multiNestedMapping(1, 'testKey', 0x1111111111111111111111111111111111111111), 2);
+    }
+
+    function testSetMutableStringConstructorArg() public {
+        assertEq(myComplexConstructorArgs.str(), 'testString');
+    }
+
+    function testSetMutableDyanmicBytesConstructorArg() public {
+        assertEq(myComplexConstructorArgs.dynamicBytes(), hex"abcd1234");
+    }
+
+    function testSetMutableUint64FixedArrayConstructorArg() public {
+        uint16[5] memory uint64FixedArray = [1, 10, 100, 1_000, 10_000];
+        for (uint i = 0; i < uint64FixedArray.length; i++) {
+            assertEq(myComplexConstructorArgs.uint64FixedArray(i), uint64FixedArray[i]);
+        }
+    }
+
+    function testSetMutableInt64DynamicArrayConstructorArg() public {
+        int24[7] memory int64DynamicArray = [-5, 50, -500, 5_000, -50_000, 500_000, -5_000_000];
+        for (uint i = 0; i < int64DynamicArray.length; i++) {
+            assertEq(myComplexConstructorArgs.int64DynamicArray(i), int64DynamicArray[i]);
+        }
+    }
+
+    function testSetMutableUint64FixedNestedArrayConstructorArg() public {
+        uint8[5][6] memory uint64FixedNestedArray = [
+            [1, 2, 3, 4, 5],
+            [6, 7, 8, 9, 10],
+            [11, 12, 13, 14, 15],
+            [16, 17, 18, 19, 20],
+            [21, 22, 23, 24, 25],
+            [26, 27, 28, 29, 30]
+        ];
+        for (uint i = 0; i < uint64FixedNestedArray.length; i++) {
+            for (uint j = 0; j < uint64FixedNestedArray[i].length; j++) {
+                assertEq(myComplexConstructorArgs.uint64FixedNestedArray(i, j), uint64FixedNestedArray[i][j]);
+            }
+        }
+    }
+
+    function testSetMutableUint64DynamicMultinestedArrayConstructorArg() public {
+        uint8[3][2][3] memory uint64DynamicMultiNestedArray = [
+            [
+                [1, 2, 3],
+                [4, 5, 6]
+            ],
+            [
+                [7, 8, 9],
+                [10, 11, 12]
+            ],
+            [
+                [13, 14, 15],
+                [16, 17, 18]
+            ]
+        ];
+
+        for (uint i = 0; i < uint64DynamicMultiNestedArray.length; i++) {
+            for (uint j = 0; j < uint64DynamicMultiNestedArray[i].length; j++) {
+                for (uint k = 0; k < uint64DynamicMultiNestedArray[i][j].length; k++) {
+                    assertEq(myComplexConstructorArgs.uint64DynamicMultiNestedArray(i, j, k), uint64DynamicMultiNestedArray[i][j][k]);
+                }
+            }
+        }
     }
 }

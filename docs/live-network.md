@@ -28,8 +28,6 @@ If you haven't already created a `.env` file in the root of your project, you sh
 # Required variables
 PRIVATE_KEY=
 NETWORK=
-IPFS_PROJECT_ID=
-IPFS_API_KEY_SECRET=
 
 # Optional variables
 SKIP_STORAGE_CHECK=
@@ -63,7 +61,6 @@ Then to perform your deployment, simply run:
 forge script --rpc-url <rpcUrl> <path/to/script>
 ```
 
-
 ## Hardhat
 
 ### Update your environment variables
@@ -74,8 +71,6 @@ If you haven't already created a `.env` file in the root of your project, you sh
 ```
 # Required variables
 PRIVATE_KEY=
-IPFS_PROJECT_ID=
-IPFS_API_KEY_SECRET=
 ```
 
 Descriptions for these variables are listed below.
@@ -83,7 +78,6 @@ Descriptions for these variables are listed below.
 ### Required variables
 
 * `PRIVATE_KEY`: Private key of the deployer.
-* `IPFS_PROJECT_ID` and `IPFS_API_KEY_SECRET`: IPFS credentials. We recommend getting these on [Infura](https://app.infura.io/).
 
 ### Update your hardhat.config.js file
 Then you'll need to update your `hardhat.config.js` file to add configurations for the network(s) you would like to target. If you are familiar with Hardhat, these configurations are exactly the same.

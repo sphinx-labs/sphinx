@@ -5,16 +5,17 @@ import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import {
   chugsplashCommitAbstractSubtask,
-  readParsedChugSplashConfig,
-  readUserChugSplashConfig,
+  readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { utils } from 'ethers'
 
 import { getArtifactPaths } from '../hardhat/artifacts'
+import { createChugSplashRuntime } from '../utils'
 
 const chugsplashFilePath = argv[2]
 if (typeof chugsplashFilePath !== 'string') {
-  throw new Error(`Pass in a path to a ChugSplash file.`)
+  throw new Error(`Pass in a path to a ChugSplash config file.`)
 }
 
 /**
@@ -25,7 +26,7 @@ if (typeof chugsplashFilePath !== 'string') {
  * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
-  const userConfig = readUserChugSplashConfig(chugsplashFilePath)
+  const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
   const artifactPaths = await getArtifactPaths(
     hre,
     userConfig.contracts,
@@ -33,16 +34,25 @@ const displayBundleInfo = async () => {
     path.join(hre.config.paths.artifacts, 'build-info')
   )
 
-  const parsedConfig = await readParsedChugSplashConfig(
+  const cre = await createChugSplashRuntime(
+    chugsplashFilePath,
+    false,
+    true,
+    hre.config.paths.canonicalConfigs,
+    undefined,
+    false
+  )
+
+  const parsedConfig = await readValidatedChugSplashConfig(
     hre.ethers.provider,
     chugsplashFilePath,
     artifactPaths,
-    'hardhat'
+    'hardhat',
+    cre
   )
 
-  const { configUri, bundle } = await chugsplashCommitAbstractSubtask(
+  const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
     hre.ethers.provider,
-    hre.ethers.provider.getSigner(),
     parsedConfig,
     '',
     false,
@@ -52,13 +62,13 @@ const displayBundleInfo = async () => {
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.
-  for (const action of bundle.actions) {
+  for (const action of bundles.actionBundle.actions) {
     action.proof.siblings = action.proof.siblings.map((sibling) =>
       utils.hexlify(sibling)
     )
   }
 
-  const bundleInfo = { configUri, bundle }
+  const bundleInfo = { configUri, bundles }
 
   process.stdout.write(JSON.stringify(bundleInfo, null, 2))
 }

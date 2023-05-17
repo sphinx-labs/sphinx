@@ -9,28 +9,19 @@ import {
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
+import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
-  ChugSplashRecorderABI,
-  CHUGSPLASH_RECORDER_ADDRESS,
-} from '@chugsplash/contracts'
-import {
-  initializeChugSplash,
-  Integration,
+  getChugSplashRegistryAddress,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
+  ensureChugSplashInitialized,
 } from '@chugsplash/core'
-import { getChainId } from '@eth-optimism/core-utils'
 import { GraphQLClient } from 'graphql-request'
 
-import { verifyChugSplash, isSupportedNetworkOnEtherscan } from './utils'
-import {
-  ExecutorMessage,
-  handleExecution,
-  ResponseMessage,
-} from './utils/execute'
+import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
 export class ChugSplashExecutor extends BaseServiceV2<
@@ -65,7 +56,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           desc: 'Command delimited list of private keys for signing deployment transactions',
           validator: validators.str,
           default:
-            '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
+            '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
         },
         logLevel: {
           desc: 'Executor log level',
@@ -100,9 +91,9 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
-    this.state.recorder = new ethers.Contract(
-      CHUGSPLASH_RECORDER_ADDRESS,
-      ChugSplashRecorderABI,
+    this.state.registry = new ethers.Contract(
+      getChugSplashRegistryAddress(),
+      ChugSplashRegistryABI,
       this.state.provider
     )
     this.state.lastBlockNumber = 0
@@ -115,9 +106,9 @@ export class ChugSplashExecutor extends BaseServiceV2<
       level: options.logLevel,
     })
 
-    // This represents a queue of "BundleApproved" events to execute.
+    // This represents a queue of "DeploymentApproved" events to execute.
     this.state.eventsQueue = []
-    // This represents a cache of "BundleApproved" events which are currently being executed.
+    // This represents a cache of "DeploymentApproved" events which are currently being executed.
     this.state.executionCache = []
 
     const keyStrings = options.privateKeys.split(',')
@@ -146,48 +137,23 @@ export class ChugSplashExecutor extends BaseServiceV2<
       executorAddresses.push(w.address)
     }
 
+    const executors = this.state.keys.map(
+      (el) => new ethers.Wallet(el.privateKey).address
+    )
+
     // Deploy the ChugSplash contracts.
-    await initializeChugSplash(
+    await ensureChugSplashInitialized(
       this.state.provider,
       wallet,
-      executorAddresses,
+      executors,
       this.logger
     )
 
     this.logger.info('[ChugSplash]: finished setting up chugsplash')
-
-    // verify ChugSplash contracts on etherscan
-    try {
-      // Verify the ChugSplash contracts if the current network is supported.
-      if (
-        isSupportedNetworkOnEtherscan(await getChainId(this.state.provider))
-      ) {
-        this.logger.info(
-          '[ChugSplash]: attempting to verify the chugsplash contracts...'
-        )
-        await verifyChugSplash(this.state.provider, this.options.network)
-        this.logger.info(
-          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
-        )
-      } else {
-        this.logger.info(
-          `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${this.options.network}`
-        )
-      }
-    } catch (e) {
-      this.logger.error(
-        `[ChugSplash]: error: failed to verify chugsplash contracts on ${this.options.network}`,
-        e
-      )
-    }
   }
 
-  async main(
-    canonicalConfigFolderPath?: string,
-    integration?: Integration,
-    remoteExecution: boolean = true
-  ) {
-    const { provider, recorder } = this.state
+  async main() {
+    const { provider, registry } = this.state
 
     const latestBlockNumber = await provider.getBlockNumber()
 
@@ -199,23 +165,32 @@ export class ChugSplashExecutor extends BaseServiceV2<
     }
 
     // Get approval events in blocks after the stored block number
-    const newApprovalEvents = await recorder.queryFilter(
-      recorder.filters.EventAnnounced('ChugSplashBundleApproved'),
+    const newApprovalEvents = await registry.queryFilter(
+      registry.filters.EventAnnounced('ChugSplashDeploymentApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )
 
     const currentTime = new Date()
-    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents.map(
-      (event) => {
+    const newExecutorEvents: ExecutorEvent[] = newApprovalEvents
+      .map((event) => {
         return {
           retry: 1,
           nextTry: currentTime,
           waitingPeriodMs: 15000,
           event,
         }
-      }
-    )
+      })
+      // Filter out events that are already in the queue (happens due to some node providers doing inclusive filtering on block numbers)
+      .filter((e) => {
+        for (const event of this.state.eventsQueue) {
+          if (event.event.transactionHash === e.event.transactionHash) {
+            return false
+          }
+        }
+
+        return true
+      })
 
     // Concatenate the new approval events to the array
     this.state.eventsQueue = this.state.eventsQueue.concat(newExecutorEvents)
@@ -238,7 +213,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
     // execution, and we only want to attempt to execute each element once.
     const eventsCopy = this.state.eventsQueue.slice()
 
-    // execute all approved bundles
+    // execute all approved deployments
     for (const executorEvent of eventsCopy) {
       this.logger.info('[ChugSplash]: detected a project...')
 
@@ -267,60 +242,51 @@ export class ChugSplashExecutor extends BaseServiceV2<
       const executionMessage: ExecutorMessage = {
         executorEvent: event,
         key,
-        provider: remoteExecution ? this.options.url : this.state.provider,
+        provider: this.options.url,
         loggerOptions: this.logger.options,
-        remoteExecution,
-        canonicalConfigFolderPath,
         network: this.options.network,
         managedApiUrl: this.options.managedApiUrl,
         managedPublicKey: process.env.MANAGED_PUBLIC_KEY,
-        integration,
       }
-      if (remoteExecution) {
-        // If the event is being processed remotely then fork a child process and pass in the event and other required args
-        const child = fork(`${__dirname}/utils/child.js`, {
-          stdio: 'inherit',
-        })
-        child.send(executionMessage)
 
-        // listen for events from child process
-        child.on('message', (message: ResponseMessage) => {
-          if (message.action === 'log') {
-            this.logger[message.log.level](
-              message.log.message,
-              message.log.err,
-              message.log.options
-            )
-            return
-          }
+      // Fork a child process and pass in the event and other required args
+      const child = fork(`${__dirname}/utils/child.js`, {
+        stdio: 'inherit',
+      })
+      child.send(executionMessage)
 
-          this.state.executionCache = this.state.executionCache.filter(
-            (e) =>
-              e.event.transactionHash !== message.payload.event.transactionHash
+      // listen for events from child process
+      child.on('message', (message: ResponseMessage) => {
+        if (message.action === 'log') {
+          this.logger[message.log.level](
+            message.log.message,
+            message.log.err,
+            message.log.options
           )
+          return
+        }
 
-          // unlock the selected key
-          this.state.keys[key.id].locked = false
+        this.state.executionCache = this.state.executionCache.filter(
+          (e) =>
+            e.event.transactionHash !== message.payload.event.transactionHash
+        )
 
-          switch (message.action) {
-            // on retry, put the new event back into the queue
-            case 'retry':
-              if (message.payload.retry === -1) {
-                this.logger.info(
-                  '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
-                )
-              } else {
-                this.state.eventsQueue.push(message.payload)
-              }
-              return
-          }
-        })
-      } else {
-        // if executing locally then call the execution handler directly
-        await handleExecution(executionMessage)
         // unlock the selected key
         this.state.keys[key.id].locked = false
-      }
+
+        switch (message.action) {
+          // on retry, put the new event back into the queue
+          case 'retry':
+            if (message.payload.retry === -1) {
+              this.logger.info(
+                '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
+              )
+            } else {
+              this.state.eventsQueue.push(message.payload)
+            }
+            return
+        }
+      })
     }
   }
 }

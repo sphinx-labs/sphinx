@@ -1,34 +1,39 @@
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
-  OZ_UUPS_PROXY_TYPE_HASH,
-  REGISTRY_PROXY_TYPE_HASH,
+  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { constants } from 'ethers'
+import { BigNumber, constants } from 'ethers'
+import { CompilerInput } from 'hardhat/types'
 
-import { CompilerInput } from '../languages/solidity/types'
+import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 
-export const externalProxyTypes = [
+export const externalContractKinds = [
   'oz-transparent',
-  'oz-uups',
+  'oz-ownable-uups',
+  'oz-access-control-uups',
   'external-default',
-  'internal-registry', // Will be removed when ChugSplash is non-upgradeable
+  'no-proxy',
 ]
-export type ExternalProxyType =
+export type ExternalContractKind =
   | 'oz-transparent'
-  | 'oz-uups'
+  | 'oz-ownable-uups'
+  | 'oz-access-control-uups'
   | 'external-default'
-  | 'internal-registry' // Will be removed when ChugSplash is non-upgradeable
+  | 'no-proxy'
 
-export const proxyTypeHashes: { [proxyType: string]: string } = {
+export const contractKindHashes: { [contractKind: string]: string } = {
   'internal-default': constants.HashZero,
   'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  'oz-uups': OZ_UUPS_PROXY_TYPE_HASH,
-  'internal-registry': REGISTRY_PROXY_TYPE_HASH,
+  'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  'no-proxy': NO_PROXY_TYPE_HASH,
 }
 
-export type ProxyType = ExternalProxyType | 'internal-default'
+export type ContractKind = ExternalContractKind | 'internal-default'
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -37,6 +42,7 @@ export type UserConfigVariable =
   | boolean
   | string
   | number
+  | BigNumber
   | Array<UserConfigVariable>
   | {
       [name: string]: UserConfigVariable
@@ -59,8 +65,8 @@ export type ParsedConfigVariable =
  */
 export interface UserChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: UserContractConfigs
 }
@@ -70,8 +76,8 @@ export interface UserChugSplashConfig {
  */
 export interface ParsedChugSplashConfig {
   options: {
+    organizationID: string
     projectName: string
-    skipStorageCheck?: boolean
   }
   contracts: ParsedContractConfigs
 }
@@ -82,11 +88,21 @@ export interface ParsedChugSplashConfig {
 export type UserContractConfig = {
   contract: string
   externalProxy?: string
-  externalProxyType?: ExternalProxyType
+  kind?: ExternalContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  salt?: string
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowRenames?: boolean
+  unsafeSkipStorageCheck?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
+  unsafeAllow?: {
+    delegatecall?: boolean
+    selfdestruct?: boolean
+    missingPublicUpgradeTo?: boolean
+  }
 }
 
 export type UserContractConfigs = {
@@ -104,10 +120,13 @@ export type UserConfigVariables = {
  */
 export type ParsedContractConfig = {
   contract: string
-  proxy: string
-  proxyType: ProxyType
+  address: string
+  kind: ContractKind
   variables: ParsedConfigVariables
+  salt: string
   constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
 }
 
 export type ParsedContractConfigs = {
@@ -130,4 +149,12 @@ export type ChugSplashInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
+  id: string
+}
+
+export type ConfigArtifacts = {
+  [referenceName: string]: {
+    buildInfo: BuildInfo
+    artifact: ContractArtifact
+  }
 }

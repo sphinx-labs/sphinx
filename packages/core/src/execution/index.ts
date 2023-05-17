@@ -5,24 +5,23 @@ import ora from 'ora'
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
-  ChugSplashBundleState,
-  ChugSplashBundleStatus,
-  createDeploymentArtifacts,
+  ChugSplashBundles,
+  DeploymentState,
+  DeploymentStatus,
+  writeDeploymentArtifacts,
 } from '../actions'
 import { ParsedChugSplashConfig } from '../config'
-import { EXECUTION_BUFFER_MULTIPLIER, Integration } from '../constants'
-import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
+import { Integration } from '../constants'
+import { getAmountToDeposit } from '../fund'
 import { ArtifactPaths } from '../languages'
 import {
-  formatEther,
-  getBundleCompletionTxnHash,
   getChugSplashManager,
-  getCurrentChugSplashActionType,
+  getDeploymentEvents,
   getGasPriceOverrides,
   getProjectOwnerAddress,
 } from '../utils'
 
-export const getNumDeployedImplementations = (
+export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,
   actionsExecuted: ethers.BigNumber
 ): number => {
@@ -30,7 +29,7 @@ export const getNumDeployedImplementations = (
     .slice(0, actionsExecuted.toNumber())
     .filter(
       (action) =>
-        action.action.actionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
+        action.action.actionType === ChugSplashActionType.DEPLOY_CONTRACT
     ).length
 }
 
@@ -38,27 +37,56 @@ export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  bundle: ChugSplashActionBundle,
-  bundleId: string,
+  bundles: ChugSplashBundles,
+  deploymentId: string,
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const projectName = parsedConfig.options.projectName
-  const ChugSplashManager = getChugSplashManager(signer, projectName)
+  const { projectName, organizationID } = parsedConfig.options
+  const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
-  // Get the bundle state of the bundle ID.
-  let bundleState: ChugSplashBundleState = await ChugSplashManager.bundles(
-    bundleId
+  // Get the deployment state of the deployment ID.
+  let deploymentState: DeploymentState = await ChugSplashManager.deployments(
+    deploymentId
   )
 
-  let actionType: ChugSplashActionType | undefined
-  while (bundleState.status === ChugSplashBundleStatus.APPROVED) {
+  while (deploymentState.selectedExecutor !== ethers.constants.AddressZero) {
+    // Wait for one second.
+    await sleep(1000)
+
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
+  }
+
+  spinner.succeed('Executor has claimed the project.')
+  spinner.start('Waiting for execution to be initiated...')
+
+  while (deploymentState.status === DeploymentStatus.APPROVED) {
+    // Wait for one second.
+    await sleep(1000)
+
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
+  }
+
+  spinner.succeed('Execution initiated.')
+
+  const totalNumActions = bundles.actionBundle.actions.length
+  while (deploymentState.status === DeploymentStatus.PROXIES_INITIATED) {
+    if (deploymentState.actionsExecuted.toNumber() === totalNumActions) {
+      spinner.start(`All actions have been executed. Completing execution...`)
+    } else {
+      spinner.start(
+        `Number of actions executed: ${deploymentState.actionsExecuted.toNumber()} out of ${totalNumActions}`
+      )
+    }
+
     // Check if there are enough funds in the ChugSplashManager to finish the deployment.
     const amountToDeposit = await getAmountToDeposit(
       provider,
-      bundle,
-      bundleState.actionsExecuted.toNumber(),
-      projectName,
+      bundles,
+      deploymentState.actionsExecuted.toNumber(),
+      parsedConfig,
       false
     )
     if (amountToDeposit.gt(0)) {
@@ -66,83 +94,42 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} has insufficient funds to complete the deployment. Please report this error to improve our deployment cost estimation.
-  Run the following command to add funds to your deployment so it can be completed:
-
-  npx hardhat chugsplash-fund --network <network> --amount ${amountToDeposit.mul(
-    EXECUTION_BUFFER_MULTIPLIER
-  )} --config-path <configPath>
-          `
+        `${projectName} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
       )
-    }
-
-    if (bundleState.selectedExecutor !== ethers.constants.AddressZero) {
-      const currActionType = getCurrentChugSplashActionType(
-        bundle,
-        bundleState.actionsExecuted
-      )
-
-      if (actionType !== currActionType) {
-        if (currActionType === ChugSplashActionType.SET_STORAGE) {
-          spinner.succeed('Executor has claimed the project.')
-          spinner.start('Executor is setting the state variables...')
-        } else if (
-          currActionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION
-        ) {
-          spinner.succeed('State variables have been set.')
-        } else if (currActionType === ChugSplashActionType.SET_IMPLEMENTATION) {
-          spinner.succeed('Contracts have been deployed.')
-          spinner.start(
-            'Executor is linking the proxies with their implementation contracts...'
-          )
-        }
-        actionType = currActionType
-      }
-
-      if (currActionType === ChugSplashActionType.DEPLOY_IMPLEMENTATION) {
-        spinner.start(
-          `Executor is deploying the contracts... [${getNumDeployedImplementations(
-            bundle,
-            bundleState.actionsExecuted
-          )}/${Object.keys(parsedConfig.contracts).length}]`
-        )
-      }
     }
 
     // Wait for one second.
     await sleep(1000)
 
-    // Get the current bundle state.
-    bundleState = await ChugSplashManager.bundles(bundleId)
+    // Get the current deployment state.
+    deploymentState = await ChugSplashManager.deployments(deploymentId)
   }
 
-  if (bundleState.status === ChugSplashBundleStatus.COMPLETED) {
+  if (deploymentState.status === DeploymentStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
-    // Get the `completeChugSplashBundle` transaction.
-    const bundleCompletionTxnHash = await getBundleCompletionTxnHash(
+    const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
-      bundleId
+      deploymentId
     )
     spinner.succeed('Retrieved deployment info.')
-    return bundleCompletionTxnHash
-  } else if (bundleState.status === ChugSplashBundleStatus.CANCELLED) {
+    return deploymentEvents
+  } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
   } else {
     spinner.fail(
-      `Project was never active. Current status: ${bundleState.status}`
+      `Project was never active. Current status: ${deploymentState.status}`
     )
   }
 }
 
 /**
- * Performs actions on behalf of the project owner after the successful execution of a bundle.
+ * Performs actions on behalf of the project owner after the successful execution of a deployment.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param parsedConfig Parsed ParsedChugSplashConfig.
- * @param finalDeploymentTxnHash Hash of the transaction that completed the deployment. This is the
- * call to `completeChugSplashBundle` on the ChugSplashManager.
+ * @param deploymentEvents Array of `DefaultProxyDeployed` and `ContractDeployed` events
  * @param withdraw Boolean that determines if remaining funds in the ChugSplashManager should be
  * withdrawn to the project owner.
  * @param newProjectOwner Optional address to receive ownership of the project.
@@ -151,94 +138,56 @@ export const postExecutionActions = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedChugSplashConfig,
-  finalDeploymentTxnHash: string,
-  withdraw: boolean,
+  deploymentEvents: ethers.Event[],
   networkName: string,
-  deploymentfolderPath: string,
+  deploymentFolderPath: string,
   artifactPaths: ArtifactPaths,
   integration: Integration,
-  remoteExecution: boolean,
-  newProjectOwner?: string,
+  newProjectOwner?: string | undefined,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const ChugSplashManager = getChugSplashManager(
     signer,
-    parsedConfig.options.projectName
+    parsedConfig.options.organizationID
   )
-  const currProjectOwner = await getProjectOwnerAddress(
-    signer,
-    parsedConfig.options.projectName
-  )
+  const currProjectOwner = await getProjectOwnerAddress(ChugSplashManager)
 
-  spinner.start(`Retrieving leftover funds...`)
-
-  if ((await signer.getAddress()) === currProjectOwner) {
-    const ownerBalance = await getOwnerWithdrawableAmount(
-      provider,
-      parsedConfig.options.projectName
-    )
-    if (withdraw) {
-      // Withdraw any of the current project owner's funds in the ChugSplashManager.
-      if (ownerBalance.gt(0)) {
-        await (
-          await ChugSplashManager.withdrawOwnerETH(
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-        spinner.succeed(
-          `Sent leftover funds to the project owner. Amount: ${formatEther(
-            ownerBalance,
-            4
-          )} ETH. Recipient: ${currProjectOwner}`
+  // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
+  if (
+    newProjectOwner !== undefined &&
+    ethers.utils.isAddress(newProjectOwner) &&
+    newProjectOwner !== currProjectOwner
+  ) {
+    spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
+    if (newProjectOwner === ethers.constants.AddressZero) {
+      // We must call a separate function if ownership is being transferred to address(0).
+      await (
+        await ChugSplashManager.renounceOwnership(
+          await getGasPriceOverrides(provider)
         )
-      } else {
-        spinner.succeed(
-          `There were no leftover funds to send to the project owner.`
-        )
-      }
+      ).wait()
     } else {
-      spinner.succeed(
-        `Skipped withdrawing leftover funds. Amount remaining: ${formatEther(
-          ownerBalance,
-          4
-        )} ETH.`
-      )
+      await (
+        await ChugSplashManager.transferOwnership(
+          newProjectOwner,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
-
-    // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
-    if (
-      newProjectOwner !== undefined &&
-      ethers.utils.isAddress(newProjectOwner) &&
-      newProjectOwner !== currProjectOwner
-    ) {
-      spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
-      if (newProjectOwner === ethers.constants.AddressZero) {
-        // We must call a separate function if ownership is being transferred to address(0).
-        await (
-          await ChugSplashManager.renounceOwnership(
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-      } else {
-        await (
-          await ChugSplashManager.transferOwnership(
-            newProjectOwner,
-            await getGasPriceOverrides(provider)
-          )
-        ).wait()
-      }
-      spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
-    }
+    spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
   }
 
-  await createDeploymentArtifacts(
+  spinner.start(`Writing deployment artifacts...`)
+
+  await writeDeploymentArtifacts(
     provider,
     parsedConfig,
-    finalDeploymentTxnHash,
-    artifactPaths,
-    integration,
-    spinner,
+    deploymentEvents,
     networkName,
-    deploymentfolderPath
+    deploymentFolderPath,
+    artifactPaths,
+    integration
   )
+
+  spinner.succeed(`Wrote deployment artifacts.`)
 }

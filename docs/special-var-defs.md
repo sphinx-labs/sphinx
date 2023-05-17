@@ -1,6 +1,6 @@
 # Special Variable Definitions
 
-This section explains how to define special variables in your ChugSplash file.
+This section explains how to define special variables in your ChugSplash config file.
 
 ## Table of Contents
 
@@ -9,7 +9,7 @@ This section explains how to define special variables in your ChugSplash file.
 
 ## Contract References
 
-You can use a [contract's reference name](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) to refer to a contract's instance or its address in your ChugSplash file.
+You can use a [contract's reference name](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#contract-definitions) to refer to a contract's instance or its address in your ChugSplash config file.
 
 ```ts
 myToken: "{{ MyToken }}" // The MyToken contract or its address
@@ -31,7 +31,7 @@ myToken: "{{MyToken              }}"
 
 ## Preserve Keyword
 
-During an upgrade, you'll probably want to leave the values of some variables untouched. For example, if you have a `counter` variable that's incremented every time a user performs an action, you probably won't want to overwrite its existing value since it can change at any time. To prevent its value from being overwritten, use the preserve keyword:
+During an upgrade, you may want to leave the values of some variables untouched. For example, if you have a `counter` variable that's incremented every time a user performs an action, you probably won't want to overwrite its existing value since it can change at any time. To prevent its value from being overwritten, use the preserve keyword:
 
 ```ts
 counter: '{ preserve }'
@@ -63,7 +63,7 @@ The preserve keyword works for arbitrarily nested variables.
 
 Using the preserve keyword will cause ChugSplash to omit the `SetStorage` action for the variable (or its member). This means ChugSplash will not modify its value when it upgrades the contract.
 
-You can only use the preserve keyword for state variables that have the same exact type and storage slot position (i.e. storage slot key and offset) in the original contract and its upgraded version. Additionally, you can only use the keyword when upgrading a contract (not for a fresh deployment). Lastly, you cannot use the preserve keyword for immutable variables. If any of these conditions aren't met, ChugSplash will throw a helpful error when compiling your ChugSplash file.
+You can only use the preserve keyword for state variables that have the same exact type and storage slot position (i.e. storage slot key and offset) in the original contract and its upgraded version. Additionally, you can only use the keyword when upgrading a contract (not for a fresh deployment). Lastly, you cannot use the preserve keyword for immutable variables. If any of these conditions aren't met, ChugSplash will throw an error when compiling your ChugSplash config file.
 
 The preserve keyword is not case sensitive, and allows whitespace. In other words, the following variations of the preserve keyword are valid:
 ```

@@ -63,7 +63,7 @@ This section will give a brief overview of how ChugSplash achieves the goals out
 
 **Approve deployments or upgrades of any size with a single small transaction from governance or a multisig.** This is possible because ChugSplash uses a network of remote executors that trustlessly complete the deployment or upgrade once the project owner approves it. The executor retrieves the deployment info from IPFS, which is committed by the user during the proposal step.
 
-**Trustless remote execution**. During the proposal step, the user's ChugSplash file is converted into a Merkle tree where each leaf represents an action to be executed during the deployment or upgrade. More specifically, each leaf either contains a storage slot key/value pair or a contract's creation bytecode. The Merkle root is submitted on-chain by the user during the proposal step, and must be approved by the project owner before being executed. The remote executor must supply the Merkle proof of each leaf in the Merkle tree, or else the transaction will revert. Currently, executors must be whitelisted by ChugSplash. In a future version of ChugSplash, execution will be totally permissionless, meaning anyone can be an executor (and get paid to complete deployments).
+**Trustless remote execution**. During the proposal step, the user's ChugSplash config file is converted into a Merkle tree where each leaf represents an action to be executed during the deployment or upgrade. More specifically, each leaf either contains a storage slot key/value pair or a contract's creation bytecode. The Merkle root is submitted on-chain by the user during the proposal step, and must be approved by the project owner before being executed. The remote executor must supply the Merkle proof of each leaf in the Merkle tree, or else the transaction will revert. Currently, executors must be whitelisted by ChugSplash. In a future version of ChugSplash, execution will be totally permissionless, meaning anyone can be an executor (and get paid to complete deployments).
 
 ## The Long Version
 
@@ -81,7 +81,7 @@ contract MyContract {
 }
 ```
 
-You begin by creating a ChugSplash file, which contains all of the information necessary to deploy or upgrade a project. The ChugSplash file for this contract would look something like:
+You begin by creating a ChugSplash config file, which contains all of the information necessary to deploy or upgrade a project. The ChugSplash config file for this contract would look something like:
 
 ```ts
 {
@@ -94,9 +94,9 @@ You begin by creating a ChugSplash file, which contains all of the information n
 
 ### Proposal
 
-During the proposal step, the ChugSplash file is first converted into a format that can be executed on-chain. There are two components: the contract's state variables and its creation bytecode.
+During the proposal step, the ChugSplash config file is first converted into a format that can be executed on-chain. There are two components: the contract's state variables and its creation bytecode.
 
-The state variable definitions in the ChugSplash file are encoded into a series of 32-byte storage slot key/value pairs:
+The state variable definitions in the ChugSplash config file are encoded into a series of 32-byte storage slot key/value pairs:
 
 ```
 [0x000...000, 0x000...04D2]
@@ -110,7 +110,7 @@ If you're wondering why we use a Merkle tree instead of a simple hash of the dep
 
 In order for the executor to complete the deployment remotely, it must be able to fetch the deployment info and re-create the Merkle tree.
 
-To achieve this, the user commits two pieces of information to IPFS during the proposal step: the original ChugSplash file defined by the user and the compiler inputs of the contracts. This yields an IPFS URI, which is a hash of the committed data.
+To achieve this, the user commits two pieces of information to IPFS during the proposal step: the original ChugSplash config file defined by the user and the compiler inputs of the contracts. This yields an IPFS URI, which is a hash of the committed data.
 
 The remote executor is able to re-create the Merkle tree from these two sources. The compiler inputs allow the executor to optionally verify the smart contracts on block explorers like Etherscan and Sourcify. Since we can't enforce that the executor verifies the contracts on block explorers, we include this feature as part of our Managed Service for free.
 
@@ -120,7 +120,7 @@ In addition to committing this info to IPFS, the user also submits a single `pro
 2. The root of the Merkle tree. Each Merkle proof supplied by the executor must yield this Merkle root.
 3. The number of leafs in the Merkle tree (i.e. the number of `SetStorage` and `DeployImplementation` actions). It's necessary to explicitly specify this to ensure that each action is only executed exactly once.
 
-These three inputs are hashed to yield a 32-byte **bundle ID**, which is the unique identifier for the entire deployment. This bundle will be approved by the project's owner during the next step. It's called a bundle ID because the set of `DeployImplementation` and `SetStorage` actions are referred to as a bundle internally.
+These three inputs are hashed to yield a 32-byte **deployment ID**, which is the unique identifier for the entire deployment. This deployment will be approved by the project's owner during the next step.
 
 As a side effect of using `SetStorage` actions, it becomes easy to view the effects of a proposed upgrade as a git-style diff against the existing system, including state variables, before the upgrade occurs. This specific feature is not available yet, and will be implemented soon.
 
@@ -128,18 +128,18 @@ This entire process occurs in a single `propose` command, which is available as 
 
 ### Approval
 
-Once a team has decided to proceed with a deployment or upgrade, the proposed deployment is approved by the project's owner, which is usually governance or a multisig. This occurs via an `approve` transaction on the project's `ChugSplashManager`. This transaction has a single input: the 32-byte bundle ID created in the proposal step.
+Once a team has decided to proceed with a deployment or upgrade, the proposed deployment is approved by the project's owner, which is usually governance or a multisig. This occurs via an `approve` transaction on the project's `ChugSplashManager`. This transaction has a single input: the 32-byte deployment ID created in the proposal step.
 
 ### Execution
 
 As soon as the `approve` transaction is submitted, the deployment can be executed by the remote executor, which is constantly listening for new approval events.
 
-Once the executor notices an approval event, it must be able to re-create the Merkle tree in order to execute the deployment. It does this by retrieving the IPFS URI that was submitted on-chain as part of the `propose` transaction. It uses the URI to fetch the ChugSplash file and the compiler inputs from IPFS. Then, it uses these two sources to re-create the Merkle tree.
+Once the executor notices an approval event, it must be able to re-create the Merkle tree in order to execute the deployment. It does this by retrieving the IPFS URI that was submitted on-chain as part of the `propose` transaction. It uses the URI to fetch the ChugSplash config file and the compiler inputs from IPFS. Then, it uses these two sources to re-create the Merkle tree.
 
 The deployment is executed in three phases, which must occur in order:
-1. `initiateExecution`: Each proxy's implementation is set `address(0)` in a single transaction at the very beginning. This step is only necessary for contracts that are being upgraded.
+1. `initiateUpgrade`: Each proxy's implementation is set `address(0)` in a single transaction at the very beginning. This step is only necessary for contracts that are being upgraded.
 2. `executeAction`: The deployment is executed using the `SetStorage` and `DeployImplementation` actions. This can consist of many transactions for a larger deployment.
-3. `completeExecution`: Each proxy is upgraded to its new implementation in a single transaction at the very end.
+3. `finalizeUpgrade`: Each proxy is upgraded to its new implementation in a single transaction at the very end.
 
 Each of these functions exists on the `ChugSplashManager`. If the executor attempts to send a transaction that isn't in the correct order, the call will revert.
 
@@ -164,7 +164,7 @@ Since these steps all occur over the course of a *single* transaction, the proxy
 
 ## Wrapping Up
 
-If you have questions or comments, we'd love to hear from you in our [Discord](https://discord.com/invite/CqUPhgRrxq).
+If you have questions or comments, we'd love to hear from you in our [Discord](https://discord.gg/7Gc3DK33Np).
 
 ## FAQ
 

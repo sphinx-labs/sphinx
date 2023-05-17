@@ -9,15 +9,17 @@ import {
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  ChugSplashExecutorType,
-  readUserChugSplashConfig,
-  UserChugSplashConfig,
   getDefaultProxyAddress,
+  readUnvalidatedChugSplashConfig,
+  readValidatedChugSplashConfig,
+  getCreate3Address,
+  getChugSplashManagerAddress,
+  getNonProxyCreate3Salt,
 } from '@chugsplash/core'
-import { getChainId } from '@eth-optimism/core-utils'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { getArtifactPaths } from './artifacts'
+import { createChugSplashRuntime } from '../utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -36,7 +38,7 @@ export const fetchFilesRecursively = (dir): string[] => {
 }
 
 /**
- * TODO
+ * Deploys a list of ChugSplash config files.
  *
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
@@ -45,30 +47,29 @@ export const deployAllChugSplashConfigs = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
   ipfsUrl: string,
-  noCompile: boolean,
-  confirm: boolean,
   fileNames?: string[]
 ) => {
-  const remoteExecution =
-    (await getChainId(hre.ethers.provider)) !==
-    hre.config.networks.hardhat.chainId
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
-
-  let executor: ChugSplashExecutorType | undefined
-  if (!remoteExecution) {
-    executor = hre.chugsplash.executor
-  }
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
   for (const configPath of fileNames) {
+    const cre = await createChugSplashRuntime(
+      configPath,
+      false,
+      true,
+      canonicalConfigPath,
+      hre,
+      silent
+    )
+
     // Skip this config if it's empty.
     if (isEmptyChugSplashConfig(configPath)) {
-      return
+      continue
     }
-    const userConfig = readUserChugSplashConfig(configPath)
+    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
     const artifactPaths = await getArtifactPaths(
       hre,
@@ -77,24 +78,27 @@ export const deployAllChugSplashConfigs = async (
       path.join(hre.config.paths.artifacts, 'build-info')
     )
 
+    const parsedConfig = await readValidatedChugSplashConfig(
+      hre.ethers.provider,
+      configPath,
+      artifactPaths,
+      'hardhat',
+      cre,
+      true
+    )
+
     const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
       hre.ethers.provider,
       hre.ethers.provider.getSigner(),
       configPath,
-      silent,
-      remoteExecution,
-      ipfsUrl,
-      noCompile,
-      confirm,
-      true,
       await signer.getAddress(),
       artifactPaths,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
-      true,
-      executor
+      cre,
+      parsedConfig
     )
   }
 }
@@ -102,57 +106,74 @@ export const deployAllChugSplashConfigs = async (
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
-  referenceName: string
+  referenceName: string,
+  userSalt?: string
 ): Promise<ethers.Contract> => {
-  if (
-    (await getChainId(hre.ethers.provider)) !==
-    hre.config.networks.hardhat.chainId
-  ) {
-    throw new Error('Only the Hardhat Network is currently supported.')
-  }
-  const userConfigs: UserChugSplashConfig[] = fetchFilesRecursively(
+  const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.chugsplash
+  ).filter((configFileName) => {
+    return !isEmptyChugSplashConfig(configFileName)
+  })
+
+  const resolvedConfigs = await Promise.all(
+    filteredConfigNames.map(async (configFileName) => {
+      return {
+        config: await readUnvalidatedChugSplashConfig(configFileName),
+        filePath: configFileName,
+      }
+    })
   )
-    .filter((configFileName) => {
-      return !isEmptyChugSplashConfig(configFileName)
-    })
-    .map((configFileName) => {
-      return readUserChugSplashConfig(configFileName)
-    })
-    .filter((userCfg) => {
-      return (
-        Object.keys(userCfg.contracts).includes(referenceName) &&
-        userCfg.options.projectName === projectName
-      )
-    })
+
+  const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
+    const { options, contracts } = resolvedConfig.config
+    return (
+      Object.keys(contracts).includes(referenceName) &&
+      options.projectName === projectName &&
+      contracts[referenceName].salt === userSalt
+    )
+  })
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project named "${projectName}" that contains the reference name "${referenceName}".`
+      `Cannot find a project with ID "${projectName}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects named "${projectName}" contain the reference name "${referenceName}"\n` +
-        `Please merge these projects or change one of the project names.`
+      `Multiple projects with ID "${projectName}" contain the reference name "${referenceName}"\n` +
+        `Please merge these projects or change one of the organization IDs.`
     )
   }
 
   const userConfig = userConfigs[0]
+  const { organizationID } = userConfig.config.options
+  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const contractConfig = userConfig.config.contracts[referenceName]
 
-  const proxyAddress =
-    userConfig.contracts[referenceName].externalProxy ||
-    getDefaultProxyAddress(userConfig.options.projectName, referenceName)
-  if ((await isContractDeployed(proxyAddress, hre.ethers.provider)) === false) {
-    throw new Error(`The proxy for ${referenceName} has not been deployed.`)
+  let address =
+    contractConfig.externalProxy ||
+    getDefaultProxyAddress(organizationID, projectName, referenceName)
+  if (contractConfig.kind === 'no-proxy') {
+    address = getCreate3Address(
+      managerAddress,
+      getNonProxyCreate3Salt(
+        projectName,
+        referenceName,
+        contractConfig.salt ?? ethers.constants.HashZero
+      )
+    )
+  }
+
+  if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
+    throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }
 
   const Proxy = new ethers.Contract(
-    proxyAddress,
+    address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
-        userConfig.contracts[referenceName].contract
+        userConfig.config.contracts[referenceName].contract
       ).abi
     ),
     hre.ethers.provider.getSigner()

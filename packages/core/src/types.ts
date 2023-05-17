@@ -1,7 +1,23 @@
 import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
+import { StorageLayout } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { Integration } from './constants'
+import { ParsedContractConfig } from './config'
+
+export type ChugSplashRuntimeEnvironment = {
+  configPath: string
+  canonicalConfigPath: string
+  remoteExecution: boolean
+  autoConfirm: boolean
+  stream: NodeJS.WritableStream
+  silent: boolean
+  hre: HardhatRuntimeEnvironment | undefined
+  importOpenZeppelinStorageLayout: (
+    hre: HardhatRuntimeEnvironment,
+    parsedContractConfig: ParsedContractConfig
+  ) => Promise<StorageLayout | undefined>
+}
 
 export type FoundryContractArtifact = {
   referenceName: string
@@ -34,7 +50,7 @@ export type ExecutorEvent = {
 export type ExecutorState = {
   eventsQueue: ExecutorEvent[]
   executionCache: ExecutorEvent[]
-  recorder: ethers.Contract
+  registry: ethers.Contract
   provider: ethers.providers.JsonRpcProvider
   lastBlockNumber: number
   keys: ExecutorKey[]
@@ -51,9 +67,5 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
     provider?: ethers.providers.JsonRpcProvider
   ): Promise<void>
   init(): Promise<void>
-  main(
-    canonicalConfigFolderPath?: string,
-    integration?: Integration,
-    remoteExecution?: boolean
-  ): Promise<void>
+  main(): Promise<void>
 }

@@ -1,6 +1,6 @@
 # Defining Variables in a ChugSplash File
 
-This is a reference that explains how to assign values to every variable type in a ChugSplash file.
+This is a reference that explains how to assign values to every variable type in a ChugSplash config file.
 
 ## Table of Contents
 
@@ -18,6 +18,7 @@ This is a reference that explains how to assign values to every variable type in
 - [Arrays](#arrays)
 - [Structs](#structs)
 - [Mappings](#mappings)
+- [User-Defined Value Types](#user-defined-types)
 
 
 ## Booleans
@@ -53,7 +54,7 @@ Say you have a contract variable in Solidity called `MyToken`:
 MyToken public myToken;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myContract: '0x2222222222222222222222222222222222222222'
 ```
@@ -99,14 +100,14 @@ const enum MyEnum {
 }
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myEnum: MyEnum.B
 ```
 
 ### JavaScript
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```js
 myEnum: 1 // equivalent to MyEnum.B
 ```
@@ -124,7 +125,7 @@ Define your array in Solidity:
 uint[2][3] myNestedArray;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myNestedArray: [
   [1, 2, 3],
@@ -139,14 +140,14 @@ Define your array in Solidity:
 uint[1][2][3] myMultiNestedArray;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myMultiNestedArray: [[[1, 2, 3], [4, 5, 6]]]
 ```
 
 ### Dynamic arrays
 
-You can define dynamic arrays in your ChugSplash file using the same exact format as [fixed size arrays](#arrays).
+You can define dynamic arrays in your ChugSplash config file using the same exact format as [fixed size arrays](#arrays).
 
 ## Structs
 
@@ -161,7 +162,7 @@ struct MyStruct {
 MyStruct myStruct;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myStruct: {
   a: true,
@@ -182,7 +183,7 @@ struct ComplexStruct {
 ComplexStruct complexStruct;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 complexStruct: {
   myInt: -1,
@@ -200,7 +201,7 @@ Define your mapping in Solidity:
 mapping(string => uint) myStringMapping;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myStringMapping: {
   'firstString': 1,
@@ -218,7 +219,7 @@ Define your mapping in Solidity:
 mapping(int => string) myIntMapping;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myIntMapping: {
   '-1': 'firstStringVal',
@@ -240,7 +241,7 @@ struct MyStruct {
 mapping(string => MyStruct) myStructMapping;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myStructMapping: {
   'firstString': {
@@ -264,7 +265,7 @@ Define your mapping in Solidity:
 mapping(string => mapping(uint => address)) myNestedMapping;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myNestedMapping: {
   'firstString': {
@@ -288,7 +289,7 @@ Define your mapping in Solidity:
 mapping(uint => mapping(string => mapping(bytes => uint))) myMultiNestedMapping;
 ```
 
-In your ChugSplash file:
+In your ChugSplash config file:
 ```ts
 myMultiNestedMapping: {
   1: {
@@ -312,4 +313,18 @@ myMultiNestedMapping: {
   },
   ...
 },
+```
+
+## [User-Defined Value Types](https://docs.soliditylang.org/en/latest/types.html#user-defined-value-types)
+ChugSplash treats your user defined types as if they were their underlying types.
+
+Define your type in Solidity
+```solidity
+type UserDefinedType is uint256;
+UserDefinedType public userDefined;
+```
+
+In your ChugSplash config file:
+```ts
+userDefined: 1
 ```

@@ -1,7 +1,21 @@
 import path from 'path'
 
-import { BuildInfo, HardhatRuntimeEnvironment } from 'hardhat/types'
-import { ArtifactPaths, UserContractConfigs } from '@chugsplash/core'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  ArtifactPaths,
+  UserContractConfigs,
+  getEIP1967ProxyImplementationAddress,
+  BuildInfo,
+  ParsedContractConfig,
+  toOpenZeppelinContractKind,
+} from '@chugsplash/core'
+import {
+  Manifest,
+  getStorageLayoutForAddress,
+  StorageLayout,
+  withValidationDefaults,
+} from '@openzeppelin/upgrades-core'
+import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
 
 /**
  * Retrieves contract build info by name.
@@ -15,7 +29,7 @@ export const getBuildInfo = async (
   sourceName: string,
   contractName: string
 ): Promise<BuildInfo> => {
-  let buildInfo: BuildInfo | undefined
+  let buildInfo
   try {
     buildInfo = await hre.artifacts.getBuildInfo(
       `${sourceName}:${contractName}`
@@ -79,4 +93,39 @@ export const getArtifactPaths = async (
     }
   }
   return artifactPaths
+}
+
+/**
+ * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
+ * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
+ */
+export const importOpenZeppelinStorageLayout = async (
+  hre: HardhatRuntimeEnvironment,
+  parsedContractConfig: ParsedContractConfig
+): Promise<StorageLayout | undefined> => {
+  const { kind } = parsedContractConfig
+  if (
+    kind === 'oz-transparent' ||
+    kind === 'oz-ownable-uups' ||
+    kind === 'oz-access-control-uups'
+  ) {
+    const proxy = parsedContractConfig.address
+    const isProxyDeployed = (await hre.ethers.provider.getCode(proxy)) !== '0x'
+    if (isProxyDeployed) {
+      const manifest = await Manifest.forNetwork(hre.network.provider)
+      const deployData = await getDeployData(
+        hre,
+        await hre.ethers.getContractFactory(parsedContractConfig.contract),
+        withValidationDefaults({
+          kind: toOpenZeppelinContractKind(kind),
+        })
+      )
+      const storageLayout = await getStorageLayoutForAddress(
+        manifest,
+        deployData.validations,
+        await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
+      )
+      return storageLayout
+    }
+  }
 }
