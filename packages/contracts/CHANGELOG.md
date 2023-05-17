@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.7.2
+
+### Patch Changes
+
+- bf7fe7f: Fix artifact import path
+
 ## 0.7.1
 
 ### Patch Changes
