@@ -1,5 +1,88 @@
 # @chugsplash/executor
 
+## 0.9.0
+
+### Minor Changes
+
+- c319493: Deploy contracts before modifying proxies during execution
+- 57cd798: Make ChugSplash non-upgradeable
+
+### Patch Changes
+
+- 06c9af9: Only initialize ChugSplash on local networks
+- af346c9: Catch error during remote execution
+- c309331: Add organization ID
+- da576c3: Split UUPS adapter into ownable and access control adapters
+- 99ef1a7: Allow configurable system owner
+- b05b489: Replace TODOs with Linear tickets
+- 1ba3adc: Make contract execution atomic
+- e797869: Add claimer field to config
+- 821e9fd: Deploy and verify reference DefaultProxy and ChugSplashManagerProxy contracts
+- 3d9f9c2: Add support for deploying stateless non-proxied contracts
+- f433bc2: Remove claimer from config and registry
+- 26ab2ad: Get previous storage layout using OpenZeppelin's format
+- 11fd15c: Make chugsplash-deploy task execute locally by default
+- Updated dependencies [7ee54af]
+- Updated dependencies [5896c7c]
+- Updated dependencies [27cb63b]
+- Updated dependencies [1c5e99a]
+- Updated dependencies [c43c960]
+- Updated dependencies [ea4bc1e]
+- Updated dependencies [41f420c]
+- Updated dependencies [c319493]
+- Updated dependencies [06c9af9]
+- Updated dependencies [e2392ad]
+- Updated dependencies [c309331]
+- Updated dependencies [b5f5268]
+- Updated dependencies [d7dc1ba]
+- Updated dependencies [fb9442a]
+- Updated dependencies [0ef343d]
+- Updated dependencies [e5b9f81]
+- Updated dependencies [2a0939a]
+- Updated dependencies [b7e779f]
+- Updated dependencies [d652952]
+- Updated dependencies [9fccb34]
+- Updated dependencies [a26ab46]
+- Updated dependencies [ed81039]
+- Updated dependencies [bf1fde7]
+- Updated dependencies [1d54d12]
+- Updated dependencies [dffa427]
+- Updated dependencies [011f0f6]
+- Updated dependencies [f1cf9ac]
+- Updated dependencies [992e2fb]
+- Updated dependencies [c2712bf]
+- Updated dependencies [d540efc]
+- Updated dependencies [69dcfba]
+- Updated dependencies [57cd798]
+- Updated dependencies [fba0fa0]
+- Updated dependencies [cccb052]
+- Updated dependencies [b204c6e]
+- Updated dependencies [1eeba58]
+- Updated dependencies [02220c4]
+- Updated dependencies [ff87792]
+- Updated dependencies [3f023b2]
+- Updated dependencies [da576c3]
+- Updated dependencies [8eb6686]
+- Updated dependencies [f72b185]
+- Updated dependencies [ae6641d]
+- Updated dependencies [99ef1a7]
+- Updated dependencies [b05b489]
+- Updated dependencies [1ba3adc]
+- Updated dependencies [89c3fe2]
+- Updated dependencies [e797869]
+- Updated dependencies [3d9f9c2]
+- Updated dependencies [f433bc2]
+- Updated dependencies [26ab2ad]
+- Updated dependencies [11fd15c]
+- Updated dependencies [ac40b0b]
+- Updated dependencies [ff58a7d]
+- Updated dependencies [1dee798]
+- Updated dependencies [ab983d4]
+- Updated dependencies [be43435]
+- Updated dependencies [c69aa51]
+  - @chugsplash/core@0.9.0
+  - @chugsplash/plugins@0.14.0
+
 ## 0.8.1
 
 ### Patch Changes
