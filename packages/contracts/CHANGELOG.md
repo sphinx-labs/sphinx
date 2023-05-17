@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.7.1
+
+### Patch Changes
+
+- 08f312f: Include dependency artifacts in package
+
 ## 0.7.0
 
 ### Minor Changes
