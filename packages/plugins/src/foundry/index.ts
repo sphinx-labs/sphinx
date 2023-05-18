@@ -1,4 +1,6 @@
 import * as fs from 'fs'
+import util from 'util'
+import { exec } from 'child_process'
 
 import {
   chugsplashDeployAbstractTask,
@@ -24,10 +26,15 @@ import { ethers } from 'ethers'
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
+const execAsync = util.promisify(exec)
+
 const args = process.argv.slice(2)
 const command = args[0]
 
 ;(async () => {
+  // This ensures that we're using the latest versions of the user's contracts.
+  await execAsync('forge build')
+
   switch (command) {
     case 'claim': {
       const configPath = args[1]

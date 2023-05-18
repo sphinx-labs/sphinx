@@ -64,7 +64,6 @@ out = 'out'
 ffi = true
 build_info = true
 extra_output = ['storageLayout']
-force = true
 fs_permissions = [{ access = "read", path = "./"}]
 
 [rpc_endpoints]

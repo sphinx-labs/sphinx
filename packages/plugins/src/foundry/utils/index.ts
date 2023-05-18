@@ -11,15 +11,31 @@ import {
 
 export const getBuildInfo = (
   buildInfoFolder: string,
-  sourceName: string
+  sourceName: string,
+  contractName: string
 ): BuildInfo => {
   const completeFilePath = path.join(buildInfoFolder)
 
-  // Get the inputs from the build info folder.
-  const inputs = fs
+  // Get an array of all build info objects, sorted from newest to oldest.
+  const sortedBuildInfoArray: Array<BuildInfo> = fs
     .readdirSync(completeFilePath)
     .filter((file) => {
       return file.endsWith('.json')
+    })
+    .sort((a, b) => {
+      // Sort by the timestamp indicating when the file was last modified. Note that this timestamp
+      // is updated in the following scenario:
+      // 1. `forge build` is called, resulting in build info file #1
+      // 2. Contract modifications occur, then `forge build` is called, resulting in build info file
+      //    #2
+      // 3. Contracts modifications are undone, then `forge build` is called, resulting in build
+      //    info file #1 again.
+      // In the previous scenario, this function will return build info file #1, which is correct
+      // behavior.
+      return (
+        Number(fs.statSync(path.join(buildInfoFolder, b)).mtime) -
+        Number(fs.statSync(path.join(buildInfoFolder, a)).mtime)
+      )
     })
     .map((file) => {
       return JSON.parse(
@@ -27,18 +43,15 @@ export const getBuildInfo = (
       )
     })
 
-  // Find the correct build info file
-  for (const input of inputs) {
-    if (input?.output?.sources[sourceName] !== undefined) {
-      return input
+  // Find the most recent build info file that contains this contract.
+  for (const buildInfo of sortedBuildInfoArray) {
+    if (buildInfo.output.contracts[sourceName]?.[contractName] !== undefined) {
+      return buildInfo
     }
   }
 
   throw new Error(
-    `Failed to find build info for ${sourceName}. Please check that you:
-1. Imported this file in your script
-2. Set 'force=true' in your foundry.toml
-3. Check that ${buildInfoFolder} is the correct build info directory.`
+    `Failed to find build info for ${contractName}. Should not happen.`
   )
 }
 
@@ -75,7 +88,7 @@ export const getArtifactPaths = async (
       contractConfig.contract,
       artifactFolder
     )
-    const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
+    const buildInfo = getBuildInfo(buildInfoFolder, sourceName, contractName)
 
     const folderName = `${contractName}.sol`
     const fileName = `${contractName}.json`
