@@ -123,8 +123,20 @@ export const relaySignedRequest = async (
       estimatedGasCost: estimatedGasCost.toString(),
     })
   } catch (e) {
-    throw new Error(
-      `Error relaying signed request, are you sure your API key and org ID are correct? + \n ${e.message}`
-    )
+    if (e.response?.data?.includes('Unsupported network')) {
+      throw new Error(`Unsupported network: ${networkId}`)
+    } else if (e.response?.data?.includes('Unauthorized')) {
+      throw new Error(
+        `Unauthorized, are you sure your API key and org ID are correct?`
+      )
+    } else if (e.response?.data?.includes('Invalid metatxs request')) {
+      throw new Error(
+        `Invalid signature, are you sure your PRIVATE_KEY is correct?`
+      )
+    } else {
+      throw new Error(
+        `Unknown error, please report this to the developers + \n ${e}`
+      )
+    }
   }
 }
