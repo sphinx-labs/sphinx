@@ -1,0 +1,14 @@
+{
+  "options": {
+    "projectName": "Hello ChugSplash",
+    "organizationID": "0xa5a6793cba253b4ff39cce01bfcb577b18e367acdcb183df97cc3a4e77838fe8"
+  },
+  "contracts": {
+    "Counter": {
+      "contract": "Counter",
+      "variables": {
+        "number": 1
+      }
+    }
+  }
+}
