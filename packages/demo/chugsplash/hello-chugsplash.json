@@ -1,0 +1,17 @@
+{
+  "options": {
+    "projectName": "Hello ChugSplash",
+    "organizationID": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "contracts": {
+    "HelloChugSplash": {
+      "contract": "HelloChugSplash",
+      "variables": {
+        "number": 1,
+        "stored": true,
+        "storageName": "First",
+        "otherStorage": "0x1111111111111111111111111111111111111111"
+      }
+    }
+  }
+}
