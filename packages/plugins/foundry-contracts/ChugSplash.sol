@@ -184,11 +184,10 @@ contract ChugSplash is Script, Test {
         deployInputs[11] = newOwner;
 
         bytes memory deployResult = vm.ffi(deployInputs);
-        // console.logBytes(hex"0000");
         console.logBytes(deployResult);
+        console.log('-------------------');
         console.log(string(deployResult));
-
-
+        console.log('-------------------');
         // if (!silent) {
         //     emit log("Success!");
         //     ChugSplashContract[] memory deployedContracts = abi.decode(deployResult, (ChugSplashContract[]));
