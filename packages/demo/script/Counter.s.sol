@@ -1,20 +1,33 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
 
 import "forge-std/Script.sol";
-import "../contracts/Counter.sol";
+import "chugsplash/ChugSplash.sol";
 
-contract CounterScript is Script {
-    function setUp() public {}
-
+contract ChugSplashScript is Script {
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(0x4856e043a1F2CAA8aCEfd076328b4981Aca91000);
+        // Create a ChugSplash instance
+        ChugSplash chugsplash = new ChugSplash();
 
-        Counter counter = new Counter(2);
-        console.log(address(counter));
-        console.log(type(Counter).name);
+        // Define the path from the project root to your ChugSplash config file.
+        string memory chugsplashFilePath = "./chugsplash/hello-chugsplash.json";
 
-        vm.stopBroadcast();
+        // Deploy all contracts in your ChugSplash config file (in this case, just HelloChugSplash.sol)
+        chugsplash.deploy(chugsplashFilePath);
     }
 }
+
+// import "forge-std/Script.sol";
+// import "../contracts/Counter.sol";
+
+// contract CounterScript is Script {
+//     function setUp() public {}
+
+//     function run() public {
+//         vm.startBroadcast();
+
+//         new Counter();
+
+//         vm.stopBroadcast();
+//     }
+// }

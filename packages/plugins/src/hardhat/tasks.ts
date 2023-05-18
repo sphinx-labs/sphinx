@@ -15,6 +15,7 @@ import {
   chugsplashFetchSubtask,
   chugsplashClaimAbstractTask,
   chugsplashCommitAbstractSubtask,
+  bundleLocal,
   chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
@@ -54,6 +55,7 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
+export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
@@ -78,6 +80,27 @@ subtask(TASK_CHUGSPLASH_FETCH)
 subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
   .addParam('canonicalConfig', undefined, undefined, types.any)
   .setAction(bundleRemoteSubtask)
+
+export const bundleLocalSubtask = async (
+  args: {
+    parsedConfig: ParsedChugSplashConfig
+    artifactPaths: ArtifactPaths
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { parsedConfig, artifactPaths } = args
+
+  return bundleLocal(
+    hre.ethers.provider,
+    parsedConfig,
+    artifactPaths,
+    'hardhat'
+  )
+}
+
+subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
+  .addParam('parsedConfig', undefined, undefined)
+  .setAction(bundleLocalSubtask)
 
 export const chugsplashDeployTask = async (
   args: {
@@ -229,10 +252,9 @@ export const chugsplashProposeTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, ipfsUrl, silent, noCompile, confirm } = args
-  const remoteExecution = await isLiveNetwork(hre.ethers.provider)
   const cre = await createChugSplashRuntime(
     configPath,
-    remoteExecution,
+    true,
     confirm,
     hre.config.paths.canonicalConfigs,
     hre,

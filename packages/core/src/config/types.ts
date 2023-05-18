@@ -155,10 +155,6 @@ export type ChugSplashInput = {
 export type ConfigArtifacts = {
   [referenceName: string]: {
     buildInfo: BuildInfo
-    artifact: {
-      contractName: string
-      sourceName: string
-      creationCodeWithConstructorArgs: string
-    }
+    artifact: ContractArtifact
   }
 }

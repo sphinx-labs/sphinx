@@ -15,7 +15,6 @@ import {
   readUnvalidatedChugSplashConfig,
   UserChugSplashConfig,
   verifyDeployment,
-  ConfigArtifacts,
 } from '../config'
 import {
   computeDeploymentId,
@@ -48,15 +47,19 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import {
+  bundleLocal,
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
   executeTask,
   getDeployContractActions,
-  makeBundlesFromConfig,
   writeDeploymentArtifacts,
 } from '../actions'
-import { getAmountToDeposit, getOwnerWithdrawableAmount } from '../fund'
+import {
+  estimateExecutionGas,
+  getAmountToDeposit,
+  getOwnerWithdrawableAmount,
+} from '../fund'
 import { monitorExecution, postExecutionActions } from '../execution'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from '../types'
 import {
@@ -73,7 +76,7 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-import { signMetaTxRequest } from '../metatxs'
+import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
 
 // Load environment variables from .env
 dotenv.config()
@@ -129,7 +132,7 @@ export const chugsplashProposeAbstractTask = async (
   configPath: string,
   ipfsUrl: string,
   integration: Integration,
-  configArtifacts: ConfigArtifacts,
+  artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   cre: ChugSplashRuntimeEnvironment
 ) => {
@@ -155,13 +158,13 @@ export const chugsplashProposeAbstractTask = async (
   // Get the deployment info by calling the commit subtask locally (i.e. without publishing the
   // bundle to IPFS). This allows us to ensure that the deployment state is empty before we submit
   // it to IPFS.
-  const { configUri, deploymentId, bundles } =
+  const { bundles, configUri, deploymentId } =
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
       '',
       false,
-      configArtifacts,
+      artifactPaths,
       canonicalConfigPath,
       integration
     )
@@ -216,7 +219,7 @@ export const chugsplashProposeAbstractTask = async (
         remoteExecution,
         ipfsUrl,
         spinner,
-        configArtifacts,
+        artifactPaths,
         canonicalConfigPath,
         integration
       )
@@ -238,7 +241,7 @@ export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
   ipfsUrl: string,
   commitToIpfs: boolean,
-  configArtifacts: ConfigArtifacts,
+  artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -260,7 +263,7 @@ export const chugsplashCommitAbstractSubtask = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { buildInfo } = configArtifacts[referenceName]
+    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -337,10 +340,11 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundles = await makeBundlesFromConfig(
+  const bundles = await bundleLocal(
     provider,
     parsedConfig,
-    configArtifacts
+    artifactPaths,
+    integration
   )
 
   const configUri = `ipfs://${ipfsHash}`
@@ -503,7 +507,7 @@ export const chugsplashFundAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
-  configArtifacts: ConfigArtifacts,
+  artifactPaths: ArtifactPaths,
   integration: Integration,
   parsedConfig: ParsedChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment
@@ -520,7 +524,7 @@ export const chugsplashFundAbstractTask = async (
 
   const amountToDeposit = await getAmountToDeposit(
     provider,
-    await makeBundlesFromConfig(provider, parsedConfig, configArtifacts),
+    await bundleLocal(provider, parsedConfig, artifactPaths, integration),
     0,
     parsedConfig,
     true
@@ -1036,7 +1040,7 @@ export const proposeChugSplashDeployment = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   spinner: ora.Ora = ora({ isSilent: true }),
-  configArtifacts: ConfigArtifacts,
+  artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
   integration: Integration
 ) => {
@@ -1070,10 +1074,9 @@ export const proposeChugSplashDeployment = async (
     await chugsplashCommitAbstractSubtask(
       provider,
       parsedConfig,
-      bundles,
       ipfsUrl,
       true,
-      configArtifacts,
+      artifactPaths,
       canonicalConfigPath,
       integration,
       spinner
@@ -1087,7 +1090,8 @@ export const proposeChugSplashDeployment = async (
   if (
     process.env.CHUGSPLASH_API_KEY &&
     ((await isLiveNetwork(provider)) ||
-      process.env.LOCAL_TEST_METATX_PROPOSE === 'true')
+      process.env.LOCAL_TEST_METATX_PROPOSE === 'true' ||
+      process.env.LOCAL_MANAGED_SERVICE === 'true')
   ) {
     if (!process.env.PRIVATE_KEY) {
       throw new Error(
@@ -1115,9 +1119,27 @@ export const proposeChugSplashDeployment = async (
         ),
       }
     )
-    // TODO: CHU-242 - Call the meta txs API endpoint in the managed service
 
-    // Returning these values allows us to test meta transactions locally.
+    // Send the signed meta transaction to the ChugSplashManager via relay
+    if (process.env.LOCAL_TEST_METATX_PROPOSE !== 'true') {
+      const estimatedCost = await estimateExecutionGas(
+        provider,
+        bundles,
+        0,
+        parsedConfig
+      )
+      await relaySignedRequest(
+        signature,
+        request,
+        parsedConfig.options.organizationID,
+        deploymentId,
+        parsedConfig.options.projectName,
+        provider.network.chainId,
+        estimatedCost
+      )
+    }
+
+    // Returning these values allows us to test meta transactions locally
     return { signature, request, deploymentId }
   } else {
     await (

@@ -1,4 +1,8 @@
 import * as fs from 'fs'
+import util from 'util'
+import { exec, spawn } from 'child_process'
+
+const execAsync = util.promisify(exec)
 
 import {
   chugsplashDeployAbstractTask,
@@ -27,6 +31,8 @@ const args = process.argv.slice(2)
 const command = args[0]
 
 ;(async () => {
+  await execAsync('forge build')
+
   switch (command) {
     case 'claim': {
       const configPath = args[1]
@@ -139,16 +145,18 @@ const command = args[0]
         provider,
         wallet,
         config,
-        bundles,
         configPath,
         ipfsUrl,
         'foundry',
-        configArtifacts,
+        artifactPaths,
         canonicalConfigPath,
         cre
       )
       break
     }
+    // case 'validate': {
+    //   break
+    // }
     case 'deploy': {
       const configPath = args[1]
       const rpcUrl = args[2]
@@ -161,22 +169,16 @@ const command = args[0]
 
       const confirm = true
 
-      const logPath = `logs/${network ?? 'anvil'}`
-      if (!fs.existsSync(logPath)) {
-        fs.mkdirSync(logPath, { recursive: true })
-      }
-
-      const now = new Date()
-      const logWriter = fs.createWriteStream(
-        `${logPath}/deploy-${now.getTime()}`
-      )
-
       const {
         artifactFolder,
         buildInfoFolder,
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
+
+      // process.stdout.write('moose\n')
+      // process.stdout.write('0x')
+      // process.stdout.write(ethers.utils.toUtf8String([1, 0, 0, 0]))
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
@@ -186,7 +188,7 @@ const command = args[0]
         canonicalConfigPath,
         undefined,
         silent,
-        logWriter
+        process.stdout
       )
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
@@ -209,10 +211,6 @@ const command = args[0]
         cre
       )
 
-      if (!silent) {
-        logWriter.write('-- ChugSplash Deploy --\n')
-      }
-
       const contractArtifacts = await chugsplashDeployAbstractTask(
         provider,
         wallet,
@@ -228,12 +226,25 @@ const command = args[0]
 
       const artifactStructABI =
         'tuple(string referenceName, string contractName, address contractAddress)[]'
-      const encodedArtifacts = ethers.utils.AbiCoder.prototype.encode(
+      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
         [artifactStructABI],
         [contractArtifacts]
       )
 
       process.stdout.write(encodedArtifacts)
+      // process.stdout.write(
+      // ethers.utils.arrayify(
+      // ethers.utils.defaultAbiCoder.encode(
+      // ['uint256', 'bool'],
+      // [encodedArtifacts.length, true]
+      // )
+      // )
+      // )
+      // process.stdout.write(
+      //   ethers.utils.arrayify(
+      //     ethers.utils.defaultAbiCoder.encode(['uint256'], [0])
+      //   )
+      // )
       break
     }
     case 'cancel': {

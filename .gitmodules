@@ -8,3 +8,9 @@
 [submodule "packages/demo/hello_foundry/lib/forge-std"]
 	path = packages/demo/hello_foundry/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/demo/lib/forge-std"]
+	path = packages/demo/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/demo/lib/solidity-stringutils"]
+	path = packages/demo/lib/solidity-stringutils
+	url = https://github.com/Arachnid/solidity-stringutils

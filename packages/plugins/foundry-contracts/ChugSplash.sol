@@ -1,5 +1,7 @@
 pragma solidity ^0.8.15;
 
+import "forge-std/console.sol";
+
 // SPDX-License-Identifier: MIT
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
@@ -24,7 +26,6 @@ contract ChugSplash is Script, Test {
 
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
-    bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
     struct ChugSplashContract {
         string referenceName;
@@ -148,39 +149,71 @@ contract ChugSplash is Script, Test {
     ) public {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
-        string[] memory cmds = new string[](12);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "deploy";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = newOwner;
+        // string[] memory validationInputs = new string[](3);
+        // validationInputs[0] = TODO;
 
-        bytes memory result = vm.ffi(cmds);
-        if (isChugSplashTest) {
-            emit log("Attempting to decode deploy command results:");
-            emit log_bytes(result);
-        }
-        ChugSplashContract[] memory deployedContracts = abi.decode(result, (ChugSplashContract[]));
-        if (isChugSplashTest) {
-            emit log("Successfully decoded");
-        }
+        // string memory validationResult = string(vm.ffi(validationInputs));
 
-        if (silent == false) {
-            emit log("Success!");
-            for (uint i = 0; i < deployedContracts.length; i++) {
-                ChugSplashContract memory deployed = deployedContracts[i];
-                emit log(string.concat(deployed.referenceName, ': ', vm.toString(deployed.contractAddress)));
-            }
-            emit log("\nThank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np\n");
-        }
+        // string memory validationResult = string(vm.ffi(validationResult));
+        // uint numTODO = 4;
+        // uint lenResult = validationResult.toSlice().len();
+        // bool valid = lenResult > numTODO && isEqual("TODO", this.trim(validationResult, lenResult - numTODO, lenResult));
+        // if (!silent) {
+        //     string memory logs = this.trim(validationResult, 0, lenResult - numTODO);
+        //     emit log(logs);
+        // }
 
+        // if (!valid) {
+        //     revert();
+        // }
+
+        // console.log('valid');
+
+        string[] memory deployInputs = new string[](12);
+        deployInputs[0] = "npx";
+        deployInputs[1] = "node";
+        deployInputs[2] = filePath;
+        deployInputs[3] = "deploy";
+        deployInputs[4] = configPath;
+        deployInputs[5] = rpcUrl;
+        deployInputs[6] = network;
+        deployInputs[7] = privateKey;
+        deployInputs[8] = silent == true ? "true" : "false";
+        deployInputs[9] = outPath;
+        deployInputs[10] = buildInfoPath;
+        deployInputs[11] = newOwner;
+
+        bytes memory deployResult = vm.ffi(deployInputs);
+        // console.logBytes(hex"0000");
+        console.logBytes(deployResult);
+        console.log(string(deployResult));
+
+
+        // if (!silent) {
+        //     emit log("Success!");
+        //     ChugSplashContract[] memory deployedContracts = abi.decode(deployResult, (ChugSplashContract[]));
+        //     for (uint i = 0; i < deployedContracts.length; i++) {
+        //         ChugSplashContract memory contracts = deployedContracts[i];
+        //         emit log(string.concat(contracts.referenceName, ': ', vm.toString(contracts.contractAddress)));
+        //     }
+        //     emit log("\nThank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np\n");
+        // }
+    }
+
+    function isEqual(string memory _str1, string memory _str2) internal pure returns (bool) {
+        return keccak256(abi.encodePacked(_str1)) == keccak256(abi.encodePacked(_str2));
+    }
+
+    function trim(string calldata _str, uint _start, uint _end) external pure returns (string memory) {
+        return _str[_start:_end];
+    }
+
+    function toCalldata(string calldata _string) external returns (string calldata) {
+        return _string;
+    }
+
+    function TODO(bytes calldata _bytes, uint256 _startIdx) external returns (bytes memory) {
+        return _bytes[_startIdx:];
     }
 
     function cancel(

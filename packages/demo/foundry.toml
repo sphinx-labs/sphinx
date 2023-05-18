@@ -1,6 +1,11 @@
 [profile.default]
-src = "src"
+src = "contracts"
 out = "out"
 libs = ["lib"]
+ffi = true
+build_info = true
+extra_output = ['storageLayout']
+fs_permissions = [{ access = "read", path = "./"}]
 
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
