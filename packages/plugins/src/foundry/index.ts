@@ -23,6 +23,7 @@ import {
   ensureChugSplashInitialized,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
+import { remove0x } from '@eth-optimism/core-utils'
 
 import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
 import { createChugSplashRuntime } from '../utils'
@@ -165,7 +166,7 @@ const command = args[0]
       const silent = args[5] === 'true'
       const outPath = cleanPath(args[6])
       const buildInfoPath = cleanPath(args[7])
-      let newOwner = args[8]
+      const newOwner = args[8]
 
       const confirm = true
 
@@ -175,10 +176,18 @@ const command = args[0]
         deploymentFolder,
         canonicalConfigPath,
       } = fetchPaths(outPath, buildInfoPath)
+      const ary = []
 
-      // process.stdout.write('moose\n')
-      // process.stdout.write('0x')
-      // process.stdout.write(ethers.utils.toUtf8String([1, 0, 0, 0]))
+      const stream = {
+        ...process.stdout
+      }
+
+      process.stdout.write(
+        ethers.utils.hexlify(ethers.utils.toUtf8Bytes('this is encoded!'))
+      )
+      const str = 'ff'.repeat(100)
+      const thing = ethers.utils.defaultAbiCoder.encode(['string'], [str])
+      process.stdout.write(str.concat(remove0x(thing)))
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
@@ -188,50 +197,51 @@ const command = args[0]
         canonicalConfigPath,
         undefined,
         silent,
-        process.stdout
+        stream
       )
 
-      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
-        userConfig.contracts,
-        artifactFolder,
-        buildInfoFolder
-      )
+      // const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+      // const artifactPaths = await getArtifactPaths(
+      //   userConfig.contracts,
+      //   artifactFolder,
+      //   buildInfoFolder
+      // )
 
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      const address = await wallet.getAddress()
-      newOwner = newOwner !== 'self' ? newOwner : address
+      // const wallet = new ethers.Wallet(privateKey, provider)
+      // await provider.getNetwork()
+      // const address = await wallet.getAddress()
+      // newOwner = newOwner !== 'self' ? newOwner : address
 
-      const parsedConfig = await readValidatedChugSplashConfig(
-        provider,
-        configPath,
-        artifactPaths,
-        'foundry',
-        cre
-      )
+      // const parsedConfig = await readValidatedChugSplashConfig(
+      //   provider,
+      //   configPath,
+      //   artifactPaths,
+      //   'foundry',
+      //   cre
+      // )
 
-      const contractArtifacts = await chugsplashDeployAbstractTask(
-        provider,
-        wallet,
-        configPath,
-        newOwner ?? (await wallet.getAddress()),
-        artifactPaths,
-        canonicalConfigPath,
-        deploymentFolder,
-        'foundry',
-        cre,
-        parsedConfig
-      )
+      // const contractArtifacts = await chugsplashDeployAbstractTask(
+      //   provider,
+      //   wallet,
+      //   configPath,
+      //   newOwner ?? (await wallet.getAddress()),
+      //   artifactPaths,
+      //   canonicalConfigPath,
+      //   deploymentFolder,
+      //   'foundry',
+      //   cre,
+      //   parsedConfig
+      // )
 
-      const artifactStructABI =
-        'tuple(string referenceName, string contractName, address contractAddress)[]'
-      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [contractArtifacts]
-      )
+      // const artifactStructABI =
+      //   'tuple(string referenceName, string contractName, address contractAddress)[]'
+      // const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
+      //   [artifactStructABI],
+      //   [contractArtifacts]
+      // )
 
-      process.stdout.write(encodedArtifacts)
+      // process.stdout.write(new Uint8Array([0, 0, 0, 0, 0, 255, 255]))
+      // process.stdout.write(encodedArtifacts)
       // process.stdout.write(
       // ethers.utils.arrayify(
       // ethers.utils.defaultAbiCoder.encode(
