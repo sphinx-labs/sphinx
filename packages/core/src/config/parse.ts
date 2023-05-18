@@ -1831,8 +1831,10 @@ permission to call the 'upgradeTo' function on each of them.
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const sourceName = contractConfig.contract.split(':')[0]
     const { input, output } = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath
+      artifactPaths[referenceName].buildInfoPath,
+      sourceName
     )
     const userContractConfig = userConfig.contracts[referenceName]
 
@@ -1943,7 +1945,7 @@ export const assertValidSourceCode = (
     const [sourceName, contractName] = contractConfig.contract.split(':')
 
     const buildInfoPath = artifactPaths[referenceName].buildInfoPath
-    const buildInfo = readBuildInfo(buildInfoPath)
+    const buildInfo = readBuildInfo(buildInfoPath, sourceName)
 
     const sourceUnit = buildInfo.output.sources[sourceName].ast
     const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
@@ -2182,11 +2184,14 @@ export const assertValidConstructorArgs = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    const { output } = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
-    cachedCompilerOutput[referenceName] = output
-
     const artifact = cachedArtifacts[referenceName]
-    const { abi } = artifact
+    const { abi, sourceName } = artifact
+
+    const { output } = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath,
+      sourceName
+    )
+    cachedCompilerOutput[referenceName] = output
 
     const args = parseContractConstructorArgs(
       userContractConfig,

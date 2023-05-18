@@ -283,12 +283,15 @@ export const bundleLocal = async (
 ): Promise<ChugSplashBundles> => {
   const artifacts: ConfigArtifacts = {}
   for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
-
     const artifact = readContractArtifact(
       artifactPaths[referenceName].contractArtifactPath,
       integration
     )
+    const buildInfo = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath,
+      artifact.sourceName
+    )
+
     artifacts[referenceName] = {
       buildInfo,
       artifact,

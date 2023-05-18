@@ -5,6 +5,7 @@ import { Storage } from "./Storage.sol";
 import { Version } from "@chugsplash/contracts/contracts/Semver.sol";
 
 contract Stateless {
+    uint public constant x = 2;
     uint immutable public immutableUint;
     Storage immutable public immutableContractReference;
 

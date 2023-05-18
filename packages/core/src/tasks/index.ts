@@ -271,14 +271,17 @@ export const chugsplashCommitAbstractSubtask = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
+    // Split the contract's fully qualified name
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    const buildInfo = readBuildInfo(
+      artifactPaths[referenceName].buildInfoPath,
+      sourceName
+    )
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
     )
-
-    // Split the contract's fully qualified name
-    const [sourceName, contractName] = contractConfig.contract.split(':')
 
     const { language, settings, sources } = getMinimumCompilerInput(
       buildInfo.input,

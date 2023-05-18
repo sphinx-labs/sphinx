@@ -703,7 +703,10 @@ export const readContractArtifact = (
  * @param buildInfoPath Path to the build info file.
  * @returns BuildInfo object.
  */
-export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
+export const readBuildInfo = (
+  buildInfoPath: string,
+  sourceName: string
+): BuildInfo => {
   const buildInfo: BuildInfo = JSON.parse(
     fs.readFileSync(buildInfoPath, 'utf8')
   )
@@ -714,11 +717,12 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
     )
   }
 
-  if (
-    !buildInfo.input.settings.outputSelection['*']['*'].includes(
-      'storageLayout'
-    )
-  ) {
+  // TODO: explain
+  const outputSelection =
+    buildInfo.input.settings.outputSelection['*'] ??
+    buildInfo.input.settings.outputSelection[sourceName]
+
+  if (!outputSelection['*'].includes('storageLayout')) {
     throw new Error(
       `Storage layout not found. Did you forget to set the "storageLayout" compiler option in your\n` +
         `Hardhat/Foundry config file?\n\n` +
@@ -1013,8 +1017,10 @@ export const getPreviousStorageLayoutOZFormat = async (
     userContractConfig.previousFullyQualifiedName !== undefined &&
     userContractConfig.previousBuildInfo !== undefined
   ) {
+    const sourceName = parsedContractConfig.contract.split(':')[0]
     const { input, output } = readBuildInfo(
-      userContractConfig.previousBuildInfo
+      userContractConfig.previousBuildInfo,
+      sourceName
     )
 
     if (previousCanonicalConfig !== undefined) {
