@@ -87,7 +87,8 @@ describe('Remote Execution', () => {
       'hardhat',
       artifactPaths,
       canonicalConfigPath,
-      cre
+      cre,
+      false
     )
 
     // approve
