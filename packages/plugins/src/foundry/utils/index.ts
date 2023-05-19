@@ -1,5 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import util from 'util'
+import { exec } from 'child_process'
 
 import {
   BuildInfo,
@@ -9,6 +11,8 @@ import {
   UserContractConfigs,
   validateBuildInfo,
 } from '@chugsplash/core'
+
+import { fetchFilesRecursively } from '../../hardhat'
 
 export const getBuildInfo = (
   buildInfoFolder: string,
@@ -79,6 +83,37 @@ export const getConfigArtifacts = async (
   artifactFolder: string,
   buildInfoFolder: string
 ): Promise<ConfigArtifacts> => {
+  const configContractNames = Object.values(contractConfigs).map(
+    (contractConfig) =>
+      contractConfig.contract.includes(':')
+        ? contractConfig.contract.split(':')[1]
+        : contractConfig.contract
+  )
+
+  // After foundry fixes bug #4891 (https://github.com/foundry-rs/foundry/issues/4981), this can be
+  // removed.
+  if (!fs.existsSync(buildInfoFolder)) {
+    fs.mkdirSync(buildInfoFolder)
+  }
+
+  // TODO: left off: I think we should do filename.extension name instead of just filename. i think
+  // this'll give more accurate filtering. e.g. instead of "configContractName = A", it's "A.sol".
+
+  const contractsToSkip = fetchFilesRecursively(buildInfoFolder)
+    .map((contractPath) => path.basename(contractPath))
+    .filter((contractName) =>
+      // TODO(docs): e.g. config contract's name is "MyReverter", and there's another contract in the
+      // repo called "Reverter". If we `--skip Reverter`, then we'll skip the config contract as well.
+      configContractNames.some((configContractName) =>
+        contractName.includes(configContractName)
+      )
+    )
+
+  const execAsync = util.promisify(exec)
+  // This ensures that we're using the latest versions of the user's contracts. After Foundry fixes
+  // bug #4981, this can just be `await execAsync('forge build')`.
+  await execAsync('forge build')
+
   const configArtifacts: ConfigArtifacts = {}
 
   for (const [referenceName, contractConfig] of Object.entries(

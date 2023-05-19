@@ -9,11 +9,18 @@ const config: UserChugSplashConfig = {
   contracts: {
     MyFirstContract: {
       contract: 'HelloChugSplash',
+      kind: 'no-proxy',
+    },
+    MyProxy: {
+      contract: 'HelloChugSplash',
       variables: {
         number: 1,
         stored: true,
         storageName: 'First',
         otherStorage: '0x1111111111111111111111111111111111111111',
+        hi: {
+          '{{ MyFirstContract }}': 2,
+        },
       },
     },
   },

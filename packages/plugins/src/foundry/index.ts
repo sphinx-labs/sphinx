@@ -1,6 +1,4 @@
 import * as fs from 'fs'
-import util from 'util'
-import { exec } from 'child_process'
 
 import {
   chugsplashDeployAbstractTask,
@@ -26,21 +24,13 @@ import { ethers } from 'ethers'
 import { cleanPath, fetchPaths, getConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
-const execAsync = util.promisify(exec)
-
 const args = process.argv.slice(2)
 const command = args[0]
 
-// After foundry fixes bug #4891 (https://github.com/foundry-rs/foundry/issues/4981), this can be
-// removed.
-// TODO: make sure this is in your project root, including monorepos
-const tmpBuildInfoDir = 'chugsplash-cache'
+// TODO(docs): mention Foundry bug
+const tmpBuildInfoFolder = 'chugsplash-cache'
 
 ;(async () => {
-  // This ensures that we're using the latest versions of the user's contracts. After Foundry fixes
-  // bug #4981, this can just be `await execAsync('forge build')`.
-  await execAsync('forge build')
-
   switch (command) {
     case 'claim': {
       const configPath = args[1]
@@ -53,8 +43,10 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       let owner = args[8]
       const allowManagedProposals = args[9] === 'true'
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
+      const { artifactFolder, canonicalConfigPath } = fetchPaths(
+        outPath,
+        buildInfoPath
+      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
@@ -73,7 +65,7 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
-        buildInfoFolder
+        tmpBuildInfoFolder
       )
 
       const config = await readValidatedChugSplashConfig(
@@ -111,8 +103,10 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const buildInfoPath = cleanPath(args[7])
       const ipfsUrl = args[8] !== 'none' ? args[8] : ''
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
+      const { artifactFolder, canonicalConfigPath } = fetchPaths(
+        outPath,
+        buildInfoPath
+      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const remoteExecution = await isLiveNetwork(provider)
@@ -130,7 +124,7 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
-        buildInfoFolder
+        tmpBuildInfoFolder
       )
 
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -202,7 +196,7 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
-        buildInfoFolder
+        tmpBuildInfoFolder
       )
 
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -306,8 +300,10 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const buildInfoPath = cleanPath(args[7])
       const referenceName = args[8]
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigPath } =
-        fetchPaths(outPath, buildInfoPath)
+      const { artifactFolder, canonicalConfigPath } = fetchPaths(
+        outPath,
+        buildInfoPath
+      )
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const cre = await createChugSplashRuntime(
@@ -324,7 +320,7 @@ const tmpBuildInfoDir = 'chugsplash-cache'
       const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
-        buildInfoFolder
+        tmpBuildInfoFolder
       )
 
       const wallet = new ethers.Wallet(privateKey, provider)

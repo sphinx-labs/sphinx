@@ -6,4 +6,5 @@ contract HelloChugSplash {
     bool public stored;
     address public otherStorage;
     string public storageName;
+    mapping(address => uint) public hi;
 }
