@@ -5,18 +5,14 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import { ParsedChugSplashConfig } from '../config/types'
+import { ConfigArtifacts, ParsedChugSplashConfig } from '../config/types'
 import {
-  ArtifactPaths,
   CompilerOutput,
   SolidityStorageLayout,
 } from '../languages/solidity/types'
-import { Integration } from '../constants'
 import {
   writeDeploymentFolderForNetwork,
   getConstructorArgs,
-  readBuildInfo,
-  readContractArtifact,
   writeDeploymentArtifact,
   getChugSplashManagerAddress,
 } from '../utils'
@@ -56,8 +52,7 @@ export const writeDeploymentArtifacts = async (
   deploymentEvents: ethers.Event[],
   networkName: string,
   deploymentFolderPath: string,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
+  configArtifacts: ConfigArtifacts
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
@@ -118,14 +113,8 @@ export const writeDeploymentArtifacts = async (
     } else if (deploymentEvent.event === 'ContractDeployed') {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
-      const artifact = readContractArtifact(
-        artifactPaths[referenceName].contractArtifactPath,
-        integration
-      )
+      const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
-      const buildInfo = readBuildInfo(
-        artifactPaths[referenceName].buildInfoPath
-      )
       const constructorArgValues = getConstructorArgs(
         parsedConfig.contracts[referenceName].constructorArgs,
         abi

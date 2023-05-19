@@ -10,10 +10,9 @@ import {
   DeploymentStatus,
   writeDeploymentArtifacts,
 } from '../actions'
-import { ParsedChugSplashConfig } from '../config'
+import { ConfigArtifacts, ParsedChugSplashConfig } from '../config'
 import { Integration } from '../constants'
 import { getAmountToDeposit } from '../fund'
-import { ArtifactPaths } from '../languages'
 import {
   getChugSplashManager,
   getDeploymentEvents,
@@ -141,7 +140,7 @@ export const postExecutionActions = async (
   deploymentEvents: ethers.Event[],
   networkName: string,
   deploymentFolderPath: string,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   newProjectOwner?: string | undefined,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -185,8 +184,7 @@ export const postExecutionActions = async (
     deploymentEvents,
     networkName,
     deploymentFolderPath,
-    artifactPaths,
-    integration
+    configArtifacts
   )
 
   spinner.succeed(`Wrote deployment artifacts.`)

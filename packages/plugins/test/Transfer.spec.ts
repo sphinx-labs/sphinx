@@ -1,5 +1,3 @@
-import * as path from 'path'
-
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
@@ -22,7 +20,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 
 import { createChugSplashRuntime } from '../src/utils'
-import { getArtifactPaths } from '../src/hardhat/artifacts'
+import { getConfigArtifacts } from '../src/hardhat/artifacts'
 const uupsOwnableUpgradeConfigPath =
   './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
 const uupsAccessControlUpgradeConfigPath =
@@ -75,12 +73,7 @@ describe('Transfer', () => {
       transparentUpgradeConfigPath
     )
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       transparentUpgradeConfigPath,
@@ -122,7 +115,7 @@ describe('Transfer', () => {
     const parsedConfig = await readValidatedChugSplashConfig(
       provider,
       transparentUpgradeConfigPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       false
@@ -133,7 +126,7 @@ describe('Transfer', () => {
       signer,
       transparentUpgradeConfigPath,
       signer.address,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -190,12 +183,7 @@ describe('Transfer', () => {
       uupsOwnableUpgradeConfigPath
     )
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       uupsOwnableUpgradeConfigPath,
@@ -232,7 +220,7 @@ describe('Transfer', () => {
     const parsedConfig = await readValidatedChugSplashConfig(
       provider,
       uupsOwnableUpgradeConfigPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       false
@@ -245,7 +233,7 @@ describe('Transfer', () => {
       signer,
       uupsOwnableUpgradeConfigPath,
       signer.address,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -322,12 +310,7 @@ describe('Transfer', () => {
       uupsAccessControlUpgradeConfigPath
     )
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       uupsAccessControlUpgradeConfigPath,
@@ -369,7 +352,7 @@ describe('Transfer', () => {
     const parsedConfig = await readValidatedChugSplashConfig(
       provider,
       uupsAccessControlUpgradeConfigPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       false
@@ -383,7 +366,7 @@ describe('Transfer', () => {
       signer,
       uupsAccessControlUpgradeConfigPath,
       signer.address,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',

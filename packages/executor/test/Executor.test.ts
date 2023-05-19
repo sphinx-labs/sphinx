@@ -1,4 +1,3 @@
-import * as path from 'path'
 import '@chugsplash/plugins'
 
 import hre, { chugsplash } from 'hardhat'
@@ -12,8 +11,8 @@ import {
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { expect } from 'chai'
+import { getConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
 
-import { getArtifactPaths } from '../../plugins/dist'
 import { createChugSplashRuntime } from '../../plugins/src/utils'
 
 const configPath = './chugsplash/ExecutorTest.config.ts'
@@ -30,12 +29,7 @@ describe('Remote Execution', () => {
 
     const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       configPath,
@@ -50,7 +44,7 @@ describe('Remote Execution', () => {
     const parsedConfig = await readValidatedChugSplashConfig(
       provider,
       configPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       true
@@ -72,7 +66,7 @@ describe('Remote Execution', () => {
       provider,
       signer,
       configPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       parsedConfig,
       cre
@@ -85,7 +79,7 @@ describe('Remote Execution', () => {
       configPath,
       '',
       'hardhat',
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       cre,
       false
@@ -97,7 +91,7 @@ describe('Remote Execution', () => {
       signer,
       configPath,
       false,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       canonicalConfigPath,
       deploymentFolder,

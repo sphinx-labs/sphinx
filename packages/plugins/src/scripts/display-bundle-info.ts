@@ -1,4 +1,3 @@
-import path from 'path'
 import { argv } from 'node:process'
 
 import hre from 'hardhat'
@@ -10,7 +9,7 @@ import {
 } from '@chugsplash/core'
 import { utils } from 'ethers'
 
-import { getArtifactPaths } from '../hardhat/artifacts'
+import { getConfigArtifacts } from '../hardhat/artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 const chugsplashFilePath = argv[2]
@@ -27,12 +26,7 @@ if (typeof chugsplashFilePath !== 'string') {
  */
 const displayBundleInfo = async () => {
   const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
+  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
   const cre = await createChugSplashRuntime(
     chugsplashFilePath,
@@ -46,7 +40,7 @@ const displayBundleInfo = async () => {
   const parsedConfig = await readValidatedChugSplashConfig(
     hre.ethers.provider,
     chugsplashFilePath,
-    artifactPaths,
+    configArtifacts,
     'hardhat',
     cre
   )
@@ -56,7 +50,7 @@ const displayBundleInfo = async () => {
     parsedConfig,
     '',
     false,
-    artifactPaths,
+    configArtifacts,
     hre.config.paths.canonicalConfigs,
     'hardhat'
   )
