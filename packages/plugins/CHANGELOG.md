@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.14.1
+
+### Patch Changes
+
+- 8fe018e: Change Hardhat `node` task param from 'silent' to 'hide' due to conflict with existing task
+
 ## 0.14.0
 
 ### Minor Changes

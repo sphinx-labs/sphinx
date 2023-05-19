@@ -494,21 +494,21 @@ task(TASK_NODE)
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
   )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addFlag('hide', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
         deployAll: boolean
         disableChugsplash: boolean
-        silent: boolean
+        hide: boolean
         noCompile: boolean
         confirm: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, disableChugsplash, silent, noCompile } = args
+      const { deployAll, disableChugsplash, hide: silent, noCompile } = args
 
       if (!disableChugsplash) {
         const spinner = ora({ isSilent: silent })
