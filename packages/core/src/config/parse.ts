@@ -24,8 +24,6 @@ import yesno from 'yesno'
 import { ContractDefinition } from 'solidity-ast'
 
 import {
-  ArtifactPaths,
-  ContractArtifact,
   SolidityStorageLayout,
   SolidityStorageObj,
   SolidityStorageType,
@@ -34,8 +32,6 @@ import {
 import {
   getDefaultProxyAddress,
   isExternalContractKind,
-  readContractArtifact,
-  readBuildInfo,
   getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
   getPreviousStorageLayoutOZFormat,
@@ -61,6 +57,7 @@ import {
   UserConfigVariables,
   ParsedConfigVariables,
   ParsedContractConfig,
+  ConfigArtifacts,
 } from './types'
 import {
   CONTRACT_SIZE_LIMIT,
@@ -115,7 +112,7 @@ const logValidationError = (
 export const readValidatedChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
   configPath: string,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
   exitOnFailure: boolean = true
@@ -124,7 +121,7 @@ export const readValidatedChugSplashConfig = async (
   return parseAndValidateChugSplashConfig(
     provider,
     userConfig,
-    artifactPaths,
+    configArtifacts,
     integration,
     cre,
     exitOnFailure
@@ -1733,7 +1730,7 @@ export const assertValidParsedChugSplashFile = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
   userConfig: UserChugSplashConfig,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ): Promise<boolean> => {
   const { canonicalConfigPath } = cre
@@ -1831,11 +1828,7 @@ permission to call the 'upgradeTo' function on each of them.
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const sourceName = contractConfig.contract.split(':')[0]
-    const { input, output } = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath,
-      sourceName
-    )
+    const { input, output } = configArtifacts[referenceName].buildInfo
     const userContractConfig = userConfig.contracts[referenceName]
 
     // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
@@ -1935,7 +1928,7 @@ permission to call the 'upgradeTo' function on each of them.
 
 export const assertValidSourceCode = (
   parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   for (const [referenceName, contractConfig] of Object.entries(
@@ -1944,8 +1937,7 @@ export const assertValidSourceCode = (
     // Get the source name and contract name from its fully qualified name
     const [sourceName, contractName] = contractConfig.contract.split(':')
 
-    const buildInfoPath = artifactPaths[referenceName].buildInfoPath
-    const buildInfo = readBuildInfo(buildInfoPath, sourceName)
+    const { buildInfo } = configArtifacts[referenceName]
 
     const sourceUnit = buildInfo.output.sources[sourceName].ast
     const decodeSrc = srcDecoder(buildInfo.input, buildInfo.output)
@@ -2129,35 +2121,24 @@ const logUnsafeOptions = (
 
 export const assertValidConstructorArgs = (
   userConfig: UserChugSplashConfig,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean,
-  integration: Integration
+  exitOnFailure: boolean
 ): {
-  cachedCompilerOutput: { [referenceName: string]: CompilerOutput }
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
-  cachedArtifacts: { [referenceName: string]: ContractArtifact }
   contractReferences: { [referenceName: string]: string }
 } => {
   const { projectName, organizationID } = userConfig.options
   const managerAddress = getChugSplashManagerAddress(organizationID)
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
-  const cachedCompilerOutput = {}
   const cachedConstructorArgs = {}
   const contractReferences: { [referenceName: string]: string } = {}
-  const cachedArtifacts = {}
 
   // Determine the addresses for all proxied contracts and cache the artifacts.
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
     const { externalProxy, kind } = userContractConfig
-
-    const artifact = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
-    cachedArtifacts[referenceName] = artifact
 
     if (kind === 'no-proxy') {
       // prevents references to no-proxy contracts from being resolved to '' during the first pass compilation
@@ -2184,19 +2165,12 @@ export const assertValidConstructorArgs = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    const artifact = cachedArtifacts[referenceName]
-    const { abi, sourceName } = artifact
-
-    const { output } = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath,
-      sourceName
-    )
-    cachedCompilerOutput[referenceName] = output
+    const { artifact } = configArtifacts[referenceName]
 
     const args = parseContractConstructorArgs(
       userContractConfig,
       referenceName,
-      abi,
+      artifact.abi,
       cre
     )
     cachedConstructorArgs[referenceName] = args
@@ -2239,21 +2213,14 @@ export const assertValidConstructorArgs = (
 
   // We return the cached values so we can use them in later steps without rereading the files
   return {
-    cachedCompilerOutput,
     cachedConstructorArgs: compiledConstructorArgs,
-    cachedArtifacts,
     contractReferences,
   }
 }
 
 const assertValidContractVariables = (
   userConfig: UserChugSplashConfig,
-  cachedCompilerOutput: {
-    [referenceName: string]: CompilerOutput
-  },
-  cachedArtifacts: {
-    [referenceName: string]: ContractArtifact
-  },
+  configArtifacts: ConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   cre: ChugSplashRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
@@ -2276,12 +2243,11 @@ const assertValidContractVariables = (
       }
       parsedVariables[referenceName] = {}
     } else {
-      const artifact = cachedArtifacts[referenceName]
+      const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName } = artifact
 
-      const compilerOutput = cachedCompilerOutput[referenceName]
       const storageLayout = getStorageLayout(
-        compilerOutput,
+        buildInfo.output,
         sourceName,
         contractName
       )
@@ -2293,7 +2259,7 @@ const assertValidContractVariables = (
           })
         ),
         storageLayout,
-        compilerOutput,
+        buildInfo.output,
         cre
       )
 
@@ -2306,9 +2272,7 @@ const assertValidContractVariables = (
 
 const constructParsedConfig = (
   userConfig: UserChugSplashConfig,
-  cachedArtifacts: {
-    [referenceName: string]: ContractArtifact
-  },
+  configArtifacts: ConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
@@ -2325,7 +2289,7 @@ const constructParsedConfig = (
     // executor to create the `ConfigArtifacts` when it eventually compiles the canonical
     // config.
     const { sourceName, contractName, bytecode, abi } =
-      cachedArtifacts[referenceName]
+      configArtifacts[referenceName].artifact
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
 
     // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
@@ -2369,7 +2333,7 @@ const constructParsedConfig = (
 export const parseAndValidateChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
   userConfig: UserChugSplashConfig,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
   exitOnFailure: boolean = true
@@ -2388,24 +2352,13 @@ export const parseAndValidateChugSplashConfig = async (
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the compiler output, parsed constructor args, and other artifacts so we don't have to re-read them later
-  const {
-    cachedCompilerOutput,
-    cachedConstructorArgs,
-    cachedArtifacts,
-    contractReferences,
-  } = assertValidConstructorArgs(
-    userConfig,
-    artifactPaths,
-    cre,
-    exitOnFailure,
-    integration
-  )
+  const { cachedConstructorArgs, contractReferences } =
+    assertValidConstructorArgs(userConfig, configArtifacts, cre, exitOnFailure)
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
     userConfig,
-    cachedCompilerOutput,
-    cachedArtifacts,
+    configArtifacts,
     contractReferences,
     cre
   )
@@ -2413,20 +2366,19 @@ export const parseAndValidateChugSplashConfig = async (
   // Construct the parsed config
   const parsedConfig = constructParsedConfig(
     userConfig,
-    cachedArtifacts,
+    configArtifacts,
     contractReferences,
     parsedVariables,
     cachedConstructorArgs
   )
 
-  assertValidSourceCode(parsedConfig, artifactPaths, cre)
+  assertValidSourceCode(parsedConfig, configArtifacts, cre)
 
   await assertAvailableCreate3Addresses(
     provider,
     parsedConfig,
-    artifactPaths,
-    cre,
-    integration
+    configArtifacts,
+    cre
   )
 
   const managerAddress = getChugSplashManagerAddress(
@@ -2436,13 +2388,13 @@ export const parseAndValidateChugSplashConfig = async (
     provider,
     managerAddress,
     parsedConfig,
-    cachedArtifacts,
+    configArtifacts,
     cachedConstructorArgs,
     cre
   )
 
   if (await isLiveNetwork(provider)) {
-    await assertContractsBelowSizeLimit(parsedConfig, cachedArtifacts, cre)
+    await assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
   }
 
   await assertValidDeploymentSize(provider, parsedConfig, cre)
@@ -2453,7 +2405,7 @@ export const parseAndValidateChugSplashConfig = async (
     provider,
     parsedConfig,
     userConfig,
-    artifactPaths,
+    configArtifacts,
     cre
   )
 
@@ -2526,16 +2478,14 @@ export const assertValidDeploymentSize = async (
  */
 export const assertContractsBelowSizeLimit = async (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: {
-    [referenceName: string]: ContractArtifact
-  },
+  configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const tooLarge: string[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const deployedBytecode = artifacts[referenceName].deployedBytecode
+    const { deployedBytecode } = configArtifacts[referenceName].artifact
 
     const numBytes = (deployedBytecode.length - 2) / 2
     if (numBytes > CONTRACT_SIZE_LIMIT) {
@@ -2559,13 +2509,13 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
   provider: providers.Provider,
   managerAddress: string,
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: { [referenceName: string]: ContractArtifact },
+  configArtifacts: ConfigArtifacts,
   constructorArgs: { [referenceName: string]: ParsedConfigVariables },
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const revertingDeployments: { [referenceName: string]: string } = {}
 
-  for (const [referenceName, artifact] of Object.entries(artifacts)) {
+  for (const [referenceName, { artifact }] of Object.entries(configArtifacts)) {
     // Skip proxies. We check that they have deterministic constructors elsewhere (in
     // `assertValidSourceCode`).
     if (parsedConfig.contracts[referenceName].kind !== 'no-proxy') {
@@ -2609,9 +2559,8 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
 const assertAvailableCreate3Addresses = async (
   provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  cre: ChugSplashRuntimeEnvironment,
-  integration: Integration
+  configArtifacts: ConfigArtifacts,
+  cre: ChugSplashRuntimeEnvironment
 ): Promise<void> => {
   // List of reference names that correspond to the unavailable Create3 addresses
   const unavailable: string[] = []
@@ -2623,10 +2572,7 @@ const assertAvailableCreate3Addresses = async (
       contractConfig.kind === 'no-proxy' &&
       (await provider.getCode(contractConfig.address)) !== '0x'
     ) {
-      const { bytecode, abi } = readContractArtifact(
-        artifactPaths[referenceName].contractArtifactPath,
-        integration
-      )
+      const { bytecode, abi } = configArtifacts[referenceName].artifact
 
       const deployedHash = await getDeployedCreationCodeWithArgsHash(
         provider,

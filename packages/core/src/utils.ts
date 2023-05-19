@@ -64,7 +64,6 @@ import {
   ContractArtifact,
   BuildInfo,
   CompilerOutput,
-  ArtifactPaths,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
@@ -318,7 +317,6 @@ export const chugsplashLog = (
 
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
   integration: Integration,
   silent: boolean
 ) => {

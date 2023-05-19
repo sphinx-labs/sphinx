@@ -52,16 +52,6 @@ export interface ExtendedStorageLayout extends SolidityStorageLayout {
   storage: ExtendedSolidityStorageObj[]
 }
 
-/**
- * Mapping from a contract's reference name to its build info file path and artifact path.
- */
-export type ArtifactPaths = {
-  [referenceName: string]: {
-    buildInfoPath: string
-    contractArtifactPath: string
-  }
-}
-
 export interface StorageSlotSegment {
   key: string
   offset: number

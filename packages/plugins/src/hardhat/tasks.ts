@@ -15,7 +15,6 @@ import {
   chugsplashFetchSubtask,
   chugsplashClaimAbstractTask,
   chugsplashCommitAbstractSubtask,
-  bundleLocal,
   chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
@@ -24,13 +23,13 @@ import {
   chugsplashListProjectsAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
-  ArtifactPaths,
   bundleRemoteSubtask,
   ChugSplashBundles,
   readValidatedChugSplashConfig,
   readUnvalidatedChugSplashConfig,
   isLiveNetwork,
   ensureChugSplashInitialized,
+  ConfigArtifacts,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -47,7 +46,7 @@ import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
-import { getArtifactPaths } from './artifacts'
+import { getConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 // Load environment variables from .env
@@ -55,7 +54,6 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-export const TASK_CHUGSPLASH_BUNDLE_LOCAL = 'chugsplash-bundle-local'
 export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
@@ -80,27 +78,6 @@ subtask(TASK_CHUGSPLASH_FETCH)
 subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
   .addParam('canonicalConfig', undefined, undefined, types.any)
   .setAction(bundleRemoteSubtask)
-
-export const bundleLocalSubtask = async (
-  args: {
-    parsedConfig: ParsedChugSplashConfig
-    artifactPaths: ArtifactPaths
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { parsedConfig, artifactPaths } = args
-
-  return bundleLocal(
-    hre.ethers.provider,
-    parsedConfig,
-    artifactPaths,
-    'hardhat'
-  )
-}
-
-subtask(TASK_CHUGSPLASH_BUNDLE_LOCAL)
-  .addParam('parsedConfig', undefined, undefined)
-  .setAction(bundleLocalSubtask)
 
 export const chugsplashDeployTask = async (
   args: {
@@ -137,16 +114,11 @@ export const chugsplashDeployTask = async (
   const deploymentFolder = hre.config.paths.deployments
 
   const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
+  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
   const parsedConfig = await readValidatedChugSplashConfig(
     provider,
     configPath,
-    artifactPaths,
+    configArtifacts,
     'hardhat',
     cre
   )
@@ -156,7 +128,7 @@ export const chugsplashDeployTask = async (
     signer,
     configPath,
     newOwner ?? signerAddress,
-    artifactPaths,
+    configArtifacts,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
@@ -204,17 +176,12 @@ export const chugsplashClaimTask = async (
   await ensureChugSplashInitialized(provider, signer)
 
   const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
+  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
   const parsedConfig = await readValidatedChugSplashConfig(
     provider,
     configPath,
-    artifactPaths,
+    configArtifacts,
     'hardhat',
     cre
   )
@@ -274,17 +241,12 @@ export const chugsplashProposeTask = async (
   const signer = hre.ethers.provider.getSigner()
   await ensureChugSplashInitialized(provider, signer)
 
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    userConfig.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
+  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
   const parsedConfig = await readValidatedChugSplashConfig(
     provider,
     configPath,
-    artifactPaths,
+    configArtifacts,
     'hardhat',
     cre
   )
@@ -296,7 +258,7 @@ export const chugsplashProposeTask = async (
     configPath,
     ipfsUrl,
     'hardhat',
-    artifactPaths,
+    configArtifacts,
     canonicalConfigPath,
     cre
   )
@@ -354,7 +316,7 @@ export const chugsplashCommitSubtask = async (
     ipfsUrl: string
     commitToIpfs: boolean
     noCompile: boolean
-    artifactPaths: ArtifactPaths
+    configArtifacts: ConfigArtifacts
     spinner?: ora.Ora
   },
   hre: HardhatRuntimeEnvironment
@@ -369,7 +331,7 @@ export const chugsplashCommitSubtask = async (
     commitToIpfs,
     noCompile,
     spinner,
-    artifactPaths,
+    configArtifacts,
   } = args
 
   if (!noCompile) {
@@ -385,7 +347,7 @@ export const chugsplashCommitSubtask = async (
     parsedConfig,
     ipfsUrl,
     commitToIpfs,
-    artifactPaths,
+    configArtifacts,
     canonicalConfigPath,
     'hardhat',
     spinner
@@ -779,16 +741,11 @@ export const exportProxyTask = async (
   const signer = provider.getSigner()
 
   const config = await readUnvalidatedChugSplashConfig(configPath)
-  const artifactPaths = await getArtifactPaths(
-    hre,
-    config.contracts,
-    hre.config.paths.artifacts,
-    path.join(hre.config.paths.artifacts, 'build-info')
-  )
+  const configArtifacts = await getConfigArtifacts(hre, config.contracts)
   const parsedConfig = await readValidatedChugSplashConfig(
     provider,
     configPath,
-    artifactPaths,
+    configArtifacts,
     'hardhat',
     cre
   )

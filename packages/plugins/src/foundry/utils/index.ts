@@ -2,8 +2,8 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import {
-  ArtifactPaths,
   BuildInfo,
+  ConfigArtifacts,
   ContractArtifact,
   parseFoundryArtifact,
   UserContractConfigs,
@@ -43,12 +43,26 @@ export const getBuildInfo = (
       )
     })
 
-  // Find the most recent build info file that contains this contract.
-  for (const buildInfo of sortedBuildInfoArray) {
-    if (buildInfo.output.contracts[sourceName]?.[contractName] !== undefined) {
-      return buildInfo
-    }
+  // TODO: explain why we need this, and that it's temporary
+  const getFullBuildInfo = (
+    buildInfo: BuildInfo,
+    olderBuildInfoArray: Array<BuildInfo>
+  ): BuildInfo => {
+    buildInfo
+    olderBuildInfoArray
+    const x = 2
+    console.log(x)
+    return buildInfo
   }
+
+  // Find the most recent build info file that contains this contract.
+  sortedBuildInfoArray.forEach((buildInfo, i) => {
+    if (buildInfo.output.contracts[sourceName]?.[contractName] !== undefined) {
+      // We can just return `buildInfo` here once the Foundry bug is fixed.
+      const olderBuildInfoArray = sortedBuildInfoArray.slice(i + 1)
+      return getFullBuildInfo(buildInfo, olderBuildInfoArray)
+    }
+  })
 
   throw new Error(
     `Failed to find build info for ${contractName}. Should not happen.`
@@ -74,32 +88,32 @@ export const getContractArtifact = (
   return parseFoundryArtifact(artifact)
 }
 
-export const getArtifactPaths = async (
+export const getConfigArtifacts = async (
   contractConfigs: UserContractConfigs,
   artifactFolder: string,
   buildInfoFolder: string
-): Promise<ArtifactPaths> => {
-  const artifactPaths: ArtifactPaths = {}
+): Promise<ConfigArtifacts> => {
+  const configArtifacts: ConfigArtifacts = {}
 
   for (const [referenceName, contractConfig] of Object.entries(
     contractConfigs
   )) {
-    const { sourceName, contractName } = getContractArtifact(
+    const artifact = getContractArtifact(
       contractConfig.contract,
       artifactFolder
     )
-    const buildInfo = getBuildInfo(buildInfoFolder, sourceName, contractName)
+    const buildInfo = getBuildInfo(
+      buildInfoFolder,
+      artifact.sourceName,
+      artifact.contractName
+    )
 
-    const folderName = `${contractName}.sol`
-    const fileName = `${contractName}.json`
-    const contractArtifactPath = path.join(artifactFolder, folderName, fileName)
-
-    artifactPaths[referenceName] = {
-      buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
-      contractArtifactPath,
+    configArtifacts[referenceName] = {
+      artifact,
+      buildInfo,
     }
   }
-  return artifactPaths
+  return configArtifacts
 }
 
 export const cleanPath = (dirtyPath: string) => {

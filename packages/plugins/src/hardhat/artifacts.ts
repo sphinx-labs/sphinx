@@ -2,12 +2,12 @@ import path from 'path'
 
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
-  ArtifactPaths,
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
   BuildInfo,
   ParsedContractConfig,
   toOpenZeppelinContractKind,
+  ConfigArtifacts,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -69,30 +69,26 @@ export const getBuildInfo = async (
  * @param buildInfoFolder Path to the build info folder.
  * @returns Paths to the build info and contract artifact files.
  */
-export const getArtifactPaths = async (
+export const getConfigArtifacts = async (
   hre: HardhatRuntimeEnvironment,
-  contractConfigs: UserContractConfigs,
-  artifactFolder: string,
-  buildInfoFolder: string
-): Promise<ArtifactPaths> => {
-  const artifactPaths: ArtifactPaths = {}
+  contractConfigs: UserContractConfigs
+): Promise<ConfigArtifacts> => {
+  const configArtifacts: ConfigArtifacts = {}
   for (const [referenceName, contractConfig] of Object.entries(
     contractConfigs
   )) {
-    const { sourceName, contractName } = hre.artifacts.readArtifactSync(
-      contractConfig.contract
+    const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
+    const buildInfo = await getBuildInfo(
+      hre,
+      artifact.sourceName,
+      artifact.contractName
     )
-    const buildInfo = await getBuildInfo(hre, sourceName, contractName)
-    artifactPaths[referenceName] = {
-      buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
-      contractArtifactPath: path.join(
-        artifactFolder,
-        sourceName,
-        `${contractName}.json`
-      ),
+    configArtifacts[referenceName] = {
+      artifact,
+      buildInfo,
     }
   }
-  return artifactPaths
+  return configArtifacts
 }
 
 /**

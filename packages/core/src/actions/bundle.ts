@@ -8,17 +8,13 @@ import {
   ParsedChugSplashConfig,
   contractKindHashes,
 } from '../config/types'
-import { Integration } from '../constants'
 import {
   computeStorageSegments,
   extendStorageLayout,
 } from '../languages/solidity/storage'
-import { ArtifactPaths } from '../languages/solidity/types'
 import {
   getCreate3Address,
-  readContractArtifact,
   getCreationCodeWithConstructorArgs,
-  readBuildInfo,
   getChugSplashManagerAddress,
 } from '../utils'
 import {
@@ -273,32 +269,6 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
       return fromHexString(ethers.utils.keccak256(el))
     }
   )
-}
-
-export const bundleLocal = async (
-  provider: providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
-  artifactPaths: ArtifactPaths,
-  integration: Integration
-): Promise<ChugSplashBundles> => {
-  const artifacts: ConfigArtifacts = {}
-  for (const referenceName of Object.keys(parsedConfig.contracts)) {
-    const artifact = readContractArtifact(
-      artifactPaths[referenceName].contractArtifactPath,
-      integration
-    )
-    const buildInfo = readBuildInfo(
-      artifactPaths[referenceName].buildInfoPath,
-      artifact.sourceName
-    )
-
-    artifacts[referenceName] = {
-      buildInfo,
-      artifact,
-    }
-  }
-
-  return makeBundlesFromConfig(provider, parsedConfig, artifacts)
 }
 
 export const makeBundlesFromConfig = async (

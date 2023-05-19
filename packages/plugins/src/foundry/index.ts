@@ -23,7 +23,7 @@ import {
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-import { cleanPath, fetchPaths, getArtifactPaths } from './utils'
+import { cleanPath, fetchPaths, getConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../utils'
 
 const execAsync = util.promisify(exec)
@@ -64,7 +64,7 @@ const command = args[0]
       const wallet = new ethers.Wallet(privateKey, provider)
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
+      const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
         buildInfoFolder
@@ -73,12 +73,11 @@ const command = args[0]
       const config = await readValidatedChugSplashConfig(
         provider,
         configPath,
-        artifactPaths,
+        configArtifacts,
         'foundry',
         cre
       )
 
-      await provider.getNetwork()
       const address = await wallet.getAddress()
       owner = owner !== 'self' ? owner : address
 
@@ -122,7 +121,7 @@ const command = args[0]
       )
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
+      const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
         buildInfoFolder
@@ -132,13 +131,10 @@ const command = args[0]
       const config = await readValidatedChugSplashConfig(
         provider,
         configPath,
-        artifactPaths,
+        configArtifacts,
         'foundry',
         cre
       )
-
-      await provider.getNetwork()
-      await wallet.getAddress()
 
       if (!silent) {
         console.log('-- ChugSplash Propose --')
@@ -150,7 +146,7 @@ const command = args[0]
         configPath,
         ipfsUrl,
         'foundry',
-        artifactPaths,
+        configArtifacts,
         canonicalConfigPath,
         cre
       )
@@ -197,21 +193,21 @@ const command = args[0]
       )
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
+      const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
         buildInfoFolder
       )
 
       const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
+
       const address = await wallet.getAddress()
       newOwner = newOwner !== 'self' ? newOwner : address
 
       const parsedConfig = await readValidatedChugSplashConfig(
         provider,
         configPath,
-        artifactPaths,
+        configArtifacts,
         'foundry',
         cre
       )
@@ -225,7 +221,7 @@ const command = args[0]
         wallet,
         configPath,
         newOwner ?? (await wallet.getAddress()),
-        artifactPaths,
+        configArtifacts,
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
@@ -251,8 +247,6 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
 
       const cre = await createChugSplashRuntime(
         configPath,
@@ -281,8 +275,6 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
 
       const cre = await createChugSplashRuntime(
         '',
@@ -323,20 +315,18 @@ const command = args[0]
       )
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-      const artifactPaths = await getArtifactPaths(
+      const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,
         buildInfoFolder
       )
 
       const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
 
       const parsedConfig = await readValidatedChugSplashConfig(
         provider,
         configPath,
-        artifactPaths,
+        configArtifacts,
         'foundry',
         cre
       )
@@ -365,8 +355,6 @@ const command = args[0]
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
       const wallet = new ethers.Wallet(privateKey, provider)
-      await provider.getNetwork()
-      await wallet.getAddress()
 
       const cre = await createChugSplashRuntime(
         configPath,

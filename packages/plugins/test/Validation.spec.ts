@@ -1,5 +1,3 @@
-import * as path from 'path'
-
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
@@ -13,7 +11,7 @@ import {
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 
-import { getArtifactPaths } from '../src/hardhat/artifacts'
+import { getConfigArtifacts } from '../src/hardhat/artifacts'
 import { createChugSplashRuntime } from '../src/utils'
 
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
@@ -35,17 +33,13 @@ describe('Validate', () => {
     const noProxyValidationUserConfig = await readUnvalidatedChugSplashConfig(
       noProxyContractReferenceConfigPath
     )
-    const varValidationArtifactPaths = await getArtifactPaths(
+    const varValidationArtifacts = await getConfigArtifacts(
       hre,
-      varValidationUserConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
+      varValidationUserConfig.contracts
     )
-    const constructorArgsValidationArtifactPaths = await getArtifactPaths(
+    const constructorArgsValidationArtifacts = await getConfigArtifacts(
       hre,
-      constructorArgsValidationUserConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
+      constructorArgsValidationUserConfig.contracts
     )
 
     process.stderr.write = (message: string) => {
@@ -67,7 +61,7 @@ describe('Validate', () => {
       await readValidatedChugSplashConfig(
         provider,
         variableValidateConfigPath,
-        varValidationArtifactPaths,
+        varValidationArtifacts,
         'hardhat',
         cre,
         false
@@ -80,7 +74,7 @@ describe('Validate', () => {
       await readValidatedChugSplashConfig(
         provider,
         constructorArgConfigPath,
-        constructorArgsValidationArtifactPaths,
+        constructorArgsValidationArtifacts,
         'hardhat',
         cre,
         false

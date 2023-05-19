@@ -18,7 +18,7 @@ import {
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getArtifactPaths } from './artifacts'
+import { getConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
@@ -71,17 +71,12 @@ export const deployAllChugSplashConfigs = async (
     }
     const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const parsedConfig = await readValidatedChugSplashConfig(
       hre.ethers.provider,
       configPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       true
@@ -93,7 +88,7 @@ export const deployAllChugSplashConfigs = async (
       hre.ethers.provider.getSigner(),
       configPath,
       await signer.getAddress(),
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
