@@ -18,7 +18,7 @@ import {
   UpgradeableContract,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
-import { OZ_UUPS_UPDATER_ADDRESS, ProxyABI } from '@chugsplash/contracts'
+import { ProxyABI } from '@chugsplash/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import yesno from 'yesno'
 import { ContractDefinition } from 'solidity-ast'
@@ -70,6 +70,8 @@ import {
   extendStorageLayout,
   isKeyword,
   variableContainsKeyword,
+  getMinimumCompilerInput,
+  getMinimumCompilerOutput,
 } from '../languages'
 import {
   recursiveLayoutIterator,
@@ -80,6 +82,7 @@ import {
 } from '../languages/solidity/iterator'
 import { ChugSplashRuntimeEnvironment } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
+import { getOZUUPSUpdaterAddress } from '../addresses'
 
 class InputError extends Error {
   constructor(message: string) {
@@ -1777,7 +1780,7 @@ export const assertValidParsedChugSplashFile = async (
           // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
           //    will revert due to this check:
           //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+          await UUPSProxy.callStatic.upgradeTo(getOZUUPSUpdaterAddress())
         } catch (e) {
           // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
           // proxy, which means the user must grant it permission via whichever access control
@@ -1831,6 +1834,20 @@ permission to call the 'upgradeTo' function on each of them.
     const { input, output } = configArtifacts[referenceName].buildInfo
     const userContractConfig = userConfig.contracts[referenceName]
 
+    const minimumCompilerInput = getMinimumCompilerInput(
+      input,
+      output.contracts,
+      configArtifacts[referenceName].artifact.sourceName,
+      configArtifacts[referenceName].artifact.contractName
+    )
+
+    const minimumCompilerOutput = getMinimumCompilerOutput(
+      output,
+      output.contracts,
+      configArtifacts[referenceName].artifact.sourceName,
+      configArtifacts[referenceName].artifact.contractName
+    )
+
     // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
     // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`.
     // We store the contract in a variable so that we can use it later to run the storage slot checker.
@@ -1840,8 +1857,8 @@ permission to call the 'upgradeTo' function on each of them.
     if (contractConfig.kind !== 'no-proxy') {
       upgradableContract = getOpenZeppelinUpgradableContract(
         contractConfig.contract,
-        input,
-        output,
+        minimumCompilerInput,
+        minimumCompilerOutput,
         contractConfig.kind,
         userContractConfig
       )
@@ -1867,6 +1884,7 @@ permission to call the 'upgradeTo' function on each of them.
 
       const isProxyDeployed =
         (await provider.getCode(contractConfig.address)) !== '0x'
+
       if (isProxyDeployed) {
         // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
         // will always be defined so we can safely assert it.
@@ -2384,6 +2402,7 @@ export const parseAndValidateChugSplashConfig = async (
   const managerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
   )
+
   await assertNonProxyDeploymentsDoNotRevert(
     provider,
     managerAddress,

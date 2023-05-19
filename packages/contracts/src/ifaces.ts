@@ -16,6 +16,8 @@ export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adap
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
 export const ForwarderArtifact = require('../artifacts/@thirdweb-dev/contracts/forwarder/Forwarder.sol/Forwarder.json')
+export const ChugSplashBootloaderArtifact = require('../artifacts/contracts/deployment/ChugSplashBootloader.sol/ChugSplashBootloader.json')
+export const AdapterDeployerArtifact = require('../artifacts/contracts/deployment/AdapterDeployer.sol/AdapterDeployer.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)
@@ -43,3 +45,5 @@ export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
 export const ForwarderABI = ForwarderArtifact.abi
+export const ChugSplashBootloaderABI = ChugSplashBootloaderArtifact.abi
+export const AdapterDeployerABI = AdapterDeployerArtifact.abi

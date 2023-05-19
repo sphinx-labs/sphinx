@@ -16,7 +16,6 @@ import {
   getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
   isLiveNetwork,
-  ensureChugSplashInitialized,
   getNonProxyCreate3Salt,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
@@ -415,16 +414,6 @@ const command = args[0]
       )
 
       process.stdout.write(adminAddress)
-      break
-    }
-    case 'initializeChugSplash': {
-      const rpcUrl = args[1]
-      const network = args[2] !== 'localhost' ? args[2] : undefined
-      const privateKey = args[3]
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await ensureChugSplashInitialized(provider, wallet)
       break
     }
   }

@@ -4,13 +4,9 @@ import {
   ManagedServiceArtifact,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
-  DEFAULT_UPDATER_ADDRESS,
   PROTOCOL_PAYMENT_PERCENTAGE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  OZ_UUPS_UPDATER_ADDRESS,
   ChugSplashManagerABI,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  DEFAULT_CREATE3_ADDRESS,
   OWNER_BOND_AMOUNT,
   ChugSplashRegistryArtifact,
   ChugSplashManagerArtifact,
@@ -22,9 +18,11 @@ import {
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
   DefaultGasPriceCalculatorArtifact,
-  FORWARDER_ADDRESS,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
+  AdapterDeployerArtifact,
+  ChugSplashBootloaderArtifact,
+  ForwarderArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -47,8 +45,6 @@ const chugsplashManagerProxySourceName =
   ChugSplashManagerProxyArtifact.sourceName
 const proxyArtifactSourceName = ProxyArtifact.sourceName
 
-export const getRegistryConstructorValues = () => [getOwnerAddress()]
-
 const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
@@ -56,9 +52,33 @@ const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
   (input) => input.type
 )
 
-export const getChugSplashRegistryAddress = () =>
+export const ADAPTER_DEPLOYER_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(['bytes'], [AdapterDeployerArtifact.bytecode])
+)
+
+export const getBootloaderAddress = () =>
   utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashBootloaderArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [getOwnerAddress(), ADAPTER_DEPLOYER_ADDRESS]
+        ),
+      ]
+    )
+  )
+
+export const getRegistryConstructorValues = () => [getBootloaderAddress()]
+
+export const getChugSplashRegistryAddress = () =>
+  utils.getCreate2Address(
+    getBootloaderAddress(),
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
@@ -74,7 +94,7 @@ export const getChugSplashRegistryAddress = () =>
 
 export const getManagedServiceAddress = () =>
   utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    getBootloaderAddress(),
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
@@ -117,47 +137,104 @@ export const getReferenceDefaultProxyAddress = () =>
     )
   )
 
-export const getManagerConstructorValues = () => [
-  getChugSplashRegistryAddress(),
-  DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  getManagedServiceAddress(),
-  EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT.toString(),
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  PROTOCOL_PAYMENT_PERCENTAGE,
-  Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
-  FORWARDER_ADDRESS,
-]
-
-const [managerConstructorFragment] = ChugSplashManagerABI.filter(
-  (fragment) => fragment.type === 'constructor'
-)
-
-export const getChugSplashManagerV1Address = () =>
+export const getDefaultCreate3Address = () =>
   utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    getBootloaderAddress(),
+    constants.HashZero,
+    utils.solidityKeccak256(['bytes'], [DefaultCreate3Artifact.bytecode])
+  )
+
+export const getDefaultGasPriceCalculatorAddress = () =>
+  utils.getCreate2Address(
+    getBootloaderAddress(),
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes'],
+      [DefaultGasPriceCalculatorArtifact.bytecode]
+    )
+  )
+
+export const getDefaultUpdaterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(['bytes'], [DefaultUpdaterArtifact.bytecode])
+  )
+
+export const getDefaultAdapterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ChugSplashManagerArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          managerConstructorFragment.inputs,
-          getManagerConstructorValues()
-        ),
+        DefaultAdapterArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getDefaultUpdaterAddress()]),
       ]
     )
+  )
+
+export const getOZUUPSUpdaterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(['bytes'], [OZUUPSUpdaterArtifact.bytecode])
+  )
+
+export const getOZUUPSOwnableAdapterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        OZUUPSOwnableAdapterArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getOZUUPSUpdaterAddress()]),
+      ]
+    )
+  )
+
+export const getOZUUPSAccessControlAdapterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        OZUUPSAccessControlAdapterArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getOZUUPSUpdaterAddress()]),
+      ]
+    )
+  )
+
+export const getOZTransparentAdapterAddress = () =>
+  utils.getCreate2Address(
+    ADAPTER_DEPLOYER_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        OZTransparentAdapterArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getDefaultUpdaterAddress()]),
+      ]
+    )
+  )
+
+export const getForwarderAddress = () =>
+  utils.getCreate2Address(
+    getBootloaderAddress(),
+    constants.HashZero,
+    utils.solidityKeccak256(['bytes'], [ForwarderArtifact.bytecode])
   )
 
 export const getChugSplashConstructorArgs = () => {
   return {
     [chugsplashRegistrySourceName]: [getOwnerAddress()],
     [chugsplashManagerSourceName]: getManagerConstructorValues(),
-    [defaultAdapterSourceName]: [DEFAULT_UPDATER_ADDRESS],
-    [OZUUPSOwnableAdapterSourceName]: [OZ_UUPS_UPDATER_ADDRESS],
-    [OZUUPSAccessControlAdapterSourceName]: [OZ_UUPS_UPDATER_ADDRESS],
-    [OZTransparentAdapterSourceName]: [DEFAULT_UPDATER_ADDRESS],
+    [defaultAdapterSourceName]: [getDefaultUpdaterAddress()],
+    [OZUUPSOwnableAdapterSourceName]: [getOZUUPSUpdaterAddress()],
+    [OZUUPSAccessControlAdapterSourceName]: [getOZUUPSUpdaterAddress()],
+    [OZTransparentAdapterSourceName]: [getDefaultUpdaterAddress()],
     [defaultUpdaterSourceName]: [],
     [OZUUPSUpdaterSourceName]: [],
     [DefaultCreate3SourceName]: [],
@@ -170,3 +247,36 @@ export const getChugSplashConstructorArgs = () => {
     [proxyArtifactSourceName]: [getChugSplashRegistryAddress()],
   }
 }
+
+export const getManagerConstructorValues = () => [
+  getChugSplashRegistryAddress(),
+  getDefaultCreate3Address(),
+  getDefaultGasPriceCalculatorAddress(),
+  getManagedServiceAddress(),
+  EXECUTION_LOCK_TIME,
+  OWNER_BOND_AMOUNT.toString(),
+  EXECUTOR_PAYMENT_PERCENTAGE,
+  PROTOCOL_PAYMENT_PERCENTAGE,
+  Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
+  getForwarderAddress(),
+]
+
+const [managerConstructorFragment] = ChugSplashManagerABI.filter(
+  (fragment) => fragment.type === 'constructor'
+)
+
+export const getChugSplashManagerV1Address = () =>
+  utils.getCreate2Address(
+    getBootloaderAddress(),
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashManagerArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          managerConstructorFragment.inputs,
+          getManagerConstructorValues()
+        ),
+      ]
+    )
+  )

@@ -4,6 +4,8 @@ pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import "lib/solidity-stringutils/src/strings.sol";
+import { AdapterDeployer } from "@chugsplash/contracts/contracts/deployment/AdapterDeployer.sol";
+import { ChugSplashBootloader } from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloader.sol";
 
 contract ChugSplash is Script, Test {
     using strings for *;
@@ -22,6 +24,10 @@ contract ChugSplash is Script, Test {
     bool skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
     bool allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
 
+    // Get owner address
+    address internalOwnerAddress = vm.rememberKey(vm.envUint("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY"));
+    address ownerAddress = internalOwnerAddress != address(0) ? internalOwnerAddress : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
     bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
@@ -34,7 +40,7 @@ contract ChugSplash is Script, Test {
 
     constructor() {
         vm.makePersistent(address(this));
-        _initializeChugSplash();
+        _ensureChugSplashInitialized();
     }
 
     function fetchPaths() private view returns (string memory outPath, string memory buildInfoPath) {
@@ -58,17 +64,22 @@ contract ChugSplash is Script, Test {
         }
     }
 
-    function _initializeChugSplash() private {
-        string[] memory cmds = new string[](7);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "initializeChugSplash";
-        cmds[4] = rpcUrl;
-        cmds[5] = network;
-        cmds[6] = privateKey;
+    function _ensureChugSplashInitialized() private {
+        bytes memory creationCode = abi.encodePacked(
+            type(ChugSplashRegistry).creationCode,
+            abi.encode(this)
+        );
+        address registryAddress = Create2.computeAddress(bytes32(0), keccak256(creationCode));
 
-        vm.ffi(cmds);
+        if (registryAddress.code.length == 0) {
+            if (block.chainId == 31337) {
+                vm.etch(0x4e59b44847b379578588920cA78FbF26c0B4956C, hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3");
+                AdapterDeployer adapterDeployer = new AdapterDeployer{ salt: bytes32(0) }();
+                ChugSplashBootloader bootloader = new ChugSplashBootloader{ salt: bytes32(0) }(ownerAddress, address(adapterDeployer));
+            } else {
+                revert("ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!");
+            }
+        }
     }
 
     function claim(string memory configPath) public returns (bytes memory) {

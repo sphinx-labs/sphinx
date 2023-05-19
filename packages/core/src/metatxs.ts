@@ -5,8 +5,10 @@ import {
   TypedMessage,
   MessageTypes,
 } from '@metamask/eth-sig-util'
-import { ForwarderABI, FORWARDER_ADDRESS } from '@chugsplash/contracts'
+import { ForwarderABI } from '@chugsplash/contracts'
 import axios from 'axios'
+
+import { getForwarderAddress } from './addresses'
 
 const EIP712Domain = [
   { name: 'name', type: 'string' },
@@ -92,7 +94,7 @@ export const signMetaTxRequest = async (
   privateKey: string,
   input: BaseForwardRequestType
 ) => {
-  const forwarder = new Contract(FORWARDER_ADDRESS, ForwarderABI, provider)
+  const forwarder = new Contract(getForwarderAddress(), ForwarderABI, provider)
   const request = await buildRequest(forwarder, input)
   const toSign = await buildTypedData(forwarder, request)
   const signature = await signMessage(privateKey, toSign)

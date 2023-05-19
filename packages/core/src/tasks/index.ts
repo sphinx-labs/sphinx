@@ -78,6 +78,7 @@ import {
   verifyChugSplashConfig,
 } from '../etherscan'
 import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
+import { getChugSplashRegistryAddress } from '../addresses'
 
 // Load environment variables from .env
 dotenv.config()

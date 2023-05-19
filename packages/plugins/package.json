@@ -49,7 +49,9 @@
     "node-fetch": "^2.6.7",
     "ora": "^5.4.1",
     "semver": "^7.3.7",
-    "yesno": "^0.4.0"
+    "yesno": "^0.4.0",
+    "@thirdweb-dev/contracts": "^3.5.1",
+    "solmate": "^6.7.0"
   },
   "devDependencies": {
     "@eth-optimism/contracts-bedrock": "^0.13.2",
