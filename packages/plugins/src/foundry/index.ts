@@ -31,8 +31,14 @@ const execAsync = util.promisify(exec)
 const args = process.argv.slice(2)
 const command = args[0]
 
+// After foundry fixes bug #4891 (https://github.com/foundry-rs/foundry/issues/4981), this can be
+// removed.
+// TODO: make sure this is in your project root, including monorepos
+const tmpBuildInfoDir = 'chugsplash-cache'
+
 ;(async () => {
-  // This ensures that we're using the latest versions of the user's contracts.
+  // This ensures that we're using the latest versions of the user's contracts. After Foundry fixes
+  // bug #4981, this can just be `await execAsync('forge build')`.
   await execAsync('forge build')
 
   switch (command) {
