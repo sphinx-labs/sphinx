@@ -45,73 +45,14 @@ export const getBuildInfo = (
     })
 
   // Find the most recent build info file that contains this contract.
-  for (let i = 0; i < sortedBuildInfoArray.length; i++) {
-    const currBuildInfo = sortedBuildInfoArray[i]
-    if (
-      currBuildInfo.output.contracts[sourceName]?.[contractName] !== undefined
-    ) {
-      const olderBuildInfoArray = sortedBuildInfoArray.slice(i + 1)
-      const buildInfo = getFullBuildInfo(currBuildInfo, olderBuildInfoArray)
+  for (const buildInfo of sortedBuildInfoArray) {
+    if (buildInfo.output.contracts[sourceName]?.[contractName] !== undefined) {
       validateBuildInfo(buildInfo, contractName)
       return buildInfo
     }
   }
 
   throw new Error(`TODO`)
-}
-
-// TODO: explain why we need this, and that it's temporary
-const getFullBuildInfo = (
-  buildInfo: BuildInfo,
-  olderBuildInfoArray: Array<BuildInfo>
-): BuildInfo => {
-  const outputSelection = buildInfo.input.settings.outputSelection
-  if (outputSelection['*']?.['*'].includes('storageLayout')) {
-    return buildInfo
-  }
-
-  // TODO(docs): mention that we must iterate over buildInfo.output.sources, not
-  // buildInfo.input.sources.
-  for (const sourceName of Object.keys(buildInfo.output.sources)) {
-    if (outputSelection[sourceName]?.['*'].includes('storageLayout')) {
-      continue
-    }
-
-    // TODO(docs): gets the newest build info that...
-    const targetBuildInfo = olderBuildInfoArray.find((olderBuildInfo) => {
-      const containsSource =
-        olderBuildInfo.output.sources[sourceName] !== undefined
-      const targetOutputSelection =
-        olderBuildInfo.input.settings.outputSelection
-      const containsStorageLayoutForSource =
-        targetOutputSelection['*']?.['*'].includes('storageLayout') ||
-        targetOutputSelection[sourceName]?.['*'].includes('storageLayout')
-      return containsSource && containsStorageLayoutForSource
-    })
-
-    if (!targetBuildInfo) {
-      // TODO(docs): if can't find, say to forge clean then try again.
-      throw new Error(`Could not find TODO`)
-    }
-
-    const targetSourceOutput = targetBuildInfo.output.sources[sourceName]
-    const targetContractOutput = targetBuildInfo.output.contracts[sourceName]
-    buildInfo.output.sources[sourceName] = targetSourceOutput
-
-    // TODO: explain why this matches standard behavior
-    if (targetContractOutput) {
-      buildInfo.output.contracts[sourceName] = targetContractOutput
-    }
-  }
-
-  if (!outputSelection['*']) {
-    outputSelection['*'] = {}
-  }
-
-  // TODO(docs)explain why we can do this.
-  outputSelection['*']['*'] = ['storageLayout']
-
-  return buildInfo
 }
 
 export const getContractArtifact = (
