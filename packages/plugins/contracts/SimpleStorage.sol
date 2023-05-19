@@ -5,7 +5,7 @@ import { Storage } from "./Storage.sol";
 import { Stateless } from "./Stateless.sol";
 
 contract SimpleStorage {
-    uint public constant x = 2;
+    uint public constant x = 3;
     Storage public myStorage;
     Stateless public myStateless;
     Storage immutable public immutableContractReference;

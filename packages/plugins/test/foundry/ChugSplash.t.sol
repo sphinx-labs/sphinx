@@ -28,6 +28,7 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
  */
 
 contract ChugSplashTest is Test {
+    uint public constant x = 2;
     type UserDefinedType is uint256;
 
     address claimedProxy;

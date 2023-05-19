@@ -65,22 +65,15 @@ const getFullBuildInfo = (
   buildInfo: BuildInfo,
   olderBuildInfoArray: Array<BuildInfo>
 ): BuildInfo => {
-  if (
-    buildInfo.input.settings.outputSelection['*']?.['*'].includes(
-      'storageLayout'
-    )
-  ) {
+  const outputSelection = buildInfo.input.settings.outputSelection
+  if (outputSelection['*']?.['*'].includes('storageLayout')) {
     return buildInfo
   }
 
   // TODO(docs): mention that we must iterate over buildInfo.output.sources, not
   // buildInfo.input.sources.
   for (const sourceName of Object.keys(buildInfo.output.sources)) {
-    if (
-      buildInfo.input.settings.outputSelection[sourceName]?.['*'].includes(
-        'storageLayout'
-      )
-    ) {
+    if (outputSelection[sourceName]?.['*'].includes('storageLayout')) {
       continue
     }
 
@@ -88,10 +81,11 @@ const getFullBuildInfo = (
     const targetBuildInfo = olderBuildInfoArray.find((olderBuildInfo) => {
       const containsSource =
         olderBuildInfo.output.sources[sourceName] !== undefined
-      const outputSelection = olderBuildInfo.input.settings.outputSelection
+      const targetOutputSelection =
+        olderBuildInfo.input.settings.outputSelection
       const containsStorageLayoutForSource =
-        outputSelection['*']?.['*'].includes('storageLayout') ||
-        outputSelection[sourceName]?.['*'].includes('storageLayout')
+        targetOutputSelection['*']?.['*'].includes('storageLayout') ||
+        targetOutputSelection[sourceName]?.['*'].includes('storageLayout')
       return containsSource && containsStorageLayoutForSource
     })
 
@@ -103,11 +97,19 @@ const getFullBuildInfo = (
     const targetSourceOutput = targetBuildInfo.output.sources[sourceName]
     const targetContractOutput = targetBuildInfo.output.contracts[sourceName]
     buildInfo.output.sources[sourceName] = targetSourceOutput
-    buildInfo.output.contracts[sourceName] = targetContractOutput
+
+    // TODO: explain why this matches standard behavior
+    if (targetContractOutput) {
+      buildInfo.output.contracts[sourceName] = targetContractOutput
+    }
+  }
+
+  if (!outputSelection['*']) {
+    outputSelection['*'] = {}
   }
 
   // TODO(docs)explain why we can do this.
-  buildInfo.input.settings.outputSelection['*']['*'] = ['storageLayout']
+  outputSelection['*']['*'] = ['storageLayout']
 
   return buildInfo
 }
