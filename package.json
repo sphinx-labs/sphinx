@@ -14,8 +14,8 @@
     ],
     "nohoist": [
       "@chugsplash/contracts/@connext/interfaces",
-      "@chugsplash/contracts/@thirdweb-dev/contracts",
-      "@chugsplash/contracts/solmate",
+      "@chugsplash/{contracts,plugins}/@thirdweb-dev/contracts",
+      "@chugsplash/{contracts,plugins}/solmate",
       "@chugsplash/{contracts,plugins}/forge-std",
       "@chugsplash/{contracts,plugins}/ds-test",
       "@chugsplash/{contracts,plugins}/@openzeppelin/contracts",

@@ -3,11 +3,12 @@ import { Contract } from 'ethers'
 import {
   chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
+  FORWARDER_ADDRESS,
   getChugSplashManager,
   readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
-import { FORWARDER_ADDRESS, ForwarderArtifact } from '@chugsplash/contracts'
+import { ForwarderArtifact } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
 import { createChugSplashRuntime } from '../../plugins/src/utils'
