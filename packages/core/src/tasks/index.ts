@@ -135,7 +135,8 @@ export const chugsplashProposeAbstractTask = async (
   integration: Integration,
   artifactPaths: ArtifactPaths,
   canonicalConfigPath: string,
-  cre: ChugSplashRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment,
+  shouldRelay = true
 ) => {
   const { remoteExecution } = cre
 
@@ -210,12 +211,6 @@ export const chugsplashProposeAbstractTask = async (
     } else {
       spinner.succeed(`${parsedConfig.options.projectName} can be proposed.`)
       spinner.start(`Proposing ${parsedConfig.options.projectName}...`)
-
-      const shouldRelay =
-        process.env.CHUGSPLASH_API_KEY !== undefined &&
-        ((await isLiveNetwork(provider)) ||
-          process.env.LOCAL_TEST_METATX_PROPOSE === 'true' ||
-          process.env.LOCAL_MANAGED_SERVICE === 'true')
 
       const metatxs = await proposeChugSplashDeployment(
         provider,
@@ -1115,6 +1110,12 @@ export const proposeChugSplashDeployment = async (
     if (!process.env.PRIVATE_KEY) {
       throw new Error(
         'Must provide a PRIVATE_KEY environment variable to sign gasless proposal transactions'
+      )
+    }
+
+    if (!process.env.CHUGSPLASH_API_KEY) {
+      throw new Error(
+        'Must provide a CHUGSPLASH_API_KEY environment variable to use gasless proposals'
       )
     }
 
