@@ -7,6 +7,7 @@ import {
   ContractArtifact,
   parseFoundryArtifact,
   UserContractConfigs,
+  validateBuildInfo,
 } from '@chugsplash/core'
 
 export const getBuildInfo = (
@@ -43,30 +44,72 @@ export const getBuildInfo = (
       )
     })
 
-  // TODO: explain why we need this, and that it's temporary
-  const getFullBuildInfo = (
-    buildInfo: BuildInfo,
-    olderBuildInfoArray: Array<BuildInfo>
-  ): BuildInfo => {
-    buildInfo
-    olderBuildInfoArray
-    const x = 2
-    console.log(x)
+  // Find the most recent build info file that contains this contract.
+  for (let i = 0; i < sortedBuildInfoArray.length; i++) {
+    const currBuildInfo = sortedBuildInfoArray[i]
+    if (
+      currBuildInfo.output.contracts[sourceName]?.[contractName] !== undefined
+    ) {
+      const olderBuildInfoArray = sortedBuildInfoArray.slice(i + 1)
+      const buildInfo = getFullBuildInfo(currBuildInfo, olderBuildInfoArray)
+      validateBuildInfo(buildInfo, contractName)
+      return buildInfo
+    }
+  }
+
+  throw new Error(`TODO`)
+}
+
+// TODO: explain why we need this, and that it's temporary
+const getFullBuildInfo = (
+  buildInfo: BuildInfo,
+  olderBuildInfoArray: Array<BuildInfo>
+): BuildInfo => {
+  if (
+    buildInfo.input.settings.outputSelection['*']?.['*'].includes(
+      'storageLayout'
+    )
+  ) {
     return buildInfo
   }
 
-  // Find the most recent build info file that contains this contract.
-  sortedBuildInfoArray.forEach((buildInfo, i) => {
-    if (buildInfo.output.contracts[sourceName]?.[contractName] !== undefined) {
-      // We can just return `buildInfo` here once the Foundry bug is fixed.
-      const olderBuildInfoArray = sortedBuildInfoArray.slice(i + 1)
-      return getFullBuildInfo(buildInfo, olderBuildInfoArray)
+  // TODO(docs): mention that we must iterate over buildInfo.output.sources, not
+  // buildInfo.input.sources.
+  for (const sourceName of Object.keys(buildInfo.output.sources)) {
+    if (
+      buildInfo.input.settings.outputSelection[sourceName]?.['*'].includes(
+        'storageLayout'
+      )
+    ) {
+      continue
     }
-  })
 
-  throw new Error(
-    `Failed to find build info for ${contractName}. Should not happen.`
-  )
+    // TODO(docs): gets the newest build info that...
+    const targetBuildInfo = olderBuildInfoArray.find((olderBuildInfo) => {
+      const containsSource =
+        olderBuildInfo.output.sources[sourceName] !== undefined
+      const outputSelection = olderBuildInfo.input.settings.outputSelection
+      const containsStorageLayoutForSource =
+        outputSelection['*']?.['*'].includes('storageLayout') ||
+        outputSelection[sourceName]?.['*'].includes('storageLayout')
+      return containsSource && containsStorageLayoutForSource
+    })
+
+    if (!targetBuildInfo) {
+      // TODO(docs): if can't find, say to forge clean then try again.
+      throw new Error(`Could not find TODO`)
+    }
+
+    const targetSourceOutput = targetBuildInfo.output.sources[sourceName]
+    const targetContractOutput = targetBuildInfo.output.contracts[sourceName]
+    buildInfo.output.sources[sourceName] = targetSourceOutput
+    buildInfo.output.contracts[sourceName] = targetContractOutput
+  }
+
+  // TODO(docs)explain why we can do this.
+  buildInfo.input.settings.outputSelection['*']['*'] = ['storageLayout']
+
+  return buildInfo
 }
 
 export const getContractArtifact = (

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 contract Storage {
+    uint public constant x = 2;// TODO
     type UserDefinedType is uint256;
     type UserDefinedBytes32 is bytes32;
     type UserDefinedInt is int;

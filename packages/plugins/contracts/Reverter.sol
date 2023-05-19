@@ -6,7 +6,7 @@ import { ParentReverter } from "./ParentReverter.sol";
 // contract Reverter is ParentReverter {
 contract Reverter is ParentReverter {
     uint public x;
-    uint public constant z = 2;
+    uint public constant z = 3;
     function rev() external {
         x = 3;
     }

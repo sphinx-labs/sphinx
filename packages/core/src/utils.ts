@@ -695,6 +695,34 @@ export const readContractArtifact = (
   }
 }
 
+export const validateBuildInfo = (
+  buildInfo: BuildInfo | undefined,
+  contractName: string
+) => {
+  if (!buildInfo) {
+    throw new Error(
+      `Failed to find build info for ${contractName}. Should not happen.`
+    )
+  }
+
+  if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
+    throw new Error(
+      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
+    )
+  }
+
+  if (
+    !buildInfo.input.settings.outputSelection['*']?.['*'].includes(
+      'storageLayout'
+    )
+  ) {
+    throw new Error(
+      `Storage layout not found. Did you forget to set the 'storageLayout' compiler option in your\n` +
+        `config file?`
+    )
+  }
+}
+
 /**
  * Reads the build info from the local file system.
  *
@@ -703,33 +731,13 @@ export const readContractArtifact = (
  */
 export const readBuildInfo = (
   buildInfoPath: string,
-  sourceName: string
+  contractName: string
 ): BuildInfo => {
   const buildInfo: BuildInfo = JSON.parse(
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
-  if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
-    throw new Error(
-      `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
-    )
-  }
-
-  // TODO: explain
-  const outputSelection =
-    buildInfo.input.settings.outputSelection['*'] ??
-    buildInfo.input.settings.outputSelection[sourceName]
-
-  if (!outputSelection['*'].includes('storageLayout')) {
-    throw new Error(
-      `Storage layout not found. Did you forget to set the "storageLayout" compiler option in your\n` +
-        `Hardhat/Foundry config file?\n\n` +
-        `If you're using Hardhat, see how to configure your project here:\n` +
-        `https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md#setup-chugsplash-using-typescript\n\n` +
-        `If you're using Foundry, see how to configure your project here:\n` +
-        `https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md#3-configure-your-foundrytoml-file`
-    )
-  }
+  validateBuildInfo(buildInfo, contractName)
 
   return buildInfo
 }
@@ -1015,10 +1023,10 @@ export const getPreviousStorageLayoutOZFormat = async (
     userContractConfig.previousFullyQualifiedName !== undefined &&
     userContractConfig.previousBuildInfo !== undefined
   ) {
-    const sourceName = parsedContractConfig.contract.split(':')[0]
+    const contractName = parsedContractConfig.contract.split(':')[1]
     const { input, output } = readBuildInfo(
       userContractConfig.previousBuildInfo,
-      sourceName
+      contractName
     )
 
     if (previousCanonicalConfig !== undefined) {
