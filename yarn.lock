@@ -609,6 +609,16 @@
     prom-client "^13.1.0"
     qs "^6.10.5"
 
+"@eth-optimism/contracts-bedrock@^0.0.0-20230522161230":
+  version "0.0.0-20230522161230"
+  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.0.0-20230522161230.tgz#2392c6a2193db9c11a39c5429067203176df5859"
+  integrity sha512-DQPhdJb8qFF1PtImcLdrTe4+QvohQJZpyZsdO+QJA7l0EXeI9zMog0ZUQToO1+PiRx07t6W4EHYCO0dk7mqAcQ==
+  dependencies:
+    "@eth-optimism/core-utils" "^0.12.0"
+    "@openzeppelin/contracts" "4.7.3"
+    "@openzeppelin/contracts-upgradeable" "4.7.3"
+    ethers "^5.7.0"
+
 "@eth-optimism/contracts-bedrock@^0.13.2":
   version "0.13.2"
   resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.13.2.tgz#4cdd4bfe7d905fa237719efdadab6bc228f49b0f"
