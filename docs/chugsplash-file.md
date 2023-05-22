@@ -20,7 +20,7 @@ ChugSplash config files can be defined in TypeScript, JavaScript, or JSON. A sam
     // Configuration settings:
     options: {
         projectName: 'My ERC20 Project',
-        organizationId: '0x0000000000000000000000000000000000000000000000000000000000000000'
+        organizationID: '0x0000000000000000000000000000000000000000000000000000000000000000'
     },
     // Contract definitions:
     contracts: {
@@ -50,7 +50,7 @@ ChugSplash config files can be defined in TypeScript, JavaScript, or JSON. A sam
 
 ### Configuration settings
 
-The `options` property in your ChugSplash config file contains two fields, `projectName` and `organizationId`. The project
+The `options` property in your ChugSplash config file contains two fields, `projectName` and `organizationID`. The project
 name can be any name you choose and should uniquely identify a project within your organization. The Organization Id is a
 unique 32 byte hex string that identifies your organization. If you're using ChugSplash managed, we will provide you with
 an organization id. If not, then you will need to generate one yourself using ethers:
@@ -60,7 +60,7 @@ organizationID: ethers.utils.keccak256(
 ),
 ```
 
-Once you've deployed a project using ChugSplash, you must keep the same `organizationId` and `projectName` for subsequent upgrades. Note that both project names and organization ids are case sensitive.
+Once you've deployed a project using ChugSplash, you must keep the same `organizationID` and `projectName` for subsequent upgrades. Note that both project names and organization ids are case sensitive.
 
 ### Contract definitions
 

@@ -33,7 +33,7 @@
     "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
-    "@chugsplash/contracts": "^0.7.2",
+    "@chugsplash/contracts": "^0.7.3",
     "@chugsplash/core": "^0.9.0",
     "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",

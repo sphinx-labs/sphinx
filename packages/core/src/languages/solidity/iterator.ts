@@ -154,12 +154,18 @@ export const buildMappingStorageObj = (
       [mappingKey]
     )
   } else if (mappingKeyStorageType.encoding === 'inplace') {
+    let label: string
+    if (mappingKeyStorageType.label.startsWith('enum')) {
+      label = 'uint8'
+    } else if (mappingKeyStorageType.label.startsWith('contract')) {
+      label = 'address'
+    } else {
+      label = mappingKeyStorageType.label
+    }
+
     // Use the standard ABI encoder if the mapping key is a value type (as opposed to a
     // reference type).
-    encodedMappingKey = utils.defaultAbiCoder.encode(
-      [mappingKeyStorageType.label],
-      [mappingKey]
-    )
+    encodedMappingKey = utils.defaultAbiCoder.encode([label], [mappingKey])
   } else {
     // This error should never occur unless Solidity adds a new encoding type, or allows dynamic
     // arrays or mappings to be mapping keys.
