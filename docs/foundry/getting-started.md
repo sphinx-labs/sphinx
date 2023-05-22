@@ -124,7 +124,7 @@ Inside your newly created ChugSplash config file, `hello-chugsplash.json`, copy 
 {
   "options": {
     "projectName": "Hello ChugSplash",
-    "organizationId": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "organizationID": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
   "contracts": {
     "HelloChugSplash": {
