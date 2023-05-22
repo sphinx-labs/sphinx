@@ -12,7 +12,6 @@ import {
   validateBuildInfo,
   fetchFilesRecursively,
 } from '@chugsplash/core'
-import { buildInfo } from '@chugsplash/contracts'
 
 export const getBuildInfo = (
   buildInfoFolder: string,
