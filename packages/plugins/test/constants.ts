@@ -257,6 +257,12 @@ export const variables = {
   addressToStringMapping: {
     '0x1111111111111111111111111111111111111111': 'testVal',
   },
+  contractToStringMapping: {
+    '0x2222222222222222222222222222222222222222': 'test',
+  },
+  enumToStringMapping: {
+    [TestEnum.B]: 'testVal',
+  },
   bytesToStringMapping: {
     '0xabcd1234': 'testVal',
   },

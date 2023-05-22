@@ -449,6 +449,16 @@ describe('Storage', () => {
     expect(await MyStorage.addressToStringMapping(key)).to.equal(val)
   })
 
+  it('does set contract mapping to string', async () => {
+    const [[key, val]] = Object.entries(variables.contractToStringMapping)
+    expect(await MyStorage.contractToStringMapping(key)).to.equal(val)
+  })
+
+  it('does set enum mapping to string', async () => {
+    const [[key, val]] = Object.entries(variables.enumToStringMapping)
+    expect(await MyStorage.enumToStringMapping(key)).to.equal(val)
+  })
+
   it('does set bytes mapping to string', async () => {
     const [[key, val]] = Object.entries(variables.bytesToStringMapping)
     expect(await MyStorage.bytesToStringMapping(key)).to.equal(val)
