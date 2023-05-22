@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.7.3
+
+### Patch Changes
+
+- c51462c: Use canary release of op bedrock
+
 ## 0.7.2
 
 ### Patch Changes
