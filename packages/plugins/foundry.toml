@@ -1,5 +1,4 @@
 [profile.default]
-src = 'contracts'
 out = 'out/artifacts'
 build_info_path = 'out/artifacts/build-info'
 build_info = true

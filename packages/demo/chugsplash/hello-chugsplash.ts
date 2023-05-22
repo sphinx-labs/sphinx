@@ -19,7 +19,7 @@ const config: UserChugSplashConfig = {
         storageName: 'First',
         otherStorage: '0x1111111111111111111111111111111111111111',
         hi: {
-          '{{ MyFirstContract }}': 2,
+          true: 2,
         },
       },
     },

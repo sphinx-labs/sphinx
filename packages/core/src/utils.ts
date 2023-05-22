@@ -1387,3 +1387,19 @@ export const getDeployedCreationCodeWithArgsHash = async (
     return latestEvent.args.creationCodeWithArgsHash
   }
 }
+
+export const fetchFilesRecursively = (dir): string[] => {
+  const paths: string[] = []
+  fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      paths.push(...fetchFilesRecursively(fullPath))
+    } else if (entry.isFile()) {
+      paths.push(fullPath)
+    } else {
+      console.error(`unexpected path: ${fullPath}`)
+    }
+  })
+
+  return paths
+}

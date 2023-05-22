@@ -10,9 +10,9 @@ import {
   parseFoundryArtifact,
   UserContractConfigs,
   validateBuildInfo,
+  fetchFilesRecursively,
 } from '@chugsplash/core'
-
-import { fetchFilesRecursively } from '../../hardhat'
+import { buildInfo } from '@chugsplash/contracts'
 
 export const getBuildInfo = (
   buildInfoFolder: string,
@@ -96,10 +96,12 @@ export const getConfigArtifacts = async (
     fs.mkdirSync(buildInfoFolder)
   }
 
-  // TODO: left off: I think we should do filename.extension name instead of just filename. i think
-  // this'll give more accurate filtering. e.g. instead of "configContractName = A", it's "A.sol".
+  const execAsync = util.promisify(exec)
 
-  const contractsToSkip = fetchFilesRecursively(buildInfoFolder)
+  const forgeConfigRaw = await execAsync('forge config --json')
+  const forgeConfig = JSON.parse(forgeConfigRaw.stdout)
+
+  const contractsToSkip = fetchFilesRecursively(forgeConfig.src)
     .map((contractPath) => path.basename(contractPath))
     .filter((contractName) =>
       // TODO(docs): e.g. config contract's name is "MyReverter", and there's another contract in the
@@ -109,10 +111,9 @@ export const getConfigArtifacts = async (
       )
     )
 
-  const execAsync = util.promisify(exec)
   // This ensures that we're using the latest versions of the user's contracts. After Foundry fixes
   // bug #4981, this can just be `await execAsync('forge build')`.
-  await execAsync('forge build')
+  await execAsync(`forge build --force --skip ${contractsToSkip.join(' ')}`)
 
   const configArtifacts: ConfigArtifacts = {}
 

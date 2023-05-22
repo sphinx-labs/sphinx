@@ -62,6 +62,7 @@ const tmpBuildInfoFolder = 'chugsplash-cache'
       const wallet = new ethers.Wallet(privateKey, provider)
 
       const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+
       const configArtifacts = await getConfigArtifacts(
         userConfig.contracts,
         artifactFolder,

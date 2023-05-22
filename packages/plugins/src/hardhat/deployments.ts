@@ -15,27 +15,12 @@ import {
   getCreate3Address,
   getChugSplashManagerAddress,
   getNonProxyCreate3Salt,
+  fetchFilesRecursively,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { getConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
-
-export const fetchFilesRecursively = (dir): string[] => {
-  const paths: string[] = []
-  fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
-    const fullPath = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      paths.push(...fetchFilesRecursively(fullPath))
-    } else if (entry.isFile()) {
-      paths.push(fullPath)
-    } else {
-      console.error(`unexpected path: ${fullPath}`)
-    }
-  })
-
-  return paths
-}
 
 /**
  * Deploys a list of ChugSplash config files.
