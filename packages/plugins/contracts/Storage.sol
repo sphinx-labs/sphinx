@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import { SimpleStorage } from "./SimpleStorage.sol";
+
 contract Storage {
     type UserDefinedType is uint256;
     type UserDefinedBytes32 is bytes32;
@@ -113,6 +115,8 @@ contract Storage {
     mapping(int8 => string) public int8ToStringMapping;
     mapping(int128 => string) public int128ToStringMapping;
     mapping(address => string) public addressToStringMapping;
+    mapping(SimpleStorage => string) public contractToStringMapping;
+    mapping(TestEnum => string) public enumToStringMapping;
     mapping(bytes => string) public bytesToStringMapping;
     mapping(string => mapping(string => string)) public nestedMapping;
     mapping(uint8 => mapping(string => mapping(address => uint))) public multiNestedMapping;
