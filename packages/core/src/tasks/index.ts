@@ -15,6 +15,7 @@ import {
   readUnvalidatedChugSplashConfig,
   UserChugSplashConfig,
   verifyDeployment,
+  ConfigArtifacts,
 } from '../config'
 import {
   computeDeploymentId,
@@ -32,14 +33,13 @@ import {
   isProjectClaimed,
   isTransparentProxy,
   isUUPSProxy,
-  readBuildInfo,
   readCanonicalConfig,
   finalizeRegistration,
   writeCanonicalConfig,
   isLiveNetwork,
   writeSnapshotId,
 } from '../utils'
-import { ArtifactPaths, getMinimumCompilerInput } from '../languages'
+import { getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
 import {
   alreadyProposedMessage,
@@ -48,12 +48,12 @@ import {
   successfulProposalMessage,
 } from '../messages'
 import {
-  bundleLocal,
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
   executeTask,
   getDeployContractActions,
+  makeBundlesFromConfig,
   writeDeploymentArtifacts,
 } from '../actions'
 import {
@@ -133,7 +133,7 @@ export const chugsplashProposeAbstractTask = async (
   configPath: string,
   ipfsUrl: string,
   integration: Integration,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   cre: ChugSplashRuntimeEnvironment,
   shouldRelay = true
@@ -166,7 +166,7 @@ export const chugsplashProposeAbstractTask = async (
       parsedConfig,
       '',
       false,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration
     )
@@ -221,7 +221,7 @@ export const chugsplashProposeAbstractTask = async (
         remoteExecution,
         ipfsUrl,
         spinner,
-        artifactPaths,
+        configArtifacts,
         canonicalConfigPath,
         integration,
         shouldRelay
@@ -244,7 +244,7 @@ export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
   ipfsUrl: string,
   commitToIpfs: boolean,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   integration: Integration,
   spinner: ora.Ora = ora({ isSilent: true })
@@ -266,7 +266,7 @@ export const chugsplashCommitAbstractSubtask = async (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const buildInfo = readBuildInfo(artifactPaths[referenceName].buildInfoPath)
+    const { buildInfo } = configArtifacts[referenceName]
 
     const prevChugSplashInput = chugsplashInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -343,11 +343,10 @@ IPFS_API_KEY_SECRET: ...
     )
   }
 
-  const bundles = await bundleLocal(
+  const bundles = await makeBundlesFromConfig(
     provider,
     parsedConfig,
-    artifactPaths,
-    integration
+    configArtifacts
   )
 
   const configUri = `ipfs://${ipfsHash}`
@@ -388,16 +387,17 @@ export const chugsplashApproveAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   skipMonitorStatus: boolean,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   canonicalConfigPath: string,
   deploymentFolderPath: string,
   parsedConfig: ParsedChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment
 ) => {
+  const { silent, stream } = cre
   const networkName = await resolveNetworkName(provider, integration)
 
-  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
+  const spinner = ora({ isSilent: silent, stream })
   spinner.start(
     `Approving ${parsedConfig.options.projectName} on ${networkName}...`
   )
@@ -425,7 +425,7 @@ Owner's address: ${projectOwnerAddress}`)
     parsedConfig,
     '',
     false,
-    artifactPaths,
+    configArtifacts,
     canonicalConfigPath,
     integration,
     spinner
@@ -489,17 +489,12 @@ Please wait a couple minutes then try again.`
         await getDeploymentEvents(ChugSplashManager, deploymentId),
         networkName,
         deploymentFolderPath,
-        artifactPaths,
+        configArtifacts,
         integration,
         undefined,
         spinner
       )
-      displayDeploymentTable(
-        parsedConfig,
-        artifactPaths,
-        integration,
-        cre.silent
-      )
+      displayDeploymentTable(parsedConfig, integration, silent)
 
       spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
     }
@@ -510,7 +505,7 @@ export const chugsplashFundAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   configPath: string,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   integration: Integration,
   parsedConfig: ParsedChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment
@@ -527,7 +522,7 @@ export const chugsplashFundAbstractTask = async (
 
   const amountToDeposit = await getAmountToDeposit(
     provider,
-    await bundleLocal(provider, parsedConfig, artifactPaths, integration),
+    await makeBundlesFromConfig(provider, parsedConfig, configArtifacts),
     0,
     parsedConfig,
     true
@@ -556,7 +551,7 @@ export const chugsplashDeployAbstractTask = async (
   signer: ethers.Signer,
   configPath: string,
   newOwner: string,
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
@@ -600,7 +595,7 @@ export const chugsplashDeployAbstractTask = async (
       parsedConfig,
       '',
       false,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration
     )
@@ -627,17 +622,11 @@ export const chugsplashDeployAbstractTask = async (
       await getDeploymentEvents(ChugSplashManager, deploymentId),
       networkName,
       deploymentFolder,
-      artifactPaths,
-      integration
+      configArtifacts
     )
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     if (integration === 'hardhat') {
-      displayDeploymentTable(
-        parsedConfig,
-        artifactPaths,
-        integration,
-        cre.silent
-      )
+      displayDeploymentTable(parsedConfig, integration, cre.silent)
       return
     } else {
       return generateFoundryTestArtifacts(parsedConfig)
@@ -661,7 +650,7 @@ export const chugsplashDeployAbstractTask = async (
       false,
       '',
       spinner,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration,
       false
@@ -676,7 +665,7 @@ export const chugsplashDeployAbstractTask = async (
       signer,
       configPath,
       true,
-      artifactPaths,
+      configArtifacts,
       integration,
       canonicalConfigPath,
       deploymentFolder,
@@ -715,7 +704,7 @@ export const chugsplashDeployAbstractTask = async (
     await getDeploymentEvents(ChugSplashManager, deploymentId),
     networkName,
     deploymentFolder,
-    artifactPaths,
+    configArtifacts,
     integration,
     newOwner,
     spinner
@@ -756,7 +745,7 @@ export const chugsplashDeployAbstractTask = async (
       await writeSnapshotId(provider, networkName, deploymentFolder)
     }
 
-    displayDeploymentTable(parsedConfig, artifactPaths, integration, cre.silent)
+    displayDeploymentTable(parsedConfig, integration, cre.silent)
     spinner.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
@@ -1058,7 +1047,7 @@ export const proposeChugSplashDeployment = async (
   remoteExecution: boolean,
   ipfsUrl: string,
   spinner: ora.Ora = ora({ isSilent: true }),
-  artifactPaths: ArtifactPaths,
+  configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   integration: Integration,
   shouldRelay: boolean
@@ -1095,7 +1084,7 @@ export const proposeChugSplashDeployment = async (
       parsedConfig,
       ipfsUrl,
       true,
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       integration,
       spinner

@@ -447,8 +447,13 @@ export const initializeChugSplash = async (
     (await isLiveNetwork(provider)) &&
     getOwnerAddress() === OWNER_MULTISIG_ADDRESS
   ) {
-    throw new Error(
-      'Cannot run multisig transactions on a live network, please setup the safe ethers adapter first https://www.npmjs.com/package/@safe-global/safe-ethers-adapters'
+    if (!process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY) {
+      throw new Error('Must define CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY')
+    }
+
+    signer = new ethers.Wallet(
+      process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY!,
+      provider
     )
   } else {
     // if target owner is multisig, then use an impersonated multisig signer
@@ -502,10 +507,13 @@ export const initializeChugSplash = async (
     if (
       (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
     ) {
-      await ManagedService.connect(signer).grantRole(
-        REMOTE_EXECUTOR_ROLE,
-        executor
-      )
+      await (
+        await ManagedService.connect(signer).grantRole(
+          REMOTE_EXECUTOR_ROLE,
+          executor,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
   }
   logger?.info('[ChugSplash]: finished assigning executor roles')
@@ -515,10 +523,13 @@ export const initializeChugSplash = async (
     if (
       (await ManagedService.hasRole(MANAGED_PROPOSER_ROLE, proposer)) === false
     ) {
-      await ManagedService.connect(signer).grantRole(
-        MANAGED_PROPOSER_ROLE,
-        proposer
-      )
+      await (
+        await ManagedService.connect(signer).grantRole(
+          MANAGED_PROPOSER_ROLE,
+          proposer,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
     }
   }
   logger?.info('[ChugSplash]: finished assigning proposer roles')

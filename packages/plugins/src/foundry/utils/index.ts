@@ -2,8 +2,8 @@ import * as path from 'path'
 import * as fs from 'fs'
 
 import {
-  ArtifactPaths,
   BuildInfo,
+  ConfigArtifacts,
   ContractArtifact,
   parseFoundryArtifact,
   UserContractConfigs,
@@ -61,32 +61,28 @@ export const getContractArtifact = (
   return parseFoundryArtifact(artifact)
 }
 
-export const getArtifactPaths = async (
+export const getConfigArtifacts = async (
   contractConfigs: UserContractConfigs,
   artifactFolder: string,
   buildInfoFolder: string
-): Promise<ArtifactPaths> => {
-  const artifactPaths: ArtifactPaths = {}
+): Promise<ConfigArtifacts> => {
+  const configArtifacts: ConfigArtifacts = {}
 
   for (const [referenceName, contractConfig] of Object.entries(
     contractConfigs
   )) {
-    const { sourceName, contractName } = getContractArtifact(
+    const artifact = getContractArtifact(
       contractConfig.contract,
       artifactFolder
     )
-    const buildInfo = await getBuildInfo(buildInfoFolder, sourceName)
+    const buildInfo = getBuildInfo(buildInfoFolder, artifact.sourceName)
 
-    const folderName = `${contractName}.sol`
-    const fileName = `${contractName}.json`
-    const contractArtifactPath = path.join(artifactFolder, folderName, fileName)
-
-    artifactPaths[referenceName] = {
-      buildInfoPath: path.join(buildInfoFolder, `${buildInfo.id}.json`),
-      contractArtifactPath,
+    configArtifacts[referenceName] = {
+      artifact,
+      buildInfo,
     }
   }
-  return artifactPaths
+  return configArtifacts
 }
 
 export const cleanPath = (dirtyPath: string) => {

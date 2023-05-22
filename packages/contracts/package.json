@@ -51,6 +51,6 @@
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.40",
-    "@eth-optimism/contracts-bedrock": "^0.13.2"
+    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230"
   }
 }

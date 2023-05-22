@@ -1,5 +1,3 @@
-import * as path from 'path'
-
 import hre from 'hardhat'
 import { Contract } from 'ethers'
 import {
@@ -12,8 +10,8 @@ import {
 import { FORWARDER_ADDRESS, ForwarderArtifact } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { getArtifactPaths } from '../../plugins/dist'
 import { createChugSplashRuntime } from '../../plugins/src/utils'
+import { getConfigArtifacts } from '../src/hardhat/artifacts'
 
 const configPath = './chugsplash/Metatx.config.ts'
 
@@ -30,12 +28,7 @@ describe('Meta txs', () => {
 
     const userConfig = await readUnvalidatedChugSplashConfig(configPath)
 
-    const artifactPaths = await getArtifactPaths(
-      hre,
-      userConfig.contracts,
-      hre.config.paths.artifacts,
-      path.join(hre.config.paths.artifacts, 'build-info')
-    )
+    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       configPath,
@@ -50,7 +43,7 @@ describe('Meta txs', () => {
     const parsedConfig = await readValidatedChugSplashConfig(
       provider,
       configPath,
-      artifactPaths,
+      configArtifacts,
       'hardhat',
       cre,
       true
@@ -74,7 +67,7 @@ describe('Meta txs', () => {
       configPath,
       '',
       'hardhat',
-      artifactPaths,
+      configArtifacts,
       canonicalConfigPath,
       cre
     )
