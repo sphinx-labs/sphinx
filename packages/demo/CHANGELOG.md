@@ -1,5 +1,18 @@
 # @chugsplash/demo
 
+## 0.6.0
+
+### Minor Changes
+
+- 6b975e7: Bump contracts dependency version
+
+### Patch Changes
+
+- Updated dependencies [1dafc2c]
+- Updated dependencies [6b975e7]
+  - @chugsplash/plugins@0.15.0
+  - @chugsplash/core@0.10.0
+
 ## 0.5.0
 
 ### Minor Changes
