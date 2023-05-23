@@ -37,7 +37,7 @@ import { updateDeployment } from '../gql'
 const generateRetryEvent = (
   event: ExecutorEvent,
   timesToRetry: number = 5,
-  waitingPeriodMs?: number
+  waitingPeriodMs: number = 10000
 ): ExecutorEvent | undefined => {
   let eventWaitingPeriodMs = waitingPeriodMs
   if (!eventWaitingPeriodMs) {
@@ -240,6 +240,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       proposalEvent.args.configUri
     ))
   } catch (e) {
+    logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
