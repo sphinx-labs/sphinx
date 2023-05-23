@@ -1,5 +1,13 @@
 # @chugsplash/plugins
 
+## 0.15.1
+
+### Patch Changes
+
+- f13070f: Use Optimism contracts-bedrock package canary version in all ChugSplash packages
+- Updated dependencies [f13070f]
+  - @chugsplash/core@0.10.1
+
 ## 0.15.0
 
 ### Minor Changes
