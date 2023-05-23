@@ -1,6 +1,6 @@
 {
   "name": "@chugsplash/plugins",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@chugsplash/contracts": "^0.7.3",
-    "@chugsplash/core": "^0.10.0",
+    "@chugsplash/core": "^0.10.1",
     "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
