@@ -82,47 +82,60 @@ export const getConfigArtifacts = async (
   artifactFolder: string,
   buildInfoFolder: string
 ): Promise<ConfigArtifacts> => {
-  const configContractNames = Object.values(contractConfigs).map(
-    (contractConfig) =>
-      contractConfig.contract.includes(':')
-        ? contractConfig.contract.split(':')[1]
-        : contractConfig.contract
-  )
+  const cachedArtifacts: { [referenceName: string]: ContractArtifact } = {}
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    cachedArtifacts[referenceName] = getContractArtifact(
+      contractConfig.contract,
+      artifactFolder
+    )
+  }
 
   // After foundry fixes bug #4891 (https://github.com/foundry-rs/foundry/issues/4981), this can be
   // removed.
+  // TODO: rm?
   if (!fs.existsSync(buildInfoFolder)) {
     fs.mkdirSync(buildInfoFolder)
   }
 
   const execAsync = util.promisify(exec)
 
-  const forgeConfigRaw = await execAsync('forge config --json')
-  const forgeConfig = JSON.parse(forgeConfigRaw.stdout)
+  const forgeConfigOutput = await execAsync('forge config --json')
+  const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
 
-  const contractsToSkip = fetchFilesRecursively(forgeConfig.src)
+  const configBasenames = Object.values(cachedArtifacts).map((artifact) =>
+    path.basename(artifact.sourceName)
+  )
+
+  // Get a list of files to skip when calling `forge build --force --skip <filesToSkip>`.
+  const filesToSkip = fetchFilesRecursively(forgeConfig.src)
     .map((contractPath) => path.basename(contractPath))
-    .filter((contractName) =>
-      // TODO(docs): e.g. config contract's name is "MyReverter", and there's another contract in the
-      // repo called "Reverter". If we `--skip Reverter`, then we'll skip the config contract as well.
-      configContractNames.some((configContractName) =>
-        contractName.includes(configContractName)
-      )
+    .filter(
+      // Keep the basename in this array if there are zero config basenames that contain it. For
+      // example, if `configBasenames` = ['A.sol'] and `basename = 'AA.sol'`, then `basename` will
+      // be included in the array of files to skip. If `configBasenames` = ['AA.sol'] and `basename
+      // = 'A.sol'`, then the `basename` will not be included in the array of files to skip, because
+      // including it would prevent `AA.sol` from being included in the compilation.
+      (basename) =>
+        !configBasenames.some((configBasename) =>
+          configBasename.includes(basename)
+        )
     )
 
   // This ensures that we're using the latest versions of the user's contracts. After Foundry fixes
   // bug #4981, this can just be `await execAsync('forge build')`.
-  await execAsync(`forge build --force --skip ${contractsToSkip.join(' ')}`)
+  await execAsync(
+    `forge build --force --silent --skip ${filesToSkip.join(
+      ' '
+    )} --build-info --extra-output storageLayout`
+  )
 
   const configArtifacts: ConfigArtifacts = {}
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    const artifact = getContractArtifact(
-      contractConfig.contract,
-      artifactFolder
-    )
+  for (const referenceName of Object.keys(contractConfigs)) {
+    const artifact = cachedArtifacts[referenceName]
+
     const buildInfo = getBuildInfo(
       buildInfoFolder,
       artifact.sourceName,

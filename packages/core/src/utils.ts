@@ -714,6 +714,10 @@ export const validateBuildInfo = (
   if (
     !buildInfo.input.settings.outputSelection['*']?.['*'].includes(
       'storageLayout'
+    ) &&
+    // TODO(docs): 4981
+    !Object.values(buildInfo.input.settings.outputSelection).every((output) =>
+      output?.['*'].includes('storageLayout')
     )
   ) {
     throw new Error(
