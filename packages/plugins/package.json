@@ -52,7 +52,7 @@
     "yesno": "^0.4.0"
   },
   "devDependencies": {
-    "@eth-optimism/contracts-bedrock": "^0.13.2",
+    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
