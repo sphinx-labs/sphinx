@@ -69,6 +69,8 @@ import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import { getDeployContractActions } from './actions/bundle'
 
+import ora from 'ora'
+
 export const computeDeploymentId = (
   actionRoot: string,
   targetRoot: string,
@@ -210,16 +212,16 @@ export const getChugSplashManagerAddress = (organizationID: string) => {
 export const finalizeRegistration = async (
   provider: providers.JsonRpcProvider,
   signer: Signer,
+  manager: ethers.Contract,
   organizationID: string,
   newOwnerAddress: string,
-  allowManagedProposals: boolean
-): Promise<boolean> => {
-  const ChugSplashRegistry = getChugSplashRegistry(signer)
+  allowManagedProposals: boolean,
+  projectName: string,
+  spinner: ora.Ora
+): Promise<void> => {
+  spinner.start(`Claiming ${projectName}...`)
 
-  if (
-    (await ChugSplashRegistry.projects(organizationID)) ===
-    constants.AddressZero
-  ) {
+  if (!(await isProjectClaimed(provider, manager.address))) {
     // Encode the initialization arguments for the ChugSplashManager contract.
     // Note: Future versions of ChugSplash may require different arguments encoded in this way.
     const initializerData = ethers.utils.defaultAbiCoder.encode(
@@ -227,6 +229,7 @@ export const finalizeRegistration = async (
       [newOwnerAddress, organizationID, allowManagedProposals]
     )
 
+    const ChugSplashRegistry = getChugSplashRegistry(signer)
     await (
       await ChugSplashRegistry.finalizeRegistration(
         organizationID,
@@ -236,15 +239,12 @@ export const finalizeRegistration = async (
         await getGasPriceOverrides(provider)
       )
     ).wait()
-    return true
   } else {
-    const existingOwnerAddress = await getProjectOwnerAddress(
-      getChugSplashManager(provider, organizationID)
-    )
+    const existingOwnerAddress = await getProjectOwnerAddress(manager)
     if (existingOwnerAddress !== newOwnerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      return false
+      spinner.succeed(`Project was already claimed by the caller.`)
     }
   }
 }

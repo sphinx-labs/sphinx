@@ -93,16 +93,17 @@ export const chugsplashClaimAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  spinner.start(`Claiming ${config.options.projectName}...`)
-
   const { projectName, organizationID } = config.options
 
-  const isFirstTimeClaimed = await finalizeRegistration(
+  await finalizeRegistration(
     provider,
     signer,
+    getChugSplashManager(signer, organizationID),
     organizationID,
     owner,
-    allowManagedProposals
+    allowManagedProposals,
+    projectName,
+    spinner
   )
 
   const networkName = await resolveNetworkName(provider, integration)
@@ -116,14 +117,6 @@ export const chugsplashClaimAbstractTask = async (
     networkName,
     integration
   )
-
-  isFirstTimeClaimed
-    ? spinner.succeed(
-        `Project successfully claimed on ${networkName}. Owner: ${owner}`
-      )
-    : spinner.fail(
-        `Project was already claimed by the caller on ${networkName}.`
-      )
 }
 
 export const chugsplashProposeAbstractTask = async (
@@ -563,32 +556,26 @@ export const chugsplashDeployAbstractTask = async (
 
   const signerAddress = await signer.getAddress()
 
-  spinner.start('Parsing ChugSplash config file...')
-
   const { organizationID, projectName } = parsedConfig.options
 
   const ChugSplashManager = getChugSplashManager(signer, organizationID)
 
-  const projectPreviouslyClaimed = await isProjectClaimed(
+  // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
+  // transfer ownership to the project owner specified in the config.
+  await finalizeRegistration(
+    provider,
     signer,
-    ChugSplashManager.address
+    ChugSplashManager,
+    organizationID,
+    signerAddress,
+    false,
+    projectName,
+    spinner
   )
 
-  if (projectPreviouslyClaimed === false) {
-    spinner.start(`Claiming ${projectName}...`)
-    // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
-    // transfer ownership to the project owner specified in the config.
-    await finalizeRegistration(
-      provider,
-      signer,
-      organizationID,
-      signerAddress,
-      false
-    )
-    spinner.succeed(`Successfully claimed ${projectName}.`)
-  }
+  spinner.start(`Checking the status of ${projectName}...`)
 
-  // Get the deployment ID without publishing anything to IPFS.
+  // Get the deployment info without publishing anything to IPFS.
   const { deploymentId, bundles, configUri } =
     await chugsplashCommitAbstractSubtask(
       provider,
@@ -599,8 +586,6 @@ export const chugsplashDeployAbstractTask = async (
       canonicalConfigPath,
       integration
     )
-
-  spinner.start(`Checking the status of ${projectName}...`)
 
   if (
     bundles.actionBundle.actions.length === 0 &&
