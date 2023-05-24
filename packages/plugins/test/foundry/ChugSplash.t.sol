@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "forge-std/Test.sol";
-import "../../foundry-contracts/ChugSplash.sol";
-import "../../contracts/Storage.sol";
-import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
-import { Stateless } from "../../contracts/Stateless.sol";
-import { ComplexConstructorArgs } from "../../contracts/ComplexConstructorArgs.sol";
+import "../../contracts/foundry/ChugSplash.sol";
+import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
+import { Storage } from "../../contracts/test/Storage.sol";
+import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
+import { Stateless } from "../../contracts/test/Stateless.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
@@ -27,69 +26,51 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
  * https://github.com/chugsplash/chugsplash/tree/develop/packages/contracts/test
  */
 
-contract ChugSplashTest is Test {
+contract ChugSplashTest is ChugSplash {
     type UserDefinedType is uint256;
 
-    address claimedProxy;
-    address transferredProxy;
+    string private filePath =
+        vm.envOr(
+            "DEV_FILE_PATH",
+            string("./node_modules/@chugsplash/plugins/dist/foundry/")
+        );
+
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
     Stateless     myStateless;
+    Stateless      myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
-    string deployConfig = "./chugsplash/foundry/deploy.t.js";
-
-    bytes32 claimOrgID = keccak256('Claim test');
-    string claimConfig = "./chugsplash/foundry/claim.t.js";
-
-    bytes32 transferOrganizationID = keccak256('Transfer test');
-    string transferConfig = "./chugsplash/foundry/transfer.t.js";
+    string deployConfig = "./chugsplash/Storage.config.ts";
+    string create3Config = "./chugsplash/Create3.config.ts";
 
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
 
     function setUp() public {
-        chugsplash = new ChugSplash();
+        silence();
 
-        // Setup deployment test
-        chugsplash.deploy(deployConfig, true);
+        deploy(deployConfig, vm.rpcUrl("anvil"));
+        deploy(create3Config, vm.rpcUrl("anvil"));
 
-        // Deploy export proxy test
-        chugsplash.deploy(claimConfig, true);
-        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
+        myStorage = Storage(getAddress(deployConfig, "MyStorage"));
+        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
+        myStateless = Stateless(getAddress(deployConfig, "Stateless"));
+        myStatelessWithSalt = Stateless(getAddress(create3Config, "Stateless", keccak256('1')));
+        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
 
-        // Start export proxy test
-        chugsplash.deploy(transferConfig, true);
-        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
-
-        // Refresh EVM state to reflect chain state after ChugSplash transactions
-        chugsplash.refresh();
-
-        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
-        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
-        myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
-        mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
-        myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
-        myComplexConstructorArgs = ComplexConstructorArgs(chugsplash.getAddress(deployConfig, "ComplexConstructorArgs"));
-
-        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = getChugSplashRegistry();
     }
 
-    function testDidexportProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    function testHasDifferentAddressWithSalt() public {
+        assertNotEq(address(myStateless), address(myStatelessWithSalt));
     }
 
-    function testDidImportProxy() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
-    }
-
-    function testDidClaim() public {
-        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
-        assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
+    function testDeployStatelessImmutableWithSalt() public {
+        assertEq(myStatelessWithSalt.hello(), 'Hello, world!');
+        assertEq(myStatelessWithSalt.immutableUint(), 2);
     }
 
     function testDeployStatelessImmutableContract() public {

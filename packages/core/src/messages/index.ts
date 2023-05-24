@@ -1,6 +1,6 @@
 import { BigNumber, ethers } from 'ethers'
 
-import { Integration } from '../constants'
+import { Integration, WEBSITE_URL } from '../constants'
 
 export const resolveNetworkName = async (
   provider: ethers.providers.Provider,
@@ -17,26 +17,11 @@ export const resolveNetworkName = async (
   return networkName
 }
 
-export const errorProjectNotClaimed = async (
-  provider: ethers.providers.JsonRpcProvider,
-  configPath: string,
-  integration: Integration
-) => {
-  const networkName = await resolveNetworkName(provider, integration)
-
-  if (integration === 'hardhat') {
-    throw new Error(`This project has not been claimed on ${networkName}.
-To claim the project on this network, run the following command:
-
-npx hardhat chugsplash-claim --network <network> --owner <ownerAddress> --config-path ${configPath}
-  `)
-  } else {
-    throw new Error(`This project has not been claimed on ${networkName}.
-To claim the project on this network, call the claim function from your script:
-
-chugsplash.finalizeRegistration("${configPath}");
-`)
-  }
+export const errorProjectNotClaimed = (organizationID: string) => {
+  throw new Error(
+    `The organization ID "${organizationID}" has not been claimed.\n` +
+      `Go to ${WEBSITE_URL} to claim it.`
+  )
 }
 
 export const successfulProposalMessage = async (
