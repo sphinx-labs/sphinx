@@ -19,12 +19,6 @@ export type ChugSplashRuntimeEnvironment = {
   ) => Promise<StorageLayout | undefined>
 }
 
-export type FoundryContractArtifact = {
-  referenceName: string
-  contractName: string
-  contractAddress: string
-}
-
 export type ExecutorKey = {
   id: number
   privateKey: string

@@ -55,7 +55,11 @@ import {
   ConfigArtifacts,
   ParsedConfigVariable,
 } from './config/types'
-import { ChugSplashActionBundle, ChugSplashActionType } from './actions/types'
+import {
+  ChugSplashActionBundle,
+  ChugSplashActionType,
+  ChugSplashBundles,
+} from './actions/types'
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
@@ -71,14 +75,18 @@ import { getDeployContractActions } from './actions/bundle'
 
 import ora from 'ora'
 
-export const computeDeploymentId = (
-  actionRoot: string,
-  targetRoot: string,
-  numActions: number,
-  numTargets: number,
-  numNonProxyContracts: number,
+export const getDeploymentId = (
+  bundles: ChugSplashBundles,
   configUri: string
 ): string => {
+  const actionRoot = bundles.actionBundle.root
+  const targetRoot = bundles.targetBundle.root
+  const numActions = bundles.actionBundle.actions.length
+  const numTargets = bundles.targetBundle.targets.length
+  const numNonProxyContracts = getDeployContractActions(
+    bundles.actionBundle
+  ).length
+
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
@@ -240,34 +248,13 @@ export const finalizeRegistration = async (
       )
     ).wait()
   } else {
-    const existingOwnerAddress = await getProjectOwnerAddress(manager)
+    const existingOwnerAddress = await manager.owner()
     if (existingOwnerAddress !== newOwnerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
       spinner.succeed(`Project was already claimed by the caller.`)
     }
   }
-}
-
-export const getProjectOwnerAddress = async (
-  ChugSplashManager: ethers.Contract
-): Promise<string> => {
-  const ownershipTransferredEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.OwnershipTransferred()
-  )
-
-  const latestEvent = ownershipTransferredEvents.at(-1)
-
-  if (latestEvent === undefined) {
-    throw new Error(`Could not find OwnershipTransferred event.`)
-  } else if (latestEvent.args === undefined) {
-    throw new Error(`No args found for OwnershipTransferred event.`)
-  }
-
-  // Get the most recent owner from the list of events
-  const projectOwner = latestEvent.args.newOwner
-
-  return projectOwner
 }
 
 export const getChugSplashRegistry = (
@@ -317,7 +304,6 @@ export const chugsplashLog = (
 
 export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
-  integration: Integration,
   silent: boolean
 ) => {
   const managerAddress = getChugSplashManagerAddress(
@@ -345,25 +331,6 @@ export const displayDeploymentTable = (
     )
     console.table(deployments)
   }
-}
-
-export const generateFoundryTestArtifacts = (
-  parsedConfig: ParsedChugSplashConfig
-): FoundryContractArtifact[] => {
-  const artifacts: {
-    referenceName: string
-    contractName: string
-    contractAddress: string
-  }[] = []
-  Object.entries(parsedConfig.contracts).forEach(
-    ([referenceName, contractConfig], i) =>
-      (artifacts[i] = {
-        referenceName,
-        contractName: contractConfig.contract.split(':')[1],
-        contractAddress: contractConfig.address,
-      })
-  )
-  return artifacts
 }
 
 export const claimExecutorPayment = async (
@@ -1371,5 +1338,36 @@ export const getDeployedCreationCodeWithArgsHash = async (
     return undefined
   } else {
     return latestEvent.args.creationCodeWithArgsHash
+  }
+}
+
+// Transfer ownership of the ChugSplashManager if a new project owner has been specified.
+export const transferProjectOwnership = async (
+  provider: providers.Provider,
+  ChugSplashManager: ethers.Contract,
+  newProjectOwner: string,
+  spinner: ora.Ora
+) => {
+  if (
+    ethers.utils.isAddress(newProjectOwner) &&
+    newProjectOwner !== (await ChugSplashManager.owner())
+  ) {
+    spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
+    if (newProjectOwner === ethers.constants.AddressZero) {
+      // We must call a separate function if ownership is being transferred to address(0).
+      await (
+        await ChugSplashManager.renounceOwnership(
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    } else {
+      await (
+        await ChugSplashManager.transferOwnership(
+          newProjectOwner,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    }
+    spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
   }
 }

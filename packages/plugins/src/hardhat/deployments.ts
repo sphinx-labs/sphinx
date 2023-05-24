@@ -87,7 +87,6 @@ export const deployAllChugSplashConfigs = async (
       hre.ethers.provider,
       hre.ethers.provider.getSigner(),
       configPath,
-      await signer.getAddress(),
       configArtifacts,
       canonicalConfigPath,
       deploymentFolder,

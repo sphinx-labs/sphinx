@@ -51,7 +51,6 @@ const displayBundleInfo = async () => {
     '',
     false,
     configArtifacts,
-    hre.config.paths.canonicalConfigs,
     'hardhat'
   )
 

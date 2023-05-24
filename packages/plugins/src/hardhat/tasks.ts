@@ -127,13 +127,13 @@ export const chugsplashDeployTask = async (
     provider,
     signer,
     configPath,
-    newOwner ?? signerAddress,
     configArtifacts,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
-    parsedConfig
+    parsedConfig,
+    newOwner ?? signerAddress,
   )
 }
 
@@ -340,7 +340,6 @@ export const chugsplashCommitSubtask = async (
     })
   }
 
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const provider = hre.ethers.provider
   return chugsplashCommitAbstractSubtask(
     provider,
@@ -348,7 +347,6 @@ export const chugsplashCommitSubtask = async (
     ipfsUrl,
     commitToIpfs,
     configArtifacts,
-    canonicalConfigPath,
     'hardhat',
     spinner
   )

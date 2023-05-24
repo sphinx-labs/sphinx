@@ -213,13 +213,13 @@ const command = args[0]
         provider,
         wallet,
         configPath,
-        newOwner ?? (await wallet.getAddress()),
         configArtifacts,
         canonicalConfigPath,
         deploymentFolder,
         'foundry',
         cre,
-        parsedConfig
+        parsedConfig,
+        newOwner ?? (await wallet.getAddress())
       )
 
       const artifactStructABI =

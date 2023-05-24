@@ -3,7 +3,7 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { ChugSplashBundles } from '../actions/types'
 import { bundleRemoteSubtask } from '../languages/solidity/compiler'
-import { callWithTimeout, computeDeploymentId } from '../utils'
+import { callWithTimeout, getDeploymentId } from '../utils'
 import { CanonicalChugSplashConfig } from './types'
 import { getDeployContractActions } from '../actions/bundle'
 
@@ -63,22 +63,12 @@ export const verifyDeployment = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const { actionBundle, targetBundle } = await bundleRemoteSubtask({
+  const bundles = await bundleRemoteSubtask({
     provider,
     canonicalConfig: config,
   })
 
-  if (
-    deploymentId !==
-    computeDeploymentId(
-      actionBundle.root,
-      targetBundle.root,
-      actionBundle.actions.length,
-      targetBundle.targets.length,
-      getDeployContractActions(actionBundle).length,
-      configUri
-    )
-  ) {
+  if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(
       'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )

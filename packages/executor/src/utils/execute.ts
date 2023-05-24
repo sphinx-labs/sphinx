@@ -13,7 +13,7 @@ import {
   getProjectOwnerAddress,
   hasSufficientFundsForExecution,
   trackExecuted,
-  computeDeploymentId,
+  getDeploymentId,
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
@@ -247,12 +247,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
   const { projectName, organizationID } = canonicalConfig.options
 
-  const expectedDeploymentId = computeDeploymentId(
-    bundles.actionBundle.root,
-    bundles.targetBundle.root,
-    bundles.actionBundle.actions.length,
-    bundles.targetBundle.targets.length,
-    getDeployContractActions(bundles.actionBundle).length,
+  const expectedDeploymentId = getDeploymentId(
+    bundles,
     proposalEvent.args.configUri
   )
 
@@ -416,7 +412,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     )
 
     await trackExecuted(
-      await getProjectOwnerAddress(manager),
+      await manager.owner(),
       organizationID,
       projectName,
       network,

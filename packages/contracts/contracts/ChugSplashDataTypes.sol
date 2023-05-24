@@ -41,7 +41,7 @@ struct DeploymentState {
  * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  * @custom:field referenceName The reference name associated with the contract.
  */
-struct ChugSplashAction {
+struct RawChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
     address payable addr;
@@ -110,4 +110,34 @@ struct RegistrationInfo {
     Version version;
     address owner;
     bytes managerInitializerData;
+}
+
+struct ChugSplashBundles {
+  ChugSplashActionBundle actionBundle;
+  ChugSplashTargetBundle targetBundle;
+}
+
+struct ChugSplashActionBundle {
+  bytes32 root;
+  BundledChugSplashAction[] actions;
+}
+
+struct ChugSplashTargetBundle {
+    bytes32 root;
+    BundledChugSplashTarget[] targets;
+}
+
+struct BundledChugSplashAction {
+    RawChugSplashAction action;
+    ActionProof proof;
+}
+
+struct BundledChugSplashTarget {
+    ChugSplashTarget target;
+    bytes32[] siblings;
+}
+
+struct ActionProof {
+    uint256 actionIndex;
+    bytes32[] siblings;
 }
