@@ -21,50 +21,16 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import {
-  ChugSplashRegistryArtifact,
-  DefaultAdapterArtifact,
-  DEFAULT_ADAPTER_ADDRESS,
-  buildInfo as chugsplashBuildInfo,
-  DefaultUpdaterArtifact,
-  DEFAULT_UPDATER_ADDRESS,
-  OZTransparentAdapterArtifact,
-  OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  OZUUPSUpdaterArtifact,
-  OZ_UUPS_UPDATER_ADDRESS,
-  OZUUPSOwnableAdapterArtifact,
-  OZUUPSAccessControlAdapterArtifact,
-  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  ChugSplashManagerArtifact,
-  DefaultCreate3Artifact,
-  DEFAULT_CREATE3_ADDRESS,
-  DefaultGasPriceCalculatorArtifact,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  ManagedServiceArtifact,
-  ChugSplashManagerProxyArtifact,
-  ProxyArtifact,
-} from '@chugsplash/contracts'
+import { buildInfo as chugsplashBuildInfo } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
-import {
-  getChugSplashConstructorArgs,
-  getChugSplashRegistryAddress,
-  getChugSplashManagerV1Address,
-  getManagedServiceAddress,
-  getReferenceChugSplashManagerProxyAddress,
-  getReferenceDefaultProxyAddress,
-} from './addresses'
-import { CanonicalChugSplashConfig } from './config/types'
-import {
-  getChugSplashManagerAddress,
-  getConfigArtifactsRemote,
-  getConstructorArgs,
-  getCreate3Address,
-} from './utils'
+import { getChugSplashManagerAddress } from './addresses'
+import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
+import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
+import { CHUGSPLASH_CONTRACT_INFO } from './contract-info'
 
 export interface EtherscanResponseBody {
   status: string
@@ -76,6 +42,7 @@ export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
   canonicalConfig: CanonicalChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
@@ -92,19 +59,21 @@ export const verifyChugSplashConfig = async (
     customChains
   )
 
-  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
   )) {
-    const { artifact, buildInfo } = artifacts[referenceName]
-    const { abi, contractName, sourceName } = artifact
+    const { artifact, buildInfo } = configArtifacts[referenceName]
+    const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
       abi
     )
-    const implementationAddress = getCreate3Address(
+
+    const implementationAddress = getImplAddress(
       managerAddress,
-      contractConfig.salt
+      bytecode,
+      contractConfig.constructorArgs,
+      abi
     )
 
     const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
@@ -163,47 +132,11 @@ export const verifyChugSplash = async (
     customChains
   )
 
-  const contracts = [
-    {
-      artifact: ChugSplashRegistryArtifact,
-      address: getChugSplashRegistryAddress(),
-    },
-    {
-      artifact: ChugSplashManagerArtifact,
-      address: getChugSplashManagerV1Address(),
-    },
-    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
-    {
-      artifact: OZUUPSOwnableAdapterArtifact,
-      address: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-    },
-    {
-      artifact: OZUUPSAccessControlAdapterArtifact,
-      address: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-    },
-    {
-      artifact: OZTransparentAdapterArtifact,
-      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
-    },
-    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
-    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
-    { artifact: DefaultCreate3Artifact, address: DEFAULT_CREATE3_ADDRESS },
-    {
-      artifact: DefaultGasPriceCalculatorArtifact,
-      address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-    },
-    { artifact: ManagedServiceArtifact, address: getManagedServiceAddress() },
-    {
-      artifact: ChugSplashManagerProxyArtifact,
-      address: getReferenceChugSplashManagerProxyAddress(),
-    },
-    {
-      artifact: ProxyArtifact,
-      address: getReferenceDefaultProxyAddress(),
-    },
-  ]
-
-  for (const { artifact, address } of contracts) {
+  for (const {
+    artifact,
+    expectedAddress,
+    constructorArgs,
+  } of CHUGSPLASH_CONTRACT_INFO) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
@@ -213,20 +146,18 @@ export const verifyChugSplash = async (
       contractName
     )
 
-    const chugSplashConstructorArgs = getChugSplashConstructorArgs()
-
     await attemptVerification(
       provider,
       networkName,
       etherscanApiEndpoints.urls,
-      address,
+      expectedAddress,
       sourceName,
       contractName,
       abi,
       apiKey,
       minimumCompilerInput,
       chugsplashBuildInfo.solcVersion,
-      chugSplashConstructorArgs[sourceName]
+      constructorArgs
     )
   }
 }
@@ -430,8 +361,10 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
-  const chainIds = Object.values(chainConfig).map((config) => config.chainId)
-  const customChainIds = customChains.map((chain) => chain.chainId)
-  return chainIds.includes(chainId) || customChainIds.includes(chainId)
+export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
+  const customNetworks = customChains.map((chain) => chain.network)
+  return (
+    chainConfig[networkName] !== undefined ||
+    customNetworks.includes(networkName)
+  )
 }

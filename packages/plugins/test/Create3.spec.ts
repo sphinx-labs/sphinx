@@ -11,7 +11,7 @@ describe('Create3', () => {
     StatelessWithSalt = await chugsplash.getContract(
       'My First Project',
       'Stateless',
-      '0x' + '11'.repeat(32)
+      1
     )
   })
 

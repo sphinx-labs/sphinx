@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {
     DeploymentState,
-    ChugSplashAction,
+    RawChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
     DeploymentStatus
@@ -11,7 +11,6 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
@@ -31,6 +30,7 @@ import {
 import {
     ContextUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
 
 /**
  * @title ChugSplashManager
@@ -53,7 +53,8 @@ contract ChugSplashManager is
     ReentrancyGuardUpgradeable,
     Semver,
     IChugSplashManager,
-    ERC2771ContextUpgradeable
+    ERC2771ContextUpgradeable,
+    ChugSplashManagerEvents
 {
     /**
      * @notice Role required to be a remote executor for a deployment.
@@ -69,7 +70,7 @@ contract ChugSplashManager is
      * @notice The contract kind hash for contracts that do not use a proxy (i.e. immutable
        contracts).
      */
-    bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
+    bytes32 internal constant IMMUTABLE_CONTRACT_KIND_HASH = keccak256("immutable");
 
     /**
      * @notice Address of the ChugSplashRegistry.
@@ -167,215 +168,6 @@ contract ChugSplashManager is
        contract to propose deployments on their behalf.
      */
     bool public allowManagedProposals;
-
-    /**
-     * @notice Emitted when a deployment is proposed.
-
-     * @param deploymentId   ID of the deployment that was proposed.
-     * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
-     * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
-     * @param numActions   Number of actions in the deployment.
-     * @param numTargets   Number of targets in the deployment.
-     * @param numNonProxyContracts   Number of non-proxy contracts in the deployment.
-     * @param configUri  URI of the config file that can be used to fetch the deployment.
-     * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
-     * @param proposer     Address of the account that proposed the deployment.
-     */
-    event ChugSplashDeploymentProposed(
-        bytes32 indexed deploymentId,
-        bytes32 actionRoot,
-        bytes32 targetRoot,
-        uint256 numActions,
-        uint256 numTargets,
-        uint256 numNonProxyContracts,
-        string configUri,
-        bool remoteExecution,
-        address proposer
-    );
-
-    /**
-     * @notice Emitted when a ChugSplash deployment is approved.
-     *
-     * @param deploymentId ID of the deployment that was approved.
-     */
-    event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
-
-    /**
-     * @notice Emitted when a storage slot in a proxy is modified.
-     *
-     * @param deploymentId Current deployment ID.
-     * @param proxy        Address of the proxy.
-     * @param executor Address of the caller for this transaction.
-     * @param actionIndex Index of this action.
-     */
-    event SetProxyStorage(
-        bytes32 indexed deploymentId,
-        address indexed proxy,
-        address indexed executor,
-        uint256 actionIndex
-    );
-
-    /**
-     * @notice Emitted when a deployment is initiated.
-     *
-     * @param deploymentId   ID of the active deployment.
-     * @param executor        Address of the caller that initiated the deployment.
-     */
-    event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
-
-    /**
-     * @notice Emitted when a deployment is completed.
-     *
-     * @param deploymentId   ID of the active deployment.
-     * @param executor        Address of the caller that initiated the deployment.
-     */
-    event ChugSplashDeploymentCompleted(bytes32 indexed deploymentId, address indexed executor);
-
-    /**
-     * @notice Emitted when the owner of this contract cancels an active deployment.
-     *
-     * @param deploymentId        Deployment ID that was cancelled.
-     * @param owner           Address of the owner that cancelled the deployment.
-     * @param actionsExecuted Total number of completed actions before cancellation.
-     */
-    event ChugSplashDeploymentCancelled(
-        bytes32 indexed deploymentId,
-        address indexed owner,
-        uint256 actionsExecuted
-    );
-
-    /**
-     * @notice Emitted when ownership of a proxy is transferred away from this contract.
-     *
-     * @param proxy            Address of the proxy that was exported.
-     * @param contractKindHash The proxy's contract kind hash, which indicates the proxy's type.
-     * @param newOwner         Address of the new owner of the proxy.
-     */
-    event ProxyExported(address indexed proxy, bytes32 indexed contractKindHash, address newOwner);
-
-    /**
-     * @notice Emitted when a deployment is claimed by a remote executor.
-     *
-     * @param deploymentId ID of the deployment that was claimed.
-     * @param executor Address of the executor that claimed the deployment.
-     */
-    event ChugSplashDeploymentClaimed(bytes32 indexed deploymentId, address indexed executor);
-
-    /**
-     * @notice Emitted when an executor claims a payment.
-     *
-     * @param executor The executor being paid.
-     * @param withdrawn   Amount of ETH withdrawn.
-     * @param remaining  Amount of ETH remaining to be withdrawn by the executor.
-     */
-    event ExecutorPaymentClaimed(address indexed executor, uint256 withdrawn, uint256 remaining);
-
-    /**
-     * @notice Emitted when the owner withdraws ETH from this contract.
-     *
-     * @param owner  Address of the owner.
-     * @param amount ETH amount withdrawn.
-     */
-    event OwnerWithdrewETH(address indexed owner, uint256 amount);
-
-    /**
-     * @notice Emitted when the owner of this contract adds or removes a proposer.
-     *
-     * @param proposer Address of the proposer that was added or removed.
-     * @param isProposer Boolean indicating if the proposer was added or removed.
-     * @param owner Address of the owner.
-     */
-    event ProposerSet(address indexed proposer, bool indexed isProposer, address indexed owner);
-
-    /**
-     * @notice Emitted when the owner of this contract toggles the ability of the ManagedService
-       contract to propose deployments.
-     *
-        * @param isManaged Boolean indicating if the ManagedService contract is allowed to propose
-          deployments.
-        * @param owner Address of the owner.
-     */
-    event ToggledManagedProposals(bool isManaged, address indexed owner);
-
-    /**
-     * @notice Emitted when ETH is deposited in this contract.
-     *
-     * @param from   Address of the account that deposited ETH.
-     * @param amount ETH amount deposited.
-     */
-    event ETHDeposited(address indexed from, uint256 indexed amount);
-
-    /**
-     * @notice Emitted when a Proxy is deployed by this contract.
-     *
-     * @param salt           Salt used to deploy the proxy.
-     * @param proxy          Address of the deployed proxy.
-     * @param deploymentId   ID of the deployment in which the proxy was deployed.
-     * @param projectName    Name of the project that the proxy belongs to.
-     * @param referenceName  Reference name that corresponds to this proxy.
-     */
-    event DefaultProxyDeployed(
-        bytes32 indexed salt,
-        address indexed proxy,
-        bytes32 indexed deploymentId,
-        string projectName,
-        string referenceName
-    );
-
-    /**
-     * @notice Emitted when a contract is deployed by this contract.
-     *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param contractAddress   Address of the deployed contract.
-     * @param deploymentId          ID of the deployment in which the contract was deployed.
-     * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that deployed the contract.
-     * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
-     */
-    event ContractDeployed(
-        string indexed referenceNameHash,
-        address indexed contractAddress,
-        bytes32 indexed deploymentId,
-        string referenceName,
-        uint256 actionIndex,
-        bytes32 creationCodeWithArgsHash
-    );
-
-    /**
-     * @notice Emitted when a contract deployment is skipped. This occurs when a contract already
-       exists at the Create3 address.
-     *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param contractAddress   Address of the deployed contract.
-     * @param deploymentId          ID of the deployment in which the contract was deployed.
-     * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that attempted to deploy the contract.
-     */
-    event ContractDeploymentSkipped(
-        string indexed referenceNameHash,
-        address indexed contractAddress,
-        bytes32 indexed deploymentId,
-        string referenceName,
-        uint256 actionIndex
-    );
-
-    /**
-     * @notice Emitted when a deployment fails. This should only occur if the constructor of a
-       deployed contract reverts.
-     *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param expectedAddress   Expected Create3 address of the contract.
-     * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
-     * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that attempted to deploy the contract.
-     */
-    event DeploymentFailed(
-        string indexed referenceNameHash,
-        address indexed expectedAddress,
-        bytes32 indexed deploymentId,
-        string referenceName,
-        uint256 actionIndex
-    );
 
     /**
      * @notice Reverts if the caller is not a remote executor.
@@ -503,11 +295,6 @@ contract ChugSplashManager is
     error OnlyProxiesAllowed();
 
     /**
-     * @notice Reverts if the contract creation for a `Proxy` fails.
-     */
-    error ProxyDeploymentFailed();
-
-    /**
      * @notice Reverts if the call to initiate an upgrade on a proxy fails.
      */
     error FailedToInitiateUpgrade();
@@ -546,11 +333,6 @@ contract ChugSplashManager is
      * @notice Reverts if the low-level delegatecall to get an address fails.
      */
     error FailedToGetAddress();
-
-    /**
-     * @notice Reverts if a contract fails to be deployed.
-     */
-    error FailedToDeployContract();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
@@ -647,7 +429,7 @@ contract ChugSplashManager is
      * This may be `bytes32(0)` if there are no actions in the deployment.
      * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
      * This may be `bytes32(0)` if there are no targets in the deployment.
-     * @param _numNonProxyContracts Number of non-proxy contracts in the deployment.
+     * @param _numImmutableContracts Number of non-proxy contracts in the deployment.
      * @param _numActions Number of actions in the deployment.
      * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
@@ -658,7 +440,7 @@ contract ChugSplashManager is
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
-        uint256 _numNonProxyContracts,
+        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) public {
@@ -673,7 +455,7 @@ contract ChugSplashManager is
                 _targetRoot,
                 _numActions,
                 _numTargets,
-                _numNonProxyContracts,
+                _numImmutableContracts,
                 _configUri
             )
         );
@@ -693,10 +475,11 @@ contract ChugSplashManager is
         deployment.status = DeploymentStatus.PROPOSED;
         deployment.actionRoot = _actionRoot;
         deployment.targetRoot = _targetRoot;
-        deployment.numNonProxyContracts = _numNonProxyContracts;
+        deployment.numImmutableContracts = _numImmutableContracts;
         deployment.actions = new bool[](_numActions);
         deployment.targets = _numTargets;
         deployment.remoteExecution = _remoteExecution;
+        deployment.configUri = _configUri;
 
         emit ChugSplashDeploymentProposed(
             deploymentId,
@@ -704,7 +487,7 @@ contract ChugSplashManager is
             _targetRoot,
             _numActions,
             _numTargets,
-            _numNonProxyContracts,
+            _numImmutableContracts,
             _configUri,
             _remoteExecution,
             _msgSender()
@@ -723,7 +506,7 @@ contract ChugSplashManager is
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
-        uint256 _numNonProxyContracts,
+        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) external {
@@ -734,7 +517,7 @@ contract ChugSplashManager is
             _targetRoot,
             _numActions,
             _numTargets,
-            _numNonProxyContracts,
+            _numImmutableContracts,
             _configUri,
             _remoteExecution
         );
@@ -791,14 +574,15 @@ contract ChugSplashManager is
 
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _targetProofs Array of Merkle proofs for the targets.
-     * @param _actions Array of ChugSplashAction structs containing the actions for the deployment.
+     * @param _actions Array of RawChugSplashAction structs containing the actions for the
+     *                 deployment.
      * @param _actionIndexes Array of indexes into the actions array for each target.
      * @param _actionProofs Array of Merkle proofs for the actions.
      */
     function executeEntireUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
-        ChugSplashAction[] memory _actions,
+        RawChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _actionProofs
     ) external {
@@ -1038,12 +822,13 @@ contract ChugSplashManager is
        not contain any proxies, it will be completed after all of the non-proxy contracts have been
        deployed in this function.
      *
-     * @param _actions Array of ChugSplashAction structs containing the actions for the deployment.
+     * @param _actions Array of RawChugSplashAction structs containing the actions for the
+     *                 deployment.
      * @param _actionIndexes Array of action indexes.
      * @param _proofs Array of Merkle proofs for the actions.
      */
     function executeActions(
-        ChugSplashAction[] memory _actions,
+        RawChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
@@ -1061,7 +846,7 @@ contract ChugSplashManager is
             revert EmptyActionsArray();
         }
 
-        ChugSplashAction memory action;
+        RawChugSplashAction memory action;
         uint256 actionIndex;
         bytes32[] memory proof;
         for (uint256 i = 0; i < numActions; i++) {
@@ -1138,7 +923,7 @@ contract ChugSplashManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (deployment.actionsExecuted != deployment.numNonProxyContracts) {
+        if (deployment.actionsExecuted != deployment.numImmutableContracts) {
             revert InitiatedUpgradeTooEarly();
         }
 
@@ -1158,7 +943,7 @@ contract ChugSplashManager is
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
@@ -1180,27 +965,6 @@ contract ChugSplashManager is
                 )
             ) {
                 revert InvalidMerkleProof();
-            }
-
-            if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
-                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
-                Proxy created = new Proxy{ salt: salt }(address(this));
-
-                // Could happen if insufficient gas is supplied to this transaction, should not
-                // happen otherwise. If there's a situation in which this could happen other than a
-                // standard OOG, then this would halt the entire execution process.
-                if (address(created) != target.addr) {
-                    revert ProxyDeploymentFailed();
-                }
-
-                emit DefaultProxyDeployed(
-                    salt,
-                    target.addr,
-                    activeDeploymentId,
-                    target.projectName,
-                    target.referenceName
-                );
-                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.addr));
             }
 
             address adapter = registry.adapters(target.contractKindHash);
@@ -1267,7 +1031,7 @@ contract ChugSplashManager is
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
@@ -1304,6 +1068,13 @@ contract ChugSplashManager is
             if (!success) {
                 revert FailedToFinalizeUpgrade();
             }
+            emit ProxyUpgraded(
+                activeDeploymentId,
+                target.addr,
+                target.projectName,
+                target.referenceName
+            );
+            registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
         _completeDeployment(deployment);
@@ -1356,7 +1127,7 @@ contract ChugSplashManager is
      */
     function _setProxyStorage(
         DeploymentState memory _deployment,
-        ChugSplashAction memory _action,
+        RawChugSplashAction memory _action,
         uint256 _actionIndex
     ) internal {
         if (_deployment.status != DeploymentStatus.PROXIES_INITIATED) {
@@ -1366,7 +1137,7 @@ contract ChugSplashManager is
         // Get the adapter for this reference name.
         address adapter = registry.adapters(_action.contractKindHash);
 
-        if (_action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+        if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
             revert OnlyProxiesAllowed();
         }
 
@@ -1384,7 +1155,7 @@ contract ChugSplashManager is
         }
 
         emit SetProxyStorage(activeDeploymentId, _action.addr, _msgSender(), _actionIndex);
-        registry.announceWithData("SetProxyStorage", abi.encodePacked(_action.addr));
+        registry.announce("SetProxyStorage");
     }
 
     /**
@@ -1400,7 +1171,7 @@ contract ChugSplashManager is
      */
     function _attemptContractDeployment(
         DeploymentState storage _deployment,
-        ChugSplashAction memory _action,
+        RawChugSplashAction memory _action,
         uint256 _actionIndex
     ) internal {
         if (_deployment.status != DeploymentStatus.APPROVED) {
@@ -1445,9 +1216,7 @@ contract ChugSplashManager is
                 abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
             );
 
-            if (!deploySuccess) {
-                revert FailedToDeployContract();
-            }
+            require(deploySuccess, string.concat("Failed to deploy: ", referenceName));
 
             address actualAddress = abi.decode(actualAddressBytes, (address));
 
@@ -1458,7 +1227,7 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
-                    _actionIndex,
+                    _action.contractKindHash,
                     keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");

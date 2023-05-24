@@ -5,25 +5,19 @@ This document is a work in progress.
 ## Table of Contents
 
 - [Deploy](#Deploy)
-- [Register](#Register)
-- [Propose](#Propose)
-- [List Projects](#List-Projects)
-- [Transfer Proxy](#Transfer-Proxy)
+- [Get Address](#Get-Address)
 
 ## Deploy
-Performs a complete deployment or upgrade of a ChugSplash config file.
+Performs a complete deployment of a ChugSplash config file against the specified rpc url.
+```
+deploy('./chugsplash.config.ts', 'http://localhost:8545');
+deploy('./chugsplash.config.ts', vm.rpcUrl("anvil"));
+```
 
-## Register
-Todo
+## Get Address
+Fetches a contract address using the config, the contracts reference name, and an optional salt. Note that this function will only work if the config and contract were deployed previously in the same script.
 
-## Propose
-Todo
-
-## Cancel
-Todo
-
-## List Projects
-Todo
-
-## Transfer Proxy
-Todo
+```
+getAddress('./chugsplash.config.ts', 'TestContract');
+getAddress('./chugsplash.config.ts', 'TestContract', 1)
+```

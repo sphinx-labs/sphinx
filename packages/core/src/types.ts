@@ -1,12 +1,12 @@
-import { BaseServiceV2, LogLevel } from '@eth-optimism/common-ts'
-import { StorageLayout } from '@openzeppelin/upgrades-core'
-import { ethers } from 'ethers'
+import { BaseServiceV2 } from '@eth-optimism/common-ts/dist/base-service/base-service-v2'
+import { LogLevel } from '@eth-optimism/common-ts/dist/common/logger'
+import { StorageLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { Contract, Event, providers } from 'ethers'
 
-import { ParsedContractConfig } from './config'
+import { ParsedContractConfig } from './config/types'
 
 export type ChugSplashRuntimeEnvironment = {
-  configPath: string
   canonicalConfigPath: string
   remoteExecution: boolean
   autoConfirm: boolean
@@ -16,13 +16,13 @@ export type ChugSplashRuntimeEnvironment = {
   importOpenZeppelinStorageLayout: (
     hre: HardhatRuntimeEnvironment,
     parsedContractConfig: ParsedContractConfig
-  ) => Promise<StorageLayout | undefined>
+  ) => Promise<StorageLayout>
 }
 
-export type FoundryContractArtifact = {
-  referenceName: string
-  contractName: string
-  contractAddress: string
+export enum FailureAction {
+  EXIT, // Exit the process without throwing an error. This cannot be caught in a try/catch.
+  THROW, // Throw an error. This will exit the process if not caught in a try/catch.
+  CONTINUE, // Continue execution.
 }
 
 export type ExecutorKey = {
@@ -44,14 +44,14 @@ export type ExecutorEvent = {
   retry: number
   waitingPeriodMs: number
   nextTry: Date
-  event: ethers.Event
+  event: Event
 }
 
 export type ExecutorState = {
   eventsQueue: ExecutorEvent[]
   executionCache: ExecutorEvent[]
-  registry: ethers.Contract
-  provider: ethers.providers.JsonRpcProvider
+  registry: Contract
+  provider: providers.JsonRpcProvider
   lastBlockNumber: number
   keys: ExecutorKey[]
 }
@@ -64,8 +64,14 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
   constructor(options?: Partial<ExecutorOptions>)
   setup(
     options: Partial<ExecutorOptions>,
-    provider?: ethers.providers.JsonRpcProvider
+    provider?: providers.JsonRpcProvider
   ): Promise<void>
   init(): Promise<void>
   main(): Promise<void>
+}
+
+export enum ProposalRoute {
+  RELAY,
+  REMOTE_EXECUTION,
+  LOCAL_EXECUTION,
 }

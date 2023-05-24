@@ -1,17 +1,19 @@
 import hre from 'hardhat'
+import '@nomiclabs/hardhat-ethers'
 import { Contract } from 'ethers'
 import {
   chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
-  getChugSplashManager,
-  readUnvalidatedChugSplashConfig,
+  FORWARDER_ADDRESS,
+  getChugSplashManagerReadOnly,
+  ProposalRoute,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
-import { FORWARDER_ADDRESS, ForwarderArtifact } from '@chugsplash/contracts'
+import { ForwarderArtifact } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { createChugSplashRuntime } from '../../plugins/src/utils'
-import { getConfigArtifacts } from '../src/hardhat/artifacts'
+import { createChugSplashRuntime } from '../../plugins/src/cre'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 const configPath = './chugsplash/Metatx.config.ts'
 
@@ -24,30 +26,23 @@ describe('Meta txs', () => {
     const provider = hre.ethers.provider
     const signer = provider.getSigner()
     const signerAddress = await signer.getAddress()
-    const canonicalConfigPath = hre.config.paths.canonicalConfigs
-
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
-      configPath,
       true,
       true,
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false
-    )
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      configPath,
-      configArtifacts,
-      'hardhat',
-      cre,
       true
     )
+
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        configPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     // claim
     await chugsplashClaimAbstractTask(
@@ -68,8 +63,9 @@ describe('Meta txs', () => {
       '',
       'hardhat',
       configArtifacts,
-      canonicalConfigPath,
-      cre
+      ProposalRoute.RELAY,
+      cre,
+      configCache
     )
 
     const { request, signature, deploymentId } = metatxs!
@@ -90,7 +86,7 @@ describe('Meta txs', () => {
     // Send meta-tx through relayer to the forwarder contract
     const gasLimit = (request.gas + 50000).toString()
     await Forwarder.execute(request, signature, { gasLimit })
-    manager = await getChugSplashManager(
+    manager = getChugSplashManagerReadOnly(
       hre.ethers.provider,
       parsedConfig.options.organizationID
     )
