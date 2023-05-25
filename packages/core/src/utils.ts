@@ -61,9 +61,9 @@ import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
 import {
-  ContractArtifact,
   BuildInfo,
   CompilerOutput,
+  ContractArtifact,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
