@@ -50,6 +50,7 @@ The ChugSplash Managed Service is an optional product built on top of the ChugSp
 
 ## Supported Networks
 * Ethereum Goerli
+* Optimism Goerli
 
 ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
 
@@ -63,7 +64,7 @@ ChugSplash is an experimental product and currently only supports test networks.
 
 ## Contributing
 
-PRs accepted.
+Contributors welcome, please read through [CONTRIBUTING.md](https://github.com/chugsplash/chugsplash/blob/develop/CONTRIBUTING.md) for an overview of the contributing process for this repository and to get your development environment up and running. Then check out the list of [Good First Issues](https://github.com/chugsplash/chugsplash/contribute) to find something to work on! If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
 
 ## License
 
