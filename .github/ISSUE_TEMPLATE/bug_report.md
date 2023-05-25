@@ -7,28 +7,32 @@ assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Description
+<!-- A clear and concise description of what the bug is. -->
 
-**To Reproduce**
+## Reproduction Steps
+<!--
 Steps to reproduce the behavior:
 1. Create a ChugSplash config with '...'
 2. Deploy with '....'
 3. See error
+-->
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Expected behavior
+<!-- A clear and concise description of what you expected to happen. -->
 
-**Actual behavior**
-A clear and concise description of what actually happens.
+## Actual behavior
+<!-- A clear and concise description of what actually happens. -->
 
-**Screenshots, Artifacts, Config**
+## Screenshots, Artifacts, Config
+<!--
 If applicable, add screenshots, deployment artifacts, or an example ChugSplash config to help explain the problem.
+-->
 
-**Desktop (please complete the following information):**
+## Platform
  - OS: [e.g. iOS]
  - Plugin: [e.g. Hardhat, Foundry, All]
  - Version [e.g. 22]
 
-**Additional context**
-Add any other context about the problem here.
+## Additional context
+<!-- Add any other context about the problem here. -->
