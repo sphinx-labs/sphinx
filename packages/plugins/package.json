@@ -42,6 +42,8 @@
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.24.0",
+    "@prb/math": "^4.0.0",
+    "@thirdweb-dev/contracts": "^3.5.1",
     "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
     "ipfs-http-client": "56.0.3",
@@ -49,9 +51,8 @@
     "node-fetch": "^2.6.7",
     "ora": "^5.4.1",
     "semver": "^7.3.7",
-    "yesno": "^0.4.0",
-    "@thirdweb-dev/contracts": "^3.5.1",
-    "solmate": "^6.7.0"
+    "solmate": "^6.7.0",
+    "yesno": "^0.4.0"
   },
   "devDependencies": {
     "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
