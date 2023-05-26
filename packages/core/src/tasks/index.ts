@@ -524,20 +524,18 @@ export const chugsplashDeployAbstractTask = async (
   newOwner?: string
 ): Promise<void> => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
-  const networkName = await resolveNetworkName(provider, integration)
-
-  const signerAddress = await signer.getAddress()
 
   const { organizationID, projectName } = parsedConfig.options
 
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
+  const manager = getChugSplashManager(signer, organizationID)
 
   // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the project owner specified in the config.
+  const signerAddress = await signer.getAddress()
   await finalizeRegistration(
     provider,
     signer,
-    ChugSplashManager,
+    manager,
     organizationID,
     signerAddress,
     false,
@@ -571,11 +569,12 @@ export const chugsplashDeployAbstractTask = async (
   }
 
   const deploymentId = getDeploymentId(bundles, configUri)
-  const deploymentState: DeploymentState = await ChugSplashManager.deployments(
+  const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
   let currDeploymentStatus = deploymentState.status
 
+  const networkName = await resolveNetworkName(provider, integration)
   if (currDeploymentStatus === DeploymentStatus.COMPLETED) {
     spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     await completeDeployment(
@@ -587,7 +586,7 @@ export const chugsplashDeployAbstractTask = async (
       cre.silent,
       canonicalConfig,
       deploymentId,
-      ChugSplashManager,
+      manager,
       networkName,
       configUri,
       spinner,
@@ -642,7 +641,7 @@ export const chugsplashDeployAbstractTask = async (
   spinner.start(`Executing ${projectName}...`)
 
   const success = await executeTask({
-    chugSplashManager: ChugSplashManager,
+    chugSplashManager: manager,
     bundles,
     deploymentState,
     executor: signer,
@@ -667,7 +666,7 @@ export const chugsplashDeployAbstractTask = async (
     cre.silent,
     canonicalConfig,
     deploymentId,
-    ChugSplashManager,
+    manager,
     networkName,
     configUri,
     spinner,
@@ -675,7 +674,7 @@ export const chugsplashDeployAbstractTask = async (
   )
 
   await trackDeployed(
-    await ChugSplashManager.owner(),
+    await manager.owner(),
     organizationID,
     projectName,
     networkName,
