@@ -16,10 +16,16 @@ library Deploy {
         bool exists;
     }
 
-    // TODO: spinner
-    // TODO(test):
-    // - etherscan verification: https://book.getfoundry.sh/tutorials/solidity-scripting. i'd be
+    // TODO(bundling): sort by ascending actionIndex, and remove the sort in `executeTask`
+
+    // TODO(test): etherscan verification: https://book.getfoundry.sh/tutorials/solidity-scripting. i'd be
     //   surprised if this works since we deploy contracts in a non-standard way
+
+    // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
+    // state on the in-process node (e.g. in async user config)
+
+    // TODO: spinner
+
     // TODO(inputs):
     // TODO(overload):
     // - newOwner? (not necessary for `finalizeRegistration`)
@@ -30,6 +36,13 @@ library Deploy {
 
         // TODO: what happens to msg.sender when startBroadcast(addr) is used?
         finalizeRegistration(manager, organizationID, msg.sender, false, projectName);
+
+// assertValidBlockGasLimit
+//     // Make sure that the external proxy contract exists.
+// assertAvailableCreate3Addresses: isContractDeployed, queryfilter
+// estimateGas
+// isLiveNetwork (parse.ts)
+// assertValidDeploymentSize
 
         (ChugSplashBundles memory bundles, string memory configUri, ConfigContractInfo[] memory configContractInfo) = ffiGetDeploymentInfo(_configPath);
 

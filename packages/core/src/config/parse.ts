@@ -2413,7 +2413,7 @@ export const parseAndValidateChugSplashConfig = async (
   )
 
   if (await isLiveNetwork(provider)) {
-    await assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
+    assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
   }
 
   await assertValidDeploymentSize(provider, parsedConfig, cre)
@@ -2495,7 +2495,7 @@ export const assertValidDeploymentSize = async (
 /**
  * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
  */
-export const assertContractsBelowSizeLimit = async (
+export const assertContractsBelowSizeLimit = (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
