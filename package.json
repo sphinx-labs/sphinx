@@ -28,7 +28,7 @@
   "scripts": {
     "install:foundry": "git submodule update --init --recursive",
     "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test",
+    "test": "yarn workspaces run test:coverage",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
     "lint:fix": "yarn workspaces run lint:fix"
