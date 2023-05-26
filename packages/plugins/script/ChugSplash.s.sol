@@ -8,8 +8,6 @@ import { SimpleStorage } from "../contracts/SimpleStorage.sol";
 
 contract ChugSplashDeploy is Script {
     function run() public {
-        string memory configPath = "./chugsplash/foundry/deploy.t.js";
         ChugSplash chugsplash = new ChugSplash();
-        chugsplash.deploy(configPath, false);
     }
 }

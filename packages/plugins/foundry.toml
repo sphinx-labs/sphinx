@@ -13,7 +13,6 @@ cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]
 
-
 [rpc_endpoints]
 localhost = "http://127.0.0.1:8545"
 homestead = "${RPC_MAINNET}"

@@ -4,9 +4,9 @@ import * as fs from 'fs'
 import {
   BuildInfo,
   ConfigArtifacts,
-  ContractArtifact,
   parseFoundryArtifact,
   UserContractConfigs,
+  ContractArtifact,
 } from '@chugsplash/core'
 
 export const getBuildInfo = (

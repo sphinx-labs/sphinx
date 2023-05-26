@@ -3,7 +3,13 @@ pragma solidity ^0.8.15;
 // SPDX-License-Identifier: MIT
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
+import { StdChains } from "forge-std/StdChains.sol";
 import "lib/solidity-stringutils/src/strings.sol";
+import { ChugSplashBootloaderOne } from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderOne.sol";
+import { ChugSplashBootloaderTwo } from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderTwo.sol";
+import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { DeterministicDeployer } from "@chugsplash/contracts/contracts/deployment/DeterministicDeployer.sol";
 
 contract ChugSplash is Script, Test {
     using strings for *;
@@ -22,6 +28,10 @@ contract ChugSplash is Script, Test {
     bool skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
     bool allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
 
+    // Get owner address
+    uint key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
+    address systemOwnerAddress = key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+
     string rpcUrl = vm.rpcUrl(network);
     string filePath = vm.envOr("DEV_FILE_PATH", string('./node_modules/@chugsplash/plugins/dist/foundry/index.js'));
     bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
@@ -32,9 +42,14 @@ contract ChugSplash is Script, Test {
         address contractAddress;
     }
 
+    struct DeploymentBytecode {
+        bytes bootloaderOne;
+        bytes bootloaderTwo;
+    }
+
     constructor() {
         vm.makePersistent(address(this));
-        _initializeChugSplash();
+        _ensureChugSplashInitialized();
     }
 
     function fetchPaths() private view returns (string memory outPath, string memory buildInfoPath) {
@@ -58,17 +73,89 @@ contract ChugSplash is Script, Test {
         }
     }
 
-    function _initializeChugSplash() private {
-        string[] memory cmds = new string[](7);
+    function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
+        string[] memory cmds = new string[](4);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "initializeChugSplash";
-        cmds[4] = rpcUrl;
-        cmds[5] = network;
-        cmds[6] = privateKey;
+        cmds[3] = "getBootloaderBytecode";
 
-        vm.ffi(cmds);
+        bytes memory result = vm.ffi(cmds);
+        return abi.decode(result, (DeploymentBytecode));
+    }
+
+    function isLiveNetwork() private returns (bool) {
+        StdChains.Chain memory activeChain = StdChains.getChain(block.chainid);
+        strings.slice memory sliceUrl = activeChain.rpcUrl.toSlice();
+        string memory host = sliceUrl.split(":".toSlice()).toString();
+
+        if (host == "http://127.0.0.1" || host == "http://localhost") {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    function _ensureChugSplashInitialized() private {
+        // Fetch bytecode from artifacts
+        DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
+        ChugSplashRegistry registry = ChugSplashRegistry(getRegistryAddress());
+
+        // If the registry is not already deployed
+        if (address(registry).code.length == 0) {
+            // If the target chain is a local network
+            if (!isLiveNetwork()) {
+                // Setup determinisitic deployment proxy
+                address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+                vm.etch(DeterministicDeploymentProxy, hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3");
+
+                // Deploy the adapters
+                bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
+                address bootloaderOneAddress = Create2.computeAddress(bytes32(0), keccak256(bootloaderOneCreationCode), DeterministicDeploymentProxy);
+                DeterministicDeployer.deploy(
+                    bootloaderOneCreationCode,
+                    type(ChugSplashBootloaderOne).name
+                );
+
+                // Deploy the bootloader
+                bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
+                address bootloaderTwoAddress = Create2.computeAddress(bytes32(0), keccak256(bootloaderTwoCreationCode), DeterministicDeploymentProxy);
+                DeterministicDeployer.deploy(
+                    bootloaderTwoCreationCode,
+                    type(ChugSplashBootloaderOne).name
+                );
+
+                ChugSplashBootloaderOne chugSplashBootloaderOne = ChugSplashBootloaderOne(bootloaderOneAddress);
+                ChugSplashBootloaderTwo chugSplashBootloaderTwo = ChugSplashBootloaderTwo(bootloaderTwoAddress);
+
+                require(address(chugSplashBootloaderTwo.registry()) == address(registry), "Registry deployed to incorrect address");
+
+                // Impersonate system owner
+                vm.startPrank(systemOwnerAddress);
+
+                // Add initial manager version
+                registry.addVersion(
+                    chugSplashBootloaderTwo.managerImplementationAddress()
+                );
+
+                // Add transparent proxy type
+                registry.addContractKind(keccak256('oz-transparent'), chugSplashBootloaderOne.ozTransparentAdapterAddr());
+
+                // Add uups ownable proxy type
+                registry.addContractKind(keccak256('oz-ownable-uups'), chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr());
+
+                // Add uups access control proxy type
+                registry.addContractKind(keccak256('oz-access-control-uups'), chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr());
+
+                // Add default proxy type
+                registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
+
+                vm.stopPrank();
+            } else {
+                // If the target chain is not a local network and the registry has not bee deployed, then throw an error
+                revert("ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!");
+            }
+        }
     }
 
     function claim(string memory configPath) public returns (bytes memory) {
@@ -330,8 +417,6 @@ contract ChugSplash is Script, Test {
         assembly {
             addr := mload(add(addrBytes, 20))
         }
-
-        require(addr.code.length > 0, "Couldn't find registry address");
 
         return addr;
     }

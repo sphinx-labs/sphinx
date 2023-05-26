@@ -16,10 +16,15 @@ import {
   getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
   isLiveNetwork,
-  ensureChugSplashInitialized,
   getNonProxyCreate3Salt,
+  getBootloaderTwoConstructorArgs,
+  bootloaderTwoConstructorFragment,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
+import {
+  ChugSplashBootloaderOneArtifact,
+  ChugSplashBootloaderTwoArtifact,
+} from '@chugsplash/contracts'
 
 import { cleanPath, fetchPaths, getConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../utils'
@@ -417,15 +422,32 @@ const command = args[0]
       process.stdout.write(adminAddress)
       break
     }
-    case 'initializeChugSplash': {
-      const rpcUrl = args[1]
-      const network = args[2] !== 'localhost' ? args[2] : undefined
-      const privateKey = args[3]
+    case 'getBootloaderBytecode': {
+      const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
+      const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const wallet = new ethers.Wallet(privateKey, provider)
-      await ensureChugSplashInitialized(provider, wallet)
-      break
+      const bootloaderTwoCreationCode = bootloaderTwo.concat(
+        ethers.utils.defaultAbiCoder
+          .encode(
+            bootloaderTwoConstructorFragment.inputs,
+            getBootloaderTwoConstructorArgs()
+          )
+          .slice(2)
+      )
+
+      const artifactStructABI =
+        'tuple(bytes bootloaderOne, bytes bootloaderTwo)'
+      const encodedArtifacts = ethers.utils.AbiCoder.prototype.encode(
+        [artifactStructABI],
+        [
+          {
+            bootloaderOne,
+            bootloaderTwo: bootloaderTwoCreationCode,
+          },
+        ]
+      )
+
+      process.stdout.write(encodedArtifacts)
     }
   }
 })().catch((err: Error) => {
