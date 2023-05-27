@@ -18,6 +18,12 @@ import { createChugSplashRuntime } from '../../plugins/src/utils'
 const configPath = './chugsplash/ExecutorTest.config.ts'
 
 describe('Remote Execution', () => {
+  if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
+    throw new Error(
+      'IPFS_API_KEY_SECRET and IPFS_PROJECT_ID must be set to run automated executor tests'
+    )
+  }
+
   let Proxy: Contract
   let NonProxy: Contract
   before(async () => {
