@@ -126,13 +126,9 @@ export const executeTask = async (args: {
     )
 
     // Filter out any actions that have already been executed, sort by ascending action index.
-    const filtered = actions
-      .filter((action) => {
-        return !state.actions[action.proof.actionIndex]
-      })
-      .sort((a, b) => {
-        return a.proof.actionIndex - b.proof.actionIndex
-      })
+    const filtered = actions.filter((action) => {
+      return !state.actions[action.proof.actionIndex]
+    })
 
     // We can return early if there are no actions to execute.
     if (filtered.length === 0) {

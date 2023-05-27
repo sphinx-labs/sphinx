@@ -22,13 +22,14 @@ library Deploy {
     //   surprised if this works since we deploy contracts in a non-standard way
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
-    // state on the in-process node (e.g. in async user config)
+    // state on the in-process node (e.g. in async user config).
 
     // TODO: spinner
 
     // TODO(inputs):
     // TODO(overload):
     // - newOwner? (not necessary for `finalizeRegistration`)
+    // TODO(docs): this is the plugins deployTask and the deployAbstractTask
     function deploy(string memory _configPath, OptionalAddress _newProjectOwner) internal {
         (bytes32 organizationID, string memory projectName) = ffiGetConfigOptions(_configPath);
 

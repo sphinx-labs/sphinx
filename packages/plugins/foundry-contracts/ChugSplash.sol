@@ -10,8 +10,9 @@ import { ChugSplashBootloaderTwo } from "@chugsplash/contracts/contracts/deploym
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { DeterministicDeployer } from "@chugsplash/contracts/contracts/deployment/DeterministicDeployer.sol";
+import { ChugSplashLocalExecutor } from "./ChugSplashLocalExecutor.sol";
 
-contract ChugSplash is Script, Test {
+contract ChugSplash is Script, Test, ChugSplashLocalExecutor {
     using strings for *;
 
     string constant NONE = "none";
@@ -89,7 +90,7 @@ contract ChugSplash is Script, Test {
         strings.slice memory sliceUrl = activeChain.rpcUrl.toSlice();
         string memory host = sliceUrl.split(":".toSlice()).toString();
 
-        if (host == "http://127.0.0.1" || host == "http://localhost") {
+        if (keccak256(bytes(host)) == keccak256("http://127.0.0.1") || keccak256(bytes(host)) == keccak256("http://localhost")) {
             return false;
         } else {
             return true;

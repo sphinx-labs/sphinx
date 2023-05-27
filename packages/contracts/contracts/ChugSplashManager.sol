@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {
     DeploymentState,
-    ChugSplashAction,
+    RawChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
     DeploymentStatus
@@ -791,14 +791,15 @@ contract ChugSplashManager is
 
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _targetProofs Array of Merkle proofs for the targets.
-     * @param _actions Array of RawChugSplashAction structs containing the actions for the deployment.
+     * @param _actions Array of RawChugSplashAction structs containing the actions for the
+     *                 deployment.
      * @param _actionIndexes Array of indexes into the actions array for each target.
      * @param _actionProofs Array of Merkle proofs for the actions.
      */
     function executeEntireUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _targetProofs,
-        ChugSplashAction[] memory _actions,
+        RawChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _actionProofs
     ) external {
@@ -1038,12 +1039,13 @@ contract ChugSplashManager is
        not contain any proxies, it will be completed after all of the non-proxy contracts have been
        deployed in this function.
      *
-     * @param _actions Array of RawChugSplashAction structs containing the actions for the deployment.
+     * @param _actions Array of RawChugSplashAction structs containing the actions for the
+     *                 deployment.
      * @param _actionIndexes Array of action indexes.
      * @param _proofs Array of Merkle proofs for the actions.
      */
     function executeActions(
-        ChugSplashAction[] memory _actions,
+        RawChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {

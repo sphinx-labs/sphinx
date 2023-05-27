@@ -6,3 +6,4 @@ forge-std/=lib/forge-std/src/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 @thirdweb-dev/contracts/=node_modules/@thirdweb-dev/contracts/
 solmate/src/=node_modules/solmate/src/
+@prb/math/=node_modules/prb/math/src/
