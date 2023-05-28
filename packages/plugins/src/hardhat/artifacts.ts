@@ -98,30 +98,21 @@ export const getConfigArtifacts = async (
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
   parsedContractConfig: ParsedContractConfig
-): Promise<StorageLayout | undefined> => {
+): Promise<StorageLayout> => {
   const { kind } = parsedContractConfig
-  if (
-    kind === 'oz-transparent' ||
-    kind === 'oz-ownable-uups' ||
-    kind === 'oz-access-control-uups'
-  ) {
-    const proxy = parsedContractConfig.address
-    const isProxyDeployed = (await hre.ethers.provider.getCode(proxy)) !== '0x'
-    if (isProxyDeployed) {
-      const manifest = await Manifest.forNetwork(hre.network.provider)
-      const deployData = await getDeployData(
-        hre,
-        await hre.ethers.getContractFactory(parsedContractConfig.contract),
-        withValidationDefaults({
-          kind: toOpenZeppelinContractKind(kind),
-        })
-      )
-      const storageLayout = await getStorageLayoutForAddress(
-        manifest,
-        deployData.validations,
-        await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
-      )
-      return storageLayout
-    }
-  }
+  const proxy = parsedContractConfig.address
+  const manifest = await Manifest.forNetwork(hre.network.provider)
+  const deployData = await getDeployData(
+    hre,
+    await hre.ethers.getContractFactory(parsedContractConfig.contract),
+    withValidationDefaults({
+      kind: toOpenZeppelinContractKind(kind),
+    })
+  )
+  const storageLayout = await getStorageLayoutForAddress(
+    manifest,
+    deployData.validations,
+    await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
+  )
+  return storageLayout
 }

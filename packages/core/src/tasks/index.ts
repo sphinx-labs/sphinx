@@ -694,6 +694,9 @@ const completeDeployment = async (
   // TODO: by default, you may be attempting to write deployment artifacts and verify on etherscan
   // on forked networks that aren't being broadcasted
 
+  // TODO: you should only write deployment artifacts if you're broadcasting. note you can't
+  // broadcast on the in-process anvil node, but you can on the standalone anvil node
+
   writeDeploymentArtifacts(
     canonicalConfig,
     deploymentReceipts,

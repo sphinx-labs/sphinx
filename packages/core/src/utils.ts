@@ -953,7 +953,8 @@ export const getPreviousStorageLayoutOZFormat = async (
       )
     : undefined
 
-  const { previousFullyQualifiedName, previousBuildInfo } = parsedContractConfig
+  const { kind, previousFullyQualifiedName, previousBuildInfo } =
+    parsedContractConfig
   if (
     previousFullyQualifiedName !== undefined &&
     previousBuildInfo !== undefined
@@ -987,17 +988,11 @@ export const getPreviousStorageLayoutOZFormat = async (
       buildInfo.output,
       parsedContractConfig
     ).layout
-  } else if (cre.hre !== undefined) {
+  } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
     const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
       cre.hre,
       parsedContractConfig
     )
-    if (!openzeppelinStorageLayout) {
-      throw new Error(
-        'Could not import storage layout from OpenZeppelin Network Files. Please report this error.'
-      )
-    }
-
     return openzeppelinStorageLayout
   } else {
     throw new Error(
@@ -1148,6 +1143,60 @@ export const getConfigArtifactsRemote = async (
   return artifacts
 }
 
+/**
+ * Gets the deployment receipts for all of the contracts in the config that have been deployed by
+ * ChugSplash. This includes default proxies, their implementation contracts, and non-proxied
+ * contracts.
+ */
+export const getDeploymentReceipts = async (
+  registry: ethers.Contract,
+  manager: ethers.Contract,
+  parsedConfig: ParsedChugSplashConfig
+): Promise<Array<ethers.providers.TransactionReceipt>> => {
+  const deploymentReceipts: Array<ethers.providers.TransactionReceipt> = []
+
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    let defaultProxyDeployedEvent: ethers.Event | undefined
+    if (contractConfig.kind === 'internal-default') {
+      ;[defaultProxyDeployedEvent] = await registry.queryFilter(
+        registry.filters.EventAnnouncedWithData(
+          'DefaultProxyDeployed',
+          null,
+          contractConfig.address
+        )
+      )
+    }
+
+    if (defaultProxyDeployedEvent) {
+      deploymentReceipts.push(
+        await defaultProxyDeployedEvent.getTransactionReceipt()
+      )
+    }
+
+    const create3Address =
+      contractConfig.kind === 'no-proxy'
+        ? contractConfig.address
+        : getCreate3Address(manager.address, contractConfig.salt)
+
+    const [contractDeployedEvent] = await registry.queryFilter(
+      registry.filters.EventAnnouncedWithData(
+        'ContractDeployed',
+        null,
+        create3Address
+      )
+    )
+
+    if (contractDeployedEvent) {
+      deploymentReceipts.push(
+        await contractDeployedEvent.getTransactionReceipt()
+      )
+    }
+  }
+
+  return deploymentReceipts
+}
+
+// TODO: rm
 export const getDeploymentEvents = async (
   ChugSplashManager: ethers.Contract,
   deploymentId: string
@@ -1295,4 +1344,12 @@ export const transferProjectOwnership = async (
     }
     spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
   }
+}
+
+export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
+  return (
+    kind === 'oz-transparent' ||
+    kind === 'oz-ownable-uups' ||
+    kind === 'oz-access-control-uups'
+  )
 }

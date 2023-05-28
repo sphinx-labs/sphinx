@@ -16,7 +16,7 @@ export type ChugSplashRuntimeEnvironment = {
   importOpenZeppelinStorageLayout: (
     hre: HardhatRuntimeEnvironment,
     parsedContractConfig: ParsedContractConfig
-  ) => Promise<StorageLayout | undefined>
+  ) => Promise<StorageLayout>
 }
 
 export type ExecutorKey = {
