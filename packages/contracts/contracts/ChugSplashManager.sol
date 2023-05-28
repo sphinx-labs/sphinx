@@ -223,6 +223,13 @@ contract ChugSplashManager is
      */
     event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
 
+    event ProxyUpgraded(
+        bytes32 indexed deploymentId,
+        address indexed proxy,
+        string projectName,
+        string referenceName
+    );
+
     /**
      * @notice Emitted when a deployment is completed.
      *
@@ -697,6 +704,7 @@ contract ChugSplashManager is
         deployment.actions = new bool[](_numActions);
         deployment.targets = _numTargets;
         deployment.remoteExecution = _remoteExecution;
+        deployment.configUri = _configUri;
 
         emit ChugSplashDeploymentProposed(
             deploymentId,
@@ -1306,6 +1314,8 @@ contract ChugSplashManager is
             if (!success) {
                 revert FailedToFinalizeUpgrade();
             }
+            emit ProxyUpgraded(activeDeploymentId, target.addr, target.projectName, target.referenceName);
+            registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
         _completeDeployment(deployment);
@@ -1386,7 +1396,7 @@ contract ChugSplashManager is
         }
 
         emit SetProxyStorage(activeDeploymentId, _action.addr, _msgSender(), _actionIndex);
-        registry.announceWithData("SetProxyStorage", abi.encodePacked(_action.addr));
+        registry.announce("SetProxyStorage");
     }
 
     /**

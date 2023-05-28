@@ -11,8 +11,9 @@ import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRe
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { DeterministicDeployer } from "@chugsplash/contracts/contracts/deployment/DeterministicDeployer.sol";
 import { ChugSplashLocalExecutor } from "./ChugSplashLocalExecutor.sol";
+import { ChugSplashTasks } from "./ChugSplashTasks.sol";
 
-contract ChugSplash is Script, Test, ChugSplashLocalExecutor {
+contract ChugSplash is Script, Test, ChugSplashLocalExecutor, ChugSplashTasks {
     using strings for *;
 
     string constant NONE = "none";

@@ -1,5 +1,6 @@
 
-library Deploy {
+// TODO: merge this contract with LocalExecutor?
+abstract contract ChugSplashTasks {
     // - bundles, configUri (used only for logs)
     struct TODO {
         bytes32 organizationID;
@@ -30,15 +31,19 @@ library Deploy {
     // TODO(overload):
     // - newOwner? (not necessary for `finalizeRegistration`)
     // TODO(docs): this is the plugins deployTask and the deployAbstractTask
+    // TODO: internal -> private? don't want users to accidentally overwrite these functions
     function deploy(string memory _configPath, OptionalAddress _newProjectOwner) internal {
-        (bytes32 organizationID, string memory projectName) = ffiGetConfigOptions(_configPath);
+        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+
+        ConfigCache memory configCache = getConfigCache(minimalParsedConfig);
+
+        ffiPostParsingValidation(configCache);
 
         ChugSplashManager manager = getChugSplashManager(organizationID);
 
         // TODO: what happens to msg.sender when startBroadcast(addr) is used?
         finalizeRegistration(manager, organizationID, msg.sender, false, projectName);
 
-// assertValidBlockGasLimit
 //     // Make sure that the external proxy contract exists.
 // assertAvailableCreate3Addresses: isContractDeployed, queryfilter
 // estimateGas

@@ -29,6 +29,7 @@ import {
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
+import { ConfigCache } from '../config/parse'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -271,15 +272,15 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const makeBundlesFromConfig = async (
-  provider: providers.Provider,
+export const makeBundlesFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashBundles> => {
-  const actionBundle = await makeActionBundleFromConfig(
-    provider,
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashBundles => {
+  const actionBundle = makeActionBundleFromConfig(
     parsedConfig,
-    artifacts
+    artifacts,
+    configCache
   )
   const targetBundle = makeTargetBundleFromConfig(parsedConfig)
   return { actionBundle, targetBundle }
@@ -292,28 +293,27 @@ export const makeBundlesFromConfig = async (
  * @param env Environment variables to inject into the config file.
  * @returns Action bundle generated from the parsed config file.
  */
-export const makeActionBundleFromConfig = async (
-  provider: providers.Provider,
+export const makeActionBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashActionBundle> => {
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
-
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashActionBundle => {
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     const { buildInfo, artifact } = artifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
+    const { isTargetDeployed, isImplementationDeployed } =
+      configCache.contractConfigCache[referenceName]
+
+    const isNonProxyContractDeployed =
+      contractConfig.kind === 'no-proxy'
+        ? isTargetDeployed
+        : isImplementationDeployed
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
-    if (
-      (await provider.getCode(
-        getCreate3Address(managerAddress, contractConfig.salt)
-      )) === '0x'
-    ) {
+    if (!isNonProxyContractDeployed) {
       // Add a DEPLOY_CONTRACT action.
       actions.push({
         referenceName,

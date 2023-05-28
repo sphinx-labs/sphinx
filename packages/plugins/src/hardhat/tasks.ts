@@ -133,7 +133,7 @@ export const chugsplashDeployTask = async (
     'hardhat',
     cre,
     parsedConfig,
-    newOwner ?? signerAddress,
+    newOwner ?? signerAddress
   )
 }
 
@@ -342,12 +342,11 @@ export const chugsplashCommitSubtask = async (
 
   const provider = hre.ethers.provider
   return chugsplashCommitAbstractSubtask(
-    provider,
     parsedConfig,
     ipfsUrl,
     commitToIpfs,
     configArtifacts,
-    'hardhat',
+    networkName,
     spinner
   )
 }

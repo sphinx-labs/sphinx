@@ -1,10 +1,10 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
+import ora from 'ora'
 import * as semver from 'semver'
 import {
   utils,
-  constants,
   Signer,
   Wallet,
   Contract,
@@ -50,7 +50,6 @@ import {
   ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
-  UserContractConfig,
   ParsedConfigVariables,
   ConfigArtifacts,
   ParsedConfigVariable,
@@ -59,11 +58,12 @@ import {
   ChugSplashActionBundle,
   ChugSplashActionType,
   ChugSplashBundles,
+  DeploymentState,
 } from './actions/types'
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
-import { ChugSplashRuntimeEnvironment, FoundryContractArtifact } from './types'
+import { ChugSplashRuntimeEnvironment } from './types'
 import {
   BuildInfo,
   CompilerOutput,
@@ -72,8 +72,6 @@ import {
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import { getDeployContractActions } from './actions/bundle'
-
-import ora from 'ora'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
@@ -383,49 +381,39 @@ export const formatEther = (
 }
 
 export const readCanonicalConfig = async (
-  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string
-): Promise<CanonicalChugSplashConfig> => {
+): Promise<CanonicalChugSplashConfig | undefined> => {
   const ipfsHash = configUri.replace('ipfs://', '')
-
-  const network = await provider.getNetwork()
 
   // Check that the file containing the canonical config exists.
   const configFilePath = path.join(
     canonicalConfigFolderPath,
-    network.name,
     `${ipfsHash}.json`
   )
   if (!fs.existsSync(configFilePath)) {
-    throw new Error(`Could not find local canonical config file at:
-${configFilePath}`)
+    return undefined
   }
 
   return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
 export const writeCanonicalConfig = async (
-  provider: providers.Provider,
   canonicalConfigFolderPath: string,
   configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
-  const network = await provider.getNetwork()
-
-  const networkFolderPath = path.join(canonicalConfigFolderPath, network.name)
-
   // Create the canonical config network folder if it doesn't already exist.
-  if (!fs.existsSync(networkFolderPath)) {
-    fs.mkdirSync(networkFolderPath, { recursive: true })
+  if (!fs.existsSync(canonicalConfigFolderPath)) {
+    fs.mkdirSync(canonicalConfigFolderPath, { recursive: true })
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
   fs.writeFileSync(
-    path.join(networkFolderPath, `${ipfsHash}.json`),
+    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
     JSON.stringify(canonicalConfig, null, 2)
   )
 }
@@ -870,8 +858,7 @@ export const toOpenZeppelinContractKind = (
 }
 
 export const getOpenZeppelinValidationOpts = (
-  contractKind: ContractKind,
-  contractConfig: UserContractConfig
+  contractConfig: ParsedContractConfig
 ): Required<ValidationOptions> => {
   type UnsafeAllow = Required<ValidationOptions>['unsafeAllow']
 
@@ -890,11 +877,13 @@ export const getOpenZeppelinValidationOpts = (
     unsafeAllow.push('missing-public-upgradeto')
   }
 
+  const { renames, skipStorageCheck } = contractConfig.unsafeAllow
+
   const options = {
-    kind: toOpenZeppelinContractKind(contractKind),
+    kind: toOpenZeppelinContractKind(contractConfig.kind),
     unsafeAllow,
-    unsafeAllowRenames: contractConfig.unsafeAllowRenames,
-    unsafeSkipStorageCheck: contractConfig.unsafeSkipStorageCheck,
+    unsafeAllowRenames: renames,
+    unsafeSkipStorageCheck: skipStorageCheck,
   }
 
   return withValidationDefaults(options)
@@ -904,10 +893,9 @@ export const getOpenZeppelinUpgradableContract = (
   fullyQualifiedName: string,
   compilerInput: CompilerInput,
   compilerOutput: CompilerOutput,
-  contractKind: ContractKind,
-  contractConfig: UserContractConfig
+  contractConfig: ParsedContractConfig
 ): UpgradeableContract => {
-  const options = getOpenZeppelinValidationOpts(contractKind, contractConfig)
+  const options = getOpenZeppelinValidationOpts(contractConfig)
 
   // In addition to doing validation the `getOpenZeppelinUpgradableContract` function also outputs some warnings related to
   // the provided override options. We want to output our own warnings, so we temporarily disable console.error.
@@ -952,35 +940,25 @@ export const getOpenZeppelinUpgradableContract = (
  * storage layout located at 'previousBuildInfo'.
  */
 export const getPreviousStorageLayoutOZFormat = async (
-  provider: providers.Provider,
   referenceName: string,
   parsedContractConfig: ParsedContractConfig,
-  userContractConfig: UserContractConfig,
   canonicalConfigFolderPath: string,
-  cre: ChugSplashRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment,
+  previousConfigUri?: string
 ): Promise<StorageLayout> => {
-  const { remoteExecution } = cre
+  const previousCanonicalConfig = previousConfigUri
+    ? await fetchAndCacheCanonicalConfig(
+        previousConfigUri,
+        canonicalConfigFolderPath
+      )
+    : undefined
 
-  if ((await provider.getCode(parsedContractConfig.address)) === '0x') {
-    throw new Error(
-      `Proxy has not been deployed for the contract: ${referenceName}.`
-    )
-  }
-
-  const previousCanonicalConfig = await getPreviousCanonicalConfig(
-    provider,
-    parsedContractConfig.address,
-    remoteExecution,
-    canonicalConfigFolderPath
-  )
-
+  const { previousFullyQualifiedName, previousBuildInfo } = parsedContractConfig
   if (
-    userContractConfig.previousFullyQualifiedName !== undefined &&
-    userContractConfig.previousBuildInfo !== undefined
+    previousFullyQualifiedName !== undefined &&
+    previousBuildInfo !== undefined
   ) {
-    const { input, output } = readBuildInfo(
-      userContractConfig.previousBuildInfo
-    )
+    const { input, output } = readBuildInfo(previousBuildInfo)
 
     if (previousCanonicalConfig !== undefined) {
       console.warn(
@@ -992,11 +970,10 @@ export const getPreviousStorageLayoutOZFormat = async (
     }
 
     return getOpenZeppelinUpgradableContract(
-      userContractConfig.previousFullyQualifiedName,
+      previousFullyQualifiedName,
       input,
       output,
-      parsedContractConfig.kind,
-      userContractConfig
+      parsedContractConfig
     ).layout
   } else if (previousCanonicalConfig !== undefined) {
     const prevConfigArtifacts = await getConfigArtifactsRemote(
@@ -1008,8 +985,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       `${sourceName}:${contractName}`,
       buildInfo.input,
       buildInfo.output,
-      parsedContractConfig.kind,
-      userContractConfig
+      parsedContractConfig
     ).layout
   } else if (cre.hre !== undefined) {
     const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
@@ -1018,7 +994,7 @@ export const getPreviousStorageLayoutOZFormat = async (
     )
     if (!openzeppelinStorageLayout) {
       throw new Error(
-        'Should not attempt to import OpenZeppelin storage layout for non-OpenZeppelin proxy type. Please report this to the developers.'
+        'Could not import storage layout from OpenZeppelin Network Files. Please report this error.'
       )
     }
 
@@ -1031,106 +1007,73 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-export const getPreviousCanonicalConfig = async (
+export const getPreviousConfigUri = async (
   provider: providers.Provider,
-  proxyAddress: string,
-  remoteExecution: boolean,
-  canonicalConfigFolderPath: string
-): Promise<CanonicalChugSplashConfig | undefined> => {
-  const ChugSplashRegistry = new Contract(
-    getChugSplashRegistryAddress(),
-    ChugSplashRegistryABI,
-    provider
+  registry: ethers.Contract,
+  proxyAddress: string
+): Promise<string | undefined> => {
+  const proxyUpgradedRegistryEvent = await registry.queryFilter(
+    registry.filters.EventAnnouncedWithData('ProxyUpgraded', null, proxyAddress)
   )
 
-  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
-      'SetProxyStorage',
-      null,
-      proxyAddress
-    )
-  )
-
-  const defaultProxyDeployedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
-      'DefaultProxyDeployed',
-      null,
-      proxyAddress
-    )
-  )
-
-  if (
-    actionExecutedEvents.length === 0 &&
-    defaultProxyDeployedEvents.length === 0
-  ) {
-    return undefined
-  }
-
-  const latestRegistryEvent =
-    actionExecutedEvents.at(-1) ?? defaultProxyDeployedEvents.at(-1)
+  const latestRegistryEvent = proxyUpgradedRegistryEvent.at(-1)
 
   if (latestRegistryEvent === undefined) {
     return undefined
   } else if (latestRegistryEvent.args === undefined) {
-    throw new Error(`SetProxyStorage event has no args.`)
+    throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
   }
 
-  const ChugSplashManager = new Contract(
+  const manager = new Contract(
     latestRegistryEvent.args.manager,
     ChugSplashManagerABI,
     provider
   )
 
-  const latestExecutionEvent =
-    (
-      await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.SetProxyStorage(null, proxyAddress)
-      )
-    ).at(-1) ??
-    (
-      await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.DefaultProxyDeployed(null, proxyAddress)
-      )
-    ).at(-1)
+  const latestExecutionEvent = (
+    await manager.queryFilter(manager.filters.ProxyUpgraded(null, proxyAddress))
+  ).at(-1)
 
   if (latestExecutionEvent === undefined) {
     throw new Error(
-      `SetProxyStorage or DefaultProxyDeployed event detected in registry but not in manager contract`
+      `ProxyUpgraded event detected in registry but not in manager contract. Should never happen.`
     )
   } else if (latestExecutionEvent.args === undefined) {
-    throw new Error(
-      `SetProxyStorage or DefaultProxyDeployed event has no args.`
-    )
+    throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
   }
 
-  const latestProposalEvent = (
-    await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashDeploymentProposed(
-        latestExecutionEvent.args.deploymentId
-      )
-    )
-  ).at(-1)
+  const deploymentState: DeploymentState = await manager.deployments(
+    latestExecutionEvent.args.deploymentId
+  )
 
-  if (latestProposalEvent === undefined) {
-    throw new Error(
-      `ChugSplashManager emitted a SetProxyStorage event but not a ChugSplashDeploymentProposed event`
-    )
-  } else if (latestProposalEvent.args === undefined) {
-    throw new Error(`ChugSplashDeploymentProposed event does not have args`)
-  }
+  return deploymentState.configUri
+}
 
-  if (remoteExecution) {
-    return callWithTimeout<CanonicalChugSplashConfig>(
-      chugsplashFetchSubtask({ configUri: latestProposalEvent.args.configUri }),
-      30000,
-      'Failed to fetch config file from IPFS'
-    )
+export const fetchAndCacheCanonicalConfig = async (
+  configUri: string,
+  canonicalConfigFolderPath: string
+): Promise<CanonicalChugSplashConfig> => {
+  const localCanonicalConfig = await readCanonicalConfig(
+    canonicalConfigFolderPath,
+    configUri
+  )
+  if (localCanonicalConfig) {
+    return localCanonicalConfig
   } else {
-    return readCanonicalConfig(
-      provider,
+    const remoteCanonicalConfig =
+      await callWithTimeout<CanonicalChugSplashConfig>(
+        chugsplashFetchSubtask({ configUri }),
+        30000,
+        'Failed to fetch config file from IPFS'
+      )
+
+    // Cache the canonical config by saving it to the local filesystem.
+    await writeCanonicalConfig(
       canonicalConfigFolderPath,
-      latestProposalEvent.args.configUri
+      configUri,
+      remoteCanonicalConfig
     )
+    return remoteCanonicalConfig
   }
 }
 
@@ -1272,24 +1215,6 @@ export const getImpersonatedSigner = async (
 }
 
 /**
- * Assert that the block gas limit is reasonably high on a network.
- */
-export const assertValidBlockGasLimit = async (
-  provider: providers.Provider
-) => {
-  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-
-  // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
-  //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
-  //  ChugSplashManager V1, which is at the contract size limit.
-  if (blockGasLimit.lt(15_000_000)) {
-    throw new Error(
-      `Block gas limit is too low. Got: ${blockGasLimit.toString()}. Expected: 15M+`
-    )
-  }
-}
-
-/**
  * Checks if one of the `DEPLOY_CONTRACT` actions reverts. This does not guarantee that the
  * deployment will or will not revert, but it will return the correct result in most cases.
  */
@@ -1326,7 +1251,7 @@ export const getDeployedCreationCodeWithArgsHash = async (
   organizationID: string,
   referenceName: string,
   contractAddress: string
-): Promise<string | undefined> => {
+): Promise<string> => {
   const ChugSplashManager = getChugSplashManager(provider, organizationID)
 
   const events = await ChugSplashManager.queryFilter(
@@ -1335,7 +1260,7 @@ export const getDeployedCreationCodeWithArgsHash = async (
 
   const latestEvent = events.at(-1)
   if (!latestEvent || !latestEvent.args) {
-    return undefined
+    throw new Error(`TODO`)
   } else {
     return latestEvent.args.creationCodeWithArgsHash
   }

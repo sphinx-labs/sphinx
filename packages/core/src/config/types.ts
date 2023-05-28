@@ -82,6 +82,16 @@ export interface ParsedChugSplashConfig {
   contracts: ParsedContractConfigs
 }
 
+export type UnsafeAllow = {
+  delegatecall?: boolean
+  selfdestruct?: boolean
+  missingPublicUpgradeTo?: boolean
+  emptyPush?: boolean
+  flexibleConstructor?: boolean
+  renames?: boolean
+  skipStorageCheck?: boolean
+}
+
 /**
  * User-defined contract definition in a ChugSplash config.
  */
@@ -94,15 +104,7 @@ export type UserContractConfig = {
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
   salt?: string
-  unsafeAllowEmptyPush?: boolean
-  unsafeAllowRenames?: boolean
-  unsafeSkipStorageCheck?: boolean
-  unsafeAllowFlexibleConstructor?: boolean
-  unsafeAllow?: {
-    delegatecall?: boolean
-    selfdestruct?: boolean
-    missingPublicUpgradeTo?: boolean
-  }
+  unsafeAllow?: UnsafeAllow
 }
 
 export type UserContractConfigs = {
@@ -125,8 +127,9 @@ export type ParsedContractConfig = {
   variables: ParsedConfigVariables
   salt: string
   constructorArgs: ParsedConfigVariables
-  unsafeAllowEmptyPush?: boolean
-  unsafeAllowFlexibleConstructor?: boolean
+  unsafeAllow: UnsafeAllow
+  previousBuildInfo?: string
+  previousFullyQualifiedName?: string
 }
 
 export type ParsedContractConfigs = {

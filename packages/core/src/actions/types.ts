@@ -122,4 +122,5 @@ export type DeploymentState = {
   timeClaimed: BigNumber
   selectedExecutor: string
   remoteExecution: boolean
+  configUri: string
 }

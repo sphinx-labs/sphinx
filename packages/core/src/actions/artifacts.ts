@@ -47,9 +47,11 @@ export const getDeployedBytecode = async (
 }
 
 export const writeDeploymentArtifacts = async (
-  provider: ethers.providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  deploymentEvents: ethers.Event[],
+  deploymentReceipts: Array<{
+    receipt: ethers.providers.TransactionReceipt
+    type: 'DefaultProxyDeployed' | 'ContractDeployed'
+  }>,
   networkName: string,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
@@ -60,14 +62,8 @@ export const writeDeploymentArtifacts = async (
     parsedConfig.options.organizationID
   )
 
-  for (const deploymentEvent of deploymentEvents) {
-    if (!deploymentEvent.args) {
-      throw new Error(`Deployment event has no arguments. Should never happen.`)
-    }
-
-    const receipt = await deploymentEvent.getTransactionReceipt()
-
-    if (deploymentEvent.event === 'DefaultProxyDeployed') {
+  for (const { receipt, type } of deploymentReceipts) {
+    if (type === 'DefaultProxyDeployed') {
       const { metadata, storageLayout } =
         chugsplashBuildInfo.output.contracts[
           '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
@@ -79,9 +75,9 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the proxy.
       const proxyArtifact = {
-        address: deploymentEvent.args.proxy,
+        address: receipt.args.proxy,
         abi: ProxyABI,
-        transactionHash: deploymentEvent.transactionHash,
+        transactionHash: receipt.transactionHash,
         solcInputHash: chugsplashBuildInfo.id,
         receipt: {
           ...receipt,
@@ -97,7 +93,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: [managerAddress],
         bytecode: ProxyArtifact.bytecode,
-        deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
+        deployedBytecode: await provider.getCode(receipt.args.proxy),
         devdoc,
         userdoc,
         storageLayout,
@@ -108,11 +104,11 @@ export const writeDeploymentArtifacts = async (
         networkName,
         deploymentFolderPath,
         proxyArtifact,
-        `${deploymentEvent.args.referenceName}Proxy`
+        `${receipt.args.referenceName}Proxy`
       )
-    } else if (deploymentEvent.event === 'ContractDeployed') {
+    } else if (receipt.event === 'ContractDeployed') {
       // Get the deployed contract's info.
-      const referenceName = deploymentEvent.args.referenceName
+      const referenceName = receipt.args.referenceName
       const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
       const constructorArgValues = getConstructorArgs(
@@ -132,9 +128,9 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the deployed contract.
       const contractArtifact = {
-        address: deploymentEvent.args.contractAddress,
+        address: receipt.args.contractAddress,
         abi,
-        transactionHash: deploymentEvent.transactionHash,
+        transactionHash: receipt.transactionHash,
         solcInputHash: buildInfo.id,
         receipt: {
           ...receipt,
@@ -150,9 +146,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: constructorArgValues,
         bytecode,
-        deployedBytecode: await provider.getCode(
-          deploymentEvent.args.contractAddress
-        ),
+        deployedBytecode: await provider.getCode(receipt.args.contractAddress),
         devdoc,
         userdoc,
         storageLayout,

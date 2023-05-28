@@ -18,6 +18,7 @@ import { Version } from "./Semver.sol";
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
  * @custom:field selectedExecutor The address of the selected remote executor.
  * @custom:field remoteExecution Whether or not the deployment is being executed remotely.
+ * @custom:field configUri URI pointing to the config file for the deployment.
  */
 struct DeploymentState {
     DeploymentStatus status;
@@ -30,6 +31,7 @@ struct DeploymentState {
     uint256 timeClaimed;
     address selectedExecutor;
     bool remoteExecution;
+    string configUri;
 }
 
 /**

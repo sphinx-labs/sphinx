@@ -46,12 +46,11 @@ const displayBundleInfo = async () => {
   )
 
   const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
-    hre.ethers.provider,
     parsedConfig,
     '',
     false,
     configArtifacts,
-    'hardhat'
+    networkName
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.
