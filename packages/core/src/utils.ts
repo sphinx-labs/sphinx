@@ -217,17 +217,16 @@ export const getChugSplashManagerAddress = (organizationID: string) => {
  */
 export const finalizeRegistration = async (
   provider: providers.JsonRpcProvider,
-  signer: Signer,
+  registry: ethers.Contract,
   manager: ethers.Contract,
   organizationID: string,
   newOwnerAddress: string,
   allowManagedProposals: boolean,
-  projectName: string,
   spinner: ora.Ora
 ): Promise<void> => {
-  spinner.start(`Claiming ${projectName}...`)
+  spinner.start(`Claiming the project...`)
 
-  if (!(await isProjectClaimed(provider, manager.address))) {
+  if (!(await isProjectClaimed(registry, manager.address))) {
     // Encode the initialization arguments for the ChugSplashManager contract.
     // Note: Future versions of ChugSplash may require different arguments encoded in this way.
     const initializerData = ethers.utils.defaultAbiCoder.encode(
@@ -235,9 +234,8 @@ export const finalizeRegistration = async (
       [newOwnerAddress, organizationID, allowManagedProposals]
     )
 
-    const ChugSplashRegistry = getChugSplashRegistry(signer)
     await (
-      await ChugSplashRegistry.finalizeRegistration(
+      await registry.finalizeRegistration(
         organizationID,
         newOwnerAddress,
         Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
@@ -481,17 +479,10 @@ export const getGasPriceOverrides = async (
 }
 
 export const isProjectClaimed = async (
-  signerOrProvider: Signer | providers.Provider,
+  registry: ethers.Contract,
   managerAddress: string
 ) => {
-  const ChugSplashRegistry = new ethers.Contract(
-    getChugSplashRegistryAddress(),
-    ChugSplashRegistryABI,
-    signerOrProvider
-  )
-  const isClaimed: boolean = await ChugSplashRegistry.managerProxies(
-    managerAddress
-  )
+  const isClaimed: boolean = await registry.managerProxies(managerAddress)
   return isClaimed
 }
 
@@ -1143,70 +1134,34 @@ export const getConfigArtifactsRemote = async (
   return artifacts
 }
 
-/**
- * Gets the deployment receipts for all of the contracts in the config that have been deployed by
- * ChugSplash. This includes default proxies, their implementation contracts, and non-proxied
- * contracts.
- */
-export const getDeploymentReceipts = async (
-  registry: ethers.Contract,
-  manager: ethers.Contract,
-  parsedConfig: ParsedChugSplashConfig
-): Promise<Array<ethers.providers.TransactionReceipt>> => {
-  const deploymentReceipts: Array<ethers.providers.TransactionReceipt> = []
-
-  for (const contractConfig of Object.values(parsedConfig.contracts)) {
-    let defaultProxyDeployedEvent: ethers.Event | undefined
-    if (contractConfig.kind === 'internal-default') {
-      ;[defaultProxyDeployedEvent] = await registry.queryFilter(
-        registry.filters.EventAnnouncedWithData(
-          'DefaultProxyDeployed',
-          null,
-          contractConfig.address
-        )
-      )
-    }
-
-    if (defaultProxyDeployedEvent) {
-      deploymentReceipts.push(
-        await defaultProxyDeployedEvent.getTransactionReceipt()
-      )
-    }
-
-    const create3Address =
-      contractConfig.kind === 'no-proxy'
-        ? contractConfig.address
-        : getCreate3Address(manager.address, contractConfig.salt)
-
-    const [contractDeployedEvent] = await registry.queryFilter(
-      registry.filters.EventAnnouncedWithData(
-        'ContractDeployed',
-        null,
-        create3Address
-      )
-    )
-
-    if (contractDeployedEvent) {
-      deploymentReceipts.push(
-        await contractDeployedEvent.getTransactionReceipt()
-      )
-    }
-  }
-
-  return deploymentReceipts
-}
-
-// TODO: rm
 export const getDeploymentEvents = async (
   ChugSplashManager: ethers.Contract,
   deploymentId: string
 ): Promise<ethers.Event[]> => {
-  const [approvalEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
-  )
-  const [completedEvent] = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ChugSplashDeploymentCompleted(deploymentId)
-  )
+  // Get the most recetn approval event for this deployment ID.
+  const approvalEvent = (
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
+    )
+  ).at(-1)
+
+  if (!approvalEvent) {
+    throw new Error(
+      `No approval event found for deployment ID ${deploymentId}. Should never happen.`
+    )
+  }
+
+  const completedEvent = (
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashDeploymentCompleted(deploymentId)
+    )
+  ).at(-1)
+
+  if (!completedEvent) {
+    throw new Error(
+      `No deployment completed event found for deployment ID ${deploymentId}. Should never happen.`
+    )
+  }
 
   const proxyDeployedEvents = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.DefaultProxyDeployed(null, null, deploymentId),

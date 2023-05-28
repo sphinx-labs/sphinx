@@ -55,7 +55,7 @@ export const verifyDeployment = async (
   provider: providers.Provider,
   configUri: string,
   deploymentId: string,
-  ipfsUrl: string
+  ipfsUrl?: string
 ) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
     chugsplashFetchSubtask({ configUri, ipfsUrl }),

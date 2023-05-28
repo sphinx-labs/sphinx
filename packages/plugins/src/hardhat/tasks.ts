@@ -107,7 +107,6 @@ export const chugsplashDeployTask = async (
 
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
-  const signerAddress = await signer.getAddress()
   await ensureChugSplashInitialized(provider, signer)
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
@@ -115,7 +114,7 @@ export const chugsplashDeployTask = async (
 
   const userConfig = await readUnvalidatedChugSplashConfig(configPath)
   const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-  const parsedConfig = await readValidatedChugSplashConfig(
+  const { parsedConfig, configCache } = await readValidatedChugSplashConfig(
     provider,
     configPath,
     configArtifacts,
@@ -133,7 +132,8 @@ export const chugsplashDeployTask = async (
     'hardhat',
     cre,
     parsedConfig,
-    newOwner ?? signerAddress
+    configCache,
+    newOwner
   )
 }
 

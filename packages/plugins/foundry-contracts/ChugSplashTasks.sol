@@ -44,6 +44,8 @@ abstract contract ChugSplashTasks {
         // TODO: what happens to msg.sender when startBroadcast(addr) is used?
         finalizeRegistration(manager, organizationID, msg.sender, false, projectName);
 
+        (string memory configUri, )
+
 //     // Make sure that the external proxy contract exists.
 // assertAvailableCreate3Addresses: isContractDeployed, queryfilter
 // estimateGas

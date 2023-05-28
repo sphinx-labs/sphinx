@@ -92,11 +92,9 @@ export const chugsplashClaimAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const { projectName, organizationID } = config.options
-
   await finalizeRegistration(
     provider,
-    signer,
+    getChugSplashRegistry(signer),
     getChugSplashManager(signer, organizationID),
     organizationID,
     owner,
@@ -240,10 +238,10 @@ export const chugsplashProposeAbstractTask = async (
 
 export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
-  ipfsUrl: string,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
   networkName: string,
+  ipfsUrl?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
   configUri: string
@@ -525,36 +523,29 @@ export const chugsplashDeployAbstractTask = async (
   const { organizationID, projectName } = parsedConfig.options
   const { networkName } = configCache
 
+  const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(signer, organizationID)
 
   // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
-  // transfer ownership to the project owner specified in the config.
+  // transfer ownership to the user-defined new owner, if it exists.
   const signerAddress = await signer.getAddress()
   await finalizeRegistration(
     provider,
-    signer,
+    registry,
     manager,
     organizationID,
     signerAddress,
     false,
-    projectName,
     spinner
   )
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  // Get the config URI without publishing anything to IPFS.
-  const { configUri, canonicalConfig } = await chugsplashCommitAbstractSubtask(
+  const { configUri, bundles, canonicalConfig } = await getCanonicalConfigData(
     parsedConfig,
-    '',
-    false,
     configArtifacts,
+    configCache,
     networkName
-  )
-  const bundles = makeBundlesFromConfig(
-    parsedConfig,
-    configArtifacts,
-    configCache
   )
 
   if (
@@ -647,19 +638,23 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 
+  // TODO: always run
+  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+
+  // TODO: foundry: this must only be called if the provider exists and the deployment was
+  // broadcasted.
   await completeDeployment(
-    canonicalConfig,
-    configArtifacts,
     provider,
-    canonicalConfigPath,
+    canonicalConfig,
+    manager,
+    configArtifacts,
+    deploymentId,
+    configCache,
     deploymentFolder,
     integration,
     cre.silent,
-    deploymentId,
-    manager,
-    networkName,
-    configUri,
-    spinner
+    spinner,
+    process.env.ETHERSCAN_API_KEY
   )
 
   await trackDeployed(
@@ -672,55 +667,37 @@ export const chugsplashDeployAbstractTask = async (
 }
 
 const completeDeployment = async (
+  provider: ethers.providers.JsonRpcProvider,
   canonicalConfig: CanonicalChugSplashConfig,
+  manager: ethers.Contract,
   configArtifacts: ConfigArtifacts,
-  deploymentReceipts: Array<ethers.providers.TransactionReceipt>,
-  deployedBytecodes: {
-    [referenceName: string]: string
-  },
+  deploymentId: string,
   configCache: ConfigCache,
-  canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
-  configUri: string,
   spinner: ora.Ora,
-  provider?: ethers.providers.JsonRpcProvider
+  etherscanApiKey?: string
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
   const { networkName, liveNetwork } = configCache
 
-  // TODO: by default, you may be attempting to write deployment artifacts and verify on etherscan
-  // on forked networks that aren't being broadcasted
-
-  // TODO: you should only write deployment artifacts if you're broadcasting. note you can't
-  // broadcast on the in-process anvil node, but you can on the standalone anvil node
-
-  writeDeploymentArtifacts(
+  // TODO: only if broadcasting
+  await writeDeploymentArtifacts(
+    provider,
     canonicalConfig,
-    deploymentReceipts,
+    await getDeploymentEvents(manager, deploymentId),
     networkName,
     deploymentFolder,
-    configArtifacts,
-    deployedBytecodes
+    configArtifacts
   )
 
   spinner.succeed(`Wrote deployment artifacts.`)
 
-  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
-
-  if (isSupportedNetworkOnEtherscan(networkName)) {
-    if (!provider) {
-      // TODO: this means you need to pass in a provider from foundry when you want to verify on
-      // etherscan. we may want to change this so that the provider is only defined when
-      // broadcasting
-      throw new Error(`TODO`)
-    }
-
-    // TODO: pass in etherscan api key to this function?
-    const etherscanApiKey = process.env.ETHERSCAN_API_KEY
+  if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {
+      // TODO: only if broadcasting
       await verifyChugSplashConfig(
         canonicalConfig,
         provider,
@@ -733,10 +710,6 @@ const completeDeployment = async (
   }
 
   if (integration === 'hardhat') {
-    if (!provider) {
-      throw new Error(`TODO`)
-    }
-
     if (!liveNetwork) {
       // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
       // against the most recently deployed contracts.
@@ -1036,26 +1009,27 @@ If you believe this is a mistake, please reach out to the developers or open an 
 
 export const proposeChugSplashDeployment = async (
   provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer,
+  signerAddress: string,
+  manager: ethers.Contract,
+  projectName: string,
+  organizationID: string,
+  deploymentId: string,
   parsedConfig: ParsedChugSplashConfig,
   bundles: ChugSplashBundles,
   configUri: string,
+  networkName: string,
   remoteExecution: boolean,
-  ipfsUrl: string,
   spinner: ora.Ora = ora({ isSilent: true }),
   configArtifacts: ConfigArtifacts,
   canonicalConfigPath: string,
   integration: Integration,
-  shouldRelay: boolean
+  shouldRelay: boolean,
+  ipfsUrl?: string
 ) => {
-  const { projectName, organizationID } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
-  const signerAddress = await signer.getAddress()
-
   spinner.start(`Checking if the caller is a proposer...`)
 
   // Throw an error if the caller isn't the project owner or a proposer.
-  if (!(await ChugSplashManager.isProposer(signerAddress))) {
+  if (!(await manager.isProposer(signerAddress))) {
     throw new Error(
       `Caller is not a proposer for this project. Caller's address: ${signerAddress}`
     )
@@ -1065,15 +1039,13 @@ export const proposeChugSplashDeployment = async (
 
   spinner.start(`Proposing ${projectName}...`)
 
-  const deploymentId = getDeploymentId(bundles, configUri)
-
   if (remoteExecution) {
     await chugsplashCommitAbstractSubtask(
       parsedConfig,
-      ipfsUrl,
       true,
       configArtifacts,
       networkName,
+      ipfsUrl,
       spinner
     )
 
@@ -1100,19 +1072,16 @@ export const proposeChugSplashDeployment = async (
       process.env.PRIVATE_KEY,
       {
         from: signerAddress,
-        to: ChugSplashManager.address,
-        data: ChugSplashManager.interface.encodeFunctionData(
-          'gaslesslyPropose',
-          [
-            bundles.actionBundle.root,
-            bundles.targetBundle.root,
-            bundles.actionBundle.actions.length,
-            bundles.targetBundle.targets.length,
-            getDeployContractActions(bundles.actionBundle).length,
-            configUri,
-            remoteExecution,
-          ]
-        ),
+        to: manager.address,
+        data: manager.interface.encodeFunctionData('gaslesslyPropose', [
+          bundles.actionBundle.root,
+          bundles.targetBundle.root,
+          bundles.actionBundle.actions.length,
+          bundles.targetBundle.targets.length,
+          getDeployContractActions(bundles.actionBundle).length,
+          configUri,
+          remoteExecution,
+        ]),
       }
     )
 
@@ -1139,7 +1108,7 @@ export const proposeChugSplashDeployment = async (
     return { signature, request, deploymentId }
   } else {
     await (
-      await ChugSplashManager.propose(
+      await manager.propose(
         bundles.actionBundle.root,
         bundles.targetBundle.root,
         bundles.actionBundle.actions.length,
@@ -1152,9 +1121,8 @@ export const proposeChugSplashDeployment = async (
     ).wait()
   }
 
-  const networkName = await resolveNetworkName(provider, integration)
   await trackProposed(
-    await ChugSplashManager.owner(),
+    await manager.owner(),
     organizationID,
     projectName,
     networkName,
@@ -1162,4 +1130,30 @@ export const proposeChugSplashDeployment = async (
   )
 
   spinner.succeed(`Proposed ${projectName}.`)
+}
+
+export const getCanonicalConfigData = async (
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache,
+  networkName: string
+): Promise<{
+  configUri: string
+  canonicalConfig: CanonicalChugSplashConfig
+  bundles: ChugSplashBundles
+}> => {
+  const { configUri, canonicalConfig } = await chugsplashCommitAbstractSubtask(
+    parsedConfig,
+    '',
+    false,
+    configArtifacts,
+    networkName
+  )
+  const bundles = makeBundlesFromConfig(
+    parsedConfig,
+    configArtifacts,
+    configCache
+  )
+
+  return { configUri, canonicalConfig, bundles }
 }

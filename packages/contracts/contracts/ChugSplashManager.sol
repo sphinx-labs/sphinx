@@ -1473,7 +1473,7 @@ contract ChugSplashManager is
                     _actionIndex,
                     keccak256(creationCodeWithConstructorArgs)
                 );
-                registry.announceWithData("ContractDeployed", abi.encodePacked(actualAddress));
+                registry.announce("ContractDeployed");
             } else {
                 // Contract deployment failed. Could happen if insufficient gas is supplied to this
                 // transaction or if the creation bytecode has logic that causes the call to fail
