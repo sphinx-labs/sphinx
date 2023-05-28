@@ -67,7 +67,7 @@ const tryVerification = async (
 ) => {
   // verify on etherscan
   try {
-    if (isSupportedNetworkOnEtherscan(await getChainId(rpcProvider))) {
+    if (isSupportedNetworkOnEtherscan(network)) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(

@@ -398,7 +398,7 @@ export const readCanonicalConfig = async (
   return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
-export const writeCanonicalConfig = async (
+export const writeCanonicalConfig = (
   canonicalConfigFolderPath: string,
   configUri: string,
   canonicalConfig: CanonicalChugSplashConfig
@@ -1068,7 +1068,7 @@ export const fetchAndCacheCanonicalConfig = async (
       )
 
     // Cache the canonical config by saving it to the local filesystem.
-    await writeCanonicalConfig(
+    writeCanonicalConfig(
       canonicalConfigFolderPath,
       configUri,
       remoteCanonicalConfig

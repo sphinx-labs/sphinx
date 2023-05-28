@@ -59,6 +59,7 @@ import {
   MANAGED_PROPOSER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
+import { resolveNetworkName } from '../../messages'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -104,7 +105,11 @@ export const initializeAndVerifyChugSplash = async (
   // Verify ChugSplash contracts on etherscan
   try {
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(provider))) {
+    if (
+      isSupportedNetworkOnEtherscan(
+        await resolveNetworkName(provider, 'hardhat')
+      )
+    ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(

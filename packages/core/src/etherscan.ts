@@ -430,8 +430,10 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
-  const chainIds = Object.values(chainConfig).map((config) => config.chainId)
-  const customChainIds = customChains.map((chain) => chain.chainId)
-  return chainIds.includes(chainId) || customChainIds.includes(chainId)
+export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
+  const customNetworks = customChains.map((chain) => chain.network)
+  return (
+    chainConfig[networkName] !== undefined ||
+    customNetworks.includes(networkName)
+  )
 }

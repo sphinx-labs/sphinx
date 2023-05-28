@@ -648,13 +648,13 @@ export const chugsplashDeployAbstractTask = async (
   }
 
   await completeDeployment(
-    provider,
+    canonicalConfig,
     configArtifacts,
+    provider,
     canonicalConfigPath,
     deploymentFolder,
     integration,
     cre.silent,
-    canonicalConfig,
     deploymentId,
     manager,
     networkName,
@@ -672,33 +672,49 @@ export const chugsplashDeployAbstractTask = async (
 }
 
 const completeDeployment = async (
+  canonicalConfig: CanonicalChugSplashConfig,
   configArtifacts: ConfigArtifacts,
+  deploymentReceipts: Array<ethers.providers.TransactionReceipt>,
+  deployedBytecodes: {
+    [referenceName: string]: string
+  },
+  configCache: ConfigCache,
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
-  canonicalConfig: CanonicalChugSplashConfig,
-  deploymentId: string,
-  ChugSplashManager: ethers.Contract,
-  networkName: string,
   configUri: string,
-  spinner: ora.Ora
+  spinner: ora.Ora,
+  provider?: ethers.providers.JsonRpcProvider
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
-  await writeDeploymentArtifacts(
+  const { networkName, liveNetwork } = configCache
+
+  // TODO: by default, you may be attempting to write deployment artifacts and verify on etherscan
+  // on forked networks that aren't being broadcasted
+
+  writeDeploymentArtifacts(
     canonicalConfig,
-    await getDeploymentEvents(ChugSplashManager, deploymentId),
+    deploymentReceipts,
     networkName,
     deploymentFolder,
-    configArtifacts
+    configArtifacts,
+    deployedBytecodes
   )
 
   spinner.succeed(`Wrote deployment artifacts.`)
 
-  await writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
 
-  if (isSupportedNetworkOnEtherscan(await getChainId(provider))) {
+  if (isSupportedNetworkOnEtherscan(networkName)) {
+    if (!provider) {
+      // TODO: this means you need to pass in a provider from foundry when you want to verify on
+      // etherscan. we may want to change this so that the provider is only defined when
+      // broadcasting
+      throw new Error(`TODO`)
+    }
+
     // TODO: pass in etherscan api key to this function?
     const etherscanApiKey = process.env.ETHERSCAN_API_KEY
     if (etherscanApiKey) {
@@ -714,7 +730,11 @@ const completeDeployment = async (
   }
 
   if (integration === 'hardhat') {
-    if (!(await isLiveNetwork(provider))) {
+    if (!provider) {
+      throw new Error(`TODO`)
+    }
+
+    if (!liveNetwork) {
       // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
       // against the most recently deployed contracts.
       await writeSnapshotId(provider, networkName, deploymentFolder)
