@@ -9,8 +9,15 @@ contract HelloChugSplash {
     address public otherStorage;
     string public storageName;
 
+    struct Hi {
+        uint8 number;
+        bool stored;
+    }
+    Hi hi;
+
     constructor() {
-        revert('Hello');
+        hi = Hi(1, true);
+        (uint a, bool b) = (hi.number, hi.stored);
     }
 }
 

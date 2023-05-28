@@ -115,18 +115,16 @@ const logValidationError = (
  */
 export const readValidatedChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
-  configPath: string,
+  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
   exitOnFailure: boolean = true
 ): Promise<ParsedChugSplashConfig> => {
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  const parsedConfig = parseAndValidateChugSplashConfig(
+  const parsedConfig = getUnvalidatedParsedConfig(
     userConfig,
     configArtifacts,
     cre,
@@ -2303,7 +2301,7 @@ const constructParsedConfig = (
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const parseAndValidateChugSplashConfig = (
+export const getUnvalidatedParsedConfig = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,

@@ -10,40 +10,32 @@ import {
 import { getGasPriceOverrides } from '../utils'
 import {
   fromRawChugSplashAction,
+  getDeployContractActionBundle,
+  getSetStorageActionBundle,
+  getSetStorageActions,
   isDeployContractAction,
   isSetStorageAction,
+  toRawChugSplashAction,
 } from './bundle'
 
-export const executeTask = async (args: {
-  chugSplashManager: ethers.Contract
-  bundles: ChugSplashBundles
-  deploymentState: DeploymentState
-  executor: ethers.Signer
-  provider: ethers.providers.Provider
-  projectName: string
+export const executeDeployment = async (
+  manager: ethers.Contract,
+  bundles: ChugSplashBundles,
+  blockGasLimit: ethers.BigNumber,
+  provider: ethers.providers.Provider,
   logger?: Logger | undefined
-}): Promise<boolean> => {
-  const { bundles, deploymentState, executor, provider, projectName, logger } =
-    args
-
-  const chugSplashManager = args.chugSplashManager.connect(executor)
-
+): Promise<boolean> => {
   const { actionBundle, targetBundle } = bundles
 
   logger?.info(`[ChugSplash]: preparing to execute the project...`)
 
-  if (deploymentState.status === DeploymentStatus.COMPLETED) {
-    logger?.info(`[ChugSplash]: already executed: ${projectName}`)
-    return true
-  }
   // We execute all actions in batches to reduce the total number of transactions and reduce the
   // cost of a deployment in general. Approaching the maximum block gas limit can cause
   // transactions to be executed slowly as a result of the algorithms that miners use to select
   // which transactions to include. As a result, we restrict our total gas usage to a fraction of
   // the block gas limit.
-  const latestBlock = await provider.getBlock('latest')
   const gasFraction = 2
-  const maxGasLimit = latestBlock.gasLimit.div(gasFraction)
+  const maxGasLimit = blockGasLimit.div(gasFraction)
 
   /**
    * Helper function for finding the maximum number of batch elements that can be executed from a
@@ -66,7 +58,7 @@ export const executeTask = async (args: {
       selected: BundledChugSplashAction[]
     ): Promise<boolean> => {
       try {
-        await chugSplashManager.callStatic.executeActions(
+        await manager.callStatic.executeActions(
           selected.map((action) => action.action),
           selected.map((action) => action.proof.actionIndex),
           selected.map((action) => action.proof.siblings),
@@ -120,12 +112,10 @@ export const executeTask = async (args: {
     actions: BundledChugSplashAction[]
   ): Promise<DeploymentStatus> => {
     // Pull the deployment state from the contract so we're guaranteed to be up to date.
-    const activeDeploymentId = await chugSplashManager.activeDeploymentId()
-    let state: DeploymentState = await chugSplashManager.deployments(
-      activeDeploymentId
-    )
+    const activeDeploymentId = await manager.activeDeploymentId()
+    let state: DeploymentState = await manager.deployments(activeDeploymentId)
 
-    // Filter out any actions that have already been executed, sort by ascending action index.
+    // Filter out any actions that have already been executed.
     const filtered = actions.filter((action) => {
       return !state.actions[action.proof.actionIndex]
     })
@@ -153,7 +143,7 @@ export const executeTask = async (args: {
 
       // Execute the batch.
       await (
-        await chugSplashManager.executeActions(
+        await manager.executeActions(
           batch.map((action) => action.action),
           batch.map((action) => action.proof.actionIndex),
           batch.map((action) => action.proof.siblings),
@@ -161,7 +151,7 @@ export const executeTask = async (args: {
         )
       ).wait()
 
-      state = await chugSplashManager.deployments(activeDeploymentId)
+      state = await manager.deployments(activeDeploymentId)
       if (state.status === DeploymentStatus.FAILED) {
         return state.status
       }
@@ -173,15 +163,11 @@ export const executeTask = async (args: {
     return state.status
   }
 
-  const deployContractActions = actionBundle.actions.filter((action) =>
-    isDeployContractAction(fromRawChugSplashAction(action.action))
-  )
-  const setStorageActions = actionBundle.actions.filter((action) =>
-    isSetStorageAction(fromRawChugSplashAction(action.action))
-  )
+  const deployContractActionBundle = getDeployContractActionBundle(actionBundle)
+  const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
   logger?.info(`[ChugSplash]: executing 'DEPLOY_CONTRACT' actions...`)
-  const status = await executeBatchActions(deployContractActions)
+  const status = await executeBatchActions(deployContractActionBundle)
   if (status === DeploymentStatus.FAILED) {
     logger?.error(`[ChugSplash]: failed to execute 'DEPLOY_CONTRACT' actions`)
     return false
@@ -194,7 +180,7 @@ export const executeTask = async (args: {
 
   logger?.info(`[ChugSplash]: initiating upgrade...`)
   await (
-    await chugSplashManager.initiateUpgrade(
+    await manager.initiateUpgrade(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
@@ -203,12 +189,12 @@ export const executeTask = async (args: {
   logger?.info(`[ChugSplash]: initiated upgrde`)
 
   logger?.info(`[ChugSplash]: executing 'SET_STORAGE' actions...`)
-  await executeBatchActions(setStorageActions)
+  await executeBatchActions(setStorageActionBundle)
   logger?.info(`[ChugSplash]: executed 'SET_STORAGE' actions`)
 
   logger?.info(`[ChugSplash]: finalizing upgrade...`)
   await (
-    await chugSplashManager.finalizeUpgrade(
+    await manager.finalizeUpgrade(
       targetBundle.targets.map((target) => target.target),
       targetBundle.targets.map((target) => target.siblings),
       await getGasPriceOverrides(provider)
@@ -216,6 +202,6 @@ export const executeTask = async (args: {
   ).wait()
 
   // We're done!
-  logger?.info(`[ChugSplash]: successfully executed: ${projectName}`)
+  logger?.info(`[ChugSplash]: successfully deployed project`)
   return true
 }

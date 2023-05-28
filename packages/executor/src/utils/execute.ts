@@ -6,7 +6,7 @@ import {
   DeploymentState,
   claimExecutorPayment,
   compileRemoteBundles,
-  executeTask,
+  executeDeployment,
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
@@ -17,7 +17,7 @@ import {
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
-  getDeployContractActions,
+  getDeployContractActionBundle,
   deploymentDoesRevert,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
@@ -342,19 +342,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     // execute deployment
     try {
-      const success = await executeTask({
-        chugSplashManager: manager,
-        deploymentState,
+      const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
+      const success = await executeDeployment(
+        manager,
         bundles,
-        executor: wallet,
-        provider: rpcProvider,
-        projectName,
-        logger,
-      })
+        blockGasLimit,
+        rpcProvider
+      )
 
       if (!success) {
         // This likely means one of the user's constructors reverted during execution. We already
-        // logged the error inside `executeTask`, so we just discard the event and return.
+        // logged the error inside `executeDeployment`, so we just discard the event and return.
         process.send({ action: 'discard', payload: executorEvent })
         return
       }

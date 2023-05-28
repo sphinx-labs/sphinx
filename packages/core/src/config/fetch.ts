@@ -4,8 +4,12 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { ChugSplashBundles } from '../actions/types'
 import { bundleRemoteSubtask } from '../languages/solidity/compiler'
 import { callWithTimeout, getDeploymentId } from '../utils'
-import { CanonicalChugSplashConfig } from './types'
-import { getDeployContractActions } from '../actions/bundle'
+import { CanonicalChugSplashConfig, ConfigArtifacts } from './types'
+import {
+  getDeployContractActionBundle,
+  makeBundlesFromConfig,
+} from '../actions/bundle'
+import { ConfigCache } from './parse'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
@@ -52,9 +56,10 @@ export const chugsplashFetchSubtask = async (args: {
 }
 
 export const verifyDeployment = async (
-  provider: providers.Provider,
   configUri: string,
   deploymentId: string,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache,
   ipfsUrl?: string
 ) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
@@ -63,10 +68,7 @@ export const verifyDeployment = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = await bundleRemoteSubtask({
-    provider,
-    canonicalConfig: config,
-  })
+  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
 
   if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(

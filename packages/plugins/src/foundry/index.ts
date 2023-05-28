@@ -449,6 +449,11 @@ const command = args[0]
 
       process.stdout.write(encodedArtifacts)
     }
+    case 'getMinimalParsedConfig': {
+      const configPath = args[1]
+      const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+      getConfigArtifacts(userConfig.contracts, )
+    }
   }
 })().catch((err: Error) => {
   console.error(err)

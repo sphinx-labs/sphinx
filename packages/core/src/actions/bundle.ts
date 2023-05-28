@@ -18,6 +18,7 @@ import {
   getChugSplashManagerAddress,
 } from '../utils'
 import {
+  BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
   ChugSplashActionType,
@@ -59,12 +60,26 @@ export const isDeployContractAction = (
   return (action as DeployContractAction).code !== undefined
 }
 
-export const getDeployContractActions = (
+export const getDeployContractActionBundle = (
   actionBundle: ChugSplashActionBundle
-): Array<DeployContractAction> => {
-  return actionBundle.actions
-    .map((action) => fromRawChugSplashAction(action.action))
-    .filter(isDeployContractAction)
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isDeployContractAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getSetStorageActionBundle = (
+  actionBundle: ChugSplashActionBundle
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isSetStorageAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getNumDeployContractActions = (
+  actionBundle: ChugSplashActionBundle
+): number => {
+  return getDeployContractActionBundle(actionBundle).length
 }
 
 /**

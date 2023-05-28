@@ -71,7 +71,7 @@ import {
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
-import { getDeployContractActions } from './actions/bundle'
+import { getDeployContractActionBundle, getNumDeployContractActions } from './actions/bundle'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
@@ -81,9 +81,7 @@ export const getDeploymentId = (
   const targetRoot = bundles.targetBundle.root
   const numActions = bundles.actionBundle.actions.length
   const numTargets = bundles.targetBundle.targets.length
-  const numNonProxyContracts = getDeployContractActions(
-    bundles.actionBundle
-  ).length
+  const numNonProxyContracts = getNumDeployContractActions(bundles.actionBundle)
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
@@ -216,12 +214,12 @@ export const getChugSplashManagerAddress = (organizationID: string) => {
  * false if the project was already registered by the caller.
  */
 export const finalizeRegistration = async (
-  provider: providers.JsonRpcProvider,
   registry: ethers.Contract,
   manager: ethers.Contract,
   organizationID: string,
   newOwnerAddress: string,
   allowManagedProposals: boolean,
+  provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
   spinner.start(`Claiming the project...`)
@@ -264,13 +262,13 @@ export const getChugSplashRegistry = (
 }
 
 export const getChugSplashManager = (
-  signerOrProvider: Signer | providers.Provider,
+  signer: Signer,
   organizationID: string
 ) => {
   return new Contract(
     getChugSplashManagerAddress(organizationID),
     ChugSplashManagerABI,
-    signerOrProvider
+    signer
   )
 }
 
@@ -482,8 +480,7 @@ export const isProjectClaimed = async (
   registry: ethers.Contract,
   managerAddress: string
 ) => {
-  const isClaimed: boolean = await registry.managerProxies(managerAddress)
-  return isClaimed
+  return registry.managerProxies(managerAddress)
 }
 
 export const isInternalDefaultProxy = async (
@@ -1230,7 +1227,7 @@ export const deploymentDoesRevert = async (
 ): Promise<boolean> => {
   // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
   const deployContractActions =
-    getDeployContractActions(actionBundle).slice(actionsExecuted)
+    getDeployContractActionBundle(actionBundle).slice(actionsExecuted)
 
   try {
     // Attempt to estimate the gas of the deployment transactions. This will throw an error if
@@ -1272,32 +1269,31 @@ export const getDeployedCreationCodeWithArgsHash = async (
 
 // Transfer ownership of the ChugSplashManager if a new project owner has been specified.
 export const transferProjectOwnership = async (
+  manager: ethers.Contract,
+  newOwnerAddress: string,
   provider: providers.Provider,
-  ChugSplashManager: ethers.Contract,
-  newProjectOwner: string,
   spinner: ora.Ora
 ) => {
-  if (
-    ethers.utils.isAddress(newProjectOwner) &&
-    newProjectOwner !== (await ChugSplashManager.owner())
-  ) {
-    spinner.start(`Transferring project ownership to: ${newProjectOwner}`)
-    if (newProjectOwner === ethers.constants.AddressZero) {
+  if (!ethers.utils.isAddress(newOwnerAddress)) {
+    throw new Error(`Invalid address for new project owner: ${newOwnerAddress}`)
+  }
+
+  if (newOwnerAddress !== (await manager.owner())) {
+    spinner.start(`Transferring project ownership to: ${newOwnerAddress}`)
+    if (newOwnerAddress === ethers.constants.AddressZero) {
       // We must call a separate function if ownership is being transferred to address(0).
       await (
-        await ChugSplashManager.renounceOwnership(
-          await getGasPriceOverrides(provider)
-        )
+        await manager.renounceOwnership(await getGasPriceOverrides(provider))
       ).wait()
     } else {
       await (
-        await ChugSplashManager.transferOwnership(
-          newProjectOwner,
+        await manager.transferOwnership(
+          newOwnerAddress,
           await getGasPriceOverrides(provider)
         )
       ).wait()
     }
-    spinner.succeed(`Transferred project ownership to: ${newProjectOwner}`)
+    spinner.succeed(`Transferred project ownership to: ${newOwnerAddress}`)
   }
 }
 

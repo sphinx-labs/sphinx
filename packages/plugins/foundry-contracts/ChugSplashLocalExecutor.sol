@@ -16,7 +16,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 abstract contract ChugSplashLocalExecutor {
 
-    function badSlice(BundledChugSplashAction[] memory selected, uint start, uint end) public pure returns (BundledChugSplashAction[] memory sliced) {
+    function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) public pure returns (BundledChugSplashAction[] memory sliced) {
         for (uint i = start; i < end; i++) {
             sliced[i] = selected[i + 1];
         }
@@ -72,7 +72,7 @@ abstract contract ChugSplashLocalExecutor {
         uint max = actions.length;
         while (min < max) {
             uint mid = Math.ceilDiv((min + max), 2);
-            BundledChugSplashAction[] memory left = badSlice(actions, 0, mid);
+            BundledChugSplashAction[] memory left = inefficientSlice(actions, 0, mid);
             if (executable(left, manager, maxGasLimit)) {
                 min = mid;
             } else {
@@ -96,45 +96,45 @@ abstract contract ChugSplashLocalExecutor {
         ChugSplashManager manager,
         uint maxGasLimit
     ) public returns (DeploymentStatus) {
-        // Pull he deployment state from the contract to make sure we're up to date
+        // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
-        DeploymentState memory deploymentState = manager.deployments(activeDeploymentId);
+        DeploymentState memory state = manager.deployments(activeDeploymentId);
 
         // Filter out actions that have already been executed
         uint length = 0;
         BundledChugSplashAction[] memory filteredActions = new BundledChugSplashAction[](length);
         for (uint i = 0; i < actions.length; i++) {
             BundledChugSplashAction memory action = actions[i];
-            if (deploymentState.actions[action.proof.actionIndex] == false) {
+            if (state.actions[action.proof.actionIndex] == false) {
                 length += 1;
             }
         }
         for (uint i = 0; i < actions.length; i++) {
             BundledChugSplashAction memory action = actions[i];
-            if (deploymentState.actions[action.proof.actionIndex] == false) {
+            if (state.actions[action.proof.actionIndex] == false) {
                 filteredActions[i] = action;
             }
         }
 
         // Exit early if there are no actions to execute
         if (filteredActions.length == 0) {
-            return deploymentState.status;
+            return state.status;
         }
 
         uint executed = 0;
         while (executed < filteredActions.length) {
             // Figure out the maximum number of actions that can be executed in a single batch
-            uint batchSize = findMaxBatchSize(badSlice(filteredActions, executed, filteredActions.length), manager, maxGasLimit);
-            BundledChugSplashAction[] memory batch = badSlice(filteredActions, executed, executed + batchSize);
+            uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), manager, maxGasLimit);
+            BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
 
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
 
             manager.executeActions(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
-            deploymentState = manager.deployments(activeDeploymentId);
-            if (deploymentState.status == DeploymentStatus.FAILED) {
-                return deploymentState.status;
+            state = manager.deployments(activeDeploymentId);
+            if (state.status == DeploymentStatus.FAILED) {
+                return state.status;
             }
 
             // Move to next batch if necessary
@@ -142,43 +142,27 @@ abstract contract ChugSplashLocalExecutor {
         }
 
         // Return the final status
-        return deploymentState.status;
+        return state.status;
     }
 
     function executeDeployment(
         ChugSplashManager manager,
         ChugSplashBundles memory bundles,
-        DeploymentState memory deploymentState
+        uint256 blockGasLimit
     ) private returns (bool) {
-        if (deploymentState.status == DeploymentStatus.COMPLETED) {
-            return true;
-        }
-
         // We execute all actions in batches to reduce the total number of transactions and reduce the
         // cost of a deployment in general. Approaching the maximum block gas limit can cause
         // transactions to be executed slowly as a result of the algorithms that miners use to select
         // which transactions to include. As a result, we restrict our total gas usage to a fraction of
         // the block gas limit.
-        uint gasLimit = block.gaslimit;
-        uint maxGasLimit = gasLimit / 2;
+        uint maxGasLimit = blockGasLimit / 2;
 
         // Get number of deploy contract and set state actions
-        uint numDeployContracts = 0;
-        uint numSetStorage = 0;
-        for (uint i = 0; i < bundles.actionBundle.actions.length; i++) {
-            BundledChugSplashAction memory action = bundles.actionBundle.actions[i];
-            if (action.action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
-                numDeployContracts += 1;
-            } else if (action.action.actionType == ChugSplashActionType.SET_STORAGE) {
-                numSetStorage += 1;
-            } else {
-                revert("Unsupported action type");
-            }
-        }
+        (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(actionBundle.actions);
 
         // Split up the deploy contract and set storage actions
-        BundledChugSplashAction[] memory deployContractActions = new BundledChugSplashAction[](numDeployContracts);
-        BundledChugSplashAction[] memory setStorageActions = new BundledChugSplashAction[](numSetStorage);
+        BundledChugSplashAction[] memory deployContractActions = new BundledChugSplashAction[](numDeployContractActions);
+        BundledChugSplashAction[] memory setStorageActions = new BundledChugSplashAction[](numSetStorageActions);
         for (uint i = 0; i < bundles.actionBundle.actions.length; i++) {
             BundledChugSplashAction memory action = bundles.actionBundle.actions[i];
             if (action.action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
@@ -215,5 +199,19 @@ abstract contract ChugSplashLocalExecutor {
         manager.finalizeUpgrade(targets, proofs);
 
         return true;
+    }
+
+    function getNumActions(ChugSplashActionBundle memory _actionBundle) private returns (uint numDeployContractActions, uint numSetStorageActions)  {
+        uint256 numDeployContractActions = 0;
+        uint256 numSetStorageActions = 0;
+        for (uint256 i = 0; i < _actionBundle.actions.length; i++) {
+            ChugSplashActionType actionType = _actionBundle.actions[i].action.actionType;
+            if (actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
+                numDeployContractActions += 1;
+            } else if (actionType == ChugSplashActionType.SET_STORAGE) {
+                numSetStorageActions += 1;
+            }
+        }
+        return (numDeployContractActions, numSetStorageActions);
     }
 }

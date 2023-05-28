@@ -104,3 +104,12 @@ export const fetchPaths = (outPath: string, buildInfoPath: string) => {
     canonicalConfigPath,
   }
 }
+
+export const getPaths = (): {
+  artifactFolder: string
+  buildInfoFolder: string
+  deploymentFolder: string
+  canonicalConfigFolder: string
+} => {
+  execAsync
+}

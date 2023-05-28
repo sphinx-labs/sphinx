@@ -1,7 +1,7 @@
 import process from 'process'
 
 import * as dotenv from 'dotenv'
-import { ethers } from 'ethers'
+import { ethers, providers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
@@ -50,8 +50,9 @@ import {
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
-  executeTask,
-  getDeployContractActions,
+  executeDeployment,
+  getDeployContractActionBundle,
+  getNumDeployContractActions,
   makeBundlesFromConfig,
   writeDeploymentArtifacts,
 } from '../actions'
@@ -133,6 +134,7 @@ export const chugsplashProposeAbstractTask = async (
 ) => {
   const { remoteExecution } = cre
   const { networkName } = configCache
+  const { organizationID, projectName } = parsedConfig.options
 
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   if (integration === 'hardhat') {
@@ -211,18 +213,20 @@ export const chugsplashProposeAbstractTask = async (
 
       const metatxs = await proposeChugSplashDeployment(
         provider,
-        signer,
-        parsedConfig,
+        signerAddress,
+        manager,
+        deploymentId,
         bundles,
         configUri,
-        remoteExecution,
-        ipfsUrl,
-        spinner,
+        route,
+        parsedConfig,
+        configCache,
         configArtifacts,
-        canonicalConfigPath,
-        integration,
-        shouldRelay
+        intergation,
+        spinner,
+        ipfsUrl
       )
+
       const message = await successfulProposalMessage(
         provider,
         amountToDeposit,
@@ -230,6 +234,14 @@ export const chugsplashProposeAbstractTask = async (
         integration
       )
       spinner.succeed(message)
+
+      await trackProposed(
+        await ChugSplashManager.owner(),
+        organizationID,
+        projectName,
+        networkName,
+        integration
+      )
 
       return metatxs
     }
@@ -240,7 +252,6 @@ export const chugsplashCommitAbstractSubtask = async (
   parsedConfig: ParsedChugSplashConfig,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
-  networkName: string,
   ipfsUrl?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
@@ -249,9 +260,7 @@ export const chugsplashCommitAbstractSubtask = async (
 }> => {
   if (spinner) {
     commitToIpfs
-      ? spinner.start(
-          `Committing ${parsedConfig.options.projectName} on ${networkName}.`
-        )
+      ? spinner.start(`Committing ${parsedConfig.options.projectName}...`)
       : spinner.start('Building the project...')
   }
 
@@ -326,7 +335,7 @@ export const chugsplashCommitAbstractSubtask = async (
     ipfsHash = (await ipfs.add(ipfsData)).path
   } else {
     throw new Error(
-      `To deploy on ${networkName}, you must first setup an IPFS project with
+      `To commit to IPFS, you must first setup an IPFS project with
 Infura: https://app.infura.io/. Once you've done this, copy and paste the following
 variables into your .env file:
 
@@ -343,9 +352,7 @@ IPFS_API_KEY_SECRET: ...
       ? spinner.succeed(
           `${parsedConfig.options.projectName} has been committed to IPFS.`
         )
-      : spinner.succeed(
-          `Built ${parsedConfig.options.projectName} on ${networkName}.`
-        )
+      : spinner.succeed(`Built ${parsedConfig.options.projectName}.`)
   }
 
   return { configUri, canonicalConfig }
@@ -380,12 +387,7 @@ export const chugsplashApproveAbstractTask = async (
     await errorProjectNotClaimed(provider, configPath, integration)
   }
 
-  const projectOwnerAddress = await ChugSplashManager.owner()
-  if (signerAddress !== projectOwnerAddress) {
-    throw new Error(`Caller is not the project owner on ${networkName}.
-Caller's address: ${signerAddress}
-Owner's address: ${projectOwnerAddress}`)
-  }
+  // TODO: getCanonicalConfigData everywhere you locally call chugsplashCommitAbstractSubtask
 
   // Call the commit subtask locally to get the deployment ID without publishing
   // anything to IPFS.
@@ -425,12 +427,12 @@ npx hardhat chugsplash-propose --network <network> --config-path ${configPath}`)
 Please wait a couple minutes then try again.`
     )
   } else if (deploymentState.status === DeploymentStatus.PROPOSED) {
-    await (
-      await ChugSplashManager.approve(
-        deploymentId,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
+    await approveDeployment(
+      activeDeploymentId,
+      ChugSplashManager,
+      signerAddress,
+      provider
+    )
 
     await trackApproved(
       await ChugSplashManager.owner(),
@@ -521,7 +523,7 @@ export const chugsplashDeployAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
   const { organizationID, projectName } = parsedConfig.options
-  const { networkName } = configCache
+  const { networkName, blockGasLimit, liveNetwork } = configCache
 
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(signer, organizationID)
@@ -544,8 +546,7 @@ export const chugsplashDeployAbstractTask = async (
   const { configUri, bundles, canonicalConfig } = await getCanonicalConfigData(
     parsedConfig,
     configArtifacts,
-    configCache,
-    networkName
+    configCache
   )
 
   if (
@@ -564,45 +565,33 @@ export const chugsplashDeployAbstractTask = async (
   let currDeploymentStatus = deploymentState.status
 
   if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
-    spinner.fail(`${projectName} was already cancelled on ${networkName}.`)
     throw new Error(
       `${projectName} was previously cancelled on ${networkName}.`
     )
-  } else if (currDeploymentStatus === DeploymentStatus.EMPTY) {
+  }
+
+  if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
     spinner.start(`Proposing ${projectName}...`)
     await proposeChugSplashDeployment(
       provider,
-      signer,
-      parsedConfig,
+      signerAddress,
+      manager,
+      deploymentId,
       bundles,
       configUri,
-      false,
-      '',
-      spinner,
+      'local',
+      parsedConfig,
+      configCache,
       configArtifacts,
-      canonicalConfigPath,
       integration,
-      false
+      spinner
     )
     currDeploymentStatus = DeploymentStatus.PROPOSED
   }
 
   if (currDeploymentStatus === DeploymentStatus.PROPOSED) {
-    // Approve the deployment.
-    await chugsplashApproveAbstractTask(
-      provider,
-      signer,
-      configPath,
-      true,
-      configArtifacts,
-      integration,
-      canonicalConfigPath,
-      deploymentFolder,
-      parsedConfig,
-      cre
-    )
-
+    await approveDeployment(deploymentId, manager, signerAddress, provider)
     currDeploymentStatus = DeploymentStatus.APPROVED
   }
 
@@ -612,14 +601,12 @@ export const chugsplashDeployAbstractTask = async (
   ) {
     spinner.start(`Executing ${projectName}...`)
 
-    const success = await executeTask({
-      chugSplashManager: manager,
+    const success = await executeDeployment(
+      manager,
       bundles,
-      deploymentState,
-      executor: signer,
-      provider,
-      projectName,
-    })
+      blockGasLimit,
+      provider
+    )
 
     if (!success) {
       throw new Error(
@@ -634,45 +621,39 @@ export const chugsplashDeployAbstractTask = async (
 
   if (newOwner) {
     spinner.start(`Transferring ownership to: ${newOwner}`)
-    await transferProjectOwnership(provider, manager, newOwner, spinner)
+    await transferProjectOwnership(manager, newOwner, provider, spinner)
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 
-  // TODO: always run
-  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
-
-  // TODO: foundry: this must only be called if the provider exists and the deployment was
-  // broadcasted.
-  await completeDeployment(
+  // TODO: foundry: this must only be called if the deployment was broadcasted.
+  await postDeploymentActions(
+    manager,
+    deploymentId,
+    configUri,
+    liveNetwork,
+    networkName,
+    process.env.ETHERSCAN_API_KEY,
+    integration,
+    canonicalConfigPath,
+    deploymentFolder,
     provider,
     canonicalConfig,
-    manager,
     configArtifacts,
-    deploymentId,
-    configCache,
-    deploymentFolder,
-    integration,
     cre.silent,
-    spinner,
-    process.env.ETHERSCAN_API_KEY
-  )
-
-  await trackDeployed(
-    await manager.owner(),
-    organizationID,
-    projectName,
-    networkName,
-    integration
+    spinner
   )
 }
 
-const completeDeployment = async (
+const postDeploymentActions = async (
   provider: ethers.providers.JsonRpcProvider,
   canonicalConfig: CanonicalChugSplashConfig,
   manager: ethers.Contract,
   configArtifacts: ConfigArtifacts,
   deploymentId: string,
-  configCache: ConfigCache,
+  canonicalConfigPath: string,
+  configUri: string,
+  liveNetwork: boolean,
+  networkName: string,
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
@@ -681,7 +662,9 @@ const completeDeployment = async (
 ) => {
   spinner.start(`Writing deployment artifacts...`)
 
-  const { networkName, liveNetwork } = configCache
+  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+
+  const { projectName, organizationID } = canonicalConfig.options
 
   // TODO: only if broadcasting
   await writeDeploymentArtifacts(
@@ -721,6 +704,14 @@ const completeDeployment = async (
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
   }
+
+  await trackDeployed(
+    await manager.owner(),
+    organizationID,
+    projectName,
+    networkName,
+    integration
+  )
 }
 
 export const chugsplashCancelAbstractTask = async (
@@ -1007,26 +998,32 @@ If you believe this is a mistake, please reach out to the developers or open an 
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
 
+// TODO: mv
+export enum ProposalRoute {
+  RELAY,
+  REMOTE_EXECUTION,
+  LOCAL_EXECUTION,
+}
+
 export const proposeChugSplashDeployment = async (
-  provider: ethers.providers.JsonRpcProvider,
-  signerAddress: string,
   manager: ethers.Contract,
-  projectName: string,
-  organizationID: string,
   deploymentId: string,
-  parsedConfig: ParsedChugSplashConfig,
   bundles: ChugSplashBundles,
   configUri: string,
-  networkName: string,
-  remoteExecution: boolean,
-  spinner: ora.Ora = ora({ isSilent: true }),
+  route: ProposalRoute,
+  // TODO: The fields below aren't necessary for the foundry version of this fn
+  signerAddress: string,
+  provider: ethers.providers.JsonRpcProvider,
+  parsedConfig: ParsedChugSplashConfig,
+  configCache: ConfigCache,
   configArtifacts: ConfigArtifacts,
-  canonicalConfigPath: string,
   integration: Integration,
-  shouldRelay: boolean,
+  spinner: ora.Ora = ora({ isSilent: true }),
   ipfsUrl?: string
 ) => {
   spinner.start(`Checking if the caller is a proposer...`)
+  const { projectName, organizationID } = parsedConfig.options
+  const { networkName } = configCache
 
   // Throw an error if the caller isn't the project owner or a proposer.
   if (!(await manager.isProposer(signerAddress))) {
@@ -1039,22 +1036,27 @@ export const proposeChugSplashDeployment = async (
 
   spinner.start(`Proposing ${projectName}...`)
 
-  if (remoteExecution) {
+  if (route === 'relay' || route === 'remoteExecution') {
     await chugsplashCommitAbstractSubtask(
       parsedConfig,
       true,
       configArtifacts,
-      networkName,
       ipfsUrl,
       spinner
     )
 
     // Verify that the deployment has been committed to IPFS with the correct bundle hash.
-    await verifyDeployment(provider, configUri, deploymentId, ipfsUrl)
+    await verifyDeployment(
+      configUri,
+      deploymentId,
+      configArtifacts,
+      configCache,
+      ipfsUrl
+    )
   }
 
   // Propose the deployment.
-  if (shouldRelay) {
+  if (route === 'relay') {
     if (!process.env.PRIVATE_KEY) {
       throw new Error(
         'Must provide a PRIVATE_KEY environment variable to sign gasless proposal transactions'
@@ -1078,9 +1080,9 @@ export const proposeChugSplashDeployment = async (
           bundles.targetBundle.root,
           bundles.actionBundle.actions.length,
           bundles.targetBundle.targets.length,
-          getDeployContractActions(bundles.actionBundle).length,
+          getNumDeployContractActions(bundles.actionBundle),
           configUri,
-          remoteExecution,
+          true,
         ]),
       }
     )
@@ -1113,21 +1115,13 @@ export const proposeChugSplashDeployment = async (
         bundles.targetBundle.root,
         bundles.actionBundle.actions.length,
         bundles.targetBundle.targets.length,
-        getDeployContractActions(bundles.actionBundle).length,
+        getNumDeployContractActions(bundles.actionBundle),
         configUri,
-        remoteExecution,
+        route === 'remoteExecution',
         await getGasPriceOverrides(provider)
       )
     ).wait()
   }
-
-  await trackProposed(
-    await manager.owner(),
-    organizationID,
-    projectName,
-    networkName,
-    integration
-  )
 
   spinner.succeed(`Proposed ${projectName}.`)
 }
@@ -1135,8 +1129,7 @@ export const proposeChugSplashDeployment = async (
 export const getCanonicalConfigData = async (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache,
-  networkName: string
+  configCache: ConfigCache
 ): Promise<{
   configUri: string
   canonicalConfig: CanonicalChugSplashConfig
@@ -1144,11 +1137,10 @@ export const getCanonicalConfigData = async (
 }> => {
   const { configUri, canonicalConfig } = await chugsplashCommitAbstractSubtask(
     parsedConfig,
-    '',
     false,
-    configArtifacts,
-    networkName
+    configArtifacts
   )
+
   const bundles = makeBundlesFromConfig(
     parsedConfig,
     configArtifacts,
@@ -1156,4 +1148,24 @@ export const getCanonicalConfigData = async (
   )
 
   return { configUri, canonicalConfig, bundles }
+}
+
+export const approveDeployment = async (
+  deploymentId: string,
+  manager: ethers.Contract,
+  signerAddress: string,
+  provider: providers.Provider
+) => {
+  const projectOwnerAddress = await manager.owner()
+  if (signerAddress !== projectOwnerAddress) {
+    throw new Error(
+      `Caller is not the project owner.\n` +
+        `Caller's address: ${signerAddress}\n` +
+        `Owner's address: ${projectOwnerAddress}`
+    )
+  }
+
+  await (
+    await manager.approve(deploymentId, await getGasPriceOverrides(provider))
+  ).wait()
 }

@@ -103,6 +103,8 @@ contract ChugSplash is Script, Test, ChugSplashLocalExecutor, ChugSplashTasks {
         DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
         ChugSplashRegistry registry = ChugSplashRegistry(getRegistryAddress());
 
+        // TODO: i think this needs to be fixed / aligned with the TS version
+
         // If the registry is not already deployed
         if (address(registry).code.length == 0) {
             // If the target chain is a local network
