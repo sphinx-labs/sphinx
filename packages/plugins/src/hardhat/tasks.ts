@@ -21,13 +21,10 @@ import {
   chugsplashListProjectsAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
-  bundleRemoteSubtask,
-  ChugSplashBundles,
   readValidatedChugSplashConfig,
-  readUserChugSplashConfig,
   isLiveNetwork,
   ensureChugSplashInitialized,
-  ConfigArtifacts,
+  ProposalRoute,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -44,7 +41,7 @@ import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
-import { getConfigArtifacts, makeGetConfigArtifacts } from './artifacts'
+import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 // Load environment variables from .env
@@ -239,7 +236,7 @@ export const chugsplashProposeTask = async (
     ipfsUrl,
     'hardhat',
     configArtifacts,
-    route,
+    ProposalRoute.RELAY,
     cre,
     configCache
   )
@@ -671,15 +668,13 @@ export const exportProxyTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  // TODO: get read of readUserChugSplashConfig basically everywhere
+  // TODO: get rid of readUserChugSplashConfig basically everywhere
 
-  const config = await readUserChugSplashConfig(configPath)
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
+  const { parsedConfig } = await readValidatedChugSplashConfig(
     configPath,
-    configArtifacts,
-    'hardhat',
-    cre
+    provider,
+    cre,
+    makeGetConfigArtifacts(hre)
   )
 
   await chugsplashExportProxyAbstractTask(
@@ -788,14 +783,11 @@ export const chugsplashInitTask = async (
   const chugsplashFileName = isTypeScriptProject
     ? 'hello-chugsplash.ts'
     : 'hello-chugsplash.js'
-  const chugsplashFilePath = path.join(
-    hre.config.paths.chugsplash,
-    chugsplashFileName
-  )
-  if (!fs.existsSync(chugsplashFilePath)) {
+  const configPath = path.join(hre.config.paths.chugsplash, chugsplashFileName)
+  if (!fs.existsSync(configPath)) {
     // Create the sample ChugSplash config file.
     fs.writeFileSync(
-      chugsplashFilePath,
+      configPath,
       isTypeScriptProject
         ? sampleChugSplashFileTypeScript
         : sampleChugSplashFileJavaScript

@@ -371,7 +371,7 @@ const command = args[0]
 
       // TODO: write parsedConfig and configArtifacts to 'chugsplash-cache' or something
 
-      const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode()
+      // const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode()
     }
   }
 })().catch((err: Error) => {
