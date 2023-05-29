@@ -10,11 +10,9 @@ import {
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import {
-  ParsedChugSplashConfig,
   getChugSplashRegistry,
   chugsplashFetchSubtask,
   chugsplashClaimAbstractTask,
-  chugsplashCommitAbstractSubtask,
   chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
@@ -26,7 +24,7 @@ import {
   bundleRemoteSubtask,
   ChugSplashBundles,
   readValidatedChugSplashConfig,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   isLiveNetwork,
   ensureChugSplashInitialized,
   ConfigArtifacts,
@@ -46,7 +44,7 @@ import {
   sampleTestFileJavaScript,
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
-import { getConfigArtifacts } from './artifacts'
+import { getConfigArtifacts, makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 // Load environment variables from .env
@@ -54,10 +52,8 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-export const TASK_CHUGSPLASH_BUNDLE_REMOTE = 'chugsplash-bundle-remote'
 export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
-export const TASK_CHUGSPLASH_COMMIT = 'chugsplash-commit'
 
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
@@ -74,10 +70,6 @@ subtask(TASK_CHUGSPLASH_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
   .setAction(chugsplashFetchSubtask)
-
-subtask(TASK_CHUGSPLASH_BUNDLE_REMOTE)
-  .addParam('canonicalConfig', undefined, undefined, types.any)
-  .setAction(bundleRemoteSubtask)
 
 export const chugsplashDeployTask = async (
   args: {
@@ -112,27 +104,24 @@ export const chugsplashDeployTask = async (
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-  const { parsedConfig, configCache } = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    configArtifacts,
-    'hardhat',
-    cre
-  )
+  const { parsedConfig, configCache, configArtifacts } =
+    await readValidatedChugSplashConfig(
+      configPath,
+      provider,
+      cre,
+      makeGetConfigArtifacts(hre)
+    )
 
   await chugsplashDeployAbstractTask(
     provider,
     signer,
-    configPath,
-    configArtifacts,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
     parsedConfig,
     configCache,
+    configArtifacts,
     newOwner
   )
 }
@@ -175,15 +164,11 @@ export const chugsplashClaimTask = async (
   const signer = hre.ethers.provider.getSigner()
   await ensureChugSplashInitialized(provider, signer)
 
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
+  const { parsedConfig } = await readValidatedChugSplashConfig(
     configPath,
-    configArtifacts,
-    'hardhat',
-    cre
+    provider,
+    cre,
+    makeGetConfigArtifacts(hre)
   )
 
   await chugsplashClaimAbstractTask(
@@ -234,22 +219,17 @@ export const chugsplashProposeTask = async (
     })
   }
 
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
-
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   await ensureChugSplashInitialized(provider, signer)
 
-  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-
-  const parsedConfig = await readValidatedChugSplashConfig(
-    provider,
-    configPath,
-    configArtifacts,
-    'hardhat',
-    cre
-  )
+  const { parsedConfig, configArtifacts, configCache } =
+    await readValidatedChugSplashConfig(
+      configPath,
+      provider,
+      cre,
+      makeGetConfigArtifacts(hre)
+    )
 
   await chugsplashProposeAbstractTask(
     provider,
@@ -259,8 +239,9 @@ export const chugsplashProposeTask = async (
     ipfsUrl,
     'hardhat',
     configArtifacts,
-    canonicalConfigPath,
-    cre
+    route,
+    cre,
+    configCache
   )
 }
 
@@ -309,53 +290,6 @@ subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
       })
     )
   })
-
-export const chugsplashCommitSubtask = async (
-  args: {
-    parsedConfig: ParsedChugSplashConfig
-    ipfsUrl: string
-    commitToIpfs: boolean
-    noCompile: boolean
-    configArtifacts: ConfigArtifacts
-    spinner?: ora.Ora
-  },
-  hre: HardhatRuntimeEnvironment
-): Promise<{
-  bundles: ChugSplashBundles
-  configUri: string
-  deploymentId: string
-}> => {
-  const {
-    parsedConfig,
-    ipfsUrl,
-    commitToIpfs,
-    noCompile,
-    spinner,
-    configArtifacts,
-  } = args
-
-  if (!noCompile) {
-    await hre.run(TASK_COMPILE, {
-      quiet: true,
-    })
-  }
-
-  const provider = hre.ethers.provider
-  return chugsplashCommitAbstractSubtask(
-    parsedConfig,
-    ipfsUrl,
-    commitToIpfs,
-    configArtifacts,
-    networkName,
-    spinner
-  )
-}
-
-subtask(TASK_CHUGSPLASH_COMMIT)
-  .setDescription('Commits a ChugSplash config file with artifacts to IPFS')
-  .addParam('parsedConfig', 'Parsed ChugSplash config')
-  .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(chugsplashCommitSubtask)
 
 subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
   .setDescription('Lists all deployments for a given project')
@@ -523,7 +457,7 @@ task(TASK_NODE)
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, silent, '')
+          await deployAllChugSplashConfigs(hre, silent)
           const networkName = await resolveNetworkName(
             hre.ethers.provider,
             'hardhat'
@@ -613,7 +547,7 @@ task(TASK_TEST)
               configPathArray = configPaths.replace(/\s+/g, '').split(',')
             }
 
-            await deployAllChugSplashConfigs(hre, silent, '', configPathArray)
+            await deployAllChugSplashConfigs(hre, silent, configPathArray)
           }
         }
         await writeSnapshotId(
@@ -656,7 +590,7 @@ task(TASK_RUN)
             quiet: true,
           })
         }
-        await deployAllChugSplashConfigs(hre, true, '')
+        await deployAllChugSplashConfigs(hre, true)
       }
       await runSuper(args)
     }
@@ -737,8 +671,9 @@ export const exportProxyTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const config = await readUnvalidatedChugSplashConfig(configPath)
-  const configArtifacts = await getConfigArtifacts(hre, config.contracts)
+  // TODO: get read of readUserChugSplashConfig basically everywhere
+
+  const config = await readUserChugSplashConfig(configPath)
   const parsedConfig = await readValidatedChugSplashConfig(
     provider,
     configPath,

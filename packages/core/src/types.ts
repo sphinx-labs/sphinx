@@ -63,3 +63,9 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
   init(): Promise<void>
   main(): Promise<void>
 }
+
+export enum ProposalRoute {
+  RELAY,
+  REMOTE_EXECUTION,
+  LOCAL_EXECUTION,
+}

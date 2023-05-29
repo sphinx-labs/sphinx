@@ -10,18 +10,16 @@ import {
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
-  getProjectOwnerAddress,
   hasSufficientFundsForExecution,
   trackExecuted,
   getDeploymentId,
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
-  getDeployContractActionBundle,
   deploymentDoesRevert,
+  ConfigArtifacts,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
-import { getChainId } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
 
@@ -58,6 +56,7 @@ const generateRetryEvent = (
 const tryVerification = async (
   logger: Logger,
   canonicalConfig: CanonicalChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
   network: string,
@@ -75,6 +74,7 @@ const tryVerification = async (
         )
         await verifyChugSplashConfig(
           canonicalConfig,
+          configArtifacts,
           rpcProvider,
           network,
           apiKey
@@ -100,6 +100,7 @@ const tryVerification = async (
         await tryVerification(
           logger,
           canonicalConfig,
+          configArtifacts,
           rpcProvider,
           projectName,
           network,
@@ -232,13 +233,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // executor), or using the Config URI
   let bundles: ChugSplashBundles
   let canonicalConfig: CanonicalChugSplashConfig
+  let configArtifacts: ConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, canonicalConfig } = await compileRemoteBundles(
-      rpcProvider,
-      proposalEvent.args.configUri
-    ))
+    ;({ bundles, canonicalConfig, configArtifacts } =
+      await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
@@ -401,6 +401,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     await tryVerification(
       logger,
       canonicalConfig,
+      configArtifacts,
       rpcProvider,
       projectName,
       network,

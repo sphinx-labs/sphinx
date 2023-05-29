@@ -5,7 +5,7 @@ import {
   chugsplashProposeAbstractTask,
   FORWARDER_ADDRESS,
   getChugSplashManager,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { ForwarderArtifact } from '@chugsplash/contracts'
@@ -27,7 +27,7 @@ describe('Meta txs', () => {
     const signerAddress = await signer.getAddress()
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
 
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 

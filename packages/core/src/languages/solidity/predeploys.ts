@@ -1,7 +1,6 @@
 import * as path from 'path'
 import assert from 'assert'
 
-import { getChainId } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -27,7 +26,6 @@ import {
   isContractDeployed,
   getGasPriceOverrides,
   isLiveNetwork,
-  assertValidBlockGasLimit,
   getImpersonatedSigner,
   getChugSplashRegistry,
 } from '../../utils'
@@ -60,6 +58,7 @@ import {
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
+import { assertValidBlockGasLimit } from '../../config/parse'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -163,7 +162,8 @@ export const initializeChugSplash = async (
   callers: string[],
   logger?: Logger
 ): Promise<void> => {
-  await assertValidBlockGasLimit(provider)
+  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+  assertValidBlockGasLimit(blockGasLimit)
 
   const chugsplashConstructorArgs = getChugSplashConstructorArgs()
 

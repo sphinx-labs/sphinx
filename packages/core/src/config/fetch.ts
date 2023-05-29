@@ -2,14 +2,18 @@ import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { ChugSplashBundles } from '../actions/types'
-import { bundleRemoteSubtask } from '../languages/solidity/compiler'
-import { callWithTimeout, getDeploymentId } from '../utils'
-import { CanonicalChugSplashConfig, ConfigArtifacts } from './types'
 import {
-  getDeployContractActionBundle,
-  makeBundlesFromConfig,
-} from '../actions/bundle'
-import { ConfigCache } from './parse'
+  callWithTimeout,
+  getConfigArtifactsRemote,
+  getDeploymentId,
+} from '../utils'
+import {
+  CanonicalChugSplashConfig,
+  ConfigArtifacts,
+  ConfigCache,
+} from './types'
+import { makeBundlesFromConfig } from '../actions/bundle'
+import { getConfigCache, getMinimalParsedConfig } from './parse'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
@@ -85,11 +89,12 @@ export const verifyDeployment = async (
  * @returns Compiled ChugSplashBundle.
  */
 export const compileRemoteBundles = async (
-  provider: providers.Provider,
+  provider: providers.JsonRpcProvider,
   configUri: string
 ): Promise<{
   bundles: ChugSplashBundles
   canonicalConfig: CanonicalChugSplashConfig
+  configArtifacts: ConfigArtifacts
 }> => {
   const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
     chugsplashFetchSubtask({ configUri }),
@@ -97,6 +102,17 @@ export const compileRemoteBundles = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = await bundleRemoteSubtask({ provider, canonicalConfig })
-  return { bundles, canonicalConfig }
+  const configArtifacts = await getConfigArtifactsRemote(canonicalConfig)
+
+  const configCache = await getConfigCache(
+    provider,
+    getMinimalParsedConfig(canonicalConfig, configArtifacts)
+  )
+
+  const bundles = makeBundlesFromConfig(
+    canonicalConfig,
+    configArtifacts,
+    configCache
+  )
+  return { bundles, canonicalConfig, configArtifacts }
 }

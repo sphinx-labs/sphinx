@@ -227,53 +227,6 @@ contract ChugSplash is Script, Test, ChugSplashLocalExecutor, ChugSplashTasks {
         return result;
     }
 
-    function deploy(
-        string memory configPath
-    ) external {
-        deploy(configPath, false);
-    }
-
-    function deploy(
-        string memory configPath,
-        bool silent
-    ) public {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](12);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "deploy";
-        cmds[4] = configPath;
-        cmds[5] = rpcUrl;
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = newOwner;
-
-        bytes memory result = vm.ffi(cmds);
-        if (isChugSplashTest) {
-            emit log("Attempting to decode deploy command results:");
-            emit log_bytes(result);
-        }
-        ChugSplashContract[] memory deployedContracts = abi.decode(result, (ChugSplashContract[]));
-        if (isChugSplashTest) {
-            emit log("Successfully decoded");
-        }
-
-        if (silent == false) {
-            emit log("Success!");
-            for (uint i = 0; i < deployedContracts.length; i++) {
-                ChugSplashContract memory deployed = deployedContracts[i];
-                emit log(string.concat(deployed.referenceName, ': ', vm.toString(deployed.contractAddress)));
-            }
-            emit log("\nThank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np\n");
-        }
-
-    }
-
     function cancel(
         string memory configPath
     ) external {

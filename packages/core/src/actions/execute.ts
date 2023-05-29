@@ -9,13 +9,8 @@ import {
 } from './types'
 import { getGasPriceOverrides } from '../utils'
 import {
-  fromRawChugSplashAction,
   getDeployContractActionBundle,
   getSetStorageActionBundle,
-  getSetStorageActions,
-  isDeployContractAction,
-  isSetStorageAction,
-  toRawChugSplashAction,
 } from './bundle'
 
 export const executeDeployment = async (

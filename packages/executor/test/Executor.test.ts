@@ -7,7 +7,7 @@ import {
   chugsplashClaimAbstractTask,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { expect } from 'chai'
@@ -33,7 +33,7 @@ describe('Remote Execution', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 

@@ -1,10 +1,27 @@
 
 // TODO: merge this contract with LocalExecutor?
 abstract contract ChugSplashTasks {
-    // - bundles, configUri (used only for logs)
-    struct TODO {
+    struct MinimalParsedConfig {
         bytes32 organizationID;
-        string memory projectName;
+        string projectName;
+        MinimalParsedContractConfig[] contracts;
+    }
+
+    struct MinimalParsedContractConfig {
+        string referenceName;
+        bytes creationCodeWithConstructorArgs;
+        address addr;
+        ContractKindEnum kind;
+        bytes32 salt;
+    }
+
+    enum ContractKindEnum {
+        INTERNAL_DEFAULT,
+        OZ_TRANSPARENT,
+        OZ_OWNABLE_UUPS,
+        OZ_ACCESS_CONTROL_UUPS,
+        EXTERNAL_DEFAULT,
+        NO_PROXY
     }
 
     enum ProposalRoute {
@@ -100,6 +117,8 @@ abstract contract ChugSplashTasks {
         }
 
         ffiPostDeploymentActions(manager, deploymentId, configUri, liveNetwork, networkName, etherscanApiKey);
+
+        // TODO: output table-like thing (see old deploy function)
     }
 
     function finalizeRegistration(ChugSplashRegistry _registry, ChugSplashManager _manager, bytes32 _organizationID, address _newOwner, bool _allowManagedProposals) internal {
@@ -169,5 +188,18 @@ abstract contract ChugSplashTasks {
                 _manager.transferOwnership(_newOwner);
             }
         }
+    }
+
+    function ffiGetMinimalParsedConfig(string memory _configPath) internal returns (MinimalParsedConfig memory) {
+        string[] memory cmds = new string[](_);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getMinimalParsedConfig";
+        cmds[4] = _configPath;
+        // TODO: the rest of the params
+
+        bytes memory minimalParsedConfigBytes = vm.ffi(cmds);
+        return abi.decode(result, (MinimalParsedConfig));
     }
 }

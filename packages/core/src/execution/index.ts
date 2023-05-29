@@ -13,12 +13,7 @@ import {
 import { ConfigArtifacts, ParsedChugSplashConfig } from '../config'
 import { Integration } from '../constants'
 import { getAmountToDeposit } from '../fund'
-import {
-  getChugSplashManager,
-  getDeploymentEvents,
-  getGasPriceOverrides,
-  getProjectOwnerAddress,
-} from '../utils'
+import { getChugSplashManager, getDeploymentEvents } from '../utils'
 
 export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,

@@ -4,7 +4,7 @@ import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import {
   chugsplashCommitAbstractSubtask,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { utils } from 'ethers'
@@ -25,7 +25,7 @@ if (typeof chugsplashFilePath !== 'string') {
  * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
-  const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
+  const userConfig = await readUserChugSplashConfig(chugsplashFilePath)
   const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
   const cre = await createChugSplashRuntime(
@@ -37,20 +37,10 @@ const displayBundleInfo = async () => {
     false
   )
 
-  const parsedConfig = await readValidatedChugSplashConfig(
-    hre.ethers.provider,
-    chugsplashFilePath,
-    configArtifacts,
-    'hardhat',
-    cre
-  )
-
-  const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
+  const { configUri, bundles } = await getCanonicalConfigData(
     parsedConfig,
-    '',
-    false,
     configArtifacts,
-    networkName
+    configCache
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.

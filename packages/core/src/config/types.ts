@@ -5,7 +5,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber, constants } from 'ethers'
+import { BigNumber, constants, ethers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -34,6 +34,15 @@ export const contractKindHashes: { [contractKind: string]: string } = {
 }
 
 export type ContractKind = ExternalContractKind | 'internal-default'
+
+export enum ContractKindEnum {
+  INTERNAL_DEFAULT,
+  OZ_TRANSPARENT,
+  OZ_OWNABLE_UUPS,
+  OZ_ACCESS_CONTROL_UUPS,
+  EXTERNAL_DEFAULT,
+  NO_PROXY,
+}
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -161,3 +170,50 @@ export type ConfigArtifacts = {
     artifact: ContractArtifact
   }
 }
+
+export type ConfigCache = {
+  blockGasLimit: ethers.BigNumber
+  liveNetwork: boolean
+  networkName: string
+  contractConfigCache: ContractConfigCache
+}
+
+export type ContractConfigCache = {
+  [referenceName: string]: {
+    isTargetDeployed: boolean
+    deploymentRevert: DeploymentRevertCache
+    importCache: ImportCache
+    deployedCreationCodeWithArgsHash?: string
+    isImplementationDeployed?: boolean
+    previousConfigUri?: string
+  }
+}
+
+export type DeploymentRevertCache = {
+  deploymentReverted: boolean
+  revertString?: string
+}
+
+export type ImportCache = {
+  requiresImport: boolean
+  currProxyAdmin?: string
+}
+
+// TODO(docs): explain this is a foundry-friendly format
+export type MinimalParsedConfig = {
+  organizationID: string
+  projectName: string
+  contracts: Array<MinimalParsedContractConfig>
+}
+
+export type MinimalParsedContractConfig = {
+  referenceName: string
+  creationCodeWithConstructorArgs: string
+  addr: string
+  kind: ContractKindEnum
+  salt: string
+}
+
+export type GetConfigArtifacts = (
+  contractConfigs: UserContractConfigs
+) => Promise<ConfigArtifacts>

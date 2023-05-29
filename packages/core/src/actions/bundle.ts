@@ -1,10 +1,11 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   ConfigArtifacts,
+  ConfigCache,
   ParsedChugSplashConfig,
   contractKindHashes,
 } from '../config/types'
@@ -30,7 +31,6 @@ import {
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
-import { ConfigCache } from '../config/parse'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -58,6 +58,14 @@ export const isDeployContractAction = (
   action: ChugSplashAction
 ): action is DeployContractAction => {
   return (action as DeployContractAction).code !== undefined
+}
+
+export const getDeployContractActions = (
+  actionBundle: ChugSplashActionBundle
+): Array<DeployContractAction> => {
+  return actionBundle.actions
+    .map((action) => fromRawChugSplashAction(action.action))
+    .filter(isDeployContractAction)
 }
 
 export const getDeployContractActionBundle = (

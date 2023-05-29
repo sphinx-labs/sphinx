@@ -10,7 +10,7 @@ import {
   writeSnapshotId,
   resolveNetworkName,
   getDefaultProxyAddress,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
   getCreate3Address,
   getChugSplashManagerAddress,
@@ -18,7 +18,7 @@ import {
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import { getConfigArtifacts } from './artifacts'
+import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
 export const fetchFilesRecursively = (dir): string[] => {
@@ -46,14 +46,17 @@ export const fetchFilesRecursively = (dir): string[] => {
 export const deployAllChugSplashConfigs = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
-  ipfsUrl: string,
   fileNames?: string[]
 ) => {
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
+  const getConfigArtifacts = makeGetConfigArtifacts(hre)
 
   for (const configPath of fileNames) {
     const cre = await createChugSplashRuntime(
@@ -69,30 +72,24 @@ export const deployAllChugSplashConfigs = async (
     if (isEmptyChugSplashConfig(configPath)) {
       continue
     }
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        configPath,
+        hre.ethers.provider,
+        cre,
+        getConfigArtifacts
+      )
 
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      hre.ethers.provider,
-      configPath,
-      configArtifacts,
-      'hardhat',
-      cre,
-      true
-    )
-
-    const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
-      hre.ethers.provider,
-      hre.ethers.provider.getSigner(),
-      configPath,
-      configArtifacts,
+      provider,
+      signer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig
+      parsedConfig,
+      configCache,
+      configArtifacts
     )
   }
 }
@@ -112,7 +109,7 @@ export const getContract = async (
   const resolvedConfigs = await Promise.all(
     filteredConfigNames.map(async (configFileName) => {
       return {
-        config: await readUnvalidatedChugSplashConfig(configFileName),
+        config: await readUserChugSplashConfig(configFileName),
         filePath: configFileName,
       }
     })

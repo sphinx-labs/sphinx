@@ -7,7 +7,7 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import {
   assertValidUserConfigFields,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 
@@ -25,12 +25,12 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
-    const varValidationUserConfig = await readUnvalidatedChugSplashConfig(
+    const varValidationUserConfig = await readUserChugSplashConfig(
       variableValidateConfigPath
     )
     const constructorArgsValidationUserConfig =
-      await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
-    const noProxyValidationUserConfig = await readUnvalidatedChugSplashConfig(
+      await readUserChugSplashConfig(constructorArgConfigPath)
+    const noProxyValidationUserConfig = await readUserChugSplashConfig(
       noProxyContractReferenceConfigPath
     )
     const varValidationArtifacts = await getConfigArtifacts(

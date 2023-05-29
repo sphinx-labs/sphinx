@@ -53,6 +53,7 @@ import {
   ParsedConfigVariables,
   ConfigArtifacts,
   ParsedConfigVariable,
+  ContractKindEnum,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -71,7 +72,10 @@ import {
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
-import { getDeployContractActionBundle, getNumDeployContractActions } from './actions/bundle'
+import {
+  getDeployContractActions,
+  getNumDeployContractActions,
+} from './actions/bundle'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
@@ -269,6 +273,17 @@ export const getChugSplashManager = (
     getChugSplashManagerAddress(organizationID),
     ChugSplashManagerABI,
     signer
+  )
+}
+
+export const getChugSplashManagerReadOnly = (
+  provider: providers.Provider,
+  organizationID: string
+) => {
+  return new Contract(
+    getChugSplashManagerAddress(organizationID),
+    ChugSplashManagerABI,
+    provider
   )
 }
 
@@ -1227,7 +1242,7 @@ export const deploymentDoesRevert = async (
 ): Promise<boolean> => {
   // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
   const deployContractActions =
-    getDeployContractActionBundle(actionBundle).slice(actionsExecuted)
+    getDeployContractActions(actionBundle).slice(actionsExecuted)
 
   try {
     // Attempt to estimate the gas of the deployment transactions. This will throw an error if
@@ -1253,7 +1268,10 @@ export const getDeployedCreationCodeWithArgsHash = async (
   referenceName: string,
   contractAddress: string
 ): Promise<string> => {
-  const ChugSplashManager = getChugSplashManager(provider, organizationID)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   const events = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.ContractDeployed(referenceName, contractAddress)
@@ -1303,4 +1321,23 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
     kind === 'oz-ownable-uups' ||
     kind === 'oz-access-control-uups'
   )
+}
+
+export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
+  switch (kind) {
+    case 'oz-transparent':
+      return ContractKindEnum.OZ_TRANSPARENT
+    case 'oz-ownable-uups':
+      return ContractKindEnum.OZ_OWNABLE_UUPS
+    case 'oz-access-control-uups':
+      return ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
+    case 'external-default':
+      return ContractKindEnum.EXTERNAL_DEFAULT
+    case 'no-proxy':
+      return ContractKindEnum.NO_PROXY
+    case 'internal-default':
+      return ContractKindEnum.INTERNAL_DEFAULT
+    default:
+      throw new Error(`Invalid contract kind: ${kind}`)
+  }
 }

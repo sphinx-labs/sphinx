@@ -13,7 +13,7 @@ import {
   getChugSplashManager,
   contractKindHashes,
   readValidatedChugSplashConfig,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
 } from '@chugsplash/core'
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
@@ -69,7 +69,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       transparentUpgradeConfigPath
     )
 
@@ -178,7 +178,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       uupsOwnableUpgradeConfigPath
     )
 
@@ -304,7 +304,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       uupsAccessControlUpgradeConfigPath
     )
 

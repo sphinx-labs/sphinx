@@ -46,6 +46,7 @@ import {
   getNonProxyCreate3Salt,
   getPreviousConfigUri,
   getChugSplashRegistry,
+  toContractKindEnum,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -57,14 +58,16 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
   ConfigArtifacts,
-  ContractKind,
+  GetConfigArtifacts,
+  ConfigCache,
+  MinimalParsedConfig,
+  ContractConfigCache,
+  ContractKindEnum,
+  DeploymentRevertCache,
+  ImportCache,
+  MinimalParsedContractConfig,
 } from './types'
-import {
-  CONTRACT_SIZE_LIMIT,
-  Integration,
-  Keyword,
-  keywords,
-} from '../constants'
+import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -107,20 +110,19 @@ const logValidationError = (
   chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
-/**
- * Reads a ChugSplash config file and completes full parsing and validation on it.
- *
- * @param configPath Path to the ChugSplash config file.
- * @returns The parsed ChugSplash config file.
- */
-export const readValidatedChugSplashConfig = async (
-  provider: providers.JsonRpcProvider,
-  userConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
-  integration: Integration,
+export const readUnvalidatedParsedConfig = async (
+  configPath: string,
   cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
   exitOnFailure: boolean = true
-): Promise<ParsedChugSplashConfig> => {
+): Promise<{
+  parsedConfig: ParsedChugSplashConfig
+  minimalParsedConfig: MinimalParsedConfig
+  configArtifacts: ConfigArtifacts
+}> => {
+  const userConfig = await readUserChugSplashConfig(configPath)
+  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
+
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
@@ -136,6 +138,34 @@ export const readValidatedChugSplashConfig = async (
     configArtifacts
   )
 
+  return { parsedConfig, minimalParsedConfig, configArtifacts }
+}
+
+/**
+ * Reads a ChugSplash config file and completes full parsing and validation on it.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readValidatedChugSplashConfig = async (
+  configPath: string,
+  provider: providers.JsonRpcProvider,
+  cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
+  exitOnFailure: boolean = true
+): Promise<{
+  parsedConfig: ParsedChugSplashConfig
+  configArtifacts: ConfigArtifacts
+  configCache: ConfigCache
+}> => {
+  const { parsedConfig, minimalParsedConfig, configArtifacts } =
+    await readUnvalidatedParsedConfig(
+      configPath,
+      cre,
+      getConfigArtifacts,
+      exitOnFailure
+    )
+
   const configCache = await getConfigCache(provider, minimalParsedConfig)
 
   await postParsingValidation(
@@ -146,10 +176,10 @@ export const readValidatedChugSplashConfig = async (
     exitOnFailure
   )
 
-  return parsedConfig
+  return { parsedConfig, configArtifacts, configCache }
 }
 
-export const readUnvalidatedChugSplashConfig = async (
+export const readUserChugSplashConfig = async (
   configPath: string
 ): Promise<UserChugSplashConfig> => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -2351,7 +2381,7 @@ export const postParsingValidation = async (
   const { projectName } = parsedConfig.options
   const { blockGasLimit, liveNetwork, contractConfigCache } = configCache
 
-  assertValidBlockGasLimit(blockGasLimit, cre)
+  assertValidBlockGasLimit(blockGasLimit)
 
   assertAvailableCreate3Addresses(
     parsedConfig,
@@ -2447,21 +2477,16 @@ export const assertValidDeploymentSize = (
  * Assert that the block gas limit is reasonably high on a network.
  */
 export const assertValidBlockGasLimit = (
-  blockGasLimit: ethers.BigNumber,
-  cre: ChugSplashRuntimeEnvironment
+  blockGasLimit: ethers.BigNumber
 ): void => {
   // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
   //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
   //  ChugSplashManager V1, which is at the contract size limit.
   if (blockGasLimit.lt(15_000_000)) {
-    logValidationError(
-      'error',
+    throw new Error(
       `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
         blockGasLimit.toString
-      }`,
-      [],
-      cre.silent,
-      cre.stream
+      }`
     )
   }
 }
@@ -2590,56 +2615,11 @@ const assertAvailableCreate3Addresses = (
   }
 }
 
-// TODO: mv
-export type ConfigCache = {
-  blockGasLimit: ethers.BigNumber
-  liveNetwork: boolean
-  networkName: string
-  contractConfigCache: ContractConfigCache
-}
-
-export type ContractConfigCache = {
-  [referenceName: string]: {
-    isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevertCache
-    importCache: ImportCache
-    deployedCreationCodeWithArgsHash?: string
-    isImplementationDeployed?: boolean
-    previousConfigUri?: string
-  }
-}
-
-export type DeploymentRevertCache = {
-  deploymentReverted: boolean
-  revertString?: string
-}
-
-export type ImportCache = {
-  requiresImport: boolean
-  currProxyAdmin?: string
-}
-
-// TODO(docs): explain this is a foundry-friendly format
-export type MinimalParsedConfig = {
-  options: {
-    organizationID: string
-    projectName: string
-  }
-  contracts: {
-    [referenceName: string]: {
-      creationCodeWithConstructorArgs: string
-      addr: string
-      kind: ContractKind
-    }
-  }
-}
-
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
   minimalConfig: MinimalParsedConfig
 ): Promise<ConfigCache> => {
-  const { options, contracts } = minimalConfig
-  const { organizationID } = options
+  const { organizationID, contracts } = minimalConfig
 
   const registry = getChugSplashRegistry(provider)
   const managerAddress = getChugSplashManagerAddress(organizationID)
@@ -2658,13 +2638,13 @@ export const getConfigCache = async (
     const isTargetDeployed = (await provider.getCode(addr)) !== '0x'
 
     let isImplementationDeployed: boolean | undefined
-    if (kind !== 'no-proxy') {
+    if (kind !== ContractKindEnum.NO_PROXY) {
       const implAddress = getCreate3Address(managerAddress, salt)
       isImplementationDeployed = (await provider.getCode(implAddress)) !== '0x'
     }
 
     const previousConfigUri =
-      isTargetDeployed && kind !== 'no-proxy'
+      isTargetDeployed && ContractKindEnum.NO_PROXY
         ? await getPreviousConfigUri(provider, registry, addr)
         : undefined
 
@@ -2680,7 +2660,7 @@ export const getConfigCache = async (
     let deploymentRevert: DeploymentRevertCache | undefined
     // TODO(docs): We don't attempt to deploy the implementation contracts behind proxies. We check
     // that they have deterministic constructors elsewhere (in `assertValidSourceCode`).
-    if (kind === 'no-proxy') {
+    if (kind === ContractKindEnum.NO_PROXY) {
       try {
         // Attempt to estimate the gas of the deployment.
         await provider.estimateGas({
@@ -2697,7 +2677,10 @@ export const getConfigCache = async (
     }
 
     let importCache: ImportCache | undefined
-    if (kind === 'oz-ownable-uups' || kind === 'oz-access-control-uups') {
+    if (
+      kind === ContractKindEnum.OZ_OWNABLE_UUPS ||
+      kind === ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
+    ) {
       // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
       // function because OpenZeppelin UUPS proxies can implement arbitrary access control
       // mechanisms.
@@ -2724,9 +2707,9 @@ export const getConfigCache = async (
         }
       }
     } else if (
-      kind === 'external-default' ||
-      kind === 'internal-default' ||
-      kind === 'oz-transparent'
+      kind === ContractKindEnum.EXTERNAL_DEFAULT ||
+      kind === ContractKindEnum.INTERNAL_DEFAULT ||
+      kind === ContractKindEnum.OZ_TRANSPARENT
     ) {
       // Check that the ChugSplashManager is the owner of the Transparent proxy.
       const currProxyAdmin = await getEIP1967ProxyAdminAddress(provider, addr)
@@ -2766,25 +2749,30 @@ export const getMinimalParsedConfig = (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts
 ): MinimalParsedConfig => {
-  const minimalContractConfigs: MinimalParsedConfig['contracts'] = {}
+  const { organizationID, projectName } = parsedConfig.options
+
+  const minimalContractConfigs: Array<MinimalParsedContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     const { bytecode, abi } = configArtifacts[referenceName].artifact
-    const { constructorArgs, address, kind } = contractConfig
+    const { constructorArgs, address, kind, salt } = contractConfig
 
-    minimalContractConfigs[referenceName] = {
+    minimalContractConfigs.push({
+      referenceName,
       creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
         bytecode,
         constructorArgs,
         abi
       ),
       addr: address,
-      kind,
-    }
+      kind: toContractKindEnum(kind),
+      salt,
+    })
   }
   return {
-    options: parsedConfig.options,
+    organizationID,
+    projectName,
     contracts: minimalContractConfigs,
   }
 }
