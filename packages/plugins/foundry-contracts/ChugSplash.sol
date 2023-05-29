@@ -28,6 +28,7 @@ import {
 import { DefaultCreate3 } from "@chugsplash/contracts/contracts/DefaultCreate3.sol";
 
 // TODO: merge this contract with LocalExecutor?
+// TODO: use vm.rpcUrl(alias) everywhere you need the provider in TypeScript
 contract ChugSplash is Script, Test, ChugSplashLocalExecutor, DefaultCreate3 {
     using strings for *;
 
@@ -404,7 +405,7 @@ contract ChugSplash is Script, Test, ChugSplashLocalExecutor, DefaultCreate3 {
                 minimalContractConfig.kind != ContractKindEnum.NO_PROXY
                 ? OptionalString({
                     exists: true,
-                    value: getPreviousConfigUri(_registry, minimalContractConfig.targetAddress)
+                    value: getPreviousConfigUri(_registry, minimalContractConfig.targetAddress, liveNetwork)
                 })
                 : OptionalString({ exists: false, value: "" });
 
@@ -445,8 +446,16 @@ contract ChugSplash is Script, Test, ChugSplashLocalExecutor, DefaultCreate3 {
 
     function getPreviousConfigUri(
         ChugSplashRegistry _registry,
-        address _proxyAddress
-    ) private returns (string memory) {}
+        address _proxyAddress,
+        bool _liveNetwork
+    ) private returns (OptionalString memory) {
+        // TODO(docs): explain why this is different from TS
+        if (_liveNetwork) {
+            return ffiGetPreviousConfigUri(_registry, _proxyAddress);
+        } else {
+
+        }
+    }
 
     function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {}
 
