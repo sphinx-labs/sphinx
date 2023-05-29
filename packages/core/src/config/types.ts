@@ -209,7 +209,7 @@ export type MinimalParsedConfig = {
 export type MinimalParsedContractConfig = {
   referenceName: string
   creationCodeWithConstructorArgs: string
-  addr: string
+  targetAddress: string
   kind: ContractKindEnum
   salt: string
 }

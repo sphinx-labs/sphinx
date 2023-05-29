@@ -4,6 +4,8 @@ import { create, IPFSHTTPClient } from 'ipfs-http-client'
 import { ChugSplashBundles } from '../actions/types'
 import {
   callWithTimeout,
+  getChugSplashRegistry,
+  getChugSplashRegistryReadOnly,
   getConfigArtifactsRemote,
   getDeploymentId,
 } from '../utils'
@@ -106,7 +108,8 @@ export const compileRemoteBundles = async (
 
   const configCache = await getConfigCache(
     provider,
-    getMinimalParsedConfig(canonicalConfig, configArtifacts)
+    getMinimalParsedConfig(canonicalConfig, configArtifacts),
+    getChugSplashRegistryReadOnly(provider)
   )
 
   const bundles = makeBundlesFromConfig(

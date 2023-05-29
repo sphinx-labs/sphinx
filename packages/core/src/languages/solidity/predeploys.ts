@@ -28,6 +28,7 @@ import {
   isLiveNetwork,
   getImpersonatedSigner,
   getChugSplashRegistry,
+  getChugSplashRegistryReadOnly,
 } from '../../utils'
 import {
   ADAPTER_DEPLOYER_ADDRESS,
@@ -403,7 +404,7 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: adding the initial ChugSplashManager version...')
 
-  const ChugSplashRegistry = getChugSplashRegistry(provider)
+  const ChugSplashRegistry = getChugSplashRegistryReadOnly(provider)
   const chugSplashManagerV1Address = getChugSplashManagerV1Address()
   if (
     (await ChugSplashRegistry.managerImplementations(

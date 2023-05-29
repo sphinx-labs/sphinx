@@ -9,7 +9,8 @@ import {
     DeploymentStatus,
     ChugSplashActionType,
     ChugSplashTarget,
-    BundledChugSplashTarget
+    BundledChugSplashTarget,
+    ChugSplashActionBundle
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -149,7 +150,7 @@ abstract contract ChugSplashLocalExecutor {
         ChugSplashManager manager,
         ChugSplashBundles memory bundles,
         uint256 blockGasLimit
-    ) private returns (bool) {
+    ) internal returns (bool) {
         // We execute all actions in batches to reduce the total number of transactions and reduce the
         // cost of a deployment in general. Approaching the maximum block gas limit can cause
         // transactions to be executed slowly as a result of the algorithms that miners use to select
@@ -158,7 +159,7 @@ abstract contract ChugSplashLocalExecutor {
         uint maxGasLimit = blockGasLimit / 2;
 
         // Get number of deploy contract and set state actions
-        (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(actionBundle.actions);
+        (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(bundles.actionBundle.actions);
 
         // Split up the deploy contract and set storage actions
         BundledChugSplashAction[] memory deployContractActions = new BundledChugSplashAction[](numDeployContractActions);
@@ -201,11 +202,11 @@ abstract contract ChugSplashLocalExecutor {
         return true;
     }
 
-    function getNumActions(ChugSplashActionBundle memory _actionBundle) private returns (uint numDeployContractActions, uint numSetStorageActions)  {
+    function getNumActions(BundledChugSplashAction[] memory _actions) internal pure returns (uint256, uint256)  {
         uint256 numDeployContractActions = 0;
         uint256 numSetStorageActions = 0;
-        for (uint256 i = 0; i < _actionBundle.actions.length; i++) {
-            ChugSplashActionType actionType = _actionBundle.actions[i].action.actionType;
+        for (uint256 i = 0; i < _actions.length; i++) {
+            ChugSplashActionType actionType = _actions[i].action.actionType;
             if (actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
                 numDeployContractActions += 1;
             } else if (actionType == ChugSplashActionType.SET_STORAGE) {

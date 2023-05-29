@@ -28,8 +28,9 @@ describe('Validate', () => {
     const varValidationUserConfig = await readUserChugSplashConfig(
       variableValidateConfigPath
     )
-    const constructorArgsValidationUserConfig =
-      await readUserChugSplashConfig(constructorArgConfigPath)
+    const constructorArgsValidationUserConfig = await readUserChugSplashConfig(
+      constructorArgConfigPath
+    )
     const noProxyValidationUserConfig = await readUserChugSplashConfig(
       noProxyContractReferenceConfigPath
     )

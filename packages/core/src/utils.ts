@@ -255,13 +255,21 @@ export const finalizeRegistration = async (
   }
 }
 
-export const getChugSplashRegistry = (
-  signerOrProvider: Signer | providers.Provider
+export const getChugSplashRegistry = (signer: Signer): Contract => {
+  return new Contract(
+    getChugSplashRegistryAddress(),
+    ChugSplashRegistryABI,
+    signer
+  )
+}
+
+export const getChugSplashRegistryReadOnly = (
+  provider: providers.Provider
 ): Contract => {
   return new Contract(
     getChugSplashRegistryAddress(),
     ChugSplashRegistryABI,
-    signerOrProvider
+    provider
   )
 }
 
@@ -775,7 +783,7 @@ export const getCreate3Address = (
   // Return the last 20 bytes of the address hash
   const last20Bytes = utils.hexDataSlice(addressHash, 12)
 
-  // Return the checksum the address
+  // Return the checksum address
   return ethers.utils.getAddress(last20Bytes)
 }
 

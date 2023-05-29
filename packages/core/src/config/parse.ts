@@ -47,6 +47,7 @@ import {
   getPreviousConfigUri,
   getChugSplashRegistry,
   toContractKindEnum,
+  getChugSplashRegistryReadOnly,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -166,7 +167,11 @@ export const readValidatedChugSplashConfig = async (
       exitOnFailure
     )
 
-  const configCache = await getConfigCache(provider, minimalParsedConfig)
+  const configCache = await getConfigCache(
+    provider,
+    minimalParsedConfig,
+    getChugSplashRegistryReadOnly(provider)
+  )
 
   await postParsingValidation(
     parsedConfig,
@@ -2617,11 +2622,11 @@ const assertAvailableCreate3Addresses = (
 
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
-  minimalConfig: MinimalParsedConfig
+  minimalConfig: MinimalParsedConfig,
+  registry: ethers.Contract
 ): Promise<ConfigCache> => {
   const { organizationID, contracts } = minimalConfig
 
-  const registry = getChugSplashRegistry(provider)
   const managerAddress = getChugSplashManagerAddress(organizationID)
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
@@ -2632,10 +2637,10 @@ export const getConfigCache = async (
   for (const [referenceName, minimalContractConfig] of Object.entries(
     contracts
   )) {
-    const { creationCodeWithConstructorArgs, addr, kind, salt } =
+    const { creationCodeWithConstructorArgs, targetAddress, kind, salt } =
       minimalContractConfig
 
-    const isTargetDeployed = (await provider.getCode(addr)) !== '0x'
+    const isTargetDeployed = (await provider.getCode(targetAddress)) !== '0x'
 
     let isImplementationDeployed: boolean | undefined
     if (kind !== ContractKindEnum.NO_PROXY) {
@@ -2644,8 +2649,8 @@ export const getConfigCache = async (
     }
 
     const previousConfigUri =
-      isTargetDeployed && ContractKindEnum.NO_PROXY
-        ? await getPreviousConfigUri(provider, registry, addr)
+      isTargetDeployed && kind !== ContractKindEnum.NO_PROXY
+        ? await getPreviousConfigUri(provider, registry, targetAddress)
         : undefined
 
     const deployedCreationCodeWithArgsHash = isTargetDeployed
@@ -2653,7 +2658,7 @@ export const getConfigCache = async (
           provider,
           organizationID,
           referenceName,
-          addr
+          targetAddress
         )
       : undefined
 
@@ -2685,7 +2690,7 @@ export const getConfigCache = async (
       // function because OpenZeppelin UUPS proxies can implement arbitrary access control
       // mechanisms.
       const manager = new ethers.VoidSigner(managerAddress, provider)
-      const UUPSProxy = new ethers.Contract(addr, ProxyABI, manager)
+      const UUPSProxy = new ethers.Contract(targetAddress, ProxyABI, manager)
       try {
         // Attempt to staticcall the `upgradeTo` function on the proxy from the
         // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
@@ -2712,7 +2717,10 @@ export const getConfigCache = async (
       kind === ContractKindEnum.OZ_TRANSPARENT
     ) {
       // Check that the ChugSplashManager is the owner of the Transparent proxy.
-      const currProxyAdmin = await getEIP1967ProxyAdminAddress(provider, addr)
+      const currProxyAdmin = await getEIP1967ProxyAdminAddress(
+        provider,
+        targetAddress
+      )
 
       if (currProxyAdmin !== managerAddress) {
         importCache = {
@@ -2765,7 +2773,7 @@ export const getMinimalParsedConfig = (
         constructorArgs,
         abi
       ),
-      addr: address,
+      targetAddress: address,
       kind: toContractKindEnum(kind),
       salt,
     })

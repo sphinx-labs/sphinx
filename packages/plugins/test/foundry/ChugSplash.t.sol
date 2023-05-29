@@ -54,14 +54,14 @@ contract ChugSplashTest is Test {
         chugsplash = new ChugSplash();
 
         // Setup deployment test
-        chugsplash.deploy(deployConfig, true);
+        chugsplash.deploy(deployConfig);
 
         // Deploy export proxy test
-        chugsplash.deploy(claimConfig, true);
+        chugsplash.deploy(claimConfig);
         chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
 
         // Start export proxy test
-        chugsplash.deploy(transferConfig, true);
+        chugsplash.deploy(transferConfig);
         chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
 
         // Refresh EVM state to reflect chain state after ChugSplash transactions
@@ -75,7 +75,7 @@ contract ChugSplashTest is Test {
         myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
         myComplexConstructorArgs = ComplexConstructorArgs(chugsplash.getAddress(deployConfig, "ComplexConstructorArgs"));
 
-        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = chugsplash.getChugSplashRegistry();
     }
 
     function testDidexportProxy() public {
