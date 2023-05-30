@@ -662,8 +662,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // https://github.com/chugsplash/chugsplash/blob/sg/port-deploy-task/packages/core/src/tasks/index.ts#L1036-L1086
     function ffiRelayProposal(bytes32 _deploymentId) private {}
 
-    // TODO(ryan): Wait to implement this. This requires that we distinguish between forked and live
-    // networks in TypeScript, which I haven't figured out how to do yet. Lmk if you want more info
     function ffiPostDeploymentActions(
         ChugSplashManager _manager,
         bytes32 _deploymentId,
