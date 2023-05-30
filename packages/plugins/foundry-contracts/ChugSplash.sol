@@ -218,7 +218,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
 
         // TODO(docs): explain why this version doesn't have the canonicalconfig
-        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData();
+        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
             // TODO(spinner): logger is probably justified here
@@ -242,7 +242,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         if (currDeploymentStatus == DeploymentStatus.EMPTY) {
             proposeChugSplashDeployment(
                 manager,
-                deploymentId,
                 bundles,
                 configUri,
                 ProposalRoute.LOCAL_EXECUTION
@@ -327,7 +326,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: separate the local proposal logic from the remote proposal logic in both TS and foundry.
     function proposeChugSplashDeployment(
         ChugSplashManager _manager,
-        bytes32 _deploymentId,
         ChugSplashBundles memory _bundles,
         string memory _configUri,
         ProposalRoute _route
@@ -341,24 +339,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
         }
 
-        if (_route == ProposalRoute.RELAY || _route == ProposalRoute.REMOTE_EXECUTION) {
-            ffiCommitToIPFS(_deploymentId);
-        }
-
-        if (_route == ProposalRoute.RELAY) {
-            ffiRelayProposal(_deploymentId);
-        } else {
-            (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
-            _manager.propose(
-                _bundles.actionBundle.root,
-                _bundles.targetBundle.root,
-                _bundles.actionBundle.actions.length,
-                _bundles.targetBundle.targets.length,
-                numNonProxyContracts,
-                _configUri,
-                _route == ProposalRoute.REMOTE_EXECUTION
-            );
-        }
+        (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
+        _manager.propose(
+            _bundles.actionBundle.root,
+            _bundles.targetBundle.root,
+            _bundles.actionBundle.actions.length,
+            _bundles.targetBundle.targets.length,
+            numNonProxyContracts,
+            _configUri,
+            _route == ProposalRoute.REMOTE_EXECUTION
+        );
     }
 
     function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) internal {
@@ -613,7 +603,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         // TODO: return blank log to stop solidity warning
     }
 
-    function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {}
+    function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {
+        string[] memory cmds = new string[](4);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getCurrentChugSplashManagerVersion";
+
+        bytes memory versionBytes = vm.ffi(cmds);
+        return abi.decode(versionBytes, (Version));
+    }
 
     function ffiGetMinimalParsedConfig(
         string memory _configPath
@@ -624,24 +623,56 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[2] = filePath;
         cmds[3] = "getMinimalParsedConfig";
         cmds[4] = _configPath;
-        // TODO: the rest of the params
 
         bytes memory minimalParsedConfigBytes = vm.ffi(cmds);
-        return abi.decode(minimalParsedConfigBytes, (MinimalParsedConfig));
+        MinimalParsedConfig memory config = abi.decode(minimalParsedConfigBytes, (MinimalParsedConfig));
+        return config;
     }
 
-    function ffiPostParsingValidation(ConfigCache memory _configCache) private {}
+    function ffiPostParsingValidation(ConfigCache memory _configCache) private {
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "postParsingValidation";
+        bytes memory encodedCache = abi.encode(_configCache);
+        cmds[4] = vm.toString(encodedCache);
 
-    function ffiGetCanonicalConfigData()
+        vm.ffi(cmds);
+    }
+
+    function ffiGetCanonicalConfigData(ConfigCache memory _configCache)
         private
-        returns (string memory, ChugSplashBundles memory)
-    {}
+        returns (string memory configUri, ChugSplashBundles memory config)
+    {
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getCanonicalConfigData";
+        bytes memory encodedCache = abi.encode(_configCache);
+        cmds[4] = vm.toString(encodedCache);
 
-    function ffiGetPreviousConfigUri(ChugSplashRegistry _registry, address _proxyAddress) private returns (OptionalString memory) {}
+        bytes memory result = vm.ffi(cmds);
 
-    function ffiCommitToIPFS(bytes32 _deploymentId) private {}
+        (configUri, config) = abi.decode(result, (string, ChugSplashBundles));
+    }
 
-    function ffiRelayProposal(bytes32 _deploymentId) private {}
+    function ffiGetPreviousConfigUri(ChugSplashRegistry _registry, address _proxyAddress) private returns (OptionalString memory) {
+        string[] memory cmds = new string[](6);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getPreviousConfigUri";
+        cmds[4] = vm.rpcUrl(StdChains.getChain(block.chainid).chainAlias);
+        cmds[5] = vm.toString(_proxyAddress);
+
+        bytes memory result = vm.ffi(cmds);
+
+        (bool exists, string memory configUri) = abi.decode(result, (bool, string));
+
+        return OptionalString({ exists: exists, value: configUri });
+    }
 
     function ffiPostDeploymentActions(
         ChugSplashManager _manager,
@@ -689,11 +720,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function isLiveNetwork() private returns (bool) {
         StdChains.Chain memory activeChain = StdChains.getChain(block.chainid);
         strings.slice memory sliceUrl = activeChain.rpcUrl.toSlice();
-        string memory host = sliceUrl.split(":".toSlice()).toString();
+        strings.slice memory delim = ":".toSlice();
+        string[] memory parts = new string[](sliceUrl.count(delim) + 1);
+        for(uint i = 0; i < parts.length; i++) {
+            parts[i] = sliceUrl.split(delim).toString();
+        }
+        string memory host = parts[1];
 
         if (
-            keccak256(bytes(host)) == keccak256("http://127.0.0.1") ||
-            keccak256(bytes(host)) == keccak256("http://localhost")
+            keccak256(bytes(host)) == keccak256("//127.0.0.1") ||
+            keccak256(bytes(host)) == keccak256("//localhost")
         ) {
             return false;
         } else {
@@ -988,7 +1024,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "getChugSplashRegistry";
+        cmds[3] = "getRegistryAddress";
         cmds[4] = rpcUrl;
 
         bytes memory addrBytes = vm.ffi(cmds);
@@ -1003,7 +1039,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) internal pure returns (ChugSplashManager) {
+    ) public pure returns (ChugSplashManager) {
         bytes memory creationCodeWithConstructorArgs = abi.encodePacked(
             type(ChugSplashManagerProxy).creationCode,
             address(_registry),
