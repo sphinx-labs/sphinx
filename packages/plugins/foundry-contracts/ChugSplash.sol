@@ -324,6 +324,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return _registry.managerProxies(_manager);
     }
 
+    // TODO: separate the local proposal logic from the remote proposal logic in both TS and foundry.
     function proposeChugSplashDeployment(
         ChugSplashManager _manager,
         bytes32 _deploymentId,
@@ -612,14 +613,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         // TODO: return blank log to stop solidity warning
     }
 
-    // TODO(ryan): Most of these FFI functions are missing input variables, since I wasn't sure what
-    // would be necessary. I believe they all have the correct return values though.
-
-    // TODO(ryan): should return the value of `CURRENT_CHUGSPLASH_MANAGER_VERSION` in
-    // core/src/constants.ts
     function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {}
 
-    // TODO(ryan): I implemented most of this function already in 'foundry/index.ts'
     function ffiGetMinimalParsedConfig(
         string memory _configPath
     ) internal returns (MinimalParsedConfig memory) {
@@ -635,31 +630,17 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return abi.decode(minimalParsedConfigBytes, (MinimalParsedConfig));
     }
 
-    // TODO(ryan): this just calls `postParsingValidation` in TS
     function ffiPostParsingValidation(ConfigCache memory _configCache) private {}
 
-    // TODO(ryan): should just return the string configUri and the ChugSplashBundles from `getCanonicalConfigData` in TS.
     function ffiGetCanonicalConfigData()
         private
         returns (string memory, ChugSplashBundles memory)
     {}
 
-    // TODO(ryan): for context, the previous config URI is mainly for retrieving the previous
-    // canonical config, which is necessary for the OpenZeppelin storage slot checker. this function
-    // is only called on non-anvil networks (i.e. on live or forked networks). so, it's safe to
-    // assume that there's a valid rpc URL. we get the rpc url via `vm.rpcUrl(chainAlias)` then pass
-    // it in to the FFI call. Note that `chainAlias` can be retrieved by doing:
-    // `getChainId(block.chainid).chainAlias`. The typescript function to call is
-    // `getPreviousConfigUri`.
     function ffiGetPreviousConfigUri(ChugSplashRegistry _registry, address _proxyAddress) private returns (OptionalString memory) {}
 
-    // TODO(ryan): this is only necessary for the propose task, but feel free to implement anyway.
-    // this should just call these two functions:
-    // https://github.com/chugsplash/chugsplash/blob/sg/port-deploy-task/packages/core/src/tasks/index.ts#L1016-L1032
     function ffiCommitToIPFS(bytes32 _deploymentId) private {}
 
-    // TODO(ryan): only necessary for the propose task. it should call this stuff:
-    // https://github.com/chugsplash/chugsplash/blob/sg/port-deploy-task/packages/core/src/tasks/index.ts#L1036-L1086
     function ffiRelayProposal(bytes32 _deploymentId) private {}
 
     function ffiPostDeploymentActions(
