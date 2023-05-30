@@ -369,9 +369,20 @@ const command = args[0]
       const { parsedConfig, minimalParsedConfig, configArtifacts } =
         await readUnvalidatedParsedConfig(configPath, cre, getConfigArtifacts)
 
-      // TODO: write parsedConfig and configArtifacts to 'chugsplash-cache' or something
+      // TODO: We should write parsedConfig and configArtifacts to a 'chugsplash-cache' file or
+      // something. We'll need them in the next ffi call, `postParsingValidation`
 
-      // const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode()
+      // TODO: ABI-encode the minimalParsedConfig and write it to stdout. We should retrieve the ABI
+      // type from the ABI of ChugSplash.sol instead of hard-coding it. Unfortunately, we can't
+      // import the MinimalParsedConfig struct type directly, since structs aren't part of the ABI.
+      // I think the best option is to retrieve the struct type from the return value of
+      // `ChugSplash.sol:ffiGetMinimalParsedConfig`. This'd look something like:
+      //
+      // const minimalParsedConfigType = ChugSplashABI.find((fragment) => fragment.name ===
+      // 'ffiGetMinimalParsedConfig').outputs...
+
+      // const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode(minimalParsedConfigType, minimalParsedConfig)
+      // process.stdout.write(encodedMinimalParsedConfig)
     }
   }
 })().catch((err: Error) => {

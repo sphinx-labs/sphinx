@@ -1018,11 +1018,11 @@ export const getPreviousConfigUri = async (
   registry: ethers.Contract,
   proxyAddress: string
 ): Promise<string | undefined> => {
-  const proxyUpgradedRegistryEvent = await registry.queryFilter(
+  const proxyUpgradedRegistryEvents = await registry.queryFilter(
     registry.filters.EventAnnouncedWithData('ProxyUpgraded', null, proxyAddress)
   )
 
-  const latestRegistryEvent = proxyUpgradedRegistryEvent.at(-1)
+  const latestRegistryEvent = proxyUpgradedRegistryEvents.at(-1)
 
   if (latestRegistryEvent === undefined) {
     return undefined
@@ -1271,25 +1271,20 @@ export const deploymentDoesRevert = async (
 }
 
 export const getDeployedCreationCodeWithArgsHash = async (
-  provider: providers.Provider,
-  organizationID: string,
+  manager: ethers.Contract,
   referenceName: string,
   contractAddress: string
 ): Promise<string> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(
-    provider,
-    organizationID
-  )
+  const latestDeploymentEvent = (
+    await manager.queryFilter(
+      manager.filters.ContractDeployed(referenceName, contractAddress)
+    )
+  ).at(-1)
 
-  const events = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ContractDeployed(referenceName, contractAddress)
-  )
-
-  const latestEvent = events.at(-1)
-  if (!latestEvent || !latestEvent.args) {
+  if (!latestDeploymentEvent || !latestDeploymentEvent.args) {
     throw new Error(`TODO`)
   } else {
-    return latestEvent.args.creationCodeWithArgsHash
+    return latestDeploymentEvent.args.creationCodeWithArgsHash
   }
 }
 

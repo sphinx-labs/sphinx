@@ -48,6 +48,7 @@ import {
   getChugSplashRegistry,
   toContractKindEnum,
   getChugSplashRegistryReadOnly,
+  getChugSplashManagerReadOnly,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -170,7 +171,8 @@ export const readValidatedChugSplashConfig = async (
   const configCache = await getConfigCache(
     provider,
     minimalParsedConfig,
-    getChugSplashRegistryReadOnly(provider)
+    getChugSplashRegistryReadOnly(provider),
+    getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
   )
 
   await postParsingValidation(
@@ -2623,11 +2625,10 @@ const assertAvailableCreate3Addresses = (
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
   minimalConfig: MinimalParsedConfig,
-  registry: ethers.Contract
+  registry: ethers.Contract,
+  manager: ethers.Contract
 ): Promise<ConfigCache> => {
-  const { organizationID, contracts } = minimalConfig
-
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const { contracts } = minimalConfig
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const liveNetwork = await isLiveNetwork(provider)
@@ -2644,7 +2645,7 @@ export const getConfigCache = async (
 
     let isImplementationDeployed: boolean | undefined
     if (kind !== ContractKindEnum.NO_PROXY) {
-      const implAddress = getCreate3Address(managerAddress, salt)
+      const implAddress = getCreate3Address(manager.address, salt)
       isImplementationDeployed = (await provider.getCode(implAddress)) !== '0x'
     }
 
@@ -2655,8 +2656,7 @@ export const getConfigCache = async (
 
     const deployedCreationCodeWithArgsHash = isTargetDeployed
       ? await getDeployedCreationCodeWithArgsHash(
-          provider,
-          organizationID,
+          manager,
           referenceName,
           targetAddress
         )
@@ -2669,7 +2669,7 @@ export const getConfigCache = async (
       try {
         // Attempt to estimate the gas of the deployment.
         await provider.estimateGas({
-          from: managerAddress,
+          from: manager.address,
           data: creationCodeWithConstructorArgs,
         })
       } catch (e) {
@@ -2689,8 +2689,12 @@ export const getConfigCache = async (
       // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
       // function because OpenZeppelin UUPS proxies can implement arbitrary access control
       // mechanisms.
-      const manager = new ethers.VoidSigner(managerAddress, provider)
-      const UUPSProxy = new ethers.Contract(targetAddress, ProxyABI, manager)
+      const managerVoidSigner = new ethers.VoidSigner(manager.address, provider)
+      const UUPSProxy = new ethers.Contract(
+        targetAddress,
+        ProxyABI,
+        managerVoidSigner
+      )
       try {
         // Attempt to staticcall the `upgradeTo` function on the proxy from the
         // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
@@ -2722,7 +2726,7 @@ export const getConfigCache = async (
         targetAddress
       )
 
-      if (currProxyAdmin !== managerAddress) {
+      if (currProxyAdmin !== manager.address) {
         importCache = {
           requiresImport: true,
           currProxyAdmin,

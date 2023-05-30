@@ -3,8 +3,10 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 
+
 contract HelloChugSplash {
 
+    event Hi();
     bool public idk;
 
     function hi() external returns (uint) {
