@@ -79,6 +79,16 @@ export const chugsplashDeployTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, newOwner, silent, noCompile, confirm } = args
+  const spinner = ora({ isSilent: silent })
+
+  if (!noCompile) {
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
+  }
+
+  spinner.start('Booting up ChugSplash...')
+
   const cre = await createChugSplashRuntime(
     configPath,
     false,
@@ -88,15 +98,11 @@ export const chugsplashDeployTask = async (
     silent
   )
 
-  if (!noCompile) {
-    await hre.run(TASK_COMPILE, {
-      quiet: true,
-    })
-  }
-
   const provider = hre.ethers.provider
   const signer = hre.ethers.provider.getSigner()
   await ensureChugSplashInitialized(provider, signer)
+
+  spinner.succeed('ChugSplash is ready!')
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -119,7 +125,8 @@ export const chugsplashDeployTask = async (
     parsedConfig,
     configCache,
     configArtifacts,
-    newOwner
+    newOwner,
+    spinner
   )
 }
 

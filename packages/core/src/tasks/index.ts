@@ -500,10 +500,9 @@ export const chugsplashDeployAbstractTask = async (
   parsedConfig: ParsedChugSplashConfig,
   configCache: ConfigCache,
   configArtifacts: ConfigArtifacts,
-  newOwner?: string
+  newOwner?: string,
+  spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
-
   const { organizationID, projectName } = parsedConfig.options
   const { networkName, blockGasLimit, liveNetwork } = configCache
 

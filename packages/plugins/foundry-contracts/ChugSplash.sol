@@ -446,22 +446,24 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             });
 
             ImportCache memory importCache;
-            // TODO(docs): explain why we skip the UUPS check: can't do it on the in-process anvil
-            // node, and it doesn't impact UX because of local simulation. (well technically it does
-            // impact UX slightly. 1 error message instead of potentially several, but this isn't a
-            // big enough deal to warrant a janky workaround imo. fwiw this is standard behavior on
-            // forge scripts, since the script halts on the first error)
-            if (contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
-                // Check that the ChugSplashManager is the owner of the Transparent proxy.
-                address currProxyAdmin = getEIP1967ProxyAdminAddress(
-                    contractConfig.targetAddress
-                );
+            if (isTargetDeployed) {
+                // TODO(docs): explain why we skip the UUPS check: can't do it on the in-process anvil
+                // node, and it doesn't impact UX because of local simulation. (well technically it does
+                // impact UX slightly. 1 error message instead of potentially several, but this isn't a
+                // big enough deal to warrant a janky workaround imo. fwiw this is standard behavior on
+                // forge scripts, since the script halts on the first error)
+                if (contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
+                    // Check that the ChugSplashManager is the owner of the Transparent proxy.
+                    address currProxyAdmin = getEIP1967ProxyAdminAddress(
+                        contractConfig.targetAddress
+                    );
 
-                if (currProxyAdmin != address(_manager)) {
-                    importCache = ImportCache({
-                        requiresImport: true,
-                        currProxyAdmin: OptionalAddress({exists: true, value: currProxyAdmin})
-                    });
+                    if (currProxyAdmin != address(_manager)) {
+                        importCache = ImportCache({
+                            requiresImport: true,
+                            currProxyAdmin: OptionalAddress({exists: true, value: currProxyAdmin})
+                        });
+                    }
                 }
             }
 

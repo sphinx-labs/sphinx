@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
-
-
 contract HelloChugSplash {
-
-    event Hi();
-    bool public idk;
-
-    function hi() external returns (uint) {
-        return idk ? 2 : 1;
-    }
+    uint8 public number;
+    bool public stored;
+    address public otherStorage;
+    string public storageName;
 }

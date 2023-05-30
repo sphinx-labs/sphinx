@@ -1811,7 +1811,7 @@ export const assertValidParsedChugSplashFile = async (
   )) {
     const { kind, address, variables, contract, unsafeAllow } = contractConfig
     const { input, output } = configArtifacts[referenceName].buildInfo
-    const { previousConfigUri, importCache } =
+    const { previousConfigUri, importCache, isTargetDeployed } =
       contractConfigCache[referenceName]
 
     if (importCache.requiresImport) {
@@ -1857,7 +1857,7 @@ export const assertValidParsedChugSplashFile = async (
           cre.stream
         )
       }
-    } else {
+    } else if (isTargetDeployed) {
       const minimumCompilerInput = getMinimumCompilerInput(
         input,
         output.contracts,
@@ -2635,11 +2635,14 @@ export const getConfigCache = async (
   const networkName = await resolveNetworkName(provider, 'hardhat')
 
   const contractConfigCache: ContractConfigCache = {}
-  for (const [referenceName, minimalContractConfig] of Object.entries(
-    contracts
-  )) {
-    const { creationCodeWithConstructorArgs, targetAddress, kind, salt } =
-      minimalContractConfig
+  for (const minimalContractConfig of contracts) {
+    const {
+      creationCodeWithConstructorArgs,
+      targetAddress,
+      kind,
+      salt,
+      referenceName,
+    } = minimalContractConfig
 
     const isTargetDeployed = (await provider.getCode(targetAddress)) !== '0x'
 
@@ -2682,54 +2685,59 @@ export const getConfigCache = async (
     }
 
     let importCache: ImportCache | undefined
-    if (
-      kind === ContractKindEnum.OZ_OWNABLE_UUPS ||
-      kind === ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
-    ) {
-      // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
-      // function because OpenZeppelin UUPS proxies can implement arbitrary access control
-      // mechanisms.
-      const managerVoidSigner = new ethers.VoidSigner(manager.address, provider)
-      const UUPSProxy = new ethers.Contract(
-        targetAddress,
-        ProxyABI,
-        managerVoidSigner
-      )
-      try {
-        // Attempt to staticcall the `upgradeTo` function on the proxy from the
-        // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
-        // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
-        // 1. The new implementation is deployed on every network. Otherwise, the call will revert
-        //    due to this check:
-        //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
-        // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
-        //    will revert due to this check:
-        //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-        await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
-      } catch (e) {
-        // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
-        // UUPS proxy, which means the user must grant it permission via whichever access control
-        // mechanism the UUPS proxy uses.
-        importCache = {
-          requiresImport: true,
-          // We leave the `currProxyAdmin` blank because TODO
+    if (isTargetDeployed) {
+      if (
+        kind === ContractKindEnum.OZ_OWNABLE_UUPS ||
+        kind === ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
+      ) {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const managerVoidSigner = new ethers.VoidSigner(
+          manager.address,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          targetAddress,
+          ProxyABI,
+          managerVoidSigner
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // UUPS proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          importCache = {
+            requiresImport: true,
+            // We leave the `currProxyAdmin` blank because TODO
+          }
         }
-      }
-    } else if (
-      kind === ContractKindEnum.EXTERNAL_DEFAULT ||
-      kind === ContractKindEnum.INTERNAL_DEFAULT ||
-      kind === ContractKindEnum.OZ_TRANSPARENT
-    ) {
-      // Check that the ChugSplashManager is the owner of the Transparent proxy.
-      const currProxyAdmin = await getEIP1967ProxyAdminAddress(
-        provider,
-        targetAddress
-      )
+      } else if (
+        kind === ContractKindEnum.EXTERNAL_DEFAULT ||
+        kind === ContractKindEnum.INTERNAL_DEFAULT ||
+        kind === ContractKindEnum.OZ_TRANSPARENT
+      ) {
+        // Check that the ChugSplashManager is the owner of the Transparent proxy.
+        const currProxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          targetAddress
+        )
 
-      if (currProxyAdmin !== manager.address) {
-        importCache = {
-          requiresImport: true,
-          currProxyAdmin,
+        if (currProxyAdmin !== manager.address) {
+          importCache = {
+            requiresImport: true,
+            currProxyAdmin,
+          }
         }
       }
     }
