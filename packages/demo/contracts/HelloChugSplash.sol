@@ -3,7 +3,8 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 
-error He();
+    error He(string msg);
+
 
 struct Hi {
     bool idk;
@@ -22,7 +23,7 @@ contract HelloChugSplash {
 
     function hi() external returns (uint) {
         (bool success, bytes memory retdata) = address(logic).delegatecall(abi.encodeCall(Logic.t, ()));
-        console.log(success);
+        console.logBytes(retdata);
     }
 
     function _hi(Hi storage _thing) internal {
@@ -36,6 +37,6 @@ contract HelloChugSplash {
 
 contract Logic {
     function t() external {
-        revert("hello");
+        revert He("hi");
     }
 }

@@ -11,13 +11,12 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import {
-    Lib_MerkleTree as MerkleTree
-} from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Semver, Version } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
@@ -28,6 +27,34 @@ import {
     ContextUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
+import {
+CallerIsNotRemoteExecutor,
+CallerIsNotProposer,
+DeploymentStateIsNotProposable,
+InsufficientOwnerBond,
+DeploymentIsNotProposed,
+AnotherDeploymentInProgress,
+NoActiveDeployment,
+NoActiveDeployment,
+RemoteExecutionDisabled,
+DeploymentAlreadyClaimed,
+AmountMustBeGreaterThanZero,
+InsufficientExecutorDebt,
+InsufficientFunds,
+WithdrawalFailed,
+WithdrawalFailed,
+ContractDoesNotExist,
+AnotherDeploymentInProgress,
+InvalidContractKind,
+ProxyExportFailed,
+AnotherDeploymentInProgress,
+WithdrawalFailed,
+EmptyActionsArray,
+ActionAlreadyExecuted,
+CallerIsNotSelectedExecutor,
+CallerIsNotOwner
+} from "./ChugSplashErrors.sol";
+import { ChugSplashExecutionLogic } from "./ChugSplashExecutionLogic.sol";
 
 /**
  * @title ChugSplashManager
@@ -47,6 +74,7 @@ import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
  */
 contract ChugSplashManager is
     OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
     Semver,
     IChugSplashManager,
     ERC2771ContextUpgradeable,
@@ -66,6 +94,11 @@ contract ChugSplashManager is
      * @notice Address of the ChugSplashRegistry.
      */
     ChugSplashRegistry public immutable registry;
+
+    /**
+     * @notice Address of the ChugSplashExecutionLogic contract.
+     */
+    address public immutable executionLogic;
 
     /**
      * @notice Address of the GasPriceCalculator contract.
@@ -180,6 +213,7 @@ contract ChugSplashManager is
      */
     constructor(
         ChugSplashRegistry _registry,
+        address _executionLogic,
         IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
         uint256 _executionLockTime,
@@ -193,6 +227,7 @@ contract ChugSplashManager is
         ERC2771ContextUpgradeable(_trustedForwarder)
     {
         registry = _registry;
+        executionLogic = _executionLogic;
         gasPriceCalculator = _gasPriceCalculator;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
@@ -635,9 +670,7 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Deploys non-proxy contracts and sets proxy state variables. If the deployment does
-       not contain any proxies, it will be completed after all of the non-proxy contracts have been
-       deployed in this function.
+     * @notice Deploys non-proxy contracts and sets proxy state variables.
      *
      * @param _actions Array of RawChugSplashAction structs containing the actions for the
      *                 deployment.
@@ -648,30 +681,111 @@ contract ChugSplashManager is
         RawChugSplashAction[] memory _actions,
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
+        uint256 initialGasLeft = gasleft();
 
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
+
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+
+        uint256 numActions = _actions.length;
+
+        // Prevents the executor from repeatedly sending an empty array of `_actions`, which would
+        // cause the executor to be paid for doing nothing.
+        if (numActions == 0) {
+            revert EmptyActionsArray();
+        }
+
+        RawChugSplashAction memory action;
+        uint256 actionIndex;
+        bytes32[] memory proof;
+        for (uint256 i = 0; i < numActions; i++) {
+            action = _actions[i];
+            actionIndex = _actionIndexes[i];
+            proof = _proofs[i];
+
+            if (deployment.actions[actionIndex]) {
+                revert ActionAlreadyExecuted();
+            }
+
+            // Mark the action as executed and update the total number of executed actions.
+            deployment.actionsExecuted++;
+            deployment.actions[actionIndex] = true;
+
+            (bool success, bytes memory result) = executionLogic.delegatecall(abi.encodeCall(ChugSplashExecutionLogic.executeActions, (action, actionIndex, proof, deployment, activeDeploymentId)));
+            // if (!success) {
+            //     revert(add(result,32),mload(result));
+            // }
+
+        //     if (
+        //         !MerkleTree.verify(
+        //             deployment.actionRoot,
+        //             keccak256(
+        //                 abi.encode(
+        //                     action.referenceName,
+        //                     action.addr,
+        //                     action.actionType,
+        //                     action.contractKindHash,
+        //                     action.data
+        //                 )
+        //             ),
+        //             actionIndex,
+        //             proof,
+        //             deployment.actions.length
+        //         )
+        //     ) {
+        //         revert InvalidMerkleProof();
+        //     }
+
+        //     if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
+        //         _attemptContractDeployment(deployment, action, actionIndex);
+
+        //         if (
+        //             deployment.actionsExecuted == deployment.actions.length &&
+        //             deployment.targets == 0 &&
+        //             deployment.status != DeploymentStatus.FAILED
+        //         ) {
+        //             _completeDeployment(deployment);
+        //         }
+        //     } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
+        //         _setProxyStorage(deployment, action, actionIndex);
+        //     } else {
+        //         revert InvalidActionType();
+        //     }
+        }
+
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
-     * @notice Initiate the proxies in an upgrade. This must be called after the contracts are
-       deployment is approved, and before the rest of the execution process occurs. In this
-       function, all of the proxies in the deployment are disabled by setting their implementations
-       to a contract that can only be called by the team's ChugSplashManagerProxy. This must occur
-       in a single transaction to make the process atomic, which means the proxies are upgraded as a
-       single unit.
-
+     * @notice Initiate the proxies in an upgrade.
+     *
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _proofs Array of Merkle proofs for the targets.
      */
     function initiateUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
-   }
+    ) public nonReentrant {
+        uint256 initialGasLeft = gasleft();
+
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
+
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+
+        (bool success, bytes memory result) = executionLogic.delegatecall(abi.encodeCall(ChugSplashExecutionLogic.initiateUpgrade, (_targets, _proofs, deployment, activeDeploymentId)));
+        if (!success) {
+            revert(add(result,32),mload(result));
+        }
+
+        // Mark the deployment as initiated.
+        deployment.status = DeploymentStatus.PROXIES_INITIATED;
+
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
+    }
 
     /**
-     * @notice Finalizes the upgrade by upgrading all proxies to their new implementations. This
-     *         occurs in a single transaction to ensure that the upgrade is atomic.
+     * @notice Finalizes the upgrade by setting all proxies to their new implementations.
      *
      * @param _targets Array of ChugSplashTarget structs containing the targets for the deployment.
      * @param _proofs Array of Merkle proofs for the targets.
@@ -679,8 +793,21 @@ contract ChugSplashManager is
     function finalizeUpgrade(
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
-    ) public {
+    ) public nonReentrant {
+        uint256 initialGasLeft = gasleft();
 
+        DeploymentState storage deployment = _deployments[activeDeploymentId];
+
+        _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
+
+        (bool success, bytes memory result) = executionLogic.delegatecall(abi.encodeCall(ChugSplashExecutionLogic.finalizeUpgrade, (_targets, _proofs, deployment, activeDeploymentId)));
+        if (!success) {
+            revert(add(result,32),mload(result));
+        }
+
+        _completeDeployment(deployment);
+
+        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
@@ -717,6 +844,61 @@ contract ChugSplashManager is
     function getSelectedExecutor(bytes32 _deploymentId) public view returns (address) {
         DeploymentState storage deployment = _deployments[_deploymentId];
         return deployment.selectedExecutor;
+    }
+
+    /**
+     * @notice Mark the deployment as completed and reset the active deployment ID.
+
+     * @param _deployment The current deployment state struct. The data location is "s  rage"
+       because we modify the struct.
+     */
+    function _completeDeployment(DeploymentState storage _deployment) internal {
+        _deployment.status = DeploymentStatus.COMPLETED;
+
+        emit ChugSplashDeploymentCompleted(activeDeploymentId, _msgSender());
+        registry.announce("ChugSplashDeploymentCompleted");
+
+        activeDeploymentId = bytes32(0);
+    }
+
+    /**
+     * @notice Pay the executor and protocol creator based on the transaction's gas price and the
+       gas used. Note that no payment occurs for self-executed deployments.
+
+        * @param _initialGasLeft Gas left at the beginning of this transaction.
+        * @param _remoteExecution True if the deployment is being executed remotely, otherwise
+          false.
+     */
+    function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
+        if (!_remoteExecution) {
+            return;
+        }
+
+        uint256 gasPrice = gasPriceCalculator.getGasPrice();
+
+        // Estimate the gas used by the calldata. Note that, in general, 16 gas is used per non-zero
+        // byte of calldata and 4 gas is used per zero-byte of calldata. We use 16 for simplicity
+        // and because we must overestimate the executor's payment to ensure that it doesn't lose
+        // money.
+        uint256 calldataGasUsed = _msgData().length * 16;
+
+        // Estimate the total gas used in this transaction. We calculate this by adding the gas used
+        // by the calldata with the net estimated gas used by this function so far (i.e.
+        // `_initialGasLeft - gasleft()`). We add 100k to account for the intrinsic gas cost (21k)
+        // and the operations that occur after we assign a value to `estGasUsed`. Note that it's
+        // crucial for this estimate to be greater than the actual gas used by this transaction so
+        // that the executor doesn't lose money`.
+        uint256 estGasUsed = 100_000 + calldataGasUsed + _initialGasLeft - gasleft();
+
+        uint256 executorPayment = (gasPrice * estGasUsed * (100 + executorPaymentPercentage)) / 100;
+        uint256 protocolPayment = (gasPrice * estGasUsed * (protocolPaymentPercentage)) / 100;
+
+        // Add the executor's payment to the executor debt.
+        totalExecutorDebt += executorPayment;
+        executorDebt[_msgSender()] += executorPayment;
+
+        // Add the protocol's payment to the protocol debt.
+        totalProtocolDebt += protocolPayment;
     }
 
     /**
