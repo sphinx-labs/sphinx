@@ -1,3 +1,5 @@
+import * as fs from 'fs'
+
 import {
   chugsplashProposeAbstractTask,
   chugsplashClaimAbstractTask,
@@ -18,6 +20,13 @@ import {
   bootloaderTwoConstructorFragment,
   readUnvalidatedParsedConfig,
   ProposalRoute,
+  CURRENT_CHUGSPLASH_MANAGER_VERSION,
+  postParsingValidation,
+  ParsedChugSplashConfig,
+  ConfigArtifacts,
+  getChugSplashRegistryReadOnly,
+  getCanonicalConfigData,
+  getPreviousConfigUri,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import {
@@ -35,6 +44,59 @@ import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
 const command = args[0]
+
+const decodeCachedConfig = (encodedConfigCache: string) => {
+  const ChugSplashFoundryABI =
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+  const configCacheType = ChugSplashFoundryABI.find(
+    (fragment) => fragment.name === 'getConfigCache'
+  ).outputs[0]
+
+  const configCache = ethers.utils.defaultAbiCoder.decode(
+    [configCacheType],
+    encodedConfigCache
+  )[0]
+
+  const structuredConfigCache = {
+    blockGasLimit: configCache.blockGasLimit,
+    liveNetwork: configCache.liveNetwork,
+    networkName: configCache.networkName,
+    contractConfigCache: {},
+  }
+
+  for (const cachedContract of configCache.contractConfigCache) {
+    structuredConfigCache.contractConfigCache[cachedContract.referenceName] = {
+      referenceName: cachedContract.referenceName,
+      isTargetDeployed: cachedContract.isTargetDeployed,
+      deploymentRevert: {
+        deploymentReverted: cachedContract.deploymentRevert.deploymentReverted,
+        deploymentRevertReason: cachedContract.deploymentRevert.revertString
+          .exists
+          ? cachedContract.deploymentRevert.revertString.value
+          : undefined,
+      },
+      importCache: {
+        requiresImport: cachedContract.importCache.requiresImport,
+        currProxyAdmin: cachedContract.importCache.currProxyAdmin.exists
+          ? cachedContract.importCache.currProxyAdmin.value
+          : undefined,
+      },
+      deployedCreationCodeWithArgsHash: cachedContract
+        .deployedCreationCodeWithArgsHash.exists
+        ? cachedContract.deployedCreationCodeWithArgsHash.value
+        : undefined,
+      isImplementationDeployed: cachedContract.isImplementationDeployed.exists
+        ? cachedContract.isImplementationDeployed.value
+        : undefined,
+      previousConfigUri: cachedContract.previousConfigUri.exists
+        ? cachedContract.previousConfigUri.value
+        : undefined,
+    }
+  }
+
+  return structuredConfigCache
+}
 
 ;(async () => {
   switch (command) {
@@ -343,22 +405,21 @@ const command = args[0]
       )
 
       process.stdout.write(encodedArtifacts)
+      break
     }
     case 'getMinimalParsedConfig': {
       const configPath = args[1]
-      const remoteExecution = args[2] === 'true'
-      const silent = args[3] === 'true'
 
       const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
         await getPaths()
 
       const cre = await createChugSplashRuntime(
         configPath,
-        remoteExecution,
+        false,
         true,
         canonicalConfigFolder,
         undefined,
-        silent
+        false
       )
 
       const getConfigArtifacts = makeGetConfigArtifacts(
@@ -369,20 +430,138 @@ const command = args[0]
       const { parsedConfig, minimalParsedConfig, configArtifacts } =
         await readUnvalidatedParsedConfig(configPath, cre, getConfigArtifacts)
 
-      // TODO: We should write parsedConfig and configArtifacts to a 'chugsplash-cache' file or
-      // something. We'll need them in the next ffi call, `postParsingValidation`
+      const configCache = {
+        parsedConfig,
+        configArtifacts,
+      }
 
-      // TODO: ABI-encode the minimalParsedConfig and write it to stdout. We should retrieve the ABI
-      // type from the ABI of ChugSplash.sol instead of hard-coding it. Unfortunately, we can't
-      // import the MinimalParsedConfig struct type directly, since structs aren't part of the ABI.
-      // I think the best option is to retrieve the struct type from the return value of
-      // `ChugSplash.sol:ffiGetMinimalParsedConfig`. This'd look something like:
-      //
-      // const minimalParsedConfigType = ChugSplashABI.find((fragment) => fragment.name ===
-      // 'ffiGetMinimalParsedConfig').outputs...
+      if (!fs.existsSync('./cache')) {
+        fs.mkdirSync('./cache')
+      }
+      fs.writeFileSync(
+        './cache/chugsplash-config-cache.json',
+        JSON.stringify(configCache, null, 2),
+        'utf-8'
+      )
 
-      // const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode(minimalParsedConfigType, minimalParsedConfig)
-      // process.stdout.write(encodedMinimalParsedConfig)
+      const ChugSplashFoundryABI =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+      const minimalParsedConfigType = ChugSplashFoundryABI.find(
+        (fragment) => fragment.name === 'ffiGetMinimalParsedConfig'
+      ).outputs[0]
+
+      const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode(
+        [minimalParsedConfigType],
+        [minimalParsedConfig]
+      )
+      process.stdout.write(encodedMinimalParsedConfig)
+      break
+    }
+    case 'postParsingValidation': {
+      const encodedConfigCache = args[1]
+      const configCache = decodeCachedConfig(encodedConfigCache)
+
+      const {
+        parsedConfig,
+        configArtifacts,
+      }: {
+        parsedConfig: ParsedChugSplashConfig
+        configArtifacts: ConfigArtifacts
+      } = JSON.parse(
+        (
+          await fs.readFileSync('./cache/chugsplash-config-cache.json')
+        ).toString()
+      )
+
+      const { canonicalConfigFolder } = await getPaths()
+      const cre = await createChugSplashRuntime(
+        '',
+        false,
+        true,
+        canonicalConfigFolder,
+        undefined,
+        false,
+        process.stdout
+      )
+
+      await postParsingValidation(
+        parsedConfig,
+        configArtifacts,
+        cre,
+        configCache,
+        true
+      )
+      break
+    }
+    case 'getCurrentChugSplashManagerVersion': {
+      const artifactStructABI =
+        'tuple(uint256 major, uint256 minor, uint256 patch)'
+      const encodedVersion = ethers.utils.AbiCoder.prototype.encode(
+        [artifactStructABI],
+        [CURRENT_CHUGSPLASH_MANAGER_VERSION]
+      )
+
+      process.stdout.write(encodedVersion)
+      break
+    }
+    case 'getCanonicalConfigData': {
+      const encodedConfigCache = args[1]
+      const configCache = decodeCachedConfig(encodedConfigCache)
+
+      const {
+        parsedConfig,
+        configArtifacts,
+      }: {
+        parsedConfig: ParsedChugSplashConfig
+        configArtifacts: ConfigArtifacts
+      } = JSON.parse(
+        (
+          await fs.readFileSync('./cache/chugsplash-config-cache.json')
+        ).toString()
+      )
+      const { configUri, bundles } = await getCanonicalConfigData(
+        parsedConfig,
+        configArtifacts,
+        configCache
+      )
+
+      const ChugSplashFoundryABI =
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+      const canonicalConfigDataOutputTypes = ChugSplashFoundryABI.find(
+        (fragment) => fragment.name === 'ffiGetCanonicalConfigData'
+      ).outputs
+
+      const encodedGetCanonicalConfigData = ethers.utils.defaultAbiCoder.encode(
+        canonicalConfigDataOutputTypes,
+        [configUri, bundles]
+      )
+
+      process.stdout.write(encodedGetCanonicalConfigData)
+      break
+    }
+    case 'getPreviousConfigUri': {
+      const rpcUrl = args[1]
+      const proxyAddress = args[2]
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
+      const registry = await getChugSplashRegistryReadOnly(provider)
+
+      const configUri = await getPreviousConfigUri(
+        provider,
+        registry,
+        proxyAddress
+      )
+
+      const exists = configUri !== undefined
+
+      const encodedCanonicalConfigUri = ethers.utils.defaultAbiCoder.encode(
+        ['bool', 'string'],
+        [exists, configUri ?? '']
+      )
+
+      process.stdout.write(encodedCanonicalConfigUri)
+      break
     }
   }
 })().catch((err: Error) => {
