@@ -3,13 +3,39 @@ pragma solidity ^0.8.15;
 
 import "hardhat/console.sol";
 
+error He();
+
+struct Hi {
+    bool idk;
+}
+
+import "hardhat/console.sol";
 
 contract HelloChugSplash {
 
-    event Hi();
-    bool public idk;
+    Hi public thing;
+    Logic public logic;
+
+    constructor() {
+        logic = new Logic();
+    }
 
     function hi() external returns (uint) {
-        return idk ? 2 : 1;
+        (bool success, bytes memory retdata) = address(logic).delegatecall(abi.encodeCall(Logic.t, ()));
+        console.log(success);
+    }
+
+    function _hi(Hi storage _thing) internal {
+
+    }
+
+    function get() external view returns (bool) {
+        return thing.idk;
+    }
+}
+
+contract Logic {
+    function t() external {
+        revert("hello");
     }
 }
