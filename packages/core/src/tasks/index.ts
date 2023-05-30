@@ -656,6 +656,14 @@ const postDeploymentActions = async (
     configArtifacts
   )
 
+  await trackDeployed(
+    await manager.owner(),
+    organizationID,
+    projectName,
+    networkName,
+    integration
+  )
+
   spinner.succeed(`Wrote deployment artifacts.`)
 
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
@@ -685,14 +693,6 @@ const postDeploymentActions = async (
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
   }
-
-  await trackDeployed(
-    await manager.owner(),
-    organizationID,
-    projectName,
-    networkName,
-    integration
-  )
 }
 
 export const chugsplashCancelAbstractTask = async (

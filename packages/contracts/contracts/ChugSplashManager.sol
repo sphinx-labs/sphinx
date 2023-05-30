@@ -675,6 +675,46 @@ contract ChugSplashManager is
     }
 
     /**
+     * @notice Allows an executor to claim its ETH payment that was earned by completing a
+       deployment. Executors may only withdraw an amount less than or equal to the amount of ETH
+       owed to them by this contract. We allow the executor to withdraw less than the amount owed to
+       them because it's possible that the executor's debt exceeds the amount of ETH stored in this
+       contract. This situation can occur when the executor completes an underfunded deployment.
+
+     * @param _amount Amount of ETH to withdraw.
+     */
+    function claimExecutorPayment(uint256 _amount) external onlyExecutor {
+        if (_amount == 0) {
+            revert AmountMustBeGreaterThanZero();
+        }
+        if (executorDebt[_msgSender()] < _amount) {
+            revert InsufficientExecutorDebt();
+        }
+        if (_amount + totalProtocolDebt > address(this).balance) {
+            revert InsufficientFunds();
+        }
+
+        executorDebt[_msgSender()] -= _amount;
+        totalExecutorDebt -= _amount;
+
+        emit ExecutorPaymentClaimed(_msgSender(), _amount, executorDebt[_msgSender()]);
+
+        (bool paidExecutor, ) = payable(_msgSender()).call{ value: _amount }(new bytes(0));
+        if (!paidExecutor) {
+            revert WithdrawalFailed();
+        }
+
+        (bool paidProtocol, ) = payable(address(managedService)).call{ value: totalProtocolDebt }(
+            new bytes(0)
+        );
+        if (!paidProtocol) {
+            revert WithdrawalFailed();
+        }
+
+        registry.announce("ExecutorPaymentClaimed");
+    }
+
+    /**
      * @notice Transfers ownership of a proxy away from this contract to a specified address. Only
        callable by the owner. Note that this function allows the owner to send ownership of their
        proxy to address(0), which would make their proxy non-upgradeable.
