@@ -295,7 +295,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) internal {
         if (!isProjectClaimed(_registry, address(_manager))) {
             bytes memory initializerData = abi.encode(
-                _manager,
+                _newOwner,
                 _organizationID,
                 _allowManagedProposals
             );
