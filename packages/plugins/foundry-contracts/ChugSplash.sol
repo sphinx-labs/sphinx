@@ -221,6 +221,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             false
         );
 
+        address realManagerAddress = registry.projects(minimalParsedConfig.organizationID);
+        require(realManagerAddress == address(manager), "Computed manager address is different from expected address");
+
         // TODO(docs): explain why this version doesn't have the canonicalconfig
         (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
@@ -738,6 +741,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
+    function getChugSplashManagerProxyBytecode() private returns (bytes memory) {
+        string[] memory cmds = new string[](4);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getChugSplashManagerProxyBytecode";
+
+        return vm.ffi(cmds);
+    }
+
     function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
@@ -1071,11 +1084,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) public pure returns (ChugSplashManager) {
+    ) public returns (ChugSplashManager) {
+        bytes memory proxyBytecode = getChugSplashManagerProxyBytecode();
         bytes memory creationCodeWithConstructorArgs = abi.encodePacked(
-            type(ChugSplashManagerProxy).creationCode,
-            address(_registry),
-            address(_registry)
+            proxyBytecode,
+            abi.encode(_registry, address(_registry))
         );
         address managerAddress = Create2.computeAddress(
             _organizationID,
