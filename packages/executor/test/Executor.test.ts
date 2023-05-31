@@ -37,7 +37,7 @@ describe('Remote Execution', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false
+      true
     )
 
     const { parsedConfig, configArtifacts, configCache } =

@@ -18,7 +18,6 @@ import {
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
-import ora from 'ora'
 
 import { createChugSplashRuntime } from '../src/utils'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -129,8 +128,7 @@ describe('Transfer', () => {
       parsedConfig,
       configCache,
       configArtifacts,
-      undefined,
-      ora()
+      undefined
     )
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
@@ -189,7 +187,7 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false
+      true
     )
 
     await chugsplashClaimAbstractTask(
@@ -222,9 +220,6 @@ describe('Transfer', () => {
         makeGetConfigArtifacts(hre)
       )
 
-    // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].address = UUPSUpgradableTokenV1.address
-
     await chugsplashDeployAbstractTask(
       provider,
       signer,
@@ -235,8 +230,7 @@ describe('Transfer', () => {
       parsedConfig,
       configCache,
       configArtifacts,
-      undefined,
-      ora()
+      undefined
     )
 
     const UUPSUpgradableTokenV2 = await hre.ethers.getContractAt(
@@ -285,7 +279,6 @@ describe('Transfer', () => {
         kind: 'uups',
       }
     )
-    console.log(UUPSAccessControlUpgradableTokenV1.address)
 
     const provider = hre.ethers.provider
 
@@ -354,10 +347,6 @@ describe('Transfer', () => {
         makeGetConfigArtifacts(hre)
       )
 
-    // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].address =
-      UUPSAccessControlUpgradableTokenV1.address
-
     await chugsplashDeployAbstractTask(
       provider,
       signer,
@@ -368,8 +357,7 @@ describe('Transfer', () => {
       parsedConfig,
       configCache,
       configArtifacts,
-      undefined,
-      ora()
+      undefined
     )
 
     const UUPSAccessControlUpgradableTokenV2 = await hre.ethers.getContractAt(

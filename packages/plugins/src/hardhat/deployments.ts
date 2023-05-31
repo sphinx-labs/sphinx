@@ -17,10 +17,10 @@ import {
   getNonProxyCreate3Salt,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import ora from 'ora'
 
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
-import ora from 'ora'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []

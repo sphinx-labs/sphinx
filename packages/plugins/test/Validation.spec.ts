@@ -41,7 +41,8 @@ describe('Validate', () => {
         variableValidateConfigPath,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        false
       )
     } catch (e) {
       /* empty */
@@ -52,7 +53,8 @@ describe('Validate', () => {
         constructorArgConfigPath,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        false
       )
     } catch (e) {
       /* empty */
@@ -63,7 +65,8 @@ describe('Validate', () => {
         noProxyContractReferenceConfigPath,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        false
       )
     } catch (e) {
       /* empty */

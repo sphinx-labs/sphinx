@@ -20,7 +20,7 @@ import {
 import { ProxyABI } from '@chugsplash/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import yesno from 'yesno'
-import { ContractDefinition } from 'solidity-ast'
+import { ContractDefinition, Expression } from 'solidity-ast'
 
 import {
   SolidityStorageLayout,
@@ -1981,10 +1981,7 @@ export const assertValidSourceCode = (
                   'VariableDeclaration',
                   statementNode.expression.leftHandSide.referencedDeclaration
                 ).mutability !== 'immutable' ||
-                isNodeType(
-                  'FunctionCall',
-                  statementNode.expression.rightHandSide
-                )
+                containsFunctionCall(statementNode.expression.rightHandSide)
               ) {
                 logValidationError(
                   'error',
@@ -2018,7 +2015,7 @@ export const assertValidSourceCode = (
             } else if (
               node.mutability === 'immutable' &&
               node.value &&
-              isNodeType('FunctionCall', node.value)
+              containsFunctionCall(node.value)
             ) {
               logValidationError(
                 'error',
@@ -2071,6 +2068,17 @@ export const assertValidSourceCode = (
       }
     }
   }
+}
+
+// // TODO(docs): explain why this is necessary. findAll('FunctionCall', node) yields function calls
+// as well as casting, e.g. address(0). this returns true for function calls like myContract.myFunction()
+const containsFunctionCall = (parentNode: Expression): boolean => {
+  for (const node of findAll('FunctionCall', parentNode)) {
+    if (node.kind === 'functionCall') {
+      return true
+    }
+  }
+  return false
 }
 
 const logUnsafeOptions = (

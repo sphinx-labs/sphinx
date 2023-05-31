@@ -13,6 +13,6 @@ contract Deploy {
         (bool success, ) = deployer.call(data);
         require(success);
         require(address(0x8E76baBBDFcD49c770a606eB0527FD38F896ed36).code.length > 0);
-        console.log('success!');
+        console.log("success!");
     }
 }
