@@ -220,8 +220,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
 
         // TODO(docs): explain why this version doesn't have the canonicalconfig
-        string memory configUri;
-        ChugSplashBundles memory bundles;
+        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
             // TODO(spinner): logger is probably justified here
@@ -382,7 +381,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         MinimalParsedConfig memory _minimalConfig,
         ChugSplashRegistry _registry,
         ChugSplashManager _manager
-    ) internal returns (ConfigCache memory) {
+    ) public returns (ConfigCache memory) {
         MinimalParsedContractConfig[] memory contractConfigs = _minimalConfig
             .contracts;
 
@@ -542,7 +541,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private returns (OptionalString memory) {
         // TODO(docs): explain why this is different from TS
         if (_liveNetwork) {
-            return ffiGetPreviousConfigUri(_registry, _proxyAddress);
+            return ffiGetPreviousConfigUri(_proxyAddress);
         } else {
             OptionalLog memory latestRegistryEvent = getLatestEvent(
                 address(_registry),
@@ -618,7 +617,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function ffiGetMinimalParsedConfig(
         string memory _configPath
-    ) internal returns (MinimalParsedConfig memory) {
+    ) public returns (MinimalParsedConfig memory) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";

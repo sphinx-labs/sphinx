@@ -45,10 +45,11 @@ import { createChugSplashRuntime } from '../utils'
 const args = process.argv.slice(2)
 const command = args[0]
 
-const decodeCachedConfig = (encodedConfigCache: string) => {
+const decodeCachedConfig = async (encodedConfigCache: string) => {
+  const { artifactFolder } = await getPaths()
   const ChugSplashFoundryABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+    require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
   const configCacheType = ChugSplashFoundryABI.find(
     (fragment) => fragment.name === 'getConfigCache'
   ).outputs[0]
@@ -394,7 +395,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
 
       const artifactStructABI =
         'tuple(bytes bootloaderOne, bytes bootloaderTwo)'
-      const encodedArtifacts = ethers.utils.AbiCoder.prototype.encode(
+      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
         [artifactStructABI],
         [
           {
@@ -446,7 +447,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
 
       const ChugSplashFoundryABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+        require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
       const minimalParsedConfigType = ChugSplashFoundryABI.find(
         (fragment) => fragment.name === 'ffiGetMinimalParsedConfig'
       ).outputs[0]
@@ -460,7 +461,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
     }
     case 'postParsingValidation': {
       const encodedConfigCache = args[1]
-      const configCache = decodeCachedConfig(encodedConfigCache)
+      const configCache = await decodeCachedConfig(encodedConfigCache)
 
       const {
         parsedConfig,
@@ -469,9 +470,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
         parsedConfig: ParsedChugSplashConfig
         configArtifacts: ConfigArtifacts
       } = JSON.parse(
-        (
-          await fs.readFileSync('./cache/chugsplash-config-cache.json')
-        ).toString()
+        fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
       )
 
       const { canonicalConfigFolder } = await getPaths()
@@ -497,7 +496,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
     case 'getCurrentChugSplashManagerVersion': {
       const artifactStructABI =
         'tuple(uint256 major, uint256 minor, uint256 patch)'
-      const encodedVersion = ethers.utils.AbiCoder.prototype.encode(
+      const encodedVersion = ethers.utils.defaultAbiCoder.encode(
         [artifactStructABI],
         [CURRENT_CHUGSPLASH_MANAGER_VERSION]
       )
@@ -507,7 +506,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
     }
     case 'getCanonicalConfigData': {
       const encodedConfigCache = args[1]
-      const configCache = decodeCachedConfig(encodedConfigCache)
+      const configCache = await decodeCachedConfig(encodedConfigCache)
 
       const {
         parsedConfig,
@@ -516,9 +515,7 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
         parsedConfig: ParsedChugSplashConfig
         configArtifacts: ConfigArtifacts
       } = JSON.parse(
-        (
-          await fs.readFileSync('./cache/chugsplash-config-cache.json')
-        ).toString()
+        fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
       )
       const { configUri, bundles } = await getCanonicalConfigData(
         parsedConfig,
@@ -526,13 +523,13 @@ const decodeCachedConfig = (encodedConfigCache: string) => {
         configCache
       )
 
+      const { artifactFolder } = await getPaths()
       const ChugSplashFoundryABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('../../out/artifacts/ChugSplash.sol/ChugSplash.json').abi
+        require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
       const canonicalConfigDataOutputTypes = ChugSplashFoundryABI.find(
         (fragment) => fragment.name === 'ffiGetCanonicalConfigData'
-      ).outputs
-
+      ).outputs[0]
       const encodedGetCanonicalConfigData = ethers.utils.defaultAbiCoder.encode(
         canonicalConfigDataOutputTypes,
         [configUri, bundles]
