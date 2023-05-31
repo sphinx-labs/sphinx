@@ -32,6 +32,7 @@ import { ethers } from 'ethers'
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
+  ChugSplashManagerProxyArtifact,
 } from '@chugsplash/contracts'
 import { remove0x } from '@eth-optimism/core-utils'
 
@@ -407,6 +408,11 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       )
 
       process.stdout.write(encodedArtifacts)
+      break
+    }
+    case 'getChugSplashManagerProxyBytecode': {
+      const bytecode = ChugSplashManagerProxyArtifact.bytecode
+      process.stdout.write(bytecode)
       break
     }
     case 'getMinimalParsedConfig': {
