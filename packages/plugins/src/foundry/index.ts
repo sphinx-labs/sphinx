@@ -41,6 +41,7 @@ import {
   makeGetConfigArtifacts,
 } from './utils'
 import { createChugSplashRuntime } from '../utils'
+import { remove0x } from '@eth-optimism/core-utils'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -527,15 +528,44 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       const ChugSplashFoundryABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
-      const canonicalConfigDataOutputTypes = ChugSplashFoundryABI.find(
-        (fragment) => fragment.name === 'ffiGetCanonicalConfigData'
-      ).outputs[0]
-      const encodedGetCanonicalConfigData = ethers.utils.defaultAbiCoder.encode(
-        canonicalConfigDataOutputTypes,
-        [configUri, bundles]
+
+      const encodedConfigUri = ethers.utils.defaultAbiCoder.encode(
+        ['string'],
+        [configUri]
       )
 
-      process.stdout.write(encodedGetCanonicalConfigData)
+      const actionBundleType = ChugSplashFoundryABI.find(
+        (fragment) => fragment.name === 'decodeActionBundle'
+      ).outputs[0]
+      const encodedActionBundle = ethers.utils.defaultAbiCoder.encode(
+        actionBundleType,
+        [bundles.actionBundle]
+      )
+
+      const targetBundleType = ChugSplashFoundryABI.find(
+        (fragment) => fragment.name === 'decodeTargetBundle'
+      ).outputs[0]
+      const encodedTargetBundle = ethers.utils.defaultAbiCoder.encode(
+        targetBundleType,
+        [bundles.targetBundle]
+      )
+
+      // TODO(docs): in bytes
+      const splitIdx1 = remove0x(encodedConfigUri).length / 2
+      const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
+      const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
+        ['uint256', 'uint256'],
+        [splitIdx1, splitIdx2]
+      )
+
+      const encodedData = ethers.utils.hexConcat([
+        encodedConfigUri,
+        encodedActionBundle,
+        encodedTargetBundle,
+        encodedSplitIdxs,
+      ])
+
+      process.stdout.write(encodedData)
       break
     }
     case 'getPreviousConfigUri': {

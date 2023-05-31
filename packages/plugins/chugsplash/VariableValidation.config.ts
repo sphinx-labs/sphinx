@@ -80,12 +80,12 @@ const config: UserChugSplashConfig = {
     Reverter1: {
       contract: 'Reverter',
       kind: 'no-proxy',
-      unsafeAllowFlexibleConstructor: true,
+      unsafeAllow: { flexibleConstructor: true },
     },
     Reverter2: {
       contract: 'Reverter',
       kind: 'no-proxy',
-      unsafeAllowFlexibleConstructor: true,
+      unsafeAllow: { flexibleConstructor: true },
     },
   },
 }

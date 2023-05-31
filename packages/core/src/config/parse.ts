@@ -409,7 +409,7 @@ export const assertValidUserConfigFields = (
     ) {
       logValidationError(
         'error',
-        `Detected the 'unsafeAllowFlexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
+        `Detected the 'unsafeAllow.flexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
         [],
         cre.silent,
         cre.stream

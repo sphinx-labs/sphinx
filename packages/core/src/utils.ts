@@ -1274,7 +1274,9 @@ export const getDeployedCreationCodeWithArgsHash = async (
   manager: ethers.Contract,
   referenceName: string,
   contractAddress: string
-): Promise<string> => {
+): Promise<string | undefined> => {
+  // TODO: left off: if we're trying to retrieve the creationCodeWithArgsHash from all managers, is
+  // this useful information? what is the purpose of this function?
   const latestDeploymentEvent = (
     await manager.queryFilter(
       manager.filters.ContractDeployed(referenceName, contractAddress)
@@ -1282,7 +1284,7 @@ export const getDeployedCreationCodeWithArgsHash = async (
   ).at(-1)
 
   if (!latestDeploymentEvent || !latestDeploymentEvent.args) {
-    throw new Error(`TODO`)
+    return undefined
   } else {
     return latestDeploymentEvent.args.creationCodeWithArgsHash
   }

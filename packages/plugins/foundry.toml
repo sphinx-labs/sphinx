@@ -12,7 +12,6 @@ test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]
-via_ir = true
 
 [rpc_endpoints]
 localhost = "http://127.0.0.1:8545"

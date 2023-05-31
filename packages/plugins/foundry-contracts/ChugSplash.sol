@@ -190,9 +190,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         deploy(_configPath, newOwner);
     }
 
-    // TODO(inputs):
+    // TODO: internal/public/external -> private? don't want users to accidentally overwrite these
+    // functions. we'll first need to see if public functions are necessary, e.g. when we use the
+    // returned struct to decode something off-chain.
+
     // TODO(docs): this is the plugins deployTask and the deployAbstractTask
-    // TODO: internal/public/external -> private? don't want users to accidentally overwrite these functions
     function deploy(string memory _configPath, OptionalAddress memory _newOwner) private {
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
@@ -276,7 +278,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             transferProjectOwnership(manager, _newOwner.value);
         }
 
-        ffiPostDeploymentActions(manager, deploymentId, configUri, liveNetwork, networkName);
+        // ffiPostDeploymentActions(manager, deploymentId, configUri, liveNetwork, networkName);
 
         // TODO: output table-like thing (see old deploy function)
     }
@@ -423,7 +425,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 : OptionalString({ exists: false, value: "" });
 
             OptionalBytes32 memory deployedCreationCodeWithArgsHash = isTargetDeployed ?
-            OptionalBytes32({exists: true, value: getDeployedCreationCodeWithArgsHash(_manager, contractConfig.referenceName, contractConfig.targetAddress)}) : OptionalBytes32({ exists: false, value: "" });
+            getDeployedCreationCodeWithArgsHash(_manager, contractConfig.referenceName, contractConfig.targetAddress)
+             : OptionalBytes32({ exists: false, value: "" });
 
             // TODO: we need to get helpful logs from the ChugSplashManager if contract deployment
             // fails during execution
@@ -483,7 +486,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         ChugSplashManager _manager,
         string memory _referenceName,
         address _contractAddress
-    ) private view returns (bytes32) {
+    ) private view returns (OptionalBytes32 memory) {
         OptionalLog memory latestDeploymentEvent = getLatestEvent(
             address(_manager),
             ContractDeployed.selector,
@@ -493,10 +496,10 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
 
         if (!latestDeploymentEvent.exists) {
-            revert("TODO");
+            return OptionalBytes32({ exists: false, value: bytes32(0) });
         } else {
             (, , bytes32 creationCodeWithArgsHash) = abi.decode(latestDeploymentEvent.value.data, (string, uint256, bytes32));
-            return creationCodeWithArgsHash;
+            return OptionalBytes32({ exists: true, value: creationCodeWithArgsHash });
         }
     }
 
@@ -654,7 +657,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         bytes memory encodedCache = abi.encode(_configCache);
         cmds[4] = vm.toString(encodedCache);
 
-// TODO: append split idxs to encoded ffi result
         bytes memory result = vm.ffi(cmds);
 
         // TODO(docs): explain what's happening and why we can't just abi.decode(configUri, bundles)
@@ -667,16 +669,28 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         bytes memory actionBundleBytes = this.slice(result, splitIdx1, splitIdx2);
         bytes memory targetBundleBytes = this.slice(result, splitIdx2, result.length);
-        (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
-        (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
+        (ChugSplashActionBundle memory actionBundle) = decodeActionBundle(actionBundleBytes);
+        (ChugSplashTargetBundle memory targetBundle) = decodeTargetBundle(targetBundleBytes);
         return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
+    }
+
+    // TODO(docs): we use this and `decodeTargetBundle` off-chain to get the struct, so don't remove
+    // this. also this must be public
+    function decodeActionBundle(bytes memory _actionBundleBytes) public pure returns (ChugSplashActionBundle memory) {
+        return abi.decode(_actionBundleBytes, (ChugSplashActionBundle));
+    }
+
+    // TODO(docs): we use this and `decodeActionBunle` off-chain to get the struct, so don't remove
+    // this. also this must be public
+    function decodeTargetBundle(bytes memory _targetBundleBytes) public pure returns (ChugSplashTargetBundle memory) {
+        return abi.decode(_targetBundleBytes, (ChugSplashTargetBundle));
     }
 
     function slice(bytes calldata _data, uint256 _start, uint256 _end) external pure returns (bytes memory) {
         return _data[_start:_end];
     }
 
-    function ffiGetPreviousConfigUri(ChugSplashRegistry _registry, address _proxyAddress) private returns (OptionalString memory) {
+    function ffiGetPreviousConfigUri(address _proxyAddress) private returns (OptionalString memory) {
         string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
