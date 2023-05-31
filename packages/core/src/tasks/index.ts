@@ -605,7 +605,7 @@ export const chugsplashDeployAbstractTask = async (
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 
-  // TODO: foundry: this must only be called if the deployment was broadcasted.
+  // TODO(post): foundry: this must only be called if the deployment was broadcasted.
   await postDeploymentActions(
     provider,
     canonicalConfig,
@@ -624,7 +624,7 @@ export const chugsplashDeployAbstractTask = async (
   )
 }
 
-// TODO: we need to make `provider` an optional parameter. it should be undefined on the in-process
+// TODO(post): we need to make `provider` an optional parameter. it should be undefined on the in-process
 // anvil node, and defined in all other cases, including the stand-alone anvil node.
 const postDeploymentActions = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -645,21 +645,21 @@ const postDeploymentActions = async (
   spinner.start(`Writing deployment artifacts...`)
   const { projectName, organizationID } = canonicalConfig.options
 
-  // TODO: always
+  // TODO(post): always
   writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
 
-  // TODO: always
+  // TODO(post): always
   await trackDeployed(
-    await manager.owner(), // TODO: replace with input variable
+    await manager.owner(), // TODO(post): replace with input variable
     organizationID,
     projectName,
     networkName,
     integration
   )
 
-  // TODO: exit here if `!provider`.
+  // TODO(post): exit here if `!provider`.
 
-  // TODO: only if `wasRecentlyBroadcasted(deploymentId)`. (i.e. deployment status was `COMPLETED`
+  // TODO(post): only if `wasRecentlyBroadcasted(deploymentId)`. (i.e. deployment status was `COMPLETED`
   // in the last ~5 minutes). This is to prevent us from writing stale artifacts if the deployment
   // ID was broadcasted a while ago (which is an edge case, but possible)
   await writeDeploymentArtifacts(
@@ -673,11 +673,11 @@ const postDeploymentActions = async (
 
   spinner.succeed(`Wrote deployment artifacts.`)
 
-  // TODO: wait to see if Foundry can automatically verify the contracts. It's unlikely because we
+  // TODO(post): wait to see if Foundry can automatically verify the contracts. It's unlikely because we
   // deploy them in a non-standard way, but it's possible. If foundry can do it, we should just
   // never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
   // via `execAsync(forge config --json)` and pass it in here.
-  // TODO: when you figure out verification on foundry, consider that using the chain ID is
+  // TODO(post): when you figure out verification on foundry, consider that using the chain ID is
   // probably more reliable on Hardhat.
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {

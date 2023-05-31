@@ -1830,7 +1830,9 @@ export const assertValidParsedChugSplashFile = async (
       ) {
         const currProxyAdmin = importCache.currProxyAdmin
         if (!currProxyAdmin) {
-          throw new Error(`TODO. Should never happen.`)
+          throw new Error(
+            `ConfigCache does not contain current admin of ${referenceName}. Should never happen.`
+          )
         }
 
         logValidationError(
@@ -2070,11 +2072,13 @@ export const assertValidSourceCode = (
   }
 }
 
-// // TODO(docs): explain why this is necessary. findAll('FunctionCall', node) yields function calls
-// as well as casting, e.g. address(0). this returns true for function calls like myContract.myFunction()
-const containsFunctionCall = (parentNode: Expression): boolean => {
-  for (const node of findAll('FunctionCall', parentNode)) {
-    if (node.kind === 'functionCall') {
+/**
+ * Returns a boolean indicating if the AST node contains a function call. This function does NOT
+ * return true for casting expressions, e.g. address(0), which have a `nodeType` of `FunctionCall`.
+ */
+const containsFunctionCall = (node: Expression): boolean => {
+  for (const childNode of findAll('FunctionCall', node)) {
+    if (childNode.kind === 'functionCall') {
       return true
     }
   }
@@ -2333,8 +2337,6 @@ const constructParsedConfig = (
       userDefinedAddress: !!userContractConfig.externalProxy,
     }
   }
-
-  // TODO: unsafeAllow in test configs
 
   return parsedConfig
 }
@@ -2674,8 +2676,9 @@ export const getConfigCache = async (
       : undefined
 
     let deploymentRevert: DeploymentRevertCache | undefined
-    // TODO(docs): We don't attempt to deploy the implementation contracts behind proxies. We check
-    // that they have deterministic constructors elsewhere (in `assertValidSourceCode`).
+    // Here we attempt to deploy non-proxy contracts. We do not attempt to deploy the implementation
+    // contracts behind proxies because we check that they have deterministic constructors elsewhere
+    // (in `assertValidSourceCode`).
     if (kind === ContractKindEnum.NO_PROXY) {
       try {
         // Attempt to estimate the gas of the deployment.
@@ -2727,7 +2730,9 @@ export const getConfigCache = async (
           // mechanism the UUPS proxy uses.
           importCache = {
             requiresImport: true,
-            // We leave the `currProxyAdmin` blank because TODO
+            // We leave the `currProxyAdmin` blank because the UUPS proxy may use AccessControl,
+            // which prevents us from knowing which permission the ChugSplashManager needs to
+            // call the 'upgradeTo' function.
           }
         }
       } else if (
@@ -2772,7 +2777,11 @@ export const getConfigCache = async (
   }
 }
 
-// TODO(docs): for foundry
+/**
+ * Returns a minimal version of the parsed config. This is used as a substitute for the full parsed
+ * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
+ * support for types.
+ */
 export const getMinimalParsedConfig = (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts

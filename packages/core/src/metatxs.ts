@@ -94,7 +94,6 @@ export const signMetaTxRequest = async (
   privateKey: string,
   input: BaseForwardRequestType
 ) => {
-  // TODO: see if you can remove the provider
   const forwarder = new Contract(FORWARDER_ADDRESS, ForwarderABI, provider)
   const request = await buildRequest(forwarder, input)
   const toSign = await buildTypedData(forwarder, request)

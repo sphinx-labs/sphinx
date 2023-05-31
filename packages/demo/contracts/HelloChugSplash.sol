@@ -6,4 +6,6 @@ contract HelloChugSplash {
     bool public stored;
     address public otherStorage;
     string public storageName;
+
+    uint public constant x = 2;
 }

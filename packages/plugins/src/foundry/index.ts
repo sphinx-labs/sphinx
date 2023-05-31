@@ -555,8 +555,9 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         [bundles.targetBundle]
       )
 
-      // TODO(docs): in bytes
+      // Get where the encoded config URI ends and the encoded action bundle begins (in bytes).
       const splitIdx1 = remove0x(encodedConfigUri).length / 2
+      // Get where the encoded action bundle begins and the encoded target bundle begins (in bytes).
       const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
       const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
         ['uint256', 'uint256'],

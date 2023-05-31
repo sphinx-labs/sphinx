@@ -1275,8 +1275,6 @@ export const getDeployedCreationCodeWithArgsHash = async (
   referenceName: string,
   contractAddress: string
 ): Promise<string | undefined> => {
-  // TODO: left off: if we're trying to retrieve the creationCodeWithArgsHash from all managers, is
-  // this useful information? what is the purpose of this function?
   const latestDeploymentEvent = (
     await manager.queryFilter(
       manager.filters.ContractDeployed(referenceName, contractAddress)
