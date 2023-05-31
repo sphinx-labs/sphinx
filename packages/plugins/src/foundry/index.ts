@@ -33,6 +33,7 @@ import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
 } from '@chugsplash/contracts'
+import { remove0x } from '@eth-optimism/core-utils'
 
 import {
   cleanPath,
@@ -41,7 +42,6 @@ import {
   makeGetConfigArtifacts,
 } from './utils'
 import { createChugSplashRuntime } from '../utils'
-import { remove0x } from '@eth-optimism/core-utils'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -538,15 +538,14 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         (fragment) => fragment.name === 'decodeActionBundle'
       ).outputs[0]
       const encodedActionBundle = ethers.utils.defaultAbiCoder.encode(
-        actionBundleType,
+        [actionBundleType],
         [bundles.actionBundle]
       )
-
       const targetBundleType = ChugSplashFoundryABI.find(
         (fragment) => fragment.name === 'decodeTargetBundle'
       ).outputs[0]
       const encodedTargetBundle = ethers.utils.defaultAbiCoder.encode(
-        targetBundleType,
+        [targetBundleType],
         [bundles.targetBundle]
       )
 
