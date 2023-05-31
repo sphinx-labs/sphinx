@@ -8,10 +8,8 @@ import {
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
-  writeDeploymentArtifacts,
 } from '../actions'
-import { ConfigArtifacts, ParsedChugSplashConfig } from '../config'
-import { Integration } from '../constants'
+import { ParsedChugSplashConfig } from '../config'
 import { getAmountToDeposit } from '../fund'
 import { getChugSplashManager, getDeploymentEvents } from '../utils'
 

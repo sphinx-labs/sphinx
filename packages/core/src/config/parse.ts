@@ -45,7 +45,6 @@ import {
   getDeployedCreationCodeWithArgsHash,
   getNonProxyCreate3Salt,
   getPreviousConfigUri,
-  getChugSplashRegistry,
   toContractKindEnum,
   getChugSplashRegistryReadOnly,
   getChugSplashManagerReadOnly,
@@ -293,7 +292,7 @@ export const assertValidUserConfigFields = (
     ) {
       logValidationError(
         'error',
-        `External proxy type is not valid ${contractConfig.kind}`,
+        `Contract kind for ${referenceName} is not valid ${contractConfig.kind}`,
         [],
         cre.silent,
         cre.stream
@@ -308,7 +307,7 @@ export const assertValidUserConfigFields = (
     ) {
       logValidationError(
         'error',
-        `User included an 'externalProxy' field, but did not include an 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included an 'externalProxy' field, but did not include a 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -320,7 +319,7 @@ export const assertValidUserConfigFields = (
     ) {
       logValidationError(
         'error',
-        `User included an 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included a 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -1787,7 +1786,7 @@ export const assertValidParsedChugSplashFile = async (
     parsedConfig.contracts
   )) {
     if (
-      isExternalContractKind(contractConfig.kind) &&
+      contractConfig.userDefinedAddress &&
       !contractConfigCache[referenceName].isTargetDeployed
     ) {
       logValidationError(
@@ -2323,6 +2322,7 @@ const constructParsedConfig = (
       unsafeAllow: userContractConfig.unsafeAllow ?? {},
       previousBuildInfo: userContractConfig.previousBuildInfo,
       previousFullyQualifiedName: userContractConfig.previousFullyQualifiedName,
+      userDefinedAddress: !!userContractConfig.externalProxy,
     }
   }
 

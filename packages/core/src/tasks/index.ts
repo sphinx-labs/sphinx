@@ -676,7 +676,9 @@ const postDeploymentActions = async (
   // TODO: wait to see if Foundry can automatically verify the contracts. It's unlikely because we
   // deploy them in a non-standard way, but it's possible. If foundry can do it, we should just
   // never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
-  // via `execAsync(forge config --json)` and pass it in here
+  // via `execAsync(forge config --json)` and pass it in here.
+  // TODO: when you figure out verification on foundry, consider that using the chain ID is
+  // probably more reliable on Hardhat.
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {
       await verifyChugSplashConfig(
@@ -714,8 +716,8 @@ export const chugsplashCancelAbstractTask = async (
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
 
-  const unvalidatedConfig = await readUserChugSplashConfig(configPath)
-  const { projectName, organizationID } = unvalidatedConfig.options
+  const userConfig = await readUserChugSplashConfig(configPath)
+  const { projectName, organizationID } = userConfig.options
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling ${projectName} on ${networkName}.`)
@@ -919,8 +921,8 @@ export const chugsplashImportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const parsedConfig = await readUserChugSplashConfig(configPath)
-  const { projectName, organizationID } = parsedConfig.options
+  const userConfig = await readUserChugSplashConfig(configPath)
+  const { projectName, organizationID } = userConfig.options
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(signer, organizationID)
 

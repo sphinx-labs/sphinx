@@ -1,6 +1,5 @@
 import { ethers } from 'ethers'
 import {
-  ChugSplashManagerABI,
   ProxyABI,
   ProxyArtifact,
   buildInfo as chugsplashBuildInfo,

@@ -27,7 +27,6 @@ import {
   getGasPriceOverrides,
   isLiveNetwork,
   getImpersonatedSigner,
-  getChugSplashRegistry,
   getChugSplashRegistryReadOnly,
 } from '../../utils'
 import {

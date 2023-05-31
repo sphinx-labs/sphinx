@@ -115,13 +115,13 @@ struct RegistrationInfo {
 }
 
 struct ChugSplashBundles {
-  ChugSplashActionBundle actionBundle;
-  ChugSplashTargetBundle targetBundle;
+    ChugSplashActionBundle actionBundle;
+    ChugSplashTargetBundle targetBundle;
 }
 
 struct ChugSplashActionBundle {
-  bytes32 root;
-  BundledChugSplashAction[] actions;
+    bytes32 root;
+    BundledChugSplashAction[] actions;
 }
 
 struct ChugSplashTargetBundle {

@@ -20,6 +20,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
+import ora from 'ora'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -48,6 +49,8 @@ export const deployAllChugSplashConfigs = async (
   silent: boolean,
   fileNames?: string[]
 ) => {
+  const spinner = ora({ isSilent: silent })
+
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
@@ -89,7 +92,9 @@ export const deployAllChugSplashConfigs = async (
       cre,
       parsedConfig,
       configCache,
-      configArtifacts
+      configArtifacts,
+      undefined,
+      spinner
     )
   }
 }

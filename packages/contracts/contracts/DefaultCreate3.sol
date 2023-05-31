@@ -35,7 +35,10 @@ contract DefaultCreate3 is ICreate3 {
         return CREATE3.getDeployed(_salt);
     }
 
-    function getAddressFromDeployer(bytes32 _salt, address _deployer) public pure returns (address) {
+    function getAddressFromDeployer(
+        bytes32 _salt,
+        address _deployer
+    ) public pure returns (address) {
         address proxy = keccak256(
             abi.encodePacked(
                 // Prefix:

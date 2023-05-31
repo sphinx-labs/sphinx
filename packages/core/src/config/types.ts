@@ -136,6 +136,7 @@ export type ParsedContractConfig = {
   variables: ParsedConfigVariables
   salt: string
   constructorArgs: ParsedConfigVariables
+  userDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
   previousBuildInfo?: string
   previousFullyQualifiedName?: string

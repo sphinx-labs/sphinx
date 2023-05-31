@@ -5,7 +5,6 @@ import { ChugSplashBundles } from '../actions/types'
 import {
   callWithTimeout,
   getChugSplashManagerReadOnly,
-  getChugSplashRegistry,
   getChugSplashRegistryReadOnly,
   getConfigArtifactsRemote,
   getDeploymentId,

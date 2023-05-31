@@ -1100,7 +1100,12 @@ contract ChugSplashManager is
             if (!success) {
                 revert FailedToFinalizeUpgrade();
             }
-            emit ProxyUpgraded(activeDeploymentId, target.addr, target.projectName, target.referenceName);
+            emit ProxyUpgraded(
+                activeDeploymentId,
+                target.addr,
+                target.projectName,
+                target.referenceName
+            );
             registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
