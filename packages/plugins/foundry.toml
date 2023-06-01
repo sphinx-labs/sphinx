@@ -14,7 +14,7 @@ verbosity = 2
 allow_paths = ["../contracts"]
 
 [rpc_endpoints]
-localhost = "http://127.0.0.1:8545"
+anvil = "http://127.0.0.1:8545"
 homestead = "${RPC_MAINNET}"
 goerli = "${RPC_GOERLI}"
 optimism = "${RPC_OPTIMISM}"
