@@ -18,11 +18,10 @@ contract ChugSplashUtils {
         return _data[_start:_end];
     }
 
-    // Provides an easy way to get the actual msg.sender in Forge scripts. When a user specifies a
-    // msg.sender in a Forge script, the address is only available in the context of the contracts
-    // that are called by the script, and not within the script itself. The easiest way to reliably
-    // retrieve the address is to call an external function on another contract that returns the
-    // msg.sender.
+    // Provides an easy way to get the EOA that's signing transactions in a Forge script. When a
+    // user specifies a signer in a Forge script, the address is only available in the context of an
+    // an external call.The easiest way to reliably retrieve the address is to call an external
+    // function that returns the msg.sender.
     function msgSender() external view returns (address) {
         return msg.sender;
     }

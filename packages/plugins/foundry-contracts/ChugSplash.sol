@@ -102,8 +102,10 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         // doesn't exist on live networks.
         utils = new ChugSplashUtils();
 
-        // Ensure that all of the ChugSplash contracts are deployed and initialized.
-        ensureChugSplashInitialized();
+        // TODO(test): this doesn't display an error message if it throws an error. i think
+        // it's because we're in the constructor
+        // // Ensure that all of the ChugSplash contracts are deployed and initialized.
+        // ensureChugSplashInitialized();
     }
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
@@ -113,6 +115,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // This is the entry point for the ChugSplash deploy command.
     function deploy(string memory _configPath) internal {
+        ensureChugSplashInitialized(); // TODO: mv
         OptionalAddress memory newOwner;
         newOwner.exists = false;
         deploy(_configPath, newOwner);
@@ -677,8 +680,18 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return abi.decode(result, (DeploymentBytecode));
     }
 
+    // TODO(docs): when a user inputs a random chain ID, our system doesn't work. this can happen
+    // through the CLI (--chain-id), and maybe in the foundry.toml (not sure if there's an
+    // equivalent to --chain-id there). We should throw a helpful error message and/or document
+    // this.
+
     function getRpcUrl() internal returns (string memory) {
-        return vm.rpcUrl(getChain(block.chainid).chainAlias);
+        string memory chainAlias = getChain(block.chainid).chainAlias;
+        try vm.rpcUrl(chainAlias) returns (string memory rpcUrl) {
+            return rpcUrl;
+        } catch (bytes memory) {
+            revert(string.concat("Detected a non-standard RPC endpoint name in foundry.toml. Please use: ", chainAlias));
+        }
     }
 
     /**

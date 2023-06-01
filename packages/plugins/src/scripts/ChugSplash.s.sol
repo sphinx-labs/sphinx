@@ -4,10 +4,9 @@ import "../../foundry-contracts/ChugSplash.sol";
 import { Version } from "@chugsplash/contracts/contracts/Semver.sol";
 import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
 
-contract ChugSplashScript is Script, Test {
+contract ChugSplashScript is Script, Test, ChugSplash {
 
     function run() public {
-        ChugSplash chugsplash = new ChugSplash();
-        chugsplash.deploy('./chugsplash/foundry/claim.t.js');
+        deploy('./chugsplash/foundry/claim.t.js');
     }
 }
