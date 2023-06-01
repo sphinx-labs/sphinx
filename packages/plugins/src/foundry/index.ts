@@ -14,7 +14,6 @@ import {
   getCreate3Address,
   getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
-  isLiveNetwork,
   getNonProxyCreate3Salt,
   getBootloaderTwoConstructorArgs,
   bootloaderTwoConstructorFragment,
@@ -27,6 +26,7 @@ import {
   getChugSplashRegistryReadOnly,
   getCanonicalConfigData,
   getPreviousConfigUri,
+  isLocalNetwork,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import {
@@ -63,7 +63,7 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
 
   const structuredConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
-    liveNetwork: configCache.liveNetwork,
+    localNetwork: configCache.localNetwork,
     networkName: configCache.networkName,
     contractConfigCache: {},
   }
@@ -168,7 +168,7 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         fetchPaths(outPath, buildInfoPath)
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl, network)
-      const remoteExecution = await isLiveNetwork(provider)
+      const remoteExecution = !(await isLocalNetwork(provider))
       const cre = await createChugSplashRuntime(
         configPath,
         remoteExecution,

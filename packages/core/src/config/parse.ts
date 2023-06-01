@@ -40,7 +40,6 @@ import {
   chugsplashLog,
   getCreate3Address,
   isDataHexString,
-  isLiveNetwork,
   getCreationCodeWithConstructorArgs,
   getDeployedCreationCodeWithArgsHash,
   getNonProxyCreate3Salt,
@@ -48,6 +47,7 @@ import {
   toContractKindEnum,
   getChugSplashRegistryReadOnly,
   getChugSplashManagerReadOnly,
+  isLocalNetwork,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2396,7 +2396,7 @@ export const postParsingValidation = async (
   exitOnFailure: boolean
 ) => {
   const { projectName } = parsedConfig.options
-  const { blockGasLimit, liveNetwork, contractConfigCache } = configCache
+  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
 
   assertValidBlockGasLimit(blockGasLimit)
 
@@ -2409,7 +2409,7 @@ export const postParsingValidation = async (
 
   assertNonProxyDeploymentsDoNotRevert(cre, contractConfigCache)
 
-  if (liveNetwork) {
+  if (!localNetwork) {
     assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
   }
 
@@ -2641,7 +2641,7 @@ export const getConfigCache = async (
   const { contracts } = minimalConfig
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-  const liveNetwork = await isLiveNetwork(provider)
+  const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
 
   const contractConfigCache: ContractConfigCache = {}
@@ -2771,7 +2771,7 @@ export const getConfigCache = async (
 
   return {
     blockGasLimit,
-    liveNetwork,
+    localNetwork,
     networkName,
     contractConfigCache,
   }

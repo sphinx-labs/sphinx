@@ -22,9 +22,10 @@ import {
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
   readValidatedChugSplashConfig,
-  isLiveNetwork,
   ensureChugSplashInitialized,
   ProposalRoute,
+  isHardhatFork,
+  isLocalNetwork,
 } from '@chugsplash/core'
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
@@ -509,14 +510,15 @@ task(TASK_TEST)
     ) => {
       const { silent, noCompile, configPath, configPaths, skipDeploy } = args
 
-      const liveNetwork = await isLiveNetwork(hre.ethers.provider)
-
       const signer = hre.ethers.provider.getSigner()
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
       )
-      if (!liveNetwork) {
+      if (
+        (await isLocalNetwork(hre.ethers.provider)) ||
+        (await isHardhatFork(hre.ethers.provider))
+      ) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),

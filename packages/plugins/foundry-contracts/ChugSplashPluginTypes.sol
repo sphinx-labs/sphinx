@@ -28,7 +28,7 @@ struct MinimalParsedContractConfig {
 
 struct ConfigCache {
     uint256 blockGasLimit;
-    bool liveNetwork;
+    bool localNetwork;
     string networkName;
     ContractConfigCache[] contractConfigCache;
 }

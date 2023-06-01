@@ -1213,19 +1213,35 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.utils.isHexString(variable) && variable.length % 2 === 0
 }
 
-export const isLiveNetwork = async (
+/**
+ * @notice Returns true if the current network is the local Hardhat network. Returns false if the
+ * current network is a forked or live network.
+ */
+export const isLocalNetwork = async (
   provider: providers.JsonRpcProvider
 ): Promise<boolean> => {
   try {
-    // This RPC method works on anvil because it's an alias for `anvil_impersonateAccount`
-    // On live networks it will throw an error.
+    // This RPC method will throw an error on live networks.
     await provider.send('hardhat_impersonateAccount', [
       ethers.constants.AddressZero,
     ])
   } catch (err) {
-    return true
+    // We're on a live network, so return false.
+    return false
   }
-  return false
+
+  if (await isHardhatFork(provider)) {
+    return false
+  }
+
+  return true
+}
+
+export const isHardhatFork = async (
+  provider: providers.JsonRpcProvider
+): Promise<boolean> => {
+  const metadata = await provider.send('hardhat_metadata', [])
+  return metadata.forkedNetwork !== undefined
 }
 
 export const getImpersonatedSigner = async (

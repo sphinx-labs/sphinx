@@ -174,7 +174,7 @@ export type ConfigArtifacts = {
 
 export type ConfigCache = {
   blockGasLimit: ethers.BigNumber
-  liveNetwork: boolean
+  localNetwork: boolean
   networkName: string
   contractConfigCache: ContractConfigCache
 }

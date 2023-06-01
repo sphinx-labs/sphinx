@@ -25,9 +25,9 @@ import { Logger } from '@eth-optimism/common-ts'
 import {
   isContractDeployed,
   getGasPriceOverrides,
-  isLiveNetwork,
   getImpersonatedSigner,
   getChugSplashRegistryReadOnly,
+  isLocalNetwork,
 } from '../../utils'
 import {
   ADAPTER_DEPLOYER_ADDRESS,
@@ -142,15 +142,14 @@ export const ensureChugSplashInitialized = async (
   executors: string[] = [],
   logger?: Logger
 ) => {
-  if (await isLiveNetwork(provider)) {
-    // Throw an error if the ChugSplashRegistry is not deployed on this network
-    if (!(await isContractDeployed(getChugSplashRegistryAddress(), provider))) {
-      throw new Error(
-        `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
-      )
-    }
-  } else {
+  if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
+    return
+  } else if (await isLocalNetwork(provider)) {
     await initializeChugSplash(provider, signer, executors, [], [], logger)
+  } else {
+    throw new Error(
+      `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
+    )
   }
 }
 
@@ -285,10 +284,8 @@ export const initializeChugSplash = async (
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  if (
-    (await isLiveNetwork(provider)) &&
-    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
-  ) {
+  const localNetwork = await isLocalNetwork(provider)
+  if (!localNetwork && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
     if (!process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY) {
       throw new Error('Must define CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY')
     }
@@ -310,7 +307,7 @@ export const initializeChugSplash = async (
       )
     }
 
-    if (!(await isLiveNetwork(provider))) {
+    if (localNetwork) {
       // Fund the signer
       await (
         await deployer.sendTransaction({

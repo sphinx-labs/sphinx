@@ -483,36 +483,4 @@ contract ChugSplashTest is ChugSplash {
             }
         }
     }
-
-    function getEIP1967ProxyAdminAddress(address _proxyAddress) private view returns (address) {
-        // The EIP-1967 storage slot that holds the address of the owner.
-        // bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
-        bytes32 ownerKey = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-
-        bytes32 ownerBytes32 = vm.load(_proxyAddress, ownerKey);
-
-        // Convert the bytes32 value to an address.
-        return address(uint160(uint256(ownerBytes32)));
-    }
-
-    function getChugSplashRegistry() private returns (ChugSplashRegistry) {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getRegistryAddress";
-        cmds[4] = getRpcUrl();
-
-        bytes memory addrBytes = vm.ffi(cmds);
-        address addr;
-        assembly {
-            addr := mload(add(addrBytes, 20))
-        }
-
-        return ChugSplashRegistry(addr);
-    }
-
-    function getRpcUrl() private returns (string memory) {
-        return vm.rpcUrl(StdChains.getChain(block.chainid).chainAlias);
-    }
 }

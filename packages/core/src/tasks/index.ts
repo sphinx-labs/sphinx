@@ -35,6 +35,7 @@ import {
   writeCanonicalConfig,
   writeSnapshotId,
   transferProjectOwnership,
+  isHardhatFork,
 } from '../utils'
 import { getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -504,7 +505,7 @@ export const chugsplashDeployAbstractTask = async (
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
   const { organizationID, projectName } = parsedConfig.options
-  const { networkName, blockGasLimit, liveNetwork } = configCache
+  const { networkName, blockGasLimit, localNetwork } = configCache
 
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(signer, organizationID)
@@ -614,7 +615,7 @@ export const chugsplashDeployAbstractTask = async (
     deploymentId,
     canonicalConfigPath,
     configUri,
-    liveNetwork,
+    localNetwork,
     networkName,
     deploymentFolder,
     integration,
@@ -634,7 +635,7 @@ const postDeploymentActions = async (
   deploymentId: string,
   canonicalConfigPath: string,
   configUri: string,
-  liveNetwork: boolean,
+  localNetwork: boolean,
   networkName: string,
   deploymentFolder: string,
   integration: Integration,
@@ -694,7 +695,7 @@ const postDeploymentActions = async (
   }
 
   if (integration === 'hardhat') {
-    if (!liveNetwork) {
+    if (localNetwork || (await isHardhatFork(provider))) {
       // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
       // against the most recently deployed contracts.
       await writeSnapshotId(provider, networkName, deploymentFolder)
