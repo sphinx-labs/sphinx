@@ -36,165 +36,83 @@ import {
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 import { DefaultCreate3 } from "@chugsplash/contracts/contracts/DefaultCreate3.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import {
+    ChugSplashContract,
+    DeploymentBytecode,
+    MinimalParsedConfig,
+    MinimalParsedContractConfig,
+    ConfigCache,
+    ContractConfigCache,
+    DeploymentRevertCache,
+    ImportCache,
+    ContractKindEnum,
+    ProposalRoute,
+    ConfigContractInfo,
+    OptionalAddress,
+    OptionalBool,
+    OptionalString,
+    OptionalBytes32
+} from "./ChugSplashPluginTypes.sol";
 
-// TODO: use vm.rpcUrl(alias) everywhere you need the provider in TypeScript
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
-
-    Vm.Log[] private executionLogs;
-
-    string constant NONE = "none";
-    uint256 constant DEFAULT_PRIVATE_KEY_UINT =
-        0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-    string constant DEFAULT_PRIVATE_KEY =
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    string constant DEFAULT_NETWORK = "localhost";
-
-    // Optional env vars
-    string privateKey = vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY);
-    string network = vm.envOr("NETWORK", DEFAULT_NETWORK);
-    address newOwnerAddress = vm.envOr("NEW_OWNER", vm.addr(vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY_UINT)));
-    string newOwnerString = vm.toString(newOwnerAddress);
-    string ipfsUrl = vm.envOr("IPFS_URL", NONE);
-    bool skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
-    bool allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
-
-    // Get owner address
-    uint key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
-    address systemOwnerAddress =
-        key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
-
-    string rpcUrl = vm.rpcUrl(network);
-    string filePath =
-        vm.envOr(
-            "DEV_FILE_PATH",
-            string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
-        );
-    bool isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
-
-    struct ChugSplashContract {
-        string referenceName;
-        string contractName;
-        address contractAddress;
-    }
-
-    struct DeploymentBytecode {
-        bytes bootloaderOne;
-        bytes bootloaderTwo;
-    }
-
-    struct MinimalParsedConfig {
-        bytes32 organizationID;
-        string projectName;
-        MinimalParsedContractConfig[] contracts;
-    }
-
-    struct MinimalParsedContractConfig {
-        string referenceName;
-        bytes creationCodeWithConstructorArgs;
-        address targetAddress;
-        ContractKindEnum kind;
-        bytes32 salt;
-    }
-
-    struct ConfigCache {
-        uint256 blockGasLimit;
-        bool liveNetwork;
-        string networkName;
-        ContractConfigCache[] contractConfigCache;
-    }
-
-    struct ContractConfigCache {
-        string referenceName;
-        bool isTargetDeployed;
-        DeploymentRevertCache deploymentRevert;
-        ImportCache importCache;
-        OptionalBytes32 deployedCreationCodeWithArgsHash;
-        OptionalBool isImplementationDeployed;
-        OptionalString previousConfigUri;
-    }
-
-    struct DeploymentRevertCache {
-        bool deploymentReverted;
-        OptionalString revertString;
-    }
-
-    struct ImportCache {
-        bool requiresImport;
-        OptionalAddress currProxyAdmin;
-    }
-
-    enum ContractKindEnum {
-        INTERNAL_DEFAULT,
-        OZ_TRANSPARENT,
-        OZ_OWNABLE_UUPS,
-        OZ_ACCESS_CONTROL_UUPS,
-        EXTERNAL_DEFAULT,
-        NO_PROXY
-    }
-
-    enum ProposalRoute {
-        RELAY,
-        REMOTE_EXECUTION,
-        LOCAL_EXECUTION
-    }
-
-    struct ConfigContractInfo {
-        string referenceName;
-        address contractAddress;
-    }
-
-    struct OptionalAddress {
-        address value;
-        bool exists;
-    }
-
-    struct OptionalBool {
-        bool value;
-        bool exists;
-    }
-
-    struct OptionalString {
-        string value;
-        bool exists;
-    }
-
-    struct OptionalBytes32 {
-        bytes32 value;
-        bool exists;
-    }
 
     struct OptionalLog {
         Vm.Log value;
         bool exists;
     }
 
+    Vm.Log[] private executionLogs;
+
+    string private constant NONE = "none";
+    uint256 private constant DEFAULT_PRIVATE_KEY_UINT =
+        0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    string private constant DEFAULT_PRIVATE_KEY =
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    string private constant DEFAULT_NETWORK = "localhost";
+
+    // Optional env vars
+    string private privateKey = vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY);
+    string private network = vm.envOr("NETWORK", DEFAULT_NETWORK);
+    address private newOwnerAddress = vm.envOr("NEW_OWNER", vm.addr(vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY_UINT)));
+    string private newOwnerString = vm.toString(newOwnerAddress);
+    string private ipfsUrl = vm.envOr("IPFS_URL", NONE);
+    bool private skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
+    bool private allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
+
+    // Get owner address
+    uint private key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
+    address private systemOwnerAddress =
+        key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+
+    string private filePath =
+        vm.envOr(
+            "DEV_FILE_PATH",
+            string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
+        );
+    bool private isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
+
     constructor() {
         vm.makePersistent(address(this));
         _ensureChugSplashInitialized();
     }
 
-    // TODO(bundling): sort by ascending actionIndex, and remove the sort in `executeTask`
-
-    // TODO(test): etherscan verification: https://book.getfoundry.sh/tutorials/solidity-scripting. i'd be
-    //   surprised if this works since we deploy contracts in a non-standard way
-
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
     // state on the in-process node (e.g. in async user config).
 
-    // TODO: spinner
+    // TODO(test): spinner/logs of some sort
 
-    function deploy(string memory _configPath) public {
+    // This is the entry point for the ChugSplash deploy command.
+    function deploy(string memory _configPath) internal {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
         deploy(_configPath, newOwner);
     }
 
-    // TODO: internal/public/external -> private? don't want users to accidentally overwrite these
-    // functions. we'll first need to see if public functions are necessary, e.g. when we use the
-    // returned struct to decode something off-chain.
+    // TODO(test): remove all of the old ffi functions
 
-    // TODO(docs): this is the plugins deployTask and the deployAbstractTask
+    // TODO: create utils contract. change on and off chain logic accordingly
+
     function deploy(string memory _configPath, OptionalAddress memory _newOwner) private {
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
@@ -224,11 +142,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         address realManagerAddress = registry.projects(minimalParsedConfig.organizationID);
         require(realManagerAddress == address(manager), "Computed manager address is different from expected address");
 
-        // TODO(docs): explain why this version doesn't have the canonicalconfig
+        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
+        // support complex types like the 'variables' field.
         (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
-            // TODO(spinner): logger is probably justified here
+            // TODO(test): logger is probably justified here
             return;
         }
 
@@ -292,7 +211,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         bytes32 _organizationID,
         address _newOwner,
         bool _allowManagedProposals
-    ) internal {
+    ) private {
         if (!isProjectClaimed(_registry, address(_manager))) {
             bytes memory initializerData = abi.encode(
                 _newOwner,
@@ -325,7 +244,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function isProjectClaimed(
         ChugSplashRegistry _registry,
         address _manager
-    ) internal view returns (bool) {
+    ) private view returns (bool) {
         return _registry.managerProxies(_manager);
     }
 
@@ -335,7 +254,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         ChugSplashBundles memory _bundles,
         string memory _configUri,
         ProposalRoute _route
-    ) internal {
+    ) private {
         if (!_manager.isProposer(msg.sender)) {
             revert(
                 string.concat(
@@ -357,7 +276,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
     }
 
-    function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) internal {
+    function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) private {
         address projectOwner = _manager.owner();
         if (msg.sender != projectOwner) {
             revert(
@@ -372,7 +291,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         _manager.approve(_deploymentId);
     }
 
-    function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) internal {
+    function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) private {
         if (_newOwner != _manager.owner()) {
             if (_newOwner == address(0)) {
                 _manager.renounceOwnership();
@@ -386,7 +305,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         MinimalParsedConfig memory _minimalConfig,
         ChugSplashRegistry _registry,
         ChugSplashManager _manager
-    ) public returns (ConfigCache memory) {
+    ) private returns (ConfigCache memory) {
         MinimalParsedContractConfig[] memory contractConfigs = _minimalConfig
             .contracts;
 
@@ -431,13 +350,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             getDeployedCreationCodeWithArgsHash(_manager, contractConfig.referenceName, contractConfig.targetAddress)
              : OptionalBytes32({ exists: false, value: "" });
 
-            // TODO: we need to get helpful logs from the ChugSplashManager if contract deployment
+            // TODO(test): we need to get helpful logs from the ChugSplashManager if contract deployment
             // fails during execution
 
-            // TODO(docs): we skip attempting to deploy the contract because forge script does
-            // local simulation before sending any transactions. if a constructor reverts, it'll be
-            // caught in that step and displayed to the user.
-
+            // At this point in the TypeScript version of this function, we attempt to deploy all of
+            // the non-proxy contracts. We skip this step here because it's unnecessary in this
+            // context. Forge does local simulation before broadcasting any transactions, so if a
+            // constructor reverts, it'll be caught before anything happens on the live network.
             DeploymentRevertCache memory deploymentRevert = DeploymentRevertCache({
                 deploymentReverted: false,
                 revertString: OptionalString({exists: false, value: ""})
@@ -450,6 +369,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 // impact UX slightly. 1 error message instead of potentially several, but this isn't a
                 // big enough deal to warrant a janky workaround imo. fwiw this is standard behavior on
                 // forge scripts, since the script halts on the first error)
+                // In the TypeScript version of this function, we check that the ChugSplashManager can call
+                // the 'upgradeTo' function if it's a UUPS proxy. However, we skip this step here because
+                // TODO: does staticcall
                 if (contractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT || contractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
                     // Check that the ChugSplashManager is the owner of the Transparent proxy.
                     address currProxyAdmin = getEIP1967ProxyAdminAddress(
@@ -506,7 +428,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
+    function getEIP1967ProxyAdminAddress(address _proxyAddress) private view returns (address) {
         // The EIP-1967 storage slot that holds the address of the owner.
         // bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
         bytes32 ownerKey = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
@@ -623,7 +545,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function ffiGetMinimalParsedConfig(
         string memory _configPath
-    ) public returns (MinimalParsedConfig memory) {
+    ) private returns (MinimalParsedConfig memory) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
@@ -649,7 +571,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function ffiGetCanonicalConfigData(ConfigCache memory _configCache)
-        public
+        private
         returns (string memory, ChugSplashBundles memory)
     {
         string[] memory cmds = new string[](5);
@@ -664,33 +586,17 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         // TODO(docs): explain what's happening and why we can't just abi.decode(configUri, bundles)
 
-        bytes memory splitIdxBytes = this.slice(result, result.length - 64, result.length);
+        bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
         (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
 
-        bytes memory configUriBytes = this.slice(result, 0, splitIdx1);
+        bytes memory configUriBytes = utils.slice(result, 0, splitIdx1);
         (string memory configUri) = abi.decode(configUriBytes, (string));
 
-        bytes memory actionBundleBytes = this.slice(result, splitIdx1, splitIdx2);
-        bytes memory targetBundleBytes = this.slice(result, splitIdx2, result.length);
-        (ChugSplashActionBundle memory actionBundle) = decodeActionBundle(actionBundleBytes);
-        (ChugSplashTargetBundle memory targetBundle) = decodeTargetBundle(targetBundleBytes);
+        bytes memory actionBundleBytes = utils.slice(result, splitIdx1, splitIdx2);
+        bytes memory targetBundleBytes = utils.slice(result, splitIdx2, result.length);
+        (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
+        (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
         return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
-    }
-
-    // TODO(docs): we use this and `decodeTargetBundle` off-chain to get the struct, so don't remove
-    // this. also this must be public
-    function decodeActionBundle(bytes memory _actionBundleBytes) public pure returns (ChugSplashActionBundle memory) {
-        return abi.decode(_actionBundleBytes, (ChugSplashActionBundle));
-    }
-
-    // TODO(docs): we use this and `decodeActionBunle` off-chain to get the struct, so don't remove
-    // this. also this must be public
-    function decodeTargetBundle(bytes memory _targetBundleBytes) public pure returns (ChugSplashTargetBundle memory) {
-        return abi.decode(_targetBundleBytes, (ChugSplashTargetBundle));
-    }
-
-    function slice(bytes calldata _data, uint256 _start, uint256 _end) external pure returns (bytes memory) {
-        return _data[_start:_end];
     }
 
     function ffiGetPreviousConfigUri(address _proxyAddress) private returns (OptionalString memory) {
@@ -699,7 +605,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getPreviousConfigUri";
-        cmds[4] = vm.rpcUrl(StdChains.getChain(block.chainid).chainAlias);
+        cmds[4] = getRpcUrl();
         cmds[5] = vm.toString(_proxyAddress);
 
         bytes memory result = vm.ffi(cmds);
@@ -762,9 +668,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return abi.decode(result, (DeploymentBytecode));
     }
 
+    function getRpcUrl() private returns (string memory) {
+        return vm.rpcUrl(StdChains.getChain(block.chainid).chainAlias);
+    }
+
     function isLiveNetwork() private returns (bool) {
-        StdChains.Chain memory activeChain = StdChains.getChain(block.chainid);
-        strings.slice memory sliceUrl = activeChain.rpcUrl.toSlice();
+        strings.slice memory sliceUrl = getRpcUrl().toSlice();
         strings.slice memory delim = ":".toSlice();
         string[] memory parts = new string[](sliceUrl.count(delim) + 1);
         for(uint i = 0; i < parts.length; i++) {
@@ -873,11 +782,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function claim(string memory configPath) public returns (bytes memory) {
+    function claim(string memory configPath) internal returns (bytes memory) {
         return claim(configPath, false);
     }
 
-    function claim(string memory configPath, bool silent) public returns (bytes memory) {
+    function claim(string memory configPath, bool silent) internal returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
         string[] memory cmds = new string[](13);
@@ -886,7 +795,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[2] = filePath;
         cmds[3] = "claim";
         cmds[4] = configPath;
-        cmds[5] = rpcUrl;
+        cmds[5] = getRpcUrl();
         cmds[6] = network;
         cmds[7] = privateKey;
         cmds[8] = silent == true ? "true" : "false";
@@ -905,7 +814,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return result;
     }
 
-    function propose(string memory configPath, bool silent) external returns (bytes memory) {
+    function propose(string memory configPath, bool silent) internal returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
         string[] memory cmds = new string[](13);
@@ -914,7 +823,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[2] = filePath;
         cmds[3] = "propose";
         cmds[4] = configPath;
-        cmds[5] = rpcUrl;
+        cmds[5] = getRpcUrl();
         cmds[6] = network;
         cmds[7] = privateKey;
         cmds[8] = silent == true ? "true" : "false";
@@ -932,18 +841,18 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return result;
     }
 
-    function cancel(string memory configPath) external {
+    function cancel(string memory configPath) internal {
         cancel(configPath, false);
     }
 
-    function cancel(string memory configPath, bool silent) public returns (bytes memory) {
+    function cancel(string memory configPath, bool silent) internal returns (bytes memory) {
         string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "cancel";
         cmds[4] = configPath;
-        cmds[5] = rpcUrl;
+        cmds[5] = getRpcUrl();
         cmds[6] = network;
         cmds[7] = privateKey;
 
@@ -956,13 +865,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return result;
     }
 
-    function listProjects() external returns (bytes memory) {
+    function listProjects() internal returns (bytes memory) {
         string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "listProjects";
-        cmds[4] = rpcUrl;
+        cmds[4] = getRpcUrl();
         cmds[5] = network;
         cmds[6] = privateKey;
 
@@ -977,7 +886,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory configPath,
         string memory referenceName,
         bool silent
-    ) external returns (bytes memory) {
+    ) internal returns (bytes memory) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
         string[] memory cmds = new string[](12);
@@ -986,7 +895,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[2] = filePath;
         cmds[3] = "exportProxy";
         cmds[4] = configPath;
-        cmds[5] = rpcUrl;
+        cmds[5] = getRpcUrl();
         cmds[6] = network;
         cmds[7] = privateKey;
         cmds[8] = silent == true ? "true" : "false";
@@ -1008,14 +917,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory configPath,
         address proxyAddress,
         bool silent
-    ) external returns (bytes memory) {
+    ) internal returns (bytes memory) {
         string[] memory cmds = new string[](10);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "importProxy";
         cmds[4] = configPath;
-        cmds[5] = rpcUrl;
+        cmds[5] = getRpcUrl();
         cmds[6] = network;
         cmds[7] = privateKey;
         cmds[8] = silent == true ? "true" : "false";
@@ -1034,7 +943,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getAddress(
         string memory _configPath,
         string memory _referenceName
-    ) public returns (address) {
+    ) internal returns (address) {
         (string memory outPath, string memory buildInfoPath) = fetchPaths();
 
         string[] memory cmds = new string[](8);
@@ -1064,13 +973,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry() public returns (ChugSplashRegistry) {
+    function getChugSplashRegistry() private returns (ChugSplashRegistry) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getRegistryAddress";
-        cmds[4] = rpcUrl;
+        cmds[4] = getRpcUrl();
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;
@@ -1084,7 +993,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) public returns (ChugSplashManager) {
+    ) private returns (ChugSplashManager) {
         bytes memory proxyBytecode = getChugSplashManagerProxyBytecode();
         bytes memory creationCodeWithConstructorArgs = abi.encodePacked(
             proxyBytecode,
@@ -1098,13 +1007,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return ChugSplashManager(payable(managerAddress));
     }
 
-    function refresh() public returns (uint) {
-        uint forkId = vm.createFork(rpcUrl);
-        vm.selectFork(forkId);
-        return forkId;
-    }
-
-    function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) public pure returns (BundledChugSplashAction[] memory sliced) {
+    function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) private pure returns (BundledChugSplashAction[] memory sliced) {
         for (uint i = start; i < end; i++) {
             sliced[i] = selected[i + 1];
         }
@@ -1113,7 +1016,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     /**
      * @notice Splits up a bundled action into its components
      */
-    function disassembleActions(BundledChugSplashAction[] memory actions) public pure returns (RawChugSplashAction[] memory, uint256[] memory, bytes32[][] memory) {
+    function disassembleActions(BundledChugSplashAction[] memory actions) private pure returns (RawChugSplashAction[] memory, uint256[] memory, bytes32[][] memory) {
         RawChugSplashAction[] memory rawActions = new RawChugSplashAction[](actions.length);
         uint256[] memory _actionIndexes = new uint256[](actions.length);
         bytes32[][] memory _proofs = new bytes32[][](actions.length);
@@ -1134,7 +1037,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         BundledChugSplashAction[] memory selected,
         ChugSplashManager manager,
         uint maxGasLimit
-    ) public view returns (bool) {
+    ) private view returns (bool) {
         (RawChugSplashAction[] memory actions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(selected);
         (bool success, ) = address(manager).staticcall{ gas: maxGasLimit }(abi.encodeCall(ChugSplashManager.executeActions, (actions, _actionIndexes, _proofs)));
         return success;
@@ -1149,7 +1052,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         BundledChugSplashAction[] memory actions,
         ChugSplashManager manager,
         uint maxGasLimit
-    ) public view returns (uint) {
+    ) private view returns (uint) {
         // Optimization, try to execute the entire batch at once before doing a binary search
         if (executable(actions, manager, maxGasLimit)) {
             return actions.length;
@@ -1183,7 +1086,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         BundledChugSplashAction[] memory actions,
         ChugSplashManager manager,
         uint maxGasLimit
-    ) public returns (DeploymentStatus) {
+    ) private returns (DeploymentStatus) {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
         DeploymentState memory state = manager.deployments(activeDeploymentId);
@@ -1237,7 +1140,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         ChugSplashManager manager,
         ChugSplashBundles memory bundles,
         uint256 blockGasLimit
-    ) internal returns (bool) {
+    ) private returns (bool) {
         vm.recordLogs();
 
         // We execute all actions in batches to reduce the total number of transactions and reduce the
@@ -1293,7 +1196,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return true;
     }
 
-    function getNumActions(BundledChugSplashAction[] memory _actions) internal pure returns (uint256, uint256)  {
+    function getNumActions(BundledChugSplashAction[] memory _actions) private pure returns (uint256, uint256)  {
         uint256 numDeployContractActions = 0;
         uint256 numSetStorageActions = 0;
         for (uint256 i = 0; i < _actions.length; i++) {

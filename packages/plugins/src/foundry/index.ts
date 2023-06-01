@@ -49,11 +49,11 @@ const command = args[0]
 
 const decodeCachedConfig = async (encodedConfigCache: string) => {
   const { artifactFolder } = await getPaths()
-  const ChugSplashFoundryABI =
+  const ChugSplashUtilsABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
-  const configCacheType = ChugSplashFoundryABI.find(
-    (fragment) => fragment.name === 'getConfigCache'
+    require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+  const configCacheType = ChugSplashUtilsABI.find(
+    (fragment) => fragment.name === 'configCache'
   ).outputs[0]
 
   const configCache = ethers.utils.defaultAbiCoder.decode(
@@ -452,11 +452,11 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         'utf-8'
       )
 
-      const ChugSplashFoundryABI =
+      const ChugSplashUtilsABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
-      const minimalParsedConfigType = ChugSplashFoundryABI.find(
-        (fragment) => fragment.name === 'ffiGetMinimalParsedConfig'
+        require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+      const minimalParsedConfigType = ChugSplashUtilsABI.find(
+        (fragment) => fragment.name === 'minimalParsedConfig'
       ).outputs[0]
 
       const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode(
@@ -531,24 +531,24 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       )
 
       const { artifactFolder } = await getPaths()
-      const ChugSplashFoundryABI =
+      const ChugSplashUtilsABI =
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(`${artifactFolder}/ChugSplash.sol/ChugSplash.json`).abi
+        require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
 
       const encodedConfigUri = ethers.utils.defaultAbiCoder.encode(
         ['string'],
         [configUri]
       )
 
-      const actionBundleType = ChugSplashFoundryABI.find(
-        (fragment) => fragment.name === 'decodeActionBundle'
+      const actionBundleType = ChugSplashUtilsABI.find(
+        (fragment) => fragment.name === 'actionBundle'
       ).outputs[0]
       const encodedActionBundle = ethers.utils.defaultAbiCoder.encode(
         [actionBundleType],
         [bundles.actionBundle]
       )
-      const targetBundleType = ChugSplashFoundryABI.find(
-        (fragment) => fragment.name === 'decodeTargetBundle'
+      const targetBundleType = ChugSplashUtilsABI.find(
+        (fragment) => fragment.name === 'targetBundle'
       ).outputs[0]
       const encodedTargetBundle = ethers.utils.defaultAbiCoder.encode(
         [targetBundleType],

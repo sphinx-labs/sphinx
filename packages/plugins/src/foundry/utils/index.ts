@@ -128,9 +128,6 @@ export const getPaths = async (): Promise<{
 }> => {
   const execAsync = util.promisify(exec)
 
-  // TODO(docs): user must specify build-info/build-info-path + "out" in foundry.toml, not as a cli
-  // arg.
-
   const forgeConfigOutput = await execAsync('forge config --json')
   const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
 

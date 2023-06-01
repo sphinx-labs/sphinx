@@ -675,8 +675,6 @@ export const exportProxyTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  // TODO: get rid of readUserChugSplashConfig basically everywhere
-
   const { parsedConfig } = await readValidatedChugSplashConfig(
     configPath,
     provider,

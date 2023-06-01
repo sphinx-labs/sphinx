@@ -27,8 +27,14 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
  * https://github.com/chugsplash/chugsplash/tree/develop/packages/contracts/test
  */
 
-contract ChugSplashTest is Test {
+contract ChugSplashTest is ChugSplash {
     type UserDefinedType is uint256;
+
+    string private filePath =
+        vm.envOr(
+            "DEV_FILE_PATH",
+            string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
+        );
 
     address claimedProxy;
     address transferredProxy;
@@ -51,40 +57,35 @@ contract ChugSplashTest is Test {
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
 
     function setUp() public {
-        chugsplash = new ChugSplash();
-
         // Setup deployment test
-        chugsplash.deploy(deployConfig);
+        deploy(deployConfig);
 
         // Deploy export proxy test
-        chugsplash.deploy(claimConfig);
-        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
+        deploy(claimConfig);
+        exportProxy(claimConfig, "MySimpleStorage", true);
 
         // Start export proxy test
-        chugsplash.deploy(transferConfig);
-        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
+        deploy(transferConfig);
+        exportProxy(transferConfig, "MySimpleStorage", true);
 
-        // Refresh EVM state to reflect chain state after ChugSplash transactions
-        chugsplash.refresh();
+        importProxy(transferConfig, getAddress(transferConfig, "MySimpleStorage"), true);
+        claimedProxy = payable(getAddress(claimConfig, "MySimpleStorage"));
+        transferredProxy = payable(getAddress(transferConfig, "MySimpleStorage"));
+        myStorage = Storage(getAddress(deployConfig, "MyStorage"));
+        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
+        myStateless = Stateless(getAddress(deployConfig, "Stateless"));
+        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
 
-        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
-        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
-        myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
-        mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
-        myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
-        myComplexConstructorArgs = ComplexConstructorArgs(chugsplash.getAddress(deployConfig, "ComplexConstructorArgs"));
-
-        registry = chugsplash.getChugSplashRegistry();
+        registry = getChugSplashRegistry();
     }
 
     function testDidexportProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+        assertEq(getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     }
 
     function testDidImportProxy() public {
         ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
+        assertEq(getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
     }
 
     function testDidClaim() public {
@@ -481,5 +482,37 @@ contract ChugSplashTest is Test {
                 }
             }
         }
+    }
+
+    function getEIP1967ProxyAdminAddress(address _proxyAddress) private view returns (address) {
+        // The EIP-1967 storage slot that holds the address of the owner.
+        // bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
+        bytes32 ownerKey = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
+
+        bytes32 ownerBytes32 = vm.load(_proxyAddress, ownerKey);
+
+        // Convert the bytes32 value to an address.
+        return address(uint160(uint256(ownerBytes32)));
+    }
+
+    function getChugSplashRegistry() private returns (ChugSplashRegistry) {
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "getRegistryAddress";
+        cmds[4] = getRpcUrl();
+
+        bytes memory addrBytes = vm.ffi(cmds);
+        address addr;
+        assembly {
+            addr := mload(add(addrBytes, 20))
+        }
+
+        return ChugSplashRegistry(addr);
+    }
+
+    function getRpcUrl() private returns (string memory) {
+        return vm.rpcUrl(StdChains.getChain(block.chainid).chainAlias);
     }
 }

@@ -200,7 +200,6 @@ export type ImportCache = {
   currProxyAdmin?: string
 }
 
-// TODO(docs): explain this is a foundry-friendly format
 export type MinimalParsedConfig = {
   organizationID: string
   projectName: string
