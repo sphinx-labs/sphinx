@@ -112,8 +112,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
     // state on the in-process node (e.g. in async user config).
 
-    // TODO(test): spinner/logs of some sort when executing in the context of a test
-
     function silence() internal {
         silent = true;
     }
@@ -128,7 +126,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO(test): remove all of the old ffi functions
 
     function deploy(string memory _configPath, OptionalAddress memory _newOwner) private onlyWhenInitialized {
-        assertTrue(true);
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -137,7 +134,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             minimalParsedConfig.organizationID
         );
 
-        assertTrue(true);
         ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager);
 
         ffiPostParsingValidation(configCache);
@@ -159,7 +155,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
-            // TODO(test): logger is probably justified here
+            emit log("Nothing to execute in this deployment. Exiting early.");
             return;
         }
 
@@ -253,8 +249,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                         vm.toString(existingOwner)
                     )
                 );
-            } else {
-                // TODO(test): spinner
             }
         }
     }

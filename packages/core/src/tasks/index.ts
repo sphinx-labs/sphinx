@@ -535,7 +535,7 @@ export const chugsplashDeployAbstractTask = async (
     bundles.actionBundle.actions.length === 0 &&
     bundles.targetBundle.targets.length === 0
   ) {
-    spinner.succeed(`Nothing to execute in this deployment.`)
+    spinner.succeed(`Nothing to execute in this deployment. Exiting early.`)
     return
   }
 
