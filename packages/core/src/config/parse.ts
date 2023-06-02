@@ -27,6 +27,7 @@ import {
   SolidityStorageObj,
   SolidityStorageType,
   CompilerOutput,
+  CompilerOutputContract,
 } from '../languages/solidity/types'
 import {
   getDefaultProxyAddress,
@@ -48,6 +49,7 @@ import {
   getChugSplashRegistryReadOnly,
   getChugSplashManagerReadOnly,
   isLocalNetwork,
+  getEstDeployContractCost,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2792,8 +2794,13 @@ export const getMinimalParsedConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { bytecode, abi } = configArtifacts[referenceName].artifact
+    const { buildInfo, artifact } = configArtifacts[referenceName]
+    const { bytecode, abi, sourceName, contractName } = artifact
     const { constructorArgs, address, kind, salt } = contractConfig
+
+    const estDeployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    )
 
     minimalContractConfigs.push({
       referenceName,
@@ -2802,6 +2809,7 @@ export const getMinimalParsedConfig = (
         constructorArgs,
         abi
       ),
+      estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
       targetAddress: address,
       kind: toContractKindEnum(kind),
       salt,

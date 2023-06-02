@@ -586,6 +586,7 @@ export const chugsplashDeployAbstractTask = async (
       manager,
       bundles,
       blockGasLimit,
+      configArtifacts,
       provider
     )
 

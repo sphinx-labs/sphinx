@@ -347,6 +347,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         manager,
         bundles,
         blockGasLimit,
+        configArtifacts,
         rpcProvider
       )
 

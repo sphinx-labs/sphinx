@@ -16,17 +16,14 @@ const config: HardhatUserConfig = {
     settings: {
       outputSelection: {
         '*': {
-          '*': ['storageLayout'],
+          '*': ['storageLayout', 'evm.gasEstimates'],
         },
       },
     },
   },
   networks: {
     hardhat: {
-      forking: {
-        url: 'https://opt-goerli.g.alchemy.com/v2/U-GCJBuzH1tnp5MHI_E1yWktdoHr7U90',
-        // enabled: false,
-      },
+      allowUnlimitedContractSize: true,
     },
     goerli: {
       chainId: 5,

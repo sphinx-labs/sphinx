@@ -9,6 +9,7 @@ import {
   toOpenZeppelinContractKind,
   ConfigArtifacts,
   GetConfigArtifacts,
+  validateBuildInfo,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -56,6 +57,8 @@ export const getBuildInfo = async (
       `unable to find build info for contract ${contractName} in ${sourceName}`
     )
   }
+
+  validateBuildInfo(buildInfo)
 
   return buildInfo
 }

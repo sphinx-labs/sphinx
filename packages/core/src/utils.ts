@@ -68,6 +68,7 @@ import { ChugSplashRuntimeEnvironment } from './types'
 import {
   BuildInfo,
   CompilerOutput,
+  CompilerOutputContract,
   ContractArtifact,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
@@ -672,6 +673,12 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
+  validateBuildInfo(buildInfo)
+
+  return buildInfo
+}
+
+export const validateBuildInfo = (buildInfo: BuildInfo): void => {
   if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
     throw new Error(
       `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
@@ -684,16 +691,19 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
     )
   ) {
     throw new Error(
-      `Storage layout not found. Did you forget to set the "storageLayout" compiler option in your\n` +
-        `Hardhat/Foundry config file?\n\n` +
-        `If you're using Hardhat, see how to configure your project here:\n` +
-        `https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/setup-project.md#setup-chugsplash-using-typescript\n\n` +
-        `If you're using Foundry, see how to configure your project here:\n` +
-        `https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md#3-configure-your-foundrytoml-file`
+      `Did you forget to set the "storageLayout" compiler option in your Hardhat/Foundry config file?`
     )
   }
 
-  return buildInfo
+  if (
+    !buildInfo.input.settings.outputSelection['*']['*'].includes(
+      'evm.gasEstimates'
+    )
+  ) {
+    throw new Error(
+      `Did you forget to set the "evm.gasEstimates" compiler option in your Hardhat/Foundry config file?`
+    )
+  }
 }
 
 /**
@@ -1358,5 +1368,20 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
       return ContractKindEnum.INTERNAL_DEFAULT
     default:
       throw new Error(`Invalid contract kind: ${kind}`)
+  }
+}
+
+export const getEstDeployContractCost = (
+  gasEstimates: CompilerOutputContract['evm']['gasEstimates']
+): BigNumber => {
+  const { totalCost, codeDepositCost } = gasEstimates.creation
+
+  if (totalCost === 'infinite') {
+    // The `totalCost` is 'infinite' if the contract has a constructor. This is because the Solidity
+    // compiler can't determine the cost of the deployment since the constructor can contain
+    // arbitrary logic. In this case, we use the `executionCost` along a buffer multiplier of 1.5.
+    return BigNumber.from(codeDepositCost).mul(3).div(2)
+  } else {
+    return BigNumber.from(totalCost)
   }
 }

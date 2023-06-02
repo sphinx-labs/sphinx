@@ -7,5 +7,7 @@ contract HelloChugSplash {
     address public otherStorage;
     string public storageName;
 
-    uint public constant x = 2;
+    constructor() {
+        revert();
+    }
 }

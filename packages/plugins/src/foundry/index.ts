@@ -438,6 +438,7 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       const { parsedConfig, minimalParsedConfig, configArtifacts } =
         await readUnvalidatedParsedConfig(configPath, cre, getConfigArtifacts)
 
+      // TODO: we shouldn't have two things called ConfigCache
       const configCache = {
         parsedConfig,
         configArtifacts,

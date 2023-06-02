@@ -210,6 +210,7 @@ export type MinimalParsedContractConfig = {
   referenceName: string
   creationCodeWithConstructorArgs: string
   targetAddress: string
+  estDeployContractCost: ethers.BigNumber
   kind: ContractKindEnum
   salt: string
 }

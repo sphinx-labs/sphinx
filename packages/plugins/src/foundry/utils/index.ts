@@ -10,6 +10,7 @@ import {
   UserContractConfigs,
   ContractArtifact,
   GetConfigArtifacts,
+  validateBuildInfo
 } from '@chugsplash/core'
 
 export const getBuildInfo = (
@@ -33,6 +34,7 @@ export const getBuildInfo = (
   // Find the correct build info file
   for (const input of inputs) {
     if (input?.output?.sources[sourceName] !== undefined) {
+      validateBuildInfo(input)
       return input
     }
   }

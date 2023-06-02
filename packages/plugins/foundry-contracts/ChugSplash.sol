@@ -95,17 +95,17 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
     bool private isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
+    modifier onlyWhenInitialized() {
+        ensureChugSplashInitialized();
+        _;
+    }
+
+    /**
+     * @notice This constructor must not revert, or else an opaque error message will be displayed
+       to the user.
+     */
     constructor() {
-        vm.makePersistent(address(this));
-
-        // ChugSplashUtils is the only contract that is included in Forge but not Hardhat. It
-        // doesn't exist on live networks.
         utils = new ChugSplashUtils();
-
-        // TODO(test): this doesn't display an error message if it throws an error. i think
-        // it's because we're in the constructor
-        // // Ensure that all of the ChugSplash contracts are deployed and initialized.
-        // ensureChugSplashInitialized();
     }
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
@@ -115,7 +115,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // This is the entry point for the ChugSplash deploy command.
     function deploy(string memory _configPath) internal {
-        ensureChugSplashInitialized(); // TODO: mv
         OptionalAddress memory newOwner;
         newOwner.exists = false;
         deploy(_configPath, newOwner);
@@ -125,7 +124,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // TODO: create utils contract. change on and off chain logic accordingly
 
-    function deploy(string memory _configPath, OptionalAddress memory _newOwner) private {
+    function deploy(string memory _configPath, OptionalAddress memory _newOwner) private onlyWhenInitialized {
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -719,90 +718,90 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function ensureChugSplashInitialized() private {
         ChugSplashRegistry registry = getChugSplashRegistry();
-        if (address(registry).code.length > 0) {
-            return;
-        } else if (isLocalNetwork()) {
-            // Fetch bytecode from artifacts
-            DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
+        // if (address(registry).code.length > 0) {
+        //     return;
+        // } else if (isLocalNetwork()) {
+        //     // Fetch bytecode from artifacts
+        //     DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
 
-            // Setup determinisitic deployment proxy
-            address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-            vm.etch(
-                DeterministicDeploymentProxy,
-                hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
-            );
+        //     // Setup determinisitic deployment proxy
+        //     address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+        //     vm.etch(
+        //         DeterministicDeploymentProxy,
+        //         hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+        //     );
 
-            // Deploy the adapters
-            bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
-            address bootloaderOneAddress = Create2.computeAddress(
-                bytes32(0),
-                keccak256(bootloaderOneCreationCode),
-                DeterministicDeploymentProxy
-            );
-            DeterministicDeployer.deploy(
-                bootloaderOneCreationCode,
-                type(ChugSplashBootloaderOne).name
-            );
+        //     // Deploy the adapters
+        //     bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
+        //     address bootloaderOneAddress = Create2.computeAddress(
+        //         bytes32(0),
+        //         keccak256(bootloaderOneCreationCode),
+        //         DeterministicDeploymentProxy
+        //     );
+        //     DeterministicDeployer.deploy(
+        //         bootloaderOneCreationCode,
+        //         type(ChugSplashBootloaderOne).name
+        //     );
 
-            // Deploy the bootloader
-            bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
-            address bootloaderTwoAddress = Create2.computeAddress(
-                bytes32(0),
-                keccak256(bootloaderTwoCreationCode),
-                DeterministicDeploymentProxy
-            );
-            DeterministicDeployer.deploy(
-                bootloaderTwoCreationCode,
-                type(ChugSplashBootloaderOne).name
-            );
+        //     // Deploy the bootloader
+        //     bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
+        //     address bootloaderTwoAddress = Create2.computeAddress(
+        //         bytes32(0),
+        //         keccak256(bootloaderTwoCreationCode),
+        //         DeterministicDeploymentProxy
+        //     );
+        //     DeterministicDeployer.deploy(
+        //         bootloaderTwoCreationCode,
+        //         type(ChugSplashBootloaderOne).name
+        //     );
 
-            ChugSplashBootloaderOne chugSplashBootloaderOne = ChugSplashBootloaderOne(
-                bootloaderOneAddress
-            );
-            ChugSplashBootloaderTwo chugSplashBootloaderTwo = ChugSplashBootloaderTwo(
-                bootloaderTwoAddress
-            );
+        //     ChugSplashBootloaderOne chugSplashBootloaderOne = ChugSplashBootloaderOne(
+        //         bootloaderOneAddress
+        //     );
+        //     ChugSplashBootloaderTwo chugSplashBootloaderTwo = ChugSplashBootloaderTwo(
+        //         bootloaderTwoAddress
+        //     );
 
-            require(
-                address(chugSplashBootloaderTwo.registry()) == address(registry),
-                "Registry deployed to incorrect address"
-            );
+        //     require(
+        //         address(chugSplashBootloaderTwo.registry()) == address(registry),
+        //         "Registry deployed to incorrect address"
+        //     );
 
-            // Impersonate system owner
-            vm.startPrank(systemOwnerAddress);
+        //     // Impersonate system owner
+        //     vm.startPrank(systemOwnerAddress);
 
-            // Add initial manager version
-            registry.addVersion(chugSplashBootloaderTwo.managerImplementationAddress());
+        //     // Add initial manager version
+        //     registry.addVersion(chugSplashBootloaderTwo.managerImplementationAddress());
 
-            // Add transparent proxy type
-            registry.addContractKind(
-                keccak256("oz-transparent"),
-                chugSplashBootloaderOne.ozTransparentAdapterAddr()
-            );
+        //     // Add transparent proxy type
+        //     registry.addContractKind(
+        //         keccak256("oz-transparent"),
+        //         chugSplashBootloaderOne.ozTransparentAdapterAddr()
+        //     );
 
-            // Add uups ownable proxy type
-            registry.addContractKind(
-                keccak256("oz-ownable-uups"),
-                chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr()
-            );
+        //     // Add uups ownable proxy type
+        //     registry.addContractKind(
+        //         keccak256("oz-ownable-uups"),
+        //         chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr()
+        //     );
 
-            // Add uups access control proxy type
-            registry.addContractKind(
-                keccak256("oz-access-control-uups"),
-                chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr()
-            );
+        //     // Add uups access control proxy type
+        //     registry.addContractKind(
+        //         keccak256("oz-access-control-uups"),
+        //         chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr()
+        //     );
 
-            // Add default proxy type
-            registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
+        //     // Add default proxy type
+        //     registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
 
-            vm.stopPrank();
-        } else {
-            // We're on a forked or live network that doesn't have ChugSplash deployed, which
-            // means we don't support ChugSplash on this network yet.
-            revert(
-                "ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
-            );
-        }
+        //     vm.stopPrank();
+        // } else {
+        //     // We're on a forked or live network that doesn't have ChugSplash deployed, which
+        //     // means we don't support ChugSplash on this network yet.
+        //     revert(
+        //         "ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
+        //     );
+        // }
     }
 
     function claim(string memory configPath) internal returns (bytes memory) {
@@ -1058,12 +1057,41 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     function executable(
         BundledChugSplashAction[] memory selected,
-        ChugSplashManager manager,
-        uint maxGasLimit
+        uint maxGasLimit,
+        MinimalParsedContractConfig[] contractConfigs
     ) private view returns (bool) {
         (RawChugSplashAction[] memory actions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(selected);
-        (bool success, ) = address(manager).staticcall{ gas: maxGasLimit }(abi.encodeCall(ChugSplashManager.executeActions, (actions, _actionIndexes, _proofs)));
-        return success;
+
+        uint256 estGasUsed = 0;
+
+        for (uint i = 0; i < selected.length; i++) {
+            BundledChugSplashAction memory action = selected[i];
+
+            ChugSplashActionType actionType = action.action.actionType;
+            string memory referenceName = action.action.referenceName;
+            if (actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
+                uint256 deployContractCost = find(referenceName, contractConfigs).estDeployContractCost;
+
+                // We add 150k as an estimate for the cost of the transaction that executes the
+                // DeployContract action.
+                estGasUsed += deployContractCost + 150_000;
+            } else if (actionType == ChugSplashActionType.SET_STORAGE) {
+                estGasUsed += 150_000;
+            } else {
+                revert("Unknown action type. Should never happen.");
+            }
+        }
+        return maxGasLimit > estGasUsed;
+    }
+
+    function find(string memory referenceName, MinimalParsedContractConfig[] memory contractConfigs) private pure returns (MinimalParsedContractConfig memory) {
+        for (uint i = 0; i < contractConfigs.length; i++) {
+            MinimalParsedContractConfig memory contractConfig = contractConfigs[i];
+            if (equals(contractConfig.referenceName, referenceName)) {
+                return contractConfig;
+            }
+        }
+        revert("Could not find contract config corresponding to a reference name. Should never happen.");
     }
 
     /**
@@ -1240,6 +1268,10 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         for (uint i = 0; i < logs.length; i++) {
             executionLogs.push(logs[i]);
         }
+    }
+
+    function equals(string memory _str1, string memory _str2) private pure returns (bool) {
+        return keccak256(abi.encodePacked(_str1)) == keccak256(abi.encodePacked(_str2));
     }
 
     function toBytes32(address _addr) private pure returns (bytes32) {
