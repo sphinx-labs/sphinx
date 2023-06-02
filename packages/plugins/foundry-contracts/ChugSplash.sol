@@ -143,11 +143,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         bool localNetwork = configCache.localNetwork;
 
         // TODO: what happens to msg.sender when startBroadcast(addr) is used?
+        address deployer = utils.msgSender();
         finalizeRegistration(
             registry,
             manager,
             minimalParsedConfig.organizationID,
-            msg.sender,
+            deployer,
             false
         );
 
@@ -267,11 +268,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory _configUri,
         ProposalRoute _route
     ) private {
-        if (!_manager.isProposer(msg.sender)) {
+        address deployer = utils.msgSender();
+        if (!_manager.isProposer(deployer)) {
             revert(
                 string.concat(
                     "ChugSplash: caller is not a proposer. Caller's address: ",
-                    vm.toString(msg.sender)
+                    vm.toString(deployer)
                 )
             );
         }
@@ -290,11 +292,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) private {
         address projectOwner = _manager.owner();
-        if (msg.sender != projectOwner) {
+        address deployer = utils.msgSender();
+        if (deployer != projectOwner) {
             revert(
                 string.concat(
                     "ChugSplash: caller is not the project owner. Caller's address: ",
-                    vm.toString(msg.sender),
+                    vm.toString(deployer),
                     "Owner's address: ",
                     vm.toString(projectOwner)
                 )
@@ -708,12 +711,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory host = parts[1];
 
         if (
-            keccak256(bytes(host)) == keccak256("//127.0.0.1") ||
-            keccak256(bytes(host)) == keccak256("//localhost")
+            keccak256(bytes(host)) == keccak256(bytes("//127.0.0.1")) ||
+            keccak256(bytes(host)) == keccak256(bytes("//localhost"))
         ) {
-            return false;
-        } else {
             return true;
+        } else {
+            return false;
         }
     }
 
@@ -1031,8 +1034,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) private pure returns (BundledChugSplashAction[] memory sliced) {
+        sliced = new BundledChugSplashAction[](end - start);
         for (uint i = start; i < end; i++) {
-            sliced[i] = selected[i + 1];
+            sliced[i] = selected[i];
         }
     }
 
@@ -1113,20 +1117,21 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
         DeploymentState memory state = manager.deployments(activeDeploymentId);
-
         // Filter out actions that have already been executed
         uint length = 0;
-        BundledChugSplashAction[] memory filteredActions = new BundledChugSplashAction[](length);
         for (uint i = 0; i < actions.length; i++) {
             BundledChugSplashAction memory action = actions[i];
             if (state.actions[action.proof.actionIndex] == false) {
                 length += 1;
             }
         }
+        BundledChugSplashAction[] memory filteredActions = new BundledChugSplashAction[](length);
+        uint filteredActionIndex = 0;
         for (uint i = 0; i < actions.length; i++) {
             BundledChugSplashAction memory action = actions[i];
             if (state.actions[action.proof.actionIndex] == false) {
-                filteredActions[i] = action;
+                filteredActions[filteredActionIndex] = action;
+                filteredActionIndex += 1;
             }
         }
 
@@ -1140,9 +1145,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             // Figure out the maximum number of actions that can be executed in a single batch
             uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), manager, maxGasLimit);
             BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
-
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
-
             manager.executeActions(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
@@ -1179,12 +1182,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         // Split up the deploy contract and set storage actions
         BundledChugSplashAction[] memory deployContractActions = new BundledChugSplashAction[](numDeployContractActions);
         BundledChugSplashAction[] memory setStorageActions = new BundledChugSplashAction[](numSetStorageActions);
+        uint deployContractIndex = 0;
+        uint setStorageIndex = 0;
         for (uint i = 0; i < bundles.actionBundle.actions.length; i++) {
             BundledChugSplashAction memory action = bundles.actionBundle.actions[i];
             if (action.action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
-                deployContractActions[i] = action;
+                deployContractActions[deployContractIndex] = action;
+                deployContractIndex += 1;
             } else {
-                setStorageActions[i] = action;
+                setStorageActions[setStorageIndex] = action;
+                setStorageIndex += 1;
             }
         }
 
