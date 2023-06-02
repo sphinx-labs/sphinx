@@ -337,12 +337,8 @@ export const displayDeploymentTable = (
             ? contractConfig.address
             : getCreate3Address(managerAddress, contractConfig.salt)
 
-        const contractName = contractConfig.contract.includes(':')
-          ? contractConfig.contract.split(':').at(-1)
-          : contractConfig.contract
         deployments[i + 1] = {
-          'Reference Name': referenceName,
-          Contract: contractName,
+          Contract: referenceName,
           Address: address,
         }
       }

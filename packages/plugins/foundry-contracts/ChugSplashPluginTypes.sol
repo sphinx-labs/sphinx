@@ -22,6 +22,7 @@ struct MinimalParsedContractConfig {
     string referenceName;
     bytes creationCodeWithConstructorArgs;
     address targetAddress;
+    uint256 estDeployContractCost;
     ContractKindEnum kind;
     bytes32 salt;
 }
