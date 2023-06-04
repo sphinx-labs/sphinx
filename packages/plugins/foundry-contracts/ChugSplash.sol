@@ -83,6 +83,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     string private ipfsUrl = vm.envOr("IPFS_URL", NONE);
     bool private skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
     bool private allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
+    address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     // Get owner address
     uint private key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
@@ -97,7 +98,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     bool private isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
     modifier onlyWhenInitialized() {
-        ensureChugSplashInitialized();
+        p();
         _;
     }
 
@@ -107,6 +108,19 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
+        ensureDeploymentProxyAvailable();
+    }
+
+    // Handles setting up the deterministic deployment proxy on internal and local nodes
+    function ensureDeploymentProxyAvailable() private {
+        // Use ffi and cast for the external node
+        string[] memory cmds = new string[](4);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "deployDeterministicDeploymentProxy";
+
+        vm.ffi(cmds);
     }
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
@@ -712,6 +726,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getBootloaderBytecode";
+        cmds[4] = vm.toString(msg.sender);
 
         bytes memory result = vm.ffi(cmds);
         return abi.decode(result, (DeploymentBytecode));
@@ -800,34 +815,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 "Registry deployed to incorrect address"
             );
 
-            // Impersonate system owner
-            vm.startPrank(systemOwnerAddress);
-
-            // Add initial manager version
-            registry.addVersion(chugSplashBootloaderTwo.managerImplementationAddress());
-
-            // Add transparent proxy type
-            registry.addContractKind(
-                keccak256("oz-transparent"),
-                chugSplashBootloaderOne.ozTransparentAdapterAddr()
+            ChugSplashBootloaderTwo.completeSetup(
+                chugSplashBootloaderOne.ozTransparentAdapterAddr(),
+                chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr(),
+                chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr(),
+                chugSplashBootloaderOne.defaultAdapterAddr()
             );
 
-            // Add uups ownable proxy type
-            registry.addContractKind(
-                keccak256("oz-ownable-uups"),
-                chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr()
-            );
-
-            // Add uups access control proxy type
-            registry.addContractKind(
-                keccak256("oz-access-control-uups"),
-                chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr()
-            );
-
-            // Add default proxy type
-            registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
-
-            vm.stopPrank();
         } else {
             // We're on a forked or live network that doesn't have ChugSplash deployed, which
             // means we don't support ChugSplash on this network yet.

@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import * as child_process from 'child_process'
 
 import {
   chugsplashProposeAbstractTask,
@@ -383,6 +384,8 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       break
     }
     case 'getBootloaderBytecode': {
+      const deployerAddress = args[1]
+
       const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
       const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
 
@@ -390,7 +393,7 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         ethers.utils.defaultAbiCoder
           .encode(
             bootloaderTwoConstructorFragment.inputs,
-            getBootloaderTwoConstructorArgs()
+            getBootloaderTwoConstructorArgs(deployerAddress)
           )
           .slice(2)
       )
@@ -595,6 +598,26 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       )
 
       process.stdout.write(encodedCanonicalConfigUri)
+      break
+    }
+    case 'deployDeterministicDeploymentProxy': {
+      try {
+        child_process.execSync(
+          'cast send --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 0x3fab184622dc19b6109349b94811493bf2a45362  --value 0.1ether',
+          { stdio: 'pipe' }
+        )
+        child_process.execSync(
+          'cast publish --rpc-url http://localhost:8545 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222'
+        )
+      } catch (e) {
+        // if (
+        //   !e.message.includes(
+        //     'error sending request for url (http://localhost:8545/):'
+        //   )
+        // ) {
+        //   throw e
+        // }
+      }
       break
     }
   }

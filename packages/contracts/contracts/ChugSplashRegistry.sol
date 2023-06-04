@@ -20,6 +20,8 @@ import { ChugSplashRegistryEvents } from "./ChugSplashRegistryEvents.sol";
  *
  */
 contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents {
+    address immutable finalOwner;
+
     /**
      * @notice Mapping of organization IDs to ChugSplashManagerProxy addresses.
      */
@@ -49,10 +51,20 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
     mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
-     * @param _owner Address of the owner of the registry.
+     * @param _owner Address of the final owner of the registry.
      */
     constructor(address _owner) {
-        _transferOwnership(_owner);
+        finalOwner = _owner;
+        _transferOwnership(msg.sender);
+    }
+
+    /**
+     * @notice Transfers ownershop of the registry to the final owner. We use this pattern to
+     *         the registry to be deployed and configured using our bootloader without the
+     *         bootloader address influcing the address of the registry.
+     */
+    function completeSetup() public onlyOwner {
+        _transferOwnership(finalOwner);
     }
 
     /**

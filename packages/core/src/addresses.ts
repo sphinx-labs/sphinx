@@ -224,8 +224,9 @@ export const getChugSplashConstructorArgs = () => {
   }
 }
 
-export const getBootloaderTwoConstructorArgs = () => [
+export const getBootloaderTwoConstructorArgs = (deployerAddress: string) => [
   getOwnerAddress(),
+  deployerAddress,
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
@@ -238,7 +239,7 @@ export const [bootloaderTwoConstructorFragment] =
     (fragment) => fragment.type === 'constructor'
   )
 
-export const getBootloaderAddress = () =>
+export const getBootloaderAddress = (deployerAddress: string) =>
   utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
@@ -248,7 +249,7 @@ export const getBootloaderAddress = () =>
         ChugSplashBootloaderTwoArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           bootloaderTwoConstructorFragment.inputs,
-          getBootloaderTwoConstructorArgs()
+          getBootloaderTwoConstructorArgs(deployerAddress)
         ),
       ]
     )

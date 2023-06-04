@@ -18,22 +18,27 @@ import { Version } from "../Semver.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { DeterministicDeployer } from "./DeterministicDeployer.sol";
 
-contract ChugSplashBootloaderTwo {
+contract ChugSplashBootloaderTwo is Ownable {
     ChugSplashRegistry public registry;
     address public managerImplementationAddress;
     address public defaultCreate3Addr;
     address public defaultGasPriceCalculatorAddr;
     address public managedServiceAddr;
     address public forwarderAddr;
+    address public systemOwner;
+    bool setupComplete;
 
     constructor(
         address _owner,
+        address _bootloaderOwner,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage,
         Version memory _version
     ) {
+        _transferOwnership(_bootloaderOwner);
+
         // Deploy DefaultCreate3
         defaultCreate3Addr = DeterministicDeployer.deploy(
             type(DefaultCreate3).creationCode,
@@ -82,5 +87,41 @@ contract ChugSplashBootloaderTwo {
             ),
             type(ChugSplashManager).name
         );
+    }
+
+    function completeSetup(
+        address ozTransparentAdapter,
+        address ozUUPSOwnableAdapter,
+        address ozUUPSAccessControlAdapter,
+        address defaultAdapter
+    ) public onlyOwner {
+        require(setupComplete == false, "Setup already complete");
+        setupComplete = true;
+
+        // Add initial manager version
+        registry.addVersion(managerImplementationAddress);
+
+        // Add transparent proxy type
+        registry.addContractKind(
+            keccak256("oz-transparent"),
+            ozTransparentAdapter
+        );
+
+        // Add uups ownable proxy type
+        registry.addContractKind(
+            keccak256("oz-ownable-uups"),
+            ozUUPSOwnableAdapter
+        );
+
+        // Add uups access control proxy type
+        registry.addContractKind(
+            keccak256("oz-access-control-uups"),
+            ozUUPSAccessControlAdapter
+        );
+
+        // Add default proxy type
+        registry.addContractKind(bytes32(0), defaultAdapter);
+
+        registry.completeSetup();
     }
 }
