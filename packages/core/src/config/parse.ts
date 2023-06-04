@@ -33,7 +33,6 @@ import {
   isExternalContractKind,
   getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
-  getPreviousStorageLayoutOZFormat,
   getOpenZeppelinUpgradableContract,
   isEqualType,
   getOpenZeppelinValidationOpts,
@@ -49,6 +48,10 @@ import {
   getChugSplashManagerReadOnly,
   isLocalNetwork,
   getEstDeployContractCost,
+  getConfigArtifactsRemote,
+  isOpenZeppelinContractKind,
+  readBuildInfo,
+  fetchAndCacheCanonicalConfig,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -2822,5 +2825,86 @@ const assertNoValidationErrors = (failureAction: FailureAction): void => {
     } else if (failureAction === FailureAction.THROW) {
       throw new Error()
     }
+  }
+}
+
+/**
+ * Get the most recent storage layout for the given reference name. Uses OpenZeppelin's
+ * StorageLayout format for consistency.
+ *
+ * When retrieving the storage layout, this function uses the following order of priority (from
+ * highest to lowest):
+ * 1. The 'previousBuildInfo' and 'previousFullyQualifiedName' fields if both have been declared by
+ * the user.
+ * 2. The latest deployment in the ChugSplash system for the proxy address that corresponds to the
+ * reference name.
+ * 3. OpenZeppelin's Network File if the proxy is an OpenZeppelin proxy type
+ *
+ * If (1) and (2) above are both satisfied, we log a warning to the user and default to using the
+ * storage layout located at 'previousBuildInfo'.
+ */
+export const getPreviousStorageLayoutOZFormat = async (
+  referenceName: string,
+  parsedContractConfig: ParsedContractConfig,
+  canonicalConfigFolderPath: string,
+  cre: ChugSplashRuntimeEnvironment,
+  previousConfigUri?: string
+): Promise<StorageLayout> => {
+  const previousCanonicalConfig = previousConfigUri
+    ? await fetchAndCacheCanonicalConfig(
+        previousConfigUri,
+        canonicalConfigFolderPath
+      )
+    : undefined
+
+  const { kind, previousFullyQualifiedName, previousBuildInfo } =
+    parsedContractConfig
+  if (
+    previousFullyQualifiedName !== undefined &&
+    previousBuildInfo !== undefined
+  ) {
+    const { input, output } = readBuildInfo(previousBuildInfo)
+
+    if (previousCanonicalConfig !== undefined) {
+      logValidationError(
+        'warning',
+        `Using the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
+          `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash config file.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    return getOpenZeppelinUpgradableContract(
+      previousFullyQualifiedName,
+      input,
+      output,
+      parsedContractConfig
+    ).layout
+  } else if (previousCanonicalConfig !== undefined) {
+    const prevConfigArtifacts = await getConfigArtifactsRemote(
+      previousCanonicalConfig
+    )
+    const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
+    return getOpenZeppelinUpgradableContract(
+      `${sourceName}:${contractName}`,
+      buildInfo.input,
+      buildInfo.output,
+      parsedContractConfig
+    ).layout
+  } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
+    const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
+      cre.hre,
+      parsedContractConfig
+    )
+    return openzeppelinStorageLayout
+  } else {
+    throw new Error(
+      `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
+        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
+    )
   }
 }

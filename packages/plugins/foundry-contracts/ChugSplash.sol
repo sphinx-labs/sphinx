@@ -113,9 +113,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
     // state on the in-process node (e.g. in async user config).
 
-    // TODO(logs): you need to account for warnings in TS. c/f console.warn and remove 'warning'
-    // from logValidationError
-
     // TODO(logs): consider adding the ability to silence `emit logs` in this contract, since
     // this may be nice when running the script in the context of tests. however you may not want
     // to silence the warnings emitted during the parsing step. maybe there should be a separate
