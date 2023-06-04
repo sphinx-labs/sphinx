@@ -5,7 +5,7 @@ import '../dist'
 
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { readValidatedChugSplashConfig } from '@chugsplash/core'
+import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
 
 import { createChugSplashRuntime } from '../src/utils'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -42,7 +42,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
-        false
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
@@ -54,7 +54,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
-        false
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
@@ -66,7 +66,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
-        false
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */

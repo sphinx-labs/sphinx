@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import { spawn } from 'child_process'
 
 import {
   chugsplashProposeAbstractTask,
@@ -27,6 +28,8 @@ import {
   getCanonicalConfigData,
   getPreviousConfigUri,
   isLocalNetwork,
+  MinimalParsedConfig,
+  FailureAction,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import {
@@ -427,7 +430,8 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         true,
         canonicalConfigFolder,
         undefined,
-        false
+        false,
+        process.stderr
       )
 
       const getConfigArtifacts = makeGetConfigArtifacts(
@@ -435,8 +439,87 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         buildInfoFolder
       )
 
-      const { parsedConfig, minimalParsedConfig, configArtifacts } =
-        await readUnvalidatedParsedConfig(configPath, cre, getConfigArtifacts)
+      let parsedConfig: ParsedChugSplashConfig
+      let minimalParsedConfig: MinimalParsedConfig
+      let configArtifacts: ConfigArtifacts
+
+      // TODO: create `overwriteStreams` function and put it here, and in `postParsingValidation`,
+      // and perhaps others
+      // TODO(docs): explain why we're doing this
+      let warnings: string = ''
+      let errors: string = ''
+      process.stderr.write = (message: string) => {
+        if (message.startsWith('\nWarning: ')) {
+          warnings += message
+        } else if (message.startsWith('\nError: ')) {
+          // TODO(docs): we remove the first instance of '\nError: ' in 'message' because..
+          errors += message.replace('\nError: ', '')
+        } else {
+          throw new Error(
+            'TODO: something else was written. Should never happen'
+          )
+        }
+        return true
+      }
+
+      try {
+        ;({ parsedConfig, minimalParsedConfig, configArtifacts } =
+          await readUnvalidatedParsedConfig(
+            configPath,
+            cre,
+            getConfigArtifacts,
+            FailureAction.THROW
+          ))
+      } catch (err) {
+        // TODO(docs): there was a parsing error
+
+        // // This is where the encoded config URI ends and the encoded action bundle begins (in bytes).
+        // const splitIdx1 = remove0x(encodedConfigUri).length / 2
+        // // This is where the encoded action bundle begins and the encoded target bundle begins (in bytes).
+        // const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
+        // const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
+        //   ['uint256', 'uint256'],
+        //   [splitIdx1, splitIdx2]
+        // )
+
+        // const encodedData = ethers.utils.hexConcat([
+        //   encodedConfigUri,
+        //   encodedActionBundle,
+        //   encodedTargetBundle,
+        //   encodedSplitIdxs,
+        // ])
+
+        // process.stdout.write(encodedData)
+
+        // Remove two '\n' from the end of 'errors' and one '\n' from the end of 'warnings' if they
+        // exist.
+        const prettyErrors = errors.endsWith('\n\n')
+          ? errors.substring(0, errors.length - 2)
+          : errors
+        const prettyWarnings = warnings.endsWith('\n\n')
+          ? warnings.substring(0, warnings.length - 1)
+          : warnings
+
+        const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
+          ['string', 'string'],
+          [prettyErrors, prettyWarnings]
+        )
+        const splitIdx1 = 0
+        // TODO(docs): euro symbol example
+        const splitIdx2 = ethers.utils.toUtf8Bytes(prettyErrors).length
+        const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'uint256'],
+          [splitIdx1, splitIdx2]
+        )
+
+        const encodedData = ethers.utils.hexConcat([
+          encodedErrorsAndWarnings,
+          encodedSplitIdxs,
+        ])
+
+        process.stdout.write(encodedData)
+        break
+      }
 
       // TODO: we shouldn't have two things called ConfigCache
       const configCache = {
@@ -497,7 +580,7 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         configArtifacts,
         cre,
         configCache,
-        true
+        FailureAction.THROW
       )
       break
     }
@@ -556,9 +639,9 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         [bundles.targetBundle]
       )
 
-      // Get where the encoded config URI ends and the encoded action bundle begins (in bytes).
+      // This is where the encoded config URI ends and the encoded action bundle begins (in bytes).
       const splitIdx1 = remove0x(encodedConfigUri).length / 2
-      // Get where the encoded action bundle begins and the encoded target bundle begins (in bytes).
+      // This is where the encoded action bundle begins and the encoded target bundle begins (in bytes).
       const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
       const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
         ['uint256', 'uint256'],

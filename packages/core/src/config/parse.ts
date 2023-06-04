@@ -27,7 +27,6 @@ import {
   SolidityStorageObj,
   SolidityStorageType,
   CompilerOutput,
-  CompilerOutputContract,
 } from '../languages/solidity/types'
 import {
   getDefaultProxyAddress,
@@ -113,11 +112,18 @@ const logValidationError = (
   chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
+// TODO: mv
+export enum FailureAction {
+  EXIT, // Exit the process without throwing an error. This cannot be caught.
+  THROW, // Throw an error. This will exit the process if not caught.
+  CONTINUE, // Continue execution.
+}
+
 export const readUnvalidatedParsedConfig = async (
   configPath: string,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  exitOnFailure: boolean = true
+  failureAction: FailureAction
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
   minimalParsedConfig: MinimalParsedConfig
@@ -133,7 +139,7 @@ export const readUnvalidatedParsedConfig = async (
     userConfig,
     configArtifacts,
     cre,
-    exitOnFailure
+    failureAction
   )
 
   const minimalParsedConfig = getMinimalParsedConfig(
@@ -155,7 +161,7 @@ export const readValidatedChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  exitOnFailure: boolean = true
+  failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
   configArtifacts: ConfigArtifacts
@@ -166,7 +172,7 @@ export const readValidatedChugSplashConfig = async (
       configPath,
       cre,
       getConfigArtifacts,
-      exitOnFailure
+      failureAction
     )
 
   const configCache = await getConfigCache(
@@ -181,7 +187,7 @@ export const readValidatedChugSplashConfig = async (
     configArtifacts,
     cre,
     configCache,
-    exitOnFailure
+    failureAction
   )
 
   return { parsedConfig, configArtifacts, configCache }
@@ -223,7 +229,7 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
 export const assertValidUserConfigFields = (
   config: UserChugSplashConfig,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ) => {
   const proxyReferenceNames: string[] = []
   const noProxyReferenceNames: string[] = []
@@ -439,9 +445,7 @@ export const assertValidUserConfigFields = (
     }
   }
 
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
 }
 
 const stringifyVariableType = (variable: UserConfigVariable) => {
@@ -1775,7 +1779,7 @@ export const assertValidParsedChugSplashFile = async (
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   contractConfigCache: ContractConfigCache,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ): Promise<void> => {
   const { canonicalConfigPath } = cre
 
@@ -1801,11 +1805,9 @@ export const assertValidParsedChugSplashFile = async (
     }
   }
 
-  // Exit if any validation errors were detected up to this point. We exit here to ensure that
-  // all proxies are deployed before we run OpenZeppelin's safety checks.
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  // Exit if any validation errors were detected up to this point. This ensures that all proxies are
+  // deployed before we run OpenZeppelin's safety checks.
+  assertNoValidationErrors(failureAction)
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -2109,27 +2111,25 @@ const logUnsafeOptions = (
 
     const lines: string[] = []
     if (delegatecall) {
-      lines.push('You are using the unsafe option `unsafeAllow.delegatecall`')
+      lines.push(`- delegatecall`)
     }
     if (selfdestruct) {
-      lines.push('You are using the unsafe option `unsafeAllow.selfdestruct`')
+      lines.push(`- selfdestruct`)
     }
     if (missingPublicUpgradeTo) {
-      lines.push(
-        'You are using the unsafe option`unsafeAllow.missingPublicUpgradeTo`'
-      )
+      lines.push(`- missingPublicUpgradeTo`)
     }
     if (renames) {
-      lines.push('You are using the unsafe option `unsafeAllowRenames`')
+      lines.push(`- renames`)
     }
     if (skipStorageCheck) {
-      lines.push('You are using the unsafe option `unsafeSkipStorageCheck`')
+      lines.push(`- skipStorageCheck`)
     }
 
     if (lines.length > 0) {
       chugsplashLog(
         'warning',
-        `Potentially unsafe deployment of ${referenceName}`,
+        `Allowing the following potentially unsafe options for ${referenceName}:`,
         lines,
         silent,
         stream
@@ -2142,7 +2142,7 @@ export const assertValidConstructorArgs = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ): {
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
@@ -2197,9 +2197,7 @@ export const assertValidConstructorArgs = (
 
   // Exit if any validation errors were detected up to this point. We exit early here because invalid
   // constructor args can cause the rest of the parsing logic to fail with cryptic errors
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
 
   // Resolve any no-proxy contract addresses that are left
   // We have do this separately b/c we need to parse all the constructor args and resolve all the proxied contract addresses
@@ -2354,19 +2352,19 @@ export const getUnvalidatedParsedConfig = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean = true
+  failureAction: FailureAction
 ): ParsedChugSplashConfig => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserConfigFields(userConfig, cre, exitOnFailure)
+  assertValidUserConfigFields(userConfig, cre, failureAction)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the compiler output, parsed constructor args, and other artifacts so we don't have to re-read them later
   const { cachedConstructorArgs, contractReferences } =
-    assertValidConstructorArgs(userConfig, configArtifacts, cre, exitOnFailure)
+    assertValidConstructorArgs(userConfig, configArtifacts, cre, failureAction)
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
@@ -2395,7 +2393,7 @@ export const postParsingValidation = async (
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   configCache: ConfigCache,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ) => {
   const { projectName } = parsedConfig.options
   const { blockGasLimit, localNetwork, contractConfigCache } = configCache
@@ -2424,15 +2422,10 @@ export const postParsingValidation = async (
     configArtifacts,
     cre,
     contractConfigCache,
-    exitOnFailure
+    failureAction
   )
 
-  // Exit if validation errors are detected
-  // We also allow the user to disable this behavior by setting `exitOnFailure` to false.
-  // This is useful for testing.
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
 
   const containsUpgrade = Object.entries(parsedConfig.contracts).some(
     ([referenceName, contractConfig]) =>
@@ -2819,5 +2812,15 @@ export const getMinimalParsedConfig = (
     organizationID,
     projectName,
     contracts: minimalContractConfigs,
+  }
+}
+
+const assertNoValidationErrors = (failureAction: FailureAction): void => {
+  if (validationErrors) {
+    if (failureAction === FailureAction.EXIT) {
+      process.exit(1)
+    } else if (failureAction === FailureAction.THROW) {
+      throw new Error()
+    }
   }
 }

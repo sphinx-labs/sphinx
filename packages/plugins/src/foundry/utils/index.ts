@@ -69,7 +69,8 @@ export const getContractArtifact = (
 /**
  * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
  * config to its artifact and build info. We use a callback to create a standard interface for the
- * `getConfigArtifacts` function, which has an implementation for Hardhat and Foundry.
+ * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
+ * plugin.
  *
  * @param hre Hardhat runtime environment.
  * @param contractConfigs Contract configurations.

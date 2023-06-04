@@ -54,6 +54,7 @@ import {
     OptionalBytes32
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
+import { StdStyle } from "forge-std/StdStyle.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -111,6 +112,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
     // state on the in-process node (e.g. in async user config).
+
+    // TODO(logs): you need to account for warnings in TS. c/f console.warn and remove 'warning'
+    // from logValidationError
+
+    // TODO(logs): consider adding the ability to silence `emit logs` in this contract, since
+    // this may be nice when running the script in the context of tests. however you may not want
+    // to silence the warnings emitted during the parsing step. maybe there should be a separate
+    // flag for that.
+
+    // TODO(test): can you set the anvil chain id to be 1337 for e.g. metamask?
 
     function silence() internal {
         silent = true;
@@ -592,9 +603,24 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[3] = "getMinimalParsedConfig";
         cmds[4] = _configPath;
 
-        bytes memory minimalParsedConfigBytes = vm.ffi(cmds);
-        MinimalParsedConfig memory config = abi.decode(minimalParsedConfigBytes, (MinimalParsedConfig));
-        return config;
+        bytes memory result = vm.ffi(cmds);
+
+        // TODO(docs) for everything below
+        bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
+        (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
+
+        if (splitIdx1 == 0) {
+            (string memory errors, string memory warnings) = abi.decode(
+                utils.slice(result, 0, result.length - 64),
+                (string, string)
+            );
+            emit log(StdStyle.yellow(warnings));
+            revert(errors);
+        } else {
+            revert("TODO");
+            MinimalParsedConfig memory config = abi.decode(result, (MinimalParsedConfig));
+            return config;
+        }
     }
 
     function ffiPostParsingValidation(ConfigCache memory _configCache) private {
