@@ -471,28 +471,9 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
             FailureAction.THROW
           ))
       } catch (err) {
-        // TODO(docs): there was a parsing error
+        // There was a parsing error. We return the error messages and warnings.
 
-        // // This is where the encoded config URI ends and the encoded action bundle begins (in bytes).
-        // const splitIdx1 = remove0x(encodedConfigUri).length / 2
-        // // This is where the encoded action bundle begins and the encoded target bundle begins (in bytes).
-        // const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
-        // const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
-        //   ['uint256', 'uint256'],
-        //   [splitIdx1, splitIdx2]
-        // )
-
-        // const encodedData = ethers.utils.hexConcat([
-        //   encodedConfigUri,
-        //   encodedActionBundle,
-        //   encodedTargetBundle,
-        //   encodedSplitIdxs,
-        // ])
-
-        // process.stdout.write(encodedData)
-
-        // Remove two '\n' from the end of 'errors' and one '\n' from the end of 'warnings' if they
-        // exist.
+        // Removes unnecessary '\n' characters from the end of 'errors' and 'warnings'
         const prettyErrors = errors.endsWith('\n\n')
           ? errors.substring(0, errors.length - 2)
           : errors
@@ -504,22 +485,18 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
           ['string', 'string'],
           [prettyErrors, prettyWarnings]
         )
-        const splitIdx1 = 0
-        // TODO(docs): euro symbol example
-        const splitIdx2 = ethers.utils.toUtf8Bytes(prettyErrors).length
-        const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'uint256'],
-          [splitIdx1, splitIdx2]
-        )
 
-        const encodedData = ethers.utils.hexConcat([
+        const encodedFailure = ethers.utils.hexConcat([
           encodedErrorsAndWarnings,
-          encodedSplitIdxs,
+          ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
         ])
 
-        process.stdout.write(encodedData)
+        process.stdout.write(encodedFailure)
         break
       }
+
+      // If we make it to this point, parsing was successful. We return the minimal parsed config.
+      // and parsing warnings, which won't halt the process.
 
       // TODO: we shouldn't have two things called ConfigCache
       const configCache = {
@@ -543,11 +520,22 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         (fragment) => fragment.name === 'minimalParsedConfig'
       ).outputs[0]
 
-      const encodedMinimalParsedConfig = ethers.utils.defaultAbiCoder.encode(
-        [minimalParsedConfigType],
-        [minimalParsedConfig]
+      // Remove a '\n' character from the end of 'warnings' if it exists.
+      const prettyWarningMessages = warnings.endsWith('\n\n')
+        ? warnings.substring(0, warnings.length - 1)
+        : warnings
+
+      const encodedConfigAndWarnings = ethers.utils.defaultAbiCoder.encode(
+        [minimalParsedConfigType, 'string'],
+        [minimalParsedConfig, prettyWarningMessages]
       )
-      process.stdout.write(encodedMinimalParsedConfig)
+
+      const encodedSuccess = ethers.utils.hexConcat([
+        encodedConfigAndWarnings,
+        ethers.utils.defaultAbiCoder.encode(['bool'], [true]), // true = success
+      ])
+
+      process.stdout.write(encodedSuccess)
       break
     }
     case 'postParsingValidation': {

@@ -605,21 +605,28 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         bytes memory result = vm.ffi(cmds);
 
-        // TODO(docs) for everything below
-        bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
-        (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
+        // Get the success boolean from the end of the result, which indicates whether an error
+        // occurred during parsing.
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        // Get the data, which is either a config or a parsing error message. In either case,
+        // the data also includes warning messages that appeared during parsing.
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+        (bool success) = abi.decode(successBytes, (bool));
 
-        if (splitIdx1 == 0) {
+        if (success) {
+            (MinimalParsedConfig memory config, string memory warnings) = abi.decode(
+                data,
+                (MinimalParsedConfig, string)
+            );
+            emit log(StdStyle.yellow(warnings));
+            return config;
+        } else {
             (string memory errors, string memory warnings) = abi.decode(
-                utils.slice(result, 0, result.length - 64),
+                data,
                 (string, string)
             );
             emit log(StdStyle.yellow(warnings));
             revert(errors);
-        } else {
-            revert("TODO");
-            MinimalParsedConfig memory config = abi.decode(result, (MinimalParsedConfig));
-            return config;
         }
     }
 
@@ -652,15 +659,15 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         bytes memory result = vm.ffi(cmds);
 
-        // Next, we decode the result into the configUri and bundles. We can't just decode the
-        // result into the configUri and bundles because the `abi.decode` call fails with a "Stack
-        // too deep" error. This is because the ChugSplashBundles struct is too large for Solidity
-        // to decode all at once. So, we decode the action bundle and target bundle separately, then
-        // merge the action bundle and target bundle into a single struct. This requires that we
-        // know where to split the raw bytes before decoding anything. To solve this, we use two
-        // `splitIdx` variables. The first marks the point where the configUri ends and the action
-        // bundle begins. The second marks the point where the action bundle ends and the target
-        // bundle begins.
+        // Next, we decode the result into the configUri and bundles. We can't decode the result in
+        // a single `abi.decode` call this fails with a "Stack too deep" error. This is because the
+        // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity will
+        // only allow us to decode one Action/Target bundle at a time. So, we must decode the config
+        // URI, action bundle, and target bundle separately, then merge them into a single struct.
+        // This requires that we know where to split the raw bytes before decoding anything. To
+        // solve this, we use two `splitIdx` variables. The first marks the point where the
+        // configUri ends and the action bundle begins. The second marks the point where the action
+        // bundle ends and the target bundle begins.
         bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
         (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
 
