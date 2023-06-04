@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import { Test } from "forge-std/Test.sol";
+import { StdStyle } from "forge-std/StdStyle.sol";
 import { ChugSplashActionBundle, ChugSplashTargetBundle } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 import {
     ConfigCache,
     MinimalParsedConfig
 } from "./ChugSplashPluginTypes.sol";
 
-contract ChugSplashUtils {
+contract ChugSplashUtils is Test {
     // These provide an easy way to get structs off-chain via the ABI.
     function actionBundle() external pure returns (ChugSplashActionBundle memory) {}
     function targetBundle() external pure returns (ChugSplashTargetBundle memory) {}

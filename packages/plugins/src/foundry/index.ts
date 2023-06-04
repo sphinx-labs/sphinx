@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import { spawn } from 'child_process'
 
 import {
   chugsplashProposeAbstractTask,
@@ -49,6 +48,21 @@ import { createChugSplashRuntime } from '../utils'
 
 const args = process.argv.slice(2)
 const command = args[0]
+
+// TODO(docs): explain why we're doing this
+let warnings: string = ''
+let errors: string = ''
+process.stderr.write = (message: string) => {
+  if (message.startsWith('\nWarning: ')) {
+    warnings += message
+  } else if (message.startsWith('\nError: ')) {
+    // TODO(docs): we remove the first instance of '\nError: ' in 'message' because..
+    errors += message.replace('\nError: ', '')
+  } else {
+    throw new Error('TODO: something else was written. Should never happen')
+  }
+  return true
+}
 
 const decodeCachedConfig = async (encodedConfigCache: string) => {
   const { artifactFolder } = await getPaths()
@@ -439,64 +453,13 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
         buildInfoFolder
       )
 
-      let parsedConfig: ParsedChugSplashConfig
-      let minimalParsedConfig: MinimalParsedConfig
-      let configArtifacts: ConfigArtifacts
-
-      // TODO: create `overwriteStreams` function and put it here, and in `postParsingValidation`,
-      // and perhaps others
-      // TODO(docs): explain why we're doing this
-      let warnings: string = ''
-      let errors: string = ''
-      process.stderr.write = (message: string) => {
-        if (message.startsWith('\nWarning: ')) {
-          warnings += message
-        } else if (message.startsWith('\nError: ')) {
-          // TODO(docs): we remove the first instance of '\nError: ' in 'message' because..
-          errors += message.replace('\nError: ', '')
-        } else {
-          throw new Error(
-            'TODO: something else was written. Should never happen'
-          )
-        }
-        return true
-      }
-
-      try {
-        ;({ parsedConfig, minimalParsedConfig, configArtifacts } =
-          await readUnvalidatedParsedConfig(
-            configPath,
-            cre,
-            getConfigArtifacts,
-            FailureAction.THROW
-          ))
-      } catch (err) {
-        // There was a parsing error. We return the error messages and warnings.
-
-        // Removes unnecessary '\n' characters from the end of 'errors' and 'warnings'
-        const prettyErrors = errors.endsWith('\n\n')
-          ? errors.substring(0, errors.length - 2)
-          : errors
-        const prettyWarnings = warnings.endsWith('\n\n')
-          ? warnings.substring(0, warnings.length - 1)
-          : warnings
-
-        const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
-          ['string', 'string'],
-          [prettyErrors, prettyWarnings]
+      const { parsedConfig, minimalParsedConfig, configArtifacts } =
+        await readUnvalidatedParsedConfig(
+          configPath,
+          cre,
+          getConfigArtifacts,
+          FailureAction.THROW
         )
-
-        const encodedFailure = ethers.utils.hexConcat([
-          encodedErrorsAndWarnings,
-          ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
-        ])
-
-        process.stdout.write(encodedFailure)
-        break
-      }
-
-      // If we make it to this point, parsing was successful. We return the minimal parsed config.
-      // and parsing warnings, which won't halt the process.
 
       // TODO: we shouldn't have two things called ConfigCache
       const configCache = {
@@ -670,6 +633,33 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
     }
   }
 })().catch((err: Error) => {
-  console.error(err)
-  process.stdout.write('')
+  // Trim a trailing '\n' character from the end of 'warnings' if it exists.
+  const prettyWarnings = warnings.endsWith('\n\n')
+    ? warnings.substring(0, warnings.length - 1)
+    : warnings
+
+  let prettyError: string
+  if (err.name === 'ValidationError') {
+    // We return the error messages and warnings.
+
+    // Removes unnecessary '\n' characters from the end of 'errors'
+    prettyError = errors.endsWith('\n\n')
+      ? errors.substring(0, errors.length - 2)
+      : errors
+  } else {
+    // A non-parsing error occurred. We return the error message and stack trace.
+    prettyError = `${err.name}: ${err.message}\n\n${err.stack}`
+  }
+
+  const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
+    ['string', 'string'],
+    [prettyError, prettyWarnings]
+  )
+
+  const encodedFailure = ethers.utils.hexConcat([
+    encodedErrorsAndWarnings,
+    ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
+  ])
+
+  process.stdout.write(encodedFailure)
 })

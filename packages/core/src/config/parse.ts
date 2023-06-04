@@ -93,10 +93,10 @@ import { getStorageLayout } from '../actions/artifacts'
 import { OZ_UUPS_UPDATER_ADDRESS } from '../addresses'
 import { resolveNetworkName } from '../messages'
 
-class InputError extends Error {
+export class ValidationError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'InputError'
+    this.name = 'ValidationError'
   }
 }
 
@@ -529,7 +529,7 @@ export const parseInplaceArray: VariableHandler<
     props
 
   if (!Array.isArray(variable)) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array for ${storageObj.label} but got ${typeof variable}`
     )
   }
@@ -544,13 +544,13 @@ export const parseInplaceArray: VariableHandler<
   const sizes = stringSizes.map((el) => parseInt(el, 10))
 
   if (sizes.length === 0) {
-    throw new InputError(
+    throw new ValidationError(
       `Failed to parse expected array size for ${storageObj.label}, this should never happen please report this error to the developers.`
     )
   }
 
   if (sizes[sizes.length - 1] !== variable.length) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array of size ${sizes[sizes.length - 1]} for ${
         storageObj.label
       } but got ${JSON.stringify(variable)}`
@@ -593,7 +593,7 @@ export const parseInplaceAddress: VariableHandler<
  */
 const parseAddress = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}: ${variable}, expected address string but got ${stringifyVariableType(
         variable
       )}`
@@ -633,7 +633,7 @@ export const parseInplaceBool: VariableHandler<UserConfigVariable, boolean> = (
  */
 const parseBool = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'boolean') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label}, expected boolean but got ${stringifyVariableType(
         variable
       )}`
@@ -679,7 +679,7 @@ const parseFixedBytes = (
 ) => {
   // Check that the user entered a string
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}: ${variable}, expected DataHexString but got ${stringifyVariableType(
         variable
       )}`
@@ -688,7 +688,7 @@ const parseFixedBytes = (
 
   if (variableType.startsWith('bytes')) {
     if (!ethers.utils.isHexString(variable)) {
-      throw new InputError(
+      throw new ValidationError(
         `invalid input format for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
@@ -744,7 +744,7 @@ const parseUnsignedInteger = (
       variable.type === 'BigNumber'
     )
   ) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
@@ -813,7 +813,7 @@ const parseInteger = (
       variable.type === 'BigNumber'
     )
   ) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
@@ -874,7 +874,7 @@ export const parseInplaceStruct: VariableHandler<
   } = props
 
   if (typeof variable !== 'object') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${
         storageObj.label
       } expected object but got ${stringifyVariableType(variable)}`
@@ -895,7 +895,7 @@ export const parseInplaceStruct: VariableHandler<
       return member.label === varName
     })
     if (memberStorageObj === undefined) {
-      throw new InputError(
+      throw new ValidationError(
         `Extra member(s) detected in ${variableType.label}, ${storageObj.label}: ${varName}`
       )
     }
@@ -917,7 +917,7 @@ export const parseInplaceStruct: VariableHandler<
   }
 
   if (missingMembers.length > 0) {
-    throw new InputError(
+    throw new ValidationError(
       `Missing member(s) in struct ${variableType.label}, ${storageObj.label}: ` +
         missingMembers.join(', ')
     )
@@ -962,7 +962,7 @@ const parseBytes = (
   offset: number
 ) => {
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}, expected DataHexString but got ${stringifyVariableType(
         variable
       )}`
@@ -971,7 +971,7 @@ const parseBytes = (
 
   if (type.startsWith('bytes')) {
     if (!isDataHexString(variable)) {
-      throw new InputError(
+      throw new ValidationError(
         `invalid input type for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
@@ -1051,7 +1051,7 @@ export const parseDynamicArray: VariableHandler<
     props
 
   if (!Array.isArray(variable)) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid array ${variable}, expected array but got ${typeof variable}`
     )
   }
@@ -1094,7 +1094,7 @@ export const parseGap = (
     return []
   }
 
-  throw new InputError(
+  throw new ValidationError(
     `invalid use of { gap } keyword, only allowed for fixed-size arrays`
   )
 }
@@ -1212,7 +1212,7 @@ const parseContractVariables = (
   const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
-  const inputErrors: string[] = []
+  const validationErrors: string[] = []
   const unnecessarilyDefinedVariables: string[] = []
   const missingVariables: string[] = []
 
@@ -1237,7 +1237,7 @@ const parseContractVariables = (
       configVarValue !== undefined &&
       storageObj.type.startsWith('t_function')
     ) {
-      inputErrors.push(
+      validationErrors.push(
         `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your ChugSplash config.`
       )
     }
@@ -1252,19 +1252,19 @@ const parseContractVariables = (
           dereferencer
         )
     } catch (e) {
-      inputErrors.push((e as Error).message)
+      validationErrors.push((e as Error).message)
     }
   }
 
   if (
-    inputErrors.length > 0 ||
+    validationErrors.length > 0 ||
     unnecessarilyDefinedVariables.length > 0 ||
     missingVariables.length > 0
   ) {
-    if (inputErrors.length > 0) {
+    if (validationErrors.length > 0) {
       const lines: string[] = []
 
-      for (const error of inputErrors) {
+      for (const error of validationErrors) {
         lines.push(error)
       }
 
@@ -1338,14 +1338,14 @@ const parseArrayConstructorArg = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable[] => {
   if (!Array.isArray(constructorArgValue)) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array for ${input.name} but got ${typeof constructorArgValue}`
     )
   }
 
   if (input.arrayLength !== -1) {
     if (constructorArgValue.length !== input.arrayLength) {
-      throw new InputError(
+      throw new ValidationError(
         `Expected array of length ${input.arrayLength} for ${name} but got array of length ${constructorArgValue.length}`
       )
     }
@@ -1368,7 +1368,7 @@ export const parseStructConstructorArg = (
   cre: ChugSplashRuntimeEnvironment
 ) => {
   if (typeof constructorArgValue !== 'object') {
-    throw new InputError(
+    throw new ValidationError(
       `Expected object for ${
         paramType.name
       } but got ${typeof constructorArgValue}`
@@ -1409,7 +1409,7 @@ export const parseStructConstructorArg = (
   }
 
   if (memberErrors.length > 0) {
-    throw new InputError(memberErrors.join('\n'))
+    throw new ValidationError(memberErrors.join('\n'))
   }
 
   return parsedValues
@@ -1477,7 +1477,7 @@ const parseAndValidateConstructorArg = (
     return parseStructConstructorArg(paramType, name, constructorArgValue, cre)
   } else {
     // throw or log error
-    throw new InputError(
+    throw new ValidationError(
       `Unsupported constructor argument type: ${paramType.type} for argument ${name}`
     )
   }
@@ -1509,7 +1509,7 @@ export const parseContractConstructorArgs = (
 
   if (constructorFragment === undefined) {
     if (Object.keys(userConstructorArgs).length > 0) {
-      throw new InputError(
+      throw new ValidationError(
         `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
           `no constructor exists in the contract.`
       )
@@ -2823,7 +2823,7 @@ const assertNoValidationErrors = (failureAction: FailureAction): void => {
     if (failureAction === FailureAction.EXIT) {
       process.exit(1)
     } else if (failureAction === FailureAction.THROW) {
-      throw new Error()
+      throw new ValidationError('')
     }
   }
 }
