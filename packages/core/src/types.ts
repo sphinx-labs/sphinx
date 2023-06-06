@@ -19,6 +19,12 @@ export type ChugSplashRuntimeEnvironment = {
   ) => Promise<StorageLayout>
 }
 
+export enum FailureAction {
+  EXIT, // Exit the process without throwing an error. This cannot be caught in a try/catch.
+  THROW, // Throw an error. This will exit the process if not caught in a try/catch.
+  CONTINUE, // Continue execution.
+}
+
 export type ExecutorKey = {
   id: number
   privateKey: string
