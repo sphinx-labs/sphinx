@@ -103,7 +103,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
+        ffiDeployOnAnvil();
     }
+
+    // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
+    // state on the in-process node (e.g. in async user config).
 
     function silence() internal {
         silent = true;
@@ -118,9 +122,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // TODO(test): remove all of the old ffi functions
 
-    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
+    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private) {
         ensureChugSplashInitialized(_rpcUrl);
-
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -131,7 +134,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager, _rpcUrl);
 
-        ffiPostParsingValidation(configCache);
+        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
+        // support complex types like the 'variables' field.
+        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache, _configPath);
 
         address deployer = utils.msgSender();
         finalizeRegistration(
@@ -144,10 +149,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         address realManagerAddress = registry.projects(minimalParsedConfig.organizationID);
         require(realManagerAddress == address(manager), "Computed manager address is different from expected address");
-
-        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
-        // support complex types like the 'variables' field.
-        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
             emit log("Nothing to execute in this deployment. Exiting early.");
@@ -203,8 +204,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             transferProjectOwnership(manager, _newOwner.value);
         }
 
-        // ffiPostDeploymentActions(manager, deploymentId, configUri, localNetwork, networkName);
-
         if (!silent) {
             emit log("Success!");
             for (uint i = 0; i < minimalParsedConfig.contracts.length; i++) {
@@ -229,7 +228,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             Version memory managerVersion = ffiGetCurrentChugSplashManagerVersion();
-            _registry.finalizeRegistration(
+            _registry.finalizeRegistration{gas: 1000000}(
                 _organizationID,
                 _newOwner,
                 managerVersion,
@@ -273,7 +272,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
-        _manager.propose(
+        _manager.propose{gas: 1000000}(
             _bundles.actionBundle.root,
             _bundles.targetBundle.root,
             _bundles.actionBundle.actions.length,
@@ -297,7 +296,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 )
             );
         }
-        _manager.approve(_deploymentId);
+        _manager.approve{gas: 1000000}(_deploymentId);
     }
 
     function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) private {
@@ -618,42 +617,18 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ffiPostParsingValidation(ConfigCache memory _configCache) private {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "postParsingValidation";
-        bytes memory encodedCache = abi.encode(_configCache);
-        cmds[4] = vm.toString(encodedCache);
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (result.length > 0) {
-            (string memory errors, string memory warnings) = abi.decode(
-                result,
-                (string, string)
-            );
-            if (bytes(warnings).length > 0) {
-                emit log(StdStyle.yellow(warnings));
-            }
-            if (bytes(errors).length > 0) {
-                revert(errors);
-            }
-        }
-    }
-
-    function ffiGetCanonicalConfigData(ConfigCache memory _configCache)
+    function ffiGetCanonicalConfigData(ConfigCache memory _configCache, string memory _configPath)
         private
         returns (string memory, ChugSplashBundles memory)
     {
-        string[] memory cmds = new string[](5);
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getCanonicalConfigData";
         bytes memory encodedCache = abi.encode(_configCache);
         cmds[4] = vm.toString(encodedCache);
+        cmds[5] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
 
@@ -695,13 +670,35 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return OptionalString({ exists: exists, value: configUri });
     }
 
-    function ffiPostDeploymentActions(
-        ChugSplashManager _manager,
-        bytes32 _deploymentId,
-        string memory _configUri,
-        bool _localNetwork,
-        string memory _networkName
-    ) private {}
+    function ffiDeployOnAnvil() private {
+        string[] memory cmds = new string[](6);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "deployOnAnvil";
+
+        vm.ffi(cmds);
+    }
+
+    function verify(
+        string memory _configPath
+    ) internal {
+        string memory networkName = getChain(block.chainid).chainAlias;
+
+        string[] memory cmds = new string[](10);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "postDeploymentActions";
+        cmds[4] = _configPath;
+        cmds[5] = networkName;
+        cmds[6] = getRpcUrl();
+
+        bytes memory result = vm.ffi(cmds);
+
+        emit log(string(result));
+        emit log(string("\n"));
+    }
 
     function fetchPaths()
         private
@@ -752,7 +749,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
      */
-    function isLocalNetwork(string memory _rpcUrl) private pure returns (bool) {
+    function isLocalNetwork(string memory _rpcUrl) private returns (bool) {
         strings.slice memory sliceUrl = _rpcUrl.toSlice();
         strings.slice memory delim = ":".toSlice();
         string[] memory parts = new string[](sliceUrl.count(delim) + 1);
@@ -892,12 +889,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
+    function getChugSplashRegistry(string memory _rpcUrl) internal returns (ChugSplashRegistry) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getRegistryAddress";
+        cmds[4] = _rpcUrl;
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;
@@ -928,7 +926,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) private pure returns (BundledChugSplashAction[] memory sliced) {
         sliced = new BundledChugSplashAction[](end - start);
         for (uint i = start; i < end; i++) {
-            sliced[i] = selected[i];
+            sliced[i - start] = selected[i];
         }
     }
 
@@ -1068,7 +1066,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), maxGasLimit, contractConfigs);
             BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
-            manager.executeActions(rawActions, _actionIndexes, _proofs);
+            manager.executeActions{gas: 15000000}(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
             state = manager.deployments(activeDeploymentId);
@@ -1129,13 +1127,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         // Start the upgrade
-        manager.initiateUpgrade(targets, proofs);
+        manager.initiateUpgrade{gas: 1000000}(targets, proofs);
 
         // Execute all the set storage actions
         executeBatchActions(setStorageActions, manager, blockGasLimit / 2, contractConfigs);
 
         // Complete the upgrade
-        manager.finalizeUpgrade(targets, proofs);
+        manager.finalizeUpgrade{gas: 1000000}(targets, proofs);
 
         pushRecordedLogs();
 
