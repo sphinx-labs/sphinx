@@ -8,6 +8,8 @@ import {
   ParsedContractConfig,
   toOpenZeppelinContractKind,
   ConfigArtifacts,
+  GetConfigArtifacts,
+  validateBuildInfo,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -56,12 +58,15 @@ export const getBuildInfo = async (
     )
   }
 
+  validateBuildInfo(buildInfo)
+
   return buildInfo
 }
 
 /**
- * Finds the path to the build info file and the contract artifact file for each contract
- * referenced in the given contract configurations.
+ * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
+ * config to its artifact and build info. We use a callback to create a standard interface for the
+ * `getConfigArtifacts` function, which has an implementation for Hardhat and Foundry.
  *
  * @param hre Hardhat runtime environment.
  * @param contractConfigs Contract configurations.
@@ -69,26 +74,29 @@ export const getBuildInfo = async (
  * @param buildInfoFolder Path to the build info folder.
  * @returns Paths to the build info and contract artifact files.
  */
-export const getConfigArtifacts = async (
-  hre: HardhatRuntimeEnvironment,
-  contractConfigs: UserContractConfigs
-): Promise<ConfigArtifacts> => {
-  const configArtifacts: ConfigArtifacts = {}
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
-    const buildInfo = await getBuildInfo(
-      hre,
-      artifact.sourceName,
-      artifact.contractName
-    )
-    configArtifacts[referenceName] = {
-      artifact,
-      buildInfo,
+export const makeGetConfigArtifacts = (
+  hre: HardhatRuntimeEnvironment
+): GetConfigArtifacts => {
+  return async (
+    contractConfigs: UserContractConfigs
+  ): Promise<ConfigArtifacts> => {
+    const configArtifacts: ConfigArtifacts = {}
+    for (const [referenceName, contractConfig] of Object.entries(
+      contractConfigs
+    )) {
+      const artifact = hre.artifacts.readArtifactSync(contractConfig.contract)
+      const buildInfo = await getBuildInfo(
+        hre,
+        artifact.sourceName,
+        artifact.contractName
+      )
+      configArtifacts[referenceName] = {
+        artifact,
+        buildInfo,
+      }
     }
+    return configArtifacts
   }
-  return configArtifacts
 }
 
 /**
@@ -98,30 +106,21 @@ export const getConfigArtifacts = async (
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,
   parsedContractConfig: ParsedContractConfig
-): Promise<StorageLayout | undefined> => {
+): Promise<StorageLayout> => {
   const { kind } = parsedContractConfig
-  if (
-    kind === 'oz-transparent' ||
-    kind === 'oz-ownable-uups' ||
-    kind === 'oz-access-control-uups'
-  ) {
-    const proxy = parsedContractConfig.address
-    const isProxyDeployed = (await hre.ethers.provider.getCode(proxy)) !== '0x'
-    if (isProxyDeployed) {
-      const manifest = await Manifest.forNetwork(hre.network.provider)
-      const deployData = await getDeployData(
-        hre,
-        await hre.ethers.getContractFactory(parsedContractConfig.contract),
-        withValidationDefaults({
-          kind: toOpenZeppelinContractKind(kind),
-        })
-      )
-      const storageLayout = await getStorageLayoutForAddress(
-        manifest,
-        deployData.validations,
-        await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
-      )
-      return storageLayout
-    }
-  }
+  const proxy = parsedContractConfig.address
+  const manifest = await Manifest.forNetwork(hre.network.provider)
+  const deployData = await getDeployData(
+    hre,
+    await hre.ethers.getContractFactory(parsedContractConfig.contract),
+    withValidationDefaults({
+      kind: toOpenZeppelinContractKind(kind),
+    })
+  )
+  const storageLayout = await getStorageLayoutForAddress(
+    manifest,
+    deployData.validations,
+    await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
+  )
+  return storageLayout
 }

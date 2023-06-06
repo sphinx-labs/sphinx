@@ -57,10 +57,9 @@ import {
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
 } from './addresses'
-import { CanonicalChugSplashConfig } from './config/types'
+import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
 import {
   getChugSplashManagerAddress,
-  getConfigArtifactsRemote,
   getConstructorArgs,
   getCreate3Address,
 } from './utils'
@@ -76,6 +75,7 @@ export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
   canonicalConfig: CanonicalChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
@@ -92,11 +92,10 @@ export const verifyChugSplashConfig = async (
     customChains
   )
 
-  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
   )) {
-    const { artifact, buildInfo } = artifacts[referenceName]
+    const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName } = artifact
     const constructorArgValues = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
@@ -430,8 +429,10 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (chainId: number): boolean => {
-  const chainIds = Object.values(chainConfig).map((config) => config.chainId)
-  const customChainIds = customChains.map((chain) => chain.chainId)
-  return chainIds.includes(chainId) || customChainIds.includes(chainId)
+export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
+  const customNetworks = customChains.map((chain) => chain.network)
+  return (
+    chainConfig[networkName] !== undefined ||
+    customNetworks.includes(networkName)
+  )
 }

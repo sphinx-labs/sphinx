@@ -16,13 +16,7 @@ export type ChugSplashRuntimeEnvironment = {
   importOpenZeppelinStorageLayout: (
     hre: HardhatRuntimeEnvironment,
     parsedContractConfig: ParsedContractConfig
-  ) => Promise<StorageLayout | undefined>
-}
-
-export type FoundryContractArtifact = {
-  referenceName: string
-  contractName: string
-  contractAddress: string
+  ) => Promise<StorageLayout>
 }
 
 export type ExecutorKey = {
@@ -68,4 +62,10 @@ export declare class ChugSplashExecutorType extends BaseServiceV2<
   ): Promise<void>
   init(): Promise<void>
   main(): Promise<void>
+}
+
+export enum ProposalRoute {
+  RELAY,
+  REMOTE_EXECUTION,
+  LOCAL_EXECUTION,
 }

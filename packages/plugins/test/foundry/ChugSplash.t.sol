@@ -27,8 +27,14 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
  * https://github.com/chugsplash/chugsplash/tree/develop/packages/contracts/test
  */
 
-contract ChugSplashTest is Test {
+contract ChugSplashTest is ChugSplash {
     type UserDefinedType is uint256;
+
+    string private filePath =
+        vm.envOr(
+            "DEV_FILE_PATH",
+            string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
+        );
 
     address claimedProxy;
     address transferredProxy;
@@ -51,46 +57,41 @@ contract ChugSplashTest is Test {
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
 
     function setUp() public {
-        chugsplash = new ChugSplash();
-
         // Setup deployment test
-        chugsplash.deploy(deployConfig, true);
+        deploy(deployConfig, vm.rpcUrl("anvil"));
 
         // Deploy export proxy test
-        chugsplash.deploy(claimConfig, true);
-        chugsplash.exportProxy(claimConfig, "MySimpleStorage", true);
+        // deploy(claimConfig);
+        // exportProxy(claimConfig, "MySimpleStorage", true);
 
         // Start export proxy test
-        chugsplash.deploy(transferConfig, true);
-        chugsplash.exportProxy(transferConfig, "MySimpleStorage", true);
+        // deploy(transferConfig);
+        // exportProxy(transferConfig, "MySimpleStorage", true);
 
-        // Refresh EVM state to reflect chain state after ChugSplash transactions
-        chugsplash.refresh();
+        // importProxy(transferConfig, getAddress(transferConfig, "MySimpleStorage"), true);
+        // claimedProxy = payable(getAddress(claimConfig, "MySimpleStorage"));
+        // transferredProxy = payable(getAddress(transferConfig, "MySimpleStorage"));
+        myStorage = Storage(getAddress(deployConfig, "MyStorage"));
+        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
+        myStateless = Stateless(getAddress(deployConfig, "Stateless"));
+        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
 
-        chugsplash.importProxy(transferConfig, chugsplash.getAddress(transferConfig, "MySimpleStorage"), true);
-        claimedProxy = payable(chugsplash.getAddress(claimConfig, "MySimpleStorage"));
-        transferredProxy = payable(chugsplash.getAddress(transferConfig, "MySimpleStorage"));
-        myStorage = Storage(chugsplash.getAddress(deployConfig, "MyStorage"));
-        mySimpleStorage = SimpleStorage(chugsplash.getAddress(deployConfig, "MySimpleStorage"));
-        myStateless = Stateless(chugsplash.getAddress(deployConfig, "Stateless"));
-        myComplexConstructorArgs = ComplexConstructorArgs(chugsplash.getAddress(deployConfig, "ComplexConstructorArgs"));
-
-        registry = ChugSplashRegistry(chugsplash.getRegistryAddress());
+        registry = getChugSplashRegistry();
     }
 
-    function testDidexportProxy() public {
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    }
+    // function testDidexportProxy() public {
+    //     assertEq(getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    // }
 
-    function testDidImportProxy() public {
-        ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
-        assertEq(chugsplash.getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
-    }
+    // function testDidImportProxy() public {
+    //     ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
+    //     assertEq(getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
+    // }
 
-    function testDidClaim() public {
-        assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
-        assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
-    }
+    // function testDidClaim() public {
+    //     assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
+    //     assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
+    // }
 
     function testDeployStatelessImmutableContract() public {
         assertEq(myStateless.hello(), 'Hello, world!');

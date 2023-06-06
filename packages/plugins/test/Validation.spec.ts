@@ -5,14 +5,10 @@ import '../dist'
 
 import { expect } from 'chai'
 import hre from 'hardhat'
-import {
-  assertValidUserConfigFields,
-  readUnvalidatedChugSplashConfig,
-  readValidatedChugSplashConfig,
-} from '@chugsplash/core'
+import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
 
-import { getConfigArtifacts } from '../src/hardhat/artifacts'
 import { createChugSplashRuntime } from '../src/utils'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
 const constructorArgConfigPath =
@@ -25,23 +21,6 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
-    const varValidationUserConfig = await readUnvalidatedChugSplashConfig(
-      variableValidateConfigPath
-    )
-    const constructorArgsValidationUserConfig =
-      await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
-    const noProxyValidationUserConfig = await readUnvalidatedChugSplashConfig(
-      noProxyContractReferenceConfigPath
-    )
-    const varValidationArtifacts = await getConfigArtifacts(
-      hre,
-      varValidationUserConfig.contracts
-    )
-    const constructorArgsValidationArtifacts = await getConfigArtifacts(
-      hre,
-      constructorArgsValidationUserConfig.contracts
-    )
-
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
@@ -59,12 +38,11 @@ describe('Validate', () => {
 
     try {
       await readValidatedChugSplashConfig(
-        provider,
         variableValidateConfigPath,
-        varValidationArtifacts,
-        'hardhat',
+        provider,
         cre,
-        false
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
@@ -72,23 +50,27 @@ describe('Validate', () => {
 
     try {
       await readValidatedChugSplashConfig(
-        provider,
         constructorArgConfigPath,
-        constructorArgsValidationArtifacts,
-        'hardhat',
+        provider,
         cre,
-        false
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
     }
 
-    await assertValidUserConfigFields(
-      noProxyValidationUserConfig,
-      provider,
-      cre,
-      false
-    )
+    try {
+      await readValidatedChugSplashConfig(
+        noProxyContractReferenceConfigPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
+      )
+    } catch (e) {
+      /* empty */
+    }
   })
 
   it('did catch invalid variable arrayInt8', async () => {

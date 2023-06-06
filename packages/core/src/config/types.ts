@@ -5,7 +5,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber, constants } from 'ethers'
+import { BigNumber, constants, ethers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -34,6 +34,15 @@ export const contractKindHashes: { [contractKind: string]: string } = {
 }
 
 export type ContractKind = ExternalContractKind | 'internal-default'
+
+export enum ContractKindEnum {
+  INTERNAL_DEFAULT,
+  OZ_TRANSPARENT,
+  OZ_OWNABLE_UUPS,
+  OZ_ACCESS_CONTROL_UUPS,
+  EXTERNAL_DEFAULT,
+  NO_PROXY,
+}
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -82,6 +91,16 @@ export interface ParsedChugSplashConfig {
   contracts: ParsedContractConfigs
 }
 
+export type UnsafeAllow = {
+  delegatecall?: boolean
+  selfdestruct?: boolean
+  missingPublicUpgradeTo?: boolean
+  emptyPush?: boolean
+  flexibleConstructor?: boolean
+  renames?: boolean
+  skipStorageCheck?: boolean
+}
+
 /**
  * User-defined contract definition in a ChugSplash config.
  */
@@ -94,15 +113,7 @@ export type UserContractConfig = {
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
   salt?: string
-  unsafeAllowEmptyPush?: boolean
-  unsafeAllowRenames?: boolean
-  unsafeSkipStorageCheck?: boolean
-  unsafeAllowFlexibleConstructor?: boolean
-  unsafeAllow?: {
-    delegatecall?: boolean
-    selfdestruct?: boolean
-    missingPublicUpgradeTo?: boolean
-  }
+  unsafeAllow?: UnsafeAllow
 }
 
 export type UserContractConfigs = {
@@ -125,8 +136,10 @@ export type ParsedContractConfig = {
   variables: ParsedConfigVariables
   salt: string
   constructorArgs: ParsedConfigVariables
-  unsafeAllowEmptyPush?: boolean
-  unsafeAllowFlexibleConstructor?: boolean
+  userDefinedAddress: boolean
+  unsafeAllow: UnsafeAllow
+  previousBuildInfo?: string
+  previousFullyQualifiedName?: string
 }
 
 export type ParsedContractConfigs = {
@@ -158,3 +171,50 @@ export type ConfigArtifacts = {
     artifact: ContractArtifact
   }
 }
+
+export type ConfigCache = {
+  blockGasLimit: ethers.BigNumber
+  localNetwork: boolean
+  networkName: string
+  contractConfigCache: ContractConfigCache
+}
+
+export type ContractConfigCache = {
+  [referenceName: string]: {
+    isTargetDeployed: boolean
+    deploymentRevert: DeploymentRevertCache
+    importCache: ImportCache
+    deployedCreationCodeWithArgsHash?: string
+    isImplementationDeployed?: boolean
+    previousConfigUri?: string
+  }
+}
+
+export type DeploymentRevertCache = {
+  deploymentReverted: boolean
+  revertString?: string
+}
+
+export type ImportCache = {
+  requiresImport: boolean
+  currProxyAdmin?: string
+}
+
+export type MinimalParsedConfig = {
+  organizationID: string
+  projectName: string
+  contracts: Array<MinimalParsedContractConfig>
+}
+
+export type MinimalParsedContractConfig = {
+  referenceName: string
+  creationCodeWithConstructorArgs: string
+  targetAddress: string
+  estDeployContractCost: ethers.BigNumber
+  kind: ContractKindEnum
+  salt: string
+}
+
+export type GetConfigArtifacts = (
+  contractConfigs: UserContractConfigs
+) => Promise<ConfigArtifacts>

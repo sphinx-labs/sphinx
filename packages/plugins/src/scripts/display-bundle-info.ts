@@ -3,17 +3,16 @@ import { argv } from 'node:process'
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import {
-  chugsplashCommitAbstractSubtask,
-  readUnvalidatedChugSplashConfig,
+  getCanonicalConfigData,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { utils } from 'ethers'
 
-import { getConfigArtifacts } from '../hardhat/artifacts'
+import { makeGetConfigArtifacts } from '../hardhat/artifacts'
 import { createChugSplashRuntime } from '../utils'
 
-const chugsplashFilePath = argv[2]
-if (typeof chugsplashFilePath !== 'string') {
+const configPath = argv[2]
+if (typeof configPath !== 'string') {
   throw new Error(`Pass in a path to a ChugSplash config file.`)
 }
 
@@ -25,11 +24,10 @@ if (typeof chugsplashFilePath !== 'string') {
  * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
-  const userConfig = await readUnvalidatedChugSplashConfig(chugsplashFilePath)
-  const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
+  const provider = hre.ethers.provider
 
   const cre = await createChugSplashRuntime(
-    chugsplashFilePath,
+    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -37,22 +35,18 @@ const displayBundleInfo = async () => {
     false
   )
 
-  const parsedConfig = await readValidatedChugSplashConfig(
-    hre.ethers.provider,
-    chugsplashFilePath,
-    configArtifacts,
-    'hardhat',
-    cre
-  )
+  const { parsedConfig, configCache, configArtifacts } =
+    await readValidatedChugSplashConfig(
+      configPath,
+      provider,
+      cre,
+      makeGetConfigArtifacts(hre)
+    )
 
-  const { configUri, bundles } = await chugsplashCommitAbstractSubtask(
-    hre.ethers.provider,
+  const { configUri, bundles } = await getCanonicalConfigData(
     parsedConfig,
-    '',
-    false,
     configArtifacts,
-    hre.config.paths.canonicalConfigs,
-    'hardhat'
+    configCache
   )
 
   // Convert the siblings in the Merkle proof from Buffers to hex strings.

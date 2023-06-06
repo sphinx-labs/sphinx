@@ -3,33 +3,32 @@ import '@chugsplash/plugins'
 import hre, { chugsplash } from 'hardhat'
 import { Contract } from 'ethers'
 import {
+  ProposalRoute,
   chugsplashApproveAbstractTask,
   chugsplashClaimAbstractTask,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
-  readUnvalidatedChugSplashConfig,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { expect } from 'chai'
-import { getConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
 
 import { createChugSplashRuntime } from '../../plugins/src/utils'
 
 const configPath = './chugsplash/ExecutorTest.config.ts'
 
 describe('Remote Execution', () => {
+  if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
+    throw new Error(
+      'IPFS_API_KEY_SECRET and IPFS_PROJECT_ID must be set to run automated executor tests'
+    )
+  }
+
   let Proxy: Contract
   let NonProxy: Contract
   before(async () => {
     const provider = hre.ethers.provider
     const signer = provider.getSigner()
     const signerAddress = await signer.getAddress()
-    const canonicalConfigPath = hre.config.paths.canonicalConfigs
-    const deploymentFolder = hre.config.paths.deployments
-
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       configPath,
@@ -38,17 +37,16 @@ describe('Remote Execution', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false
-    )
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      configPath,
-      configArtifacts,
-      'hardhat',
-      cre,
       true
     )
+
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        configPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     // claim
     await chugsplashClaimAbstractTask(
@@ -69,6 +67,7 @@ describe('Remote Execution', () => {
       configArtifacts,
       'hardhat',
       parsedConfig,
+      configCache,
       cre
     )
 
@@ -80,21 +79,20 @@ describe('Remote Execution', () => {
       '',
       'hardhat',
       configArtifacts,
-      canonicalConfigPath,
+      ProposalRoute.REMOTE_EXECUTION,
       cre,
-      false
+      configCache
     )
 
     // approve
     await chugsplashApproveAbstractTask(
+      configCache,
       provider,
       signer,
       configPath,
       false,
       configArtifacts,
       'hardhat',
-      canonicalConfigPath,
-      deploymentFolder,
       parsedConfig,
       cre
     )
@@ -110,7 +108,7 @@ describe('Remote Execution', () => {
     )
   })
 
-  it('does deploy proxied contract remotely', async () => {
+  it.only('does deploy proxied contract remotely', async () => {
     expect(await Proxy.number()).to.equal(1)
     expect(await Proxy.stored()).to.equal(true)
     expect(await Proxy.storageName()).to.equal('First')

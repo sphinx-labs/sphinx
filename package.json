@@ -23,13 +23,16 @@
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts",
       "@chugsplash/plugins/@chugsplash/contracts",
+      "@chugsplash/plugins/forge-std",
+      "@chugsplash/plugins/ds-test",
+      "@chugsplash/plugins/solidity-stringutils",
       "@chugsplash/plugins/@prb/math"
     ]
   },
   "scripts": {
     "install:foundry": "git submodule update --init --recursive",
     "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test",
+    "test": "yarn workspaces run test:coverage",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
     "lint:fix": "yarn workspaces run lint:fix"

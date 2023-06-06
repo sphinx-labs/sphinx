@@ -1,7 +1,6 @@
 import * as path from 'path'
 import assert from 'assert'
 
-import { getChainId } from '@openzeppelin/upgrades-core'
 import { ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -26,10 +25,9 @@ import { Logger } from '@eth-optimism/common-ts'
 import {
   isContractDeployed,
   getGasPriceOverrides,
-  isLiveNetwork,
-  assertValidBlockGasLimit,
   getImpersonatedSigner,
-  getChugSplashRegistry,
+  getChugSplashRegistryReadOnly,
+  isLocalNetwork,
 } from '../../utils'
 import {
   ADAPTER_DEPLOYER_ADDRESS,
@@ -59,6 +57,8 @@ import {
   MANAGED_PROPOSER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
+import { resolveNetworkName } from '../../messages'
+import { assertValidBlockGasLimit } from '../../config/parse'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -104,7 +104,11 @@ export const initializeAndVerifyChugSplash = async (
   // Verify ChugSplash contracts on etherscan
   try {
     // Verify the ChugSplash contracts if the current network is supported.
-    if (isSupportedNetworkOnEtherscan(await getChainId(provider))) {
+    if (
+      isSupportedNetworkOnEtherscan(
+        await resolveNetworkName(provider, 'hardhat')
+      )
+    ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
@@ -138,15 +142,14 @@ export const ensureChugSplashInitialized = async (
   executors: string[] = [],
   logger?: Logger
 ) => {
-  if (await isLiveNetwork(provider)) {
-    // Throw an error if the ChugSplashRegistry is not deployed on this network
-    if (!(await isContractDeployed(getChugSplashRegistryAddress(), provider))) {
-      throw new Error(
-        `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
-      )
-    }
-  } else {
+  if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
+    return
+  } else if (await isLocalNetwork(provider)) {
     await initializeChugSplash(provider, signer, executors, [], [], logger)
+  } else {
+    throw new Error(
+      `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
+    )
   }
 }
 
@@ -158,7 +161,8 @@ export const initializeChugSplash = async (
   callers: string[],
   logger?: Logger
 ): Promise<void> => {
-  await assertValidBlockGasLimit(provider)
+  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+  assertValidBlockGasLimit(blockGasLimit)
 
   const chugsplashConstructorArgs = getChugSplashConstructorArgs()
 
@@ -280,10 +284,8 @@ export const initializeChugSplash = async (
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  if (
-    (await isLiveNetwork(provider)) &&
-    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
-  ) {
+  const localNetwork = await isLocalNetwork(provider)
+  if (!localNetwork && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
     if (!process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY) {
       throw new Error('Must define CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY')
     }
@@ -305,7 +307,7 @@ export const initializeChugSplash = async (
       )
     }
 
-    if (!(await isLiveNetwork(provider))) {
+    if (localNetwork) {
       // Fund the signer
       await (
         await deployer.sendTransaction({
@@ -398,7 +400,7 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: adding the initial ChugSplashManager version...')
 
-  const ChugSplashRegistry = getChugSplashRegistry(provider)
+  const ChugSplashRegistry = getChugSplashRegistryReadOnly(provider)
   const chugSplashManagerV1Address = getChugSplashManagerV1Address()
   if (
     (await ChugSplashRegistry.managerImplementations(

@@ -5,12 +5,13 @@
   "main": "dist/index",
   "types": "dist/index",
   "files": [
-    "dist/*"
+    "dist/*",
+    "out/artifacts/ChugSplash.sol/ChugSplash.json"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
-    "build": "yarn build:ts",
-    "build:ts": "tsc -p ./tsconfig.json && yarn build:contracts",
+    "build": "yarn build:ts && yarn build:contracts",
+    "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "npx hardhat clean && npx hardhat compile && mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
@@ -61,7 +62,10 @@
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@thirdweb-dev/contracts": "^3.5.1",
     "chai": "^4.3.7",
-    "hardhat": "^2.10.0"
+    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
+    "forge-std": "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400",
+    "hardhat": "^2.10.0",
+    "solidity-stringutils": "https://github.com/Arachnid/solidity-stringutils.git#46983c6d9462a80229cf0d5bab8ea3b3ee31066c"
   },
   "peerDependencies": {
     "hardhat": "^2"

@@ -3583,6 +3583,10 @@ dotenv@^16.0.0, dotenv@^16.0.1, dotenv@^16.0.3:
   version "0.0.0"
   resolved "https://github.com/dapphub/ds-test.git#9310e879db8ba3ea6d5c6489a579118fd264a3f5"
 
+"ds-test@https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0":
+  version "1.0.0"
+  resolved "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0"
+
 duplexify@^4.1.1:
   version "4.1.2"
   resolved "https://registry.yarnpkg.com/duplexify/-/duplexify-4.1.2.tgz#18b4f8d28289132fa0b9573c898d9f903f81c7b0"
@@ -4547,6 +4551,10 @@ forever-agent@~0.6.1:
 "forge-std@https://github.com/foundry-rs/forge-std#2a2ce3692b8c1523b29de3ec9d961ee9fbbc43a6":
   version "0.1.0"
   resolved "https://github.com/foundry-rs/forge-std#2a2ce3692b8c1523b29de3ec9d961ee9fbbc43a6"
+
+"forge-std@https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400":
+  version "1.5.6"
+  resolved "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400"
 
 form-data@^3.0.0:
   version "3.0.1"
@@ -8094,6 +8102,10 @@ solidity-comments-extractor@^0.0.7:
   version "0.0.7"
   resolved "https://registry.yarnpkg.com/solidity-comments-extractor/-/solidity-comments-extractor-0.0.7.tgz#99d8f1361438f84019795d928b931f4e5c39ca19"
   integrity sha512-wciNMLg/Irp8OKGrh3S2tfvZiZ0NEyILfcRCXCD4mp7SgK/i9gzLfhY2hY7VMCQJ3kH9UB9BzNdibIVMchzyYw==
+
+"solidity-stringutils@https://github.com/Arachnid/solidity-stringutils.git#46983c6d9462a80229cf0d5bab8ea3b3ee31066c":
+  version "0.0.0"
+  resolved "https://github.com/Arachnid/solidity-stringutils.git#46983c6d9462a80229cf0d5bab8ea3b3ee31066c"
 
 solmate@^6.7.0:
   version "6.7.0"

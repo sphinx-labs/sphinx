@@ -2,8 +2,8 @@ import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers, utils } from 'ethers'
 
 import {
-  getChugSplashManager,
   getChugSplashManagerAddress,
+  getChugSplashManagerReadOnly,
   isContractDeployed,
 } from './utils'
 import {
@@ -25,10 +25,10 @@ export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManager(provider, organizationID)
+  const managerReadOnly = getChugSplashManagerReadOnly(provider, organizationID)
 
-  const managerBalance = await provider.getBalance(ChugSplashManager.address)
-  const totalDebt = await ChugSplashManager.totalDebt()
+  const managerBalance = await provider.getBalance(managerReadOnly.address)
+  const totalDebt = await managerReadOnly.totalDebt()
   return managerBalance.sub(totalDebt).sub(OWNER_BOND_AMOUNT)
 }
 
@@ -36,7 +36,10 @@ export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
   organizationID: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManager(provider, organizationID)
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
 
   if (
     (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero

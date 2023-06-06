@@ -15,13 +15,12 @@ import { Fragment, ParamType } from 'ethers/lib/utils'
 import {
   assertStorageUpgradeSafe,
   StorageLayout,
-  UpgradeableContract,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
 import { ProxyABI } from '@chugsplash/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import yesno from 'yesno'
-import { ContractDefinition } from 'solidity-ast'
+import { ContractDefinition, Expression } from 'solidity-ast'
 
 import {
   SolidityStorageLayout,
@@ -34,19 +33,25 @@ import {
   isExternalContractKind,
   getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
-  getPreviousStorageLayoutOZFormat,
   getOpenZeppelinUpgradableContract,
   isEqualType,
   getOpenZeppelinValidationOpts,
   chugsplashLog,
   getCreate3Address,
   isDataHexString,
-  isLiveNetwork,
-  isContractDeployed,
-  assertValidBlockGasLimit,
   getCreationCodeWithConstructorArgs,
   getDeployedCreationCodeWithArgsHash,
   getNonProxyCreate3Salt,
+  getPreviousConfigUri,
+  toContractKindEnum,
+  getChugSplashRegistryReadOnly,
+  getChugSplashManagerReadOnly,
+  isLocalNetwork,
+  getEstDeployContractCost,
+  getConfigArtifactsRemote,
+  isOpenZeppelinContractKind,
+  readBuildInfo,
+  fetchAndCacheCanonicalConfig,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -58,13 +63,16 @@ import {
   ParsedConfigVariables,
   ParsedContractConfig,
   ConfigArtifacts,
+  GetConfigArtifacts,
+  ConfigCache,
+  MinimalParsedConfig,
+  ContractConfigCache,
+  ContractKindEnum,
+  DeploymentRevertCache,
+  ImportCache,
+  MinimalParsedContractConfig,
 } from './types'
-import {
-  CONTRACT_SIZE_LIMIT,
-  Integration,
-  Keyword,
-  keywords,
-} from '../constants'
+import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -83,11 +91,12 @@ import {
 import { ChugSplashRuntimeEnvironment } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
 import { OZ_UUPS_UPDATER_ADDRESS } from '../addresses'
+import { resolveNetworkName } from '../messages'
 
-class InputError extends Error {
+export class ValidationError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'InputError'
+    this.name = 'ValidationError'
   }
 }
 
@@ -106,6 +115,44 @@ const logValidationError = (
   chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
+// TODO: mv
+export enum FailureAction {
+  EXIT, // Exit the process without throwing an error. This cannot be caught.
+  THROW, // Throw an error. This will exit the process if not caught.
+  CONTINUE, // Continue execution.
+}
+
+export const readUnvalidatedParsedConfig = async (
+  configPath: string,
+  cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
+  failureAction: FailureAction
+): Promise<{
+  parsedConfig: ParsedChugSplashConfig
+  minimalParsedConfig: MinimalParsedConfig
+  configArtifacts: ConfigArtifacts
+}> => {
+  const userConfig = await readUserChugSplashConfig(configPath)
+  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
+
+  // Just in case, we reset the global validation errors flag before parsing
+  validationErrors = false
+
+  const parsedConfig = getUnvalidatedParsedConfig(
+    userConfig,
+    configArtifacts,
+    cre,
+    failureAction
+  )
+
+  const minimalParsedConfig = getMinimalParsedConfig(
+    parsedConfig,
+    configArtifacts
+  )
+
+  return { parsedConfig, minimalParsedConfig, configArtifacts }
+}
+
 /**
  * Reads a ChugSplash config file and completes full parsing and validation on it.
  *
@@ -113,25 +160,43 @@ const logValidationError = (
  * @returns The parsed ChugSplash config file.
  */
 export const readValidatedChugSplashConfig = async (
-  provider: providers.JsonRpcProvider,
   configPath: string,
-  configArtifacts: ConfigArtifacts,
-  integration: Integration,
+  provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean = true
-): Promise<ParsedChugSplashConfig> => {
-  const userConfig = await readUnvalidatedChugSplashConfig(configPath)
-  return parseAndValidateChugSplashConfig(
+  getConfigArtifacts: GetConfigArtifacts,
+  failureAction: FailureAction = FailureAction.EXIT
+): Promise<{
+  parsedConfig: ParsedChugSplashConfig
+  configArtifacts: ConfigArtifacts
+  configCache: ConfigCache
+}> => {
+  const { parsedConfig, minimalParsedConfig, configArtifacts } =
+    await readUnvalidatedParsedConfig(
+      configPath,
+      cre,
+      getConfigArtifacts,
+      failureAction
+    )
+
+  const configCache = await getConfigCache(
     provider,
-    userConfig,
-    configArtifacts,
-    integration,
-    cre,
-    exitOnFailure
+    minimalParsedConfig,
+    getChugSplashRegistryReadOnly(provider),
+    getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
   )
+
+  await postParsingValidation(
+    parsedConfig,
+    configArtifacts,
+    cre,
+    configCache,
+    failureAction
+  )
+
+  return { parsedConfig, configArtifacts, configCache }
 }
 
-export const readUnvalidatedChugSplashConfig = async (
+export const readUserChugSplashConfig = async (
   configPath: string
 ): Promise<UserChugSplashConfig> => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -164,11 +229,10 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidUserConfigFields = async (
+export const assertValidUserConfigFields = (
   config: UserChugSplashConfig,
-  provider: providers.Provider,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ) => {
   const proxyReferenceNames: string[] = []
   const noProxyReferenceNames: string[] = []
@@ -232,20 +296,6 @@ export const assertValidUserConfigFields = async (
       )
     }
 
-    // Make sure that the external proxy contract exists.
-    if (
-      contractConfig.externalProxy !== undefined &&
-      (await provider.getCode(contractConfig.externalProxy)) === '0x'
-    ) {
-      logValidationError(
-        'error',
-        `Entered a proxy address that does not exist: ${contractConfig.externalProxy}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-
     // Make sure that the external proxy type is valid.
     if (
       contractConfig.kind !== undefined &&
@@ -253,7 +303,7 @@ export const assertValidUserConfigFields = async (
     ) {
       logValidationError(
         'error',
-        `External proxy type is not valid ${contractConfig.kind}`,
+        `Contract kind for ${referenceName} is not valid ${contractConfig.kind}`,
         [],
         cre.silent,
         cre.stream
@@ -268,7 +318,7 @@ export const assertValidUserConfigFields = async (
     ) {
       logValidationError(
         'error',
-        `User included an 'externalProxy' field, but did not include an 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included an 'externalProxy' field, but did not include a 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -280,7 +330,7 @@ export const assertValidUserConfigFields = async (
     ) {
       logValidationError(
         'error',
-        `User included an 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included a 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -364,12 +414,12 @@ export const assertValidUserConfigFields = async (
     }
 
     if (
-      contractConfig.unsafeAllowFlexibleConstructor === true &&
+      contractConfig.unsafeAllow?.flexibleConstructor === true &&
       contractConfig.kind !== 'no-proxy'
     ) {
       logValidationError(
         'error',
-        `Detected the 'unsafeAllowFlexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
+        `Detected the 'unsafeAllow.flexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
         [],
         cre.silent,
         cre.stream
@@ -398,9 +448,7 @@ export const assertValidUserConfigFields = async (
     }
   }
 
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
 }
 
 const stringifyVariableType = (variable: UserConfigVariable) => {
@@ -481,7 +529,7 @@ export const parseInplaceArray: VariableHandler<
     props
 
   if (!Array.isArray(variable)) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array for ${storageObj.label} but got ${typeof variable}`
     )
   }
@@ -496,13 +544,13 @@ export const parseInplaceArray: VariableHandler<
   const sizes = stringSizes.map((el) => parseInt(el, 10))
 
   if (sizes.length === 0) {
-    throw new InputError(
+    throw new ValidationError(
       `Failed to parse expected array size for ${storageObj.label}, this should never happen please report this error to the developers.`
     )
   }
 
   if (sizes[sizes.length - 1] !== variable.length) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array of size ${sizes[sizes.length - 1]} for ${
         storageObj.label
       } but got ${JSON.stringify(variable)}`
@@ -545,7 +593,7 @@ export const parseInplaceAddress: VariableHandler<
  */
 const parseAddress = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}: ${variable}, expected address string but got ${stringifyVariableType(
         variable
       )}`
@@ -585,7 +633,7 @@ export const parseInplaceBool: VariableHandler<UserConfigVariable, boolean> = (
  */
 const parseBool = (variable: UserConfigVariable, label: string) => {
   if (typeof variable !== 'boolean') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label}, expected boolean but got ${stringifyVariableType(
         variable
       )}`
@@ -631,7 +679,7 @@ const parseFixedBytes = (
 ) => {
   // Check that the user entered a string
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}: ${variable}, expected DataHexString but got ${stringifyVariableType(
         variable
       )}`
@@ -640,7 +688,7 @@ const parseFixedBytes = (
 
   if (variableType.startsWith('bytes')) {
     if (!ethers.utils.isHexString(variable)) {
-      throw new InputError(
+      throw new ValidationError(
         `invalid input format for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
@@ -696,7 +744,7 @@ const parseUnsignedInteger = (
       variable.type === 'BigNumber'
     )
   ) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
@@ -765,7 +813,7 @@ const parseInteger = (
       variable.type === 'BigNumber'
     )
   ) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${label} expected number, string, or BigNumber but got ${stringifyVariableType(
         variable
       )}`
@@ -826,7 +874,7 @@ export const parseInplaceStruct: VariableHandler<
   } = props
 
   if (typeof variable !== 'object') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for variable ${
         storageObj.label
       } expected object but got ${stringifyVariableType(variable)}`
@@ -847,7 +895,7 @@ export const parseInplaceStruct: VariableHandler<
       return member.label === varName
     })
     if (memberStorageObj === undefined) {
-      throw new InputError(
+      throw new ValidationError(
         `Extra member(s) detected in ${variableType.label}, ${storageObj.label}: ${varName}`
       )
     }
@@ -869,7 +917,7 @@ export const parseInplaceStruct: VariableHandler<
   }
 
   if (missingMembers.length > 0) {
-    throw new InputError(
+    throw new ValidationError(
       `Missing member(s) in struct ${variableType.label}, ${storageObj.label}: ` +
         missingMembers.join(', ')
     )
@@ -914,7 +962,7 @@ const parseBytes = (
   offset: number
 ) => {
   if (typeof variable !== 'string') {
-    throw new InputError(
+    throw new ValidationError(
       `invalid input type for ${label}, expected DataHexString but got ${stringifyVariableType(
         variable
       )}`
@@ -923,7 +971,7 @@ const parseBytes = (
 
   if (type.startsWith('bytes')) {
     if (!isDataHexString(variable)) {
-      throw new InputError(
+      throw new ValidationError(
         `invalid input type for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
@@ -1003,7 +1051,7 @@ export const parseDynamicArray: VariableHandler<
     props
 
   if (!Array.isArray(variable)) {
-    throw new InputError(
+    throw new ValidationError(
       `invalid array ${variable}, expected array but got ${typeof variable}`
     )
   }
@@ -1046,7 +1094,7 @@ export const parseGap = (
     return []
   }
 
-  throw new InputError(
+  throw new ValidationError(
     `invalid use of { gap } keyword, only allowed for fixed-size arrays`
   )
 }
@@ -1164,7 +1212,7 @@ const parseContractVariables = (
   const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
-  const inputErrors: string[] = []
+  const parsingErrors: string[] = []
   const unnecessarilyDefinedVariables: string[] = []
   const missingVariables: string[] = []
 
@@ -1189,7 +1237,7 @@ const parseContractVariables = (
       configVarValue !== undefined &&
       storageObj.type.startsWith('t_function')
     ) {
-      inputErrors.push(
+      parsingErrors.push(
         `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your ChugSplash config.`
       )
     }
@@ -1204,19 +1252,19 @@ const parseContractVariables = (
           dereferencer
         )
     } catch (e) {
-      inputErrors.push((e as Error).message)
+      parsingErrors.push((e as Error).message)
     }
   }
 
   if (
-    inputErrors.length > 0 ||
+    parsingErrors.length > 0 ||
     unnecessarilyDefinedVariables.length > 0 ||
     missingVariables.length > 0
   ) {
-    if (inputErrors.length > 0) {
+    if (parsingErrors.length > 0) {
       const lines: string[] = []
 
-      for (const error of inputErrors) {
+      for (const error of parsingErrors) {
         lines.push(error)
       }
 
@@ -1290,14 +1338,14 @@ const parseArrayConstructorArg = (
   cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable[] => {
   if (!Array.isArray(constructorArgValue)) {
-    throw new InputError(
+    throw new ValidationError(
       `Expected array for ${input.name} but got ${typeof constructorArgValue}`
     )
   }
 
   if (input.arrayLength !== -1) {
     if (constructorArgValue.length !== input.arrayLength) {
-      throw new InputError(
+      throw new ValidationError(
         `Expected array of length ${input.arrayLength} for ${name} but got array of length ${constructorArgValue.length}`
       )
     }
@@ -1320,7 +1368,7 @@ export const parseStructConstructorArg = (
   cre: ChugSplashRuntimeEnvironment
 ) => {
   if (typeof constructorArgValue !== 'object') {
-    throw new InputError(
+    throw new ValidationError(
       `Expected object for ${
         paramType.name
       } but got ${typeof constructorArgValue}`
@@ -1361,7 +1409,7 @@ export const parseStructConstructorArg = (
   }
 
   if (memberErrors.length > 0) {
-    throw new InputError(memberErrors.join('\n'))
+    throw new ValidationError(memberErrors.join('\n'))
   }
 
   return parsedValues
@@ -1429,7 +1477,7 @@ const parseAndValidateConstructorArg = (
     return parseStructConstructorArg(paramType, name, constructorArgValue, cre)
   } else {
     // throw or log error
-    throw new InputError(
+    throw new ValidationError(
       `Unsupported constructor argument type: ${paramType.type} for argument ${name}`
     )
   }
@@ -1461,7 +1509,7 @@ export const parseContractConstructorArgs = (
 
   if (constructorFragment === undefined) {
     if (Object.keys(userConstructorArgs).length > 0) {
-      throw new InputError(
+      throw new ValidationError(
         `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
           `no constructor exists in the contract.`
       )
@@ -1730,204 +1778,83 @@ export const assertValidContractReferences = (
 }
 
 export const assertValidParsedChugSplashFile = async (
-  provider: providers.Provider,
   parsedConfig: ParsedChugSplashConfig,
-  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: ChugSplashRuntimeEnvironment
-): Promise<boolean> => {
+  cre: ChugSplashRuntimeEnvironment,
+  contractConfigCache: ContractConfigCache,
+  failureAction: FailureAction
+): Promise<void> => {
   const { canonicalConfigPath } = cre
 
-  // Determine if the deployment is an upgrade
   const chugSplashManagerAddress = getChugSplashManagerAddress(
     parsedConfig.options.organizationID
   )
-  const requiresOwnershipTransfer: {
-    name: string
-    proxyAddress: string
-    currentAdminAddress: string
-  }[] = []
-  let isUpgrade: boolean = false
+
+  // Check that all external contracts have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if ((await provider.getCode(contractConfig.address)) !== '0x') {
-      isUpgrade = true
-
-      if (
-        contractConfig.kind === 'oz-ownable-uups' ||
-        contractConfig.kind === 'oz-access-control-uups'
-      ) {
-        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
-        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
-        // mechanisms.
-        const chugsplashManager = new ethers.VoidSigner(
-          chugSplashManagerAddress,
-          provider
-        )
-        const UUPSProxy = new ethers.Contract(
-          contractConfig.address,
-          ProxyABI,
-          chugsplashManager
-        )
-        try {
-          // Attempt to staticcall the `upgradeTo` function on the proxy from the
-          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
-          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
-          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
-          //    due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
-          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
-          //    will revert due to this check:
-          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
-        } catch (e) {
-          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
-          // proxy, which means the user must grant it permission via whichever access control
-          // mechanism the UUPS proxy uses.
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            proxyAddress: contractConfig.address,
-            currentAdminAddress: 'unknown',
-          })
-        }
-      } else if (contractConfig.kind !== 'no-proxy') {
-        const proxyAdmin = await getEIP1967ProxyAdminAddress(
-          provider,
-          contractConfig.address
-        )
-
-        if (proxyAdmin !== chugSplashManagerAddress) {
-          requiresOwnershipTransfer.push({
-            name: referenceName,
-            proxyAddress: contractConfig.address,
-            currentAdminAddress: proxyAdmin,
-          })
-        }
-      }
+    if (
+      contractConfig.userDefinedAddress &&
+      !contractConfigCache[referenceName].isTargetDeployed
+    ) {
+      logValidationError(
+        'error',
+        `User entered a contract address that is not deployed: ${contractConfig.address}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
     }
   }
 
-  if (requiresOwnershipTransfer.length > 0) {
-    logValidationError(
-      'error',
-      `Detected proxy contracts which are not managed by ChugSplash:`,
-      [
-        `${requiresOwnershipTransfer.map(
-          ({ name, proxyAddress, currentAdminAddress }) =>
-            `\n${name}: ${proxyAddress} | Current admin: ${currentAdminAddress}`
-        )}
-If you are using any Transparent proxies, you must transfer ownership of each to ChugSplash using the following command:
-npx hardhat chugsplash-import --network <network> --config-path <path> --proxy <proxyAddress>
-If you are using any UUPS proxies, you must give your ChugSplashManager contract ${chugSplashManagerAddress}
-permission to call the 'upgradeTo' function on each of them.
-    `,
-      ],
-      cre.silent,
-      cre.stream
-    )
-  }
+  // Exit if any validation errors were detected up to this point. This ensures that all proxies are
+  // deployed before we run OpenZeppelin's safety checks.
+  assertNoValidationErrors(failureAction)
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { kind, address, variables, contract, unsafeAllow } = contractConfig
     const { input, output } = configArtifacts[referenceName].buildInfo
-    const userContractConfig = userConfig.contracts[referenceName]
+    const { previousConfigUri, importCache, isTargetDeployed } =
+      contractConfigCache[referenceName]
 
-    const minimumCompilerInput = getMinimumCompilerInput(
-      input,
-      output.contracts,
-      configArtifacts[referenceName].artifact.sourceName,
-      configArtifacts[referenceName].artifact.contractName
-    )
-
-    const minimumCompilerOutput = getMinimumCompilerOutput(
-      output,
-      output.contracts,
-      configArtifacts[referenceName].artifact.sourceName,
-      configArtifacts[referenceName].artifact.contractName
-    )
-
-    // First we do some validation on the contract that doesn't depend on whether or not we're performing an upgrade
-    // the validation happens automatically when we call `getOpenZeppelinUpgradableContract`.
-    // We store the contract in a variable so that we can use it later to run the storage slot checker.
-    let upgradableContract: UpgradeableContract | undefined
-
-    // We skip this validation for 'no-proxy' contracts because the checks aren't relevant to them.
-    if (contractConfig.kind !== 'no-proxy') {
-      upgradableContract = getOpenZeppelinUpgradableContract(
-        contractConfig.contract,
-        minimumCompilerInput,
-        minimumCompilerOutput,
-        contractConfig.kind,
-        userContractConfig
-      )
-
-      // throw validation errors if detected
-      if (upgradableContract.errors.length > 0) {
+    if (importCache.requiresImport) {
+      if (kind === 'oz-ownable-uups' || kind === 'oz-access-control-uups') {
         logValidationError(
           'error',
-          `Contract ${contractConfig.contract} is not upgrade safe`,
-          [
-            new UpgradeableContractErrorReport(
-              upgradableContract.errors
-            ).explain(),
-          ],
-          false,
+          `The UUPS proxy ${referenceName} at ${address} must give your ChugSplashManager contract\n` +
+            `permission to call the 'upgradeTo' function. ChugSplashManager address: ${chugSplashManagerAddress}.\n`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      } else if (
+        kind === 'external-default' ||
+        kind === 'internal-default' ||
+        kind === 'oz-transparent'
+      ) {
+        const currProxyAdmin = importCache.currProxyAdmin
+        if (!currProxyAdmin) {
+          throw new Error(
+            `ConfigCache does not contain current admin of ${referenceName}. Should never happen.`
+          )
+        }
+
+        logValidationError(
+          'error',
+          `The Transparent proxy ${referenceName} at ${address} is not owned by ChugSplash.\n` +
+            `Please import this proxy into ChugSplash. Current proxy admin: ${currProxyAdmin}\n`,
+          [],
+          cre.silent,
           cre.stream
         )
       }
     }
 
-    if (isUpgrade && contractConfig.kind !== 'no-proxy') {
-      // Perform upgrade specific validation
-
-      const isProxyDeployed =
-        (await provider.getCode(contractConfig.address)) !== '0x'
-
-      if (isProxyDeployed) {
-        // If the deployment an upgrade, then the contract must be proxied and therfore upgradableContract
-        // will always be defined so we can safely assert it.
-        const newStorageLayout = upgradableContract!.layout
-
-        const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-          provider,
-          referenceName,
-          contractConfig,
-          userContractConfig,
-          canonicalConfigPath,
-          cre
-        )
-
-        assertStorageCompatiblePreserveKeywords(
-          contractConfig,
-          previousStorageLayout,
-          newStorageLayout,
-          cre
-        )
-
-        if (
-          // If the user has disabled storage checks for this contract
-          userConfig.contracts[referenceName].unsafeSkipStorageCheck !== true
-        ) {
-          assertStorageUpgradeSafe(
-            previousStorageLayout,
-            newStorageLayout,
-            getOpenZeppelinValidationOpts(
-              contractConfig.kind,
-              userContractConfig
-            )
-          )
-        }
-      }
-    } else {
-      // Perform initial deployment specific validation
-
-      // Throw an error if the 'preserve' keyword is set to a variable's value in the
-      // ChugSplash config file. This keyword is only allowed for upgrades.
-      if (
-        variableContainsKeyword(contractConfig.variables, keywords.preserve)
-      ) {
+    if (kind === 'no-proxy') {
+      if (variableContainsKeyword(variables, keywords.preserve)) {
         logValidationError(
           'error',
           'Detected the "{preserve}" keyword in a fresh deployment.',
@@ -1938,10 +1865,67 @@ permission to call the 'upgradeTo' function on each of them.
           cre.stream
         )
       }
+    } else if (isTargetDeployed) {
+      const minimumCompilerInput = getMinimumCompilerInput(
+        input,
+        output.contracts,
+        configArtifacts[referenceName].artifact.sourceName,
+        configArtifacts[referenceName].artifact.contractName
+      )
+
+      const minimumCompilerOutput = getMinimumCompilerOutput(
+        output,
+        output.contracts,
+        configArtifacts[referenceName].artifact.sourceName,
+        configArtifacts[referenceName].artifact.contractName
+      )
+
+      // Run the proxy through OpenZeppelin's safety checks.
+      const upgradeableContract = getOpenZeppelinUpgradableContract(
+        contract,
+        minimumCompilerInput,
+        minimumCompilerOutput,
+        contractConfig
+      )
+
+      if (upgradeableContract.errors.length > 0) {
+        logValidationError(
+          'error',
+          `Contract ${contract} is not upgrade safe`,
+          [
+            new UpgradeableContractErrorReport(
+              upgradeableContract.errors
+            ).explain(),
+          ],
+          false,
+          cre.stream
+        )
+      }
+
+      const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
+        referenceName,
+        contractConfig,
+        canonicalConfigPath,
+        cre,
+        previousConfigUri
+      )
+
+      assertStorageCompatiblePreserveKeywords(
+        contractConfig,
+        previousStorageLayout,
+        upgradeableContract.layout,
+        cre
+      )
+
+      if (unsafeAllow.skipStorageCheck !== true) {
+        assertStorageUpgradeSafe(
+          previousStorageLayout,
+          upgradeableContract.layout,
+          getOpenZeppelinValidationOpts(contractConfig)
+        )
+      }
     }
   }
-
-  return isUpgrade
 }
 
 export const assertValidSourceCode = (
@@ -1985,7 +1969,7 @@ export const assertValidSourceCode = (
 
     // Iterate over the child ContractDefinition node and its parent ContractDefinition nodes.
     for (const contractDef of baseContractDefs.concat(childContractDef)) {
-      if (!contractConfig.unsafeAllowFlexibleConstructor) {
+      if (!contractConfig.unsafeAllow.flexibleConstructor) {
         for (const node of contractDef.nodes) {
           if (
             isNodeType('FunctionDefinition', node) &&
@@ -2006,10 +1990,7 @@ export const assertValidSourceCode = (
                   'VariableDeclaration',
                   statementNode.expression.leftHandSide.referencedDeclaration
                 ).mutability !== 'immutable' ||
-                isNodeType(
-                  'FunctionCall',
-                  statementNode.expression.rightHandSide
-                )
+                containsFunctionCall(statementNode.expression.rightHandSide)
               ) {
                 logValidationError(
                   'error',
@@ -2043,7 +2024,7 @@ export const assertValidSourceCode = (
             } else if (
               node.mutability === 'immutable' &&
               node.value &&
-              isNodeType('FunctionCall', node.value)
+              containsFunctionCall(node.value)
             ) {
               logValidationError(
                 'error',
@@ -2064,7 +2045,7 @@ export const assertValidSourceCode = (
       }
 
       if (
-        !contractConfig.unsafeAllowEmptyPush &&
+        !contractConfig.unsafeAllow.emptyPush &&
         contractConfig.kind !== 'no-proxy'
       ) {
         for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
@@ -2098,6 +2079,19 @@ export const assertValidSourceCode = (
   }
 }
 
+/**
+ * Returns a boolean indicating if the AST node contains a function call. This function does NOT
+ * return true for casting expressions, e.g. address(0), which have a `nodeType` of `FunctionCall`.
+ */
+const containsFunctionCall = (node: Expression): boolean => {
+  for (const childNode of findAll('FunctionCall', node)) {
+    if (childNode.kind === 'functionCall') {
+      return true
+    }
+  }
+  return false
+}
+
 const logUnsafeOptions = (
   userConfig: UserChugSplashConfig,
   silent: boolean,
@@ -2106,29 +2100,39 @@ const logUnsafeOptions = (
   for (const [referenceName, contractConfig] of Object.entries(
     userConfig.contracts
   )) {
+    if (!contractConfig.unsafeAllow) {
+      continue
+    }
+
+    const {
+      delegatecall,
+      selfdestruct,
+      missingPublicUpgradeTo,
+      renames,
+      skipStorageCheck,
+    } = contractConfig.unsafeAllow
+
     const lines: string[] = []
-    if (contractConfig.unsafeAllow?.delegatecall) {
-      lines.push('You are using the unsafe option `unsafeAllow.delegatecall`')
+    if (delegatecall) {
+      lines.push(`- delegatecall`)
     }
-    if (contractConfig.unsafeAllow?.selfdestruct) {
-      lines.push('You are using the unsafe option `unsafeAllow.selfdestruct`')
+    if (selfdestruct) {
+      lines.push(`- selfdestruct`)
     }
-    if (contractConfig.unsafeAllow?.missingPublicUpgradeTo) {
-      lines.push(
-        'You are using the unsafe option`unsafeAllow.missingPublicUpgradeTo`'
-      )
+    if (missingPublicUpgradeTo) {
+      lines.push(`- missingPublicUpgradeTo`)
     }
-    if (contractConfig.unsafeAllowRenames) {
-      lines.push('You are using the unsafe option `unsafeAllowRenames`')
+    if (renames) {
+      lines.push(`- renames`)
     }
-    if (contractConfig.unsafeSkipStorageCheck) {
-      lines.push('You are using the unsafe option `unsafeSkipStorageCheck`')
+    if (skipStorageCheck) {
+      lines.push(`- skipStorageCheck`)
     }
 
     if (lines.length > 0) {
       chugsplashLog(
         'warning',
-        `Potentially unsafe deployment of ${referenceName}`,
+        `Allowing the following potentially unsafe options for ${referenceName}:`,
         lines,
         silent,
         stream
@@ -2141,7 +2145,7 @@ export const assertValidConstructorArgs = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean
+  failureAction: FailureAction
 ): {
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
@@ -2196,9 +2200,7 @@ export const assertValidConstructorArgs = (
 
   // Exit if any validation errors were detected up to this point. We exit early here because invalid
   // constructor args can cause the rest of the parsing logic to fail with cryptic errors
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
 
   // Resolve any no-proxy contract addresses that are left
   // We have do this separately b/c we need to parse all the constructor args and resolve all the proxied contract addresses
@@ -2332,9 +2334,10 @@ const constructParsedConfig = (
       variables: parsedVariables[referenceName],
       constructorArgs,
       salt,
-      unsafeAllowEmptyPush: userContractConfig.unsafeAllowEmptyPush,
-      unsafeAllowFlexibleConstructor:
-        userContractConfig.unsafeAllowFlexibleConstructor,
+      unsafeAllow: userContractConfig.unsafeAllow ?? {},
+      previousBuildInfo: userContractConfig.previousBuildInfo,
+      previousFullyQualifiedName: userContractConfig.previousFullyQualifiedName,
+      userDefinedAddress: !!userContractConfig.externalProxy,
     }
   }
 
@@ -2348,30 +2351,23 @@ const constructParsedConfig = (
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const parseAndValidateChugSplashConfig = async (
-  provider: providers.JsonRpcProvider,
+export const getUnvalidatedParsedConfig = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
-  exitOnFailure: boolean = true
-): Promise<ParsedChugSplashConfig> => {
-  // Just in case, we reset the global validation errors flag before parsing
-  validationErrors = false
-
+  failureAction: FailureAction
+): ParsedChugSplashConfig => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
-  await assertValidBlockGasLimit(provider)
-
   // Validate top level config and contract options
-  await assertValidUserConfigFields(userConfig, provider, cre, exitOnFailure)
+  assertValidUserConfigFields(userConfig, cre, failureAction)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the compiler output, parsed constructor args, and other artifacts so we don't have to re-read them later
   const { cachedConstructorArgs, contractReferences } =
-    assertValidConstructorArgs(userConfig, configArtifacts, cre, exitOnFailure)
+    assertValidConstructorArgs(userConfig, configArtifacts, cre, failureAction)
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
@@ -2392,85 +2388,85 @@ export const parseAndValidateChugSplashConfig = async (
 
   assertValidSourceCode(parsedConfig, configArtifacts, cre)
 
-  await assertAvailableCreate3Addresses(
-    provider,
+  return parsedConfig
+}
+
+export const postParsingValidation = async (
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
+  cre: ChugSplashRuntimeEnvironment,
+  configCache: ConfigCache,
+  failureAction: FailureAction
+) => {
+  const { projectName } = parsedConfig.options
+  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
+
+  assertValidBlockGasLimit(blockGasLimit)
+
+  assertAvailableCreate3Addresses(
     parsedConfig,
     configArtifacts,
-    cre
+    cre,
+    contractConfigCache
   )
 
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
+  assertNonProxyDeploymentsDoNotRevert(cre, contractConfigCache)
 
-  await assertNonProxyDeploymentsDoNotRevert(
-    provider,
-    managerAddress,
-    parsedConfig,
-    configArtifacts,
-    cachedConstructorArgs,
-    cre
-  )
-
-  if (await isLiveNetwork(provider)) {
-    await assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
+  if (!localNetwork) {
+    assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
   }
 
-  await assertValidDeploymentSize(provider, parsedConfig, cre)
+  assertValidDeploymentSize(parsedConfig, cre, configCache)
 
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
-  const upgrade = await assertValidParsedChugSplashFile(
-    provider,
+  await assertValidParsedChugSplashFile(
     parsedConfig,
-    userConfig,
     configArtifacts,
-    cre
+    cre,
+    contractConfigCache,
+    failureAction
   )
 
-  // Exit if validation errors are detected
-  // We also allow the user to disable this behavior by setting `exitOnFailure` to false.
-  // This is useful for testing.
-  if (validationErrors && exitOnFailure) {
-    process.exit(1)
-  }
+  assertNoValidationErrors(failureAction)
+
+  const containsUpgrade = Object.entries(parsedConfig.contracts).some(
+    ([referenceName, contractConfig]) =>
+      contractConfig.kind !== 'no-proxy' &&
+      contractConfigCache[referenceName].isTargetDeployed
+  )
 
   // Confirm upgrade with user
-  if (!cre.autoConfirm && upgrade) {
+  if (!cre.autoConfirm && containsUpgrade) {
     const userConfirmed = await yesno({
-      question: `Prior deployment(s) detected for project ${userConfig.options.projectName}. Would you like to perform an upgrade? (y/n)`,
+      question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
     })
     if (!userConfirmed) {
       throw new Error(`User denied upgrade.`)
     }
   }
-
-  return parsedConfig
 }
 
 /**
  * Asserts that the ChugSplash config can be initiated in a single transaction.
  */
-export const assertValidDeploymentSize = async (
-  provider: providers.Provider,
+export const assertValidDeploymentSize = (
   parsedConfig: ParsedChugSplashConfig,
-  cre: ChugSplashRuntimeEnvironment
-) => {
-  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+  cre: ChugSplashRuntimeEnvironment,
+  configCache: ConfigCache
+): void => {
+  const { blockGasLimit, contractConfigCache } = configCache
 
-  const deployedProxyPromises = Object.values(parsedConfig.contracts).map(
-    async (contract) =>
-      contract.kind === 'internal-default' &&
-      !(await isContractDeployed(contract.address, provider))
-        ? ethers.BigNumber.from(550_000)
-        : ethers.BigNumber.from(0)
-  )
+  const numDefaultProxiesToDeploy = Object.entries(
+    parsedConfig.contracts
+  ).filter(
+    async ([referenceName, contractConfig]) =>
+      contractConfig.kind === 'internal-default' &&
+      !contractConfigCache[referenceName].isTargetDeployed
+  ).length
 
-  const resolvedPromises = await Promise.all(deployedProxyPromises)
-
-  const defaultProxyGasCosts = resolvedPromises.reduce(
-    (a, b) => a.add(b),
-    ethers.BigNumber.from(0)
+  const defaultProxyGasCosts = ethers.BigNumber.from(550_000).mul(
+    numDefaultProxiesToDeploy
   )
 
   const numTargets = Object.values(parsedConfig.contracts).filter(
@@ -2493,9 +2489,27 @@ export const assertValidDeploymentSize = async (
 }
 
 /**
+ * Assert that the block gas limit is reasonably high on a network.
+ */
+export const assertValidBlockGasLimit = (
+  blockGasLimit: ethers.BigNumber
+): void => {
+  // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
+  //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
+  //  ChugSplashManager V1, which is at the contract size limit.
+  if (blockGasLimit.lt(15_000_000)) {
+    throw new Error(
+      `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
+        blockGasLimit.toString
+      }`
+    )
+  }
+}
+
+/**
  * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
  */
-export const assertContractsBelowSizeLimit = async (
+export const assertContractsBelowSizeLimit = (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
@@ -2524,50 +2538,33 @@ export const assertContractsBelowSizeLimit = async (
   }
 }
 
-export const assertNonProxyDeploymentsDoNotRevert = async (
-  provider: providers.Provider,
-  managerAddress: string,
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
-  constructorArgs: { [referenceName: string]: ParsedConfigVariables },
-  cre: ChugSplashRuntimeEnvironment
-) => {
-  const revertingDeployments: { [referenceName: string]: string } = {}
+export const assertNonProxyDeploymentsDoNotRevert = (
+  cre: ChugSplashRuntimeEnvironment,
+  contractConfigCache: ContractConfigCache
+): void => {
+  const revertStrings: { [referenceName: string]: string } = {}
 
-  for (const [referenceName, { artifact }] of Object.entries(configArtifacts)) {
-    // Skip proxies. We check that they have deterministic constructors elsewhere (in
-    // `assertValidSourceCode`).
-    if (parsedConfig.contracts[referenceName].kind !== 'no-proxy') {
-      continue
-    }
-    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
-      artifact.bytecode,
-      constructorArgs[referenceName],
-      artifact.abi
-    )
+  for (const [referenceName, contractCache] of Object.entries(
+    contractConfigCache
+  )) {
+    const { deploymentReverted, revertString } = contractCache.deploymentRevert
 
-    try {
-      // Attempt to estimate the gas of the deployment.
-      await provider.estimateGas({
-        from: managerAddress,
-        data: creationCodeWithConstructorArgs,
-      })
-    } catch (e) {
-      // This should only throw an error if the constructor reverts.
-      revertingDeployments[referenceName] = e.reason
+    if (deploymentReverted) {
+      revertStrings[referenceName] = revertString
+        ? `Reason: ${revertString}`.replace(
+            'VM Exception while processing transaction: reverted with reason string ',
+            ''
+          )
+        : 'No error message found.'
     }
   }
 
-  if (Object.keys(revertingDeployments).length > 0) {
+  if (Object.keys(revertStrings).length > 0) {
     logValidationError(
       'error',
       `The following constructors will revert:`,
-      Object.entries(revertingDeployments).map(([referenceName, reason]) => {
-        const shortReason = reason.replace(
-          'VM Exception while processing transaction: reverted with reason string ',
-          ''
-        )
-        return `  - ${referenceName}. Reason: ${shortReason}`
+      Object.entries(revertStrings).map(([referenceName, reason]) => {
+        return `  - ${referenceName}. ${reason}`
       }),
       cre.silent,
       cre.stream
@@ -2575,36 +2572,22 @@ export const assertNonProxyDeploymentsDoNotRevert = async (
   }
 }
 
-const assertAvailableCreate3Addresses = async (
-  provider: providers.Provider,
+const assertAvailableCreate3Addresses = (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: ChugSplashRuntimeEnvironment
-): Promise<void> => {
+  cre: ChugSplashRuntimeEnvironment,
+  contractConfigCache: ContractConfigCache
+): void => {
   // List of reference names that correspond to the unavailable Create3 addresses
   const unavailable: string[] = []
 
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    if (
-      contractConfig.kind === 'no-proxy' &&
-      (await provider.getCode(contractConfig.address)) !== '0x'
-    ) {
+    const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
+      contractConfigCache[referenceName]
+    if (contractConfig.kind === 'no-proxy' && isTargetDeployed) {
       const { bytecode, abi } = configArtifacts[referenceName].artifact
-
-      const deployedHash = await getDeployedCreationCodeWithArgsHash(
-        provider,
-        parsedConfig.options.organizationID,
-        referenceName,
-        contractConfig.address
-      )
-
-      if (!deployedHash) {
-        throw new Error(
-          `Could not retrieve creation code hash for deployed contract. Should never happen.`
-        )
-      }
 
       const currHash = ethers.utils.keccak256(
         getCreationCodeWithConstructorArgs(
@@ -2614,7 +2597,11 @@ const assertAvailableCreate3Addresses = async (
         )
       )
 
-      const match = BigNumber.from(deployedHash).eq(BigNumber.from(currHash))
+      const match = deployedCreationCodeWithArgsHash
+        ? BigNumber.from(deployedCreationCodeWithArgsHash).eq(
+            BigNumber.from(currHash)
+          )
+        : false
       if (match) {
         logValidationError(
           'warning',
@@ -2639,6 +2626,285 @@ const assertAvailableCreate3Addresses = async (
       }),
       cre.silent,
       cre.stream
+    )
+  }
+}
+
+export const getConfigCache = async (
+  provider: providers.JsonRpcProvider,
+  minimalConfig: MinimalParsedConfig,
+  registry: ethers.Contract,
+  manager: ethers.Contract
+): Promise<ConfigCache> => {
+  const { contracts } = minimalConfig
+
+  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+  const localNetwork = await isLocalNetwork(provider)
+  const networkName = await resolveNetworkName(provider, 'hardhat')
+
+  const contractConfigCache: ContractConfigCache = {}
+  for (const minimalContractConfig of contracts) {
+    const {
+      creationCodeWithConstructorArgs,
+      targetAddress,
+      kind,
+      salt,
+      referenceName,
+    } = minimalContractConfig
+
+    const isTargetDeployed = (await provider.getCode(targetAddress)) !== '0x'
+
+    let isImplementationDeployed: boolean | undefined
+    if (kind !== ContractKindEnum.NO_PROXY) {
+      const implAddress = getCreate3Address(manager.address, salt)
+      isImplementationDeployed = (await provider.getCode(implAddress)) !== '0x'
+    }
+
+    const previousConfigUri =
+      isTargetDeployed && kind !== ContractKindEnum.NO_PROXY
+        ? await getPreviousConfigUri(provider, registry, targetAddress)
+        : undefined
+
+    const deployedCreationCodeWithArgsHash = isTargetDeployed
+      ? await getDeployedCreationCodeWithArgsHash(
+          manager,
+          referenceName,
+          targetAddress
+        )
+      : undefined
+
+    let deploymentRevert: DeploymentRevertCache | undefined
+    // Here we attempt to deploy non-proxy contracts. We do not attempt to deploy the implementation
+    // contracts behind proxies because we check that they have deterministic constructors elsewhere
+    // (in `assertValidSourceCode`).
+    if (kind === ContractKindEnum.NO_PROXY) {
+      try {
+        // Attempt to estimate the gas of the deployment.
+        await provider.estimateGas({
+          from: manager.address,
+          data: creationCodeWithConstructorArgs,
+        })
+      } catch (e) {
+        // This should only throw an error if the constructor reverts.
+        deploymentRevert = {
+          deploymentReverted: true,
+          revertString: e.reason,
+        }
+      }
+    }
+
+    let importCache: ImportCache | undefined
+    if (isTargetDeployed) {
+      if (
+        kind === ContractKindEnum.OZ_OWNABLE_UUPS ||
+        kind === ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
+      ) {
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
+        // function because OpenZeppelin UUPS proxies can implement arbitrary access control
+        // mechanisms.
+        const managerVoidSigner = new ethers.VoidSigner(
+          manager.address,
+          provider
+        )
+        const UUPSProxy = new ethers.Contract(
+          targetAddress,
+          ProxyABI,
+          managerVoidSigner
+        )
+        try {
+          // Attempt to staticcall the `upgradeTo` function on the proxy from the
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
+          // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
+          // 1. The new implementation is deployed on every network. Otherwise, the call will revert
+          //    due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/proxy/ERC1967/ERC1967Upgrade.sol#L44
+          // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
+          //    will revert due to this check:
+          //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
+          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+        } catch (e) {
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
+          // UUPS proxy, which means the user must grant it permission via whichever access control
+          // mechanism the UUPS proxy uses.
+          importCache = {
+            requiresImport: true,
+            // We leave the `currProxyAdmin` blank because the UUPS proxy may use AccessControl,
+            // which prevents us from knowing which permission the ChugSplashManager needs to
+            // call the 'upgradeTo' function.
+          }
+        }
+      } else if (
+        kind === ContractKindEnum.EXTERNAL_DEFAULT ||
+        kind === ContractKindEnum.INTERNAL_DEFAULT ||
+        kind === ContractKindEnum.OZ_TRANSPARENT
+      ) {
+        // Check that the ChugSplashManager is the owner of the Transparent proxy.
+        const currProxyAdmin = await getEIP1967ProxyAdminAddress(
+          provider,
+          targetAddress
+        )
+
+        if (currProxyAdmin !== manager.address) {
+          importCache = {
+            requiresImport: true,
+            currProxyAdmin,
+          }
+        }
+      }
+    }
+
+    contractConfigCache[referenceName] = {
+      isTargetDeployed,
+      deployedCreationCodeWithArgsHash,
+      deploymentRevert: deploymentRevert ?? {
+        deploymentReverted: false,
+      },
+      importCache: importCache ?? {
+        requiresImport: false,
+      },
+      isImplementationDeployed,
+      previousConfigUri,
+    }
+  }
+
+  return {
+    blockGasLimit,
+    localNetwork,
+    networkName,
+    contractConfigCache,
+  }
+}
+
+/**
+ * Returns a minimal version of the parsed config. This is used as a substitute for the full parsed
+ * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
+ * support for types.
+ */
+export const getMinimalParsedConfig = (
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts
+): MinimalParsedConfig => {
+  const { organizationID, projectName } = parsedConfig.options
+
+  const minimalContractConfigs: Array<MinimalParsedContractConfig> = []
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { buildInfo, artifact } = configArtifacts[referenceName]
+    const { bytecode, abi, sourceName, contractName } = artifact
+    const { constructorArgs, address, kind, salt } = contractConfig
+
+    const estDeployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    )
+
+    minimalContractConfigs.push({
+      referenceName,
+      creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
+        bytecode,
+        constructorArgs,
+        abi
+      ),
+      estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
+      targetAddress: address,
+      kind: toContractKindEnum(kind),
+      salt,
+    })
+  }
+  return {
+    organizationID,
+    projectName,
+    contracts: minimalContractConfigs,
+  }
+}
+
+const assertNoValidationErrors = (failureAction: FailureAction): void => {
+  if (validationErrors) {
+    if (failureAction === FailureAction.EXIT) {
+      process.exit(1)
+    } else if (failureAction === FailureAction.THROW) {
+      throw new ValidationError('')
+    }
+  }
+}
+
+/**
+ * Get the most recent storage layout for the given reference name. Uses OpenZeppelin's
+ * StorageLayout format for consistency.
+ *
+ * When retrieving the storage layout, this function uses the following order of priority (from
+ * highest to lowest):
+ * 1. The 'previousBuildInfo' and 'previousFullyQualifiedName' fields if both have been declared by
+ * the user.
+ * 2. The latest deployment in the ChugSplash system for the proxy address that corresponds to the
+ * reference name.
+ * 3. OpenZeppelin's Network File if the proxy is an OpenZeppelin proxy type
+ *
+ * If (1) and (2) above are both satisfied, we log a warning to the user and default to using the
+ * storage layout located at 'previousBuildInfo'.
+ */
+export const getPreviousStorageLayoutOZFormat = async (
+  referenceName: string,
+  parsedContractConfig: ParsedContractConfig,
+  canonicalConfigFolderPath: string,
+  cre: ChugSplashRuntimeEnvironment,
+  previousConfigUri?: string
+): Promise<StorageLayout> => {
+  const previousCanonicalConfig = previousConfigUri
+    ? await fetchAndCacheCanonicalConfig(
+        previousConfigUri,
+        canonicalConfigFolderPath
+      )
+    : undefined
+
+  const { kind, previousFullyQualifiedName, previousBuildInfo } =
+    parsedContractConfig
+  if (
+    previousFullyQualifiedName !== undefined &&
+    previousBuildInfo !== undefined
+  ) {
+    const { input, output } = readBuildInfo(previousBuildInfo)
+
+    if (previousCanonicalConfig !== undefined) {
+      logValidationError(
+        'warning',
+        `Using the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
+          `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash config file.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    return getOpenZeppelinUpgradableContract(
+      previousFullyQualifiedName,
+      input,
+      output,
+      parsedContractConfig
+    ).layout
+  } else if (previousCanonicalConfig !== undefined) {
+    const prevConfigArtifacts = await getConfigArtifactsRemote(
+      previousCanonicalConfig
+    )
+    const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
+    const { sourceName, contractName } = artifact
+    return getOpenZeppelinUpgradableContract(
+      `${sourceName}:${contractName}`,
+      buildInfo.input,
+      buildInfo.output,
+      parsedContractConfig
+    ).layout
+  } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
+    const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
+      cre.hre,
+      parsedContractConfig
+    )
+    return openzeppelinStorageLayout
+  } else {
+    throw new Error(
+      `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
+        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
   }
 }

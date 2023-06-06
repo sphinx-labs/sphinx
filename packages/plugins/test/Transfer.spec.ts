@@ -13,14 +13,14 @@ import {
   getChugSplashManager,
   contractKindHashes,
   readValidatedChugSplashConfig,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
 } from '@chugsplash/core'
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 
 import { createChugSplashRuntime } from '../src/utils'
-import { getConfigArtifacts } from '../src/hardhat/artifacts'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 const uupsOwnableUpgradeConfigPath =
   './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
 const uupsAccessControlUpgradeConfigPath =
@@ -69,11 +69,9 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       transparentUpgradeConfigPath
     )
-
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       transparentUpgradeConfigPath,
@@ -112,26 +110,25 @@ describe('Transfer', () => {
       managerAddress
     )
 
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      transparentUpgradeConfigPath,
-      configArtifacts,
-      'hardhat',
-      cre,
-      false
-    )
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        transparentUpgradeConfigPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      transparentUpgradeConfigPath,
-      signer.address,
-      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig
+      parsedConfig,
+      configCache,
+      configArtifacts,
+      undefined
     )
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
@@ -179,11 +176,9 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       uupsOwnableUpgradeConfigPath
     )
-
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       uupsOwnableUpgradeConfigPath,
@@ -217,28 +212,25 @@ describe('Transfer', () => {
       'proxy owner is not chugsplash manager'
     )
 
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      uupsOwnableUpgradeConfigPath,
-      configArtifacts,
-      'hardhat',
-      cre,
-      false
-    )
-    // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].address = UUPSUpgradableTokenV1.address
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        uupsOwnableUpgradeConfigPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      uupsOwnableUpgradeConfigPath,
-      signer.address,
-      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig
+      parsedConfig,
+      configCache,
+      configArtifacts,
+      undefined
     )
 
     const UUPSUpgradableTokenV2 = await hre.ethers.getContractAt(
@@ -306,11 +298,9 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUnvalidatedChugSplashConfig(
+    const userConfig = await readUserChugSplashConfig(
       uupsAccessControlUpgradeConfigPath
     )
-
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
 
     const cre = await createChugSplashRuntime(
       uupsAccessControlUpgradeConfigPath,
@@ -349,29 +339,25 @@ describe('Transfer', () => {
       )
     ).to.equal(true, 'proxy owner is not chugsplash manager')
 
-    const parsedConfig = await readValidatedChugSplashConfig(
-      provider,
-      uupsAccessControlUpgradeConfigPath,
-      configArtifacts,
-      'hardhat',
-      cre,
-      false
-    )
-    // We set the proxy's address here instead of inside the config because it's unpredictable
-    parsedConfig.contracts['Token'].address =
-      UUPSAccessControlUpgradableTokenV1.address
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        uupsAccessControlUpgradeConfigPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     await chugsplashDeployAbstractTask(
       provider,
       signer,
-      uupsAccessControlUpgradeConfigPath,
-      signer.address,
-      configArtifacts,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig
+      parsedConfig,
+      configCache,
+      configArtifacts,
+      undefined
     )
 
     const UUPSAccessControlUpgradableTokenV2 = await hre.ethers.getContractAt(

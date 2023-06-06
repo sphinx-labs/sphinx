@@ -248,7 +248,9 @@ module.exports = {
     ComplexConstructorArgs: {
       contract: 'ComplexConstructorArgs',
       kind: 'no-proxy',
-      unsafeAllowFlexibleConstructor: true,
+      unsafeAllow: {
+        flexibleConstructor: true,
+      },
       constructorArgs: complexConstructorArgs,
     },
     MySimpleStorage: {

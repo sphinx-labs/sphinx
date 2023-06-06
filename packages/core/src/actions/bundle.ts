@@ -1,10 +1,11 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   ConfigArtifacts,
+  ConfigCache,
   ParsedChugSplashConfig,
   contractKindHashes,
 } from '../config/types'
@@ -18,6 +19,7 @@ import {
   getChugSplashManagerAddress,
 } from '../utils'
 import {
+  BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
   ChugSplashActionType,
@@ -64,6 +66,28 @@ export const getDeployContractActions = (
   return actionBundle.actions
     .map((action) => fromRawChugSplashAction(action.action))
     .filter(isDeployContractAction)
+}
+
+export const getDeployContractActionBundle = (
+  actionBundle: ChugSplashActionBundle
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isDeployContractAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getSetStorageActionBundle = (
+  actionBundle: ChugSplashActionBundle
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isSetStorageAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getNumDeployContractActions = (
+  actionBundle: ChugSplashActionBundle
+): number => {
+  return getDeployContractActionBundle(actionBundle).length
 }
 
 /**
@@ -271,15 +295,15 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const makeBundlesFromConfig = async (
-  provider: providers.Provider,
+export const makeBundlesFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashBundles> => {
-  const actionBundle = await makeActionBundleFromConfig(
-    provider,
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashBundles => {
+  const actionBundle = makeActionBundleFromConfig(
     parsedConfig,
-    artifacts
+    artifacts,
+    configCache
   )
   const targetBundle = makeTargetBundleFromConfig(parsedConfig)
   return { actionBundle, targetBundle }
@@ -292,28 +316,27 @@ export const makeBundlesFromConfig = async (
  * @param env Environment variables to inject into the config file.
  * @returns Action bundle generated from the parsed config file.
  */
-export const makeActionBundleFromConfig = async (
-  provider: providers.Provider,
+export const makeActionBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashActionBundle> => {
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
-
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashActionBundle => {
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     const { buildInfo, artifact } = artifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
+    const { isTargetDeployed, isImplementationDeployed } =
+      configCache.contractConfigCache[referenceName]
+
+    const isNonProxyContractDeployed =
+      contractConfig.kind === 'no-proxy'
+        ? isTargetDeployed
+        : isImplementationDeployed
 
     // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
-    if (
-      (await provider.getCode(
-        getCreate3Address(managerAddress, contractConfig.salt)
-      )) === '0x'
-    ) {
+    if (!isNonProxyContractDeployed) {
       // Add a DEPLOY_CONTRACT action.
       actions.push({
         referenceName,

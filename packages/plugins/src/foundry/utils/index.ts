@@ -1,5 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import util from 'util'
+import { exec } from 'child_process'
 
 import {
   BuildInfo,
@@ -7,6 +9,8 @@ import {
   parseFoundryArtifact,
   UserContractConfigs,
   ContractArtifact,
+  GetConfigArtifacts,
+  validateBuildInfo,
 } from '@chugsplash/core'
 
 export const getBuildInfo = (
@@ -30,6 +34,7 @@ export const getBuildInfo = (
   // Find the correct build info file
   for (const input of inputs) {
     if (input?.output?.sources[sourceName] !== undefined) {
+      validateBuildInfo(input)
       return input
     }
   }
@@ -61,28 +66,41 @@ export const getContractArtifact = (
   return parseFoundryArtifact(artifact)
 }
 
-export const getConfigArtifacts = async (
-  contractConfigs: UserContractConfigs,
+/**
+ * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
+ * config to its artifact and build info. We use a callback to create a standard interface for the
+ * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
+ * plugin.
+ *
+ * @param hre Hardhat runtime environment.
+ * @param contractConfigs Contract configurations.
+ * @param artifactFolder Path to the artifact folder.
+ * @param buildInfoFolder Path to the build info folder.
+ * @returns Paths to the build info and contract artifact files.
+ */
+export const makeGetConfigArtifacts = (
   artifactFolder: string,
   buildInfoFolder: string
-): Promise<ConfigArtifacts> => {
-  const configArtifacts: ConfigArtifacts = {}
+): GetConfigArtifacts => {
+  return async (contractConfigs: UserContractConfigs) => {
+    const configArtifacts: ConfigArtifacts = {}
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
-  )) {
-    const artifact = getContractArtifact(
-      contractConfig.contract,
-      artifactFolder
-    )
-    const buildInfo = getBuildInfo(buildInfoFolder, artifact.sourceName)
+    for (const [referenceName, contractConfig] of Object.entries(
+      contractConfigs
+    )) {
+      const artifact = getContractArtifact(
+        contractConfig.contract,
+        artifactFolder
+      )
+      const buildInfo = getBuildInfo(buildInfoFolder, artifact.sourceName)
 
-    configArtifacts[referenceName] = {
-      artifact,
-      buildInfo,
+      configArtifacts[referenceName] = {
+        artifact,
+        buildInfo,
+      }
     }
+    return configArtifacts
   }
-  return configArtifacts
 }
 
 export const cleanPath = (dirtyPath: string) => {
@@ -95,12 +113,28 @@ export const fetchPaths = (outPath: string, buildInfoPath: string) => {
   const artifactFolder = path.resolve(outPath)
   const buildInfoFolder = path.resolve(buildInfoPath)
   const deploymentFolder = path.resolve('deployments')
-  const canonicalConfigPath = path.resolve('.canonical-configs')
+  const canonicalConfigFolder = path.resolve('.canonical-configs')
 
   return {
     artifactFolder,
     buildInfoFolder,
     deploymentFolder,
-    canonicalConfigPath,
+    canonicalConfigFolder,
   }
+}
+
+export const getPaths = async (): Promise<{
+  artifactFolder: string
+  buildInfoFolder: string
+  deploymentFolder: string
+  canonicalConfigFolder: string
+}> => {
+  const execAsync = util.promisify(exec)
+
+  const forgeConfigOutput = await execAsync('forge config --json')
+  const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
+
+  const buildInfoPath =
+    forgeConfig.build_info_path ?? path.join(forgeConfig.out, 'build-info')
+  return fetchPaths(forgeConfig.out, buildInfoPath)
 }

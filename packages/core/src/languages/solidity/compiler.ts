@@ -4,27 +4,12 @@ import {
   CompilerDownloader,
   CompilerPlatform,
 } from 'hardhat/internal/solidity/compiler/downloader'
-import { providers } from 'ethers'
 
-import { CanonicalChugSplashConfig } from '../../config/types'
-import { ChugSplashBundles, makeBundlesFromConfig } from '../../actions'
 import {
   CompilerOutput,
   CompilerOutputContracts,
   CompilerOutputMetadata,
 } from './types'
-import { getConfigArtifactsRemote } from '../../utils'
-
-export const bundleRemoteSubtask = async (args: {
-  provider: providers.Provider
-  canonicalConfig: CanonicalChugSplashConfig
-}): Promise<ChugSplashBundles> => {
-  const { provider, canonicalConfig } = args
-
-  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
-
-  return makeBundlesFromConfig(provider, canonicalConfig, artifacts)
-}
 
 // Credit: NomicFoundation
 // https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
