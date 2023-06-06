@@ -630,7 +630,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         bytes memory result = vm.ffi(cmds);
 
         if (result.length > 0) {
-            // TODO(docs)
             (string memory errors, string memory warnings) = abi.decode(
                 result,
                 (string, string)

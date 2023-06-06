@@ -88,7 +88,7 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
-import { ChugSplashRuntimeEnvironment } from '../types'
+import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
 import { OZ_UUPS_UPDATER_ADDRESS } from '../addresses'
 import { resolveNetworkName } from '../messages'
@@ -113,13 +113,6 @@ const logValidationError = (
     validationErrors = true
   }
   chugsplashLog(logLevel, title, lines, silent, stream)
-}
-
-// TODO: mv
-export enum FailureAction {
-  EXIT, // Exit the process without throwing an error. This cannot be caught.
-  THROW, // Throw an error. This will exit the process if not caught.
-  CONTINUE, // Continue execution.
 }
 
 export const readUnvalidatedParsedConfig = async (
