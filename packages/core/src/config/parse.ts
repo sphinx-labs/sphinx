@@ -68,7 +68,7 @@ import {
   MinimalParsedConfig,
   ContractConfigCache,
   ContractKindEnum,
-  DeploymentRevertCache,
+  DeploymentRevert,
   ImportCache,
   MinimalParsedContractConfig,
 } from './types'
@@ -1584,30 +1584,20 @@ export const parseContractConstructorArgs = (
     undefinedConstructorArgNames.length > 0
   ) {
     if (incorrectConstructorArgNames.length > 0) {
-      const lines: string[] = []
-      lines.push(
-        `${incorrectConstructorArgNames.map((argName) => `${argName}`)}`
-      )
-
       logValidationError(
         'error',
         `The following constructor arguments were found in your config for ${referenceName},\nbut are not present in the contract constructor:`,
-        lines,
+        incorrectConstructorArgNames,
         cre.silent,
         cre.stream
       )
     }
 
     if (undefinedConstructorArgNames.length > 0) {
-      const lines: string[] = []
-      lines.push(
-        `${undefinedConstructorArgNames.map((argName) => `${argName}`)}`
-      )
-
       logValidationError(
         'error',
         `The following constructor arguments are required by the constructor for ${referenceName},\nbut were not found in your config:`,
-        lines,
+        undefinedConstructorArgNames,
         cre.silent,
         cre.stream
       )
@@ -2673,7 +2663,7 @@ export const getConfigCache = async (
         )
       : undefined
 
-    let deploymentRevert: DeploymentRevertCache | undefined
+    let deploymentRevert: DeploymentRevert | undefined
     // Here we attempt to deploy non-proxy contracts. We do not attempt to deploy the implementation
     // contracts behind proxies because we check that they have deterministic constructors elsewhere
     // (in `assertValidSourceCode`).

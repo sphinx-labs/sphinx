@@ -182,7 +182,7 @@ export type ConfigCache = {
 export type ContractConfigCache = {
   [referenceName: string]: {
     isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevertCache
+    deploymentRevert: DeploymentRevert
     importCache: ImportCache
     deployedCreationCodeWithArgsHash?: string
     isImplementationDeployed?: boolean
@@ -190,7 +190,7 @@ export type ContractConfigCache = {
   }
 }
 
-export type DeploymentRevertCache = {
+export type DeploymentRevert = {
   deploymentReverted: boolean
   revertString?: string
 }
