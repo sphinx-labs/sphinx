@@ -609,9 +609,7 @@ export const chugsplashDeployAbstractTask = async (
 
   // TODO(post): foundry: this must only be called if the deployment was broadcasted.
   await postDeploymentActions(
-    provider,
     canonicalConfig,
-    manager,
     configArtifacts,
     deploymentId,
     canonicalConfigPath,
@@ -621,6 +619,9 @@ export const chugsplashDeployAbstractTask = async (
     deploymentFolder,
     integration,
     cre.silent,
+    manager.owner(),
+    provider,
+    manager,
     spinner,
     process.env.ETHERSCAN_API_KEY
   )
@@ -628,10 +629,8 @@ export const chugsplashDeployAbstractTask = async (
 
 // TODO(post): we need to make `provider` an optional parameter. it should be undefined on the in-process
 // anvil node, and defined in all other cases, including the stand-alone anvil node.
-const postDeploymentActions = async (
-  provider: ethers.providers.JsonRpcProvider,
+export const postDeploymentActions = async (
   canonicalConfig: CanonicalChugSplashConfig,
-  manager: ethers.Contract,
   configArtifacts: ConfigArtifacts,
   deploymentId: string,
   canonicalConfigPath: string,
@@ -641,29 +640,29 @@ const postDeploymentActions = async (
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
-  spinner: ora.Ora,
+  owner: string,
+  provider: ethers.providers.JsonRpcProvider,
+  manager: ethers.Contract,
+  spinner?: ora.Ora,
   etherscanApiKey?: string
 ) => {
-  spinner.start(`Writing deployment artifacts...`)
+  spinner?.start(`Writing deployment artifacts...`)
   const { projectName, organizationID } = canonicalConfig.options
 
-  // TODO(post): always
-  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+  if (integration === 'hardhat') {
+    writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
+  }
 
-  // TODO(post): always
   await trackDeployed(
-    await manager.owner(), // TODO(post): replace with input variable
+    owner,
     organizationID,
     projectName,
     networkName,
     integration
   )
 
-  // TODO(post): exit here if `!provider`.
-
-  // TODO(post): only if `wasRecentlyBroadcasted(deploymentId)`. (i.e. deployment status was `COMPLETED`
-  // in the last ~5 minutes). This is to prevent us from writing stale artifacts if the deployment
-  // ID was broadcasted a while ago (which is an edge case, but possible)
+  // Only write deployment artifacts if the deployment was completed in the last 150 blocks.
+  // This can be anywhere from 5 minutes to half an hour depending on the network
   await writeDeploymentArtifacts(
     provider,
     canonicalConfig,
@@ -673,14 +672,13 @@ const postDeploymentActions = async (
     configArtifacts
   )
 
-  spinner.succeed(`Wrote deployment artifacts.`)
+  spinner?.succeed(`Wrote deployment artifacts.`)
 
   // TODO(post): wait to see if Foundry can automatically verify the contracts. It's unlikely because we
   // deploy them in a non-standard way, but it's possible. If foundry can do it, we should just
   // never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
-  // via `execAsync(forge config --json)` and pass it in here.
-  // TODO(post): when you figure out verification on foundry, consider that using the chain ID is
-  // probably more reliable on Hardhat.
+  // via `execAsync(forge config --json)` and pass it in here
+
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {
       await verifyChugSplashConfig(
@@ -691,7 +689,7 @@ const postDeploymentActions = async (
         etherscanApiKey
       )
     } else {
-      spinner.fail(`No Etherscan API Key detected. Skipped verification.`)
+      spinner?.fail(`No Etherscan API Key detected. Skipped verification.`)
     }
   }
 
@@ -703,7 +701,7 @@ const postDeploymentActions = async (
     }
 
     displayDeploymentTable(canonicalConfig, silent)
-    spinner.info(
+    spinner?.info(
       "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
   }
