@@ -103,7 +103,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ffiDeployOnAnvil();
     }
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
