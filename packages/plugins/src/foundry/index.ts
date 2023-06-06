@@ -55,6 +55,24 @@ import { createChugSplashRuntime } from '../utils'
 const args = process.argv.slice(2)
 const command = args[0]
 
+// These variables are used to capture any errors or warnings that occur during the ChugSplash
+// config validation process.
+let validationWarnings: string = ''
+let validationErrors: string = ''
+// This function overrides the default 'stderr.write' function to capture any errors or warnings
+// that occur during the validation process.
+const validationStderrWrite = (message: string) => {
+  if (message.startsWith('\nWarning: ')) {
+    validationWarnings += message.replace('\n', '')
+  } else if (message.startsWith('\nError: ')) {
+    // We remove '\nError: ' because Foundry already displays the word "Error" when an error occurs.
+    validationErrors += message.replace('\nError: ', '')
+  } else {
+    validationErrors += message
+  }
+  return true
+}
+
 const decodeCachedConfig = async (encodedConfigCache: string) => {
   const { artifactFolder } = await getPaths()
   const ChugSplashUtilsABI =
@@ -109,6 +127,32 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
   return structuredConfigCache
 }
 
+export const getEncodedErrorsAndWarnings = (err: Error): string => {
+  // Trim a trailing '\n' character from the end of 'warnings' if it exists.
+  const prettyWarnings = validationWarnings.endsWith('\n\n')
+    ? validationWarnings.substring(0, validationWarnings.length - 1)
+    : validationWarnings
+
+  let prettyError: string
+  if (err.name === 'ValidationError') {
+    // We return the error messages and warnings.
+
+    // Removes unnecessary '\n' characters from the end of 'errors'
+    prettyError = validationErrors.endsWith('\n\n')
+      ? validationErrors.substring(0, validationErrors.length - 2)
+      : validationErrors
+  } else {
+    // A non-parsing error occurred. We return the error message and stack trace.
+    prettyError = `${err.name}: ${err.message}\n\n${err.stack}`
+  }
+
+  const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
+    ['string', 'string'],
+    [prettyError, prettyWarnings]
+  )
+
+  return encodedErrorsAndWarnings
+}
 ;(async () => {
   switch (command) {
     case 'claim': {

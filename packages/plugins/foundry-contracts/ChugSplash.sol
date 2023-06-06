@@ -54,6 +54,7 @@ import {
     OptionalBytes32
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
+import { StdStyle } from "forge-std/StdStyle.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -102,20 +103,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ensureChugSplashInitialized();
         ffiDeployOnAnvil();
-    }
-
-    modifier ifRegistryDeployed() {
-        ChugSplashRegistry registry = getChugSplashRegistry();
-        if (address(registry).code.length == 0) {
-            // We're on a forked or live network that doesn't have ChugSplash deployed, which
-            // means we don't support ChugSplash on this network yet.
-            revert(
-                "ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
-            );
-        }
-        _;
     }
 
     // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
@@ -126,15 +114,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     // This is the entry point for the ChugSplash deploy command.
-    function deploy(string memory _configPath) internal {
+    function deploy(string memory _configPath, string memory _rpcUrl) internal {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
-        deploy(_configPath, newOwner);
+        deploy(_configPath, _rpcUrl, newOwner);
     }
 
     // TODO(test): remove all of the old ffi functions
 
-    function deploy(string memory _configPath, OptionalAddress memory _newOwner) private ifRegistryDeployed {
+    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private) {
+        ensureChugSplashInitialized(_rpcUrl);
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -143,7 +132,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             minimalParsedConfig.organizationID
         );
 
-        ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager);
+        ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager, _rpcUrl);
 
         // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
         // support complex types like the 'variables' field.
@@ -194,7 +183,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             deploymentState.status = DeploymentStatus.APPROVED;
         }
 
-        emit log("executing");
         if (
             deploymentState.status == DeploymentStatus.APPROVED ||
             deploymentState.status == DeploymentStatus.PROXIES_INITIATED
@@ -212,12 +200,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             }
         }
 
-        emit log("done");
         if (_newOwner.exists) {
             transferProjectOwnership(manager, _newOwner.value);
         }
-
-        // ffiPostDeploymentActions(deploymentId, configUri, localNetwork, networkName, manager.owner());
 
         if (!silent) {
             emit log("Success!");
@@ -327,13 +312,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getConfigCache(
         MinimalParsedConfig memory _minimalConfig,
         ChugSplashRegistry _registry,
-        ChugSplashManager _manager
+        ChugSplashManager _manager,
+        string memory _rpcUrl
     ) private returns (ConfigCache memory) {
         MinimalParsedContractConfig[] memory contractConfigs = _minimalConfig
             .contracts;
 
-        bool localNetwork = isLocalNetwork();
-        string memory networkName = getChain(block.chainid).chainAlias;
+        bool localNetwork = isLocalNetwork(_rpcUrl);
+        string memory networkName = getChainAlias(_rpcUrl);
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             contractConfigs.length
@@ -365,7 +351,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                     getPreviousConfigUri(
                         _registry,
                         contractConfig.targetAddress,
-                        localNetwork
+                        localNetwork,
+                        _rpcUrl
                     )
                 : OptionalString({ exists: false, value: "" });
 
@@ -486,13 +473,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getPreviousConfigUri(
         ChugSplashRegistry _registry,
         address _proxyAddress,
-        bool _localNetwork
+        bool _localNetwork,
+        string memory _rpcUrl
     ) private returns (OptionalString memory) {
         if (!_localNetwork) {
             // We rely on FFI for non-Anvil networks because the previous config URI
             // could correspond to a deployment that happened before this script was
             // called.
-            return ffiGetPreviousConfigUri(_proxyAddress);
+            return ffiGetPreviousConfigUri(_proxyAddress, _rpcUrl);
         } else {
             // We can't rely on FFI for the in-process Anvil node because there is no accessible
             // provider to use in TypeScript. So, we use the logs collected in this contract to get
@@ -598,9 +586,35 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[3] = "getMinimalParsedConfig";
         cmds[4] = _configPath;
 
-        bytes memory minimalParsedConfigBytes = vm.ffi(cmds);
-        MinimalParsedConfig memory config = abi.decode(minimalParsedConfigBytes, (MinimalParsedConfig));
-        return config;
+        bytes memory result = vm.ffi(cmds);
+
+        // Get the success boolean from the end of the result, which indicates whether an error
+        // occurred during parsing.
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        // Get the data, which is either a config or a parsing error message. In either case,
+        // the data also includes warning messages that appeared during parsing.
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+        (bool success) = abi.decode(successBytes, (bool));
+
+        if (success) {
+            (MinimalParsedConfig memory config, string memory warnings) = abi.decode(
+                data,
+                (MinimalParsedConfig, string)
+            );
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            return config;
+        } else {
+            (string memory errors, string memory warnings) = abi.decode(
+                data,
+                (string, string)
+            );
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            revert(errors);
+        }
     }
 
     /**
@@ -621,15 +635,15 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         bytes memory result = vm.ffi(cmds);
 
-        // Next, we decode the result into the configUri and bundles. We can't just decode the
-        // result into the configUri and bundles because the `abi.decode` call fails with a "Stack
-        // too deep" error. This is because the ChugSplashBundles struct is too large for Solidity
-        // to decode all at once. So, we decode the action bundle and target bundle separately, then
-        // merge the action bundle and target bundle into a single struct. This requires that we
-        // know where to split the raw bytes before decoding anything. To solve this, we use two
-        // `splitIdx` variables. The first marks the point where the configUri ends and the action
-        // bundle begins. The second marks the point where the action bundle ends and the target
-        // bundle begins.
+        // Next, we decode the result into the configUri and bundles. We can't decode the result in
+        // a single `abi.decode` call this fails with a "Stack too deep" error. This is because the
+        // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity will
+        // only allow us to decode one Action/Target bundle at a time. So, we must decode the config
+        // URI, action bundle, and target bundle separately, then merge them into a single struct.
+        // This requires that we know where to split the raw bytes before decoding anything. To
+        // solve this, we use two `splitIdx` variables. The first marks the point where the
+        // configUri ends and the action bundle begins. The second marks the point where the action
+        // bundle ends and the target bundle begins.
         bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
         (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
 
@@ -643,13 +657,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
     }
 
-    function ffiGetPreviousConfigUri(address _proxyAddress) private returns (OptionalString memory) {
+    function ffiGetPreviousConfigUri(address _proxyAddress, string memory _rpcUrl) private returns (OptionalString memory) {
         string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getPreviousConfigUri";
-        cmds[4] = getRpcUrl();
+        cmds[4] = _rpcUrl;
         cmds[5] = vm.toString(_proxyAddress);
 
         bytes memory result = vm.ffi(cmds);
@@ -734,21 +748,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return abi.decode(result, (DeploymentBytecode));
     }
 
-    function getRpcUrl() internal returns (string memory) {
-        string memory chainAlias = getChain(block.chainid).chainAlias;
-        try vm.rpcUrl(chainAlias) returns (string memory rpcUrl) {
-            return rpcUrl;
-        } catch (bytes memory) {
-            revert(string.concat("Detected a non-standard RPC endpoint name in foundry.toml. Please use: ", chainAlias));
-        }
-    }
-
     /**
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
      */
-    function isLocalNetwork() private returns (bool) {
-        strings.slice memory sliceUrl = getRpcUrl().toSlice();
+    function isLocalNetwork(string memory _rpcUrl) private returns (bool) {
+        strings.slice memory sliceUrl = _rpcUrl.toSlice();
         strings.slice memory delim = ":".toSlice();
         string[] memory parts = new string[](sliceUrl.count(delim) + 1);
         for(uint i = 0; i < parts.length; i++) {
@@ -766,11 +771,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ensureChugSplashInitialized() private {
+    function ensureChugSplashInitialized(string memory _rpcUrl) private {
         ChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
-        } else if (isLocalNetwork()) {
+        } else if (isLocalNetwork(_rpcUrl)) {
             // Fetch bytecode from artifacts
             DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
 
@@ -845,165 +850,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
 
             vm.stopPrank();
+        } else {
+            // We're on a forked or live network that doesn't have ChugSplash deployed, which
+            // means we don't support ChugSplash on this network yet.
+            revert(
+                "ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
+            );
         }
-    }
-
-    function claim(string memory configPath) internal returns (bytes memory) {
-        return claim(configPath, false);
-    }
-
-    function claim(string memory configPath, bool silent) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "claim";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = newOwnerString;
-        cmds[12] = allowManagedProposals == true ? "true" : "false";
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function propose(string memory configPath, bool silent) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "propose";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = ipfsUrl;
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function cancel(string memory configPath) internal {
-        cancel(configPath, false);
-    }
-
-    function cancel(string memory configPath, bool silent) internal returns (bytes memory) {
-        string[] memory cmds = new string[](8);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "cancel";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-
-        bytes memory result = vm.ffi(cmds);
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function listProjects() internal returns (bytes memory) {
-        string[] memory cmds = new string[](7);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "listProjects";
-        cmds[4] = getRpcUrl();
-        cmds[5] = network;
-        cmds[6] = privateKey;
-
-        bytes memory result = vm.ffi(cmds);
-        emit log(string(result));
-        emit log(string("\n"));
-
-        return result;
-    }
-
-    function exportProxy(
-        string memory configPath,
-        string memory referenceName,
-        bool silent
-    ) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](12);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "exportProxy";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = referenceName;
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function importProxy(
-        string memory configPath,
-        address proxyAddress,
-        bool silent
-    ) internal returns (bytes memory) {
-        string[] memory cmds = new string[](10);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "importProxy";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = vm.toString(proxyAddress);
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
     }
 
     function getAddress(
@@ -1039,13 +892,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
+    function getChugSplashRegistry(string memory _rpcUrl) internal returns (ChugSplashRegistry) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getRegistryAddress";
-        cmds[4] = getRpcUrl();
+        cmds[4] = _rpcUrl;
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;
@@ -1317,5 +1170,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function toBytes32(address _addr) private pure returns (bytes32) {
         return bytes32(uint256(uint160(_addr)));
+    }
+
+    function getChainAlias(string memory _rpcUrl) private view returns (string memory) {
+        Vm.Rpc[] memory urls = vm.rpcUrlStructs();
+        for (uint i = 0; i < urls.length; i++) {
+            Vm.Rpc memory rpc = urls[i];
+            if (equals(rpc.url, _rpcUrl)) {
+                return rpc.key;
+            }
+        }
+        revert(string.concat("Could not find the chain alias for the RPC url: ", _rpcUrl, ". Did you forget to define it in your foundry.toml?"));
     }
 }
