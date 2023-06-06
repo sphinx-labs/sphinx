@@ -26,7 +26,6 @@ import { add0x, remove0x } from '@eth-optimism/core-utils'
 import chalk from 'chalk'
 import {
   ProxyDeployment,
-  StorageLayout,
   UpgradeableContract,
   ValidationOptions,
   withValidationDefaults,
@@ -64,7 +63,6 @@ import {
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
-import { ChugSplashRuntimeEnvironment } from './types'
 import {
   BuildInfo,
   CompilerOutput,
@@ -1158,8 +1156,12 @@ export const isLocalNetwork = async (
     return false
   }
 
-  if (await isHardhatFork(provider)) {
-    return false
+  try {
+    if (await isHardhatFork(provider)) {
+      return false
+    }
+  } catch (e) {
+    return true
   }
 
   return true

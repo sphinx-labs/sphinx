@@ -103,6 +103,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
+        ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -119,8 +120,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO(test): remove all of the old ffi functions
 
     function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
-        ensureChugSplashInitialized(_rpcUrl);
-
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -229,7 +228,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             Version memory managerVersion = ffiGetCurrentChugSplashManagerVersion();
-            _registry.finalizeRegistration(
+            _registry.finalizeRegistration{gas: 1000000}(
                 _organizationID,
                 _newOwner,
                 managerVersion,
@@ -273,7 +272,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
-        _manager.propose(
+        _manager.propose{gas: 1000000}(
             _bundles.actionBundle.root,
             _bundles.targetBundle.root,
             _bundles.actionBundle.actions.length,
@@ -297,7 +296,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 )
             );
         }
-        _manager.approve(_deploymentId);
+        _manager.approve{gas: 1000000}(_deploymentId);
     }
 
     function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) private {
@@ -520,6 +519,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
             return OptionalString({exists: true, value: deploymentState.configUri});
         }
+    }
+
+    function ffiDeployOnAnvil() private {
+        string[] memory cmds = new string[](6);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "deployOnAnvil";
+
+        vm.ffi(cmds);
     }
 
     /**
@@ -771,7 +780,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ensureChugSplashInitialized(string memory _rpcUrl) private {
+    function ensureChugSplashInitialized(string memory _rpcUrl) internal {
         ChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
@@ -1068,7 +1077,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), maxGasLimit, contractConfigs);
             BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
-            manager.executeActions(rawActions, _actionIndexes, _proofs);
+            uint bufferedGasLimit = ((maxGasLimit) * 120) / 100;
+            manager.executeActions{gas: bufferedGasLimit}(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
             state = manager.deployments(activeDeploymentId);
@@ -1129,13 +1139,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         // Start the upgrade
-        manager.initiateUpgrade(targets, proofs);
+        manager.initiateUpgrade{gas: 1000000}(targets, proofs);
 
         // Execute all the set storage actions
         executeBatchActions(setStorageActions, manager, blockGasLimit / 2, contractConfigs);
 
         // Complete the upgrade
-        manager.finalizeUpgrade(targets, proofs);
+        manager.finalizeUpgrade{gas: 1000000}(targets, proofs);
 
         pushRecordedLogs();
 

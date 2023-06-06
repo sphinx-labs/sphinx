@@ -28,6 +28,7 @@ import {
   getPreviousConfigUri,
   isLocalNetwork,
   FailureAction,
+  initializeChugSplash,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import {
@@ -677,6 +678,25 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
       )
 
       process.stdout.write(encodedCanonicalConfigUri)
+      break
+    }
+    case 'deployOnAnvil': {
+      const provider = new ethers.providers.JsonRpcProvider(
+        'http://localhost:8545'
+      )
+      const wallet = new ethers.Wallet(
+        '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
+        provider
+      )
+
+      try {
+        await initializeChugSplash(provider, wallet, [], [], [])
+      } catch (e) {
+        if (!e.reason.includes('could not detect network')) {
+          throw e
+        }
+      }
+
       break
     }
   }
