@@ -106,9 +106,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         ffiDeployOnAnvil();
     }
 
-    // TODO(test): you should throw a helpful error message in foundry/index.ts if reading from
-    // state on the in-process node (e.g. in async user config).
-
     function silence() internal {
         silent = true;
     }
@@ -122,7 +119,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // TODO(test): remove all of the old ffi functions
 
-    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private) {
+    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
         ensureChugSplashInitialized(_rpcUrl);
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
@@ -626,32 +623,54 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getCanonicalConfigData";
-        bytes memory encodedCache = abi.encode(_configCache);
-        cmds[4] = vm.toString(encodedCache);
+        cmds[4] = vm.toString(abi.encode(_configCache));
         cmds[5] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
 
-        // Next, we decode the result into the configUri and bundles. We can't decode the result in
-        // a single `abi.decode` call this fails with a "Stack too deep" error. This is because the
-        // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity will
-        // only allow us to decode one Action/Target bundle at a time. So, we must decode the config
-        // URI, action bundle, and target bundle separately, then merge them into a single struct.
-        // This requires that we know where to split the raw bytes before decoding anything. To
-        // solve this, we use two `splitIdx` variables. The first marks the point where the
-        // configUri ends and the action bundle begins. The second marks the point where the action
-        // bundle ends and the target bundle begins.
-        bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
-        (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
+        // TODO(docs)
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+        (bool success) = abi.decode(successBytes, (bool));
 
-        bytes memory configUriBytes = utils.slice(result, 0, splitIdx1);
-        (string memory configUri) = abi.decode(configUriBytes, (string));
+        if (success) {
+            // // TODO(docs): update (remember config URI change): Next, we decode the result into
+            // the configUri and bundles. We can't decode the result in // a single `abi.decode`
+            // call this fails with a "Stack too deep" error. This is because the //
+            // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity
+            // will // only allow us to decode one Action/Target bundle at a time. So, we must
+            // decode the config // URI, action bundle, and target bundle separately, then merge
+            // them into a single struct. // This requires that we know where to split the raw bytes
+            // before decoding anything. To // solve this, we use two `splitIdx` variables. The
+            // first marks the point where the // configUri ends and the action bundle begins. The
+            // second marks the point where the action // bundle ends and the target bundle begins.
+            (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(utils.slice(data, data.length - 64, data.length), (uint256, uint256));
 
-        bytes memory actionBundleBytes = utils.slice(result, splitIdx1, splitIdx2);
-        bytes memory targetBundleBytes = utils.slice(result, splitIdx2, result.length);
-        (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
-        (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
-        return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
+            bytes memory actionBundleBytes = utils.slice(data, 0, splitIdx1);
+            bytes memory targetBundleBytes = utils.slice(data, splitIdx1, splitIdx2);
+            (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
+            (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
+
+            bytes memory configUriAndWarningsBytes = utils.slice(data, splitIdx2, data.length);
+            (string memory configUri, string memory warnings) = abi.decode(
+                configUriAndWarningsBytes,
+                (string, string)
+            );
+
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
+        } else {
+            (string memory errors, string memory warnings) = abi.decode(
+                data,
+                (string, string)
+            );
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            revert(errors);
+        }
     }
 
     function ffiGetPreviousConfigUri(address _proxyAddress, string memory _rpcUrl) private returns (OptionalString memory) {
@@ -681,7 +700,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function verify(
-        string memory _configPath
+        string memory _configPath,
+        string memory _rpcUrl
     ) internal {
         string memory networkName = getChain(block.chainid).chainAlias;
 
@@ -692,7 +712,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[3] = "postDeploymentActions";
         cmds[4] = _configPath;
         cmds[5] = networkName;
-        cmds[6] = getRpcUrl();
+        cmds[6] = _rpcUrl;
 
         bytes memory result = vm.ffi(cmds);
 
@@ -749,7 +769,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
      */
-    function isLocalNetwork(string memory _rpcUrl) private returns (bool) {
+    function isLocalNetwork(string memory _rpcUrl) private pure returns (bool) {
         strings.slice memory sliceUrl = _rpcUrl.toSlice();
         strings.slice memory delim = ":".toSlice();
         string[] memory parts = new string[](sliceUrl.count(delim) + 1);
@@ -889,13 +909,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry(string memory _rpcUrl) internal returns (ChugSplashRegistry) {
+    function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getRegistryAddress";
-        cmds[4] = _rpcUrl;
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;

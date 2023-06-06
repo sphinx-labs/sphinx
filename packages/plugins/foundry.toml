@@ -5,14 +5,12 @@ build_info_path = 'out/artifacts/build-info'
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
-force = true
 ffi = true
 libs = ['node_modules']
 test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]
-chain_id = 1337
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
