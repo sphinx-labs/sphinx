@@ -26,8 +26,8 @@ import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  getChugSplashRegistryReadOnly,
   isLocalNetwork,
+  getChugSplashRegistryReadOnly,
 } from '../../utils'
 import {
   ADAPTER_DEPLOYER_ADDRESS,
