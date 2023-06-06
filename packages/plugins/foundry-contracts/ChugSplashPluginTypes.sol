@@ -37,14 +37,14 @@ struct ConfigCache {
 struct ContractConfigCache {
     string referenceName;
     bool isTargetDeployed;
-    DeploymentRevertCache deploymentRevert;
+    DeploymentRevert deploymentRevert;
     ImportCache importCache;
     OptionalBytes32 deployedCreationCodeWithArgsHash;
     OptionalBool isImplementationDeployed;
     OptionalString previousConfigUri;
 }
 
-struct DeploymentRevertCache {
+struct DeploymentRevert {
     bool deploymentReverted;
     OptionalString revertString;
 }

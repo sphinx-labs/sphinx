@@ -341,11 +341,6 @@ contract ChugSplashManager is
     error FailedToGetAddress();
 
     /**
-     * @notice Reverts if a contract fails to be deployed.
-     */
-    error FailedToDeployContract();
-
-    /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
@@ -1248,9 +1243,7 @@ contract ChugSplashManager is
                 abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
             );
 
-            if (!deploySuccess) {
-                revert FailedToDeployContract();
-            }
+            require(deploySuccess, string.concat("Failed to deploy: ", referenceName));
 
             address actualAddress = abi.decode(actualAddressBytes, (address));
 

@@ -43,7 +43,7 @@ import {
     MinimalParsedContractConfig,
     ConfigCache,
     ContractConfigCache,
-    DeploymentRevertCache,
+    DeploymentRevert,
     ImportCache,
     ContractKindEnum,
     ProposalRoute,
@@ -361,14 +361,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             getDeployedCreationCodeWithArgsHash(_manager, contractConfig.referenceName, contractConfig.targetAddress)
              : OptionalBytes32({ exists: false, value: "" });
 
-            // TODO(test): we need to get helpful logs from the ChugSplashManager if contract deployment
-            // fails during execution
-
             // At this point in the TypeScript version of this function, we attempt to deploy all of
             // the non-proxy contracts. We skip this step here because it's unnecessary in this
             // context. Forge does local simulation before broadcasting any transactions, so if a
             // constructor reverts, it'll be caught before anything happens on the live network.
-            DeploymentRevertCache memory deploymentRevert = DeploymentRevertCache({
+            DeploymentRevert memory deploymentRevert = DeploymentRevert({
                 deploymentReverted: false,
                 revertString: OptionalString({exists: false, value: ""})
             });
@@ -647,9 +644,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    /**
-     * @notice
-     */
     function ffiGetCanonicalConfigData(ConfigCache memory _configCache)
         private
         returns (string memory, ChugSplashBundles memory)
