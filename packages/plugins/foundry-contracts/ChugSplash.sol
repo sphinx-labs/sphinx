@@ -97,11 +97,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         );
     bool private isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
-    modifier onlyWhenInitialized() {
-        ensureChugSplashInitialized();
-        _;
-    }
-
     /**
      * @notice This constructor must not revert, or else an opaque error message will be displayed
        to the user.
@@ -110,27 +105,22 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         utils = new ChugSplashUtils();
     }
 
-    // TODO(logs): consider adding the ability to silence `emit logs` in this contract, since
-    // this may be nice when running the script in the context of tests. however you may not want
-    // to silence the warnings emitted during the parsing step. maybe there should be a separate
-    // flag for that.
-
-    // TODO(test): can you set the anvil chain id to be 1337 for e.g. metamask?
-
     function silence() internal {
         silent = true;
     }
 
     // This is the entry point for the ChugSplash deploy command.
-    function deploy(string memory _configPath) internal {
+    function deploy(string memory _configPath, string memory _rpcUrl) internal {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
-        deploy(_configPath, newOwner);
+        deploy(_configPath, _rpcUrl, newOwner);
     }
 
     // TODO(test): remove all of the old ffi functions
 
-    function deploy(string memory _configPath, OptionalAddress memory _newOwner) private onlyWhenInitialized {
+    function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
+        ensureChugSplashInitialized(_rpcUrl);
+
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -139,7 +129,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             minimalParsedConfig.organizationID
         );
 
-        ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager);
+        ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager, _rpcUrl);
 
         ffiPostParsingValidation(configCache);
 
@@ -323,13 +313,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getConfigCache(
         MinimalParsedConfig memory _minimalConfig,
         ChugSplashRegistry _registry,
-        ChugSplashManager _manager
+        ChugSplashManager _manager,
+        string memory _rpcUrl
     ) private returns (ConfigCache memory) {
         MinimalParsedContractConfig[] memory contractConfigs = _minimalConfig
             .contracts;
 
-        bool localNetwork = isLocalNetwork();
-        string memory networkName = getChain(block.chainid).chainAlias;
+        bool localNetwork = isLocalNetwork(_rpcUrl);
+        string memory networkName = getChainAlias(_rpcUrl);
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             contractConfigs.length
@@ -361,7 +352,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                     getPreviousConfigUri(
                         _registry,
                         contractConfig.targetAddress,
-                        localNetwork
+                        localNetwork,
+                        _rpcUrl
                     )
                 : OptionalString({ exists: false, value: "" });
 
@@ -485,13 +477,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getPreviousConfigUri(
         ChugSplashRegistry _registry,
         address _proxyAddress,
-        bool _localNetwork
+        bool _localNetwork,
+        string memory _rpcUrl
     ) private returns (OptionalString memory) {
         if (!_localNetwork) {
             // We rely on FFI for non-Anvil networks because the previous config URI
             // could correspond to a deployment that happened before this script was
             // called.
-            return ffiGetPreviousConfigUri(_proxyAddress);
+            return ffiGetPreviousConfigUri(_proxyAddress, _rpcUrl);
         } else {
             // We can't rely on FFI for the in-process Anvil node because there is no accessible
             // provider to use in TypeScript. So, we use the logs collected in this contract to get
@@ -612,14 +605,18 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 data,
                 (MinimalParsedConfig, string)
             );
-            emit log(StdStyle.yellow(warnings));
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
             return config;
         } else {
             (string memory errors, string memory warnings) = abi.decode(
                 data,
                 (string, string)
             );
-            emit log(StdStyle.yellow(warnings));
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
             revert(errors);
         }
     }
@@ -633,7 +630,21 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         bytes memory encodedCache = abi.encode(_configCache);
         cmds[4] = vm.toString(encodedCache);
 
-        vm.ffi(cmds);
+        bytes memory result = vm.ffi(cmds);
+
+        if (result.length > 0) {
+            // TODO(docs)
+            (string memory errors, string memory warnings) = abi.decode(
+                result,
+                (string, string)
+            );
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            if (bytes(errors).length > 0) {
+                revert(errors);
+            }
+        }
     }
 
     /**
@@ -675,13 +686,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
     }
 
-    function ffiGetPreviousConfigUri(address _proxyAddress) private returns (OptionalString memory) {
+    function ffiGetPreviousConfigUri(address _proxyAddress, string memory _rpcUrl) private returns (OptionalString memory) {
         string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getPreviousConfigUri";
-        cmds[4] = getRpcUrl();
+        cmds[4] = _rpcUrl;
         cmds[5] = vm.toString(_proxyAddress);
 
         bytes memory result = vm.ffi(cmds);
@@ -744,21 +755,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return abi.decode(result, (DeploymentBytecode));
     }
 
-    function getRpcUrl() internal returns (string memory) {
-        string memory chainAlias = getChain(block.chainid).chainAlias;
-        try vm.rpcUrl(chainAlias) returns (string memory rpcUrl) {
-            return rpcUrl;
-        } catch (bytes memory) {
-            revert(string.concat("Detected a non-standard RPC endpoint name in foundry.toml. Please use: ", chainAlias));
-        }
-    }
-
     /**
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
      */
-    function isLocalNetwork() private returns (bool) {
-        strings.slice memory sliceUrl = getRpcUrl().toSlice();
+    function isLocalNetwork(string memory _rpcUrl) private pure returns (bool) {
+        strings.slice memory sliceUrl = _rpcUrl.toSlice();
         strings.slice memory delim = ":".toSlice();
         string[] memory parts = new string[](sliceUrl.count(delim) + 1);
         for(uint i = 0; i < parts.length; i++) {
@@ -776,11 +778,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ensureChugSplashInitialized() private {
+    function ensureChugSplashInitialized(string memory _rpcUrl) private {
         ChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
-        } else if (isLocalNetwork()) {
+        } else if (isLocalNetwork(_rpcUrl)) {
             // Fetch bytecode from artifacts
             DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
 
@@ -864,164 +866,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function claim(string memory configPath) internal returns (bytes memory) {
-        return claim(configPath, false);
-    }
-
-    function claim(string memory configPath, bool silent) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "claim";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = newOwnerString;
-        cmds[12] = allowManagedProposals == true ? "true" : "false";
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function propose(string memory configPath, bool silent) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](13);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "propose";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = ipfsUrl;
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function cancel(string memory configPath) internal {
-        cancel(configPath, false);
-    }
-
-    function cancel(string memory configPath, bool silent) internal returns (bytes memory) {
-        string[] memory cmds = new string[](8);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "cancel";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-
-        bytes memory result = vm.ffi(cmds);
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function listProjects() internal returns (bytes memory) {
-        string[] memory cmds = new string[](7);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "listProjects";
-        cmds[4] = getRpcUrl();
-        cmds[5] = network;
-        cmds[6] = privateKey;
-
-        bytes memory result = vm.ffi(cmds);
-        emit log(string(result));
-        emit log(string("\n"));
-
-        return result;
-    }
-
-    function exportProxy(
-        string memory configPath,
-        string memory referenceName,
-        bool silent
-    ) internal returns (bytes memory) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
-        string[] memory cmds = new string[](12);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "exportProxy";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = outPath;
-        cmds[10] = buildInfoPath;
-        cmds[11] = referenceName;
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
-    function importProxy(
-        string memory configPath,
-        address proxyAddress,
-        bool silent
-    ) internal returns (bytes memory) {
-        string[] memory cmds = new string[](10);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "importProxy";
-        cmds[4] = configPath;
-        cmds[5] = getRpcUrl();
-        cmds[6] = network;
-        cmds[7] = privateKey;
-        cmds[8] = silent == true ? "true" : "false";
-        cmds[9] = vm.toString(proxyAddress);
-
-        bytes memory result = vm.ffi(cmds);
-
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
-
-        return result;
-    }
-
     function getAddress(
         string memory _configPath,
         string memory _referenceName
@@ -1061,7 +905,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[1] = "node";
         cmds[2] = filePath;
         cmds[3] = "getRegistryAddress";
-        cmds[4] = getRpcUrl();
 
         bytes memory addrBytes = vm.ffi(cmds);
         address addr;
@@ -1333,5 +1176,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function toBytes32(address _addr) private pure returns (bytes32) {
         return bytes32(uint256(uint160(_addr)));
+    }
+
+    function getChainAlias(string memory _rpcUrl) private view returns (string memory) {
+        Vm.Rpc[] memory urls = vm.rpcUrlStructs();
+        for (uint i = 0; i < urls.length; i++) {
+            Vm.Rpc memory rpc = urls[i];
+            if (equals(rpc.url, _rpcUrl)) {
+                return rpc.key;
+            }
+        }
+        revert(string.concat("Could not find the chain alias for the RPC url: ", _rpcUrl, ". Did you forget to define it in your foundry.toml?"));
     }
 }

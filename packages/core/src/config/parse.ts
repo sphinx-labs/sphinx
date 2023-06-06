@@ -1212,7 +1212,7 @@ const parseContractVariables = (
   const dereferencer = astDereferencer(compilerOutput)
   const extendedLayout = extendStorageLayout(storageLayout, dereferencer)
 
-  const validationErrors: string[] = []
+  const parsingErrors: string[] = []
   const unnecessarilyDefinedVariables: string[] = []
   const missingVariables: string[] = []
 
@@ -1237,7 +1237,7 @@ const parseContractVariables = (
       configVarValue !== undefined &&
       storageObj.type.startsWith('t_function')
     ) {
-      validationErrors.push(
+      parsingErrors.push(
         `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your ChugSplash config.`
       )
     }
@@ -1252,19 +1252,19 @@ const parseContractVariables = (
           dereferencer
         )
     } catch (e) {
-      validationErrors.push((e as Error).message)
+      parsingErrors.push((e as Error).message)
     }
   }
 
   if (
-    validationErrors.length > 0 ||
+    parsingErrors.length > 0 ||
     unnecessarilyDefinedVariables.length > 0 ||
     missingVariables.length > 0
   ) {
-    if (validationErrors.length > 0) {
+    if (parsingErrors.length > 0) {
       const lines: string[] = []
 
-      for (const error of validationErrors) {
+      for (const error of parsingErrors) {
         lines.push(error)
       }
 

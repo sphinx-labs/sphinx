@@ -27,7 +27,6 @@ import {
   getCanonicalConfigData,
   getPreviousConfigUri,
   isLocalNetwork,
-  MinimalParsedConfig,
   FailureAction,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
@@ -49,17 +48,20 @@ import { createChugSplashRuntime } from '../utils'
 const args = process.argv.slice(2)
 const command = args[0]
 
-// TODO(docs): explain why we're doing this
-let warnings: string = ''
-let errors: string = ''
-process.stderr.write = (message: string) => {
+// These variables are used to capture any errors or warnings that occur during the ChugSplash
+// config validation process.
+let validationWarnings: string = ''
+let validationErrors: string = ''
+// This function overrides the default 'stderr.write' function to capture any errors or warnings
+// that occur during the validation process.
+const validationStderrWrite = (message: string) => {
   if (message.startsWith('\nWarning: ')) {
-    warnings += message
+    validationWarnings += message.replace('\n', '')
   } else if (message.startsWith('\nError: ')) {
-    // TODO(docs): we remove the first instance of '\nError: ' in 'message' because..
-    errors += message.replace('\nError: ', '')
+    // We remove '\nError: ' because Foundry already displays the word "Error" when an error occurs.
+    validationErrors += message.replace('\nError: ', '')
   } else {
-    throw new Error('TODO: something else was written. Should never happen')
+    validationErrors += message
   }
   return true
 }
@@ -118,6 +120,32 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
   return structuredConfigCache
 }
 
+export const getEncodedErrorsAndWarnings = (err: Error): string => {
+  // Trim a trailing '\n' character from the end of 'warnings' if it exists.
+  const prettyWarnings = validationWarnings.endsWith('\n\n')
+    ? validationWarnings.substring(0, validationWarnings.length - 1)
+    : validationWarnings
+
+  let prettyError: string
+  if (err.name === 'ValidationError') {
+    // We return the error messages and warnings.
+
+    // Removes unnecessary '\n' characters from the end of 'errors'
+    prettyError = validationErrors.endsWith('\n\n')
+      ? validationErrors.substring(0, validationErrors.length - 2)
+      : validationErrors
+  } else {
+    // A non-parsing error occurred. We return the error message and stack trace.
+    prettyError = `${err.name}: ${err.message}\n\n${err.stack}`
+  }
+
+  const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
+    ['string', 'string'],
+    [prettyError, prettyWarnings]
+  )
+
+  return encodedErrorsAndWarnings
+}
 ;(async () => {
   switch (command) {
     case 'claim': {
@@ -433,106 +461,126 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       break
     }
     case 'getMinimalParsedConfig': {
-      const configPath = args[1]
+      process.stderr.write = validationStderrWrite
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-        await getPaths()
+      try {
+        const configPath = args[1]
 
-      const cre = await createChugSplashRuntime(
-        configPath,
-        false,
-        true,
-        canonicalConfigFolder,
-        undefined,
-        false,
-        process.stderr
-      )
+        const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
+          await getPaths()
 
-      const getConfigArtifacts = makeGetConfigArtifacts(
-        artifactFolder,
-        buildInfoFolder
-      )
-
-      const { parsedConfig, minimalParsedConfig, configArtifacts } =
-        await readUnvalidatedParsedConfig(
+        const cre = await createChugSplashRuntime(
           configPath,
-          cre,
-          getConfigArtifacts,
-          FailureAction.THROW
+          false,
+          true,
+          canonicalConfigFolder,
+          undefined,
+          false,
+          process.stderr
         )
 
-      // TODO: we shouldn't have two things called ConfigCache
-      const configCache = {
-        parsedConfig,
-        configArtifacts,
+        const getConfigArtifacts = makeGetConfigArtifacts(
+          artifactFolder,
+          buildInfoFolder
+        )
+
+        const { parsedConfig, minimalParsedConfig, configArtifacts } =
+          await readUnvalidatedParsedConfig(
+            configPath,
+            cre,
+            getConfigArtifacts,
+            FailureAction.THROW
+          )
+
+        // TODO: we shouldn't have two things called ConfigCache
+        const configCache = {
+          parsedConfig,
+          configArtifacts,
+        }
+
+        if (!fs.existsSync('./cache')) {
+          fs.mkdirSync('./cache')
+        }
+        fs.writeFileSync(
+          './cache/chugsplash-config-cache.json',
+          JSON.stringify(configCache, null, 2),
+          'utf-8'
+        )
+
+        const ChugSplashUtilsABI =
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+        const minimalParsedConfigType = ChugSplashUtilsABI.find(
+          (fragment) => fragment.name === 'minimalParsedConfig'
+        ).outputs[0]
+
+        // Remove a '\n' character from the end of 'warnings' if it exists.
+        const prettyWarningMessages = validationWarnings.endsWith('\n\n')
+          ? validationWarnings.substring(0, validationWarnings.length - 1)
+          : validationWarnings
+
+        const encodedConfigAndWarnings = ethers.utils.defaultAbiCoder.encode(
+          [minimalParsedConfigType, 'string'],
+          [minimalParsedConfig, prettyWarningMessages]
+        )
+
+        const encodedSuccess = ethers.utils.hexConcat([
+          encodedConfigAndWarnings,
+          ethers.utils.defaultAbiCoder.encode(['bool'], [true]), // true = success
+        ])
+
+        process.stdout.write(encodedSuccess)
+      } catch (err) {
+        const encodedErrorsAndWarnings = getEncodedErrorsAndWarnings(err)
+
+        const encodedFailure = ethers.utils.hexConcat([
+          encodedErrorsAndWarnings,
+          ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
+        ])
+
+        process.stdout.write(encodedFailure)
       }
-
-      if (!fs.existsSync('./cache')) {
-        fs.mkdirSync('./cache')
-      }
-      fs.writeFileSync(
-        './cache/chugsplash-config-cache.json',
-        JSON.stringify(configCache, null, 2),
-        'utf-8'
-      )
-
-      const ChugSplashUtilsABI =
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
-      const minimalParsedConfigType = ChugSplashUtilsABI.find(
-        (fragment) => fragment.name === 'minimalParsedConfig'
-      ).outputs[0]
-
-      // Remove a '\n' character from the end of 'warnings' if it exists.
-      const prettyWarningMessages = warnings.endsWith('\n\n')
-        ? warnings.substring(0, warnings.length - 1)
-        : warnings
-
-      const encodedConfigAndWarnings = ethers.utils.defaultAbiCoder.encode(
-        [minimalParsedConfigType, 'string'],
-        [minimalParsedConfig, prettyWarningMessages]
-      )
-
-      const encodedSuccess = ethers.utils.hexConcat([
-        encodedConfigAndWarnings,
-        ethers.utils.defaultAbiCoder.encode(['bool'], [true]), // true = success
-      ])
-
-      process.stdout.write(encodedSuccess)
       break
     }
     case 'postParsingValidation': {
-      const encodedConfigCache = args[1]
-      const configCache = await decodeCachedConfig(encodedConfigCache)
+      process.stderr.write = validationStderrWrite
 
-      const {
-        parsedConfig,
-        configArtifacts,
-      }: {
-        parsedConfig: ParsedChugSplashConfig
-        configArtifacts: ConfigArtifacts
-      } = JSON.parse(
-        fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
-      )
+      try {
+        const encodedConfigCache = args[1]
+        const configCache = await decodeCachedConfig(encodedConfigCache)
 
-      const { canonicalConfigFolder } = await getPaths()
-      const cre = await createChugSplashRuntime(
-        '',
-        false,
-        true,
-        canonicalConfigFolder,
-        undefined,
-        false,
-        process.stdout
-      )
+        const {
+          parsedConfig,
+          configArtifacts,
+        }: {
+          parsedConfig: ParsedChugSplashConfig
+          configArtifacts: ConfigArtifacts
+        } = JSON.parse(
+          fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
+        )
 
-      await postParsingValidation(
-        parsedConfig,
-        configArtifacts,
-        cre,
-        configCache,
-        FailureAction.THROW
-      )
+        const { canonicalConfigFolder } = await getPaths()
+        const cre = await createChugSplashRuntime(
+          '',
+          false,
+          true,
+          canonicalConfigFolder,
+          undefined,
+          false,
+          process.stderr
+        )
+
+        await postParsingValidation(
+          parsedConfig,
+          configArtifacts,
+          cre,
+          configCache,
+          FailureAction.THROW
+        )
+      } catch (err) {
+        const encodedErrorsAndWarnings = getEncodedErrorsAndWarnings(err)
+        process.stdout.write(encodedErrorsAndWarnings)
+      }
       break
     }
     case 'getCurrentChugSplashManagerVersion': {
@@ -632,34 +680,4 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       break
     }
   }
-})().catch((err: Error) => {
-  // Trim a trailing '\n' character from the end of 'warnings' if it exists.
-  const prettyWarnings = warnings.endsWith('\n\n')
-    ? warnings.substring(0, warnings.length - 1)
-    : warnings
-
-  let prettyError: string
-  if (err.name === 'ValidationError') {
-    // We return the error messages and warnings.
-
-    // Removes unnecessary '\n' characters from the end of 'errors'
-    prettyError = errors.endsWith('\n\n')
-      ? errors.substring(0, errors.length - 2)
-      : errors
-  } else {
-    // A non-parsing error occurred. We return the error message and stack trace.
-    prettyError = `${err.name}: ${err.message}\n\n${err.stack}`
-  }
-
-  const encodedErrorsAndWarnings = ethers.utils.defaultAbiCoder.encode(
-    ['string', 'string'],
-    [prettyError, prettyWarnings]
-  )
-
-  const encodedFailure = ethers.utils.hexConcat([
-    encodedErrorsAndWarnings,
-    ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
-  ])
-
-  process.stdout.write(encodedFailure)
-})
+})()

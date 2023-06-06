@@ -10,7 +10,7 @@ import {
   UserContractConfigs,
   ContractArtifact,
   GetConfigArtifacts,
-  validateBuildInfo
+  validateBuildInfo,
 } from '@chugsplash/core'
 
 export const getBuildInfo = (

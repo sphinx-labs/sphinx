@@ -33,11 +33,6 @@ const config: HardhatUserConfig = {
     hardhat: {
       allowUnlimitedContractSize: true,
     },
-    'cronos-testnet': {
-      chainId: 338,
-      url: 'https://evm-t3.cronos.org',
-      accounts,
-    },
     goerli: {
       chainId: 5,
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,

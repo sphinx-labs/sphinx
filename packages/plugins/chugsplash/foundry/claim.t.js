@@ -13,18 +13,19 @@ module.exports = {
   contracts: {
     MySimpleStorage: {
       contract: 'SimpleStorage',
-      variables: {
-        myStorage: '0x1111111111111111111111111111111111111111',
-        myStateless: '0x1111111111111111111111111111111111111111',
+      kind: 'no-proxy',
+      unsafeAllow: {
+        flexibleConstructor: true
       },
+      // variables: {
+      //   myStorage: '0x1111111111111111111111111111111111111111',
+      //   myStateless: '0x1111111111111111111111111111111111111111',
+      // },
       constructorArgs: {
-        // _immutableContractReference:
-          // '0x1111111111111111111111111111111111111111',
+        _immutableContractReference:
+          '0x1111111111111111111111111111111111111111',
         _statelessImmutableContractReference:
           '0x1111111111111111111111111111111111111111',
-      },
-      unsafeAllow: {
-        delegatecall: true,
       },
     },
   },
