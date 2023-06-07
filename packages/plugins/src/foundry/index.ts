@@ -391,23 +391,10 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
       const { projectName, organizationID } = userConfig.options
       const managerAddress = getChugSplashManagerAddress(organizationID)
 
-      if (userConfig.contracts[referenceName].kind === 'no-proxy') {
-        const address = getCreate3Address(
-          managerAddress,
-          getNonProxyCreate3Salt(
-            projectName,
-            referenceName,
-            userConfig.contracts[referenceName].salt ??
-              ethers.constants.HashZero
-          )
-        )
-        process.stdout.write(address)
-      } else {
-        const proxy =
-          userConfig.contracts[referenceName].externalProxy ||
-          getDefaultProxyAddress(organizationID, projectName, referenceName)
-        process.stdout.write(proxy)
-      }
+      const contractAddress =
+        userConfig.contracts[referenceName].address ??
+        getCreate3Address(organizationID, projectName, referenceName, kind)
+      process.stdout.write(contractAddress)
       break
     }
     case 'getRegistryAddress': {

@@ -45,8 +45,8 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CanonicalChugSplashConfig,
-  ExternalContractKind,
-  externalContractKinds,
+  UserContractKind,
+  userContractKinds,
   ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
@@ -632,10 +632,10 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const isExternalContractKind = (
+export const isUserContractKind = (
   contractKind: string
-): contractKind is ExternalContractKind => {
-  return externalContractKinds.includes(contractKind)
+): contractKind is UserContractKind => {
+  return userContractKinds.includes(contractKind)
 }
 
 /**
@@ -761,20 +761,20 @@ export const getNonProxyCreate3Salt = (
 }
 
 /**
- * Returns the Create3 address of a non-proxy contract deployed by ChugSplash, which is calculated
- * as a function of the ChugSplashManager address, the project name, the contract's reference name,
- * and an optional 32-byte salt provided by the user. Note that the contract may
- * not yet be deployed at this address since it's calculated via Create3.
- *
- * @returns Address of the contract.
+ * Returns the Create3 address of a contract deployed by ChugSplash. There is a one-to-one
+ * mapping between a Create3 address and the input parameters to this function. Note that
+ * the contract may not yet be deployed at this address since it's calculated via Create3.
  */
 export const getCreate3Address = (
   managerAddress: string,
-  salt: string
+  
+  userSalt?: string
 ): string => {
   // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
   // library for details.
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
+
+  const salt =
 
   const proxyAddress = utils.getCreate2Address(
     managerAddress,

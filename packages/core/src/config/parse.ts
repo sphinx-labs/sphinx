@@ -30,7 +30,7 @@ import {
 } from '../languages/solidity/types'
 import {
   getDefaultProxyAddress,
-  isExternalContractKind,
+  isUserContractKind,
   getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
   getOpenZeppelinUpgradableContract,
@@ -275,24 +275,24 @@ export const assertValidUserConfigFields = (
       )
     }
 
-    // Make sure addresses are fixed and are actually addresses.
+    // Make sure addresses are valid.
     if (
-      contractConfig.externalProxy !== undefined &&
-      !ethers.utils.isAddress(contractConfig.externalProxy)
+      contractConfig.address !== undefined &&
+      !ethers.utils.isAddress(contractConfig.address)
     ) {
       logValidationError(
         'error',
-        `External proxy address is not a valid address: ${contractConfig.externalProxy}`,
+        `Address for ${referenceName} is not valid: ${contractConfig.address}`,
         [],
         cre.silent,
         cre.stream
       )
     }
 
-    // Make sure that the external proxy type is valid.
+    // Make sure that the user-defined contract kind is valid.
     if (
       contractConfig.kind !== undefined &&
-      isExternalContractKind(contractConfig.kind) === false
+      isUserContractKind(contractConfig.kind) === false
     ) {
       logValidationError(
         'error',
@@ -303,39 +303,25 @@ export const assertValidUserConfigFields = (
       )
     }
 
-    // The user must include both `externalProxy` and `kind` field, or neither.
-    // If the user sets kind to no-proxy, then they must not include an externalProxy.
+    // The user must include both `address` and `kind` field, or neither.
     if (
-      contractConfig.externalProxy !== undefined &&
+      contractConfig.address !== undefined &&
       contractConfig.kind === undefined
     ) {
       logValidationError(
         'error',
-        `User included an 'externalProxy' field, but did not include a 'kind'\nfield for ${contractConfig.contract}. Please include both or neither.`,
+        `User included an 'address' field for ${referenceName}, but did not include a 'kind' field.\nPlease include both or neither.`,
         [],
         cre.silent,
         cre.stream
       )
     } else if (
-      contractConfig.externalProxy === undefined &&
-      contractConfig.kind !== undefined &&
-      contractConfig.kind !== 'no-proxy'
+      contractConfig.address === undefined &&
+      contractConfig.kind !== undefined
     ) {
       logValidationError(
         'error',
-        `User included a 'kind' field, but did not include an 'externalProxy'\nfield for ${contractConfig.contract}. Please include both or neither.`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    } else if (
-      // if the contract is non-proxied than it should not have an external proxy defined
-      contractConfig.kind === 'no-proxy' &&
-      contractConfig.externalProxy !== undefined
-    ) {
-      logValidationError(
-        'error',
-        `User included a 'kind' field and an 'externalProxy' field for ${contractConfig.contract}. If you want to deploy a non-proxied contract, please remove the 'externalProxy' field.`,
+        `User included a 'kind' field for ${referenceName}, but did not include an 'address' field.\nPlease include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -1773,12 +1759,12 @@ export const assertValidParsedChugSplashFile = async (
     parsedConfig.options.organizationID
   )
 
-  // Check that all external contracts have already been deployed.
+  // Check that all user-defined contract addresses have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     if (
-      contractConfig.userDefinedAddress &&
+      contractConfig.isUserDefinedAddress &&
       !contractConfigCache[referenceName].isTargetDeployed
     ) {
       logValidationError(
@@ -2134,39 +2120,31 @@ export const assertValidConstructorArgs = (
   contractReferences: { [referenceName: string]: string }
 } => {
   const { projectName, organizationID } = userConfig.options
-  const managerAddress = getChugSplashManagerAddress(organizationID)
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedConstructorArgs = {}
   const contractReferences: { [referenceName: string]: string } = {}
 
-  // Determine the addresses for all proxied contracts and cache the artifacts.
+  // Determine the addresses for all contracts.
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    const { externalProxy, kind } = userContractConfig
+    const { address, kind } = userContractConfig
 
-    if (kind === 'no-proxy') {
-      // prevents references to no-proxy contracts from being resolved to '' during the first pass compilation
-      contractReferences[referenceName] = `{{ ${referenceName} }}`
-      continue
-    }
-
-    // Set the proxy address to the user-defined value if it exists, otherwise set it to the default proxy
-    // used by ChugSplash.
-    const proxy =
-      externalProxy ||
-      getDefaultProxyAddress(organizationID, projectName, referenceName)
-
-    contractReferences[referenceName] = proxy
+    // Set the address to the user-defined value if it exists, otherwise set it to the
+    // Create3 address given to contracts deployed within the ChugSplash system.
+    contractReferences[referenceName] =
+      address ??
+      getCreate3Address(organizationID, projectName, referenceName, kind)
   }
 
+  // Resolve all contract references.
   userConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(userConfig))({
       ...contractReferences,
     })
   )
 
-  // Parse and validate all the constructor arguments, resolving any references to proxied contracts
+  // Parse and validate all the constructor arguments.
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
@@ -2185,38 +2163,9 @@ export const assertValidConstructorArgs = (
   // constructor args can cause the rest of the parsing logic to fail with cryptic errors
   assertNoValidationErrors(failureAction)
 
-  // Resolve any no-proxy contract addresses that are left
-  // We have do this separately b/c we need to parse all the constructor args and resolve all the proxied contract addresses
-  // before we can resolve the addresses of no-proxy contracts which might include contract references in their contructor args
-  for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
-  )) {
-    const { kind } = userContractConfig
-
-    if (kind !== 'no-proxy') {
-      continue
-    }
-
-    contractReferences[referenceName] = getCreate3Address(
-      managerAddress,
-      getNonProxyCreate3Salt(
-        userConfig.options.projectName,
-        referenceName,
-        userContractConfig.salt ?? ethers.constants.HashZero
-      )
-    )
-  }
-
-  // Finally we compile the entire config to resolve references to all contracts throughout the entire config
-  const compiledConstructorArgs = JSON.parse(
-    Handlebars.compile(JSON.stringify(cachedConstructorArgs))({
-      ...contractReferences,
-    })
-  )
-
   // We return the cached values so we can use them in later steps without rereading the files
   return {
-    cachedConstructorArgs: compiledConstructorArgs,
+    cachedConstructorArgs,
     contractReferences,
   }
 }
@@ -2224,7 +2173,6 @@ export const assertValidConstructorArgs = (
 const assertValidContractVariables = (
   userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  contractReferences: { [referenceName: string]: string },
   cre: ChugSplashRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
   const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
@@ -2256,11 +2204,7 @@ const assertValidContractVariables = (
       )
 
       const parsedContractVariables = parseContractVariables(
-        JSON.parse(
-          Handlebars.compile(JSON.stringify(userContractConfig))({
-            ...contractReferences,
-          })
-        ),
+        userContractConfig,
         storageLayout,
         buildInfo.output,
         cre
@@ -2297,8 +2241,9 @@ const constructParsedConfig = (
 
     // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
     // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
-    // of the creation code appended with its constructor arguments. This essentially turns the
-    // Create3 call into a Create2 call when deploying the proxy's implementation contract.
+    // of the creation code appended with its constructor arguments. TODO(docs): i think this is
+    // technically incorrect: This essentially turns the Create3 call into a Create2 call when
+    // deploying the proxy's implementation contract.
     const salt =
       userContractConfig.kind === 'no-proxy'
         ? getNonProxyCreate3Salt(
@@ -2316,11 +2261,11 @@ const constructParsedConfig = (
       kind: userContractConfig.kind ?? 'internal-default',
       variables: parsedVariables[referenceName],
       constructorArgs,
-      salt,
+      userSalt: userContractConfig.salt,
       unsafeAllow: userContractConfig.unsafeAllow ?? {},
       previousBuildInfo: userContractConfig.previousBuildInfo,
       previousFullyQualifiedName: userContractConfig.previousFullyQualifiedName,
-      userDefinedAddress: !!userContractConfig.externalProxy,
+      isUserDefinedAddress: !!userContractConfig.address,
     }
   }
 
@@ -2356,7 +2301,6 @@ export const getUnvalidatedParsedConfig = (
   const parsedVariables = assertValidContractVariables(
     userConfig,
     configArtifacts,
-    contractReferences,
     cre
   )
 
