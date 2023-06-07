@@ -6,10 +6,18 @@
 // import hre from 'hardhat'
 // import '@nomiclabs/hardhat-ethers'
 import {
+  ChugSplashBootloaderOneArtifact,
+  ChugSplashBootloaderTwoArtifact,
+} from '@chugsplash/contracts'
+import {
+  bootloaderTwoConstructorFragment,
   CURRENT_CHUGSPLASH_MANAGER_VERSION,
+  getBootloaderTwoConstructorArgs,
   getChugSplashRegistryAddress,
   getManagerProxyBytecodeHash,
 } from '@chugsplash/core'
+import { remove0x } from '@eth-optimism/core-utils'
+import { ethers } from 'ethers'
 // import { utils } from 'ethers'
 
 // import { makeGetConfigArtifacts } from '../hardhat/artifacts'
@@ -32,6 +40,18 @@ import {
 const writeConstants = async () => {
   const { major, minor, patch } = CURRENT_CHUGSPLASH_MANAGER_VERSION
 
+  const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
+  const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
+
+  const bootloaderTwoCreationCode = bootloaderTwo.concat(
+    ethers.utils.defaultAbiCoder
+      .encode(
+        bootloaderTwoConstructorFragment.inputs,
+        getBootloaderTwoConstructorArgs()
+      )
+      .slice(2)
+  )
+
   const constants = {
     registryAddress: {
       type: 'address',
@@ -53,15 +73,26 @@ const writeConstants = async () => {
       type: 'uint256',
       value: patch,
     },
+    bootloaderOneBytecode: {
+      type: 'bytes',
+      value: `hex"${remove0x(bootloaderOne)}"`,
+    },
+    bootloaderTwoBytecode: {
+      type: 'bytes',
+      value: `hex"${remove0x(bootloaderTwoCreationCode)}"`,
+    },
   }
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity ^0.8.15;\n\n` +
-    `${Object.entries(constants)
-      .map(([name, { type, value }]) => `${type} constant ${name} = ${value};`)
-      .join('\n')}
-`
+    `library Constants {
+${Object.entries(constants)
+  .map(
+    ([name, { type, value }]) => `\t${type} constant public ${name} = ${value};`
+  )
+  .join('\n')}
+}`
 
   process.stdout.write(solidityFile)
 }

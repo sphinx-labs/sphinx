@@ -55,7 +55,7 @@ import {
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { registryAddress, managerProxyBytecodeHash, major, minor, patch } from "./ChugSplashConstants.sol";
+import { Constants } from "./ChugSplashConstants.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -564,7 +564,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
-        return Version({ major: major, minor: minor, patch: patch });
+        return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
     }
 
     function ffiGetMinimalParsedConfig(
@@ -737,17 +737,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getBootloaderBytecode";
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (DeploymentBytecode));
-    }
-
     /**
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
@@ -776,9 +765,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
-            // Fetch bytecode from artifacts
-            DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
-
             // Setup determinisitic deployment proxy
             address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
             vm.etch(
@@ -787,7 +773,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the adapters
-            bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
+            bytes memory bootloaderOneCreationCode = Constants.bootloaderOneBytecode;
             address bootloaderOneAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderOneCreationCode),
@@ -799,7 +785,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the bootloader
-            bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
+            bytes memory bootloaderTwoCreationCode = Constants.bootloaderTwoBytecode;
             address bootloaderTwoAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderTwoCreationCode),
@@ -893,7 +879,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
-        return ChugSplashRegistry(registryAddress);
+        return ChugSplashRegistry(Constants.registryAddress);
     }
 
     function getChugSplashManager(
@@ -902,7 +888,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private pure returns (ChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            managerProxyBytecodeHash,
+            Constants.managerProxyBytecodeHash,
             address(_registry)
         );
         return ChugSplashManager(payable(managerAddress));
