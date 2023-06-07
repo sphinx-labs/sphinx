@@ -14,9 +14,6 @@ module.exports = {
     MySimpleStorage: {
       contract: 'SimpleStorage',
       kind: 'no-proxy',
-      unsafeAllow: {
-        flexibleConstructor: true
-      },
       constructorArgs: {
         _immutableContractReference:
           '0x1111111111111111111111111111111111111111',

@@ -5,7 +5,6 @@ build_info_path = 'out/artifacts/build-info'
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
-force=true
 ffi = true
 libs = ['node_modules']
 test = 'test/foundry'

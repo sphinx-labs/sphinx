@@ -104,7 +104,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ffiDeployOnAnvil();
+        // ffiDeployOnAnvil();
     }
 
     function silence() internal {
