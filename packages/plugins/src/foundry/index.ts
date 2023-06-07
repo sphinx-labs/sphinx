@@ -13,14 +13,12 @@ import {
   getDefaultProxyAddress,
   readUserChugSplashConfig,
   getCreate3Address,
-  getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
   getNonProxyCreate3Salt,
   getBootloaderTwoConstructorArgs,
   bootloaderTwoConstructorFragment,
   readUnvalidatedParsedConfig,
   ProposalRoute,
-  CURRENT_CHUGSPLASH_MANAGER_VERSION,
   postParsingValidation,
   getChugSplashRegistryReadOnly,
   getCanonicalConfigData,
@@ -32,17 +30,14 @@ import {
   writeCanonicalConfig,
   DeploymentState,
   ConfigArtifacts,
-  initializeChugSplash,
   FailureAction,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
-  ChugSplashManagerProxyArtifact,
 } from '@chugsplash/contracts'
 import { remove0x } from '@eth-optimism/core-utils'
-import ora from 'ora'
 
 import {
   cleanPath,
@@ -441,34 +436,6 @@ const getPrettyWarnings = (): string => {
       process.stdout.write(adminAddress)
       break
     }
-    case 'getBootloaderBytecode': {
-      const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
-      const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
-
-      const bootloaderTwoCreationCode = bootloaderTwo.concat(
-        ethers.utils.defaultAbiCoder
-          .encode(
-            bootloaderTwoConstructorFragment.inputs,
-            getBootloaderTwoConstructorArgs()
-          )
-          .slice(2)
-      )
-
-      const artifactStructABI =
-        'tuple(bytes bootloaderOne, bytes bootloaderTwo)'
-      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [
-          {
-            bootloaderOne,
-            bootloaderTwo: bootloaderTwoCreationCode,
-          },
-        ]
-      )
-
-      process.stdout.write(encodedArtifacts)
-      break
-    }
     case 'getMinimalParsedConfig': {
       process.stderr.write = validationStderrWrite
 
@@ -569,27 +536,28 @@ const getPrettyWarnings = (): string => {
           FailureAction.THROW
         )
 
-        const { configUri, bundles } = await getCanonicalConfigData(
-          parsedConfig,
-          configArtifacts,
-          configCache
+        const { configUri, bundles, canonicalConfig } =
+          await getCanonicalConfigData(
+            parsedConfig,
+            configArtifacts,
+            configCache
+          )
+
+        writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
+
+        const ipfsHash = configUri.replace('ipfs://', '')
+        const cachePath = path.resolve('./cache')
+        // Create the canonical config network folder if it doesn't already exist.
+        if (!fs.existsSync(cachePath)) {
+          fs.mkdirSync(cachePath)
+        }
+
+        // Write the canonical config to the local file system. It will exist in a JSON file that has the
+        // config URI as its name.
+        fs.writeFileSync(
+          path.join(cachePath, `${ipfsHash}.json`),
+          JSON.stringify(configArtifacts, null, 2)
         )
-
-        // writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
-
-        // const ipfsHash = configUri.replace('ipfs://', '')
-        // const cachePath = path.resolve('./cache')
-        // // Create the canonical config network folder if it doesn't already exist.
-        // if (!fs.existsSync(cachePath)) {
-        //   fs.mkdirSync(cachePath)
-        // }
-
-        // // Write the canonical config to the local file system. It will exist in a JSON file that has the
-        // // config URI as its name.
-        // fs.writeFileSync(
-        //   path.join(cachePath, `${ipfsHash}.json`),
-        //   JSON.stringify(configArtifacts, null, 2)
-        // )
 
         const ChugSplashUtilsABI =
           // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -682,7 +650,7 @@ const getPrettyWarnings = (): string => {
 
       break
     }
-    case 'postDeploymentActions': {
+    case 'generateArtifacts': {
       const { canonicalConfigFolder, deploymentFolder } = await getPaths()
 
       const configPath = args[1]
@@ -699,15 +667,6 @@ const getPrettyWarnings = (): string => {
         config.options.organizationID
       )
 
-      const registryAddress = await getChugSplashRegistryAddress()
-
-      console.log(networkName)
-      console.log(rpcUrl)
-      console.log(manager.address)
-      console.log(registryAddress)
-      console.log(await provider.getCode(manager.address))
-      console.log(await provider.getCode(registryAddress))
-
       // Get the most recent deployment completed event for this deployment ID.
       const deploymentCompletedEvent = (
         await manager.queryFilter(
@@ -716,10 +675,11 @@ const getPrettyWarnings = (): string => {
           manager.filters.ChugSplashDeploymentCompleted()
         )
       ).at(-1)
-      const deploymentId = deploymentCompletedEvent?.args?.deploymentId[0]
-      console.log(deploymentId)
+      const deploymentId = deploymentCompletedEvent?.args?.deploymentId
 
-      const deployment: DeploymentState = manager.deployments(deploymentId)
+      const deployment: DeploymentState = await manager.deployments(
+        deploymentId
+      )
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
       const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
@@ -729,8 +689,6 @@ const getPrettyWarnings = (): string => {
       const configArtifacts: ConfigArtifacts = JSON.parse(
         fs.readFileSync(`./cache/${ipfsHash}.json`).toString()
       )
-
-      const spinner = ora({ isSilent: true, stream: process.stdout })
 
       await postDeploymentActions(
         canonicalConfig,
@@ -745,8 +703,7 @@ const getPrettyWarnings = (): string => {
         true,
         manager.owner(),
         provider,
-        manager,
-        spinner
+        manager
       )
     }
   }

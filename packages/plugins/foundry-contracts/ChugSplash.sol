@@ -55,7 +55,7 @@ import {
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { registryAddress, managerProxyBytecodeHash, major, minor, patch } from "./ChugSplashConstants.sol";
+import { Constants } from "./ChugSplashConstants.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -564,7 +564,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
-        return Version({ major: major, minor: minor, patch: patch });
+        return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
     }
 
     function ffiGetMinimalParsedConfig(
@@ -693,25 +693,24 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         vm.ffi(cmds);
     }
 
-    function verify(
+    function generateArtifacts(
         string memory _configPath,
         string memory _rpcUrl
     ) internal {
-        string memory networkName = getChain(block.chainid).chainAlias;
+        string memory networkName = getChainAlias(_rpcUrl);
 
         string[] memory cmds = new string[](10);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "postDeploymentActions";
+        cmds[3] = "generateArtifacts";
         cmds[4] = _configPath;
         cmds[5] = networkName;
         cmds[6] = _rpcUrl;
 
-        bytes memory result = vm.ffi(cmds);
+        vm.ffi(cmds);
 
-        emit log(string(result));
-        emit log(string("\n"));
+        emit log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
     function fetchPaths()
@@ -736,17 +735,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 buildInfoPath = line.rsplit("=".toSlice()).toString();
             }
         }
-    }
-
-    function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getBootloaderBytecode";
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (DeploymentBytecode));
     }
 
     /**
@@ -777,9 +765,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
-            // Fetch bytecode from artifacts
-            DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
-
             // Setup determinisitic deployment proxy
             address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
             vm.etch(
@@ -788,7 +773,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the adapters
-            bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
+            bytes memory bootloaderOneCreationCode = Constants.bootloaderOneBytecode;
             address bootloaderOneAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderOneCreationCode),
@@ -800,7 +785,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the bootloader
-            bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
+            bytes memory bootloaderTwoCreationCode = Constants.bootloaderTwoBytecode;
             address bootloaderTwoAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderTwoCreationCode),
@@ -894,7 +879,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
-        return ChugSplashRegistry(registryAddress);
+        return ChugSplashRegistry(Constants.registryAddress);
     }
 
     function getChugSplashManager(
@@ -903,7 +888,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private pure returns (ChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            managerProxyBytecodeHash,
+            Constants.managerProxyBytecodeHash,
             address(_registry)
         );
         return ChugSplashManager(payable(managerAddress));
