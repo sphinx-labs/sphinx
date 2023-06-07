@@ -44,8 +44,8 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CanonicalChugSplashConfig,
-  ExternalContractKind,
-  externalContractKinds,
+  UserContractKind,
+  userContractKinds,
   ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
@@ -190,20 +190,24 @@ export const checkIsUpgrade = async (
   return false
 }
 
+export const getManagerProxyBytecodeHash = (): string => {
+  return utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashManagerProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+      ),
+    ]
+  )
+}
+
 export const getChugSplashManagerAddress = (organizationID: string) => {
   return utils.getCreate2Address(
     getChugSplashRegistryAddress(),
     organizationID,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
-        ),
-      ]
-    )
+    getManagerProxyBytecodeHash()
   )
 }
 
@@ -630,10 +634,10 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const isExternalContractKind = (
+export const isUserContractKind = (
   contractKind: string
-): contractKind is ExternalContractKind => {
-  return externalContractKinds.includes(contractKind)
+): contractKind is UserContractKind => {
+  return userContractKinds.includes(contractKind)
 }
 
 /**

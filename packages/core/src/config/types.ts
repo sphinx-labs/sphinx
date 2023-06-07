@@ -10,14 +10,14 @@ import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 
-export const externalContractKinds = [
+export const userContractKinds = [
   'oz-transparent',
   'oz-ownable-uups',
   'oz-access-control-uups',
   'external-default',
   'no-proxy',
 ]
-export type ExternalContractKind =
+export type UserContractKind =
   | 'oz-transparent'
   | 'oz-ownable-uups'
   | 'oz-access-control-uups'
@@ -33,7 +33,7 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   'no-proxy': NO_PROXY_TYPE_HASH,
 }
 
-export type ContractKind = ExternalContractKind | 'internal-default'
+export type ContractKind = UserContractKind | 'internal-default'
 
 export enum ContractKindEnum {
   INTERNAL_DEFAULT,
@@ -107,7 +107,7 @@ export type UnsafeAllow = {
 export type UserContractConfig = {
   contract: string
   externalProxy?: string
-  kind?: ExternalContractKind
+  kind?: UserContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
