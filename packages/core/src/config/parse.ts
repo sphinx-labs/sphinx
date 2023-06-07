@@ -2754,35 +2754,37 @@ export const getConfigCache = async (
   }
 }
 
-// TODO(docs): rm "parsed" from docs + name
 /**
  * Returns a minimal version of the parsed config. This is used as a substitute for the full parsed
  * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
  * support for types.
  */
 export const getMinimalParsedConfig = (
-  userConfig: UserChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts
 ): MinimalParsedConfig => {
-  const { organizationID, projectName } = userConfig.options
+  const { organizationID, projectName } = parsedConfig.options
 
   const minimalContractConfigs: Array<MinimalParsedContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    userConfig.contracts
+    parsedConfig.contracts
   )) {
-    const { address, kind, salt } = contractConfig
+    const { buildInfo, artifact } = configArtifacts[referenceName]
+    const { bytecode, abi, sourceName, contractName } = artifact
+    const { constructorArgs, address, kind, salt } = contractConfig
 
-    const parsedSalt = getParsedSalt(
-      userConfig.options.projectName,
-      referenceName,
-      contractConfig.salt ?? ethers.constants.HashZero,
-      bytecode,
-      constructorArgs,
-      abi,
-      contractConfig.kind
+    const estDeployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
     )
 
     minimalContractConfigs.push({
       referenceName,
+      creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
+        bytecode,
+        constructorArgs,
+        abi
+      ),
+      estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
       targetAddress: address,
       kind: toContractKindEnum(kind),
       salt,
