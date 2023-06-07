@@ -45,8 +45,8 @@ import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CanonicalChugSplashConfig,
-  ExternalContractKind,
-  externalContractKinds,
+  UserContractKind,
+  userContractKinds,
   ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
@@ -636,10 +636,10 @@ const bytecodeContainsInterface = async (
   return true
 }
 
-export const isExternalContractKind = (
+export const isUserContractKind = (
   contractKind: string
-): contractKind is ExternalContractKind => {
-  return externalContractKinds.includes(contractKind)
+): contractKind is UserContractKind => {
+  return userContractKinds.includes(contractKind)
 }
 
 /**

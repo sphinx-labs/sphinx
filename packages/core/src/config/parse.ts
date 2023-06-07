@@ -30,7 +30,7 @@ import {
 } from '../languages/solidity/types'
 import {
   getDefaultProxyAddress,
-  isExternalContractKind,
+  isUserContractKind,
   getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
   getOpenZeppelinUpgradableContract,
@@ -71,6 +71,7 @@ import {
   DeploymentRevert,
   ImportCache,
   MinimalParsedContractConfig,
+  UserContractKind,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -289,10 +290,10 @@ export const assertValidUserConfigFields = (
       )
     }
 
-    // Make sure that the external proxy type is valid.
+    // Make sure that the user-defined proxy type is valid.
     if (
       contractConfig.kind !== undefined &&
-      isExternalContractKind(contractConfig.kind) === false
+      isUserContractKind(contractConfig.kind) === false
     ) {
       logValidationError(
         'error',
@@ -2295,20 +2296,15 @@ const constructParsedConfig = (
       configArtifacts[referenceName].artifact
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
 
-    // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
-    // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
-    // of the creation code appended with its constructor arguments. This essentially turns the
-    // Create3 call into a Create2 call when deploying the proxy's implementation contract.
-    const salt =
-      userContractConfig.kind === 'no-proxy'
-        ? getNonProxyCreate3Salt(
-            userConfig.options.projectName,
-            referenceName,
-            userContractConfig.salt ?? ethers.constants.HashZero
-          )
-        : ethers.utils.keccak256(
-            getCreationCodeWithConstructorArgs(bytecode, constructorArgs, abi)
-          )
+    const salt = getParsedSalt(
+      userConfig.options.projectName,
+      referenceName,
+      userContractConfig.salt ?? ethers.constants.HashZero,
+      bytecode,
+      constructorArgs,
+      abi,
+      userContractConfig.kind
+    )
 
     parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
@@ -2758,32 +2754,35 @@ export const getConfigCache = async (
   }
 }
 
+// TODO(docs): rm "parsed" from docs + name
 /**
  * Returns a minimal version of the parsed config. This is used as a substitute for the full parsed
  * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
  * support for types.
  */
 export const getMinimalParsedConfig = (
-  parsedConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts
+  userConfig: UserChugSplashConfig
 ): MinimalParsedConfig => {
-  const { organizationID, projectName } = parsedConfig.options
+  const { organizationID, projectName } = userConfig.options
 
   const minimalContractConfigs: Array<MinimalParsedContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
+    userConfig.contracts
   )) {
-    const { buildInfo, artifact } = configArtifacts[referenceName]
-    const { sourceName, contractName } = artifact
     const { address, kind, salt } = contractConfig
 
-    const estDeployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    const parsedSalt = getParsedSalt(
+      userConfig.options.projectName,
+      referenceName,
+      contractConfig.salt ?? ethers.constants.HashZero,
+      bytecode,
+      constructorArgs,
+      abi,
+      contractConfig.kind
     )
 
     minimalContractConfigs.push({
       referenceName,
-      estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
       targetAddress: address,
       kind: toContractKindEnum(kind),
       salt,
@@ -2885,4 +2884,28 @@ export const getPreviousStorageLayoutOZFormat = async (
         `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
   }
+}
+
+export const getParsedSalt = (
+  projectName: string,
+  referenceName: string,
+  userSalt: string,
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  abi: Array<Fragment>,
+  kind?: UserContractKind
+): string => {
+  // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
+  // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
+  // of the creation code appended with its constructor arguments. This essentially turns the
+  // Create3 call into a Create2 call when deploying the proxy's implementation contract.
+  return kind === 'no-proxy'
+    ? getNonProxyCreate3Salt(
+        projectName,
+        referenceName,
+        userSalt ?? ethers.constants.HashZero
+      )
+    : ethers.utils.keccak256(
+        getCreationCodeWithConstructorArgs(bytecode, constructorArgs, abi)
+      )
 }
