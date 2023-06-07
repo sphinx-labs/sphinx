@@ -20,6 +20,10 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
 contract ChugSplashScript is Script, Test, ChugSplash {
 
     function run() public {
+        ensureChugSplashInitialized(vm.rpcUrl("anvil"));
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
         deploy('./chugsplash/foundry/claim.t.js', vm.rpcUrl("anvil"));
+        vm.stopBroadcast();
     }
 }
