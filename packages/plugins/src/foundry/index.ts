@@ -437,34 +437,6 @@ const getPrettyWarnings = (): string => {
       process.stdout.write(adminAddress)
       break
     }
-    case 'getBootloaderBytecode': {
-      const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
-      const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
-
-      const bootloaderTwoCreationCode = bootloaderTwo.concat(
-        ethers.utils.defaultAbiCoder
-          .encode(
-            bootloaderTwoConstructorFragment.inputs,
-            getBootloaderTwoConstructorArgs()
-          )
-          .slice(2)
-      )
-
-      const artifactStructABI =
-        'tuple(bytes bootloaderOne, bytes bootloaderTwo)'
-      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [
-          {
-            bootloaderOne,
-            bootloaderTwo: bootloaderTwoCreationCode,
-          },
-        ]
-      )
-
-      process.stdout.write(encodedArtifacts)
-      break
-    }
     case 'getMinimalParsedConfig': {
       process.stderr.write = validationStderrWrite
 
