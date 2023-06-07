@@ -2764,7 +2764,7 @@ export const getConfigCache = async (
  * support for types.
  */
 export const getMinimalParsedConfig = (
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts
 ): MinimalParsedConfig => {
   const { organizationID, projectName } = parsedConfig.options
@@ -2774,8 +2774,8 @@ export const getMinimalParsedConfig = (
     parsedConfig.contracts
   )) {
     const { buildInfo, artifact } = configArtifacts[referenceName]
-    const { bytecode, abi, sourceName, contractName } = artifact
-    const { constructorArgs, address, kind, salt } = contractConfig
+    const { sourceName, contractName } = artifact
+    const { address, kind, salt } = contractConfig
 
     const estDeployContractCost = getEstDeployContractCost(
       buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
@@ -2783,11 +2783,6 @@ export const getMinimalParsedConfig = (
 
     minimalContractConfigs.push({
       referenceName,
-      creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
-        bytecode,
-        constructorArgs,
-        abi
-      ),
       estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
       targetAddress: address,
       kind: toContractKindEnum(kind),

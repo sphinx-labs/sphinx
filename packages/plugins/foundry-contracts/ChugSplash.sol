@@ -55,6 +55,7 @@ import {
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
+import { registryAddress, managerProxyBytecodeHash, major, minor, patch } from "./ChugSplashConstants.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -103,7 +104,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ffiDeployOnAnvil();
+        // ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -224,7 +225,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 _allowManagedProposals
             );
 
-            Version memory managerVersion = ffiGetCurrentChugSplashManagerVersion();
+            Version memory managerVersion = getCurrentChugSplashManagerVersion();
             _registry.finalizeRegistration{gas: 1000000}(
                 _organizationID,
                 _newOwner,
@@ -562,15 +563,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return OptionalLog({ exists: false, value: emptyLog });
     }
 
-    function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getCurrentChugSplashManagerVersion";
-
-        bytes memory versionBytes = vm.ffi(cmds);
-        return abi.decode(versionBytes, (Version));
+    function getCurrentChugSplashManagerVersion() private returns (Version memory) {
+        return Version({ major: major, minor: minor, patch: patch });
     }
 
     function ffiGetMinimalParsedConfig(
@@ -744,16 +738,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function getChugSplashManagerProxyBytecode() private returns (bytes memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getChugSplashManagerProxyBytecode";
-
-        return vm.ffi(cmds);
-    }
-
     function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
@@ -910,33 +894,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getRegistryAddress";
-
-        bytes memory addrBytes = vm.ffi(cmds);
-        address addr;
-        assembly {
-            addr := mload(add(addrBytes, 20))
-        }
-
-        return ChugSplashRegistry(addr);
+        return ChugSplashRegistry(registryAddress);
     }
 
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
     ) private returns (ChugSplashManager) {
-        bytes memory proxyBytecode = getChugSplashManagerProxyBytecode();
-        bytes memory creationCodeWithConstructorArgs = abi.encodePacked(
-            proxyBytecode,
-            abi.encode(_registry, address(_registry))
-        );
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            keccak256(creationCodeWithConstructorArgs),
+            managerProxyBytecodeHash,
             address(_registry)
         );
         return ChugSplashManager(payable(managerAddress));

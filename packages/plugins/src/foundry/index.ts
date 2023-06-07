@@ -428,10 +428,6 @@ const getPrettyWarnings = (): string => {
       }
       break
     }
-    case 'getRegistryAddress': {
-      process.stdout.write(getChugSplashRegistryAddress())
-      break
-    }
     case 'getEIP1967ProxyAdminAddress': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]
@@ -473,11 +469,6 @@ const getPrettyWarnings = (): string => {
       process.stdout.write(encodedArtifacts)
       break
     }
-    case 'getChugSplashManagerProxyBytecode': {
-      const bytecode = ChugSplashManagerProxyArtifact.bytecode
-      process.stdout.write(bytecode)
-      break
-    }
     case 'getMinimalParsedConfig': {
       process.stderr.write = validationStderrWrite
 
@@ -502,27 +493,11 @@ const getPrettyWarnings = (): string => {
           buildInfoFolder
         )
 
-        const { parsedConfig, minimalParsedConfig, configArtifacts } =
-          await readUnvalidatedParsedConfig(
-            configPath,
-            cre,
-            getConfigArtifacts,
-            FailureAction.THROW
-          )
-
-        // TODO: we shouldn't have two things called ConfigCache
-        const configCache = {
-          parsedConfig,
-          configArtifacts,
-        }
-
-        if (!fs.existsSync('./cache')) {
-          fs.mkdirSync('./cache')
-        }
-        fs.writeFileSync(
-          './cache/chugsplash-config-cache.json',
-          JSON.stringify(configCache, null, 2),
-          'utf-8'
+        const { minimalParsedConfig } = await readUnvalidatedParsedConfig(
+          configPath,
+          cre,
+          getConfigArtifacts,
+          FailureAction.THROW
         )
 
         const ChugSplashUtilsABI =
@@ -577,19 +552,13 @@ const getPrettyWarnings = (): string => {
           buildInfoFolder
         )
 
+        // TODO: should we just do `readValidatedParsedConfig` here?
         const { parsedConfig, configArtifacts } =
           await readUnvalidatedParsedConfig(
             configPath,
             cre,
             getConfigArtifacts,
             FailureAction.THROW
-          )
-
-        const { configUri, bundles, canonicalConfig } =
-          await getCanonicalConfigData(
-            parsedConfig,
-            configArtifacts,
-            configCache
           )
 
         await postParsingValidation(
@@ -600,21 +569,27 @@ const getPrettyWarnings = (): string => {
           FailureAction.THROW
         )
 
-        writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
-
-        const ipfsHash = configUri.replace('ipfs://', '')
-        const cachePath = path.resolve('./cache')
-        // Create the canonical config network folder if it doesn't already exist.
-        if (!fs.existsSync(cachePath)) {
-          fs.mkdirSync(cachePath)
-        }
-
-        // Write the canonical config to the local file system. It will exist in a JSON file that has the
-        // config URI as its name.
-        fs.writeFileSync(
-          path.join(cachePath, `${ipfsHash}.json`),
-          JSON.stringify(configArtifacts, null, 2)
+        const { configUri, bundles } = await getCanonicalConfigData(
+          parsedConfig,
+          configArtifacts,
+          configCache
         )
+
+        // writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
+
+        // const ipfsHash = configUri.replace('ipfs://', '')
+        // const cachePath = path.resolve('./cache')
+        // // Create the canonical config network folder if it doesn't already exist.
+        // if (!fs.existsSync(cachePath)) {
+        //   fs.mkdirSync(cachePath)
+        // }
+
+        // // Write the canonical config to the local file system. It will exist in a JSON file that has the
+        // // config URI as its name.
+        // fs.writeFileSync(
+        //   path.join(cachePath, `${ipfsHash}.json`),
+        //   JSON.stringify(configArtifacts, null, 2)
+        // )
 
         const ChugSplashUtilsABI =
           // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -664,17 +639,6 @@ const getPrettyWarnings = (): string => {
         process.stdout.write(encodedFailure)
       }
 
-      break
-    }
-    case 'getCurrentChugSplashManagerVersion': {
-      const artifactStructABI =
-        'tuple(uint256 major, uint256 minor, uint256 patch)'
-      const encodedVersion = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [CURRENT_CHUGSPLASH_MANAGER_VERSION]
-      )
-
-      process.stdout.write(encodedVersion)
       break
     }
     case 'getPreviousConfigUri': {
@@ -786,7 +750,4 @@ const getPrettyWarnings = (): string => {
       )
     }
   }
-})().catch((err: Error) => {
-  console.error(err)
-  process.stdout.write('')
-})
+})()

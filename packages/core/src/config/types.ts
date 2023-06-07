@@ -182,7 +182,7 @@ export type ConfigCache = {
 export type ContractConfigCache = {
   [referenceName: string]: {
     isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevert
+    deploymentRevert: DeploymentRevertCache
     importCache: ImportCache
     deployedCreationCodeWithArgsHash?: string
     isImplementationDeployed?: boolean
@@ -190,7 +190,7 @@ export type ContractConfigCache = {
   }
 }
 
-export type DeploymentRevert = {
+export type DeploymentRevertCache = {
   deploymentReverted: boolean
   revertString?: string
 }
@@ -208,7 +208,6 @@ export type MinimalParsedConfig = {
 
 export type MinimalParsedContractConfig = {
   referenceName: string
-  creationCodeWithConstructorArgs: string
   targetAddress: string
   estDeployContractCost: ethers.BigNumber
   kind: ContractKindEnum
