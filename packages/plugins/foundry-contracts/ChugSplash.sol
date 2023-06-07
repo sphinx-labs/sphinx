@@ -519,16 +519,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ffiDeployOnAnvil() private {
-        string[] memory cmds = new string[](6);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "deployOnAnvil";
-
-        vm.ffi(cmds);
-    }
-
     /**
      * @notice This function retrieves the most recent event emitted by the given emitter that
      *         matches the topics. It relies on the logs collected in this contract via
@@ -573,7 +563,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return OptionalLog({ exists: false, value: emptyLog });
     }
 
-    function getCurrentChugSplashManagerVersion() private returns (Version memory) {
+    function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
         return Version({ major: major, minor: minor, patch: patch });
     }
 
@@ -903,14 +893,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
+    function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
         return ChugSplashRegistry(registryAddress);
     }
 
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) private returns (ChugSplashManager) {
+    ) private pure returns (ChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
             managerProxyBytecodeHash,
