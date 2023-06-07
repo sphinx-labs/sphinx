@@ -693,25 +693,24 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         vm.ffi(cmds);
     }
 
-    function verify(
+    function generateArtifacts(
         string memory _configPath,
         string memory _rpcUrl
     ) internal {
-        string memory networkName = getChain(block.chainid).chainAlias;
+        string memory networkName = getChainAlias(_rpcUrl);
 
         string[] memory cmds = new string[](10);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "postDeploymentActions";
+        cmds[3] = "generateArtifacts";
         cmds[4] = _configPath;
         cmds[5] = networkName;
         cmds[6] = _rpcUrl;
 
-        bytes memory result = vm.ffi(cmds);
+        vm.ffi(cmds);
 
-        emit log(string(result));
-        emit log(string("\n"));
+        emit log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
     function fetchPaths()
