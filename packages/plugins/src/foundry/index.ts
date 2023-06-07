@@ -34,6 +34,7 @@ import {
   ConfigArtifacts,
   initializeChugSplash,
   FailureAction,
+  initializeChugSplash,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import {

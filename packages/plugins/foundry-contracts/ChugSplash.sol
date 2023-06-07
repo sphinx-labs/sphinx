@@ -104,7 +104,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        // ffiDeployOnAnvil();
+        ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -519,6 +519,16 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
+    function ffiDeployOnAnvil() private {
+        string[] memory cmds = new string[](6);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "deployOnAnvil";
+
+        vm.ffi(cmds);
+    }
+
     /**
      * @notice This function retrieves the most recent event emitted by the given emitter that
      *         matches the topics. It relies on the logs collected in this contract via
@@ -772,7 +782,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ensureChugSplashInitialized(string memory _rpcUrl) private {
+    function ensureChugSplashInitialized(string memory _rpcUrl) internal {
         ChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
@@ -1052,7 +1062,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), maxGasLimit, contractConfigs);
             BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
-            manager.executeActions{gas: 15000000}(rawActions, _actionIndexes, _proofs);
+            uint bufferedGasLimit = ((maxGasLimit) * 120) / 100;
+            manager.executeActions{gas: bufferedGasLimit}(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
             state = manager.deployments(activeDeploymentId);
