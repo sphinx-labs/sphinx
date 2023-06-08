@@ -153,7 +153,7 @@ contract ChugSplashManagerEvents {
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that deployed the contract.
+     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
@@ -161,7 +161,7 @@ contract ChugSplashManagerEvents {
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
-        uint256 actionIndex,
+        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 

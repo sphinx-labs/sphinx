@@ -9,12 +9,10 @@ import {
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  getDefaultProxyAddress,
   readUserChugSplashConfig,
   readValidatedChugSplashConfig,
-  getCreate3Address,
   getChugSplashManagerAddress,
-  getNonProxyCreate3Salt,
+  getTargetAddress,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
@@ -146,21 +144,11 @@ export const getContract = async (
   const { organizationID } = userConfig.config.options
   const managerAddress = getChugSplashManagerAddress(organizationID)
   const contractConfig = userConfig.config.contracts[referenceName]
+  const { kind, salt } = contractConfig
 
-  let address =
-    contractConfig.externalProxy ||
-    getDefaultProxyAddress(organizationID, projectName, referenceName)
-  if (contractConfig.kind === 'no-proxy') {
-    address = getCreate3Address(
-      managerAddress,
-      getNonProxyCreate3Salt(
-        projectName,
-        referenceName,
-        contractConfig.salt ?? ethers.constants.HashZero
-      )
-    )
-  }
-
+  const address =
+    contractConfig.address ??
+    getTargetAddress(managerAddress, projectName, referenceName, kind, salt)
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }

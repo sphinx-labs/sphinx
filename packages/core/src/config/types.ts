@@ -112,9 +112,11 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
-  salt?: string
+  salt?: UserSalt
   unsafeAllow?: UnsafeAllow
 }
+
+export type UserSalt = string | number
 
 export type UserContractConfigs = {
   [referenceName: string]: UserContractConfig
@@ -137,7 +139,7 @@ export type ParsedContractConfig = {
   constructorArgs: ParsedConfigVariables
   isUserDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
-  userSalt?: string
+  salt: string
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
 }
@@ -185,7 +187,6 @@ export type ContractConfigCache = {
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
     deployedCreationCodeWithArgsHash?: string
-    isImplementationDeployed?: boolean
     previousConfigUri?: string
   }
 }

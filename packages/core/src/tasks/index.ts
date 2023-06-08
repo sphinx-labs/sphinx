@@ -27,10 +27,7 @@ import {
   getDeploymentEvents,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
-  isInternalDefaultProxy,
   isProjectClaimed,
-  isTransparentProxy,
-  isUUPSProxy,
   finalizeRegistration,
   writeCanonicalConfig,
   writeSnapshotId,
@@ -941,15 +938,21 @@ export const chugsplashImportProxyAbstractTask = async (
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
 
-  if (
-    (await isInternalDefaultProxy(provider, proxy)) === false &&
-    (await isTransparentProxy(provider, proxy)) === false &&
-    (await isUUPSProxy(provider, proxy)) === false
-  ) {
-    throw new Error(`ChugSplash does not support your proxy type.
-Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
-If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
-  }
+  // TODO: These checks were written when we didn't prompt the user for their proxy type. Now that
+  // we do, we should run just the function that corresponds to the proxy type they selected. E.g.
+  // if they selected oz-uups, then we should only run `isUUPSProxy`. Also, the
+  // `isInternalDefaultProxy` function relies on the `DefaultProxyDeployed` event, which no longer
+  // exists. I'm not even sure we need `isInternalDefaultProxy` anymore, so we should first figure
+  // that out.
+  //   if (
+  //     (await isInternalDefaultProxy(provider, proxy)) === false &&
+  //     (await isTransparentProxy(provider, proxy)) === false &&
+  //     (await isUUPSProxy(provider, proxy)) === false
+  //   ) {
+  //     throw new Error(`ChugSplash does not support your proxy type.
+  // Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
+  // If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
+  //   }
 
   const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxy)
 
@@ -1078,12 +1081,7 @@ export const proposeChugSplashDeployment = async (
 
     // Send the signed meta transaction to the ChugSplashManager via relay
     if (process.env.LOCAL_TEST_METATX_PROPOSE !== 'true') {
-      const estimatedCost = await estimateExecutionGas(
-        provider,
-        bundles,
-        0,
-        parsedConfig
-      )
+      const estimatedCost = await estimateExecutionGas(provider, bundles, 0)
       await relaySignedRequest(
         signature,
         request,

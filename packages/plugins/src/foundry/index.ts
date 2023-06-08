@@ -9,12 +9,9 @@ import {
   chugsplashImportProxyAbstractTask,
   getEIP1967ProxyAdminAddress,
   readValidatedChugSplashConfig,
-  getDefaultProxyAddress,
   readUserChugSplashConfig,
-  getCreate3Address,
   getChugSplashRegistryAddress,
   getChugSplashManagerAddress,
-  getNonProxyCreate3Salt,
   getBootloaderTwoConstructorArgs,
   bootloaderTwoConstructorFragment,
   readUnvalidatedParsedConfig,
@@ -28,6 +25,7 @@ import {
   getPreviousConfigUri,
   isLocalNetwork,
   FailureAction,
+  getTargetAddress,
 } from '@chugsplash/core'
 import { ethers } from 'ethers'
 import {
@@ -107,9 +105,6 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       deployedCreationCodeWithArgsHash: cachedContract
         .deployedCreationCodeWithArgsHash.exists
         ? cachedContract.deployedCreationCodeWithArgsHash.value
-        : undefined,
-      isImplementationDeployed: cachedContract.isImplementationDeployed.exists
-        ? cachedContract.isImplementationDeployed.value
         : undefined,
       previousConfigUri: cachedContract.previousConfigUri.exists
         ? cachedContract.previousConfigUri.value
@@ -389,11 +384,12 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
       const userConfig = await readUserChugSplashConfig(configPath)
 
       const { projectName, organizationID } = userConfig.options
+      const { kind, salt } = userConfig.contracts[referenceName]
       const managerAddress = getChugSplashManagerAddress(organizationID)
 
       const contractAddress =
         userConfig.contracts[referenceName].address ??
-        getCreate3Address(organizationID, projectName, referenceName, kind)
+        getTargetAddress(managerAddress, projectName, referenceName, kind, salt)
       process.stdout.write(contractAddress)
       break
     }

@@ -26,7 +26,6 @@ import { add0x, remove0x } from '@eth-optimism/core-utils'
 import chalk from 'chalk'
 import {
   ProxyDeployment,
-  StorageLayout,
   UpgradeableContract,
   ValidationOptions,
   withValidationDefaults,
@@ -54,6 +53,7 @@ import {
   ConfigArtifacts,
   ParsedConfigVariable,
   ContractKindEnum,
+  UserSalt,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -64,7 +64,6 @@ import {
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
-import { ChugSplashRuntimeEnvironment } from './types'
 import {
   BuildInfo,
   CompilerOutput,
@@ -141,41 +140,15 @@ export const writeDeploymentArtifact = (
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
 }
 
-/**
- * Returns the address of a default proxy used by ChugSplash, which is calculated as a function of
- * the organizationID and the corresponding contract's reference name. Note that a default proxy will
- * NOT be used if the user defines their own proxy address in the ChugSplash config via the `proxy`
- * attribute.
- *
- * @param organizationID ID of the organization.
- * @param referenceName Reference name of the contract that corresponds to the proxy.
- * @returns Address of the default EIP-1967 proxy used by ChugSplash.
- */
-export const getDefaultProxyAddress = (
-  organizationID: string,
-  projectName: string,
-  referenceName: string
-): string => {
-  const chugSplashManagerAddress = getChugSplashManagerAddress(organizationID)
+export const getDefaultProxyInitCode = (managerAddress: string): string => {
+  const bytecode = ProxyArtifact.bytecode
+  const iface = new ethers.utils.Interface(ProxyABI)
 
-  const salt = utils.keccak256(
-    utils.defaultAbiCoder.encode(
-      ['string', 'string'],
-      [projectName, referenceName]
-    )
+  const initCode = bytecode.concat(
+    remove0x(iface.encodeDeploy([managerAddress]))
   )
 
-  return utils.getCreate2Address(
-    chugSplashManagerAddress,
-    salt,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [chugSplashManagerAddress]),
-      ]
-    )
-  )
+  return initCode
 }
 
 export const checkIsUpgrade = async (
@@ -324,22 +297,13 @@ export const displayDeploymentTable = (
   parsedConfig: ParsedChugSplashConfig,
   silent: boolean
 ) => {
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
   if (!silent) {
     const deployments = {}
     Object.entries(parsedConfig.contracts).forEach(
       ([referenceName, contractConfig], i) => {
-        // if contract is an unproxied, then we must resolve its true address
-        const address =
-          contractConfig.kind !== 'no-proxy'
-            ? contractConfig.address
-            : getCreate3Address(managerAddress, contractConfig.salt)
-
         deployments[i + 1] = {
           Contract: referenceName,
-          Address: address,
+          Address: contractConfig.address,
         }
       }
     )
@@ -538,9 +502,11 @@ export const isTransparentProxy = async (
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
   // interface.
-  if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
-    return false
-  }
+  // TODO: `isInternalDefaultProxy` relies on the `DefaultProxyDeployed` event, which no longer
+  // exists. Also, `isInternalDefaultProxy` may not be necessary anymore -- not sure.
+  // if ((await isInternalDefaultProxy(provider, proxyAddress)) === true) {
+  //   return false
+  // }
 
   // Check if the contract bytecode contains the expected interface
   const bytecode = await provider.getCode(proxyAddress)
@@ -749,35 +715,61 @@ export const isEqualType = (
   return isEqual
 }
 
-export const getNonProxyCreate3Salt = (
+export const getTargetSalt = (
   projectName: string,
   referenceName: string,
-  userSalt: string
+  contractKind: ContractKind,
+  userSalt?: UserSalt
 ): string => {
+  let userSaltHash: string
+  if (userSalt) {
+    const userSaltString =
+      typeof userSalt === 'number' ? userSalt.toString() : userSalt
+    userSaltHash = ethers.utils.solidityKeccak256(['string'], [userSaltString])
+  } else {
+    userSaltHash = ethers.constants.HashZero
+  }
+
   return utils.solidityKeccak256(
-    ['string', 'string', 'bytes32'],
-    [projectName, referenceName, userSalt]
+    ['string', 'string', 'uint8', 'bytes32'],
+    [projectName, referenceName, toContractKindEnum(contractKind), userSaltHash]
   )
 }
 
 /**
- * Returns the Create3 address of a contract deployed by ChugSplash. There is a one-to-one
- * mapping between a Create3 address and the input parameters to this function. Note that
- * the contract may not yet be deployed at this address since it's calculated via Create3.
+ * Returns the Create3 address of a target contract deployed by ChugSplash. There is a one-to-one mapping
+ * between a Create3 address and the input parameters to this function. Note that the contract may
+ * not yet be deployed at this address since it's calculated via Create3.
  */
-export const getCreate3Address = (
+export const getTargetAddress = (
   managerAddress: string,
-  
-  userSalt?: string
+  projectName: string,
+  referenceName: string,
+  userContractKind?: UserContractKind,
+  userSalt?: UserSalt
+): string => {
+  const contractKind = userContractKind ?? 'internal-default'
+
+  const targetSalt = getTargetSalt(
+    projectName,
+    referenceName,
+    contractKind,
+    userSalt
+  )
+
+  return getCreate3Address(managerAddress, targetSalt)
+}
+
+export const getCreate3Address = (
+  deployerAddress: string,
+  salt: string
 ): string => {
   // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
   // library for details.
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
 
-  const salt =
-
   const proxyAddress = utils.getCreate2Address(
-    managerAddress,
+    deployerAddress,
     salt,
     utils.keccak256(proxyBytecode)
   )
@@ -1086,7 +1078,7 @@ export const getDeploymentEvents = async (
   ChugSplashManager: ethers.Contract,
   deploymentId: string
 ): Promise<ethers.Event[]> => {
-  // Get the most recetn approval event for this deployment ID.
+  // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
     await ChugSplashManager.queryFilter(
       ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
@@ -1111,19 +1103,13 @@ export const getDeploymentEvents = async (
     )
   }
 
-  const proxyDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.DefaultProxyDeployed(null, null, deploymentId),
-    approvalEvent.blockNumber,
-    completedEvent.blockNumber
-  )
-
   const contractDeployedEvents = await ChugSplashManager.queryFilter(
     ChugSplashManager.filters.ContractDeployed(null, null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
 
-  return proxyDeployedEvents.concat(contractDeployedEvents)
+  return contractDeployedEvents
 }
 
 export const getChainId = async (
@@ -1302,4 +1288,20 @@ export const getEstDeployContractCost = (
   } else {
     return BigNumber.from(totalCost)
   }
+}
+
+export const getImplAddress = (
+  managerAddress: string,
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  abi: Array<Fragment>
+): string => {
+  const implInitCode = getCreationCodeWithConstructorArgs(
+    bytecode,
+    constructorArgs,
+    abi
+  )
+  // TODO(docs): same behavior as create2 i think
+  const implSalt = ethers.utils.keccak256(implInitCode)
+  return getCreate3Address(managerAddress, implSalt)
 }

@@ -28,7 +28,7 @@ const config: UserChugSplashConfig = {
         _owner: '{ preserve }',
       },
       kind: 'oz-ownable-uups',
-      externalProxy: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
+      address: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files

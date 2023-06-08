@@ -61,7 +61,7 @@ import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
 import {
   getChugSplashManagerAddress,
   getConstructorArgs,
-  getCreate3Address,
+  getImplAddress,
 } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
@@ -96,14 +96,17 @@ export const verifyChugSplashConfig = async (
     canonicalConfig.contracts
   )) {
     const { artifact, buildInfo } = configArtifacts[referenceName]
-    const { abi, contractName, sourceName } = artifact
+    const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
       canonicalConfig.contracts[referenceName].constructorArgs,
       abi
     )
-    const implementationAddress = getCreate3Address(
+
+    const implementationAddress = getImplAddress(
       managerAddress,
-      contractConfig.salt
+      bytecode,
+      contractConfig.constructorArgs,
+      abi
     )
 
     const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
