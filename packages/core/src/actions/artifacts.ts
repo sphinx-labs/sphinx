@@ -5,7 +5,7 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import { ConfigArtifacts, ParsedChugSplashConfig } from '../config/types'
+import { ConfigArtifacts, ParsedChugSplashConfig, contractKindHashes } from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -67,7 +67,10 @@ export const writeDeploymentArtifacts = async (
 
     const receipt = await deploymentEvent.getTransactionReceipt()
 
-    if (deploymentEvent.args.contractKindHash === ethers.constants.HashZero) {
+    if (
+      deploymentEvent.args.contractKindHash ===
+      contractKindHashes['internal-default']
+    ) {
       // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
         chugsplashBuildInfo.output.contracts[

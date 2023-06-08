@@ -359,7 +359,9 @@ export const makeActionBundleFromConfig = (
           code: getDefaultProxyInitCode(managerAddress),
         })
       } else {
-        throw new Error(`TODO: should never happen`)
+        throw new Error(
+          `${referenceName} is not deployed. Should never happen.`
+        )
       }
     }
 
