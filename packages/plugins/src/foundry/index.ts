@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import path from 'path'
 
 import {
   chugsplashProposeAbstractTask,
@@ -10,28 +11,31 @@ import {
   getEIP1967ProxyAdminAddress,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
-  getChugSplashRegistryAddress,
+  getCreate3Address,
   getChugSplashManagerAddress,
   getBootloaderTwoConstructorArgs,
   bootloaderTwoConstructorFragment,
   readUnvalidatedParsedConfig,
   ProposalRoute,
-  CURRENT_CHUGSPLASH_MANAGER_VERSION,
   postParsingValidation,
-  ParsedChugSplashConfig,
-  ConfigArtifacts,
   getChugSplashRegistryReadOnly,
   getCanonicalConfigData,
   getPreviousConfigUri,
   isLocalNetwork,
+  postDeploymentActions,
+  CanonicalChugSplashConfig,
+  getChugSplashManagerReadOnly,
+  writeCanonicalConfig,
+  DeploymentState,
+  ConfigArtifacts,
   FailureAction,
   getTargetAddress,
+  initializeChugSplash,
 } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { Contract, ethers } from 'ethers'
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
-  ChugSplashManagerProxyArtifact,
 } from '@chugsplash/contracts'
 import { remove0x } from '@eth-optimism/core-utils'
 
@@ -115,11 +119,9 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
   return structuredConfigCache
 }
 
-export const getEncodedErrorsAndWarnings = (err: Error): string => {
+export const getEncodedFailure = (err: Error): string => {
   // Trim a trailing '\n' character from the end of 'warnings' if it exists.
-  const prettyWarnings = validationWarnings.endsWith('\n\n')
-    ? validationWarnings.substring(0, validationWarnings.length - 1)
-    : validationWarnings
+  const prettyWarnings = getPrettyWarnings()
 
   let prettyError: string
   if (err.name === 'ValidationError') {
@@ -139,8 +141,21 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
     [prettyError, prettyWarnings]
   )
 
-  return encodedErrorsAndWarnings
+  const encodedFailure = ethers.utils.hexConcat([
+    encodedErrorsAndWarnings,
+    ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
+  ])
+
+  return encodedFailure
 }
+
+// Removes a '\n' character from the end of 'warnings' if it exists.
+const getPrettyWarnings = (): string => {
+  return validationWarnings.endsWith('\n\n')
+    ? validationWarnings.substring(0, validationWarnings.length - 1)
+    : validationWarnings
+}
+
 ;(async () => {
   switch (command) {
     case 'claim': {
@@ -393,10 +408,6 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
       process.stdout.write(contractAddress)
       break
     }
-    case 'getRegistryAddress': {
-      process.stdout.write(getChugSplashRegistryAddress())
-      break
-    }
     case 'getEIP1967ProxyAdminAddress': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]
@@ -408,39 +419,6 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
       )
 
       process.stdout.write(adminAddress)
-      break
-    }
-    case 'getBootloaderBytecode': {
-      const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
-      const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
-
-      const bootloaderTwoCreationCode = bootloaderTwo.concat(
-        ethers.utils.defaultAbiCoder
-          .encode(
-            bootloaderTwoConstructorFragment.inputs,
-            getBootloaderTwoConstructorArgs()
-          )
-          .slice(2)
-      )
-
-      const artifactStructABI =
-        'tuple(bytes bootloaderOne, bytes bootloaderTwo)'
-      const encodedArtifacts = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [
-          {
-            bootloaderOne,
-            bootloaderTwo: bootloaderTwoCreationCode,
-          },
-        ]
-      )
-
-      process.stdout.write(encodedArtifacts)
-      break
-    }
-    case 'getChugSplashManagerProxyBytecode': {
-      const bytecode = ChugSplashManagerProxyArtifact.bytecode
-      process.stdout.write(bytecode)
       break
     }
     case 'getMinimalParsedConfig': {
@@ -467,27 +445,11 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
           buildInfoFolder
         )
 
-        const { parsedConfig, minimalParsedConfig, configArtifacts } =
-          await readUnvalidatedParsedConfig(
-            configPath,
-            cre,
-            getConfigArtifacts,
-            FailureAction.THROW
-          )
-
-        // TODO: we shouldn't have two things called ConfigCache
-        const configCache = {
-          parsedConfig,
-          configArtifacts,
-        }
-
-        if (!fs.existsSync('./cache')) {
-          fs.mkdirSync('./cache')
-        }
-        fs.writeFileSync(
-          './cache/chugsplash-config-cache.json',
-          JSON.stringify(configCache, null, 2),
-          'utf-8'
+        const { minimalParsedConfig } = await readUnvalidatedParsedConfig(
+          configPath,
+          cre,
+          getConfigArtifacts,
+          FailureAction.THROW
         )
 
         const ChugSplashUtilsABI =
@@ -497,14 +459,11 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
           (fragment) => fragment.name === 'minimalParsedConfig'
         ).outputs[0]
 
-        // Remove a '\n' character from the end of 'warnings' if it exists.
-        const prettyWarningMessages = validationWarnings.endsWith('\n\n')
-          ? validationWarnings.substring(0, validationWarnings.length - 1)
-          : validationWarnings
+        const prettyWarnings = getPrettyWarnings()
 
         const encodedConfigAndWarnings = ethers.utils.defaultAbiCoder.encode(
           [minimalParsedConfigType, 'string'],
-          [minimalParsedConfig, prettyWarningMessages]
+          [minimalParsedConfig, prettyWarnings]
         )
 
         const encodedSuccess = ethers.utils.hexConcat([
@@ -514,37 +473,24 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
 
         process.stdout.write(encodedSuccess)
       } catch (err) {
-        const encodedErrorsAndWarnings = getEncodedErrorsAndWarnings(err)
-
-        const encodedFailure = ethers.utils.hexConcat([
-          encodedErrorsAndWarnings,
-          ethers.utils.defaultAbiCoder.encode(['bool'], [false]), // false = failure
-        ])
-
+        const encodedFailure = getEncodedFailure(err)
         process.stdout.write(encodedFailure)
       }
       break
     }
-    case 'postParsingValidation': {
+    case 'getCanonicalConfigData': {
       process.stderr.write = validationStderrWrite
 
       try {
         const encodedConfigCache = args[1]
+        const configPath = args[2]
         const configCache = await decodeCachedConfig(encodedConfigCache)
 
-        const {
-          parsedConfig,
-          configArtifacts,
-        }: {
-          parsedConfig: ParsedChugSplashConfig
-          configArtifacts: ConfigArtifacts
-        } = JSON.parse(
-          fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
-        )
+        const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
+          await getPaths()
 
-        const { canonicalConfigFolder } = await getPaths()
         const cre = await createChugSplashRuntime(
-          '',
+          configPath,
           false,
           true,
           canonicalConfigFolder,
@@ -553,6 +499,20 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
           process.stderr
         )
 
+        const getConfigArtifacts = makeGetConfigArtifacts(
+          artifactFolder,
+          buildInfoFolder
+        )
+
+        // TODO: should we just do `readValidatedParsedConfig` here?
+        const { parsedConfig, configArtifacts } =
+          await readUnvalidatedParsedConfig(
+            configPath,
+            cre,
+            getConfigArtifacts,
+            FailureAction.THROW
+          )
+
         await postParsingValidation(
           parsedConfig,
           configArtifacts,
@@ -560,84 +520,78 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
           configCache,
           FailureAction.THROW
         )
+
+        const { configUri, bundles, canonicalConfig } =
+          await getCanonicalConfigData(
+            parsedConfig,
+            configArtifacts,
+            configCache
+          )
+
+        writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
+
+        const ipfsHash = configUri.replace('ipfs://', '')
+        const cachePath = path.resolve('./cache')
+        // Create the canonical config network folder if it doesn't already exist.
+        if (!fs.existsSync(cachePath)) {
+          fs.mkdirSync(cachePath)
+        }
+
+        // Write the canonical config to the local file system. It will exist in a JSON file that has the
+        // config URI as its name.
+        fs.writeFileSync(
+          path.join(cachePath, `${ipfsHash}.json`),
+          JSON.stringify(configArtifacts, null, 2)
+        )
+
+        const ChugSplashUtilsABI =
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+
+        const encodedConfigUriAndWarnings = ethers.utils.defaultAbiCoder.encode(
+          ['string', 'string'],
+          [configUri, getPrettyWarnings()]
+        )
+
+        const actionBundleType = ChugSplashUtilsABI.find(
+          (fragment) => fragment.name === 'actionBundle'
+        ).outputs[0]
+        const encodedActionBundle = ethers.utils.defaultAbiCoder.encode(
+          [actionBundleType],
+          [bundles.actionBundle]
+        )
+        const targetBundleType = ChugSplashUtilsABI.find(
+          (fragment) => fragment.name === 'targetBundle'
+        ).outputs[0]
+        const encodedTargetBundle = ethers.utils.defaultAbiCoder.encode(
+          [targetBundleType],
+          [bundles.targetBundle]
+        )
+
+        // TODO(docs): update this and below: This is where the encoded config URI ends and the
+        // encoded action bundle begins (in bytes).
+        const splitIdx1 = remove0x(encodedActionBundle).length / 2
+        // This is where the encoded action bundle begins and the encoded target bundle begins (in bytes).
+        const splitIdx2 = splitIdx1 + remove0x(encodedTargetBundle).length / 2
+        const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'uint256'],
+          [splitIdx1, splitIdx2]
+        )
+
+        const encodedSuccess = ethers.utils.hexConcat([
+          encodedActionBundle,
+          encodedTargetBundle,
+          encodedConfigUriAndWarnings,
+          encodedSplitIdxs,
+          ethers.utils.defaultAbiCoder.encode(['bool'], [true]), // true = success
+        ])
+
+        process.stdout.write(encodedSuccess)
       } catch (err) {
-        const encodedErrorsAndWarnings = getEncodedErrorsAndWarnings(err)
-        process.stdout.write(encodedErrorsAndWarnings)
+        const encodedFailure = getEncodedFailure(err)
+        process.stdout.write(encodedFailure)
       }
-      break
-    }
-    case 'getCurrentChugSplashManagerVersion': {
-      const artifactStructABI =
-        'tuple(uint256 major, uint256 minor, uint256 patch)'
-      const encodedVersion = ethers.utils.defaultAbiCoder.encode(
-        [artifactStructABI],
-        [CURRENT_CHUGSPLASH_MANAGER_VERSION]
-      )
 
-      process.stdout.write(encodedVersion)
-      break
-    }
-    case 'getCanonicalConfigData': {
-      const encodedConfigCache = args[1]
-      const configCache = await decodeCachedConfig(encodedConfigCache)
-
-      const {
-        parsedConfig,
-        configArtifacts,
-      }: {
-        parsedConfig: ParsedChugSplashConfig
-        configArtifacts: ConfigArtifacts
-      } = JSON.parse(
-        fs.readFileSync('./cache/chugsplash-config-cache.json').toString()
-      )
-      const { configUri, bundles } = await getCanonicalConfigData(
-        parsedConfig,
-        configArtifacts,
-        configCache
-      )
-
-      const { artifactFolder } = await getPaths()
-      const ChugSplashUtilsABI =
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
-
-      const encodedConfigUri = ethers.utils.defaultAbiCoder.encode(
-        ['string'],
-        [configUri]
-      )
-
-      const actionBundleType = ChugSplashUtilsABI.find(
-        (fragment) => fragment.name === 'actionBundle'
-      ).outputs[0]
-      const encodedActionBundle = ethers.utils.defaultAbiCoder.encode(
-        [actionBundleType],
-        [bundles.actionBundle]
-      )
-      const targetBundleType = ChugSplashUtilsABI.find(
-        (fragment) => fragment.name === 'targetBundle'
-      ).outputs[0]
-      const encodedTargetBundle = ethers.utils.defaultAbiCoder.encode(
-        [targetBundleType],
-        [bundles.targetBundle]
-      )
-
-      // This is where the encoded config URI ends and the encoded action bundle begins (in bytes).
-      const splitIdx1 = remove0x(encodedConfigUri).length / 2
-      // This is where the encoded action bundle begins and the encoded target bundle begins (in bytes).
-      const splitIdx2 = splitIdx1 + remove0x(encodedActionBundle).length / 2
-      const encodedSplitIdxs = ethers.utils.defaultAbiCoder.encode(
-        ['uint256', 'uint256'],
-        [splitIdx1, splitIdx2]
-      )
-
-      const encodedData = ethers.utils.hexConcat([
-        encodedConfigUri,
-        encodedActionBundle,
-        encodedTargetBundle,
-        encodedSplitIdxs,
-      ])
-
-      process.stdout.write(encodedData)
       break
     }
     case 'getPreviousConfigUri': {
@@ -661,6 +615,81 @@ export const getEncodedErrorsAndWarnings = (err: Error): string => {
 
       process.stdout.write(encodedCanonicalConfigUri)
       break
+    }
+    case 'deployOnAnvil': {
+      const provider = new ethers.providers.JsonRpcProvider(
+        'http://localhost:8545'
+      )
+      const wallet = new ethers.Wallet(
+        '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
+        provider
+      )
+
+      try {
+        await initializeChugSplash(provider, wallet, [], [], [])
+      } catch (e) {
+        if (!e.reason.includes('could not detect network')) {
+          throw e
+        }
+      }
+
+      break
+    }
+    case 'generateArtifacts': {
+      const { canonicalConfigFolder, deploymentFolder } = await getPaths()
+
+      const configPath = args[1]
+      const networkName = args[2]
+      const rpcUrl = args[3]
+
+      const provider: ethers.providers.JsonRpcProvider =
+        new ethers.providers.JsonRpcProvider(rpcUrl)
+
+      const config = await readUserChugSplashConfig(configPath)
+
+      const manager: Contract = await getChugSplashManagerReadOnly(
+        provider,
+        config.options.organizationID
+      )
+
+      // Get the most recent deployment completed event for this deployment ID.
+      const deploymentCompletedEvent = (
+        await manager.queryFilter(
+          // This might be problematic if you're deploying multiple projects with the same manager.
+          // We really should include the project name on these events so we can filter by it.
+          manager.filters.ChugSplashDeploymentCompleted()
+        )
+      ).at(-1)
+      const deploymentId = deploymentCompletedEvent?.args?.deploymentId
+
+      const deployment: DeploymentState = await manager.deployments(
+        deploymentId
+      )
+
+      const ipfsHash = deployment.configUri.replace('ipfs://', '')
+      const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
+        fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
+      )
+
+      const configArtifacts: ConfigArtifacts = JSON.parse(
+        fs.readFileSync(`./cache/${ipfsHash}.json`).toString()
+      )
+
+      await postDeploymentActions(
+        canonicalConfig,
+        configArtifacts,
+        deploymentId,
+        canonicalConfigFolder,
+        deployment.configUri,
+        false,
+        networkName,
+        deploymentFolder,
+        'foundry',
+        true,
+        manager.owner(),
+        provider,
+        manager
+      )
     }
   }
 })()

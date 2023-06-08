@@ -55,6 +55,7 @@ import {
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
+import { Constants } from "./ChugSplashConstants.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
@@ -103,6 +104,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
+        ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -120,7 +122,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
         ensureChugSplashInitialized(_rpcUrl);
-
         MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
@@ -131,7 +132,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         ConfigCache memory configCache = getConfigCache(minimalParsedConfig, registry, manager, _rpcUrl);
 
-        ffiPostParsingValidation(configCache);
+        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
+        // support complex types like the 'variables' field.
+        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache, _configPath);
 
         address deployer = utils.msgSender();
         finalizeRegistration(
@@ -144,10 +147,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         address realManagerAddress = registry.projects(minimalParsedConfig.organizationID);
         require(realManagerAddress == address(manager), "Computed manager address is different from expected address");
-
-        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
-        // support complex types like the 'variables' field.
-        (string memory configUri, ChugSplashBundles memory bundles) = ffiGetCanonicalConfigData(configCache);
 
         if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
             emit log("Nothing to execute in this deployment. Exiting early.");
@@ -203,8 +202,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             transferProjectOwnership(manager, _newOwner.value);
         }
 
-        // ffiPostDeploymentActions(manager, deploymentId, configUri, localNetwork, networkName);
-
         if (!silent) {
             emit log("Success!");
             for (uint i = 0; i < minimalParsedConfig.contracts.length; i++) {
@@ -228,8 +225,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 _allowManagedProposals
             );
 
-            Version memory managerVersion = ffiGetCurrentChugSplashManagerVersion();
-            _registry.finalizeRegistration(
+            Version memory managerVersion = getCurrentChugSplashManagerVersion();
+            _registry.finalizeRegistration{gas: 1000000}(
                 _organizationID,
                 _newOwner,
                 managerVersion,
@@ -273,7 +270,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
-        _manager.propose(
+        _manager.propose{gas: 1000000}(
             _bundles.actionBundle.root,
             _bundles.targetBundle.root,
             _bundles.actionBundle.actions.length,
@@ -297,7 +294,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 )
             );
         }
-        _manager.approve(_deploymentId);
+        _manager.approve{gas: 1000000}(_deploymentId);
     }
 
     function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) private {
@@ -551,15 +548,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return OptionalLog({ exists: false, value: emptyLog });
     }
 
-    function ffiGetCurrentChugSplashManagerVersion() private returns (Version memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getCurrentChugSplashManagerVersion";
-
-        bytes memory versionBytes = vm.ffi(cmds);
-        return abi.decode(versionBytes, (Version));
+    function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
+        return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
     }
 
     function ffiGetMinimalParsedConfig(
@@ -603,65 +593,63 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ffiPostParsingValidation(ConfigCache memory _configCache) private {
-        string[] memory cmds = new string[](5);
+    function ffiGetCanonicalConfigData(ConfigCache memory _configCache, string memory _configPath)
+        private
+        returns (string memory, ChugSplashBundles memory)
+    {
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = filePath;
-        cmds[3] = "postParsingValidation";
-        bytes memory encodedCache = abi.encode(_configCache);
-        cmds[4] = vm.toString(encodedCache);
+        cmds[3] = "getCanonicalConfigData";
+        cmds[4] = vm.toString(abi.encode(_configCache));
+        cmds[5] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
 
-        if (result.length > 0) {
+        // TODO(docs)
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+        (bool success) = abi.decode(successBytes, (bool));
+
+        if (success) {
+            // // TODO(docs): update (remember config URI change): Next, we decode the result into
+            // the configUri and bundles. We can't decode the result in // a single `abi.decode`
+            // call this fails with a "Stack too deep" error. This is because the //
+            // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity
+            // will // only allow us to decode one Action/Target bundle at a time. So, we must
+            // decode the config // URI, action bundle, and target bundle separately, then merge
+            // them into a single struct. // This requires that we know where to split the raw bytes
+            // before decoding anything. To // solve this, we use two `splitIdx` variables. The
+            // first marks the point where the // configUri ends and the action bundle begins. The
+            // second marks the point where the action // bundle ends and the target bundle begins.
+            (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(utils.slice(data, data.length - 64, data.length), (uint256, uint256));
+
+            bytes memory actionBundleBytes = utils.slice(data, 0, splitIdx1);
+            bytes memory targetBundleBytes = utils.slice(data, splitIdx1, splitIdx2);
+            (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
+            (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
+
+            bytes memory configUriAndWarningsBytes = utils.slice(data, splitIdx2, data.length);
+            (string memory configUri, string memory warnings) = abi.decode(
+                configUriAndWarningsBytes,
+                (string, string)
+            );
+
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
+        } else {
             (string memory errors, string memory warnings) = abi.decode(
-                result,
+                data,
                 (string, string)
             );
             if (bytes(warnings).length > 0) {
                 emit log(StdStyle.yellow(warnings));
             }
-            if (bytes(errors).length > 0) {
-                revert(errors);
-            }
+            revert(errors);
         }
-    }
-
-    function ffiGetCanonicalConfigData(ConfigCache memory _configCache)
-        private
-        returns (string memory, ChugSplashBundles memory)
-    {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getCanonicalConfigData";
-        bytes memory encodedCache = abi.encode(_configCache);
-        cmds[4] = vm.toString(encodedCache);
-
-        bytes memory result = vm.ffi(cmds);
-
-        // Next, we decode the result into the configUri and bundles. We can't decode the result in
-        // a single `abi.decode` call this fails with a "Stack too deep" error. This is because the
-        // ChugSplashBundles struct is too large for Solidity to decode all at once. Solidity will
-        // only allow us to decode one Action/Target bundle at a time. So, we must decode the config
-        // URI, action bundle, and target bundle separately, then merge them into a single struct.
-        // This requires that we know where to split the raw bytes before decoding anything. To
-        // solve this, we use two `splitIdx` variables. The first marks the point where the
-        // configUri ends and the action bundle begins. The second marks the point where the action
-        // bundle ends and the target bundle begins.
-        bytes memory splitIdxBytes = utils.slice(result, result.length - 64, result.length);
-        (uint256 splitIdx1, uint256 splitIdx2) = abi.decode(splitIdxBytes, (uint256, uint256));
-
-        bytes memory configUriBytes = utils.slice(result, 0, splitIdx1);
-        (string memory configUri) = abi.decode(configUriBytes, (string));
-
-        bytes memory actionBundleBytes = utils.slice(result, splitIdx1, splitIdx2);
-        bytes memory targetBundleBytes = utils.slice(result, splitIdx2, result.length);
-        (ChugSplashActionBundle memory actionBundle) = abi.decode(actionBundleBytes, (ChugSplashActionBundle));
-        (ChugSplashTargetBundle memory targetBundle) = abi.decode(targetBundleBytes, (ChugSplashTargetBundle));
-        return (configUri, ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle }));
     }
 
     function ffiGetPreviousConfigUri(address _proxyAddress, string memory _rpcUrl) private returns (OptionalString memory) {
@@ -680,13 +668,35 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return OptionalString({ exists: exists, value: configUri });
     }
 
-    function ffiPostDeploymentActions(
-        ChugSplashManager _manager,
-        bytes32 _deploymentId,
-        string memory _configUri,
-        bool _localNetwork,
-        string memory _networkName
-    ) private {}
+    function ffiDeployOnAnvil() private {
+        string[] memory cmds = new string[](6);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "deployOnAnvil";
+
+        vm.ffi(cmds);
+    }
+
+    function generateArtifacts(
+        string memory _configPath,
+        string memory _rpcUrl
+    ) internal {
+        string memory networkName = getChainAlias(_rpcUrl);
+
+        string[] memory cmds = new string[](10);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "generateArtifacts";
+        cmds[4] = _configPath;
+        cmds[5] = networkName;
+        cmds[6] = _rpcUrl;
+
+        vm.ffi(cmds);
+
+        emit log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
+    }
 
     function fetchPaths()
         private
@@ -712,27 +722,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function getChugSplashManagerProxyBytecode() private returns (bytes memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getChugSplashManagerProxyBytecode";
-
-        return vm.ffi(cmds);
-    }
-
-    function getBootloaderBytecode() private returns (DeploymentBytecode memory) {
-        string[] memory cmds = new string[](4);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getBootloaderBytecode";
-
-        bytes memory result = vm.ffi(cmds);
-        return abi.decode(result, (DeploymentBytecode));
-    }
-
     /**
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
@@ -756,14 +745,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
-    function ensureChugSplashInitialized(string memory _rpcUrl) private {
+    function ensureChugSplashInitialized(string memory _rpcUrl) internal {
         ChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
-            // Fetch bytecode from artifacts
-            DeploymentBytecode memory bootloaderBytecode = getBootloaderBytecode();
-
             // Setup determinisitic deployment proxy
             address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
             vm.etch(
@@ -772,7 +758,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the adapters
-            bytes memory bootloaderOneCreationCode = bootloaderBytecode.bootloaderOne;
+            bytes memory bootloaderOneCreationCode = Constants.bootloaderOneBytecode;
             address bootloaderOneAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderOneCreationCode),
@@ -784,7 +770,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             );
 
             // Deploy the bootloader
-            bytes memory bootloaderTwoCreationCode = bootloaderBytecode.bootloaderTwo;
+            bytes memory bootloaderTwoCreationCode = Constants.bootloaderTwoBytecode;
             address bootloaderTwoAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderTwoCreationCode),
@@ -877,34 +863,17 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return addr;
     }
 
-    function getChugSplashRegistry() internal returns (ChugSplashRegistry) {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = filePath;
-        cmds[3] = "getRegistryAddress";
-
-        bytes memory addrBytes = vm.ffi(cmds);
-        address addr;
-        assembly {
-            addr := mload(add(addrBytes, 20))
-        }
-
-        return ChugSplashRegistry(addr);
+    function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
+        return ChugSplashRegistry(Constants.registryAddress);
     }
 
     function getChugSplashManager(
         ChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) private returns (ChugSplashManager) {
-        bytes memory proxyBytecode = getChugSplashManagerProxyBytecode();
-        bytes memory creationCodeWithConstructorArgs = abi.encodePacked(
-            proxyBytecode,
-            abi.encode(_registry, address(_registry))
-        );
+    ) private pure returns (ChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            keccak256(creationCodeWithConstructorArgs),
+            Constants.managerProxyBytecodeHash,
             address(_registry)
         );
         return ChugSplashManager(payable(managerAddress));
@@ -913,7 +882,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function inefficientSlice(BundledChugSplashAction[] memory selected, uint start, uint end) private pure returns (BundledChugSplashAction[] memory sliced) {
         sliced = new BundledChugSplashAction[](end - start);
         for (uint i = start; i < end; i++) {
-            sliced[i] = selected[i];
+            sliced[i - start] = selected[i];
         }
     }
 
@@ -1053,7 +1022,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             uint batchSize = findMaxBatchSize(inefficientSlice(filteredActions, executed, filteredActions.length), maxGasLimit, contractConfigs);
             BundledChugSplashAction[] memory batch = inefficientSlice(filteredActions, executed, executed + batchSize);
             (RawChugSplashAction[] memory rawActions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(batch);
-            manager.executeActions(rawActions, _actionIndexes, _proofs);
+            uint bufferedGasLimit = ((maxGasLimit) * 120) / 100;
+            manager.executeActions{gas: bufferedGasLimit}(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
             state = manager.deployments(activeDeploymentId);
@@ -1114,13 +1084,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         // Start the upgrade
-        manager.initiateUpgrade(targets, proofs);
+        manager.initiateUpgrade{gas: 1000000}(targets, proofs);
 
         // Execute all the set storage actions
         executeBatchActions(setStorageActions, manager, blockGasLimit / 2, contractConfigs);
 
         // Complete the upgrade
-        manager.finalizeUpgrade(targets, proofs);
+        manager.finalizeUpgrade{gas: 1000000}(targets, proofs);
 
         pushRecordedLogs();
 

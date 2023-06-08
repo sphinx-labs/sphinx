@@ -70,6 +70,7 @@ import {
   DeploymentRevert,
   ImportCache,
   MinimalParsedContractConfig,
+  UserContractKind,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -2787,4 +2788,28 @@ export const getPreviousStorageLayoutOZFormat = async (
         `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
   }
+}
+
+export const getParsedSalt = (
+  projectName: string,
+  referenceName: string,
+  userSalt: string,
+  bytecode: string,
+  constructorArgs: ParsedConfigVariables,
+  abi: Array<Fragment>,
+  kind?: UserContractKind
+): string => {
+  // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
+  // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
+  // of the creation code appended with its constructor arguments. This essentially turns the
+  // Create3 call into a Create2 call when deploying the proxy's implementation contract.
+  return kind === 'no-proxy'
+    ? getNonProxyCreate3Salt(
+        projectName,
+        referenceName,
+        userSalt ?? ethers.constants.HashZero
+      )
+    : ethers.utils.keccak256(
+        getCreationCodeWithConstructorArgs(bytecode, constructorArgs, abi)
+      )
 }

@@ -165,20 +165,24 @@ export const checkIsUpgrade = async (
   return false
 }
 
+export const getManagerProxyBytecodeHash = (): string => {
+  return utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashManagerProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+      ),
+    ]
+  )
+}
+
 export const getChugSplashManagerAddress = (organizationID: string) => {
   return utils.getCreate2Address(
     getChugSplashRegistryAddress(),
     organizationID,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
-        ),
-      ]
-    )
+    getManagerProxyBytecodeHash()
   )
 }
 
@@ -1144,8 +1148,12 @@ export const isLocalNetwork = async (
     return false
   }
 
-  if (await isHardhatFork(provider)) {
-    return false
+  try {
+    if (await isHardhatFork(provider)) {
+      return false
+    }
+  } catch (e) {
+    return true
   }
 
   return true
