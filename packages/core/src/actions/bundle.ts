@@ -377,7 +377,10 @@ export const makeActionBundleFromConfig = (
         constructorArgs,
         abi
       )
-      // TODO(docs): same behavior as create2 i think
+      // We use a 'salt' value that's a hash of the implementation contract's init code. This
+      // essentially mimics the behavior of Create2 in the sense that the implementation's address
+      // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
+      // contracts that have already been deployed.
       const implSalt = ethers.utils.keccak256(implInitCode)
       const implAddress = getCreate3Address(managerAddress, implSalt)
 

@@ -1298,6 +1298,14 @@ export const getEstDeployContractCost = (
   }
 }
 
+/**
+ * Returns the address of a proxy's implementation contract that would be deployed by ChugSplash via
+ * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
+ * includes constructor arguments. This essentially mimics the behavior of Create2 in the sense that
+ * the implementation's address has a one-to-one mapping with its init code. This makes it easy to
+ * detect if an implementation contract with the exact same bytecode is already deployed, which
+ * allows us to skip deploying unnecessary implementations.
+ */
 export const getImplAddress = (
   managerAddress: string,
   bytecode: string,
@@ -1309,7 +1317,6 @@ export const getImplAddress = (
     constructorArgs,
     abi
   )
-  // TODO(docs): same behavior as create2 i think
   const implSalt = ethers.utils.keccak256(implInitCode)
   return getCreate3Address(managerAddress, implSalt)
 }
