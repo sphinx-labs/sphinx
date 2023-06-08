@@ -1,9 +1,10 @@
 @chugsplash/=../
-hardhat=../../node_modules/hardhat
+hardhat=../../node_modules/hardhat/
 @openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
 @openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 forge-std/=node_modules/forge-std/src/
-ds-test/=node_modules/ds-test/src
+ds-test/=node_modules/ds-test/src/
+solidity-stringutils=node_modules/solidity-stringutils/src/
 @eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 @thirdweb-dev/contracts/=node_modules/@thirdweb-dev/contracts/

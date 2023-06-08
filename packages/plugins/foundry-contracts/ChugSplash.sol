@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import { StdChains } from "forge-std/StdChains.sol";
-import "lib/solidity-stringutils/src/strings.sol";
+import "solidity-stringutils/strings.sol";
 import {
     ChugSplashBootloaderOne
 } from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderOne.sol";
