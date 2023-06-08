@@ -11,6 +11,7 @@ import {
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { expect } from 'chai'
+import { makeGetConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
 
 import { createChugSplashRuntime } from '../../plugins/src/utils'
 

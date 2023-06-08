@@ -70,7 +70,6 @@ import {
   DeploymentRevert,
   ImportCache,
   MinimalParsedContractConfig,
-  UserContractKind,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {

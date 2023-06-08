@@ -566,15 +566,11 @@ export const isUUPSProxy = async (
   return true
 }
 
-const bytecodeContainsUUPSInterface = async (
-  bytecode: string
-): Promise<boolean> => {
+export const bytecodeContainsUUPSInterface = (bytecode: string): boolean => {
   return bytecodeContainsInterface(bytecode, ['upgradeTo'])
 }
 
-const bytecodeContainsEIP1967Interface = async (
-  bytecode: string
-): Promise<boolean> => {
+export const bytecodeContainsEIP1967Interface = (bytecode: string): boolean => {
   return bytecodeContainsInterface(bytecode, [
     'implementation',
     'admin',
@@ -587,10 +583,10 @@ const bytecodeContainsEIP1967Interface = async (
  * @param bytecode The bytecode of the contract to check the interface of.
  * @returns True if the contract contains the expected interface and false if not.
  */
-const bytecodeContainsInterface = async (
+const bytecodeContainsInterface = (
   bytecode: string,
   checkFunctions: string[]
-): Promise<boolean> => {
+): boolean => {
   // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
   const iface = new ethers.utils.Interface(ProxyABI)
   for (const func of checkFunctions) {

@@ -56,9 +56,11 @@ import {
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
 import { Constants } from "./ChugSplashConstants.sol";
+import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 
 contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, ChugSplashRegistryEvents {
     using strings for *;
+    using stdStorage for StdStorage;
 
     struct OptionalLog {
         Vm.Log value;
@@ -66,25 +68,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     Vm.Log[] private executionLogs;
-    bool private silent;
+    bool private silent = false;
 
     ChugSplashUtils private immutable utils;
-
-    string private constant NONE = "none";
-    uint256 private constant DEFAULT_PRIVATE_KEY_UINT =
-        0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-    string private constant DEFAULT_PRIVATE_KEY =
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    string private constant DEFAULT_NETWORK = "localhost";
-
-    // Optional env vars
-    string private privateKey = vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY);
-    string private network = vm.envOr("NETWORK", DEFAULT_NETWORK);
-    address private newOwnerAddress = vm.envOr("NEW_OWNER", vm.addr(vm.envOr("PRIVATE_KEY", DEFAULT_PRIVATE_KEY_UINT)));
-    string private newOwnerString = vm.toString(newOwnerAddress);
-    string private ipfsUrl = vm.envOr("IPFS_URL", NONE);
-    bool private skipStorageCheck = vm.envOr("SKIP_STORAGE_CHECK", false);
-    bool private allowManagedProposals = vm.envOr("ALLOW_MANAGED_PROPOSALS", false);
 
     // Get owner address
     uint private key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
@@ -96,7 +82,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             "DEV_FILE_PATH",
             string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
         );
-    bool private isChugSplashTest = vm.envOr("IS_CHUGSPLASH_TEST", false);
 
     /**
      * @notice This constructor must not revert, or else an opaque error message will be displayed
@@ -109,6 +94,132 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function silence() internal {
         silent = true;
+    }
+
+    function cancel(string memory _configPath, string memory _rpcUrl) internal {
+        ensureChugSplashInitialized(_rpcUrl);
+        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+
+        ChugSplashRegistry registry = getChugSplashRegistry();
+        ChugSplashManager manager = getChugSplashManager(
+            registry,
+            minimalParsedConfig.organizationID
+        );
+
+        manager.cancelActiveChugSplashDeployment();
+    }
+
+    // TODO: Test once we are officially supporting upgradable contracts
+    function exportProxy(string memory _configPath, string memory _referenceName, address _newOwner, string memory _rpcUrl) internal {
+        ensureChugSplashInitialized(_rpcUrl);
+        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+
+        ChugSplashRegistry registry = getChugSplashRegistry();
+        ChugSplashManager manager = ChugSplashManager(
+            registry.projects(minimalParsedConfig.organizationID)
+        );
+
+        require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
+
+        MinimalParsedContractConfig memory targetContractConfig;
+
+        for (uint256 i = 0; i < minimalParsedConfig.contracts.length; i++) {
+            if (keccak256(abi.encodePacked(minimalParsedConfig.contracts[i].referenceName)) == keccak256(abi.encodePacked(_referenceName))) {
+                targetContractConfig = minimalParsedConfig.contracts[i];
+                break;
+            }
+        }
+
+        bytes32 contractKindHash;
+        if (targetContractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT) {
+            contractKindHash = Constants.DEFAULT_PROXY_TYPE_HASH;
+        } else if (targetContractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
+            contractKindHash = Constants.OZ_TRANSPARENT_PROXY_TYPE_HASH;
+        } else if (targetContractConfig.kind == ContractKindEnum.OZ_OWNABLE_UUPS) {
+            contractKindHash = Constants.OZ_UUPS_OWNABLE_PROXY_TYPE_HASH;
+        } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
+            contractKindHash = Constants.OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
+        } else if (targetContractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT) {
+            contractKindHash = Constants.EXTERNAL_DEFAULT_PROXY_TYPE_HASH;
+        } else if (targetContractConfig.kind == ContractKindEnum.NO_PROXY) {
+            revert("Cannot export a proxy for a contract that does not use a proxy.");
+        } else {
+            revert("Unknown contract kind.");
+        }
+
+        manager.exportProxy(payable(targetContractConfig.targetAddress), contractKindHash, _newOwner);
+    }
+
+    // TODO: Test once we are officially supporting upgradable contracts
+    function importProxy(string memory _configPath, address _proxy, string memory _rpcUrl) internal {
+        ensureChugSplashInitialized(_rpcUrl);
+        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+
+        ChugSplashRegistry registry = getChugSplashRegistry();
+        ChugSplashManager manager = ChugSplashManager(
+            registry.projects(minimalParsedConfig.organizationID)
+        );
+
+        require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
+
+        // check bytecode compatible with either UUPS or Transparent
+        require(ffiCheckProxyBytecodeCompatible(_proxy.code), "ChugSplash does not support your proxy type. Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do. If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.");
+
+        // check if we can fetch the owner address from the expected slot
+        // and that the caller is in fact the owner
+        address ownerAddress = getEIP1967ProxyAdminAddress(_proxy);
+        emit log_address(ownerAddress);
+
+        address deployer = utils.msgSender();
+        require(ownerAddress == deployer, "ChugSplash: You are not the owner of this proxy.");
+
+        // transfer ownership of the proxy
+        Proxy proxy = Proxy(payable(_proxy));
+        proxy.changeAdmin(address(manager));
+    }
+
+    // TODO: Test once we are officially supporting upgradable contracts
+    // We may need to do something more complex here to handle ensuring the proxy is fully
+    // compatible with the users selected type.
+    function ffiCheckProxyBytecodeCompatible(bytes memory bytecode) private returns (bool) {
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "checkProxyBytecodeCompatible";
+        cmds[4] = vm.toString(bytecode);
+
+        bytes memory result = vm.ffi(cmds);
+        return keccak256(result) == keccak256("true");
+    }
+
+    function propose(
+        string memory configPath,
+        string memory _rpcUrl
+    ) internal returns (bytes memory) {
+        ensureChugSplashInitialized(_rpcUrl);
+        (string memory outPath, string memory buildInfoPath) = fetchPaths();
+
+        string[] memory cmds = new string[](11);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = filePath;
+        cmds[3] = "propose";
+        cmds[4] = configPath;
+        cmds[5] = _rpcUrl;
+        cmds[6] = vm.envString("PRIVATE_KEY");
+        cmds[7] = vm.toString(silent);
+        cmds[8] = outPath;
+        cmds[9] = buildInfoPath;
+
+        bytes memory result = vm.ffi(cmds);
+
+        if (!silent) {
+            emit log(string(result));
+            emit log(string("\n"));
+        }
+
+        return result;
     }
 
     // This is the entry point for the ChugSplash deploy command.
