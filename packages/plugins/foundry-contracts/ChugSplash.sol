@@ -329,20 +329,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
             bool isTargetDeployed = contractConfig.targetAddress.code.length > 0;
 
-            OptionalBool memory isImplementationDeployed;
-            if (contractConfig.kind != ContractKindEnum.NO_PROXY) {
-                // Get the Create3 address of the implementation contract using the DefaultCreate3
-                // contract.
-                address implAddress = getAddressFromDeployer(
-                    contractConfig.salt,
-                    address(_manager)
-                );
-                isImplementationDeployed = OptionalBool({
-                    value: implAddress.code.length > 0,
-                    exists: true
-                });
-            }
-
             OptionalString memory previousConfigUri = isTargetDeployed &&
                 contractConfig.kind != ContractKindEnum.NO_PROXY
                 ?
@@ -399,7 +385,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 deployedCreationCodeWithArgsHash: deployedCreationCodeWithArgsHash,
                 deploymentRevert: deploymentRevert,
                 importCache: importCache,
-                isImplementationDeployed: isImplementationDeployed,
                 previousConfigUri: previousConfigUri
             });
         }
@@ -871,7 +856,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             "Could not find contract: ",
             _referenceName,
             ". ",
-            "Did you misspell the contract's reference name or forget to call `chugsplash.deploy`?"
+            "Did you misspell the contract's reference name or forget to deploy it?"
         );
         require(addr.code.length > 0, errorMsg);
 

@@ -5,7 +5,7 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import { ConfigArtifacts, ParsedChugSplashConfig } from '../config/types'
+import { ConfigArtifacts, ParsedChugSplashConfig, contractKindHashes } from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -67,7 +67,11 @@ export const writeDeploymentArtifacts = async (
 
     const receipt = await deploymentEvent.getTransactionReceipt()
 
-    if (deploymentEvent.event === 'DefaultProxyDeployed') {
+    if (
+      deploymentEvent.args.contractKindHash ===
+      contractKindHashes['internal-default']
+    ) {
+      // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
         chugsplashBuildInfo.output.contracts[
           '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
@@ -79,7 +83,7 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the proxy.
       const proxyArtifact = {
-        address: deploymentEvent.args.proxy,
+        address: deploymentEvent.args.contractAddress,
         abi: ProxyABI,
         transactionHash: deploymentEvent.transactionHash,
         solcInputHash: chugsplashBuildInfo.id,
@@ -97,7 +101,9 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: [managerAddress],
         bytecode: ProxyArtifact.bytecode,
-        deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
+        deployedBytecode: await provider.getCode(
+          deploymentEvent.args.contractAddress
+        ),
         devdoc,
         userdoc,
         storageLayout,
@@ -110,7 +116,7 @@ export const writeDeploymentArtifacts = async (
         proxyArtifact,
         `${deploymentEvent.args.referenceName}Proxy`
       )
-    } else if (deploymentEvent.event === 'ContractDeployed') {
+    } else {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
       const { artifact, buildInfo } = configArtifacts[referenceName]

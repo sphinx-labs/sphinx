@@ -17,6 +17,8 @@ import {
   getCreate3Address,
   getCreationCodeWithConstructorArgs,
   getChugSplashManagerAddress,
+  getImplAddress,
+  getDefaultProxyInitCode,
 } from '../utils'
 import {
   BundledChugSplashAction,
@@ -305,7 +307,7 @@ export const makeBundlesFromConfig = (
     artifacts,
     configCache
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig)
+  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
   return { actionBundle, targetBundle }
 }
 
@@ -327,27 +329,67 @@ export const makeActionBundleFromConfig = (
   )) {
     const { buildInfo, artifact } = artifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
-    const { isTargetDeployed, isImplementationDeployed } =
-      configCache.contractConfigCache[referenceName]
+    const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
+    const { kind, address, salt, constructorArgs } = contractConfig
+    const managerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.organizationID
+    )
 
-    const isNonProxyContractDeployed =
-      contractConfig.kind === 'no-proxy'
-        ? isTargetDeployed
-        : isImplementationDeployed
+    if (!isTargetDeployed) {
+      if (kind === 'no-proxy') {
+        // Add a DEPLOY_CONTRACT action for the unproxied contract.
+        actions.push({
+          referenceName,
+          addr: address,
+          contractKindHash: contractKindHashes[kind],
+          salt,
+          code: getCreationCodeWithConstructorArgs(
+            bytecode,
+            constructorArgs,
+            abi
+          ),
+        })
+      } else if (kind === 'internal-default') {
+        // Add a DEPLOY_CONTRACT action for the default proxy.
+        actions.push({
+          referenceName,
+          addr: address,
+          contractKindHash: contractKindHashes[kind],
+          salt,
+          code: getDefaultProxyInitCode(managerAddress),
+        })
+      } else {
+        throw new Error(
+          `${referenceName} is not deployed. Should never happen.`
+        )
+      }
+    }
 
-    // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
-    if (!isNonProxyContractDeployed) {
-      // Add a DEPLOY_CONTRACT action.
+    if (kind !== 'no-proxy') {
+      // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
+      // for the implementation to be deployed already. We don't check for that here because this
+      // would slow down the Foundry plugin's `ffiGetMinimalParsedConfig` function, since we would
+      // need to run the parsing logic in order to get the implementation's constructor args and
+      // bytecode.
+
+      const implInitCode = getCreationCodeWithConstructorArgs(
+        bytecode,
+        constructorArgs,
+        abi
+      )
+      // We use a 'salt' value that's a hash of the implementation contract's init code. This
+      // essentially mimics the behavior of Create2 in the sense that the implementation's address
+      // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
+      // contracts that have already been deployed.
+      const implSalt = ethers.utils.keccak256(implInitCode)
+      const implAddress = getCreate3Address(managerAddress, implSalt)
+
       actions.push({
         referenceName,
-        addr: contractConfig.address,
-        contractKindHash: contractKindHashes[contractConfig.kind],
-        salt: contractConfig.salt,
-        code: getCreationCodeWithConstructorArgs(
-          bytecode,
-          contractConfig.constructorArgs,
-          abi
-        ),
+        addr: implAddress,
+        contractKindHash: contractKindHashes['no-proxy'],
+        salt: implSalt,
+        code: implInitCode,
       })
     }
 
@@ -370,8 +412,8 @@ export const makeActionBundleFromConfig = (
     for (const segment of segments) {
       actions.push({
         referenceName,
-        addr: contractConfig.address,
-        contractKindHash: contractKindHashes[contractConfig.kind],
+        addr: address,
+        contractKindHash: contractKindHashes[kind],
         key: segment.key,
         offset: segment.offset,
         value: segment.val,
@@ -392,7 +434,8 @@ export const makeActionBundleFromConfig = (
  * @returns Target bundle generated from the parsed config file.
  */
 export const makeTargetBundleFromConfig = (
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts
 ): ChugSplashTargetBundle => {
   const { projectName, organizationID } = parsedConfig.options
 
@@ -402,6 +445,8 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { abi, bytecode } = configArtifacts[referenceName].artifact
+
     // Only add targets for proxies.
     if (contractConfig.kind !== 'no-proxy') {
       targets.push({
@@ -409,7 +454,12 @@ export const makeTargetBundleFromConfig = (
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
-        implementation: getCreate3Address(managerAddress, contractConfig.salt),
+        implementation: getImplAddress(
+          managerAddress,
+          bytecode,
+          contractConfig.constructorArgs,
+          abi
+        ),
       })
     }
   }

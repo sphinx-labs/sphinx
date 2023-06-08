@@ -40,7 +40,6 @@ struct ContractConfigCache {
     DeploymentRevert deploymentRevert;
     ImportCache importCache;
     OptionalBytes32 deployedCreationCodeWithArgsHash;
-    OptionalBool isImplementationDeployed;
     OptionalString previousConfigUri;
 }
 

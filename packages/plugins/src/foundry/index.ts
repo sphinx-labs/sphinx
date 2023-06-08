@@ -10,11 +10,9 @@ import {
   chugsplashImportProxyAbstractTask,
   getEIP1967ProxyAdminAddress,
   readValidatedChugSplashConfig,
-  getDefaultProxyAddress,
   readUserChugSplashConfig,
   getCreate3Address,
   getChugSplashManagerAddress,
-  getNonProxyCreate3Salt,
   getBootloaderTwoConstructorArgs,
   bootloaderTwoConstructorFragment,
   readUnvalidatedParsedConfig,
@@ -31,6 +29,7 @@ import {
   DeploymentState,
   ConfigArtifacts,
   FailureAction,
+  getTargetAddress,
   initializeChugSplash,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
@@ -110,9 +109,6 @@ const decodeCachedConfig = async (encodedConfigCache: string) => {
       deployedCreationCodeWithArgsHash: cachedContract
         .deployedCreationCodeWithArgsHash.exists
         ? cachedContract.deployedCreationCodeWithArgsHash.value
-        : undefined,
-      isImplementationDeployed: cachedContract.isImplementationDeployed.exists
-        ? cachedContract.isImplementationDeployed.value
         : undefined,
       previousConfigUri: cachedContract.previousConfigUri.exists
         ? cachedContract.previousConfigUri.value
@@ -403,25 +399,13 @@ const getPrettyWarnings = (): string => {
       const userConfig = await readUserChugSplashConfig(configPath)
 
       const { projectName, organizationID } = userConfig.options
+      const { salt } = userConfig.contracts[referenceName]
       const managerAddress = getChugSplashManagerAddress(organizationID)
 
-      if (userConfig.contracts[referenceName].kind === 'no-proxy') {
-        const address = getCreate3Address(
-          managerAddress,
-          getNonProxyCreate3Salt(
-            projectName,
-            referenceName,
-            userConfig.contracts[referenceName].salt ??
-              ethers.constants.HashZero
-          )
-        )
-        process.stdout.write(address)
-      } else {
-        const proxy =
-          userConfig.contracts[referenceName].externalProxy ||
-          getDefaultProxyAddress(organizationID, projectName, referenceName)
-        process.stdout.write(proxy)
-      }
+      const contractAddress =
+        userConfig.contracts[referenceName].address ??
+        getTargetAddress(managerAddress, projectName, referenceName, salt)
+      process.stdout.write(contractAddress)
       break
     }
     case 'getEIP1967ProxyAdminAddress': {

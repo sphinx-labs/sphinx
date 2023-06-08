@@ -353,12 +353,6 @@ describe('Validate', () => {
     )
   })
 
-  it('did catch invalid reference to no-proxy contract in constructor arguments of no-proxy contract', async () => {
-    expect(validationOutput).to.have.string(
-      `Invalid contract reference: {{ Stateless }}. Contract references to no-proxy contracts are not allowed in other no-proxy contracts.`
-    )
-  })
-
   it('did catch invalid definition of function type', async () => {
     expect(validationOutput).to.have.string(
       `Detected value for functionType which is a function. Function variables should be ommitted from your ChugSplash config.`

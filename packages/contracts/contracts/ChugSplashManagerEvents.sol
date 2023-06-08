@@ -147,30 +147,13 @@ contract ChugSplashManagerEvents {
     event ETHDeposited(address indexed from, uint256 indexed amount);
 
     /**
-     * @notice Emitted when a Proxy is deployed by this contract.
-     *
-     * @param salt           Salt used to deploy the proxy.
-     * @param proxy          Address of the deployed proxy.
-     * @param deploymentId   ID of the deployment in which the proxy was deployed.
-     * @param projectName    Name of the project that the proxy belongs to.
-     * @param referenceName  Reference name that corresponds to this proxy.
-     */
-    event DefaultProxyDeployed(
-        bytes32 indexed salt,
-        address indexed proxy,
-        bytes32 indexed deploymentId,
-        string projectName,
-        string referenceName
-    );
-
-    /**
      * @notice Emitted when a contract is deployed by this contract.
      *
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that deployed the contract.
+     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
@@ -178,7 +161,7 @@ contract ChugSplashManagerEvents {
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
-        uint256 actionIndex,
+        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 

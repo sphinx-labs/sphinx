@@ -5,18 +5,12 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 const config: HardhatUserConfig = {
-  // TODO(size): rm this in all hardhat configs, and anvil --code-size
-  networks: {
-    hardhat: {
-      allowUnlimitedContractSize: true,
-    },
-  },
   solidity: {
     version: '0.8.15',
     settings: {
       optimizer: {
         enabled: true,
-        runs: 100,
+        runs: 5_000,
       },
       outputSelection: {
         '*': {

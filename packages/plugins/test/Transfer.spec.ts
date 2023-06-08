@@ -36,7 +36,7 @@ describe('Transfer', () => {
     claimer = signers[0]
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
-    // file don't match the addresses defined in the `externalProxy` field of the relevant
+    // file don't match the addresses defined in the `address` field of the relevant
     // ChugSplash config files.
     signer = signers[signers.length - 1]
   })

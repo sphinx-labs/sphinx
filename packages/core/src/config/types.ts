@@ -106,15 +106,17 @@ export type UnsafeAllow = {
  */
 export type UserContractConfig = {
   contract: string
-  externalProxy?: string
+  address?: string
   kind?: UserContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
-  salt?: string
+  salt?: UserSalt
   unsafeAllow?: UnsafeAllow
 }
+
+export type UserSalt = string | number
 
 export type UserContractConfigs = {
   [referenceName: string]: UserContractConfig
@@ -134,10 +136,10 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  salt: string
   constructorArgs: ParsedConfigVariables
-  userDefinedAddress: boolean
+  isUserDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
+  salt: string
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
 }
@@ -185,7 +187,6 @@ export type ContractConfigCache = {
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
     deployedCreationCodeWithArgsHash?: string
-    isImplementationDeployed?: boolean
     previousConfigUri?: string
   }
 }

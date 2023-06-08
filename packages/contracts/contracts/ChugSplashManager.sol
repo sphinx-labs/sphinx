@@ -11,7 +11,6 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
@@ -294,11 +293,6 @@ contract ChugSplashManager is
      * @notice Reverts if a non-proxy contract type is used instead of a proxy type.
      */
     error OnlyProxiesAllowed();
-
-    /**
-     * @notice Reverts if the contract creation for a `Proxy` fails.
-     */
-    error ProxyDeploymentFailed();
 
     /**
      * @notice Reverts if the call to initiate an upgrade on a proxy fails.
@@ -973,27 +967,6 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
-            if (target.contractKindHash == bytes32(0) && target.addr.code.length == 0) {
-                bytes32 salt = keccak256(abi.encode(target.projectName, target.referenceName));
-                Proxy created = new Proxy{ salt: salt }(address(this));
-
-                // Could happen if insufficient gas is supplied to this transaction, should not
-                // happen otherwise. If there's a situation in which this could happen other than a
-                // standard OOG, then this would halt the entire execution process.
-                if (address(created) != target.addr) {
-                    revert ProxyDeploymentFailed();
-                }
-
-                emit DefaultProxyDeployed(
-                    salt,
-                    target.addr,
-                    activeDeploymentId,
-                    target.projectName,
-                    target.referenceName
-                );
-                registry.announceWithData("DefaultProxyDeployed", abi.encodePacked(target.addr));
-            }
-
             address adapter = registry.adapters(target.contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
@@ -1254,7 +1227,7 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
-                    _actionIndex,
+                    _action.contractKindHash,
                     keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");

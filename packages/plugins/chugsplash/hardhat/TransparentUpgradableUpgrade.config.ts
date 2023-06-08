@@ -25,7 +25,7 @@ const config: UserChugSplashConfig = {
         'OwnableUpgradeable:__gap': '{ gap }',
         _owner: '0x1111111111111111111111111111111111111111',
       },
-      externalProxy: '0xC469e7aE4aD962c30c7111dc580B4adbc7E914DD',
+      address: '0xC469e7aE4aD962c30c7111dc580B4adbc7E914DD',
       kind: 'oz-transparent',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
