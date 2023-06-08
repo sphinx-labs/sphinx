@@ -144,11 +144,15 @@ export const getContract = async (
   const { organizationID } = userConfig.config.options
   const managerAddress = getChugSplashManagerAddress(organizationID)
   const contractConfig = userConfig.config.contracts[referenceName]
-  const { kind, salt } = contractConfig
 
   const address =
     contractConfig.address ??
-    getTargetAddress(managerAddress, projectName, referenceName, kind, salt)
+    getTargetAddress(
+      managerAddress,
+      projectName,
+      referenceName,
+      contractConfig.salt
+    )
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }

@@ -399,12 +399,12 @@ const getPrettyWarnings = (): string => {
       const userConfig = await readUserChugSplashConfig(configPath)
 
       const { projectName, organizationID } = userConfig.options
-      const { kind, salt } = userConfig.contracts[referenceName]
+      const { salt } = userConfig.contracts[referenceName]
       const managerAddress = getChugSplashManagerAddress(organizationID)
 
       const contractAddress =
         userConfig.contracts[referenceName].address ??
-        getTargetAddress(managerAddress, projectName, referenceName, kind, salt)
+        getTargetAddress(managerAddress, projectName, referenceName, salt)
       process.stdout.write(contractAddress)
       break
     }

@@ -2100,13 +2100,13 @@ export const assertValidConstructorArgs = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    const { address, kind, salt } = userContractConfig
+    const { address, salt } = userContractConfig
 
     // Set the address to the user-defined value if it exists, otherwise set it to the
     // Create3 address given to contracts deployed within the ChugSplash system.
     contractReferences[referenceName] =
       address ??
-      getTargetAddress(managerAddress, projectName, referenceName, kind, salt)
+      getTargetAddress(managerAddress, projectName, referenceName, salt)
   }
 
   // Resolve all contract references.
@@ -2218,7 +2218,6 @@ const constructParsedConfig = (
     const targetSalt = getTargetSalt(
       projectName,
       referenceName,
-      parsedContractKind,
       userContractConfig.salt
     )
 
@@ -2788,28 +2787,4 @@ export const getPreviousStorageLayoutOZFormat = async (
         `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
   }
-}
-
-export const getParsedSalt = (
-  projectName: string,
-  referenceName: string,
-  userSalt: string,
-  bytecode: string,
-  constructorArgs: ParsedConfigVariables,
-  abi: Array<Fragment>,
-  kind?: UserContractKind
-): string => {
-  // If it's a non-proxy contract, the salt is a hash of the project name, reference name, and
-  // either the user-defined salt or the zero hash. If it's a proxy contract, the salt is a hash
-  // of the creation code appended with its constructor arguments. This essentially turns the
-  // Create3 call into a Create2 call when deploying the proxy's implementation contract.
-  return kind === 'no-proxy'
-    ? getNonProxyCreate3Salt(
-        projectName,
-        referenceName,
-        userSalt ?? ethers.constants.HashZero
-      )
-    : ethers.utils.keccak256(
-        getCreationCodeWithConstructorArgs(bytecode, constructorArgs, abi)
-      )
 }

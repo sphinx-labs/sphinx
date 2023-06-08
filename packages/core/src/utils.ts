@@ -722,7 +722,6 @@ export const isEqualType = (
 export const getTargetSalt = (
   projectName: string,
   referenceName: string,
-  contractKind: ContractKind,
   userSalt?: UserSalt
 ): string => {
   let userSaltHash: string
@@ -735,8 +734,8 @@ export const getTargetSalt = (
   }
 
   return utils.solidityKeccak256(
-    ['string', 'string', 'uint8', 'bytes32'],
-    [projectName, referenceName, toContractKindEnum(contractKind), userSaltHash]
+    ['string', 'string', 'bytes32'],
+    [projectName, referenceName, userSaltHash]
   )
 }
 
@@ -749,17 +748,9 @@ export const getTargetAddress = (
   managerAddress: string,
   projectName: string,
   referenceName: string,
-  userContractKind?: UserContractKind,
   userSalt?: UserSalt
 ): string => {
-  const contractKind = userContractKind ?? 'internal-default'
-
-  const targetSalt = getTargetSalt(
-    projectName,
-    referenceName,
-    contractKind,
-    userSalt
-  )
+  const targetSalt = getTargetSalt(projectName, referenceName, userSalt)
 
   return getCreate3Address(managerAddress, targetSalt)
 }
