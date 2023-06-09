@@ -404,12 +404,7 @@ npx hardhat chugsplash-propose --network <network> --config-path ${configPath}`)
 Please wait a couple minutes then try again.`
     )
   } else if (deploymentState.status === DeploymentStatus.PROPOSED) {
-    await approveDeployment(
-      activeDeploymentId,
-      manager,
-      signerAddress,
-      provider
-    )
+    await approveDeployment(deploymentId, manager, signerAddress, provider)
 
     await trackApproved(
       await manager.owner(),

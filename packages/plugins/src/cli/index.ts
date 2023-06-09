@@ -26,8 +26,6 @@ yargs(hideBin(process.argv))
     async (argv) => {
       const configPath = argv.configPath
       const network = argv.network
-      console.log(configPath)
-      console.log(network)
       process.env['CHUGSPLASH_INTERNAL_NETWORK'] = network
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
       await execSync('forge script src/cli/Propose.s.sol', {
