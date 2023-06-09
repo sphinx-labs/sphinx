@@ -21,7 +21,7 @@ import { ethers } from 'ethers'
 // import { utils } from 'ethers'
 
 // import { makeGetConfigArtifacts } from '../hardhat/artifacts'
-// import { createChugSplashRuntime } from '../utils'
+// import { createChugSplashRuntime } from '../cre'
 
 // const configPath = argv[2]
 // if (typeof configPath !== 'string') {

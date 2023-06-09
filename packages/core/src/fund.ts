@@ -10,7 +10,7 @@ import {
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
-import { ParsedChugSplashConfig, contractKindHashes } from './config'
+import { ParsedChugSplashConfig, contractKindHashes } from './config/types'
 
 /**
  * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This

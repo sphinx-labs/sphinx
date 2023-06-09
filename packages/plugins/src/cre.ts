@@ -1,5 +1,5 @@
-import { ChugSplashRuntimeEnvironment } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { ChugSplashRuntimeEnvironment } from '@chugsplash/core/dist/types'
 
 import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 

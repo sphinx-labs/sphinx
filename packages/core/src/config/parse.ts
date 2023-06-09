@@ -30,7 +30,6 @@ import {
 } from '../languages/solidity/types'
 import {
   isUserContractKind,
-  getChugSplashManagerAddress,
   getEIP1967ProxyAdminAddress,
   getOpenZeppelinUpgradableContract,
   isEqualType,
@@ -40,17 +39,13 @@ import {
   getCreationCodeWithConstructorArgs,
   getDeployedCreationCodeWithArgsHash,
   getPreviousConfigUri,
-  toContractKindEnum,
   getChugSplashRegistryReadOnly,
   getChugSplashManagerReadOnly,
   isLocalNetwork,
-  getEstDeployContractCost,
   getConfigArtifactsRemote,
   isOpenZeppelinContractKind,
   readBuildInfo,
   fetchAndCacheCanonicalConfig,
-  getTargetSalt,
-  getTargetAddress,
 } from '../utils'
 import {
   UserChugSplashConfig,
@@ -64,13 +59,10 @@ import {
   ConfigArtifacts,
   GetConfigArtifacts,
   ConfigCache,
-  MinimalParsedConfig,
   ContractConfigCache,
   ContractKindEnum,
   DeploymentRevert,
   ImportCache,
-  MinimalParsedContractConfig,
-  UserContractKind,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -90,8 +82,13 @@ import {
 } from '../languages/solidity/iterator'
 import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
-import { OZ_UUPS_UPDATER_ADDRESS } from '../addresses'
+import {
+  OZ_UUPS_UPDATER_ADDRESS,
+  getChugSplashManagerAddress,
+} from '../addresses'
 import { resolveNetworkName } from '../messages'
+import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
+import { readUserChugSplashConfig } from '../config'
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -122,7 +119,6 @@ export const readUnvalidatedParsedConfig = async (
   failureAction: FailureAction
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
-  minimalParsedConfig: MinimalParsedConfig
   configArtifacts: ConfigArtifacts
 }> => {
   const userConfig = await readUserChugSplashConfig(configPath)
@@ -138,12 +134,7 @@ export const readUnvalidatedParsedConfig = async (
     failureAction
   )
 
-  const minimalParsedConfig = getMinimalParsedConfig(
-    parsedConfig,
-    configArtifacts
-  )
-
-  return { parsedConfig, minimalParsedConfig, configArtifacts }
+  return { parsedConfig, configArtifacts }
 }
 
 /**
@@ -163,17 +154,17 @@ export const readValidatedChugSplashConfig = async (
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
-  const { parsedConfig, minimalParsedConfig, configArtifacts } =
-    await readUnvalidatedParsedConfig(
-      configPath,
-      cre,
-      getConfigArtifacts,
-      failureAction
-    )
+  const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
+    configPath,
+    cre,
+    getConfigArtifacts,
+    failureAction
+  )
 
   const configCache = await getConfigCache(
     provider,
-    minimalParsedConfig,
+    parsedConfig,
+    configArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
   )
@@ -187,27 +178,6 @@ export const readValidatedChugSplashConfig = async (
   )
 
   return { parsedConfig, configArtifacts, configCache }
-}
-
-export const readUserChugSplashConfig = async (
-  configPath: string
-): Promise<UserChugSplashConfig> => {
-  delete require.cache[require.resolve(path.resolve(configPath))]
-
-  let config
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let exported = require(path.resolve(configPath))
-  exported = exported.default || exported
-  if (typeof exported === 'function') {
-    config = await exported()
-  } else if (typeof exported === 'object') {
-    config = exported
-  } else {
-    throw new Error(
-      'Config file must export either a config object, or a function which resolves to one.'
-    )
-  }
-  return config
 }
 
 export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
@@ -2520,37 +2490,43 @@ const assertAvailableCreate3Addresses = (
 
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
-  minimalConfig: MinimalParsedConfig,
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
   manager: ethers.Contract
 ): Promise<ConfigCache> => {
-  const { contracts } = minimalConfig
+  const { contracts } = parsedConfig
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
 
   const contractConfigCache: ContractConfigCache = {}
-  for (const minimalContractConfig of contracts) {
-    const {
-      creationCodeWithConstructorArgs,
-      targetAddress,
-      kind,
-      referenceName,
-    } = minimalContractConfig
+  for (const [referenceName, parsedContractConfig] of Object.entries(
+    contracts
+  )) {
+    const { abi, bytecode } = configArtifacts[referenceName].artifact
 
-    const isTargetDeployed = (await provider.getCode(targetAddress)) !== '0x'
+    const { address, constructorArgs } = parsedContractConfig
+    const kind = toContractKindEnum(parsedContractConfig.kind)
+    const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
+      bytecode,
+      constructorArgs,
+      abi
+    )
+
+    const isTargetDeployed = (await provider.getCode(address)) !== '0x'
 
     const previousConfigUri =
       isTargetDeployed && kind !== ContractKindEnum.NO_PROXY
-        ? await getPreviousConfigUri(provider, registry, targetAddress)
+        ? await getPreviousConfigUri(provider, registry, address)
         : undefined
 
     const deployedCreationCodeWithArgsHash = isTargetDeployed
       ? await getDeployedCreationCodeWithArgsHash(
           manager,
           referenceName,
-          targetAddress
+          address
         )
       : undefined
 
@@ -2588,7 +2564,7 @@ export const getConfigCache = async (
           provider
         )
         const UUPSProxy = new ethers.Contract(
-          targetAddress,
+          address,
           ProxyABI,
           managerVoidSigner
         )
@@ -2622,7 +2598,7 @@ export const getConfigCache = async (
         // Check that the ChugSplashManager is the owner of the Transparent proxy.
         const currProxyAdmin = await getEIP1967ProxyAdminAddress(
           provider,
-          targetAddress
+          address
         )
 
         if (currProxyAdmin !== manager.address) {
@@ -2652,49 +2628,6 @@ export const getConfigCache = async (
     localNetwork,
     networkName,
     contractConfigCache,
-  }
-}
-
-/**
- * Returns a minimal version of the parsed config. This is used as a substitute for the full parsed
- * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
- * support for types.
- */
-export const getMinimalParsedConfig = (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts
-): MinimalParsedConfig => {
-  const { organizationID, projectName } = parsedConfig.options
-
-  const minimalContractConfigs: Array<MinimalParsedContractConfig> = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
-  )) {
-    const { buildInfo, artifact } = configArtifacts[referenceName]
-    const { bytecode, abi, sourceName, contractName } = artifact
-    const { constructorArgs, address, kind, salt } = contractConfig
-
-    const estDeployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-    )
-
-    minimalContractConfigs.push({
-      referenceName,
-      creationCodeWithConstructorArgs: getCreationCodeWithConstructorArgs(
-        bytecode,
-        constructorArgs,
-        abi
-      ),
-      estDeployContractCost: ethers.BigNumber.from(estDeployContractCost),
-      targetAddress: address,
-      kind: toContractKindEnum(kind),
-      salt,
-    })
-  }
-  return {
-    organizationID,
-    projectName,
-    contracts: minimalContractConfigs,
   }
 }
 

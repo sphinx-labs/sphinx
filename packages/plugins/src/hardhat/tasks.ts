@@ -43,7 +43,7 @@ import {
   sampleTestFileTypeScript,
 } from '../sample-project/sample-tests'
 import { makeGetConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../utils'
+import { createChugSplashRuntime } from '../cre'
 
 // Load environment variables from .env
 dotenv.config()

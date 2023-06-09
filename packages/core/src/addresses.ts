@@ -28,6 +28,8 @@ import {
 import { constants, utils } from 'ethers'
 
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION } from './constants'
+import { UserSalt } from './config/types'
+import { getTargetSalt } from './config/utils'
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName
@@ -286,3 +288,24 @@ export const getChugSplashManagerV1Address = () =>
       ]
     )
   )
+
+export const getChugSplashManagerAddress = (organizationID: string) => {
+  return utils.getCreate2Address(
+    getChugSplashRegistryAddress(),
+    organizationID,
+    getManagerProxyBytecodeHash()
+  )
+}
+
+export const getManagerProxyBytecodeHash = (): string => {
+  return utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashManagerProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+      ),
+    ]
+  )
+}

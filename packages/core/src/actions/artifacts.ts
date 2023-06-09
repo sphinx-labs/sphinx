@@ -5,7 +5,11 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import { ConfigArtifacts, ParsedChugSplashConfig, contractKindHashes } from '../config/types'
+import {
+  ConfigArtifacts,
+  ParsedChugSplashConfig,
+  contractKindHashes,
+} from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -14,10 +18,10 @@ import {
   writeDeploymentFolderForNetwork,
   getConstructorArgs,
   writeDeploymentArtifact,
-  getChugSplashManagerAddress,
 } from '../utils'
 
 import 'core-js/features/array/at'
+import { getChugSplashManagerAddress } from '../addresses'
 
 /**
  * Gets the storage layout for a contract.

@@ -12,19 +12,22 @@ struct DeploymentBytecode {
     bytes bootloaderTwo;
 }
 
-struct MinimalParsedConfig {
+struct MinimalConfig {
     bytes32 organizationID;
     string projectName;
-    MinimalParsedContractConfig[] contracts;
+    MinimalContractConfig[] contracts;
 }
 
-struct MinimalParsedContractConfig {
+struct DeployContractCost {
     string referenceName;
-    bytes creationCodeWithConstructorArgs;
-    address targetAddress;
-    uint256 estDeployContractCost;
+    uint256 cost;
+}
+
+struct MinimalContractConfig {
+    string referenceName;
+    address addr;
     ContractKindEnum kind;
-    bytes32 salt;
+    bytes32 userSaltHash;
 }
 
 struct ConfigCache {

@@ -12,12 +12,10 @@ import {
   ChugSplashInput,
   ParsedChugSplashConfig,
   contractKindHashes,
-  readUserChugSplashConfig,
   UserChugSplashConfig,
-  verifyDeployment,
   ConfigArtifacts,
   ConfigCache,
-} from '../config'
+} from '../config/types'
 import {
   getDeploymentId,
   displayDeploymentTable,
@@ -73,6 +71,8 @@ import {
   verifyChugSplashConfig,
 } from '../etherscan'
 import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
+import { readUserChugSplashConfig } from '../config'
+import { verifyDeployment } from '../config/fetch'
 
 // Load environment variables from .env
 dotenv.config()
@@ -151,7 +151,7 @@ export const chugsplashProposeAbstractTask = async (
     spinner.succeed('ChugSplash is ready to go.')
   }
 
-  const { configUri, bundles } = await getCanonicalConfigData(
+  const { configUri, bundles } = await getBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
@@ -374,7 +374,7 @@ export const chugsplashApproveAbstractTask = async (
     await errorProjectNotClaimed(provider, configPath, integration)
   }
 
-  const { configUri, bundles } = await getCanonicalConfigData(
+  const { configUri, bundles } = await getBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
@@ -522,7 +522,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const { configUri, bundles, canonicalConfig } = await getCanonicalConfigData(
+  const { configUri, bundles, canonicalConfig } = await getBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
@@ -1111,7 +1111,7 @@ export const proposeChugSplashDeployment = async (
   spinner.succeed(`Proposed ${projectName}.`)
 }
 
-export const getCanonicalConfigData = async (
+export const getBundleInfo = async (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache

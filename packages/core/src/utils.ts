@@ -19,7 +19,6 @@ import {
   ChugSplashRegistryABI,
   ChugSplashManagerABI,
   ProxyABI,
-  ChugSplashManagerProxyArtifact,
 } from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -52,8 +51,6 @@ import {
   ParsedConfigVariables,
   ConfigArtifacts,
   ParsedConfigVariable,
-  ContractKindEnum,
-  UserSalt,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -62,7 +59,10 @@ import {
   DeploymentState,
 } from './actions/types'
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
-import { getChugSplashRegistryAddress } from './addresses'
+import {
+  getChugSplashManagerAddress,
+  getChugSplashRegistryAddress,
+} from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -76,6 +76,7 @@ import {
   getDeployContractActions,
   getNumDeployContractActions,
 } from './actions/bundle'
+import { getCreate3Address } from './config/utils'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
@@ -163,27 +164,6 @@ export const checkIsUpgrade = async (
     }
   }
   return false
-}
-
-export const getManagerProxyBytecodeHash = (): string => {
-  return utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ChugSplashManagerProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
-        ['address', 'address'],
-        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
-      ),
-    ]
-  )
-}
-
-export const getChugSplashManagerAddress = (organizationID: string) => {
-  return utils.getCreate2Address(
-    getChugSplashRegistryAddress(),
-    organizationID,
-    getManagerProxyBytecodeHash()
-  )
 }
 
 /**
@@ -719,67 +699,6 @@ export const isEqualType = (
   return isEqual
 }
 
-export const getTargetSalt = (
-  projectName: string,
-  referenceName: string,
-  userSalt?: UserSalt
-): string => {
-  let userSaltHash: string
-  if (userSalt) {
-    const userSaltString =
-      typeof userSalt === 'number' ? userSalt.toString() : userSalt
-    userSaltHash = ethers.utils.solidityKeccak256(['string'], [userSaltString])
-  } else {
-    userSaltHash = ethers.constants.HashZero
-  }
-
-  return utils.solidityKeccak256(
-    ['string', 'string', 'bytes32'],
-    [projectName, referenceName, userSaltHash]
-  )
-}
-
-/**
- * Returns the Create3 address of a target contract deployed by ChugSplash. There is a one-to-one mapping
- * between a Create3 address and the input parameters to this function. Note that the contract may
- * not yet be deployed at this address since it's calculated via Create3.
- */
-export const getTargetAddress = (
-  managerAddress: string,
-  projectName: string,
-  referenceName: string,
-  userSalt?: UserSalt
-): string => {
-  const targetSalt = getTargetSalt(projectName, referenceName, userSalt)
-
-  return getCreate3Address(managerAddress, targetSalt)
-}
-
-export const getCreate3Address = (
-  deployerAddress: string,
-  salt: string
-): string => {
-  // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
-  // library for details.
-  const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
-
-  const proxyAddress = utils.getCreate2Address(
-    deployerAddress,
-    salt,
-    utils.keccak256(proxyBytecode)
-  )
-
-  const addressHash = utils.keccak256(
-    utils.hexConcat(['0xd694', proxyAddress, '0x01'])
-  )
-
-  // Return the last 20 bytes of the address hash
-  const last20Bytes = utils.hexDataSlice(addressHash, 12)
-
-  // Return the checksum address
-  return ethers.utils.getAddress(last20Bytes)
-}
-
 export const getConstructorArgs = (
   constructorArgs: ParsedConfigVariables,
   abi: Array<Fragment>
@@ -1253,25 +1172,6 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
     kind === 'oz-ownable-uups' ||
     kind === 'oz-access-control-uups'
   )
-}
-
-export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
-  switch (kind) {
-    case 'oz-transparent':
-      return ContractKindEnum.OZ_TRANSPARENT
-    case 'oz-ownable-uups':
-      return ContractKindEnum.OZ_OWNABLE_UUPS
-    case 'oz-access-control-uups':
-      return ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
-    case 'external-default':
-      return ContractKindEnum.EXTERNAL_DEFAULT
-    case 'no-proxy':
-      return ContractKindEnum.NO_PROXY
-    case 'internal-default':
-      return ContractKindEnum.INTERNAL_DEFAULT
-    default:
-      throw new Error(`Invalid contract kind: ${kind}`)
-  }
 }
 
 export const getEstDeployContractCost = (

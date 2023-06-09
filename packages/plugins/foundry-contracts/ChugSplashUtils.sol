@@ -6,7 +6,8 @@ import { StdStyle } from "forge-std/StdStyle.sol";
 import { ChugSplashActionBundle, ChugSplashTargetBundle } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 import {
     ConfigCache,
-    MinimalParsedConfig
+    MinimalConfig,
+    DeployContractCost
 } from "./ChugSplashPluginTypes.sol";
 
 contract ChugSplashUtils is Test {
@@ -14,7 +15,8 @@ contract ChugSplashUtils is Test {
     function actionBundle() external pure returns (ChugSplashActionBundle memory) {}
     function targetBundle() external pure returns (ChugSplashTargetBundle memory) {}
     function configCache() external pure returns (ConfigCache memory) {}
-    function minimalParsedConfig() external pure returns (MinimalParsedConfig memory) {}
+    function minimalConfig() external pure returns (MinimalConfig memory) {}
+    function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
 
     function slice(bytes calldata _data, uint256 _start, uint256 _end) external pure returns (bytes memory) {
         return _data[_start:_end];

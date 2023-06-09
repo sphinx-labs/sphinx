@@ -2,14 +2,11 @@ import { argv } from 'node:process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import {
-  getCanonicalConfigData,
-  readValidatedChugSplashConfig,
-} from '@chugsplash/core'
+import { getBundleInfo, readValidatedChugSplashConfig } from '@chugsplash/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../hardhat/artifacts'
-import { createChugSplashRuntime } from '../utils'
+import { createChugSplashRuntime } from '../cre'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
@@ -17,11 +14,14 @@ if (typeof configPath !== 'string') {
 }
 
 /**
- * Display a ChugSplash bundle. This script can be called by running:
+ * Display a ChugSplash bundle. The purpose of this script is to easily generate bundles in a format
+ * that can be used alongside the `vm.readJson` cheatcode in order to test the ChugSplash contracts
+ * with Forge. This script is NOT meant to be called via FFI in the Foundry plugin.
+ *
+ * This script can be called by running:
  * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/chugsplash/file>
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
- * This makes it easy to generate bundles to be used when unit testing the ChugSplashManager.*
  */
 const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
@@ -43,7 +43,7 @@ const displayBundleInfo = async () => {
       makeGetConfigArtifacts(hre)
     )
 
-  const { configUri, bundles } = await getCanonicalConfigData(
+  const { configUri, bundles } = await getBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
