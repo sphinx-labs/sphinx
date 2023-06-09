@@ -19,7 +19,6 @@ import {
   getConstructorArgs,
   writeDeploymentArtifact,
 } from '../utils'
-
 import 'core-js/features/array/at'
 import { getChugSplashManagerAddress } from '../addresses'
 

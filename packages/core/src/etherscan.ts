@@ -59,10 +59,7 @@ import {
   getChugSplashManagerAddress,
 } from './addresses'
 import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
-import {
-  getConstructorArgs,
-  getImplAddress,
-} from './utils'
+import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
 export interface EtherscanResponseBody {

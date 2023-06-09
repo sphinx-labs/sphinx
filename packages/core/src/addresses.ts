@@ -28,8 +28,6 @@ import {
 import { constants, utils } from 'ethers'
 
 import { CURRENT_CHUGSPLASH_MANAGER_VERSION } from './constants'
-import { UserSalt } from './config/types'
-import { getTargetSalt } from './config/utils'
 
 const chugsplashRegistrySourceName = ChugSplashRegistryArtifact.sourceName
 const chugsplashManagerSourceName = ChugSplashManagerArtifact.sourceName

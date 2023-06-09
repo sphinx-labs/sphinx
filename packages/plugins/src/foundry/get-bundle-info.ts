@@ -19,8 +19,6 @@ const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const configPath = args[1]
 
-// TODO: do something with logs.md
-
 type DeployContractCost = {
   referenceName: string
   cost: BigNumber

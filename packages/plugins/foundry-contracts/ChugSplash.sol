@@ -101,12 +101,12 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function cancel(string memory _configPath, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = getChugSplashManager(
             registry,
-            minimalParsedConfig.organizationID
+            minimalConfig.organizationID
         );
 
         manager.cancelActiveChugSplashDeployment();
@@ -115,20 +115,20 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(string memory _configPath, string memory _referenceName, address _newOwner, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
-            registry.projects(minimalParsedConfig.organizationID)
+            registry.projects(minimalConfig.organizationID)
         );
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
 
-        MinimalParsedContractConfig memory targetContractConfig;
+        MinimalContractConfig memory targetContractConfig;
 
-        for (uint256 i = 0; i < minimalParsedConfig.contracts.length; i++) {
-            if (keccak256(abi.encodePacked(minimalParsedConfig.contracts[i].referenceName)) == keccak256(abi.encodePacked(_referenceName))) {
-                targetContractConfig = minimalParsedConfig.contracts[i];
+        for (uint256 i = 0; i < minimalConfig.contracts.length; i++) {
+            if (keccak256(abi.encodePacked(minimalConfig.contracts[i].referenceName)) == keccak256(abi.encodePacked(_referenceName))) {
+                targetContractConfig = minimalConfig.contracts[i];
                 break;
             }
         }
@@ -150,17 +150,17 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             revert("Unknown contract kind.");
         }
 
-        manager.exportProxy(payable(targetContractConfig.targetAddress), contractKindHash, _newOwner);
+        manager.exportProxy(payable(targetContractConfig.addr), contractKindHash, _newOwner);
     }
 
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(string memory _configPath, address _proxy, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalParsedConfig memory minimalParsedConfig = ffiGetMinimalParsedConfig(_configPath);
+        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
-            registry.projects(minimalParsedConfig.organizationID)
+            registry.projects(minimalConfig.organizationID)
         );
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
@@ -188,7 +188,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
-        cmds[2] = filePath;
+        cmds[2] = mainFfiScriptPath;
         cmds[3] = "checkProxyBytecodeCompatible";
         cmds[4] = vm.toString(bytecode);
 
@@ -206,7 +206,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string[] memory cmds = new string[](11);
         cmds[0] = "npx";
         cmds[1] = "node";
-        cmds[2] = filePath;
+        cmds[2] = mainFfiScriptPath;
         cmds[3] = "propose";
         cmds[4] = configPath;
         cmds[5] = _rpcUrl;

@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import path from 'path'
 
 import {
   chugsplashProposeAbstractTask,
@@ -7,25 +6,21 @@ import {
   readUserChugSplashConfig,
   getChugSplashManagerAddress,
   ProposalRoute,
-  postParsingValidation,
   getChugSplashRegistryReadOnly,
-  getBundleInfo,
   getPreviousConfigUri,
   isLocalNetwork,
   postDeploymentActions,
   CanonicalChugSplashConfig,
   getChugSplashManagerReadOnly,
-  writeCanonicalConfig,
   DeploymentState,
   ConfigArtifacts,
-  FailureAction,
   getTargetAddress,
   initializeChugSplash,
-  getMinimalConfig,
-  UserChugSplashConfig,
+  getEIP1967ProxyAdminAddress,
+  bytecodeContainsEIP1967Interface,
+  bytecodeContainsUUPSInterface,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
-import { remove0x } from '@eth-optimism/core-utils'
 
 import { cleanPath, fetchPaths, getPaths } from './paths'
 import { makeGetConfigArtifacts } from './utils'
