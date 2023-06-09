@@ -92,7 +92,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        // ffiDeployOnAnvil();
+        ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -666,6 +666,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
     }
 
+    // This function also returns the user config string as a performance optimization. Reading
+    // TypeScript user configs with ts-node is slow, so we read it once here and pass it in
+    // to future FFI call(s).
     function ffiGetMinimalConfig(
         string memory _configPath
     ) private returns (MinimalConfig memory, string memory) {
