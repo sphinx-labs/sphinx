@@ -18,7 +18,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
 
 import { makeGetConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../utils'
+import { createChugSplashRuntime } from '../cre'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []

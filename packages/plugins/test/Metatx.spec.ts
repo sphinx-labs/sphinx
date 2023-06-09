@@ -12,7 +12,7 @@ import {
 import { ForwarderArtifact } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { createChugSplashRuntime } from '../../plugins/src/utils'
+import { createChugSplashRuntime } from '../../plugins/src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 const configPath = './chugsplash/Metatx.config.ts'

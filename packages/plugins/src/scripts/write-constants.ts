@@ -1,10 +1,3 @@
-// import { argv } from 'node:process'
-
-// TODO: rm unnecessary imports
-// TODO(test): create Solidity tests for ChugSplashConstants.sol
-// TODO: add this to yarn build
-// import hre from 'hardhat'
-// import '@nomiclabs/hardhat-ethers'
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
@@ -23,22 +16,12 @@ import {
 } from '@chugsplash/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
-// import { utils } from 'ethers'
 
-// import { makeGetConfigArtifacts } from '../hardhat/artifacts'
-// import { createChugSplashRuntime } from '../utils'
-
-// const configPath = argv[2]
-// if (typeof configPath !== 'string') {
-//   throw new Error(`Pass in a path to a ChugSplash config file.`)
-// }
-
-// TODO: hardhat/register probably not required
 /**
  * Writes various constant values to a Solidity contract. This improves the speed of the Foundry
  * plugin by reducing the number of times we read need to read JSON files or do FFI calls.
  * This script can be called by running:
- * npx ts-node --require hardhat/register src/scripts/write-constants.ts
+ * npx ts-node src/scripts/write-constants.ts
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */

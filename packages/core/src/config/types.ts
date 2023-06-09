@@ -5,7 +5,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber, constants, ethers } from 'ethers'
+import { BigNumber, constants } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -175,7 +175,7 @@ export type ConfigArtifacts = {
 }
 
 export type ConfigCache = {
-  blockGasLimit: ethers.BigNumber
+  blockGasLimit: BigNumber
   localNetwork: boolean
   networkName: string
   contractConfigCache: ContractConfigCache
@@ -201,19 +201,17 @@ export type ImportCache = {
   currProxyAdmin?: string
 }
 
-export type MinimalParsedConfig = {
+export type MinimalConfig = {
   organizationID: string
   projectName: string
-  contracts: Array<MinimalParsedContractConfig>
+  contracts: Array<MinimalContractConfig>
 }
 
-export type MinimalParsedContractConfig = {
+export type MinimalContractConfig = {
   referenceName: string
-  creationCodeWithConstructorArgs: string
-  targetAddress: string
-  estDeployContractCost: ethers.BigNumber
+  addr: string
   kind: ContractKindEnum
-  salt: string
+  userSaltHash: string
 }
 
 export type GetConfigArtifacts = (

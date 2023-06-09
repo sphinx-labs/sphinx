@@ -35,7 +35,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { writeSampleProjectFiles } from '../sample-project'
 import { deployAllChugSplashConfigs } from './deployments'
 import { makeGetConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../utils'
+import { createChugSplashRuntime } from '../cre'
 
 // Load environment variables from .env
 dotenv.config()

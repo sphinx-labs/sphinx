@@ -18,10 +18,9 @@ import {
   writeDeploymentFolderForNetwork,
   getConstructorArgs,
   writeDeploymentArtifact,
-  getChugSplashManagerAddress,
 } from '../utils'
-
 import 'core-js/features/array/at'
+import { getChugSplashManagerAddress } from '../addresses'
 
 /**
  * Gets the storage layout for a contract.

@@ -9,9 +9,9 @@ import {
   DeploymentState,
   DeploymentStatus,
 } from '../actions'
-import { ParsedChugSplashConfig } from '../config'
 import { getAmountToDeposit } from '../fund'
 import { getChugSplashManager, getDeploymentEvents } from '../utils'
+import { ParsedChugSplashConfig } from '../config/types'
 
 export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,

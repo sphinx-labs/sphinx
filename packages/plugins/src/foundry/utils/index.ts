@@ -1,38 +1,30 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import util from 'util'
-import { exec } from 'child_process'
+import { join } from 'path'
+import { promisify } from 'util'
 
 import {
   BuildInfo,
-  ConfigArtifacts,
-  parseFoundryArtifact,
-  UserContractConfigs,
   ContractArtifact,
-  GetConfigArtifacts,
+} from '@chugsplash/core/dist/languages/solidity/types'
+import {
+  parseFoundryArtifact,
   validateBuildInfo,
-} from '@chugsplash/core'
+} from '@chugsplash/core/dist/utils'
+import {
+  ConfigArtifacts,
+  GetConfigArtifacts,
+  UserContractConfigs,
+} from '@chugsplash/core/dist/config/types'
+
+const readFileAsync = promisify(fs.readFile)
+const existsAsync = promisify(fs.exists)
 
 export const getBuildInfo = (
-  buildInfoFolder: string,
+  buildInfos: Array<BuildInfo>,
   sourceName: string
 ): BuildInfo => {
-  const completeFilePath = path.join(buildInfoFolder)
-
-  // Get the inputs from the build info folder.
-  const inputs = fs
-    .readdirSync(completeFilePath)
-    .filter((file) => {
-      return file.endsWith('.json')
-    })
-    .map((file) => {
-      return JSON.parse(
-        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
-      )
-    })
-
   // Find the correct build info file
-  for (const input of inputs) {
+  for (const input of buildInfos) {
     if (input?.output?.sources[sourceName] !== undefined) {
       validateBuildInfo(input)
       return input
@@ -43,25 +35,25 @@ export const getBuildInfo = (
     `Failed to find build info for ${sourceName}. Please check that you:
 1. Imported this file in your script
 2. Set 'force=true' in your foundry.toml
-3. Check that ${buildInfoFolder} is the correct build info directory.`
+3. Check that you've set the correct build info directory in your foundry.toml.`
   )
 }
 
-export const getContractArtifact = (
+export const getContractArtifact = async (
   name: string,
   artifactFilder: string
-): ContractArtifact => {
+): Promise<ContractArtifact> => {
   const folderName = `${name}.sol`
   const fileName = `${name}.json`
-  const completeFilePath = path.join(artifactFilder, folderName, fileName)
+  const completeFilePath = join(artifactFilder, folderName, fileName)
 
-  if (!fs.existsSync(completeFilePath)) {
+  if (!(await existsAsync(completeFilePath))) {
     throw new Error(
       `Could not find artifact for: ${name}. Did you forget to import it in your script file?`
     )
   }
 
-  const artifact = JSON.parse(fs.readFileSync(completeFilePath, 'utf8'))
+  const artifact = JSON.parse(await readFileAsync(completeFilePath, 'utf8'))
 
   return parseFoundryArtifact(artifact)
 }
@@ -83,17 +75,42 @@ export const makeGetConfigArtifacts = (
   buildInfoFolder: string
 ): GetConfigArtifacts => {
   return async (contractConfigs: UserContractConfigs) => {
+    const buildInfoPath = join(buildInfoFolder)
+
+    const buildInfoPromises = fs
+      .readdirSync(buildInfoPath)
+      .filter((file) => {
+        return file.endsWith('.json')
+      })
+      .map(async (file) => {
+        return JSON.parse(
+          await readFileAsync(join(buildInfoFolder, file), 'utf8')
+        )
+      })
+
+    const buildInfos = await Promise.all(buildInfoPromises)
+
+    const configArtifactPromises = Object.entries(contractConfigs).map(
+      async ([referenceName, contractConfig]) => {
+        const artifact = await getContractArtifact(
+          contractConfig.contract,
+          artifactFolder
+        )
+        const buildInfo = getBuildInfo(buildInfos, artifact.sourceName)
+
+        return {
+          referenceName,
+          artifact,
+          buildInfo,
+        }
+      }
+    )
+
+    const resolved = await Promise.all(configArtifactPromises)
+
     const configArtifacts: ConfigArtifacts = {}
 
-    for (const [referenceName, contractConfig] of Object.entries(
-      contractConfigs
-    )) {
-      const artifact = getContractArtifact(
-        contractConfig.contract,
-        artifactFolder
-      )
-      const buildInfo = getBuildInfo(buildInfoFolder, artifact.sourceName)
-
+    for (const { referenceName, artifact, buildInfo } of resolved) {
       configArtifacts[referenceName] = {
         artifact,
         buildInfo,
@@ -101,40 +118,4 @@ export const makeGetConfigArtifacts = (
     }
     return configArtifacts
   }
-}
-
-export const cleanPath = (dirtyPath: string) => {
-  let cleanQuotes = dirtyPath.replace(/'/g, '')
-  cleanQuotes = cleanQuotes.replace(/"/g, '')
-  return cleanQuotes.trim()
-}
-
-export const fetchPaths = (outPath: string, buildInfoPath: string) => {
-  const artifactFolder = path.resolve(outPath)
-  const buildInfoFolder = path.resolve(buildInfoPath)
-  const deploymentFolder = path.resolve('deployments')
-  const canonicalConfigFolder = path.resolve('.canonical-configs')
-
-  return {
-    artifactFolder,
-    buildInfoFolder,
-    deploymentFolder,
-    canonicalConfigFolder,
-  }
-}
-
-export const getPaths = async (): Promise<{
-  artifactFolder: string
-  buildInfoFolder: string
-  deploymentFolder: string
-  canonicalConfigFolder: string
-}> => {
-  const execAsync = util.promisify(exec)
-
-  const forgeConfigOutput = await execAsync('forge config --json')
-  const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
-
-  const buildInfoPath =
-    forgeConfig.build_info_path ?? path.join(forgeConfig.out, 'build-info')
-  return fetchPaths(forgeConfig.out, buildInfoPath)
 }

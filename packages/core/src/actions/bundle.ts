@@ -14,9 +14,7 @@ import {
   extendStorageLayout,
 } from '../languages/solidity/storage'
 import {
-  getCreate3Address,
   getCreationCodeWithConstructorArgs,
-  getChugSplashManagerAddress,
   getImplAddress,
   getDefaultProxyInitCode,
 } from '../utils'
@@ -33,6 +31,8 @@ import {
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
+import { getChugSplashManagerAddress } from '../addresses'
+import { getCreate3Address } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -368,7 +368,7 @@ export const makeActionBundleFromConfig = (
     if (kind !== 'no-proxy') {
       // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
       // for the implementation to be deployed already. We don't check for that here because this
-      // would slow down the Foundry plugin's `ffiGetMinimalParsedConfig` function, since we would
+      // would slow down the Foundry plugin's FFI call to retrieve the MinimalConfig, since we would
       // need to run the parsing logic in order to get the implementation's constructor args and
       // bytecode.
 

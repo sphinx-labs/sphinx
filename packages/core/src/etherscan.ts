@@ -56,13 +56,10 @@ import {
   OZ_UUPS_UPDATER_ADDRESS,
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
+  getChugSplashManagerAddress,
 } from './addresses'
 import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
-import {
-  getChugSplashManagerAddress,
-  getConstructorArgs,
-  getImplAddress,
-} from './utils'
+import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 
 export interface EtherscanResponseBody {

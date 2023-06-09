@@ -15,7 +15,7 @@ import {
   ConfigCache,
 } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { getConfigCache, getMinimalParsedConfig } from './parse'
+import { getConfigCache } from './parse'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
@@ -108,7 +108,8 @@ export const compileRemoteBundles = async (
 
   const configCache = await getConfigCache(
     provider,
-    getMinimalParsedConfig(canonicalConfig, configArtifacts),
+    canonicalConfig,
+    configArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(
       provider,

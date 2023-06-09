@@ -286,3 +286,24 @@ export const getChugSplashManagerV1Address = () =>
       ]
     )
   )
+
+export const getChugSplashManagerAddress = (organizationID: string) => {
+  return utils.getCreate2Address(
+    getChugSplashRegistryAddress(),
+    organizationID,
+    getManagerProxyBytecodeHash()
+  )
+}
+
+export const getManagerProxyBytecodeHash = (): string => {
+  return utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ChugSplashManagerProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+      ),
+    ]
+  )
+}
