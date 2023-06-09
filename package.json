@@ -10,7 +10,8 @@
       "packages/core",
       "packages/executor",
       "packages/plugins",
-      "packages/demo"
+      "packages/demo",
+      "packages/demo_foundry"
     ],
     "nohoist": [
       "@chugsplash/contracts/@connext/interfaces",

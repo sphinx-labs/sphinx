@@ -4,6 +4,9 @@
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
+  "bin": {
+    "chugsplash": "./dist/cli/index.js"
+  },
   "files": [
     "dist/*",
     "out/artifacts/ChugSplash.sol/ChugSplash.json"
@@ -16,16 +19,17 @@
     "generate": "npx ts-node --require hardhat/register src/scripts/write-constants.ts > foundry-contracts/ChugSplashConstants.sol",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
-    "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
+    "test:forge": "forge build --force && forge test",
     "test:hardhat": "npx hardhat test --config-paths './chugsplash/Storage.config.ts, ./chugsplash/Create3.config.ts'",
-    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && IS_CHUGSPLASH_TEST=true && yarn test",
+    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && yarn test",
     "test:kill": "kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "yalc:publish": "yarn build && yalc publish"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/plugins#readme",
   "license": "MIT",
@@ -54,6 +58,7 @@
     "ora": "^5.4.1",
     "semver": "^7.3.7",
     "solmate": "^6.7.0",
+    "yargs": "^17.7.2",
     "yesno": "^0.4.0"
   },
   "devDependencies": {
@@ -62,6 +67,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@thirdweb-dev/contracts": "^3.5.1",
+    "@types/yargs": "^17.0.24",
     "chai": "^4.3.7",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400",

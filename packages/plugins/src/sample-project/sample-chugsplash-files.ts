@@ -21,8 +21,7 @@ const config: UserChugSplashConfig = {
 export default config
 `
 
-export const sampleChugSplashFileJavaScript = `require('@chugsplash/core')
-
+export const sampleChugSplashFileJavaScript = `
 module.exports = {
   options: {
     organizationID: '0x0000000000000000000000000000000000000000000000000000000000000000',
