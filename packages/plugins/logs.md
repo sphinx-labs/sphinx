@@ -27,7 +27,7 @@ known values:
 0.229: `vm.ffi(cmds)` into empty file, where cmds are those in `ffiGetMinimalConfig`.
 0.411: difference between `vm.ffi` into an empty file vs an empty file that just contains runs a fn (`parseFoundryArtifact`) from `core/src/utils.ts`.
 ~0.067-0.07 (runs: ~2, not 20): `execAsync(forge config --json)`
-
+~0.7s: `readUserChugSplashConfig` on `claim.ts` (`claim.t.js` typescript version)
 
 ideas:
 - we're leaving a couple hundred ms on the table by importing a ton of stuff to `getCanonicalConfigData`. there are a lot of downstream dependencies, so this'd be a large refactor
