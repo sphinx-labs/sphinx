@@ -8,7 +8,7 @@ fs_permissions = [{ access = "read", path = "./"}]
 
 ffi = true
 libs = ['node_modules']
-test = 'test'
+test = 'test/foundry'
 cache_path  = 'forge-cache'
 verbosity = 2
 allow_paths = ["../contracts"]
