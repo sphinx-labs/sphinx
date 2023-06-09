@@ -21,7 +21,7 @@
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "forge build --force && forge test",
     "test:hardhat": "npx hardhat test --config-paths './chugsplash/Storage.config.ts, ./chugsplash/Create3.config.ts'",
-    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/' && export DISABLE_ANALYTICS=true && yarn test",
+    "test:coverage": "yarn test",
     "test:kill": "kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
