@@ -57,6 +57,8 @@ contract ChugSplashTest is ChugSplash {
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
 
     function setUp() public {
+        silence();
+
         // Setup deployment test
         deploy(deployConfig, vm.rpcUrl("anvil"));
 

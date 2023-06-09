@@ -19,6 +19,7 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+  DEFAULT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -521,7 +522,7 @@ export const initializeChugSplash = async (
   }
 
   if (
-    (await ChugSplashRegistry.adapters(ethers.constants.HashZero)) !==
+    (await ChugSplashRegistry.adapters(DEFAULT_PROXY_TYPE_HASH)) !==
     defaultAdapterAddress
   ) {
     await (

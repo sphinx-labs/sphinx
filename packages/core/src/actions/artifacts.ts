@@ -5,7 +5,11 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import { ConfigArtifacts, ParsedChugSplashConfig, contractKindHashes } from '../config/types'
+import {
+  ConfigArtifacts,
+  ParsedChugSplashConfig,
+  contractKindHashes,
+} from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,

@@ -32,16 +32,8 @@ import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
-import {
-  getSampleContractFile,
-  sampleChugSplashFileJavaScript,
-  sampleChugSplashFileTypeScript,
-} from '../sample-project'
+import { writeSampleProjectFiles } from '../sample-project'
 import { deployAllChugSplashConfigs } from './deployments'
-import {
-  sampleTestFileJavaScript,
-  sampleTestFileTypeScript,
-} from '../sample-project/sample-tests'
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../utils'
 
@@ -765,71 +757,22 @@ export const chugsplashInitTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Initializing ChugSplash project...')
 
-  // Create the ChugSplash folder if it doesn't exist
-  if (!fs.existsSync(hre.config.paths.chugsplash)) {
-    fs.mkdirSync(hre.config.paths.chugsplash)
-  }
-
-  // Create a folder for smart contract source files if it doesn't exist
-  if (!fs.existsSync(hre.config.paths.sources)) {
-    fs.mkdirSync(hre.config.paths.sources)
-  }
-
-  // Create a folder for test files if it doesn't exist
-  if (!fs.existsSync(hre.config.paths.tests)) {
-    fs.mkdirSync(hre.config.paths.tests)
-  }
-
-  // First, we'll create the sample ChugSplash config file.
+  // Get the Solidity compiler version from the Hardhat config.
+  const [{ version: solcVersion }] = hre.config.solidity.compilers
 
   // True if the Hardhat project is TypeScript and false if it's JavaScript.
   const isTypeScriptProject =
     path.extname(hre.config.paths.configFile) === '.ts'
 
-  // Check if the sample ChugSplash config file already exists.
-  const chugsplashFileName = isTypeScriptProject
-    ? 'hello-chugsplash.ts'
-    : 'hello-chugsplash.js'
-  const configPath = path.join(hre.config.paths.chugsplash, chugsplashFileName)
-  if (!fs.existsSync(configPath)) {
-    // Create the sample ChugSplash config file.
-    fs.writeFileSync(
-      configPath,
-      isTypeScriptProject
-        ? sampleChugSplashFileTypeScript
-        : sampleChugSplashFileJavaScript
-    )
-  }
-
-  // Next, we'll create the sample contract file.
-
-  // Get the Solidity compiler version from the Hardhat config.
-  const [{ version: solcVersion }] = hre.config.solidity.compilers
-
-  // Check if the sample smart contract exists.
-  const contractFilePath = path.join(
+  await writeSampleProjectFiles(
+    hre.config.paths.chugsplash,
     hre.config.paths.sources,
-    'HelloChugSplash.sol'
+    hre.config.paths.tests,
+    '',
+    isTypeScriptProject,
+    solcVersion,
+    'hardhat'
   )
-  if (!fs.existsSync(contractFilePath)) {
-    // Create the sample contract file.
-    fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
-  }
-
-  // Lastly, we'll create the sample test file.
-
-  // Check if the sample test file exists.
-  const testFileName = isTypeScriptProject
-    ? 'HelloChugSplash.spec.ts'
-    : 'HelloChugSplash.test.js'
-  const testFilePath = path.join(hre.config.paths.tests, testFileName)
-  if (!fs.existsSync(testFilePath)) {
-    // Create the sample test file.
-    fs.writeFileSync(
-      testFilePath,
-      isTypeScriptProject ? sampleTestFileTypeScript : sampleTestFileJavaScript
-    )
-  }
 
   spinner.succeed('Initialized ChugSplash project.')
 }

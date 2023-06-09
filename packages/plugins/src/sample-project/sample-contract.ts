@@ -10,3 +10,69 @@ contract HelloChugSplash {
 }
 `
 }
+
+export const getSampleFoundryDeployFile = (solcVersion: string) => {
+  return `// SPDX-License-Identifier: MIT
+pragma solidity ^${solcVersion};
+
+import "@chugsplash/plugins/ChugSplash.sol";
+
+contract ChugSplashDeploy is ChugSplash {
+  function run() public {
+    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+    vm.startBroadcast(deployerPrivateKey);
+    deploy('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
+    vm.stopBroadcast();
+  }
+}
+`
+}
+
+export const getSampleGenerateArtifactFile = (solcVersion: string) => {
+  return `// SPDX-License-Identifier: MIT
+pragma solidity ^${solcVersion};
+
+import "@chugsplash/plugins/ChugSplash.sol";
+
+contract ChugSplashGenerateArtifacts is ChugSplash {
+  function setUp() public {
+    generateArtifacts('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
+  }
+}
+`
+}
+
+export const getSampleFoundryTestFile = (solcVersion: string) => {
+  return `// SPDX-License-Identifier: MIT
+pragma solidity ^${solcVersion};
+
+import "@chugsplash/plugins/ChugSplash.sol";
+import { HelloChugSplash } from "../src/HelloChugSplash.sol";
+import "forge-std/Test.sol";
+
+contract HelloChugSplashTest is ChugSplash {
+  HelloChugSplash helloChugSplash;
+  function setUp() public {
+    silence();
+    deploy('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
+    helloChugSplash = HelloChugSplash(getAddress('./chugsplash/hello-chugsplash.js', "MyFirstContract"));
+  }
+
+  function testSetNumber() public {
+    assertEq(helloChugSplash.number(), 1);
+  }
+
+  function testBool() public {
+    assertEq(helloChugSplash.stored(), true);
+  }
+
+  function testAddress() public {
+    assertEq(helloChugSplash.storageName(), 'First');
+  }
+
+  function testString() public {
+    assertEq(helloChugSplash.otherStorage(), address(0x1111111111111111111111111111111111111111));
+  }
+}
+`
+}

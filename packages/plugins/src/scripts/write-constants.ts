@@ -8,6 +8,11 @@
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,
+  OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  DEFAULT_PROXY_TYPE_HASH,
+  OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+  OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import {
   bootloaderTwoConstructorFragment,
@@ -72,6 +77,26 @@ const writeConstants = async () => {
     patch: {
       type: 'uint256',
       value: patch,
+    },
+    DEFAULT_PROXY_TYPE_HASH: {
+      type: 'bytes32',
+      value: DEFAULT_PROXY_TYPE_HASH,
+    },
+    OZ_TRANSPARENT_PROXY_TYPE_HASH: {
+      type: 'bytes32',
+      value: OZ_TRANSPARENT_PROXY_TYPE_HASH,
+    },
+    OZ_UUPS_OWNABLE_PROXY_TYPE_HASH: {
+      type: 'bytes32',
+      value: OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
+    },
+    OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH: {
+      type: 'bytes32',
+      value: OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
+    },
+    EXTERNAL_DEFAULT_PROXY_TYPE_HASH: {
+      type: 'bytes32',
+      value: EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
     },
     bootloaderOneBytecode: {
       type: 'bytes',
