@@ -13,7 +13,7 @@
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "apt install lsof && yarn test",
-    "test": "yarn test:start-node && yarn test:start-executor && yarn test:run && yarn test:kill",
+    "test": "export DISABLE_ANALYTICS=true && yarn test:start-node && yarn test:start-executor && yarn test:run && yarn test:kill",
     "test:start-node": "npx hardhat node --disable-chugsplash > /dev/null 2>&1 & sleep 5",
     "test:start-executor": "yarn start > /dev/null 2>&1 & sleep 5",
     "test:run": "npx hardhat test --skip-deploy --network localhost",
