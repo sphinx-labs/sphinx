@@ -130,8 +130,6 @@ const getDeployContractCosts = (
 
     const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-    // TODO: see if parsing errors still work when thrown in this function
-
     const parsedConfig = getUnvalidatedParsedConfig(
       userConfig,
       configArtifacts,
