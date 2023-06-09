@@ -83,7 +83,6 @@ export const chugsplashDeployTask = async (
   spinner.start('Booting up ChugSplash...')
 
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     confirm,
     hre.config.paths.canonicalConfigs,
@@ -149,7 +148,6 @@ export const chugsplashClaimTask = async (
 ) => {
   const { configPath, silent, owner, allowManagedProposals } = args
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -202,7 +200,6 @@ export const chugsplashProposeTask = async (
 ) => {
   const { configPath, ipfsUrl, silent, noCompile, confirm } = args
   const cre = await createChugSplashRuntime(
-    configPath,
     true,
     confirm,
     hre.config.paths.canonicalConfigs,
@@ -606,7 +603,6 @@ export const chugsplashCancelTask = async (
   const signer = provider.getSigner()
 
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -633,7 +629,6 @@ export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
   const signer = provider.getSigner()
 
   const cre = await createChugSplashRuntime(
-    '',
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -658,7 +653,6 @@ export const exportProxyTask = async (
 ) => {
   const { configPath, referenceName, silent } = args
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -716,7 +710,6 @@ export const importProxyTask = async (
   const signer = provider.getSigner()
 
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,

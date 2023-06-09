@@ -1,6 +1,6 @@
 import {
+  getUnvalidatedParsedConfig,
   postParsingValidation,
-  readUnvalidatedParsedConfig,
 } from '@chugsplash/core/dist/config/parse'
 import { FailureAction } from '@chugsplash/core/dist/types'
 import { getBundleInfo } from '@chugsplash/core/dist/tasks'
@@ -17,7 +17,8 @@ import { makeGetConfigArtifacts } from './utils'
 
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
-const configPath = args[1]
+const userConfigStr = args[1]
+const userConfig = JSON.parse(userConfigStr)
 
 type DeployContractCost = {
   referenceName: string
@@ -114,7 +115,6 @@ const getDeployContractCosts = (
     const configCache = decodeCachedConfig(encodedConfigCache, artifactFolder)
 
     const cre = await createChugSplashRuntime(
-      configPath,
       false,
       true,
       canonicalConfigFolder,
@@ -128,10 +128,12 @@ const getDeployContractCosts = (
       buildInfoFolder
     )
 
-    const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
-      configPath,
+    const configArtifacts = await getConfigArtifacts(userConfig.contracts)
+
+    const parsedConfig = getUnvalidatedParsedConfig(
+      userConfig,
+      configArtifacts,
       cre,
-      getConfigArtifacts,
       FailureAction.THROW
     )
 

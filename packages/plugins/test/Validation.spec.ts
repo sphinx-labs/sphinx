@@ -27,7 +27,6 @@ describe('Validate', () => {
     }
 
     const cre = await createChugSplashRuntime(
-      variableValidateConfigPath,
       false,
       true,
       hre.config.paths.canonicalConfigs,

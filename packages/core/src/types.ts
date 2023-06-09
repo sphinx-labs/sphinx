@@ -7,7 +7,6 @@ import { Contract, Event, providers } from 'ethers'
 import { ParsedContractConfig } from './config/types'
 
 export type ChugSplashRuntimeEnvironment = {
-  configPath: string
   canonicalConfigPath: string
   remoteExecution: boolean
   autoConfirm: boolean

@@ -4,7 +4,6 @@ import { ChugSplashRuntimeEnvironment } from '@chugsplash/core/dist/types'
 import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 
 export const createChugSplashRuntime = async (
-  configPath: string,
   remoteExecution: boolean,
   autoConfirm: boolean,
   canonicalConfigPath: string,
@@ -13,7 +12,6 @@ export const createChugSplashRuntime = async (
   stream: NodeJS.WritableStream = process.stderr
 ): Promise<ChugSplashRuntimeEnvironment> => {
   return {
-    configPath,
     canonicalConfigPath,
     remoteExecution,
     autoConfirm,

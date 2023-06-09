@@ -101,7 +101,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function cancel(string memory _configPath, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = getChugSplashManager(
@@ -115,7 +115,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(string memory _configPath, string memory _referenceName, address _newOwner, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
@@ -156,7 +156,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(string memory _configPath, address _proxy, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
@@ -236,7 +236,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
         ensureChugSplashInitialized(_rpcUrl);
-        MinimalConfig memory minimalConfig = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = getChugSplashManager(
@@ -248,7 +248,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
         // support complex types like the 'variables' field.
-        (string memory configUri,DeployContractCost[] memory deployContractCosts, ChugSplashBundles memory bundles) = ffiGetBundleInfo(configCache, _configPath);
+        (string memory configUri,DeployContractCost[] memory deployContractCosts, ChugSplashBundles memory bundles) = ffiGetBundleInfo(configCache, userConfigStr);
 
         address deployer = utils.msgSender();
         finalizeRegistration(
@@ -666,26 +666,30 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
     }
 
+    // This function also returns the user config string as a performance optimization. Reading
+    // TypeScript user configs with ts-node is slow, so we read it once here and pass it in
+    // to future FFI call(s).
     function ffiGetMinimalConfig(
         string memory _configPath
-    ) private returns (MinimalConfig memory) {
+    ) private returns (MinimalConfig memory, string memory) {
         string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
 
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
-        cmds[1] = "node";
+        // We use ts-node here to support TypeScript config files.
+        cmds[1] = "ts-node";
         cmds[2] = ffiScriptPath;
         cmds[3] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
-        (MinimalConfig memory config) = abi.decode(
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
             result,
-            (MinimalConfig)
+            (MinimalConfig, string)
         );
-        return config;
+        return (minimalConfig, userConfigStr);
     }
 
-    function ffiGetBundleInfo(ConfigCache memory _configCache, string memory _configPath)
+    function ffiGetBundleInfo(ConfigCache memory _configCache, string memory _userConfigStr)
         private
         returns (string memory, DeployContractCost[] memory, ChugSplashBundles memory)
     {
@@ -694,7 +698,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[1] = "node";
         cmds[2] = string.concat(rootFfiPath, "get-bundle-info.js");
         cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _configPath;
+        cmds[4] = _userConfigStr;
 
         bytes memory result = vm.ffi(cmds);
 

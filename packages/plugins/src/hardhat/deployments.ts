@@ -61,7 +61,6 @@ export const deployAllChugSplashConfigs = async (
 
   for (const configPath of fileNames) {
     const cre = await createChugSplashRuntime(
-      configPath,
       false,
       true,
       canonicalConfigPath,

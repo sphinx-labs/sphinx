@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process'
+import { exec } from 'child_process'
 import { join, resolve } from 'path'
 import { promisify } from 'util'
 

@@ -45,7 +45,6 @@ const command = args[0]
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
       const remoteExecution = !(await isLocalNetwork(provider))
       const cre = await createChugSplashRuntime(
-        configPath,
         remoteExecution,
         true,
         canonicalConfigFolder,

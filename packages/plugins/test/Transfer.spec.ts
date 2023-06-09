@@ -74,7 +74,6 @@ describe('Transfer', () => {
     )
 
     const cre = await createChugSplashRuntime(
-      transparentUpgradeConfigPath,
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -181,7 +180,6 @@ describe('Transfer', () => {
     )
 
     const cre = await createChugSplashRuntime(
-      uupsOwnableUpgradeConfigPath,
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -303,7 +301,6 @@ describe('Transfer', () => {
     )
 
     const cre = await createChugSplashRuntime(
-      uupsAccessControlUpgradeConfigPath,
       false,
       true,
       hre.config.paths.canonicalConfigs,
