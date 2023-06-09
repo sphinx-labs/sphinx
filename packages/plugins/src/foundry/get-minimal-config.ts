@@ -12,10 +12,12 @@ const configPath = args[0]
 // This function is in its own file to minimize the number of dependencies that are imported, as
 // this speeds up the execution time of the script when called via FFI from Foundry.
 ;(async () => {
-  const userConfig = await readUserChugSplashConfig(configPath)
-  const minimalConfig = getMinimalConfig(userConfig)
+  const [userConfig, { artifactFolder }] = await Promise.all([
+    readUserChugSplashConfig(configPath),
+    getPaths(),
+  ])
 
-  const { artifactFolder } = await getPaths()
+  const minimalConfig = getMinimalConfig(userConfig)
 
   const ChugSplashUtilsABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -24,10 +26,10 @@ const configPath = args[0]
     (fragment) => fragment.name === 'minimalConfig'
   ).outputs[0]
 
-  const encodedConfig = defaultAbiCoder.encode(
-    [minimalConfigType],
-    [minimalConfig]
+  const encodedConfigs = defaultAbiCoder.encode(
+    [minimalConfigType, 'string'],
+    [minimalConfig, JSON.stringify(userConfig)]
   )
 
-  process.stdout.write(encodedConfig)
+  process.stdout.write(encodedConfigs)
 })()

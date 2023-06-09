@@ -1,4 +1,4 @@
-import { argv } from 'node:process'
+import { argv } from 'process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
@@ -27,7 +27,6 @@ const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
 
   const cre = await createChugSplashRuntime(
-    configPath,
     false,
     true,
     hre.config.paths.canonicalConfigs,

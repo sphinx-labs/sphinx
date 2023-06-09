@@ -28,7 +28,6 @@ describe('Meta txs', () => {
     const signerAddress = await signer.getAddress()
 
     const cre = await createChugSplashRuntime(
-      configPath,
       true,
       true,
       hre.config.paths.canonicalConfigs,
