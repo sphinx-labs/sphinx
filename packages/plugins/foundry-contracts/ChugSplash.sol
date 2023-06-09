@@ -673,6 +673,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         string[] memory cmds = new string[](4);
         cmds[0] = "npx";
+        // We use ts-node here to support TypeScript config files.
         cmds[1] = "ts-node";
         cmds[2] = ffiScriptPath;
         cmds[3] = _configPath;

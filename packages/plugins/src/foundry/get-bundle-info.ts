@@ -1,7 +1,6 @@
 import {
   getUnvalidatedParsedConfig,
   postParsingValidation,
-  readUnvalidatedParsedConfig,
 } from '@chugsplash/core/dist/config/parse'
 import { FailureAction } from '@chugsplash/core/dist/types'
 import { getBundleInfo } from '@chugsplash/core/dist/tasks'
