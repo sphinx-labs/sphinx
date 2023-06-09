@@ -13,7 +13,7 @@ import {
 import { expect } from 'chai'
 import { makeGetConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
 
-import { createChugSplashRuntime } from '../../plugins/src/utils'
+import { createChugSplashRuntime } from '../../plugins/src/cre'
 
 const configPath = './chugsplash/ExecutorTest.config.ts'
 
