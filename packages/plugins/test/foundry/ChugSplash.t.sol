@@ -33,7 +33,7 @@ contract ChugSplashTest is ChugSplash {
     string private filePath =
         vm.envOr(
             "DEV_FILE_PATH",
-            string("./node_modules/@chugsplash/plugins/dist/foundry/index.js")
+            string("./node_modules/@chugsplash/plugins/dist/foundry/")
         );
 
     address claimedProxy;
