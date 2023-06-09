@@ -7,7 +7,7 @@ import { expect } from 'chai'
 import hre from 'hardhat'
 import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
 
-import { createChugSplashRuntime } from '../src/utils'
+import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'

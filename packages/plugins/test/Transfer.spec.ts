@@ -19,7 +19,7 @@ import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 
-import { createChugSplashRuntime } from '../src/utils'
+import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 const uupsOwnableUpgradeConfigPath =
   './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
