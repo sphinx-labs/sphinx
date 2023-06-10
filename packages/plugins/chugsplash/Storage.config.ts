@@ -1,6 +1,6 @@
 /**
  * @tsImport
- * { "mode": "transpile" }
+ * { "mode": "compile" }
  */
 
 import { UserChugSplashConfig } from '@chugsplash/core'
