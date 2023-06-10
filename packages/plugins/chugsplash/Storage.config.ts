@@ -1,3 +1,8 @@
+/**
+ * @tsImport
+ * { "mode": "transpile" }
+ */
+
 import { UserChugSplashConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 

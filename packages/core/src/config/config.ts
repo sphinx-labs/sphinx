@@ -1,5 +1,7 @@
 import { resolve } from 'path'
 
+import * as tsImport from 'ts-import'
+
 import {
   MinimalConfig,
   MinimalContractConfig,
@@ -51,7 +53,10 @@ export const readUserChugSplashConfig = async (
 
   let config
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let exported = require(resolve(configPath))
+  // let exported = require(resolve(configPath))
+  let exported = await tsImport.load(configPath, {
+    allowConfigurationWithComments: true,
+  })
   exported = exported.default || exported
   if (typeof exported === 'function') {
     config = await exported()

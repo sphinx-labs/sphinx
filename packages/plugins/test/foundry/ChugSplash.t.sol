@@ -46,7 +46,7 @@ contract ChugSplashTest is ChugSplash {
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
-    string deployConfig = "./chugsplash/foundry/deploy.t.js";
+    string deployConfig = "./chugsplash/Storage.config.ts";
 
     bytes32 claimOrgID = keccak256('Claim test');
     string claimConfig = "./chugsplash/foundry/claim.t.js";

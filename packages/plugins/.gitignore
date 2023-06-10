@@ -20,3 +20,5 @@ node_modules/@chugsplash
 .openzeppelin/*
 
 broadcast/
+
+.cache
