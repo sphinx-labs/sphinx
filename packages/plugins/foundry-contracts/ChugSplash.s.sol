@@ -9,6 +9,6 @@ import { Stateless } from "../contracts/Stateless.sol";
 
 contract ChugSplashScript is ChugSplash {
     function run() public {
-        deploy("./chugsplash/Storage.config.ts", vm.rpcUrl("anvil"));
+        deploy("./chugsplash/foundry/deploy.t.js", vm.rpcUrl("anvil"));
     }
 }

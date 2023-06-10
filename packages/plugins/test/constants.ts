@@ -1,11 +1,11 @@
-import fs from 'fs'
-import path from 'path'
+import { readdirSync } from 'fs'
+import { resolve } from 'path'
 
 import { BigNumber, ethers } from 'ethers'
 
 export const fetchBuildInfo = () => {
-  const directoryPath = path.join(__dirname, '../artifacts/build-info')
-  const fileNames = fs.readdirSync(directoryPath)
+  const directoryPath = resolve('./artifacts/build-info')
+  const fileNames = readdirSync(directoryPath)
   if (fileNames.length !== 1) {
     throw new Error(
       'Did not find exactly one ChugSplash contracts build info file.'
