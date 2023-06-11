@@ -92,7 +92,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        // ffiDeployOnAnvil();
+        ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -674,10 +674,11 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private returns (MinimalConfig memory, string memory) {
         string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
 
-        string[] memory cmds = new string[](6);
+        string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript config files.
         cmds[1] = "ts-node";
+         // Using SWC speeds up the process of transpiling TypeScript into JavaScript
         cmds[2] = "--swc";
         cmds[3] = ffiScriptPath;
         cmds[4] = _configPath;
