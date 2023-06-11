@@ -1,3 +1,20 @@
+Storage.config.ts:
+3.220: original (after sg/foundry-ts, before ts-import)
+~3.22: pate/ts-import (w/o ts-import cache)
+2.735: pate/ts-import (using ts-import cache)
+2.696: --swc
+
+claim.t.js:
+2.441: original (after sg/foundry-ts, before ts-import)
+2.564: pate/ts-import
+2.526: --swc
+2.391: vanilla node
+
+deploy.t.js:
+2.669: --swc
+2.557: vanilla node
+
+
 20 runs:
 ffiGetCanonicalConfigData (agg):
 2.278: unoptimized
@@ -35,6 +52,8 @@ ideas:
 - compile foundry/index.ts into wasm?
 - instead of passing a ton of data from TS to solidity via ffi, we should see if writing to FS in TS then reading from FS in Solidity is faster
 
+attempted to:
+- transpile ts to a js string via the `ts.transpileModule`, then requireFromString(result.outputText). the issue was that require statements inside the ts config weren't resolved by doing this. e.g. `require(../test/constants)` wasn't resolved
 
 
 
