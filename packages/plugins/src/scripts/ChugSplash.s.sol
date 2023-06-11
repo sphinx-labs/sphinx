@@ -9,7 +9,7 @@ import { Stateless } from "../../contracts/Stateless.sol";
 
 contract ChugSplashScript is ChugSplash {
     function run() public {
-        ensureChugSplashInitialized(vm.rpcUrl("anvil"));
+        // ensureChugSplashInitialized(vm.rpcUrl("anvil"));
         deploy("./chugsplash/Storage.config.ts", vm.rpcUrl("anvil"));
     }
 }

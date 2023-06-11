@@ -92,7 +92,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ffiDeployOnAnvil();
+        // ffiDeployOnAnvil();
     }
 
     function silence() internal {
@@ -674,12 +674,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private returns (MinimalConfig memory, string memory) {
         string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
 
-        string[] memory cmds = new string[](4);
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript config files.
         cmds[1] = "ts-node";
-        cmds[2] = ffiScriptPath;
-        cmds[3] = _configPath;
+        cmds[2] = "--swc";
+        cmds[3] = ffiScriptPath;
+        cmds[4] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
         (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
