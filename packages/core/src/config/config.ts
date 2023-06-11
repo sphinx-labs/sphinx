@@ -47,16 +47,29 @@ export const getMinimalConfig = (
 export const readUserChugSplashConfig = async (
   configPath: string
 ): Promise<UserChugSplashConfig> => {
-  delete require.cache[require.resolve(resolve(configPath))]
+  let rawConfig
+  try {
+    // Remove the config from the cache. Without removing it, it'd be possible for this function to
+    // return a version of the config that has been mutated in-memory.
+    delete require.cache[require.resolve(resolve(configPath))]
 
-  let config
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let exported = require(resolve(configPath))
-  exported = exported.default || exported
-  if (typeof exported === 'function') {
-    config = await exported()
-  } else if (typeof exported === 'object') {
-    config = exported
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const exported = require(resolve(configPath))
+    rawConfig = exported.default || exported
+  } catch (err) {
+    if (err.code === 'MODULE_NOT_FOUND') {
+      // We throw a more helpful error message than the default "Module not found" message.
+      throw new Error(`User entered an incorrect config path: ${configPath}`)
+    } else {
+      throw err
+    }
+  }
+
+  let config: UserChugSplashConfig
+  if (typeof rawConfig === 'function') {
+    config = await rawConfig()
+  } else if (typeof rawConfig === 'object') {
+    config = rawConfig
   } else {
     throw new Error(
       'Config file must export either a config object, or a function which resolves to one.'

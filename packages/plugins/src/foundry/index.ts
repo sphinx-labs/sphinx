@@ -22,7 +22,7 @@ import {
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 
-import { cleanPath, fetchPaths, getPaths } from './paths'
+import { getPaths } from './paths'
 import { makeGetConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../cre'
 
@@ -36,11 +36,9 @@ const command = args[0]
       const rpcUrl = args[2]
       const privateKey = args[3]
       const silent = args[4] === 'true'
-      const outPath = cleanPath(args[5])
-      const buildInfoPath = cleanPath(args[6])
 
       const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-        fetchPaths(outPath, buildInfoPath)
+        await getPaths()
 
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
       const remoteExecution = !(await isLocalNetwork(provider))

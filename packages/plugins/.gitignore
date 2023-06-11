@@ -10,7 +10,6 @@ out/
 
 # ChugSplash artifacts
 .canonical-configs
-logs/
 
 # Typescript
 dist/
