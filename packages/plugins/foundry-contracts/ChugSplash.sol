@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import { StdChains } from "forge-std/StdChains.sol";
-import "solidity-stringutils/strings.sol";
+import { strings } from "./lib/strings.sol";
 import {
     ChugSplashBootloaderOne
 } from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderOne.sol";
@@ -71,6 +71,10 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     Vm.Log[] private executionLogs;
     bool private silent = false;
 
+    // Maps a ChugSplash config path to a deployed contract's reference name to the deployed
+    // contract's address.
+    mapping(string => mapping(string => address)) private deployed;
+
     ChugSplashUtils private immutable utils;
 
     // Get owner address
@@ -101,7 +105,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     function cancel(string memory _configPath, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = getChugSplashManager(
@@ -115,7 +119,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(string memory _configPath, string memory _referenceName, address _newOwner, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
@@ -156,7 +160,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(string memory _configPath, address _proxy, string memory _rpcUrl) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
+        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
@@ -201,8 +205,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory _rpcUrl
     ) internal returns (bytes memory) {
         ensureChugSplashInitialized(_rpcUrl);
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
-
         string[] memory cmds = new string[](11);
         cmds[0] = "npx";
         cmds[1] = "node";
@@ -212,8 +214,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[5] = _rpcUrl;
         cmds[6] = vm.envString("PRIVATE_KEY");
         cmds[7] = vm.toString(silent);
-        cmds[8] = outPath;
-        cmds[9] = buildInfoPath;
 
         bytes memory result = vm.ffi(cmds);
 
@@ -231,8 +231,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         newOwner.exists = false;
         deploy(_configPath, _rpcUrl, newOwner);
     }
-
-    // TODO(test): remove all of the old ffi functions
 
     function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
         ensureChugSplashInitialized(_rpcUrl);
@@ -316,6 +314,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             transferProjectOwnership(manager, _newOwner.value);
         }
 
+        updateDeploymentMapping(_configPath, minimalConfig.contracts);
+
         if (!silent) {
             emit log("Success!");
             for (uint i = 0; i < minimalConfig.contracts.length; i++) {
@@ -366,7 +366,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return _registry.managerProxies(_manager);
     }
 
-    // TODO(propose): separate the local proposal logic from the remote proposal logic in both TS and foundry.
     function proposeChugSplashDeployment(
         ChugSplashManager _manager,
         ChugSplashBundles memory _bundles,
@@ -618,6 +617,13 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
     }
 
+    function updateDeploymentMapping(string memory _configPath, MinimalContractConfig[] memory _contractConfigs) private {
+        for (uint i = 0; i < _contractConfigs.length; i++) {
+            MinimalContractConfig memory contractConfig = _contractConfigs[i];
+            deployed[_configPath][contractConfig.referenceName] = contractConfig.addr;
+        }
+    }
+
     /**
      * @notice This function retrieves the most recent event emitted by the given emitter that
      *         matches the topics. It relies on the logs collected in this contract via
@@ -795,30 +801,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         emit log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
-    function fetchPaths()
-        private
-        view
-        returns (string memory outPath, string memory buildInfoPath)
-    {
-        outPath = "./out";
-        buildInfoPath = "./out/build-info";
-        string memory tomlPath = "foundry.toml";
-
-        strings.slice memory fileSlice = vm.readFile(tomlPath).toSlice();
-        strings.slice memory delim = "\n".toSlice();
-        uint parts = fileSlice.count(delim);
-
-        for (uint i = 0; i < parts + 1; i++) {
-            strings.slice memory line = fileSlice.split(delim);
-            if (line.startsWith("out".toSlice())) {
-                outPath = line.rsplit("=".toSlice()).toString();
-            }
-            if (line.startsWith("build_info_path".toSlice())) {
-                buildInfoPath = line.rsplit("=".toSlice()).toString();
-            }
-        }
-    }
-
     /**
      * @notice Returns true if the current network is either the in-process or standalone Anvil
      * node. Returns false if the current network is a forked or live network.
@@ -930,32 +912,15 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function getAddress(
         string memory _configPath,
         string memory _referenceName
-    ) internal returns (address) {
-        (string memory outPath, string memory buildInfoPath) = fetchPaths();
+    ) internal view returns (address) {
+        address addr = deployed[_configPath][_referenceName];
 
-        string[] memory cmds = new string[](8);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = mainFfiScriptPath;
-        cmds[3] = "getAddress";
-        cmds[4] = _configPath;
-        cmds[5] = _referenceName;
-        cmds[6] = outPath;
-        cmds[7] = buildInfoPath;
-
-        bytes memory addrBytes = vm.ffi(cmds);
-        address addr;
-        assembly {
-            addr := mload(add(addrBytes, 20))
-        }
-
-        string memory errorMsg = string.concat(
+        require(addr.code.length > 0, string.concat(
             "Could not find contract: ",
             _referenceName,
             ". ",
-            "Did you misspell the contract's reference name or forget to deploy it?"
-        );
-        require(addr.code.length > 0, errorMsg);
+            "Did you misspell the contract's name or forget to deploy it?"
+        ));
 
         return addr;
     }
@@ -1008,8 +973,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         uint maxGasLimit,
         DeployContractCost[] memory deployContractCosts
     ) private pure returns (bool) {
-        (RawChugSplashAction[] memory actions, uint256[] memory _actionIndexes, bytes32[][] memory _proofs) = disassembleActions(selected);
-
         uint256 estGasUsed = 0;
 
         for (uint i = 0; i < selected.length; i++) {

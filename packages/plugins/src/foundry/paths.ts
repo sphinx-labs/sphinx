@@ -8,7 +8,7 @@ export const cleanPath = (dirtyPath: string) => {
   return cleanQuotes.trim()
 }
 
-export const fetchPaths = (outPath: string, buildInfoPath: string) => {
+export const resolvePaths = (outPath: string, buildInfoPath: string) => {
   const artifactFolder = resolve(outPath)
   const buildInfoFolder = resolve(buildInfoPath)
   const deploymentFolder = resolve('deployments')
@@ -35,5 +35,5 @@ export const getPaths = async (): Promise<{
 
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
-  return fetchPaths(forgeConfig.out, buildInfoPath)
+  return resolvePaths(forgeConfig.out, buildInfoPath)
 }

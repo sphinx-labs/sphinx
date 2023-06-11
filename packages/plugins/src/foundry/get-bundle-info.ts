@@ -151,22 +151,6 @@ const getDeployContractCosts = (
       configCache
     )
 
-    // writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
-
-    // const ipfsHash = configUri.replace('ipfs://', '')
-    // const cachePath = path.resolve('./cache')
-    // // Create the canonical config network folder if it doesn't already exist.
-    // if (!fs.existsSync(cachePath)) {
-    //   fs.mkdirSync(cachePath)
-    // }
-
-    // // Write the canonical config to the local file system. It will exist in a JSON file that has the
-    // // config URI as its name.
-    // fs.writeFileSync(
-    //   path.join(cachePath, `${ipfsHash}.json`),
-    //   JSON.stringify(configArtifacts, null, 2)
-    // )
-
     const actionBundleType = ChugSplashUtilsABI.find(
       (fragment) => fragment.name === 'actionBundle'
     ).outputs[0]

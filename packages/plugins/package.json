@@ -15,8 +15,8 @@
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "npx hardhat clean && npx hardhat compile && yarn generate && mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
-    "generate": "npx ts-node --require hardhat/register src/scripts/write-constants.ts > foundry-contracts/ChugSplashConstants.sol",
+    "build:contracts": "npx hardhat clean && npx hardhat compile && yarn generate && mkdir -p ./dist/contracts && cp -R ./foundry-contracts/* ./dist/contracts/",
+    "generate": "npx ts-node src/scripts/write-constants.ts > foundry-contracts/ChugSplashConstants.sol",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "forge build --force && forge test",
@@ -72,8 +72,7 @@
     "chai": "^4.3.7",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400",
-    "hardhat": "^2.10.0",
-    "solidity-stringutils": "https://github.com/Arachnid/solidity-stringutils.git#46983c6d9462a80229cf0d5bab8ea3b3ee31066c"
+    "hardhat": "^2.10.0"
   },
   "peerDependencies": {
     "hardhat": "^2"
