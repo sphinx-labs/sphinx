@@ -4,7 +4,6 @@ import {
   chugsplashProposeAbstractTask,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
-  getChugSplashManagerAddress,
   ProposalRoute,
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
@@ -14,9 +13,7 @@ import {
   getChugSplashManagerReadOnly,
   DeploymentState,
   ConfigArtifacts,
-  getTargetAddress,
   initializeChugSplash,
-  getEIP1967ProxyAdminAddress,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
 } from '@chugsplash/core'
@@ -75,35 +72,6 @@ const command = args[0]
         cre,
         configCache
       )
-      break
-    }
-    case 'getAddress': {
-      const configPath = args[1]
-      const referenceName = args[2]
-
-      const userConfig = await readUserChugSplashConfig(configPath)
-
-      const { projectName, organizationID } = userConfig.options
-      const { salt } = userConfig.contracts[referenceName]
-      const managerAddress = getChugSplashManagerAddress(organizationID)
-
-      const contractAddress =
-        userConfig.contracts[referenceName].address ??
-        getTargetAddress(managerAddress, projectName, referenceName, salt)
-      process.stdout.write(contractAddress)
-      break
-    }
-    case 'getEIP1967ProxyAdminAddress': {
-      const rpcUrl = args[1]
-      const proxyAddress = args[2]
-
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-      const adminAddress = await getEIP1967ProxyAdminAddress(
-        provider,
-        proxyAddress
-      )
-
-      process.stdout.write(adminAddress)
       break
     }
     case 'getPreviousConfigUri': {

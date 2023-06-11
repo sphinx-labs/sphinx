@@ -232,8 +232,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         deploy(_configPath, _rpcUrl, newOwner);
     }
 
-    // TODO(test): remove all of the old ffi functions
-
     function deploy(string memory _configPath, string memory _rpcUrl, OptionalAddress memory _newOwner) private {
         ensureChugSplashInitialized(_rpcUrl);
         (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(_configPath);
@@ -368,7 +366,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return _registry.managerProxies(_manager);
     }
 
-    // TODO(propose): separate the local proposal logic from the remote proposal logic in both TS and foundry.
     function proposeChugSplashDeployment(
         ChugSplashManager _manager,
         ChugSplashBundles memory _bundles,
@@ -623,14 +620,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function updateDeploymentMapping(string memory _configPath, MinimalContractConfig[] memory _contractConfigs) private {
         for (uint i = 0; i < _contractConfigs.length; i++) {
             MinimalContractConfig memory contractConfig = _contractConfigs[i];
-            string memory referenceName = contractConfig.referenceName;
-            address addr = contractConfig.addr;
-            address prevAddr = deployed[_configPath][referenceName];
-            if (prevAddr != address(0) && prevAddr != contractConfig.addr) {
-                revert("TODO. Did you attempt to deploy the same ChugSplash config twice?");
-            } else {
-                deployed[_configPath][referenceName] = addr;
-            }
+            deployed[_configPath][contractConfig.referenceName] = contractConfig.addr;
         }
     }
 
