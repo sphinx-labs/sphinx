@@ -680,12 +680,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     ) private returns (MinimalConfig memory, string memory) {
         string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
 
-        string[] memory cmds = new string[](4);
+        string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript config files.
         cmds[1] = "ts-node";
-        cmds[2] = ffiScriptPath;
-        cmds[3] = _configPath;
+         // Using SWC speeds up the process of transpiling TypeScript into JavaScript
+        cmds[2] = "--swc";
+        cmds[3] = ffiScriptPath;
+        cmds[4] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
         (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
