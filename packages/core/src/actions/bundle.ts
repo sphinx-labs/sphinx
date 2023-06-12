@@ -336,7 +336,7 @@ export const makeActionBundleFromConfig = (
     )
 
     if (!isTargetDeployed) {
-      if (kind === 'no-proxy') {
+      if (kind === 'immutable') {
         // Add a DEPLOY_CONTRACT action for the unproxied contract.
         actions.push({
           referenceName,
@@ -349,7 +349,7 @@ export const makeActionBundleFromConfig = (
             abi
           ),
         })
-      } else if (kind === 'internal-default') {
+      } else if (kind === 'proxy') {
         // Add a DEPLOY_CONTRACT action for the default proxy.
         actions.push({
           referenceName,
@@ -365,7 +365,7 @@ export const makeActionBundleFromConfig = (
       }
     }
 
-    if (kind !== 'no-proxy') {
+    if (kind !== 'immutable') {
       // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
       // for the implementation to be deployed already. We don't check for that here because this
       // would slow down the Foundry plugin's FFI call to retrieve the MinimalConfig, since we would
@@ -387,7 +387,7 @@ export const makeActionBundleFromConfig = (
       actions.push({
         referenceName,
         addr: implAddress,
-        contractKindHash: contractKindHashes['no-proxy'],
+        contractKindHash: contractKindHashes['immutable'],
         salt: implSalt,
         code: implInitCode,
       })
@@ -448,7 +448,7 @@ export const makeTargetBundleFromConfig = (
     const { abi, bytecode } = configArtifacts[referenceName].artifact
 
     // Only add targets for proxies.
-    if (contractConfig.kind !== 'no-proxy') {
+    if (contractConfig.kind !== 'immutable') {
       targets.push({
         projectName,
         referenceName,

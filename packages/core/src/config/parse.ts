@@ -279,11 +279,12 @@ export const assertValidUserConfigFields = (
     } else if (
       contractConfig.address === undefined &&
       contractConfig.kind !== undefined &&
-      contractConfig.kind !== 'no-proxy'
+      contractConfig.kind !== 'immutable' &&
+      contractConfig.kind !== 'proxy'
     ) {
       logValidationError(
         'error',
-        `User included a 'kind' field for ${referenceName}, but did not include an 'address' field.\nPlease include both or neither.`,
+        `User included an external proxy 'kind' field for ${referenceName}, but did not include an 'address' field.\nPlease include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -354,7 +355,7 @@ export const assertValidUserConfigFields = (
 
     if (
       contractConfig.unsafeAllow?.flexibleConstructor === true &&
-      contractConfig.kind !== 'no-proxy'
+      contractConfig.kind !== 'immutable'
     ) {
       logValidationError(
         'error',
@@ -365,7 +366,7 @@ export const assertValidUserConfigFields = (
       )
     }
 
-    if (contractConfig.kind !== 'no-proxy' && contractConfig.salt) {
+    if (contractConfig.kind !== 'immutable' && contractConfig.salt) {
       logValidationError(
         'error',
         `Detected a 'salt' field for the proxied contract ${referenceName} in the ChugSplash config file. This field can only be used for non-proxied contracts.`,
@@ -1739,8 +1740,8 @@ export const assertValidParsedChugSplashFile = async (
           cre.stream
         )
       } else if (
-        kind === 'external-default' ||
-        kind === 'internal-default' ||
+        kind === 'external-transparent' ||
+        kind === 'proxy' ||
         kind === 'oz-transparent'
       ) {
         const currProxyAdmin = importCache.currProxyAdmin
@@ -1761,7 +1762,7 @@ export const assertValidParsedChugSplashFile = async (
       }
     }
 
-    if (kind === 'no-proxy') {
+    if (kind === 'immutable') {
       if (variableContainsKeyword(variables, keywords.preserve)) {
         logValidationError(
           'error',
@@ -1954,7 +1955,7 @@ export const assertValidSourceCode = (
 
       if (
         !contractConfig.unsafeAllow.emptyPush &&
-        contractConfig.kind !== 'no-proxy'
+        contractConfig.kind !== 'immutable'
       ) {
         for (const memberAccessNode of findAll('MemberAccess', contractDef)) {
           const typeIdentifier =
@@ -2122,7 +2123,7 @@ const assertValidContractVariables = (
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
-    if (userContractConfig.kind === 'no-proxy') {
+    if (userContractConfig.kind === 'immutable') {
       if (
         userContractConfig.variables &&
         Object.entries(userContractConfig.variables).length > 0
@@ -2165,7 +2166,8 @@ const constructParsedConfig = (
   configArtifacts: ConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
-  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
+  cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedChugSplashConfig => {
   const parsedConfig: ParsedChugSplashConfig = {
     options: userConfig.options,
@@ -2183,7 +2185,17 @@ const constructParsedConfig = (
     const { sourceName, contractName } = configArtifacts[referenceName].artifact
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
 
-    const parsedContractKind = userContractConfig.kind ?? 'internal-default'
+    if (!userContractConfig.kind) {
+      logValidationError(
+        'error',
+        `Missing contract 'kind' field for ${referenceName}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    const parsedContractKind = userContractConfig.kind ?? 'proxy'
 
     const targetSalt = getTargetSalt(
       projectName,
@@ -2273,7 +2285,8 @@ export const getUnvalidatedParsedConfig = (
     configArtifacts,
     contractReferences,
     parsedVariables,
-    cachedConstructorArgs
+    cachedConstructorArgs,
+    cre
   )
 
   assertValidSourceCode(parsedConfig, configArtifacts, cre)
@@ -2322,7 +2335,7 @@ export const postParsingValidation = async (
 
   const containsUpgrade = Object.entries(parsedConfig.contracts).some(
     ([referenceName, contractConfig]) =>
-      contractConfig.kind !== 'no-proxy' &&
+      contractConfig.kind !== 'immutable' &&
       contractConfigCache[referenceName].isTargetDeployed
   )
 
@@ -2348,7 +2361,7 @@ export const assertValidDeploymentSize = (
   const { blockGasLimit } = configCache
 
   const numTargets = Object.values(parsedConfig.contracts).filter(
-    (contract) => contract.kind !== 'no-proxy'
+    (contract) => contract.kind !== 'immutable'
   ).length
   const initiationGasCost = ethers.BigNumber.from(100_000).mul(numTargets)
 
@@ -2463,7 +2476,7 @@ const assertAvailableCreate3Addresses = (
   )) {
     const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
       contractConfigCache[referenceName]
-    if (contractConfig.kind === 'no-proxy' && isTargetDeployed) {
+    if (contractConfig.kind === 'immutable' && isTargetDeployed) {
       const { bytecode, abi } = configArtifacts[referenceName].artifact
 
       const currHash = ethers.utils.keccak256(

@@ -70,10 +70,7 @@ export const writeDeploymentArtifacts = async (
 
     const receipt = await deploymentEvent.getTransactionReceipt()
 
-    if (
-      deploymentEvent.args.contractKindHash ===
-      contractKindHashes['internal-default']
-    ) {
+    if (deploymentEvent.args.contractKindHash === contractKindHashes['proxy']) {
       // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
         chugsplashBuildInfo.output.contracts[

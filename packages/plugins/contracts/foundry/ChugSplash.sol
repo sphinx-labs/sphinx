@@ -147,7 +147,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
             contractKindHash = Constants.OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT) {
-            contractKindHash = Constants.EXTERNAL_DEFAULT_PROXY_TYPE_HASH;
+            contractKindHash = Constants.STANDARD_TRANSPARENT_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.NO_PROXY) {
             revert("Cannot export a proxy for a contract that does not use a proxy.");
         } else {

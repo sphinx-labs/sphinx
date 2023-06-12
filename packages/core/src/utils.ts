@@ -761,8 +761,8 @@ export const toOpenZeppelinContractKind = (
   contractKind: ContractKind
 ): ProxyDeployment['kind'] => {
   if (
-    contractKind === 'internal-default' ||
-    contractKind === 'external-default' ||
+    contractKind === 'proxy' ||
+    contractKind === 'external-transparent' ||
     contractKind === 'oz-transparent'
   ) {
     return 'transparent'

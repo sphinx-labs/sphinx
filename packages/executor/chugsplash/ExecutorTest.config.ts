@@ -9,6 +9,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     ExecutorProxyTest: {
       contract: 'ExecutorProxyTest',
+      kind: 'proxy',
       variables: {
         number: 1,
         stored: true,
@@ -18,7 +19,7 @@ const config: UserChugSplashConfig = {
     },
     ExecutorNonProxyTest: {
       contract: 'ExecutorNonProxyTest',
-      kind: 'no-proxy',
+      kind: 'immutable',
       constructorArgs: {
         _val: 1,
       },

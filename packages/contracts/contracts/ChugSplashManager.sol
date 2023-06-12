@@ -70,7 +70,7 @@ contract ChugSplashManager is
      * @notice The contract kind hash for contracts that do not use a proxy (i.e. immutable
        contracts).
      */
-    bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
+    bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("immutable");
 
     /**
      * @notice Address of the ChugSplashRegistry.

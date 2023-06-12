@@ -16,8 +16,8 @@ export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(
   .sub(1)
   .toHexString()
 
-export const EXTERNAL_DEFAULT_PROXY_TYPE_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('external-default')
+export const STANDARD_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('external-transparent')
 )
 export const OZ_TRANSPARENT_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-transparent')
@@ -28,8 +28,8 @@ export const OZ_UUPS_OWNABLE_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('oz-access-control-uups')
 )
-export const NO_PROXY_TYPE_HASH = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('no-proxy')
+export const IMMUTABLE_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('immutable')
 )
 export const DEFAULT_PROXY_TYPE_HASH = ethers.constants.HashZero
 
