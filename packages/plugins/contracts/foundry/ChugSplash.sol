@@ -73,7 +73,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
     // Maps a ChugSplash config path to a deployed contract's reference name to the deployed
     // contract's address.
-    mapping(string => mapping(string => address)) private deployed;
+    mapping(string => mapping(string => mapping (bytes32 => address))) private deployed;
 
     ChugSplashUtils private immutable utils;
 
@@ -631,7 +631,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     function updateDeploymentMapping(string memory _configPath, MinimalContractConfig[] memory _contractConfigs) private {
         for (uint i = 0; i < _contractConfigs.length; i++) {
             MinimalContractConfig memory contractConfig = _contractConfigs[i];
-            deployed[_configPath][contractConfig.referenceName] = contractConfig.addr;
+            deployed[_configPath][contractConfig.referenceName][contractConfig.userSaltHash] = contractConfig.addr;
         }
     }
 
@@ -931,7 +931,15 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         string memory _configPath,
         string memory _referenceName
     ) internal view returns (address) {
-        address addr = deployed[_configPath][_referenceName];
+        return getAddress(_configPath, _referenceName, bytes32(0));
+    }
+
+    function getAddress(
+        string memory _configPath,
+        string memory _referenceName,
+        bytes32 userSaltHash
+    ) internal view returns (address) {
+        address addr = deployed[_configPath][_referenceName][userSaltHash];
 
         require(addr.code.length > 0, string.concat(
             "Could not find contract: ",

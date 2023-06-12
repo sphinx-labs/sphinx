@@ -24,7 +24,7 @@ const config: UserChugSplashConfig = {
         _immutableUint: 2,
         _immutableContractReference: ethers.constants.AddressZero,
       },
-      salt: '0x' + '11'.repeat(32),
+      salt: 1,
     },
   },
 }
