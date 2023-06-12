@@ -62,7 +62,7 @@ enum ContractKindEnum {
     OZ_OWNABLE_UUPS,
     OZ_ACCESS_CONTROL_UUPS,
     EXTERNAL_DEFAULT,
-    NO_PROXY
+    IMMUTABLE
 }
 
 enum ProposalRoute {
@@ -95,5 +95,3 @@ struct OptionalBytes32 {
     bytes32 value;
     bool exists;
 }
-
-

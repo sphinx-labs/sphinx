@@ -116,7 +116,7 @@ export type DeploymentState = {
   actions: boolean[]
   actionRoot: string
   targetRoot: string
-  numNonProxyContracts: number
+  numImmutableContracts: number
   targets: number
   actionsExecuted: BigNumber
   timeClaimed: BigNumber

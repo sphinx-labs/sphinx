@@ -3,22 +3,29 @@ pragma solidity ^0.8.15;
 
 import { Test } from "forge-std/Test.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { ChugSplashActionBundle, ChugSplashTargetBundle } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 import {
-    ConfigCache,
-    MinimalConfig,
-    DeployContractCost
-} from "./ChugSplashPluginTypes.sol";
+    ChugSplashActionBundle,
+    ChugSplashTargetBundle
+} from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
+import { ConfigCache, MinimalConfig, DeployContractCost } from "./ChugSplashPluginTypes.sol";
 
 contract ChugSplashUtils is Test {
     // These provide an easy way to get structs off-chain via the ABI.
     function actionBundle() external pure returns (ChugSplashActionBundle memory) {}
+
     function targetBundle() external pure returns (ChugSplashTargetBundle memory) {}
+
     function configCache() external pure returns (ConfigCache memory) {}
+
     function minimalConfig() external pure returns (MinimalConfig memory) {}
+
     function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
 
-    function slice(bytes calldata _data, uint256 _start, uint256 _end) external pure returns (bytes memory) {
+    function slice(
+        bytes calldata _data,
+        uint256 _start,
+        uint256 _end
+    ) external pure returns (bytes memory) {
         return _data[_start:_end];
     }
 

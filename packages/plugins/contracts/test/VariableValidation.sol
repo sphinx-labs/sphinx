@@ -2,7 +2,10 @@
 pragma solidity ^0.8.9;
 
 contract VariableValidation {
-    struct SimpleStruct { uint a; uint b; }
+    struct SimpleStruct {
+        uint a;
+        uint b;
+    }
 
     int8 public arrayInt8;
     int8 public int8OutsideRange;
@@ -36,5 +39,5 @@ contract VariableValidation {
     string public notSetString;
 
     // Variables that should not be set in the config (but are)
-    function(uint256) pure internal returns (uint256) functionType;
+    function(uint256) internal pure returns (uint256) functionType;
 }

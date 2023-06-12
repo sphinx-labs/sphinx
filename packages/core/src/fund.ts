@@ -66,9 +66,7 @@ export const estimateExecutionGas = async (
     .map(async (action: DeployContractAction) => {
       if (await isContractDeployed(action.addr, provider)) {
         return ethers.BigNumber.from(0)
-      } else if (
-        action.contractKindHash === contractKindHashes['internal-default']
-      ) {
+      } else if (action.contractKindHash === contractKindHashes['proxy']) {
         // If the contract is a default proxy, then estimate 550k gas. This is a minor optimization
         // that we can make because we know the cost of deploying the proxy ahead of time.
         return ethers.BigNumber.from(550_000)

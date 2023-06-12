@@ -7,10 +7,13 @@ import { Stateless } from "./Stateless.sol";
 contract SimpleStorage {
     Storage public myStorage;
     Stateless public myStateless;
-    Storage immutable public immutableContractReference;
-    Stateless immutable public immutableStatelessReference;
+    Storage public immutable immutableContractReference;
+    Stateless public immutable immutableStatelessReference;
 
-    constructor(Storage _immutableContractReference, Stateless _statelessImmutableContractReference) {
+    constructor(
+        Storage _immutableContractReference,
+        Stateless _statelessImmutableContractReference
+    ) {
         immutableContractReference = _immutableContractReference;
         immutableStatelessReference = _statelessImmutableContractReference;
     }

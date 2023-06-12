@@ -5,8 +5,8 @@ import { Storage } from "./Storage.sol";
 import { Version } from "@chugsplash/contracts/contracts/Semver.sol";
 
 contract Stateless {
-    uint immutable public immutableUint;
-    Storage immutable public immutableContractReference;
+    uint public immutable immutableUint;
+    Storage public immutable immutableContractReference;
 
     constructor(uint _immutableUint, Storage _immutableContractReference) {
         immutableUint = _immutableUint;
@@ -17,7 +17,7 @@ contract Stateless {
         return Version(2, 0, 0);
     }
 
-    function hello() pure external returns (string memory) {
-        return 'Hello, world!';
+    function hello() external pure returns (string memory) {
+        return "Hello, world!";
     }
 }

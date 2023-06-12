@@ -2,13 +2,16 @@
 pragma solidity ^0.8.9;
 
 contract ConstructorArgsValidationPartTwo {
-    struct SimpleStruct { uint a; uint b; }
+    struct SimpleStruct {
+        uint a;
+        uint b;
+    }
 
-    bytes8 immutable public longBytes8;
-    bytes16 immutable public malformedBytes16;
-    bool immutable public intBoolean;
-    bool immutable public stringBoolean;
-    bool immutable public arrayBoolean;
+    bytes8 public immutable longBytes8;
+    bytes16 public immutable malformedBytes16;
+    bool public immutable intBoolean;
+    bool public immutable stringBoolean;
+    bool public immutable arrayBoolean;
     uint[] public invalidBaseTypeArray;
     uint[][] public invalidNestedBaseTypeArray;
     uint[2] public incorrectlySizedArray;

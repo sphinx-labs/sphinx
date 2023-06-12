@@ -88,7 +88,9 @@ export const getDeploymentId = (
   const targetRoot = bundles.targetBundle.root
   const numActions = bundles.actionBundle.actions.length
   const numTargets = bundles.targetBundle.targets.length
-  const numNonProxyContracts = getNumDeployContractActions(bundles.actionBundle)
+  const numImmutableContracts = getNumDeployContractActions(
+    bundles.actionBundle
+  )
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
@@ -98,7 +100,7 @@ export const getDeploymentId = (
         targetRoot,
         numActions,
         numTargets,
-        numNonProxyContracts,
+        numImmutableContracts,
         configUri,
       ]
     )
@@ -761,8 +763,8 @@ export const toOpenZeppelinContractKind = (
   contractKind: ContractKind
 ): ProxyDeployment['kind'] => {
   if (
-    contractKind === 'internal-default' ||
-    contractKind === 'external-default' ||
+    contractKind === 'proxy' ||
+    contractKind === 'external-transparent' ||
     contractKind === 'oz-transparent'
   ) {
     return 'transparent'

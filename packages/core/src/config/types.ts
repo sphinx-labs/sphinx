@@ -1,11 +1,12 @@
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
-  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  NO_PROXY_TYPE_HASH,
+  IMMUTABLE_TYPE_HASH,
+  DEFAULT_PROXY_TYPE_HASH,
+  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber, constants } from 'ethers'
+import { BigNumber } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -14,26 +15,28 @@ export const userContractKinds = [
   'oz-transparent',
   'oz-ownable-uups',
   'oz-access-control-uups',
-  'external-default',
-  'no-proxy',
+  'external-transparent',
+  'immutable',
+  'proxy',
 ]
 export type UserContractKind =
   | 'oz-transparent'
   | 'oz-ownable-uups'
   | 'oz-access-control-uups'
-  | 'external-default'
-  | 'no-proxy'
+  | 'external-transparent'
+  | 'immutable'
+  | 'proxy'
 
 export const contractKindHashes: { [contractKind: string]: string } = {
-  'internal-default': constants.HashZero,
-  'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+  'external-transparent': EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  'no-proxy': NO_PROXY_TYPE_HASH,
+  immutable: IMMUTABLE_TYPE_HASH,
+  proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
-export type ContractKind = UserContractKind | 'internal-default'
+export type ContractKind = UserContractKind | 'proxy'
 
 export enum ContractKindEnum {
   INTERNAL_DEFAULT,
@@ -41,7 +44,7 @@ export enum ContractKindEnum {
   OZ_OWNABLE_UUPS,
   OZ_ACCESS_CONTROL_UUPS,
   EXTERNAL_DEFAULT,
-  NO_PROXY,
+  IMMUTABLE,
 }
 
 /**
@@ -107,7 +110,7 @@ export type UnsafeAllow = {
 export type UserContractConfig = {
   contract: string
   address?: string
-  kind?: UserContractKind
+  kind: UserContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables

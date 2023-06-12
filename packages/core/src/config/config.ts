@@ -33,7 +33,7 @@ export const getMinimalConfig = (
     minimalContractConfigs.push({
       referenceName,
       addr: targetAddress,
-      kind: toContractKindEnum(kind ?? 'internal-default'),
+      kind: toContractKindEnum(kind ?? 'proxy'),
       userSaltHash: getUserSaltHash(salt),
     })
   }
