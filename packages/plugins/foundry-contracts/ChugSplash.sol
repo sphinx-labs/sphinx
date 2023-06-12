@@ -799,24 +799,23 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         vm.ffi(cmds);
     }
 
-    function generateArtifacts(
+    function ffiGenerateArtifacts(
         string memory _configPath,
-        string memory _rpcUrl
-    ) internal {
-        string memory networkName = getChainAlias(_rpcUrl);
-
+        string memory _rpcUrl,
+        string memory _networkName
+    ) private {
         string[] memory cmds = new string[](10);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
-        cmds[3] = "generateArtifacts";
+        cmds[3] = "ffiGenerateArtifacts";
         cmds[4] = _configPath;
-        cmds[5] = networkName;
+        cmds[5] = _networkName;
         cmds[6] = _rpcUrl;
 
         vm.ffi(cmds);
 
-        emit log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
+        emit log(string.concat("Wrote deployment artifacts to ./deployments/", _networkName));
     }
 
     /**

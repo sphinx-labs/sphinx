@@ -641,9 +641,7 @@ export const postDeploymentActions = async (
   spinner?.start(`Writing deployment artifacts...`)
   const { projectName, organizationID } = canonicalConfig.options
 
-  if (integration === 'hardhat') {
-    writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
-  }
+  writeCanonicalConfig(canonicalConfigPath, configUri, canonicalConfig)
 
   await trackDeployed(
     owner,
