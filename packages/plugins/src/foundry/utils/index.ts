@@ -9,12 +9,14 @@ import {
 import {
   parseFoundryArtifact,
   validateBuildInfo,
+  execAsync,
 } from '@chugsplash/core/dist/utils'
 import {
   ConfigArtifacts,
   GetConfigArtifacts,
   UserContractConfigs,
 } from '@chugsplash/core/dist/config/types'
+import { parse } from 'semver'
 
 const readFileAsync = promisify(fs.readFile)
 const existsAsync = promisify(fs.exists)
@@ -117,5 +119,22 @@ export const makeGetConfigArtifacts = (
       }
     }
     return configArtifacts
+  }
+}
+
+/**
+ * Attempts to infer the default solc version given by `solc --version`. If this fails, it will
+ * return the default solc version used by Foundry's "Getting Started" guide, which is 0.8.20.
+ */
+export const inferSolcVersion = async (): Promise<string> => {
+  // This is the default solc version used by Foundry's "Getting Started" guide.
+  const defaultSolcVersion = '0.8.20'
+  try {
+    const solcVersionOutput = await execAsync('solc --version')
+    const solcVersionRaw = solcVersionOutput.stdout.split('Version: ')[1]
+    const parsed = parse(solcVersionRaw)
+    return parsed ? parsed.toString() : defaultSolcVersion
+  } catch (err) {
+    return defaultSolcVersion
   }
 }

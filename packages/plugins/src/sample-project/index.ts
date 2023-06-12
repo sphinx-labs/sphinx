@@ -21,14 +21,14 @@ import {
   sampleTestFileTypeScript,
 } from './sample-tests'
 
-export const writeSampleProjectFiles = async (
+export const writeSampleProjectFiles = (
   chugsplashPath: string,
   sourcePath: string,
   testPath: string,
-  scriptPath: string,
   isTypeScriptProject: boolean,
   solcVersion: string,
-  integration: Integration
+  integration: Integration,
+  scriptPath?: string
 ) => {
   // Create the ChugSplash folder if it doesn't exist
   if (!fs.existsSync(chugsplashPath)) {
@@ -42,11 +42,6 @@ export const writeSampleProjectFiles = async (
 
   // Create a folder for test files if it doesn't exist
   if (!fs.existsSync(testPath)) {
-    fs.mkdirSync(testPath)
-  }
-
-  // Create a folder for script files if it doesn't exist
-  if (!fs.existsSync(scriptPath)) {
     fs.mkdirSync(testPath)
   }
 
@@ -91,7 +86,18 @@ export const writeSampleProjectFiles = async (
           : sampleTestFileJavaScript
       )
     }
-  } else {
+  } else if (integration === 'foundry') {
+    if (!scriptPath) {
+      throw new Error(
+        'Script path is required for foundry integration. Should never happen.'
+      )
+    }
+
+    // Create a folder for Forge script files if it doesn't exist
+    if (!fs.existsSync(scriptPath)) {
+      fs.mkdirSync(scriptPath)
+    }
+
     // Check if the sample test file exists.
     const testFileName = 'HelloChugSplash.t.sol'
     const testFilePath = path.join(testPath, testFileName)

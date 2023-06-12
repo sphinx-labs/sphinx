@@ -6,100 +6,22 @@ import { FailureAction } from '@chugsplash/core/dist/types'
 import { getBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
-import { ConfigArtifacts } from '@chugsplash/core/dist/config/types'
-import { getEstDeployContractCost } from '@chugsplash/core/dist/utils'
-import { BigNumber } from 'ethers/lib/ethers'
 
 import { createChugSplashRuntime } from '../cre'
 import { getPaths } from './paths'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
+import {
+  getDeployContractCosts,
+  getEncodedFailure,
+  getPrettyWarnings,
+  validationStderrWrite,
+} from './logs'
 
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
 const userConfig = JSON.parse(userConfigStr)
-
-type DeployContractCost = {
-  referenceName: string
-  cost: BigNumber
-}
-
-// These variables are used to capture any errors or warnings that occur during the ChugSplash
-// config validation process.
-let validationWarnings: string = ''
-let validationErrors: string = ''
-// This function overrides the default 'stderr.write' function to capture any errors or warnings
-// that occur during the validation process.
-const validationStderrWrite = (message: string) => {
-  if (message.startsWith('\nWarning: ')) {
-    validationWarnings += message.replace('\n', '')
-  } else if (message.startsWith('\nError: ')) {
-    // We remove '\nError: ' because Foundry already displays the word "Error" when an error occurs.
-    validationErrors += message.replace('\nError: ', '')
-  } else {
-    validationErrors += message
-  }
-  return true
-}
-
-const getEncodedFailure = (err: Error): string => {
-  // Trim a trailing '\n' character from the end of 'warnings' if it exists.
-  const prettyWarnings = getPrettyWarnings()
-
-  let prettyError: string
-  if (err.name === 'ValidationError') {
-    // We return the error messages and warnings.
-
-    // Removes unnecessary '\n' characters from the end of 'errors'
-    prettyError = validationErrors.endsWith('\n\n')
-      ? validationErrors.substring(0, validationErrors.length - 2)
-      : validationErrors
-  } else {
-    // A non-parsing error occurred. We return the error message and stack trace.
-    prettyError = `${err.name}: ${err.message}\n\n${err.stack}`
-  }
-
-  const encodedErrorsAndWarnings = defaultAbiCoder.encode(
-    ['string', 'string'],
-    [prettyError, prettyWarnings]
-  )
-
-  const encodedFailure = hexConcat([
-    encodedErrorsAndWarnings,
-    defaultAbiCoder.encode(['bool'], [false]), // false = failure
-  ])
-
-  return encodedFailure
-}
-
-// Removes a '\n' character from the end of 'warnings' if it exists.
-const getPrettyWarnings = (): string => {
-  return validationWarnings.endsWith('\n\n')
-    ? validationWarnings.substring(0, validationWarnings.length - 1)
-    : validationWarnings
-}
-
-const getDeployContractCosts = (
-  configArtifacts: ConfigArtifacts
-): DeployContractCost[] => {
-  const deployContractCosts: DeployContractCost[] = []
-  for (const [referenceName, { artifact, buildInfo }] of Object.entries(
-    configArtifacts
-  )) {
-    const { sourceName, contractName } = artifact
-
-    const deployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-    )
-
-    deployContractCosts.push({
-      referenceName,
-      cost: deployContractCost,
-    })
-  }
-  return deployContractCosts
-}
 
 ;(async () => {
   process.stderr.write = validationStderrWrite

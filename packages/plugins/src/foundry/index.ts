@@ -7,7 +7,6 @@ import {
   ProposalRoute,
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
-  isLocalNetwork,
   postDeploymentActions,
   CanonicalChugSplashConfig,
   getChugSplashManagerReadOnly,
@@ -16,12 +15,19 @@ import {
   initializeChugSplash,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
+  FailureAction,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
+import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getPaths } from './paths'
 import { makeGetConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../cre'
+import {
+  getEncodedFailure,
+  getPrettyWarnings,
+  validationStderrWrite,
+} from './logs'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -29,49 +35,64 @@ const command = args[0]
 ;(async () => {
   switch (command) {
     case 'propose': {
-      const configPath = args[1]
-      const rpcUrl = args[2]
-      const privateKey = args[3]
-      const silent = args[4] === 'true'
+      process.stderr.write = validationStderrWrite
 
-      const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-        await getPaths()
+      try {
+        const configPath = args[1]
+        const rpcUrl = args[2]
+        const privateKey = args[3]
 
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-      const remoteExecution = !(await isLocalNetwork(provider))
-      const cre = await createChugSplashRuntime(
-        remoteExecution,
-        true,
-        canonicalConfigFolder,
-        undefined,
-        silent,
-        process.stdout
-      )
+        const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
+          await getPaths()
 
-      const { parsedConfig, configArtifacts, configCache } =
-        await readValidatedChugSplashConfig(
-          configPath,
-          provider,
-          cre,
-          makeGetConfigArtifacts(artifactFolder, buildInfoFolder)
+        const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
+        const cre = await createChugSplashRuntime(
+          true,
+          true,
+          canonicalConfigFolder,
+          undefined,
+          true,
+          process.stderr
         )
-      const wallet = new ethers.Wallet(privateKey, provider)
 
-      if (!silent) {
-        console.log('-- ChugSplash Propose --')
+        const { parsedConfig, configArtifacts, configCache } =
+          await readValidatedChugSplashConfig(
+            configPath,
+            provider,
+            cre,
+            makeGetConfigArtifacts(artifactFolder, buildInfoFolder),
+            FailureAction.THROW
+          )
+        const wallet = new ethers.Wallet(privateKey, provider)
+
+        await chugsplashProposeAbstractTask(
+          provider,
+          wallet,
+          parsedConfig,
+          configPath,
+          '',
+          'foundry',
+          configArtifacts,
+          ProposalRoute.REMOTE_EXECUTION,
+          cre,
+          configCache
+        )
+
+        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
+          ['string', 'string'],
+          [parsedConfig.options.projectName, getPrettyWarnings()]
+        )
+
+        const encodedSuccess = hexConcat([
+          encodedProjectNameAndWarnings,
+          defaultAbiCoder.encode(['bool'], [true]), // true = success
+        ])
+
+        process.stdout.write(encodedSuccess)
+      } catch (err) {
+        const encodedFailure = getEncodedFailure(err)
+        process.stdout.write(encodedFailure)
       }
-      await chugsplashProposeAbstractTask(
-        provider,
-        wallet,
-        parsedConfig,
-        configPath,
-        '',
-        'foundry',
-        configArtifacts,
-        ProposalRoute.REMOTE_EXECUTION,
-        cre,
-        configCache
-      )
       break
     }
     case 'getPreviousConfigUri': {
