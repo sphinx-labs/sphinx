@@ -41,7 +41,6 @@ const command = args[0]
         const configPath = args[1]
         const rpcUrl = args[2]
         const privateKey = args[3]
-        const silent = args[4] === 'true'
 
         const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
           await getPaths()
@@ -52,7 +51,7 @@ const command = args[0]
           true,
           canonicalConfigFolder,
           undefined,
-          silent,
+          true,
           process.stderr
         )
 

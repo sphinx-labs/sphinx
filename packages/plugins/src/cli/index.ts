@@ -65,6 +65,11 @@ yargs(hideBin(process.argv))
       const spinner = ora()
       spinner.start('Proposing...')
       try {
+        // Although it's not strictly necessary to propose via a Forge script, we do it anyways
+        // because it's a convenient way to ensure that the latest versions of the contracts are
+        // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
+        // TypeScript configs. This can't be done by calling the TypeScript propose function
+        // directly because calling `npx chugsplash` uses Node, not `ts-node`.
         await execAsync(`forge script src/cli/Propose.s.sol`)
       } catch ({ stderr }) {
         spinner.fail('Proposal failed.')

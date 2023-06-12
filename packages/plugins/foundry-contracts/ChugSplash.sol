@@ -304,12 +304,26 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
-            proposeChugSplashDeployment(
-                manager,
-                bundles,
+            if (!manager.isProposer(deployer)) {
+                revert(
+                    string.concat(
+                        "ChugSplash: caller is not a proposer. Caller's address: ",
+                        vm.toString(deployer)
+                    )
+                );
+            }
+
+            (uint256 numNonProxyContracts, ) = getNumActions(bundles.actionBundle.actions);
+            manager.propose{gas: 1000000}(
+                bundles.actionBundle.root,
+                bundles.targetBundle.root,
+                bundles.actionBundle.actions.length,
+                bundles.targetBundle.targets.length,
+                numNonProxyContracts,
                 configUri,
-                ProposalRoute.LOCAL_EXECUTION
+                false
             );
+
             deploymentState.status = DeploymentStatus.PROPOSED;
         }
 
@@ -389,34 +403,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         address _manager
     ) private view returns (bool) {
         return _registry.managerProxies(_manager);
-    }
-
-    function proposeChugSplashDeployment(
-        ChugSplashManager _manager,
-        ChugSplashBundles memory _bundles,
-        string memory _configUri,
-        ProposalRoute _route
-    ) private {
-        address deployer = utils.msgSender();
-        if (!_manager.isProposer(deployer)) {
-            revert(
-                string.concat(
-                    "ChugSplash: caller is not a proposer. Caller's address: ",
-                    vm.toString(deployer)
-                )
-            );
-        }
-
-        (uint256 numNonProxyContracts, ) = getNumActions(_bundles.actionBundle.actions);
-        _manager.propose{gas: 1000000}(
-            _bundles.actionBundle.root,
-            _bundles.targetBundle.root,
-            _bundles.actionBundle.actions.length,
-            _bundles.targetBundle.targets.length,
-            numNonProxyContracts,
-            _configUri,
-            _route == ProposalRoute.REMOTE_EXECUTION
-        );
     }
 
     function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) private {
