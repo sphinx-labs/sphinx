@@ -2208,6 +2208,23 @@ const constructParsedConfig = (
   return parsedConfig
 }
 
+export const setDefaultContractOptions = (
+  userConfig: UserChugSplashConfig
+): UserChugSplashConfig => {
+  for (const contractConfig of Object.values(userConfig.contracts)) {
+    if (contractConfig.unsafeAllow) {
+      contractConfig.unsafeAllow.flexibleConstructor =
+        contractConfig.unsafeAllow.flexibleConstructor ?? true
+    } else {
+      contractConfig.unsafeAllow = {
+        flexibleConstructor: true,
+      }
+    }
+  }
+
+  return userConfig
+}
+
 /**
  * Parses a ChugSplash config file from the config file given by the user.
  *
@@ -2227,6 +2244,8 @@ export const getUnvalidatedParsedConfig = (
   // Validate top level config and contract options
   assertValidUserConfigFields(userConfig, cre, failureAction)
 
+  const configWithDefaultOptions = setDefaultContractOptions(userConfig)
+
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the parsed constructor args so we don't have to re-read them later
@@ -2235,7 +2254,7 @@ export const getUnvalidatedParsedConfig = (
     cachedConstructorArgs,
     contractReferences,
   } = assertValidConstructorArgs(
-    userConfig,
+    configWithDefaultOptions,
     configArtifacts,
     cre,
     failureAction

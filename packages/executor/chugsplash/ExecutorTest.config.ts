@@ -19,7 +19,6 @@ const config: UserChugSplashConfig = {
     ExecutorNonProxyTest: {
       contract: 'ExecutorNonProxyTest',
       kind: 'no-proxy',
-      unsafeAllow: { flexibleConstructor: true },
       constructorArgs: {
         _val: 1,
       },
