@@ -1,18 +1,12 @@
-import { ChugSplash } from "../../foundry-contracts/ChugSplash.sol";
+import "forge-std/Script.sol";
+import "forge-std/Test.sol";
+import "../../foundry-contracts/ChugSplash.sol";
 
-import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
-import { Storage } from "../../contracts/Storage.sol";
-import { ComplexConstructorArgs } from "../../contracts/ComplexConstructorArgs.sol";
-import { Stateless } from "../../contracts/Stateless.sol";
-
-contract ChugSplashScript is ChugSplash {
-    string private rpcUrl = vm.envString("CHUGSPLASH_INTERNAL_RPC_URL");
+contract ChugSplashScript is Script, Test, ChugSplash {
+    string private networkAlias = vm.envString("CHUGSPLASH_INTERNAL_NETWORK");
     string private configPath = vm.envString("CHUGSPLASH_INTERNAL_CONFIG_PATH");
-    bool private silent = vm.envBool("CHUGSPLASH_INTERNAL_SILENT");
 
     function run() public {
-        if (silent) silence();
-
-        propose(configPath, rpcUrl);
+        propose(configPath, vm.rpcUrl(networkAlias));
     }
 }
