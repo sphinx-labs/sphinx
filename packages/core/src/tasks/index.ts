@@ -144,7 +144,7 @@ export const chugsplashProposeAbstractTask = async (
     parsedConfig.options.organizationID
   )
   if (!(await isProjectClaimed(registry, manager.address))) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   if (integration === 'hardhat') {
@@ -168,7 +168,7 @@ export const chugsplashProposeAbstractTask = async (
     deploymentState.status === DeploymentStatus.APPROVED ||
     deploymentState.status === DeploymentStatus.PROXIES_INITIATED
   ) {
-    spinner.fail(
+    throw new Error(
       `Project was already proposed and is currently being executed on ${networkName}.`
     )
   } else {
@@ -186,7 +186,7 @@ export const chugsplashProposeAbstractTask = async (
     )
 
     if (deploymentState.status === DeploymentStatus.PROPOSED) {
-      spinner.fail(
+      throw new Error(
         await alreadyProposedMessage(
           provider,
           amountToDeposit,
@@ -371,7 +371,7 @@ export const chugsplashApproveAbstractTask = async (
   const manager = getChugSplashManager(signer, organizationID)
 
   if (!(await isProjectClaimed(registry, manager.address))) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   const { configUri, bundles } = await getBundleInfo(
@@ -454,7 +454,7 @@ export const chugsplashFundAbstractTask = async (
   const signerBalance = await signer.getBalance()
 
   if (!(await isProjectClaimed(registry, manager.address))) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   const amountToDeposit = await getAmountToDeposit(
@@ -717,7 +717,7 @@ export const chugsplashCancelAbstractTask = async (
   const manager = getChugSplashManager(signer, organizationID)
 
   if (!(await isProjectClaimed(registry, manager.address))) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   const projectOwnerAddress = await manager.owner()
@@ -858,7 +858,7 @@ export const chugsplashExportProxyAbstractTask = async (
 
   // Throw an error if the project has not been claimed
   if ((await isProjectClaimed(registry, manager.address)) === false) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   const projectOwner = await manager.owner()
@@ -920,7 +920,7 @@ export const chugsplashImportProxyAbstractTask = async (
 
   // Throw an error if the project has not been claimed
   if ((await isProjectClaimed(registry, manager.address)) === false) {
-    await errorProjectNotClaimed(provider, configPath, integration)
+    errorProjectNotClaimed(organizationID)
   }
 
   spinner.succeed('Project registration detected')

@@ -201,28 +201,53 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     }
 
     function propose(
-        string memory configPath,
+        string memory _configPath,
         string memory _rpcUrl
-    ) internal returns (bytes memory) {
+    ) internal {
         ensureChugSplashInitialized(_rpcUrl);
-        string[] memory cmds = new string[](11);
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = mainFfiScriptPath;
-        cmds[3] = "propose";
-        cmds[4] = configPath;
-        cmds[5] = _rpcUrl;
-        cmds[6] = vm.envString("PRIVATE_KEY");
-        cmds[7] = vm.toString(silent);
+        // We use ts-node here to support TypeScript ChugSplash config files.
+        cmds[1] = "ts-node";
+        // Using SWC speeds up the process of transpiling TypeScript into JavaScript
+        cmds[2] = "--swc";
+        cmds[3] = mainFfiScriptPath;
+        cmds[4] = "propose";
+        cmds[5] = _configPath;
+        cmds[6] = _rpcUrl;
+        cmds[7] = vm.envString("PRIVATE_KEY");
 
         bytes memory result = vm.ffi(cmds);
 
-        if (!silent) {
-            emit log(string(result));
-            emit log(string("\n"));
-        }
+        // The success boolean is the last 32 bytes of the result.
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        (bool success) = abi.decode(successBytes, (bool));
 
-        return result;
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+
+        if (success) {
+            (string memory projectName, string memory warnings) = abi.decode(
+                data,
+                (string, string)
+            );
+
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+
+            if (!silent) {
+                emit log(StdStyle.green(string.concat("Successfully proposed ", projectName, ".")));
+            }
+        } else {
+            (string memory errors, string memory warnings) = abi.decode(
+                data,
+                (string, string)
+            );
+            if (bytes(warnings).length > 0) {
+                emit log(StdStyle.yellow(warnings));
+            }
+            revert(errors);
+        }
     }
 
     // This is the entry point for the ChugSplash deploy command.
@@ -682,7 +707,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
 
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
-        // We use ts-node here to support TypeScript config files.
+        // We use ts-node here to support TypeScript ChugSplash config files.
         cmds[1] = "ts-node";
          // Using SWC speeds up the process of transpiling TypeScript into JavaScript
         cmds[2] = "--swc";
@@ -697,6 +722,14 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         return (minimalConfig, userConfigStr);
     }
 
+    /**
+     * @notice Retrieves the bundle info via FFI. This function uses `abi.decode` to retrieve any
+       errors or warnings that occurred during parsing. We do this instead of letting FFI throw an
+       error message because this makes parsing errors much easier to read. This also allows us to
+       display parsing warnings, which can't be written to stdout because stdout must be exclusively
+       for the bundle info. We also can't write the warnings to stderr because a non-empty stderr
+       causes an error to be thrown by Forge.
+     */
     function ffiGetBundleInfo(ConfigCache memory _configCache, string memory _userConfigStr)
         private
         returns (string memory, DeployContractCost[] memory, ChugSplashBundles memory)
@@ -709,7 +742,6 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         cmds[4] = _userConfigStr;
 
         bytes memory result = vm.ffi(cmds);
-
 
         // The success boolean is the last 32 bytes of the result.
         bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
@@ -918,8 +950,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         require(addr.code.length > 0, string.concat(
             "Could not find contract: ",
             _referenceName,
-            ". ",
-            "Did you misspell the contract's name or forget to deploy it?"
+            " in ", _configPath, ". ",
+            "Did you misspell the contract's reference name or forget to deploy the config?"
         ));
 
         return addr;

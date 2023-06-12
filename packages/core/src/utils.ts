@@ -1,5 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import { promisify } from 'util'
+import { exec } from 'child_process'
 
 import ora from 'ora'
 import * as semver from 'semver'
@@ -1207,3 +1209,5 @@ export const getImplAddress = (
   const implSalt = ethers.utils.keccak256(implInitCode)
   return getCreate3Address(managerAddress, implSalt)
 }
+
+export const execAsync = promisify(exec)

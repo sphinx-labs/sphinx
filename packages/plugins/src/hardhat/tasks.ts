@@ -12,13 +12,11 @@ import {
 import {
   getChugSplashRegistry,
   chugsplashFetchSubtask,
-  chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,
   chugsplashCancelAbstractTask,
-  chugsplashListProjectsAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
   readValidatedChugSplashConfig,
@@ -48,10 +46,8 @@ export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
-export const TASK_CHUGSPLASH_CLAIM = 'chugsplash-claim'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
-export const TASK_CHUGSPLASH_LIST_PROJECTS = 'chugsplash-list-projects'
 export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
 export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
@@ -136,57 +132,6 @@ task(TASK_CHUGSPLASH_DEPLOY)
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
   )
   .setAction(chugsplashDeployTask)
-
-export const chugsplashClaimTask = async (
-  args: {
-    configPath: string
-    allowManagedProposals: boolean
-    owner: string
-    silent: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, silent, owner, allowManagedProposals } = args
-  const cre = await createChugSplashRuntime(
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-  await ensureChugSplashInitialized(provider, signer)
-
-  const { parsedConfig } = await readValidatedChugSplashConfig(
-    configPath,
-    provider,
-    cre,
-    makeGetConfigArtifacts(hre)
-  )
-
-  await chugsplashClaimAbstractTask(
-    provider,
-    signer,
-    parsedConfig,
-    allowManagedProposals,
-    owner,
-    'hardhat',
-    cre
-  )
-}
-
-task(TASK_CHUGSPLASH_CLAIM)
-  .setDescription('Claims a new ChugSplash project')
-  .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .addFlag(
-    'allowManagedProposals',
-    'Allow the ChugSplash Managed Service to propose deployments and upgrades on your behalf.'
-  )
-  .addParam('owner', 'Owner of the ChugSplash project')
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .setAction(chugsplashClaimTask)
 
 export const chugsplashProposeTask = async (
   args: {
@@ -624,25 +569,6 @@ task(TASK_CHUGSPLASH_CANCEL)
   .addParam('configPath', 'Path to the ChugSplash config file to cancel')
   .setAction(chugsplashCancelTask)
 
-export const listProjectsTask = async ({}, hre: HardhatRuntimeEnvironment) => {
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  const cre = await createChugSplashRuntime(
-    false,
-    true,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    false
-  )
-
-  await chugsplashListProjectsAbstractTask(provider, signer, 'hardhat', cre)
-}
-
-task(TASK_CHUGSPLASH_LIST_PROJECTS)
-  .setDescription('Lists all projects that are owned by the caller.')
-  .setAction(listProjectsTask)
-
 export const exportProxyTask = async (
   args: {
     configPath: string
@@ -757,11 +683,10 @@ export const chugsplashInitTask = async (
   const isTypeScriptProject =
     path.extname(hre.config.paths.configFile) === '.ts'
 
-  await writeSampleProjectFiles(
+  writeSampleProjectFiles(
     hre.config.paths.chugsplash,
     hre.config.paths.sources,
     hre.config.paths.tests,
-    '',
     isTypeScriptProject,
     solcVersion,
     'hardhat'
