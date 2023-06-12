@@ -3,7 +3,7 @@ import { ethers } from 'ethers'
 
 import { fetchBuildInfo } from '../../test/constants'
 
-const projectName = 'UUPS Ownable Upgradable Token'
+const projectName = 'UUPS AccessControl Upgradable Token'
 
 const config: UserChugSplashConfig = {
   // Configuration options for the project:
@@ -15,26 +15,27 @@ const config: UserChugSplashConfig = {
   },
   contracts: {
     Token: {
-      contract: 'UUPSOwnableUpgradableV2',
+      contract: 'UUPSAccessControlUpgradableV2',
       variables: {
         newInt: 1,
         originalInt: 1,
         _initialized: 1,
         _initializing: false,
         'ContextUpgradeable:__gap': '{ gap }',
-        'OwnableUpgradeable:__gap': '{ gap }',
+        'ERC165Upgradeable:__gap': '{ gap }',
         'ERC1967UpgradeUpgradeable:__gap': '{ gap }',
+        'AccessControlUpgradeable:__gap': '{ gap }',
         'UUPSUpgradeable:__gap': '{ gap }',
-        _owner: '{ preserve }',
+        _roles: [],
       },
-      kind: 'oz-ownable-uups',
-      address: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
+      address: '0x62DB6c1678Ca81ea0d946EA3dd75b4F71421A2aE',
+      kind: 'oz-access-control-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
       previousBuildInfo: `artifacts/build-info/${fetchBuildInfo()}`,
       previousFullyQualifiedName:
-        'contracts/UUPSOwnableUpgradableV1.sol:UUPSOwnableUpgradableV1',
+        'contracts/test/UUPSAccessControlUpgradableV1.sol:UUPSAccessControlUpgradableV1',
     },
   },
 }

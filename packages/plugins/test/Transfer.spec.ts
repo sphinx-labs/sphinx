@@ -22,11 +22,11 @@ import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/Pro
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 const uupsOwnableUpgradeConfigPath =
-  './chugsplash/hardhat/UUPSOwnableUpgradableUpgrade.config.ts'
+  './chugsplash/proxies/UUPSOwnableUpgradableUpgrade.config.ts'
 const uupsAccessControlUpgradeConfigPath =
-  './chugsplash/hardhat/UUPSAccessControlUpgradableUpgrade.config.ts'
+  './chugsplash/proxies/UUPSAccessControlUpgradableUpgrade.config.ts'
 const transparentUpgradeConfigPath =
-  './chugsplash/hardhat/TransparentUpgradableUpgrade.config.ts'
+  './chugsplash/proxies/TransparentUpgradableUpgrade.config.ts'
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
@@ -79,7 +79,8 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true
+      true,
+      process.stdout
     )
 
     await chugsplashClaimAbstractTask(
@@ -185,7 +186,8 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true
+      true,
+      process.stdout
     )
 
     await chugsplashClaimAbstractTask(
@@ -306,7 +308,8 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true
+      true,
+      process.stdout
     )
 
     await chugsplashClaimAbstractTask(

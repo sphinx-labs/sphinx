@@ -2,11 +2,13 @@
 pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
-import "../../foundry-contracts/ChugSplash.sol";
-import "../../contracts/Storage.sol";
-import { SimpleStorage } from "../../contracts/SimpleStorage.sol";
-import { Stateless } from "../../contracts/Stateless.sol";
-import { ComplexConstructorArgs } from "../../contracts/ComplexConstructorArgs.sol";
+import "../../contracts/foundry/ChugSplash.sol";
+import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
+import { Storage } from "../../contracts/test/Storage.sol";
+import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
+import { Stateless } from "../../contracts/test/Stateless.sol";
+import { Reverter } from "../../contracts/test/Reverter.sol";
+import { VariableValidation } from "../../contracts/test/VariableValidation.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
@@ -36,64 +38,43 @@ contract ChugSplashTest is ChugSplash {
             string("./node_modules/@chugsplash/plugins/dist/foundry/")
         );
 
-    address claimedProxy;
-    address transferredProxy;
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
     Stateless     myStateless;
+    Stateless      myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
     ChugSplashRegistry registry;
     ChugSplash chugsplash;
 
-    string deployConfig = "./chugsplash/foundry/deploy.t.js";
-
-    bytes32 claimOrgID = keccak256('Claim test');
-    string claimConfig = "./chugsplash/foundry/claim.t.js";
-
-    bytes32 transferOrganizationID = keccak256('Transfer test');
-    string transferConfig = "./chugsplash/foundry/transfer.t.js";
+    string deployConfig = "./chugsplash/Storage.config.ts";
+    string create3Config = "./chugsplash/Create3.config.ts";
 
     struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
 
     function setUp() public {
         silence();
 
-        // Setup deployment test
         deploy(deployConfig, vm.rpcUrl("anvil"));
+        deploy(create3Config, vm.rpcUrl("anvil"));
 
-        // Deploy export proxy test
-        // deploy(claimConfig);
-        // exportProxy(claimConfig, "MySimpleStorage", true);
-
-        // Start export proxy test
-        // deploy(transferConfig);
-        // exportProxy(transferConfig, "MySimpleStorage", true);
-
-        // importProxy(transferConfig, getAddress(transferConfig, "MySimpleStorage"), true);
-        // claimedProxy = payable(getAddress(claimConfig, "MySimpleStorage"));
-        // transferredProxy = payable(getAddress(transferConfig, "MySimpleStorage"));
         myStorage = Storage(getAddress(deployConfig, "MyStorage"));
         mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
         myStateless = Stateless(getAddress(deployConfig, "Stateless"));
+        myStatelessWithSalt = Stateless(getAddress(create3Config, "Stateless", keccak256('1')));
         myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
 
         registry = getChugSplashRegistry();
     }
 
-    // function testDidexportProxy() public {
-    //     assertEq(getEIP1967ProxyAdminAddress(claimedProxy), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    // }
+    function testHasDifferentAddressWithSalt() public {
+        assertNotEq(address(myStateless), address(myStatelessWithSalt));
+    }
 
-    // function testDidImportProxy() public {
-    //     ChugSplashManager manager = ChugSplashManager(registry.projects(transferOrganizationID));
-    //     assertEq(getEIP1967ProxyAdminAddress(transferredProxy), address(manager));
-    // }
-
-    // function testDidClaim() public {
-    //     assertTrue(address(registry.projects('Doesnt exist')) == address(0), "Unclaimed project detected");
-    //     assertFalse(address(registry.projects(claimOrgID)) == address(0), "Claimed project was not detected");
-    // }
+    function testDeployStatelessNonProxyWithSalt() public {
+        assertEq(myStatelessWithSalt.hello(), 'Hello, world!');
+        assertEq(myStatelessWithSalt.immutableUint(), 2);
+    }
 
     function testDeployStatelessImmutableContract() public {
         assertEq(myStateless.hello(), 'Hello, world!');

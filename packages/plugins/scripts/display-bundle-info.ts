@@ -5,8 +5,8 @@ import '@nomiclabs/hardhat-ethers'
 import { getBundleInfo, readValidatedChugSplashConfig } from '@chugsplash/core'
 import { utils } from 'ethers'
 
-import { makeGetConfigArtifacts } from '../hardhat/artifacts'
-import { createChugSplashRuntime } from '../cre'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
+import { createChugSplashRuntime } from '../src/cre'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
