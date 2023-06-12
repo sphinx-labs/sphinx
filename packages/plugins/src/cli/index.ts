@@ -15,7 +15,6 @@ dotenv.config()
 
 yargs(hideBin(process.argv))
   .scriptName('chugsplash')
-  .usage('Usage: npx <cmd> [args]')
   .command(
     'propose',
     'Propose a deployment',
