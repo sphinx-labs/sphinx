@@ -70,7 +70,7 @@ contract ChugSplashManager is
      * @notice The contract kind hash for contracts that do not use a proxy (i.e. immutable
        contracts).
      */
-    bytes32 internal constant NO_PROXY_CONTRACT_KIND_HASH = keccak256("no-proxy");
+    bytes32 internal constant IMMUTABLE_CONTRACT_KIND_HASH = keccak256("immutable");
 
     /**
      * @notice Address of the ChugSplashRegistry.
@@ -429,7 +429,7 @@ contract ChugSplashManager is
      * This may be `bytes32(0)` if there are no actions in the deployment.
      * @param _targetRoot Root of the Merkle tree containing the targets for the deployment.
      * This may be `bytes32(0)` if there are no targets in the deployment.
-     * @param _numNonProxyContracts Number of non-proxy contracts in the deployment.
+     * @param _numImmutableContracts Number of non-proxy contracts in the deployment.
      * @param _numActions Number of actions in the deployment.
      * @param _numTargets Number of targets in the deployment.
      * @param _configUri  URI pointing to the config file for the deployment.
@@ -440,7 +440,7 @@ contract ChugSplashManager is
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
-        uint256 _numNonProxyContracts,
+        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) public {
@@ -455,7 +455,7 @@ contract ChugSplashManager is
                 _targetRoot,
                 _numActions,
                 _numTargets,
-                _numNonProxyContracts,
+                _numImmutableContracts,
                 _configUri
             )
         );
@@ -475,7 +475,7 @@ contract ChugSplashManager is
         deployment.status = DeploymentStatus.PROPOSED;
         deployment.actionRoot = _actionRoot;
         deployment.targetRoot = _targetRoot;
-        deployment.numNonProxyContracts = _numNonProxyContracts;
+        deployment.numImmutableContracts = _numImmutableContracts;
         deployment.actions = new bool[](_numActions);
         deployment.targets = _numTargets;
         deployment.remoteExecution = _remoteExecution;
@@ -487,7 +487,7 @@ contract ChugSplashManager is
             _targetRoot,
             _numActions,
             _numTargets,
-            _numNonProxyContracts,
+            _numImmutableContracts,
             _configUri,
             _remoteExecution,
             _msgSender()
@@ -506,7 +506,7 @@ contract ChugSplashManager is
         bytes32 _targetRoot,
         uint256 _numActions,
         uint256 _numTargets,
-        uint256 _numNonProxyContracts,
+        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) external {
@@ -517,7 +517,7 @@ contract ChugSplashManager is
             _targetRoot,
             _numActions,
             _numTargets,
-            _numNonProxyContracts,
+            _numImmutableContracts,
             _configUri,
             _remoteExecution
         );
@@ -923,7 +923,7 @@ contract ChugSplashManager is
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
 
-        if (deployment.actionsExecuted != deployment.numNonProxyContracts) {
+        if (deployment.actionsExecuted != deployment.numImmutableContracts) {
             revert InitiatedUpgradeTooEarly();
         }
 
@@ -943,7 +943,7 @@ contract ChugSplashManager is
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
@@ -1031,7 +1031,7 @@ contract ChugSplashManager is
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
@@ -1137,7 +1137,7 @@ contract ChugSplashManager is
         // Get the adapter for this reference name.
         address adapter = registry.adapters(_action.contractKindHash);
 
-        if (_action.contractKindHash == NO_PROXY_CONTRACT_KIND_HASH) {
+        if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
             revert OnlyProxiesAllowed();
         }
 

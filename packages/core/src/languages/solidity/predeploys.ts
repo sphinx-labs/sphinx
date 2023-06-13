@@ -10,8 +10,8 @@ import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
+  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -377,12 +377,13 @@ export const initializeChugSplash = async (
 
   const defaultAdapterAddress = DEFAULT_ADAPTER_ADDRESS
   if (
-    (await ChugSplashRegistry.adapters(EXTERNAL_DEFAULT_PROXY_TYPE_HASH)) !==
-    defaultAdapterAddress
+    (await ChugSplashRegistry.adapters(
+      EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH
+    )) !== defaultAdapterAddress
   ) {
     await (
       await ChugSplashRegistry.connect(signer).addContractKind(
-        EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
+        EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
       )

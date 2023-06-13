@@ -2,17 +2,17 @@
 pragma solidity ^0.8.9;
 
 contract ConstructorArgsValidationPartOne {
-    bytes32 immutable public immutableBytes;
-    int8 immutable public arrayInt8;
-    int8 immutable public int8OutsideRange;
-    uint8 immutable public uint8OutsideRange;
-    address immutable public intAddress;
-    address immutable public arrayAddress;
-    address immutable public shortAddress;
-    bytes32 immutable public intBytes32;
-    bytes32 immutable public arrayBytes32;
-    bytes32 immutable public shortBytes32;
-    bytes32 immutable public oddStaticBytes;
+    bytes32 public immutable immutableBytes;
+    int8 public immutable arrayInt8;
+    int8 public immutable int8OutsideRange;
+    uint8 public immutable uint8OutsideRange;
+    address public immutable intAddress;
+    address public immutable arrayAddress;
+    address public immutable shortAddress;
+    bytes32 public immutable intBytes32;
+    bytes32 public immutable arrayBytes32;
+    bytes32 public immutable shortBytes32;
+    bytes32 public immutable oddStaticBytes;
 
     constructor(
         bytes32 _immutableBytes,

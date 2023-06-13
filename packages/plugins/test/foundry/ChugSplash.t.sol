@@ -71,7 +71,7 @@ contract ChugSplashTest is ChugSplash {
         assertNotEq(address(myStateless), address(myStatelessWithSalt));
     }
 
-    function testDeployStatelessNonProxyWithSalt() public {
+    function testDeployStatelessImmutableWithSalt() public {
         assertEq(myStatelessWithSalt.hello(), 'Hello, world!');
         assertEq(myStatelessWithSalt.immutableUint(), 2);
     }

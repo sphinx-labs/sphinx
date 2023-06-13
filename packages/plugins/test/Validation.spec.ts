@@ -10,7 +10,7 @@ import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
+const variableValidateConfigPath = './chugsplash/Validation.config.ts'
 const constructorArgConfigPath =
   './chugsplash/ConstructorArgValidation.config.ts'
 const noProxyContractReferenceConfigPath =
@@ -403,6 +403,12 @@ describe('Validate', () => {
     )
     expect(validationOutput).to.have.string(
       `- Reverter2. Reason: 'Reverter: revert'`
+    )
+  })
+
+  it('did catch missing contract kind field', async () => {
+    expect(validationOutput).to.have.string(
+      `Missing contract 'kind' field for VariableValidation`
     )
   })
 })

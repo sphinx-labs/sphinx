@@ -12,11 +12,11 @@ contract UUPSAccessControlUpgradableV1 is UUPSUpgradeable, AccessControlUpgradea
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     int public originalInt;
 
-    function initialize() initializer public {
-      __AccessControl_init();
-      __UUPSUpgradeable_init();
+    function initialize() public initializer {
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
 
-      _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

@@ -12,7 +12,7 @@ import { Version } from "./Semver.sol";
  * @custom:field targets The number of targets in the deployment.
  * @custom:field actionRoot The root of the Merkle tree of actions.
  * @custom:field targetRoot The root of the Merkle tree of targets.
- * @custom:field numNonProxyContracts The number of non-proxy contracts in the deployment.
+ * @custom:field numImmutableContracts The number of non-proxy contracts in the deployment.
  * @custom:field actionsExecuted The number of actions that have been executed so far in the
    deployment.
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
@@ -26,7 +26,7 @@ struct DeploymentState {
     uint256 targets;
     bytes32 actionRoot;
     bytes32 targetRoot;
-    uint256 numNonProxyContracts;
+    uint256 numImmutableContracts;
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
