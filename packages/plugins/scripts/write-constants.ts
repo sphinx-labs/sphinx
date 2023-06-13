@@ -1,5 +1,3 @@
-// TODO: should these be marked public variables? i feel like they should be internal?
-
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
@@ -120,7 +118,7 @@ const writeConstants = async () => {
     `${Object.entries(constants)
       .map(
         ([name, { type, value }]) =>
-          `  ${type} constant public ${name} = ${value};`
+          `  ${type} constant internal ${name} = ${value};`
       )
       .join('\n')}\n\n` +
     `  function getChugSplashContractInfo() internal pure returns (ChugSplashContractInfo[] memory) {\n` +

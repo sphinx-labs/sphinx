@@ -33,7 +33,7 @@ describe('Meta txs', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false // TODO
+      true
     )
 
     const { parsedConfig, configArtifacts, configCache } =

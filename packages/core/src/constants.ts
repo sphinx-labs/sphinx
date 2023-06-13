@@ -1,7 +1,5 @@
 import { utils } from 'ethers'
 import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
-import { ParsedConfigVariables } from './config'
-import { Fragment } from 'ethers/lib/utils'
 
 export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 

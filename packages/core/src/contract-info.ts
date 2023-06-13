@@ -13,6 +13,7 @@ import {
   DefaultGasPriceCalculatorArtifact,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
+  ForwarderArtifact,
 } from '@chugsplash/contracts'
 
 import { ContractArtifact } from './languages/solidity/types'
@@ -32,6 +33,7 @@ import {
   MANAGED_SERVICE_ADDRESS,
   REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
+  FORWARDER_ADDRESS,
 } from './addresses'
 
 export const CHUGSPLASH_CONTRACT_INFO: Array<{
@@ -106,5 +108,10 @@ export const CHUGSPLASH_CONTRACT_INFO: Array<{
     artifact: ProxyArtifact,
     expectedAddress: REFERENCE_PROXY_ADDRESS,
     constructorArgs: [getChugSplashRegistryAddress()],
+  },
+  {
+    artifact: ForwarderArtifact,
+    expectedAddress: FORWARDER_ADDRESS,
+    constructorArgs: [],
   },
 ]

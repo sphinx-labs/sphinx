@@ -7,9 +7,6 @@ import { StdChains } from "forge-std/StdChains.sol";
 import { strings } from "./lib/strings.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
-import {
-    DeterministicDeployer
-} from "@chugsplash/contracts/contracts/deployment/DeterministicDeployer.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { ChugSplashManagerEvents } from "@chugsplash/contracts/contracts/ChugSplashManagerEvents.sol";
 import { ChugSplashRegistryEvents } from "@chugsplash/contracts/contracts/ChugSplashRegistryEvents.sol";
