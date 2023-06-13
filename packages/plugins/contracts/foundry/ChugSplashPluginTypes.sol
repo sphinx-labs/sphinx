@@ -1,17 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-struct ChugSplashContract {
-    string referenceName;
-    string contractName;
-    address contractAddress;
-}
-
-struct DeploymentBytecode {
-    bytes bootloaderOne;
-    bytes bootloaderTwo;
-}
-
 struct MinimalConfig {
     bytes32 organizationID;
     string projectName;

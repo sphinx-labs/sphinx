@@ -11,6 +11,6 @@ contract ChugSplashScript is ChugSplash {
     function run() public {
         // ensureChugSplashInitialized(vm.rpcUrl("anvil"));
 
-        deploy("./chugsplash/Storage.consfig.ts", vm.rpcUrl("anvil"));
+        deploy("./chugsplash/Storage.config.ts", vm.rpcUrl("anvil"));
     }
 }

@@ -45,9 +45,9 @@ import {
   getChugSplashConstructorArgs,
   getChugSplashRegistryAddress,
   getChugSplashManagerV1Address,
-  getManagedServiceAddress,
-  getReferenceChugSplashManagerProxyAddress,
-  getReferenceDefaultProxyAddress,
+  MANAGED_SERVICE_ADDRESS,
+  REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+  REFERENCE_PROXY_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
@@ -191,14 +191,14 @@ export const verifyChugSplash = async (
       artifact: DefaultGasPriceCalculatorArtifact,
       address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
     },
-    { artifact: ManagedServiceArtifact, address: getManagedServiceAddress() },
+    { artifact: ManagedServiceArtifact, address: MANAGED_SERVICE_ADDRESS },
     {
       artifact: ChugSplashManagerProxyArtifact,
-      address: getReferenceChugSplashManagerProxyAddress(),
+      address: REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
     },
     {
       artifact: ProxyArtifact,
-      address: getReferenceDefaultProxyAddress(),
+      address: REFERENCE_PROXY_ADDRESS,
     },
   ]
 

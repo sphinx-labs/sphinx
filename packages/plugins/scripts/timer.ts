@@ -8,7 +8,7 @@ const main = async () => {
   const runs = 20
   for (let i = 0; i < runs; i++) {
     const begin = Date.now()
-    await execAsync('forge script src/scripts/ChugSplash.s.sol')
+    await execAsync('forge script scripts/ChugSplash.s.sol')
     const end = Date.now()
     agg += (end - begin) / 1000
   }

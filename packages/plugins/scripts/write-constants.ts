@@ -1,10 +1,6 @@
-// TODO: change the name from Constants b/c we're initializing chugsplash in there? or make a
-// separate contract, like ChugSplashInitializer.
 // TODO: should these be marked public variables? i feel like they should be internal?
 
 import {
-  ChugSplashBootloaderOneArtifact,
-  ChugSplashBootloaderTwoArtifact,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
@@ -12,11 +8,15 @@ import {
   EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
 import {
-  bootloaderTwoConstructorFragment,
   CURRENT_CHUGSPLASH_MANAGER_VERSION,
-  getBootloaderTwoConstructorArgs,
   getChugSplashRegistryAddress,
-  getManagerProxyBytecodeHash,
+  getManagerProxyInitCodeHash,
+  CHUGSPLASH_CONTRACT_INFO,
+  getChugSplashManagerV1Address,
+  OZ_TRANSPARENT_ADAPTER_ADDRESS,
+  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+  DEFAULT_ADAPTER_ADDRESS,
 } from '@chugsplash/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
@@ -32,26 +32,14 @@ import { ethers } from 'ethers'
 const writeConstants = async () => {
   const { major, minor, patch } = CURRENT_CHUGSPLASH_MANAGER_VERSION
 
-  const bootloaderOne = ChugSplashBootloaderOneArtifact.bytecode
-  const bootloaderTwo = ChugSplashBootloaderTwoArtifact.bytecode
-
-  const bootloaderTwoCreationCode = bootloaderTwo.concat(
-    ethers.utils.defaultAbiCoder
-      .encode(
-        bootloaderTwoConstructorFragment.inputs,
-        getBootloaderTwoConstructorArgs()
-      )
-      .slice(2)
-  )
-
   const constants = {
     registryAddress: {
       type: 'address',
       value: getChugSplashRegistryAddress(),
     },
-    managerProxyBytecodeHash: {
+    managerProxyInitCodeHash: {
       type: 'bytes32',
-      value: getManagerProxyBytecodeHash(),
+      value: getManagerProxyInitCodeHash(),
     },
     major: {
       type: 'uint256',
@@ -85,26 +73,68 @@ const writeConstants = async () => {
       type: 'bytes32',
       value: EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
     },
-    bootloaderOneBytecode: {
-      type: 'bytes',
-      value: `hex"${remove0x(bootloaderOne)}"`,
+    managerImplementationAddress: {
+      type: 'address',
+      value: getChugSplashManagerV1Address(),
     },
-    bootloaderTwoBytecode: {
-      type: 'bytes',
-      value: `hex"${remove0x(bootloaderTwoCreationCode)}"`,
+    ozTransparentAdapterAddr: {
+      type: 'address',
+      value: OZ_TRANSPARENT_ADAPTER_ADDRESS,
+    },
+    ozUUPSOwnableAdapterAddr: {
+      type: 'address',
+      value: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
+    },
+    ozUUPSAccessControlAdapterAddr: {
+      type: 'address',
+      value: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+    },
+    defaultAdapterAddr: {
+      type: 'address',
+      value: DEFAULT_ADAPTER_ADDRESS,
     },
   }
+
+  const contractInfo = CHUGSPLASH_CONTRACT_INFO.map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
+      const { abi, bytecode } = artifact
+
+      const iface = new ethers.utils.Interface(abi)
+
+      const creationCode = bytecode.concat(
+        remove0x(iface.encodeDeploy(constructorArgs))
+      )
+
+      return { creationCode, expectedAddress }
+    }
+  )
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity ^0.8.15;\n\n` +
-    `library Constants {
-${Object.entries(constants)
-  .map(
-    ([name, { type, value }]) => `\t${type} constant public ${name} = ${value};`
-  )
-  .join('\n')}
-}`
+    `struct ChugSplashContractInfo {\n` +
+    `  bytes creationCode;\n` +
+    `  address expectedAddress;\n` +
+    `}\n\n` +
+    `contract ChugSplashConstants {\n` +
+    `${Object.entries(constants)
+      .map(
+        ([name, { type, value }]) =>
+          `  ${type} constant public ${name} = ${value};`
+      )
+      .join('\n')}\n\n` +
+    `  function getChugSplashContractInfo() internal pure returns (ChugSplashContractInfo[] memory) {\n` +
+    `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${CHUGSPLASH_CONTRACT_INFO.length});\n` +
+    `${contractInfo
+      .map(
+        ({ creationCode, expectedAddress }, i) =>
+          `    contracts[${i}] = ChugSplashContractInfo(hex"${remove0x(
+            creationCode
+          )}", ${expectedAddress});`
+      )
+      .join('\n')}\n` +
+    `    return contracts;\n  }` +
+    `\n}`
 
   process.stdout.write(solidityFile)
 }
