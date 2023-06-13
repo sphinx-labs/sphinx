@@ -15,6 +15,7 @@ import {
   getSampleContractFile,
   getSampleFoundryDeployFile,
   getSampleFoundryTestFile,
+  getSampleGenerateArtifactFile,
 } from './sample-contract'
 import {
   sampleTestFileJavaScript,
@@ -47,8 +48,8 @@ export const writeSampleProjectFiles = (
 
   // Check if the sample ChugSplash config file already exists.
   const chugsplashFileName = isTypeScriptProject
-    ? 'hello-chugsplash.ts'
-    : 'hello-chugsplash.js'
+    ? 'HelloChugSplash.config.ts'
+    : 'HelloChugSplash.config.js'
   const configPath = path.join(chugsplashPath, chugsplashFileName)
   if (!fs.existsSync(configPath)) {
     // Create the sample ChugSplash config file.
@@ -120,7 +121,7 @@ export const writeSampleProjectFiles = (
       // Create the sample test file.
       fs.writeFileSync(
         generateArtifactPath,
-        getSampleFoundryDeployFile(solcVersion)
+        getSampleGenerateArtifactFile(solcVersion)
       )
     }
   }
