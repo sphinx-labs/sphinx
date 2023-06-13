@@ -57,7 +57,8 @@ contract ChugSplash is
     Test,
     DefaultCreate3,
     ChugSplashManagerEvents,
-    ChugSplashRegistryEvents
+    ChugSplashRegistryEvents,
+    ChugSplashConstants
 {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
@@ -147,7 +148,7 @@ contract ChugSplash is
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
             contractKindHash = OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT) {
-            contractKindHash = Constants.EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH;
+            contractKindHash = EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.IMMUTABLE) {
             revert("Cannot export a proxy for a contract that does not use a proxy.");
         } else {
