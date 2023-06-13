@@ -5,16 +5,8 @@ import { ethers } from 'ethers'
 import {
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   getOwnerAddress,
-  ChugSplashBootloaderTwoABI,
-  ChugSplashBootloaderTwoArtifact,
-  ChugSplashBootloaderOneABI,
-  ChugSplashBootloaderOneArtifact,
   OWNER_MULTISIG_ADDRESS,
   ManagedServiceArtifact,
-  ChugSplashManagerProxyABI,
-  ChugSplashManagerProxyArtifact,
-  ProxyABI,
-  ProxyArtifact,
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
@@ -31,21 +23,12 @@ import {
   getChugSplashRegistryReadOnly,
 } from '../../utils'
 import {
-  ADAPTER_DEPLOYER_ADDRESS,
-  DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  DEFAULT_UPDATER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  FORWARDER_ADDRESS,
-  getBootloaderAddress,
-  getBootloaderTwoConstructorArgs,
-  getChugSplashConstructorArgs,
   getChugSplashManagerV1Address,
   getChugSplashRegistryAddress,
-  getManagedServiceAddress,
+  MANAGED_SERVICE_ADDRESS,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
-  OZ_UUPS_UPDATER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
 } from '../../addresses'
 import {
@@ -60,6 +43,7 @@ import {
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
+import { CHUGSPLASH_CONTRACT_INFO } from '../../contract-info'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -165,115 +149,34 @@ export const initializeChugSplash = async (
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   assertValidBlockGasLimit(blockGasLimit)
 
-  const chugsplashConstructorArgs = getChugSplashConstructorArgs()
+  for (const {
+    artifact,
+    constructorArgs,
+    expectedAddress,
+  } of CHUGSPLASH_CONTRACT_INFO) {
+    const { abi, bytecode, contractName } = artifact
 
-  logger?.info('[ChugSplash]: deploying adapters...')
+    logger?.info(`[ChugSplash]: deploying ${contractName}...`)
 
-  const ChugSplashBootloaderOne = await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: ChugSplashBootloaderOneABI,
-      bytecode: ChugSplashBootloaderOneArtifact.bytecode,
-    },
-    salt: ethers.constants.HashZero,
-  })
+    const contract = await doDeterministicDeploy(provider, {
+      signer: deployer,
+      contract: {
+        abi,
+        bytecode,
+      },
+      args: constructorArgs,
+      salt: ethers.constants.HashZero,
+    })
 
-  assert(
-    ADAPTER_DEPLOYER_ADDRESS === ChugSplashBootloaderOne.address,
-    'Adapter deployer has incorrect address'
-  )
+    assert(
+      contract.address === expectedAddress,
+      `address mismatch for ${contractName}`
+    )
 
-  logger?.info('[ChugSplash]: finished deploying adapters')
+    logger?.info(`[ChugSplash]: deployed ${contractName}`)
+  }
 
-  logger?.info('[ChugSplash]: deploying with bootloader')
-
-  const ChugSplashBootloaderTwo = await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: ChugSplashBootloaderTwoABI,
-      bytecode: ChugSplashBootloaderTwoArtifact.bytecode,
-    },
-    args: getBootloaderTwoConstructorArgs(),
-    salt: ethers.constants.HashZero,
-  })
-
-  assert(
-    getBootloaderAddress() === ChugSplashBootloaderTwo.address,
-    'ChugSplash Bootloader has incorrect address'
-  )
-
-  logger?.info('[ChugSplash]: finished deploying with bootloader')
-
-  assert(
-    (await ChugSplashBootloaderTwo.registry()) ===
-      getChugSplashRegistryAddress(),
-    'Registry was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderTwo.managerImplementationAddress()) ===
-      getChugSplashManagerV1Address(),
-    'Manager implementation was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderTwo.defaultCreate3Addr()) ===
-      DEFAULT_CREATE3_ADDRESS,
-    'DefaultCreate3 was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderTwo.defaultGasPriceCalculatorAddr()) ===
-      DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-    'DefaultGasPriceCalculator try was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderTwo.managedServiceAddr()) ===
-      getManagedServiceAddress(),
-    'ManagedService was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderTwo.forwarderAddr()) === FORWARDER_ADDRESS,
-    'Forwarder was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.defaultUpdaterAddr()) ===
-      DEFAULT_UPDATER_ADDRESS,
-    'DefaultUpdater was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.ozUUPSUpdaterAddr()) ===
-      OZ_UUPS_UPDATER_ADDRESS,
-    'OZUUPSUpdater was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.ozTransparentAdapterAddr()) ===
-      OZ_TRANSPARENT_ADAPTER_ADDRESS,
-    'OZTransparentAdapter was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.ozUUPSOwnableAdapterAddr()) ===
-      OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-    'OZUUPSOwnableAdapter was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr()) ===
-      OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-    'DefaultUpdater was deployed to incorrect address'
-  )
-
-  assert(
-    (await ChugSplashBootloaderOne.defaultAdapterAddr()) ===
-      DEFAULT_ADAPTER_ADDRESS,
-    'DefaultAdapter was deployed to incorrect address'
-  )
+  logger?.info(`[ChugSplash]: finished deploying ChugSplash contracts`)
 
   // We need to do some additional setup: adding the manager version, adding executor roles, etc
   // This requires a signer with the owner role which we have to handle differently depending on the situation.
@@ -320,7 +223,7 @@ export const initializeChugSplash = async (
   }
 
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(),
+    MANAGED_SERVICE_ADDRESS,
     ManagedServiceArtifact.abi,
     signer
   )
@@ -370,34 +273,6 @@ export const initializeChugSplash = async (
     }
   }
   logger?.info('[ChugSplash]: finished assigning caller roles')
-
-  logger?.info('[ChugSplash]: deploying reference ChugSplashManagerProxy')
-
-  await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: ChugSplashManagerProxyABI,
-      bytecode: ChugSplashManagerProxyArtifact.bytecode,
-    },
-    args: chugsplashConstructorArgs[ChugSplashManagerProxyArtifact.sourceName],
-    salt: ethers.constants.HashZero,
-  })
-
-  logger?.info('[ChugSplash]: deployed reference ChugSplashManagerProxy')
-
-  logger?.info('[ChugSplash]: deploying reference Default Proxy')
-
-  await doDeterministicDeploy(provider, {
-    signer: deployer,
-    contract: {
-      abi: ProxyABI,
-      bytecode: ProxyArtifact.bytecode,
-    },
-    args: chugsplashConstructorArgs[ProxyArtifact.sourceName],
-    salt: ethers.constants.HashZero,
-  })
-
-  logger?.info('[ChugSplash]: deployed reference Default Proxy')
 
   logger?.info('[ChugSplash]: adding the initial ChugSplashManager version...')
 

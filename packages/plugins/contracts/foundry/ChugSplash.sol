@@ -5,17 +5,8 @@ import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import { StdChains } from "forge-std/StdChains.sol";
 import { strings } from "./lib/strings.sol";
-import {
-    ChugSplashBootloaderOne
-} from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderOne.sol";
-import {
-    ChugSplashBootloaderTwo
-} from "@chugsplash/contracts/contracts/deployment/ChugSplashBootloaderTwo.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
-import {
-    DeterministicDeployer
-} from "@chugsplash/contracts/contracts/deployment/DeterministicDeployer.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import {
     ChugSplashManagerEvents
@@ -41,8 +32,6 @@ import {
 import { DefaultCreate3 } from "@chugsplash/contracts/contracts/DefaultCreate3.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import {
-    ChugSplashContract,
-    DeploymentBytecode,
     MinimalConfig,
     MinimalContractConfig,
     ConfigCache,
@@ -60,7 +49,7 @@ import {
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { Constants } from "./ChugSplashConstants.sol";
+import { ChugSplashContractInfo, ChugSplashConstants } from "./ChugSplashConstants.sol";
 import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 
 contract ChugSplash is
@@ -68,8 +57,12 @@ contract ChugSplash is
     Test,
     DefaultCreate3,
     ChugSplashManagerEvents,
-    ChugSplashRegistryEvents
+    ChugSplashRegistryEvents,
+    ChugSplashConstants
 {
+    // Source: https://github.com/Arachnid/deterministic-deployment-proxy
+    address constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
     struct OptionalLog {
         Vm.Log value;
         bool exists;
@@ -147,15 +140,15 @@ contract ChugSplash is
 
         bytes32 contractKindHash;
         if (targetContractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT) {
-            contractKindHash = Constants.DEFAULT_PROXY_TYPE_HASH;
+            contractKindHash = DEFAULT_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
-            contractKindHash = Constants.OZ_TRANSPARENT_PROXY_TYPE_HASH;
+            contractKindHash = OZ_TRANSPARENT_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_OWNABLE_UUPS) {
-            contractKindHash = Constants.OZ_UUPS_OWNABLE_PROXY_TYPE_HASH;
+            contractKindHash = OZ_UUPS_OWNABLE_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
-            contractKindHash = Constants.OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
+            contractKindHash = OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT) {
-            contractKindHash = Constants.EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH;
+            contractKindHash = EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH;
         } else if (targetContractConfig.kind == ContractKindEnum.IMMUTABLE) {
             revert("Cannot export a proxy for a contract that does not use a proxy.");
         } else {
@@ -710,7 +703,7 @@ contract ChugSplash is
     }
 
     function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
-        return Version({ major: Constants.major, minor: Constants.minor, patch: Constants.patch });
+        return Version({ major: major, minor: minor, patch: patch });
     }
 
     // This function also returns the user config string as a performance optimization. Reading
@@ -885,75 +878,44 @@ contract ChugSplash is
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
-            // Setup determinisitic deployment proxy
-            address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
             vm.etch(
-                DeterministicDeploymentProxy,
+                DETERMINISTIC_DEPLOYMENT_PROXY,
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
             );
 
-            // Deploy the adapters
-            bytes memory bootloaderOneCreationCode = Constants.bootloaderOneBytecode;
-            address bootloaderOneAddress = Create2.computeAddress(
-                bytes32(0),
-                keccak256(bootloaderOneCreationCode),
-                DeterministicDeploymentProxy
-            );
-            DeterministicDeployer.deploy(
-                bootloaderOneCreationCode,
-                type(ChugSplashBootloaderOne).name
-            );
-
-            // Deploy the bootloader
-            bytes memory bootloaderTwoCreationCode = Constants.bootloaderTwoBytecode;
-            address bootloaderTwoAddress = Create2.computeAddress(
-                bytes32(0),
-                keccak256(bootloaderTwoCreationCode),
-                DeterministicDeploymentProxy
-            );
-            DeterministicDeployer.deploy(
-                bootloaderTwoCreationCode,
-                type(ChugSplashBootloaderOne).name
-            );
-
-            ChugSplashBootloaderOne chugSplashBootloaderOne = ChugSplashBootloaderOne(
-                bootloaderOneAddress
-            );
-            ChugSplashBootloaderTwo chugSplashBootloaderTwo = ChugSplashBootloaderTwo(
-                bootloaderTwoAddress
-            );
-
-            require(
-                address(chugSplashBootloaderTwo.registry()) == address(registry),
-                "Registry deployed to incorrect address"
-            );
+            ChugSplashContractInfo[] memory contracts = getChugSplashContractInfo();
+            for (uint i = 0; i < contracts.length; i++) {
+                ChugSplashContractInfo memory ct = contracts[i];
+                address addr = create2Deploy(ct.creationCode);
+                require(addr == ct.expectedAddress, string.concat("address mismatch. expected address: ", vm.toString(ct.expectedAddress)));
+            }
 
             // Impersonate system owner
             vm.startPrank(systemOwnerAddress);
 
             // Add initial manager version
-            registry.addVersion(chugSplashBootloaderTwo.managerImplementationAddress());
+            registry.addVersion(managerImplementationAddress);
 
             // Add transparent proxy type
             registry.addContractKind(
                 keccak256("oz-transparent"),
-                chugSplashBootloaderOne.ozTransparentAdapterAddr()
+                ozTransparentAdapterAddr
             );
 
             // Add uups ownable proxy type
             registry.addContractKind(
                 keccak256("oz-ownable-uups"),
-                chugSplashBootloaderOne.ozUUPSOwnableAdapterAddr()
+                ozUUPSOwnableAdapterAddr
             );
 
             // Add uups access control proxy type
             registry.addContractKind(
                 keccak256("oz-access-control-uups"),
-                chugSplashBootloaderOne.ozUUPSAccessControlAdapterAddr()
+                ozUUPSAccessControlAdapterAddr
             );
 
             // Add default proxy type
-            registry.addContractKind(bytes32(0), chugSplashBootloaderOne.defaultAdapterAddr());
+            registry.addContractKind(bytes32(0), defaultAdapterAddr);
 
             vm.stopPrank();
         } else {
@@ -995,7 +957,7 @@ contract ChugSplash is
     }
 
     function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
-        return ChugSplashRegistry(Constants.registryAddress);
+        return ChugSplashRegistry(registryAddress);
     }
 
     function getChugSplashManager(
@@ -1004,7 +966,7 @@ contract ChugSplash is
     ) private pure returns (ChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            Constants.managerProxyBytecodeHash,
+            managerProxyInitCodeHash,
             address(_registry)
         );
         return ChugSplashManager(payable(managerAddress));
@@ -1308,5 +1270,21 @@ contract ChugSplash is
                 ". Did you forget to define it in your foundry.toml?"
             )
         );
+    }
+
+    function create2Deploy(bytes memory _creationCode) private returns (address) {
+        address addr = Create2.computeAddress(
+            bytes32(0),
+            keccak256(_creationCode),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        if (addr.code.length == 0) {
+            bytes memory code = bytes.concat(bytes32(0), _creationCode);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(success, string.concat("failed to deploy contract. expected address: ", vm.toString(addr)));
+        }
+
+        return addr;
     }
 }

@@ -21,46 +21,16 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import {
-  ChugSplashRegistryArtifact,
-  DefaultAdapterArtifact,
-  buildInfo as chugsplashBuildInfo,
-  DefaultUpdaterArtifact,
-  OZTransparentAdapterArtifact,
-  OZUUPSUpdaterArtifact,
-  OZUUPSOwnableAdapterArtifact,
-  OZUUPSAccessControlAdapterArtifact,
-  ChugSplashManagerArtifact,
-  DefaultCreate3Artifact,
-  DefaultGasPriceCalculatorArtifact,
-  ManagedServiceArtifact,
-  ChugSplashManagerProxyArtifact,
-  ProxyArtifact,
-} from '@chugsplash/contracts'
+import { buildInfo as chugsplashBuildInfo } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
-import {
-  getChugSplashConstructorArgs,
-  getChugSplashRegistryAddress,
-  getChugSplashManagerV1Address,
-  getManagedServiceAddress,
-  getReferenceChugSplashManagerProxyAddress,
-  getReferenceDefaultProxyAddress,
-  DEFAULT_ADAPTER_ADDRESS,
-  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  DEFAULT_UPDATER_ADDRESS,
-  OZ_UUPS_UPDATER_ADDRESS,
-  DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  getChugSplashManagerAddress,
-} from './addresses'
+import { getChugSplashManagerAddress } from './addresses'
 import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
+import { CHUGSPLASH_CONTRACT_INFO } from './contract-info'
 
 export interface EtherscanResponseBody {
   status: string
@@ -162,47 +132,11 @@ export const verifyChugSplash = async (
     customChains
   )
 
-  const contracts = [
-    {
-      artifact: ChugSplashRegistryArtifact,
-      address: getChugSplashRegistryAddress(),
-    },
-    {
-      artifact: ChugSplashManagerArtifact,
-      address: getChugSplashManagerV1Address(),
-    },
-    { artifact: DefaultAdapterArtifact, address: DEFAULT_ADAPTER_ADDRESS },
-    {
-      artifact: OZUUPSOwnableAdapterArtifact,
-      address: OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-    },
-    {
-      artifact: OZUUPSAccessControlAdapterArtifact,
-      address: OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-    },
-    {
-      artifact: OZTransparentAdapterArtifact,
-      address: OZ_TRANSPARENT_ADAPTER_ADDRESS,
-    },
-    { artifact: DefaultUpdaterArtifact, address: DEFAULT_UPDATER_ADDRESS },
-    { artifact: OZUUPSUpdaterArtifact, address: OZ_UUPS_UPDATER_ADDRESS },
-    { artifact: DefaultCreate3Artifact, address: DEFAULT_CREATE3_ADDRESS },
-    {
-      artifact: DefaultGasPriceCalculatorArtifact,
-      address: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-    },
-    { artifact: ManagedServiceArtifact, address: getManagedServiceAddress() },
-    {
-      artifact: ChugSplashManagerProxyArtifact,
-      address: getReferenceChugSplashManagerProxyAddress(),
-    },
-    {
-      artifact: ProxyArtifact,
-      address: getReferenceDefaultProxyAddress(),
-    },
-  ]
-
-  for (const { artifact, address } of contracts) {
+  for (const {
+    artifact,
+    expectedAddress,
+    constructorArgs,
+  } of CHUGSPLASH_CONTRACT_INFO) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
@@ -212,20 +146,18 @@ export const verifyChugSplash = async (
       contractName
     )
 
-    const chugSplashConstructorArgs = getChugSplashConstructorArgs()
-
     await attemptVerification(
       provider,
       networkName,
       etherscanApiEndpoints.urls,
-      address,
+      expectedAddress,
       sourceName,
       contractName,
       abi,
       apiKey,
       minimumCompilerInput,
       chugsplashBuildInfo.solcVersion,
-      chugSplashConstructorArgs[sourceName]
+      constructorArgs
     )
   }
 }
