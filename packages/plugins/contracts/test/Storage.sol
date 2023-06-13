@@ -11,26 +11,34 @@ contract Storage {
     type UserDefinedUint8 is uint8;
     type UserDefinedBool is bool;
 
-    enum TestEnum { A, B, C }
-    struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
+    enum TestEnum {
+        A,
+        B,
+        C
+    }
+    struct SimpleStruct {
+        bytes32 a;
+        uint128 b;
+        uint128 c;
+    }
     struct ComplexStruct {
         int32 a;
         mapping(uint32 => string) b;
         UserDefinedType c;
     }
 
-    int immutable public immutableInt;
-    int8 immutable public immutableInt8;
-    uint immutable public immutableUint;
-    uint8 immutable public immutableUint8;
-    bool immutable public immutableBool;
-    bytes32 immutable public immutableBytes32;
-    UserDefinedType immutable public immutableUserDefinedType;
-    uint immutable public immutableBigNumberUint;
-    int immutable public immutableBigNumberInt;
-    address immutable public immutableAddress;
-    Storage immutable public immutableContract;
-    TestEnum immutable public immutableEnum;
+    int public immutable immutableInt;
+    int8 public immutable immutableInt8;
+    uint public immutable immutableUint;
+    uint8 public immutable immutableUint8;
+    bool public immutable immutableBool;
+    bytes32 public immutable immutableBytes32;
+    UserDefinedType public immutable immutableUserDefinedType;
+    uint public immutable immutableBigNumberUint;
+    int public immutable immutableBigNumberInt;
+    address public immutable immutableAddress;
+    Storage public immutable immutableContract;
+    TestEnum public immutable immutableEnum;
 
     constructor(
         int _immutableInt,
@@ -60,9 +68,9 @@ contract Storage {
         immutableEnum = _immutableEnum;
     }
 
-    function(uint256) pure internal returns (uint256) internalFunc;
+    function(uint256) internal pure returns (uint256) internalFunc;
     int8 public minInt8;
-    function(uint256) pure external returns (uint256) externalFunc;
+    function(uint256) external pure returns (uint256) externalFunc;
     int public minInt256;
     int public bigNumberInt256;
     int8 public bigNumberInt8;

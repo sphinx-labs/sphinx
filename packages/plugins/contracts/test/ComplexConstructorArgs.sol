@@ -4,7 +4,13 @@ pragma solidity ^0.8.9;
 contract ComplexConstructorArgs {
     type UserDefinedType is uint256;
 
-    struct ComplexStruct { bytes32 a; uint128 b; uint128 c; uint64[2] d; uint[][] e; }
+    struct ComplexStruct {
+        bytes32 a;
+        uint128 b;
+        uint128 c;
+        uint64[2] d;
+        uint[][] e;
+    }
 
     string public str;
     bytes public dynamicBytes;

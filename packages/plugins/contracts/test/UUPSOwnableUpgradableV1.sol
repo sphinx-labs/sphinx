@@ -11,9 +11,9 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 contract UUPSOwnableUpgradableV1 is UUPSUpgradeable, OwnableUpgradeable {
     int public originalInt;
 
-    function initialize() initializer public {
-      __Ownable_init();
-      __UUPSUpgradeable_init();
+    function initialize() public initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

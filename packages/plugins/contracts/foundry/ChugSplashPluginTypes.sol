@@ -95,5 +95,3 @@ struct OptionalBytes32 {
     bytes32 value;
     bool exists;
 }
-
-
