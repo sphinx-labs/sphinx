@@ -1,3 +1,7 @@
+// TODO: change the name from Constants b/c we're initializing chugsplash in there? or make a
+// separate contract, like ChugSplashInitializer.
+// TODO: should these be marked public variables? i feel like they should be internal?
+
 import {
   ChugSplashBootloaderOneArtifact,
   ChugSplashBootloaderTwoArtifact,

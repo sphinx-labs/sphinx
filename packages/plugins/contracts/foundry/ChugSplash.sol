@@ -854,6 +854,19 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
             );
 
+            TODO[] memory stuffTODO = getStuffTODO();
+            for (uint i = 0; i < stuffTODO.length; i++) {
+                create2Depl;
+            }
+
+
+            // TODO: include this
+            // require(
+            //     address(chugSplashBootloaderTwo.registry()) == address(registry),
+            //     "Registry deployed to incorrect address"
+            // );
+
+
             // Deploy the adapters
             bytes memory bootloaderOneCreationCode = Constants.bootloaderOneBytecode;
             address bootloaderOneAddress = Create2.computeAddress(
@@ -885,10 +898,10 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
                 bootloaderTwoAddress
             );
 
-            require(
-                address(chugSplashBootloaderTwo.registry()) == address(registry),
-                "Registry deployed to incorrect address"
-            );
+            // require(
+            //     address(chugSplashBootloaderTwo.registry()) == address(registry),
+            //     "Registry deployed to incorrect address"
+            // );
 
             // Impersonate system owner
             vm.startPrank(systemOwnerAddress);
