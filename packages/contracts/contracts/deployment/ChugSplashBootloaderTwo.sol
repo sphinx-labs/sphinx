@@ -26,14 +26,14 @@ contract ChugSplashBootloaderTwo {
     address public managedServiceAddr;
     address public forwarderAddr;
 
-    constructor(
+    function initialize(
         address _owner,
         uint256 _executionLockTime,
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage,
         Version memory _version
-    ) {
+    ) external {
         // Deploy DefaultCreate3
         defaultCreate3Addr = DeterministicDeployer.deploy(
             type(DefaultCreate3).creationCode,

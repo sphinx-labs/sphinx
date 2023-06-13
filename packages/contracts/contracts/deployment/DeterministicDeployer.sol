@@ -2,22 +2,24 @@
 pragma solidity ^0.8.12;
 
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { toString } from 
 
 library DeterministicDeployer {
-    function deploy(bytes memory creationCode, string memory name) internal returns (address) {
-        address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-        address addr = Create2.computeAddress(
+    address constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    function deploy(bytes memory creationCode) internal returns (address) {
+        address expectedAddr = Create2.computeAddress(
             bytes32(0),
             keccak256(creationCode),
-            DeterministicDeploymentProxy
+            DETERMINISTIC_DEPLOYMENT_PROXY
         );
 
-        if (addr.code.length == 0) {
+        if (expectedAddr.code.length == 0) {
             bytes memory code = bytes.concat(bytes32(0), creationCode);
-            (bool success, ) = DeterministicDeploymentProxy.call(code);
-            require(success, string.concat(name, " deployment failed"));
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(success, string.concat("failed to deploy contract. expected address: ", vm.toString(expectedAddr)));
         }
 
-        return addr;
+        return expectedAddr;
     }
 }

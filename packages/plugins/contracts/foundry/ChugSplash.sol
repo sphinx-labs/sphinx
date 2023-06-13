@@ -63,6 +63,9 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
     using strings for *;
     using stdStorage for StdStorage;
 
+    // Source: https://github.com/Arachnid/deterministic-deployment-proxy
+    address constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
     struct OptionalLog {
         Vm.Log value;
         bool exists;
@@ -847,10 +850,8 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
-            // Setup determinisitic deployment proxy
-            address DeterministicDeploymentProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
             vm.etch(
-                DeterministicDeploymentProxy,
+                DETERMINISTIC_DEPLOYMENT_PROXY,
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
             );
 
@@ -872,7 +873,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             address bootloaderOneAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderOneCreationCode),
-                DeterministicDeploymentProxy
+                DETERMINISTIC_DEPLOYMENT_PROXY
             );
             DeterministicDeployer.deploy(
                 bootloaderOneCreationCode,
@@ -884,7 +885,7 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             address bootloaderTwoAddress = Create2.computeAddress(
                 bytes32(0),
                 keccak256(bootloaderTwoCreationCode),
-                DeterministicDeploymentProxy
+                DETERMINISTIC_DEPLOYMENT_PROXY
             );
             DeterministicDeployer.deploy(
                 bootloaderTwoCreationCode,
@@ -1234,5 +1235,21 @@ contract ChugSplash is Script, Test, DefaultCreate3, ChugSplashManagerEvents, Ch
             }
         }
         revert(string.concat("Could not find the chain alias for the RPC url: ", _rpcUrl, ". Did you forget to define it in your foundry.toml?"));
+    }
+
+    function create2Deploy(bytes memory _creationCode) private returns (address) {
+        address addr = Create2.computeAddress(
+            bytes32(0),
+            keccak256(_creationCode),
+            DETERMINISTIC_DEPLOYMENT_PROXY
+        );
+
+        if (addr.code.length == 0) {
+            bytes memory code = bytes.concat(bytes32(0), _creationCode);
+            (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
+            require(success, string.concat("failed to deploy contract. expected address: ", vm.toString(addr)));
+        }
+
+        return addr;
     }
 }
