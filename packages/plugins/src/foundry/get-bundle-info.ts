@@ -12,7 +12,7 @@ import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import { writeCanonicalConfig } from '@chugsplash/core/dist'
 
 import { createChugSplashRuntime } from '../cre'
-import { getPaths } from './paths'
+import { getFoundryConfigOptions } from './options'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 import {
@@ -32,8 +32,19 @@ const broadcasting = args[2] === 'true'
   process.stderr.write = validationStderrWrite
 
   try {
-    const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-      await getPaths()
+    const {
+      artifactFolder,
+      buildInfoFolder,
+      canonicalConfigFolder,
+      storageLayout,
+      gasEstimates,
+    } = await getFoundryConfigOptions()
+
+    if (!storageLayout || !gasEstimates) {
+      throw Error(
+        "foundry.toml file must include both 'storageLayout' and 'evm.gasEstimates' in 'extra_output':\n extra_output = ['storageLayout', 'evm.gasEstimates']"
+      )
+    }
 
     const ChugSplashUtilsABI =
       // eslint-disable-next-line @typescript-eslint/no-var-requires

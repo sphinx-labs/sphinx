@@ -4,7 +4,7 @@ import {
   readUserChugSplashConfig,
 } from '@chugsplash/core/dist/config/config'
 
-import { getPaths } from './paths'
+import { getFoundryConfigOptions } from './options'
 
 const args = process.argv.slice(2)
 const configPath = args[0]
@@ -14,7 +14,7 @@ const configPath = args[0]
 ;(async () => {
   const [userConfig, { artifactFolder }] = await Promise.all([
     readUserChugSplashConfig(configPath),
-    getPaths(),
+    getFoundryConfigOptions(),
   ])
 
   const minimalConfig = getMinimalConfig(userConfig)
