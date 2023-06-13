@@ -25,7 +25,7 @@ describe('Remote Execution', () => {
   }
 
   let Proxy: Contract
-  let NonProxy: Contract
+  let Immutable: Contract
   before(async () => {
     const provider = hre.ethers.provider
     const signer = provider.getSigner()
@@ -102,9 +102,9 @@ describe('Remote Execution', () => {
       'ExecutorProxyTest'
     )
 
-    NonProxy = await chugsplash.getContract(
+    Immutable = await chugsplash.getContract(
       parsedConfig.options.projectName,
-      'ExecutorNonProxyTest'
+      'ExecutorImmutableTest'
     )
   })
 
@@ -118,6 +118,6 @@ describe('Remote Execution', () => {
   })
 
   it('does deploy non-proxy contract remotely', async () => {
-    expect(await NonProxy.val()).equals(1)
+    expect(await Immutable.val()).equals(1)
   })
 })

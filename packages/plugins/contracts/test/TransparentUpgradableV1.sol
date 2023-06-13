@@ -12,7 +12,7 @@ contract TransparentUpgradableV1 is Initializable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize() initializer public {
+    function initialize() public initializer {
         __Ownable_init();
     }
 }

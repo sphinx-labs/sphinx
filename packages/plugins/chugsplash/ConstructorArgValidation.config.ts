@@ -19,6 +19,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     ConstructorArgsValidationPartOne: {
       contract: 'ConstructorArgsValidationPartOne',
+      kind: 'proxy',
       constructorArgs: {
         ...invalidConstructorArgsPartOne,
         _immutableUint: 1,
@@ -26,6 +27,7 @@ const config: UserChugSplashConfig = {
     },
     ConstructorArgsValidationPartTwo: {
       contract: 'ConstructorArgsValidationPartTwo',
+      kind: 'proxy',
       constructorArgs: {
         ...invalidConstructorArgsPartTwo,
       },

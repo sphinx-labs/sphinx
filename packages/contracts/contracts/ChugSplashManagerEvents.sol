@@ -10,7 +10,7 @@ contract ChugSplashManagerEvents {
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
      * @param numActions   Number of actions in the deployment.
      * @param numTargets   Number of targets in the deployment.
-     * @param numNonProxyContracts   Number of non-proxy contracts in the deployment.
+     * @param numImmutableContracts   Number of non-proxy contracts in the deployment.
      * @param configUri  URI of the config file that can be used to fetch the deployment.
      * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
      * @param proposer     Address of the account that proposed the deployment.
@@ -21,7 +21,7 @@ contract ChugSplashManagerEvents {
         bytes32 targetRoot,
         uint256 numActions,
         uint256 numTargets,
-        uint256 numNonProxyContracts,
+        uint256 numImmutableContracts,
         string configUri,
         bool remoteExecution,
         address proposer

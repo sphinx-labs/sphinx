@@ -10,11 +10,11 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
       return ContractKindEnum.OZ_OWNABLE_UUPS
     case 'oz-access-control-uups':
       return ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
-    case 'external-default':
+    case 'external-transparent':
       return ContractKindEnum.EXTERNAL_DEFAULT
-    case 'no-proxy':
-      return ContractKindEnum.NO_PROXY
-    case 'internal-default':
+    case 'immutable':
+      return ContractKindEnum.IMMUTABLE
+    case 'proxy':
       return ContractKindEnum.INTERNAL_DEFAULT
     default:
       throw new Error(`Invalid contract kind: ${kind}`)
