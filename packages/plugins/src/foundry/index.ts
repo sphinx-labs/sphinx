@@ -18,7 +18,7 @@ import {
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
-import { getPaths } from './paths'
+import { getFoundryConfigOptions } from './options'
 import { makeGetConfigArtifacts } from './utils'
 import { createChugSplashRuntime } from '../cre'
 import {
@@ -41,7 +41,7 @@ const command = args[0]
         const privateKey = args[3]
 
         const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-          await getPaths()
+          await getFoundryConfigOptions()
 
         const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
         const cre = await createChugSplashRuntime(
@@ -128,7 +128,8 @@ const command = args[0]
       }
     }
     case 'generateArtifacts': {
-      const { canonicalConfigFolder, deploymentFolder } = await getPaths()
+      const { canonicalConfigFolder, deploymentFolder } =
+        await getFoundryConfigOptions()
 
       const userConfig = JSON.parse(args[1])
       const networkName = args[2]

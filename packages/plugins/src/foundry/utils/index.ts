@@ -27,8 +27,8 @@ export const getBuildInfo = (
 ): BuildInfo => {
   // Find the correct build info file
   for (const input of buildInfos) {
-    if (input?.output?.sources[sourceName] !== undefined) {
-      validateBuildInfo(input)
+    if (input?.output?.contracts[sourceName] !== undefined) {
+      validateBuildInfo(input, 'foundry')
       return input
     }
   }
@@ -51,7 +51,7 @@ export const getContractArtifact = async (
 
   if (!(await existsAsync(completeFilePath))) {
     throw new Error(
-      `Could not find artifact for: ${name}. Did you forget to import it in your script file?`
+      `Could not find artifact for: ${name}. Please make sure that this contract exists in either the src, script, or test directory that you've configured in your foundry.toml.`
     )
   }
 
