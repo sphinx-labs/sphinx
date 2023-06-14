@@ -1,6 +1,6 @@
 # Getting Started
 
-In this guide, you'll learn how to deploy, upgrade, and test an upgradeable contract using ChugSplash.
+In this guide, you'll learn how to test and deploy a contract using ChugSplash.
 
 ## Table of Contents
 
@@ -8,17 +8,16 @@ In this guide, you'll learn how to deploy, upgrade, and test an upgradeable cont
 2. [Install ChugSplash](#2-install-chugsplash)
 3. [Configure your `foundry.toml` file](#3-configure-your-foundrytoml-file)
 4. [Update remappings](#4-update-remappings)
-5. [Create a contract](#5-create-a-contract)
-6. [Create a ChugSplash config file](#6-create-a-chugsplash-file)
-7. [Create your deployment script](#7-create-your-deployment-script)
-8. [Deploy with ChugSplash](#8-deploy-with-chugsplash)
-9. [Test with ChugSplash](#9-test-with-chugsplash)
-10. [Upgrade with ChugSplash](#10-upgrade-with-chugsplash)
+5. [Initialize ChugSplash](#5-initialize-chugsplash)
+6. [Run the tests](#6-run-the-tests)
+7. [Deploy on Anvil](#7-deploy-on-anvil)
+8. [Generate deployment artifacts](#8-generate-deployment-artifacts)
 
 ## Prerequisites
 
-The following must be installed on your machine:
-- [Node.js >=v15 and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+Install the following on your system:
+- [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm#overview) or [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/). You can check if one is installed by running `npm -v` or `yarn -v`.
+- [Node.js >= v18.16.0](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm#overview). Although we support Node.js >= v14, we **highly recommend** using v18.16.0 or later because it runs our Foundry plugin significantly faster.
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
 
 You must also have a basic understanding of how to use Foundry. [See here](https://book.getfoundry.sh/getting-started/first-steps) for a brief introduction.
@@ -30,7 +29,7 @@ If you have an existing foundry project, navigate to it then [skip to step #2](#
 If you're starting a new project, run:
 
 ```
-forge init hello_foundry && cd hello_foundry && forge install Arachnid/solidity-stringutils
+forge init hello_foundry && cd hello_foundry
 ```
 
 Then, delete the files that come with the default Foundry project:
@@ -60,15 +59,13 @@ Edit your `foundry.toml` file to include all of the following options. If you le
 
 ```
 [profile.default]
-out = 'out'
 ffi = true
 build_info = true
-extra_output = ['storageLayout']
-force = true
+extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
 
 [rpc_endpoints]
-localhost = "http://127.0.0.1:8545"
+anvil = "http://127.0.0.1:8545"
 ```
 
 ## 4. Update remappings
@@ -87,232 +84,60 @@ forge-std/=lib/forge-std/src/
 chugsplash/=node_modules/@chugsplash/plugins/dist/contracts/
 ```
 
-## 5. Create a contract
-
-We'll now setup a ChugSplash project to deploy a single upgradeable contract, `HelloChugSplash.sol`.
-
-> Note: All contracts deployed using ChugSplash are upgradeable by default.
-
-First, define `HelloChugSplash.sol` in your contract source folder (usually, this is `src/`).
-
-Copy and paste its contents:
-```sol
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
-
-contract HelloChugSplash {
-    uint public number;
-    bool public stored;
-    address public otherStorage;
-    string public storageName;
-}
+## 5. Initialize ChugSplash
+In your project root, run the following command to generate a Typescript ChugSplash project:
+```
+npx chugsplash init --ts
+```
+Or generate a Javascript ChugSplash project:
+```
+npx chugsplash init --js
 ```
 
-## 6. Create a ChugSplash config file
+You'll see we've created a few new files:
+- `src/HelloChugSplash.sol`: A sample contract to be deployed
+- `chugsplash/HelloChugSplash.config.ts`: A ChugSplash config file, which contains the deployment info for the project
+- `script/HelloChugSplash.s.sol`: A script for deploying the sample project
+- `script/GenerateArtifact.s.sol`: A script for generating deployment artifacts for the sample project
+- `test/HelloChugSplash.t.sol`: A script for running local tests of the project using ChugSplash
 
-Next, we'll create a ChugSplash config file, which contains all of the information necessary to deploy and upgrade your project. A ChugSplash config file can be written in JavaScript or JSON. In this guide, it'll be a JSON file. ChugSplash config files are the only files in your project that are not written in Solidity.
+The ChugSplash config for the sample project just deploys a single immutable contract HelloChugSplash. We'll explain the details of the ChugSplash config file in the next guide.
 
-In your project root:
-
+## 6. Run the tests
+In your project root, run the tests with the following command:
 ```
-mkdir chugsplash && echo > chugsplash/hello-chugsplash.json
-```
-
-Inside your newly created ChugSplash config file, `hello-chugsplash.json`, copy and paste the following:
-
-```json
-{
-  "options": {
-    "projectName": "Hello ChugSplash",
-    "organizationID": "0x0000000000000000000000000000000000000000000000000000000000000000"
-  },
-  "contracts": {
-    "HelloChugSplash": {
-      "contract": "HelloChugSplash",
-      "variables": {
-        "number": 1,
-        "stored": true,
-        "storageName": "First",
-        "otherStorage": "0x1111111111111111111111111111111111111111"
-      }
-    }
-  }
-}
+forge test
 ```
 
-We'll explain the details of the ChugSplash config file in the next guide.
-
-## 7. Create your deployment script
-
-In the folder that contains your Foundry scripts (usually `script/`), create your deployment script. We'll call it `MyFirstProject.s.sol`.
-
-Inside, copy and paste the following:
-```sol
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
-
-import "forge-std/Script.sol";
-import "chugsplash/ChugSplash.sol";
-
-// You *must* import the source files of all contracts you're deploying into your deployment script.
-import "../src/HelloChugSplash.sol";
-
-contract ChugSplashScript is Script {
-    function run() public {
-        // Create a ChugSplash instance
-        ChugSplash chugsplash = new ChugSplash();
-
-        // Define the path from the project root to your ChugSplash config file.
-        string memory chugsplashFilePath = "./chugsplash/hello-chugsplash.json";
-
-        // Deploy all contracts in your ChugSplash config file (in this case, just HelloChugSplash.sol)
-        chugsplash.deploy(chugsplashFilePath);
-    }
-}
+## 7. Deploy on anvil
+Create a new .env file:
+```
+echo > .env
 ```
 
-Take a moment to read the comments in the file. In particular, note that it's required for you to import the source files of all the contracts you're deploying into your deployment script. For this project, the only file you need to import is `HelloChugSplash.sol`. This ensures that the latest artifacts of your contracts are included in the script. Don't worry if you forget to do this; we'll detect it and throw an error before the deployment is executed.
+Add a private key that is valid on anvil:
+```
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
 
-## 8. Deploy with ChugSplash
-
-> Note: When deploying, upgrading, or testing your contracts locally, you must always use an Anvil node running as a stand-alone process.
-
-To create an Anvil node in a stand-alone process, run:
-
+Start an anvil node:
 ```
 anvil
 ```
 
-In another terminal window, run the following command to deploy your upgradeable contract:
-
+In a new window, run the deployment script:
 ```
-forge script --rpc-url http://localhost:8545 script/MyFirstProject.s.sol
-```
-
-You should see the following output:
-```
-== Logs ==
-  Success!
-  HelloChugSplash: 0x...
+forge script script/HelloChugSplash.s.sol --broadcast
 ```
 
-You've deployed your first upgradeable contract locally!
-
-## 9. Test with ChugSplash
-
-In the folder that contains your Foundry tests (usually `test/`), create your test file. We'll call it `MyFirstProject.t.sol`.
-
-Inside, copy and paste the following:
-```sol
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
-
-import "forge-std/Test.sol";
-import "chugsplash/ChugSplash.sol";
-import "../src/HelloChugSplash.sol";
-
-contract ChugSplashTest is Test {
-    // Your upgradeable contract
-    HelloChugSplash helloChugSplash;
-
-    function setUp() public {
-        // Create a ChugSplash instance
-        ChugSplash chugsplash = new ChugSplash();
-
-        // Define the path from the project root to your ChugSplash config file.
-        string memory chugsplashFilePath = "./chugsplash/hello-chugsplash.json";
-
-        // Deploy all contracts in your ChugSplash config file (in this case, just HelloChugSplash.sol)
-        chugsplash.deploy(chugsplashFilePath, true);
-
-        // You *must* refresh EVM state after calling `chugsplash.deploy`.
-        chugsplash.refresh();
-
-        // Connect to the deployed contract
-        helloChugSplash = HelloChugSplash(chugsplash.getAddress(chugsplashFilePath, "HelloChugSplash"));
-    }
-
-    function testNumber() public {
-        assertEq(helloChugSplash.number(), 1);
-    }
-
-    function testStored() public {
-        assertEq(helloChugSplash.stored(), true);
-    }
-
-    function testStorageName() public {
-        assertEq(helloChugSplash.storageName(), "First");
-    }
-
-    function testOtherStorage() public {
-        assertEq(helloChugSplash.otherStorage(), 0x1111111111111111111111111111111111111111);
-    }
-}
+## 8. Generate deployment artifacts
+After you've broadcast your deployment transactions, you can then generate the associated deployment artifacts:
+```
+forge script script/GenerateArtifact.s.sol
 ```
 
-Notice that you need to call `chugsplash.refresh()` after calling `chugsplash.deploy(...)`.
+## Learn More
 
-Run your tests using the command:
-```
-forge test --rpc-url http://localhost:8545
-```
-
-## 10. Upgrade with ChugSplash
-
-Upgrades are defined in exactly the same format as deployments.
-
-To upgrade our contract, we'll first change its source code. You can change it to be anything you'd like, but for the purpose of this guide, we'll simply add a new variable, `newInt`, to the end of the contract. Open `HelloChugSplash.sol`, then copy and paste the following:
-
-```sol
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
-
-contract HelloChugSplash {
-    uint public number;
-    bool public stored;
-    address public otherStorage;
-    string public storageName;
-
-    // New variable:
-    int public newInt;
-}
-```
-
-Then, update your existing ChugSplash config file, `hello-chugsplash.json`, to assign a value to this new variable:
-```json
-{
-  "options": {
-    "projectName": "Hello ChugSplash"
-  },
-  "contracts": {
-    "HelloChugSplash": {
-      "contract": "HelloChugSplash",
-      "variables": {
-        "number": 1,
-        "stored": true,
-        "storageName": "First",
-        "otherStorage": "0x1111111111111111111111111111111111111111",
-        "newInt": -1
-      }
-    }
-  }
-}
-```
-
-Optionally, you can change the values of the other variables. For example, you can change `"number"` from `1` to `2`, or `"storageName"` from `"First"` to `"Second"`.
-
-Then, run the same script that you used to deploy the contract initially:
-```
-forge script --rpc-url http://localhost:8545 script/MyFirstProject.s.sol
-```
-
-You should see the same output as before:
-```
-== Logs ==
-  Success!
-  HelloChugSplash: 0x...
-```
-
-If you update your tests in your test file, you'll be able to confirm that the contract was upgraded correctly.
-
-That's all it takes to do an upgrade!
+Once you've set up your project, the next step is to learn about the [ChugSplash
+config file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where
+you define deployments using ChugSplash.
