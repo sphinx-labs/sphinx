@@ -1,8 +1,8 @@
-# Using ChugSplash in CI with ChugSplash Managed
+# Using ChugSplash in CI with Hardhat and ChugSplash Managed
 
 This is a basic guide on how to integrate ChugSplash into your CI process using GitHub actions to trigger a deployment
 on goerli whenever you push a change to the main branch of your repo. If you are using a different CI platform, this guide
-will still be approximately accurate, but the exact configuration of the CI provider may be different.
+will still be approximately accurate, but the exact configuration of the CI provider may be different. This guide is tailored to Hardhat users, if you are using Foundry then you should check out the [Foundry version of this guide](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/ci-integration.md).
 
 ## Create a Github Actions Folder
 `mkdir -p .github/workflows`
@@ -24,7 +24,7 @@ on:
     branches:
       - main
 jobs:
-  chugsplash-deploy:
+  chugsplash-propose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -32,9 +32,9 @@ jobs:
       - run: npx hardhat chugsplash-propose --config-path <path to ChugSplash config> --network goerli --confirm
 ```
 
-The key part of this is the `chugsplash-propose` command which is what initiates the deployment using ChugSplash. If you are using a different CI provider, you just need to ensure this command is properly run.
+The key part of this is the `chugsplash-propose` command which is what initiates the deployment using ChugSplash. If you are using a different CI provider, you'll just need to ensure this command is properly run.
 
-Note that in this example, I also included an Alchemy API key and installed the projects dependencies using yarn. These may be different for your project depending one what node provider you are using and your chosen package manager.
+Note that in this example, we've also included an Alchemy API key and installed the projects dependencies using yarn. These may be different for your project depending one what node provider you are using and your chosen package manager.
 
 ## Add the required secret repository variables to you Github Actions settings
 * `PRIVATE_KEY`: The private key of an EOA you'd like to use to trigger deployments. This must be the same as the one you used to register the organization, and should be set as the default account in your hardhat config file.
