@@ -58,7 +58,7 @@ export const getBuildInfo = async (
     )
   }
 
-  validateBuildInfo(buildInfo)
+  validateBuildInfo(buildInfo, 'hardhat')
 
   return buildInfo
 }

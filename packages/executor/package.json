@@ -42,7 +42,7 @@
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "dotenv": "^16.0.3",
     "ethers": "^5.6.8",
-    "hardhat": "^2.10.0",
+    "hardhat": "^2.15.0",
     "ipfs-http-client": "56.0.3",
     "undici": "^5.12.0"
   },

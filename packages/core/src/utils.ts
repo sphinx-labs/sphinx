@@ -619,36 +619,39 @@ export const readBuildInfo = (buildInfoPath: string): BuildInfo => {
     fs.readFileSync(buildInfoPath, 'utf8')
   )
 
-  validateBuildInfo(buildInfo)
-
   return buildInfo
 }
 
-export const validateBuildInfo = (buildInfo: BuildInfo): void => {
+export const validateBuildInfo = (
+  buildInfo: BuildInfo,
+  integration: Integration
+): void => {
   if (!semver.satisfies(buildInfo.solcVersion, '>0.5.x <0.9.x')) {
     throw new Error(
       `Storage layout for Solidity version ${buildInfo.solcVersion} not yet supported. Sorry!`
     )
   }
 
-  if (
-    !buildInfo.input.settings.outputSelection['*']['*'].includes(
-      'storageLayout'
-    )
-  ) {
-    throw new Error(
-      `Did you forget to set the "storageLayout" compiler option in your Hardhat/Foundry config file?`
-    )
-  }
+  if (integration === 'hardhat') {
+    if (
+      !buildInfo.input.settings.outputSelection['*']['*'].includes(
+        'storageLayout'
+      )
+    ) {
+      throw new Error(
+        `Did you forget to set the "storageLayout" compiler option in your Hardhat config file?`
+      )
+    }
 
-  if (
-    !buildInfo.input.settings.outputSelection['*']['*'].includes(
-      'evm.gasEstimates'
-    )
-  ) {
-    throw new Error(
-      `Did you forget to set the "evm.gasEstimates" compiler option in your Hardhat/Foundry config file?`
-    )
+    if (
+      !buildInfo.input.settings.outputSelection['*']['*'].includes(
+        'evm.gasEstimates'
+      )
+    ) {
+      throw new Error(
+        `Did you forget to set the "evm.gasEstimates" compiler option in your Hardhat config file?`
+      )
+    }
   }
 }
 
