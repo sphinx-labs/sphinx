@@ -46,12 +46,30 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
      * @notice Mapping of (major, minor, patch) versions to ChugSplashManager implementation
      *         address.
      */
-    mapping(uint => mapping(uint => mapping(uint => address))) public versions;
+    // mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
     /**
      * @param _owner Address of the owner of the registry.
      */
-    constructor(address _owner) {
+    constructor(
+        address _owner,
+        address _ozTransparentAdapter,
+        address _ozUUPSOwnableAdapter,
+        address _ozUUPSAccessControlAdapter,
+        address _defaultAdapter
+    ) {
+        // Add transparent proxy type
+        addContractKind(keccak256("oz-transparent"), _ozTransparentAdapter);
+
+        // Add uups ownable proxy type
+        addContractKind(keccak256("oz-ownable-uups"), _ozUUPSOwnableAdapter);
+
+        // Add uups access control proxy type
+        addContractKind(keccak256("oz-access-control-uups"), _ozUUPSAccessControlAdapter);
+
+        // Add default proxy type
+        addContractKind(bytes32(0), _defaultAdapter);
+
         _transferOwnership(_owner);
     }
 
@@ -62,13 +80,14 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
      *
      * @param _organizationID Organization ID being registered.
      * @param _owner        Initial owner for the new project.
-     * @param _version   Version of the ChugSplashManager implementation.
+     * @param managerImpl Address of the ChugSplashManager implementation.
      * @param _data      Any data to pass to the ChugSplashManager initializer.
      */
+    // @param _version   Version of the ChugSplashManager implementation.
     function finalizeRegistration(
         bytes32 _organizationID,
         address _owner,
-        Version memory _version,
+        address managerImpl,
         bytes memory _data
     ) external {
         require(
@@ -76,8 +95,9 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
             "ChugSplashRegistry: org ID already registered"
         );
 
-        address managerImpl = versions[_version.major][_version.minor][_version.patch];
-        require(managerImplementations[managerImpl], "ChugSplashRegistry: invalid manager version");
+        // address managerImpl = versions[_version.major][_version.minor][_version.patch];
+        // require(managerImplementations[managerImpl],
+        // "ChugSplashRegistry: invalid manager version");
 
         ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: _organizationID }(
             this,
@@ -147,7 +167,7 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
      * @param _contractKindHash Hash representing the contract kind.
      * @param _adapter   Address of the adapter for this contract kind.
      */
-    function addContractKind(bytes32 _contractKindHash, address _adapter) external onlyOwner {
+    function addContractKind(bytes32 _contractKindHash, address _adapter) public onlyOwner {
         require(
             adapters[_contractKindHash] == address(0),
             "ChugSplashRegistry: contract kind has an existing adapter"
@@ -158,29 +178,29 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
         emit ContractKindAdded(_contractKindHash, _adapter);
     }
 
-    /**
-     * @notice Adds a new version of the ChugSplashManager implementation. Only callable by the
-       owner of the ChugSplashRegistry.
-     *  The version is specified by the `Semver` contract
-     *      attached to the implementation. Throws an error if the version
-     *      has already been set.
-     *
-     * @param _manager Address of the ChugSplashManager implementation to add.
-     */
-    function addVersion(address _manager) external onlyOwner {
-        Version memory version = Semver(_manager).version();
-        uint256 major = version.major;
-        uint256 minor = version.minor;
-        uint256 patch = version.patch;
+    // /**
+    //  * @notice Adds a new version of the ChugSplashManager implementation. Only callable by the
+    //    owner of the ChugSplashRegistry.
+    //  *  The version is specified by the `Semver` contract
+    //  *      attached to the implementation. Throws an error if the version
+    //  *      has already been set.
+    //  *
+    //  * @param _manager Address of the ChugSplashManager implementation to add.
+    //  */
+    // function addVersion(address _manager) external onlyOwner {
+    //     Version memory version = Semver(_manager).version();
+    //     uint256 major = version.major;
+    //     uint256 minor = version.minor;
+    //     uint256 patch = version.patch;
 
-        require(
-            versions[major][minor][patch] == address(0),
-            "ChugSplashRegistry: version already set"
-        );
+    //     require(
+    //         versions[major][minor][patch] == address(0),
+    //         "ChugSplashRegistry: version already set"
+    //     );
 
-        managerImplementations[_manager] = true;
-        versions[major][minor][patch] = _manager;
+    //     managerImplementations[_manager] = true;
+    //     versions[major][minor][patch] = _manager;
 
-        emit VersionAdded(major, minor, patch, _manager);
-    }
+    //     emit VersionAdded(major, minor, patch, _manager);
+    // }
 }
