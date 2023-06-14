@@ -26,7 +26,7 @@ const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
 const userConfig = JSON.parse(userConfigStr)
-const broadcasting = args[2] === 'true'
+const isBroadcasting = args[2] === 'true'
 
 ;(async () => {
   process.stderr.write = validationStderrWrite
@@ -78,7 +78,10 @@ const broadcasting = args[2] === 'true'
       configCache
     )
 
-    if (broadcasting) {
+    // We save the canonical config and the config artifacts to the local file system if we are
+    // broadcasting. We'll need these when we write the deployment artifacts later in the deployment
+    // process.
+    if (isBroadcasting) {
       writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
 
       const ipfsHash = configUri.replace('ipfs://', '')

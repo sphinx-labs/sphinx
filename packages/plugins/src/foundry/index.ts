@@ -3,7 +3,6 @@ import * as fs from 'fs'
 import {
   chugsplashProposeAbstractTask,
   readValidatedChugSplashConfig,
-  readUserChugSplashConfig,
   ProposalRoute,
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
@@ -17,7 +16,7 @@ import {
   bytecodeContainsUUPSInterface,
   FailureAction,
 } from '@chugsplash/core'
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getPaths } from './paths'
@@ -151,29 +150,18 @@ const command = args[0]
     case 'generateArtifacts': {
       const { canonicalConfigFolder, deploymentFolder } = await getPaths()
 
-      const configPath = args[1]
+      const userConfig = JSON.parse(args[1])
       const networkName = args[2]
       const rpcUrl = args[3]
+      const deploymentId = args[4]
+      const deployerAddress = args[5]
 
-      const provider: ethers.providers.JsonRpcProvider =
-        new ethers.providers.JsonRpcProvider(rpcUrl)
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
 
-      const config = await readUserChugSplashConfig(configPath)
-
-      const manager: Contract = await getChugSplashManagerReadOnly(
+      const manager = getChugSplashManagerReadOnly(
         provider,
-        config.options.organizationID
+        userConfig.options.organizationID
       )
-
-      // Get the most recent deployment completed event for this deployment ID.
-      const deploymentCompletedEvent = (
-        await manager.queryFilter(
-          // This might be problematic if you're deploying multiple projects with the same manager.
-          // We really should include the project name on these events so we can filter by it.
-          manager.filters.ChugSplashDeploymentCompleted()
-        )
-      ).at(-1)
-      const deploymentId = deploymentCompletedEvent?.args?.deploymentId
 
       const deployment: DeploymentState = await manager.deployments(
         deploymentId
@@ -181,11 +169,11 @@ const command = args[0]
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
       const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
-        fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
+        fs.readFileSync(`.canonical-configs/${ipfsHash}.json`, 'utf8')
       )
 
       const configArtifacts: ConfigArtifacts = JSON.parse(
-        fs.readFileSync(`./cache/${ipfsHash}.json`).toString()
+        fs.readFileSync(`./cache/${ipfsHash}.json`, 'utf8')
       )
 
       await postDeploymentActions(
@@ -199,7 +187,7 @@ const command = args[0]
         deploymentFolder,
         'foundry',
         true,
-        manager.owner(),
+        deployerAddress,
         provider,
         manager
       )

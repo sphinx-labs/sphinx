@@ -564,7 +564,9 @@ export const chugsplashDeployAbstractTask = async (
   }
 
   if (currDeploymentStatus === DeploymentStatus.PROPOSED) {
-    await approveDeployment(deploymentId, manager, signerAddress, provider)
+    await (
+      await manager.approve(deploymentId, await getGasPriceOverrides(provider))
+    ).wait()
     currDeploymentStatus = DeploymentStatus.APPROVED
   }
 
@@ -595,7 +597,13 @@ export const chugsplashDeployAbstractTask = async (
 
   if (newOwner) {
     spinner.start(`Transferring ownership to: ${newOwner}`)
-    await transferProjectOwnership(manager, newOwner, provider, spinner)
+    await transferProjectOwnership(
+      manager,
+      newOwner,
+      signerAddress,
+      provider,
+      spinner
+    )
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 
@@ -611,7 +619,7 @@ export const chugsplashDeployAbstractTask = async (
     deploymentFolder,
     integration,
     cre.silent,
-    manager.owner(),
+    signerAddress,
     provider,
     manager,
     spinner,
@@ -632,7 +640,7 @@ export const postDeploymentActions = async (
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
-  owner: string,
+  callerAddress: string,
   provider: ethers.providers.JsonRpcProvider,
   manager: ethers.Contract,
   spinner?: ora.Ora,
@@ -646,7 +654,7 @@ export const postDeploymentActions = async (
   }
 
   await trackDeployed(
-    owner,
+    callerAddress,
     organizationID,
     projectName,
     networkName,
