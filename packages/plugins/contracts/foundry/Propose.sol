@@ -1,13 +1,14 @@
-import { ChugSplash } from "../../foundry-contracts/ChugSplash.sol";
+import { ChugSplash } from "./ChugSplash.sol";
 
-contract ChugSplashScript is ChugSplash {
-    string private rpcUrl = vm.envString("CHUGSPLASH_INTERNAL_RPC_URL");
+contract Propose is ChugSplash {
+    string private network = vm.envString("CHUGSPLASH_INTERNAL_NETWORK");
     string private configPath = vm.envString("CHUGSPLASH_INTERNAL_CONFIG_PATH");
     bool private silent = vm.envBool("CHUGSPLASH_INTERNAL_SILENT");
 
     function run() public {
         if (silent) silence();
 
+        string memory rpcUrl = vm.rpcUrl(network);
         propose(configPath, rpcUrl);
     }
 }

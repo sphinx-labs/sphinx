@@ -82,8 +82,9 @@ contract ChugSplash is
     address private systemOwnerAddress =
         key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
-    string private rootFfiPath =
-        vm.envOr("DEV_FILE_PATH", string("./node_modules/@chugsplash/plugins/dist/foundry/"));
+    string private rootPath =
+        vm.envOr("DEV_FILE_PATH", string("./node_modules/@chugsplash/plugins/dist/"));
+    string private rootFfiPath = string.concat(rootPath, "foundry/");
     string private mainFfiScriptPath = string.concat(rootFfiPath, "index.js");
 
     /**
@@ -395,7 +396,7 @@ contract ChugSplash is
                 _allowManagedProposals
             );
 
-            Version memory managerVersion = getCurrentChugSplashManagerVersion();
+            // Version memory managerVersion = getCurrentChugSplashManagerVersion();
             _registry.finalizeRegistration{ gas: 1000000 }(
                 _organizationID,
                 _newOwner,

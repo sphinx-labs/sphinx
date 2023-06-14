@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { resolve } from 'path'
+import { join, resolve } from 'path'
 
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
@@ -13,51 +13,69 @@ import { inferSolcVersion } from '../foundry/utils'
 // Load environment variables from .env
 dotenv.config()
 
+const configPathOption = 'config-path'
+const networkOption = 'network'
+
 yargs(hideBin(process.argv))
   .scriptName('chugsplash')
   .command(
     'propose',
-    'Propose a deployment',
+    'Propose a deployment. Requires a private key and IPFS credentials to be set in your .env file.',
     (y) =>
       y
         .usage(
-          'Usage: npx chugsplash propose --config-path <path> --rpc-url <url> [--silent]'
+          `Usage: npx chugsplash propose --${configPathOption} <path> --${networkOption} <networkName> [--silent]`
         )
-        .option('config-path', {
+        .option(configPathOption, {
           alias: 'c',
-          describe: 'Path to the ChugSplash config file to propose',
+          describe: 'Path to the ChugSplash config file to propose.',
           type: 'string',
         })
-        .option('rpc-url', {
-          alias: 'r',
-          describe: 'RPC URL for the network to propose on',
+        .option('network', {
+          alias: 'n',
+          describe:
+            'Network name. Must also be defined under "rpc_endpoints" in foundry.toml.',
           type: 'string',
         })
         .option('silent', {
-          describe: `Hide ChugSplash's output`,
+          describe: `Hide ChugSplash's output.`,
           boolean: true,
           alias: 's',
         })
         .hide('version'),
     async (argv) => {
-      const { configPath, rpcUrl } = argv
+      const { configPath, network } = argv
       const silent = argv.silent ?? false
       if (!configPath) {
-        console.error('Must specify a path to a ChugSplash config file.')
+        console.error(
+          `Must specify a path to a ChugSplash config file via --${configPathOption}.`
+        )
         process.exit(1)
       }
-      if (!rpcUrl) {
-        console.error('Must specify an RPC URL.')
+      if (!network) {
+        console.error(`Must specify a network via --${networkOption}.`)
         process.exit(1)
       }
-
-      const privateKey = process.env.PRIVATE_KEY
-      if (!privateKey) {
+      if (!process.env.PRIVATE_KEY) {
         console.error(`Must specify a "PRIVATE_KEY" in your .env file.`)
         process.exit(1)
       }
+      if (!process.env.IPFS_PROJECT_ID) {
+        console.error(`Must specify an "IPFS_PROJECT_ID" in your .env file.`)
+        process.exit(1)
+      }
+      if (!process.env.IPFS_API_KEY_SECRET) {
+        console.error(
+          `Must specify an "IPFS_API_KEY_SECRET" in your .env file.`
+        )
+        process.exit(1)
+      }
 
-      process.env['CHUGSPLASH_INTERNAL_RPC_URL'] = rpcUrl
+      const rootFfiPath =
+        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/dist/'
+      const proposeContractPath = join(rootFfiPath, 'contracts/Propose.sol')
+
+      process.env['CHUGSPLASH_INTERNAL_NETWORK'] = network
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
       process.env['CHUGSPLASH_INTERNAL_SILENT'] = silent.toString()
 
@@ -69,7 +87,7 @@ yargs(hideBin(process.argv))
         // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
         // TypeScript configs. This can't be done by calling the TypeScript propose function
         // directly because calling `npx chugsplash` uses Node, not `ts-node`.
-        await execAsync(`forge script src/cli/Propose.s.sol`)
+        await execAsync(`forge script ${proposeContractPath}`)
       } catch ({ stderr }) {
         spinner.fail('Proposal failed.')
         // Strip \n from the end of the error message, if it exists
