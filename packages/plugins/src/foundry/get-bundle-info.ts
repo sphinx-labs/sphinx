@@ -1,3 +1,6 @@
+import path from 'path'
+import fs from 'fs'
+
 import {
   getUnvalidatedParsedConfig,
   postParsingValidation,
@@ -6,6 +9,7 @@ import { FailureAction } from '@chugsplash/core/dist/types'
 import { getBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
+import { writeCanonicalConfig } from '@chugsplash/core/dist'
 
 import { createChugSplashRuntime } from '../cre'
 import { getPaths } from './paths'
@@ -22,6 +26,7 @@ const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
 const userConfig = JSON.parse(userConfigStr)
+const broadcasting = args[2] === 'true'
 
 ;(async () => {
   process.stderr.write = validationStderrWrite
@@ -67,11 +72,29 @@ const userConfig = JSON.parse(userConfigStr)
       FailureAction.THROW
     )
 
-    const { configUri, bundles } = await getBundleInfo(
+    const { configUri, bundles, canonicalConfig } = await getBundleInfo(
       parsedConfig,
       configArtifacts,
       configCache
     )
+
+    if (broadcasting) {
+      writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
+
+      const ipfsHash = configUri.replace('ipfs://', '')
+      const cachePath = path.resolve('./cache')
+      // Create the canonical config network folder if it doesn't already exist.
+      if (!fs.existsSync(cachePath)) {
+        fs.mkdirSync(cachePath)
+      }
+
+      // Write the canonical config to the local file system. It will exist in a JSON file that has the
+      // config URI as its name.
+      fs.writeFileSync(
+        path.join(cachePath, `${ipfsHash}.json`),
+        JSON.stringify(configArtifacts, null, 2)
+      )
+    }
 
     const actionBundleType = ChugSplashUtilsABI.find(
       (fragment) => fragment.name === 'actionBundle'
