@@ -1142,6 +1142,7 @@ export const getDeployedCreationCodeWithArgsHash = async (
 export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
+  currOwnerAddress: string,
   provider: providers.Provider,
   spinner: ora.Ora
 ) => {
@@ -1149,7 +1150,7 @@ export const transferProjectOwnership = async (
     throw new Error(`Invalid address for new project owner: ${newOwnerAddress}`)
   }
 
-  if (newOwnerAddress !== (await manager.owner())) {
+  if (newOwnerAddress !== currOwnerAddress) {
     spinner.start(`Transferring project ownership to: ${newOwnerAddress}`)
     if (newOwnerAddress === ethers.constants.AddressZero) {
       // We must call a separate function if ownership is being transferred to address(0).
