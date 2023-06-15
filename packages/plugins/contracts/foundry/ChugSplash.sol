@@ -396,7 +396,7 @@ contract ChugSplash is
                 _allowManagedProposals
             );
 
-            // Version memory managerVersion = getCurrentChugSplashManagerVersion();
+            Version memory managerVersion = getCurrentChugSplashManagerVersion();
             _registry.finalizeRegistration{ gas: 1000000 }(
                 _organizationID,
                 _newOwner,
