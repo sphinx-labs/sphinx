@@ -29,12 +29,6 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
 contract ChugSplashTest is ChugSplash {
     type UserDefinedType is uint256;
 
-    string private filePath =
-        vm.envOr(
-            "DEV_FILE_PATH",
-            string("./node_modules/@chugsplash/plugins/dist/foundry/")
-        );
-
     Storage myStorage;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
