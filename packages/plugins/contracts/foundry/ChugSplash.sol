@@ -93,6 +93,9 @@ contract ChugSplash is
     modifier initialize(string memory _rpcUrl) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
         require(callerMode != VmSafe.CallerMode.Broadcast, "TODO");
+        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+            ffiDeployCreate2Factory(_rpcUrl);
+        }
         // TODO(docs): explain that you can't put ensureChugSplashInitialized in the constructor of
         // ChugSplash.sol because you need it to be broadcasted on the standalone anvil node
         ensureChugSplashInitialized(_rpcUrl);
@@ -379,9 +382,10 @@ contract ChugSplash is
         }
 
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            ffiGenerateArtifacts(configs.userConfigStr, _rpcUrl, deploymentId, deployer);
-        }
+        // TODO
+        // if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+        //     ffiGenerateArtifacts(configs.userConfigStr, _rpcUrl, deploymentId, deployer);
+        // }
     }
 
     function finalizeRegistration(
@@ -866,7 +870,7 @@ contract ChugSplash is
             );
 
             ChugSplashContractInfo[] memory contracts = getChugSplashContractInfo();
-            for (uint i = 0; i < contracts.length; i++) {
+            for (uint i = 0; i < contracts.length; i++) { // TODO
                 ChugSplashContractInfo memory ct = contracts[i];
                 address addr = create2Deploy(ct.creationCode);
                 require(addr == ct.expectedAddress, string.concat("address mismatch. expected address: ", vm.toString(ct.expectedAddress)));
