@@ -2301,11 +2301,11 @@ export const assertNoUpgradableContracts = (
   for (const contractConfig of Object.values(parsedConfig.contracts)) {
     if (
       contractConfig.kind !== 'immutable' &&
-      process.env.CHUGSPLASH_ALLOW_UPGRADABLE_CONTRACTS === 'true'
+      process.env.CHUGSPLASH_ALLOW_UPGRADABLE_CONTRACTS !== 'true'
     ) {
       logValidationError(
         'error',
-        `Detected upgradeable contract '${contractConfig.contract}', but upgradeable contracts are not officially supported. If you would like to use upgradable contracts please reach out to us in the Discord.`,
+        `Detected upgradeable contract '${contractConfig.contract}', but upgradeable contracts are not officially supported yet. If you would like to use upgradable contracts please reach out to us in the Discord.`,
         [],
         cre.silent,
         cre.stream
