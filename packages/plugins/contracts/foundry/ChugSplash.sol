@@ -92,10 +92,6 @@ contract ChugSplash is
     modifier initialize(string memory _rpcUrl) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
         require(callerMode != VmSafe.CallerMode.Broadcast, "TODO");
-        // TODO(docs)
-        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-            ffiDeployCreate2Factory(_rpcUrl);
-        }
         // TODO(docs): explain that you can't put ensureChugSplashInitialized in the constructor of
         // ChugSplash.sol because you need it to be broadcasted on the standalone anvil node
         ensureChugSplashInitialized(_rpcUrl);
@@ -876,6 +872,11 @@ contract ChugSplash is
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
+            (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
+            // TODO(docs)
+            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+                ffiDeployCreate2Factory(_rpcUrl);
+            }
             vm.etch(
                 DETERMINISTIC_DEPLOYMENT_PROXY,
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
