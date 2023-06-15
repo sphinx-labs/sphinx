@@ -564,7 +564,9 @@ export const chugsplashDeployAbstractTask = async (
   }
 
   if (currDeploymentStatus === DeploymentStatus.PROPOSED) {
-    await approveDeployment(deploymentId, manager, signerAddress, provider)
+    await (
+      await manager.approve(deploymentId, await getGasPriceOverrides(provider))
+    ).wait()
     currDeploymentStatus = DeploymentStatus.APPROVED
   }
 
@@ -595,7 +597,13 @@ export const chugsplashDeployAbstractTask = async (
 
   if (newOwner) {
     spinner.start(`Transferring ownership to: ${newOwner}`)
-    await transferProjectOwnership(manager, newOwner, provider, spinner)
+    await transferProjectOwnership(
+      manager,
+      newOwner,
+      signerAddress,
+      provider,
+      spinner
+    )
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 

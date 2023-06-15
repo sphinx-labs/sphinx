@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {
+    ChugSplashBundles
+} from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
+
+struct Configs {
+    MinimalConfig minimalConfig;
+    string userConfigStr;
+}
+
+struct BundleInfo {
+    string configUri;
+    DeployContractCost[] deployContractCosts;
+    ChugSplashBundles bundles;
+}
+
 struct MinimalConfig {
     bytes32 organizationID;
     string projectName;

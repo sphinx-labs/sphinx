@@ -130,9 +130,8 @@ const command = args[0]
       }
     }
     case 'deployOnAnvil': {
-      const provider = new ethers.providers.JsonRpcProvider(
-        'http://localhost:8545'
-      )
+      const rpcUrl = args[1]
+      const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
       const wallet = new ethers.Wallet(
         '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
         provider
