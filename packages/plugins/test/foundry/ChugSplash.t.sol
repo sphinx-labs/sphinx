@@ -32,7 +32,7 @@ contract ChugSplashTest is ChugSplash {
     string private filePath =
         vm.envOr(
             "DEV_FILE_PATH",
-            string("./node_modules/@chugsplash/plugins/dist/foundry/")
+            string("./node_modules/@chugsplash/plugins/dist/")
         );
 
     Storage myStorage;
