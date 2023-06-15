@@ -89,10 +89,10 @@ contract ChugSplash is
     string private rootFfiPath = string.concat(rootPath, "foundry/");
     string private mainFfiScriptPath = string.concat(rootFfiPath, "index.js");
 
-
     modifier initialize(string memory _rpcUrl) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
         require(callerMode != VmSafe.CallerMode.Broadcast, "TODO");
+        // TODO(docs)
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
             ffiDeployCreate2Factory(_rpcUrl);
         }
@@ -704,7 +704,7 @@ contract ChugSplash is
     function ffiGetConfigs(
         string memory _configPath
     ) private returns (Configs memory) {
-        string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
+        string memory ffiScriptPath = string.concat(rootFfiPath, "get-configs.js");
 
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
@@ -799,6 +799,18 @@ contract ChugSplash is
             }
             revert(errors);
         }
+    }
+
+    function ffiDeployCreate2Factory(string memory _rpcUrl) private {
+        string memory ffiScriptPath = string.concat(rootFfiPath, "deploy-create2-factory.js");
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        cmds[1] = "node";
+        cmds[2] = ffiScriptPath;
+        cmds[3] = "deployCreate2Factory";
+        cmds[4] = _rpcUrl;
+
+        vm.ffi(cmds);
     }
 
     function ffiGetPreviousConfigUri(
