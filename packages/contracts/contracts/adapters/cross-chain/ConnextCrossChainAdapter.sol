@@ -21,23 +21,24 @@ contract ConnextCrossChainAdapter is ICrossChainAdapter {
         RegistrationInfo memory _registration,
         CrossChainMessageInfo memory _message
     ) external {
-        // bytes memory registryCalldata = abi.encodeCall(
-        //     ChugSplashRegistry.finalizeRegistration,
-        //     (
-        //         _orgID,
-        //         _registration.owner,
-        //         _registration.version,
-        //         _registration.managerInitializerData
-        //     )
-        // );
-        // IConnext(_message.originEndpoint).xcall{ value: _message.relayerFee }(
-        //     _message.destDomainID, // _destination: Domain ID of the destination chain
-        //     registry, // _to: address of the target contract on the destination chain
-        //     address(0), // _asset: address of the token contract (this is unused)
-        //     msg.sender, // _delegate: address that can revert or forceLocal on destination
-        //     0, // _amount: amount of tokens to transfer (this is unused)
-        //     0, // _slippage: this is unused
-        //     registryCalldata // _callData: the encoded calldata to send
-        // );
+        bytes memory registryCalldata = abi.encodeCall(
+            ChugSplashRegistry.finalizeRegistration,
+            (
+                _orgID,
+                _registration.owner,
+                _registration.version,
+                _registration.managerInitializerData
+            )
+        );
+
+        IConnext(_message.originEndpoint).xcall{ value: _message.relayerFee }(
+            _message.destDomainID, // _destination: Domain ID of the destination chain
+            registry, // _to: address of the target contract on the destination chain
+            address(0), // _asset: address of the token contract (this is unused)
+            msg.sender, // _delegate: address that can revert or forceLocal on destination
+            0, // _amount: amount of tokens to transfer (this is unused)
+            0, // _slippage: this is unused
+            registryCalldata // _callData: the encoded calldata to send
+        );
     }
 }

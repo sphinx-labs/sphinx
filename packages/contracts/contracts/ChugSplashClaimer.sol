@@ -68,13 +68,13 @@ contract ChugSplashClaimer is Ownable {
         for (uint i = 0; i < _messages.length; i++) {
             CrossChainMessageInfo memory messageInfo = _messages[i];
             RegistrationInfo memory registration = _registrationInfo[i];
-            // Version memory version = registration.version;
+            Version memory version = registration.version;
 
-            // address managerImpl = registry.versions(version.major, version.minor, version.patch);
-            // require(
-            //     registry.managerImplementations(managerImpl),
-            //     "ChugSplashClaimer: invalid manager version"
-            // );
+            address managerImpl = registry.versions(version.major, version.minor, version.patch);
+            require(
+                registry.managerImplementations(managerImpl),
+                "ChugSplashClaimer: invalid manager version"
+            );
 
             address crossChainAdapter = crossChainAdapters[messageInfo.originEndpoint][
                 messageInfo.destDomainID

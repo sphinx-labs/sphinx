@@ -400,8 +400,7 @@ contract ChugSplash is
             _registry.finalizeRegistration{ gas: 1000000 }(
                 _organizationID,
                 _newOwner,
-                // managerVersion,
-                managerImplementationAddress,
+                managerVersion,
                 initializerData
             );
         } else {
@@ -892,34 +891,34 @@ contract ChugSplash is
                 require(addr == ct.expectedAddress, string.concat("address mismatch. expected address: ", vm.toString(ct.expectedAddress)));
             }
 
-            // // Impersonate system owner
-            // vm.startPrank(systemOwnerAddress);
+            // Impersonate system owner
+            vm.startPrank(systemOwnerAddress);
 
-            // // Add initial manager version
-            // registry.addVersion(managerImplementationAddress);
+            // Add initial manager version
+            registry.addVersion(managerImplementationAddress);
 
-            // // Add transparent proxy type
-            // registry.addContractKind(
-            //     keccak256("oz-transparent"),
-            //     ozTransparentAdapterAddr
-            // );
+            // Add transparent proxy type
+            registry.addContractKind(
+                keccak256("oz-transparent"),
+                ozTransparentAdapterAddr
+            );
 
-            // // Add uups ownable proxy type
-            // registry.addContractKind(
-            //     keccak256("oz-ownable-uups"),
-            //     ozUUPSOwnableAdapterAddr
-            // );
+            // Add uups ownable proxy type
+            registry.addContractKind(
+                keccak256("oz-ownable-uups"),
+                ozUUPSOwnableAdapterAddr
+            );
 
-            // // Add uups access control proxy type
-            // registry.addContractKind(
-            //     keccak256("oz-access-control-uups"),
-            //     ozUUPSAccessControlAdapterAddr
-            // );
+            // Add uups access control proxy type
+            registry.addContractKind(
+                keccak256("oz-access-control-uups"),
+                ozUUPSAccessControlAdapterAddr
+            );
 
-            // // Add default proxy type
-            // registry.addContractKind(bytes32(0), defaultAdapterAddr);
+            // Add default proxy type
+            registry.addContractKind(bytes32(0), defaultAdapterAddr);
 
-            // vm.stopPrank();
+            vm.stopPrank();
         } else {
             // We're on a forked or live network that doesn't have ChugSplash deployed, which
             // means we don't support ChugSplash on this network yet.

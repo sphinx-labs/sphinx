@@ -21,11 +21,11 @@ contract LocalAdapter is ICrossChainAdapter {
         RegistrationInfo memory _registration,
         CrossChainMessageInfo memory
     ) external {
-        // registry.finalizeRegistration(
-        //     _orgID,
-        //     _registration.owner,
-        //     _registration.version,
-        //     _registration.managerInitializerData
-        // );
+        registry.finalizeRegistration(
+            _orgID,
+            _registration.owner,
+            _registration.version,
+            _registration.managerInitializerData
+        );
     }
 }
