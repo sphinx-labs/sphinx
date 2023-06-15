@@ -81,12 +81,17 @@ export const makeGetConfigArtifacts = (
 
     const buildInfoPromises = fs
       .readdirSync(buildInfoPath)
-      .filter((file) => {
-        return file.endsWith('.json')
+      .filter((fileName) => {
+        return fileName.endsWith('.json')
       })
+      .map((fileName) => ({
+        name: fileName,
+        time: fs.statSync(`${buildInfoPath}/${fileName}`).mtime.getTime(),
+      }))
+      .sort((a, b) => b.time - a.time)
       .map(async (file) => {
         return JSON.parse(
-          await readFileAsync(join(buildInfoFolder, file), 'utf8')
+          await readFileAsync(join(buildInfoFolder, file.name), 'utf8')
         )
       })
 
