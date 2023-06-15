@@ -2294,6 +2294,26 @@ export const getUnvalidatedParsedConfig = (
   return parsedConfig
 }
 
+export const assertNoUpgradableContracts = (
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
+) => {
+  for (const contractConfig of Object.values(parsedConfig.contracts)) {
+    if (
+      contractConfig.kind !== 'immutable' &&
+      process.env.CHUGSPLASH_ALLOW_UPGRADABLE_CONTRACTS !== 'true'
+    ) {
+      logValidationError(
+        'error',
+        `Detected upgradeable contract '${contractConfig.contract}', but upgradeable contracts are not officially supported yet. If you would like to use upgradable contracts please reach out to us in the Discord.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  }
+}
+
 export const postParsingValidation = async (
   parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
@@ -2303,6 +2323,8 @@ export const postParsingValidation = async (
 ) => {
   const { projectName } = parsedConfig.options
   const { blockGasLimit, localNetwork, contractConfigCache } = configCache
+
+  assertNoUpgradableContracts(parsedConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
 
