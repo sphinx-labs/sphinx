@@ -32,6 +32,8 @@ import {
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import {
     MinimalConfig,
+    Configs,
+    BundleInfo,
     MinimalContractConfig,
     ConfigCache,
     DeployContractCost,
@@ -57,7 +59,7 @@ contract ChugSplash is
     ChugSplashConstants
 {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
-    address constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address private constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     struct OptionalLog {
         Vm.Log value;
@@ -83,28 +85,41 @@ contract ChugSplash is
     string private rootFfiPath = string.concat(rootPath, "foundry/");
     string private mainFfiScriptPath = string.concat(rootFfiPath, "index.js");
 
+    modifier initializeChugSplash(string memory _rpcUrl) {
+        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+        require(callerMode != VmSafe.CallerMode.Broadcast, "Cannot call ChugSplash using vm.broadcast. Please use vm.startBroadcast.");
+
+        if (isLocalNetwork(_rpcUrl) && callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+            vm.stopBroadcast();
+            ffiDeployOnAnvil(_rpcUrl);
+            ensureChugSplashInitialized(_rpcUrl);
+            vm.startBroadcast(msgSender);
+        } else if (callerMode == VmSafe.CallerMode.None) {
+            ensureChugSplashInitialized(_rpcUrl);
+        }
+        _;
+    }
+
     /**
      * @notice This constructor must not revert, or else an opaque error message will be displayed
        to the user.
      */
     constructor() {
         utils = new ChugSplashUtils();
-        ffiDeployOnAnvil();
     }
 
     function silence() internal {
         silent = true;
     }
 
-    function cancel(string memory _configPath, string memory _rpcUrl) internal {
-        ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
+    function cancel(string memory _configPath, string memory _rpcUrl) internal initializeChugSplash(_rpcUrl) {
+        Configs memory configs = ffiGetConfigs(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = getChugSplashManager(registry, minimalConfig.organizationID);
+        ChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
         manager.cancelActiveChugSplashDeployment();
-    }
+    }       
 
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
@@ -112,9 +127,9 @@ contract ChugSplash is
         string memory _referenceName,
         address _newOwner,
         string memory _rpcUrl
-    ) internal {
-        ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
+    ) internal initializeChugSplash(_rpcUrl) {
+        Configs memory configs = ffiGetConfigs(_configPath);
+        MinimalConfig memory minimalConfig = configs.minimalConfig;
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
@@ -160,13 +175,12 @@ contract ChugSplash is
         string memory _configPath,
         address _proxy,
         string memory _rpcUrl
-    ) internal {
-        ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, ) = ffiGetMinimalConfig(_configPath);
+    ) internal initializeChugSplash(_rpcUrl) {
+        Configs memory configs = ffiGetConfigs(_configPath);
 
         ChugSplashRegistry registry = getChugSplashRegistry();
         ChugSplashManager manager = ChugSplashManager(
-            registry.projects(minimalConfig.organizationID)
+            registry.projects(configs.minimalConfig.organizationID)
         );
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
@@ -205,8 +219,7 @@ contract ChugSplash is
         return keccak256(result) == keccak256("true");
     }
 
-    function propose(string memory _configPath, string memory _rpcUrl) internal {
-        ensureChugSplashInitialized(_rpcUrl);
+    function propose(string memory _configPath, string memory _rpcUrl) internal initializeChugSplash(_rpcUrl) {
         string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript ChugSplash config files.
@@ -260,46 +273,35 @@ contract ChugSplash is
         string memory _configPath,
         string memory _rpcUrl,
         OptionalAddress memory _newOwner
-    ) private {
-        ensureChugSplashInitialized(_rpcUrl);
-        (MinimalConfig memory minimalConfig, string memory userConfigStr) = ffiGetMinimalConfig(
+    ) private initializeChugSplash(_rpcUrl) {
+        Configs memory configs = ffiGetConfigs(
             _configPath
         );
 
         ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = getChugSplashManager(registry, minimalConfig.organizationID);
+        ChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
-        ConfigCache memory configCache = getConfigCache(minimalConfig, registry, manager, _rpcUrl);
+        ConfigCache memory configCache = getConfigCache(configs.minimalConfig, registry, manager, _rpcUrl);
 
-        // Unlike the TypeScript version, we don't get the CanonicalConfig since Solidity doesn't
-        // support complex types like the 'variables' field.
-        (
-            string memory configUri,
-            DeployContractCost[] memory deployContractCosts,
-            ChugSplashBundles memory bundles
-        ) = ffiGetBundleInfo(configCache, userConfigStr);
+        BundleInfo memory bundleInfo = ffiGetBundleInfo(configCache, configs.userConfigStr);
 
         address deployer = utils.msgSender();
-        finalizeRegistration(registry, manager, minimalConfig.organizationID, deployer, false);
+        // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
+        // transfer ownership to the new owner specified by the user, if it exists.
+        finalizeRegistration(registry, manager, configs.minimalConfig.organizationID, deployer, false);
 
-        address realManagerAddress = registry.projects(minimalConfig.organizationID);
-        require(
-            realManagerAddress == address(manager),
-            "Computed manager address is different from expected address"
-        );
-
-        if (bundles.actionBundle.actions.length == 0 && bundles.targetBundle.targets.length == 0) {
+        if (bundleInfo.bundles.actionBundle.actions.length == 0 && bundleInfo.bundles.targetBundle.targets.length == 0) {
             emit log("Nothing to execute in this deployment. Exiting early.");
             return;
         }
 
-        bytes32 deploymentId = getDeploymentId(bundles, configUri);
+        bytes32 deploymentId = getDeploymentId(bundleInfo.bundles, bundleInfo.configUri);
         DeploymentState memory deploymentState = manager.deployments(deploymentId);
 
         if (deploymentState.status == DeploymentStatus.CANCELLED) {
             revert(
                 string.concat(
-                    minimalConfig.projectName,
+                    configs.minimalConfig.projectName,
                     " was previously cancelled on ",
                     configCache.networkName
                 )
@@ -316,14 +318,14 @@ contract ChugSplash is
                 );
             }
 
-            (uint256 numImmutableContracts, ) = getNumActions(bundles.actionBundle.actions);
+            (uint256 numImmutableContracts, ) = getNumActions(bundleInfo.bundles.actionBundle.actions);
             manager.propose{ gas: 1000000 }(
-                bundles.actionBundle.root,
-                bundles.targetBundle.root,
-                bundles.actionBundle.actions.length,
-                bundles.targetBundle.targets.length,
+                bundleInfo.bundles.actionBundle.root,
+                bundleInfo.bundles.targetBundle.root,
+                bundleInfo.bundles.actionBundle.actions.length,
+                bundleInfo.bundles.targetBundle.targets.length,
                 numImmutableContracts,
-                configUri,
+                bundleInfo.configUri,
                 false
             );
 
@@ -331,7 +333,7 @@ contract ChugSplash is
         }
 
         if (deploymentState.status == DeploymentStatus.PROPOSED) {
-            approveDeployment(deploymentId, manager);
+            manager.approve{ gas: 1000000 }(deploymentId);
             deploymentState.status = DeploymentStatus.APPROVED;
         }
 
@@ -341,16 +343,16 @@ contract ChugSplash is
         ) {
             bool success = executeDeployment(
                 manager,
-                bundles,
+                bundleInfo.bundles,
                 configCache.blockGasLimit,
-                deployContractCosts
+                bundleInfo.deployContractCosts
             );
 
             if (!success) {
                 revert(
                     string.concat(
                         "ChugSplash: failed to execute ",
-                        minimalConfig.projectName,
+                        configs.minimalConfig.projectName,
                         "likely because one of the user's constructors reverted during the deployment."
                     )
                 );
@@ -358,15 +360,15 @@ contract ChugSplash is
         }
 
         if (_newOwner.exists) {
-            transferProjectOwnership(manager, _newOwner.value);
+            transferProjectOwnership(manager, _newOwner.value, deployer);
         }
 
-        updateDeploymentMapping(_configPath, minimalConfig.contracts);
+        updateDeploymentMapping(_configPath, configs.minimalConfig.contracts);
 
         if (!silent) {
             emit log("Success!");
-            for (uint i = 0; i < minimalConfig.contracts.length; i++) {
-                MinimalContractConfig memory contractConfig = minimalConfig.contracts[i];
+            for (uint i = 0; i < configs.minimalConfig.contracts.length; i++) {
+                MinimalContractConfig memory contractConfig = configs.minimalConfig.contracts[i];
                 emit log(
                     string.concat(
                         contractConfig.referenceName,
@@ -419,24 +421,8 @@ contract ChugSplash is
         return _registry.managerProxies(_manager);
     }
 
-    function approveDeployment(bytes32 _deploymentId, ChugSplashManager _manager) private {
-        address projectOwner = _manager.owner();
-        address deployer = utils.msgSender();
-        if (deployer != projectOwner) {
-            revert(
-                string.concat(
-                    "ChugSplash: caller is not the project owner. Caller's address: ",
-                    vm.toString(deployer),
-                    "Owner's address: ",
-                    vm.toString(projectOwner)
-                )
-            );
-        }
-        _manager.approve{ gas: 1000000 }(_deploymentId);
-    }
-
-    function transferProjectOwnership(ChugSplashManager _manager, address _newOwner) private {
-        if (_newOwner != _manager.owner()) {
+    function transferProjectOwnership(ChugSplashManager _manager, address _newOwner, address _currOwner) private {
+        if (_newOwner != _currOwner) {
             if (_newOwner == address(0)) {
                 _manager.renounceOwnership();
             } else {
@@ -703,13 +689,13 @@ contract ChugSplash is
         return Version({ major: major, minor: minor, patch: patch });
     }
 
-    // This function also returns the user config string as a performance optimization. Reading
-    // TypeScript user configs with ts-node is slow, so we read it once here and pass it in
-    // to future FFI call(s).
-    function ffiGetMinimalConfig(
+    // This function returns the user config string as a performance optimization. Reading
+    // TypeScript user configs can be slow, so we read it once here and pass it in to
+    // future FFI calls.
+    function ffiGetConfigs(
         string memory _configPath
-    ) private returns (MinimalConfig memory, string memory) {
-        string memory ffiScriptPath = string.concat(rootFfiPath, "get-minimal-config.js");
+    ) private returns (Configs memory) {
+        string memory ffiScriptPath = string.concat(rootFfiPath, "get-configs.js");
 
         string[] memory cmds = new string[](5);
         cmds[0] = "npx";
@@ -725,7 +711,7 @@ contract ChugSplash is
             result,
             (MinimalConfig, string)
         );
-        return (minimalConfig, userConfigStr);
+        return Configs(minimalConfig, userConfigStr);
     }
 
     /**
@@ -739,13 +725,15 @@ contract ChugSplash is
     function ffiGetBundleInfo(
         ConfigCache memory _configCache,
         string memory _userConfigStr
-    ) private returns (string memory, DeployContractCost[] memory, ChugSplashBundles memory) {
-        string[] memory cmds = new string[](5);
+    ) private returns (BundleInfo memory) {
+        (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(rootFfiPath, "get-bundle-info.js");
         cmds[3] = vm.toString(abi.encode(_configCache));
         cmds[4] = _userConfigStr;
+        cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
 
         bytes memory result = vm.ffi(cmds);
 
@@ -790,7 +778,7 @@ contract ChugSplash is
             if (bytes(warnings).length > 0) {
                 emit log(StdStyle.yellow(warnings));
             }
-            return (
+            return BundleInfo(
                 configUri,
                 deployContractCosts,
                 ChugSplashBundles({ actionBundle: actionBundle, targetBundle: targetBundle })
@@ -823,12 +811,13 @@ contract ChugSplash is
         return OptionalString({ exists: exists, value: configUri });
     }
 
-    function ffiDeployOnAnvil() private {
-        string[] memory cmds = new string[](6);
+    function ffiDeployOnAnvil(string memory _rpcUrl) private {
+        string[] memory cmds = new string[](5);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
         cmds[3] = "deployOnAnvil";
+        cmds[4] = _rpcUrl;
 
         vm.ffi(cmds);
     }

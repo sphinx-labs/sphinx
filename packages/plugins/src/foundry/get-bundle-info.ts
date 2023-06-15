@@ -99,7 +99,7 @@ const broadcasting = args[2] === 'true'
         fs.mkdirSync(cachePath)
       }
 
-      // Write the canonical config to the local file system. It will exist in a JSON file that has the
+      // Write the config artifacts to the local file system. It will exist in a JSON file that has the
       // config URI as its name.
       fs.writeFileSync(
         path.join(cachePath, `${ipfsHash}.json`),
