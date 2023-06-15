@@ -33,6 +33,24 @@ const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
   (input) => input.type
 )
 
+export const getRegistryConstructorValues = () => [getOwnerAddress()]
+
+export const getChugSplashRegistryAddress = () =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashRegistryArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          registryConstructorArgTypes,
+          getRegistryConstructorValues()
+        ),
+      ]
+    )
+  )
+
 export const MANAGED_SERVICE_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   constants.HashZero,
@@ -41,6 +59,37 @@ export const MANAGED_SERVICE_ADDRESS = utils.getCreate2Address(
     [
       ManagedServiceArtifact.bytecode,
       utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
+    ]
+  )
+)
+
+export const REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ChugSplashManagerProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+        ),
+      ]
+    )
+  )
+
+export const REFERENCE_PROXY_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      ProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address'],
+        [getChugSplashRegistryAddress()]
+      ),
     ]
   )
 )
@@ -179,58 +228,3 @@ export const getManagerProxyInitCodeHash = (): string => {
     ]
   )
 }
-
-export const getRegistryConstructorValues = () => [
-  getOwnerAddress(),
-  OZ_TRANSPARENT_ADAPTER_ADDRESS,
-  OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  DEFAULT_ADAPTER_ADDRESS,
-]
-
-export const getChugSplashRegistryAddress = () =>
-  utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashRegistryArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          registryConstructorArgTypes,
-          getRegistryConstructorValues()
-        ),
-      ]
-    )
-  )
-
-export const REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
-  utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
-        ),
-      ]
-    )
-  )
-
-export const REFERENCE_PROXY_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
-        ['address'],
-        [getChugSplashRegistryAddress()]
-      ),
-    ]
-  )
-)

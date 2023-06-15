@@ -60,10 +60,9 @@ import {
   ChugSplashBundles,
   DeploymentState,
 } from './actions/types'
-import { Integration } from './constants'
+import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import {
   getChugSplashManagerAddress,
-  getChugSplashManagerV1Address,
   getChugSplashRegistryAddress,
 } from './addresses'
 import 'core-js/features/array/at'
@@ -203,8 +202,7 @@ export const finalizeRegistration = async (
       await registry.finalizeRegistration(
         organizationID,
         newOwnerAddress,
-        // Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
-        getChugSplashManagerV1Address(),
+        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
         initializerData,
         await getGasPriceOverrides(provider)
       )

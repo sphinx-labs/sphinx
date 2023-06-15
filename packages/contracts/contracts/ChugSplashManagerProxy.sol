@@ -38,10 +38,10 @@ contract ChugSplashManagerProxy is Proxy {
        @param _implementation The address of the new implementation.
      */
     modifier isApprovedImplementation(address _implementation) {
-        // require(
-        //     registry.managerImplementations(_implementation),
-        //     "ChugSplashManagerProxy: unapproved manager"
-        // );
+        require(
+            registry.managerImplementations(_implementation),
+            "ChugSplashManagerProxy: unapproved manager"
+        );
         _;
     }
 
