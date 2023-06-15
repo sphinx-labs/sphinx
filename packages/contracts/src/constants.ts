@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 
 export const OWNER_MULTISIG_ADDRESS =
-  '0x226F14C3e19788934Ff37C653Cf5e24caD198341'
+  '0x8F491e5031B30b47FC2074141C4D80bDbF2e930c'
 export const getOwnerAddress = () => {
   return process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY
     ? new ethers.Wallet(process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY)
