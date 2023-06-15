@@ -185,4 +185,4 @@ npx hardhat test test/HelloChugSplash.test.js
 
 Once you've set up a ChugSplash project, the next step is to learn about the [ChugSplash
 file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where
-you define deployments and upgrades.
+you define deployments.
