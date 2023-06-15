@@ -7,7 +7,8 @@ contract ChugSplashScript is ChugSplash {
     function run() public {
         ensureChugSplashInitialized(vm.rpcUrl("anvil"));
 
-        vm.startBroadcast();
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
         deploy("./chugsplash/Storage.config.ts", vm.rpcUrl("anvil"));
         vm.stopBroadcast();
     }
