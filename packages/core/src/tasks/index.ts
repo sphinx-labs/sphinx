@@ -686,10 +686,16 @@ export const postDeploymentActions = async (
   }
 
   if (integration === 'hardhat') {
-    if (localNetwork || (await isHardhatFork(provider))) {
-      // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
-      // against the most recently deployed contracts.
-      await writeSnapshotId(provider, networkName, deploymentFolder)
+    try {
+      if (localNetwork || (await isHardhatFork(provider))) {
+        // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
+        // against the most recently deployed contracts.
+        await writeSnapshotId(provider, networkName, deploymentFolder)
+      }
+    } catch (e) {
+      if (!e.message.includes('hardhat_metadata')) {
+        throw e
+      }
     }
 
     displayDeploymentTable(canonicalConfig, silent)
