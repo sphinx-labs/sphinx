@@ -55,7 +55,7 @@ describe('Meta txs', () => {
       cre
     )
 
-    const metatxs = await chugsplashProposeAbstractTask(
+    const { metatxs } = await chugsplashProposeAbstractTask(
       provider,
       signer,
       parsedConfig,

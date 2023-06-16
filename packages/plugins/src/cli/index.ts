@@ -87,7 +87,17 @@ yargs(hideBin(process.argv))
         // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
         // TypeScript configs. This can't be done by calling the TypeScript propose function
         // directly because calling `npx chugsplash` uses Node, not `ts-node`.
-        await execAsync(`forge script ${proposeContractPath}`)
+        const { stdout } = await execAsync(
+          `forge script ${proposeContractPath}`
+        )
+        const outputLogs = stdout
+          .split(`== Logs ==`)[1]
+          .trim()
+          .split('\n')
+          .map((log) => log.trim())
+          .join('\n')
+        spinner.succeed('Proposal complete.')
+        console.log(outputLogs)
       } catch ({ stderr }) {
         spinner.fail('Proposal failed.')
         // Strip \n from the end of the error message, if it exists
@@ -98,7 +108,6 @@ yargs(hideBin(process.argv))
         console.error(prettyError)
         process.exit(1)
       }
-      spinner.succeed('Successfully proposed!')
     }
   )
   .command(

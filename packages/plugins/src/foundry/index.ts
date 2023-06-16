@@ -16,6 +16,7 @@ import {
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
+  ProposalResult,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -51,7 +52,7 @@ const command = args[0]
           true,
           canonicalConfigFolder,
           undefined,
-          true,
+          false,
           process.stderr
         )
 
@@ -65,7 +66,7 @@ const command = args[0]
           )
         const wallet = new ethers.Wallet(privateKey, provider)
 
-        await chugsplashProposeAbstractTask(
+        const { result } = await chugsplashProposeAbstractTask(
           provider,
           wallet,
           parsedConfig,
@@ -78,13 +79,18 @@ const command = args[0]
           configCache
         )
 
-        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
+        const successMessage =
+          result === ProposalResult.SUCCESS
+            ? `Successfully proposed ${parsedConfig.options.projectName}.`
+            : `Nothing to execute for ${parsedConfig.options.projectName}, exiting early.`
+
+        const encodedSuccessMessageAndWarnings = defaultAbiCoder.encode(
           ['string', 'string'],
-          [parsedConfig.options.projectName, getPrettyWarnings()]
+          [successMessage, getPrettyWarnings()]
         )
 
         const encodedSuccess = hexConcat([
-          encodedProjectNameAndWarnings,
+          encodedSuccessMessageAndWarnings,
           defaultAbiCoder.encode(['bool'], [true]), // true = success
         ])
 

@@ -55,7 +55,11 @@ import {
   getOwnerWithdrawableAmount,
 } from '../fund'
 import { monitorExecution } from '../execution'
-import { ChugSplashRuntimeEnvironment, ProposalRoute } from '../types'
+import {
+  ChugSplashRuntimeEnvironment,
+  ProposalResult,
+  ProposalRoute,
+} from '../types'
 import {
   trackApproved,
   trackCancel,
@@ -70,7 +74,11 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
+import {
+  ForwardRequestType,
+  relaySignedRequest,
+  signMetaTxRequest,
+} from '../metatxs'
 import { readUserChugSplashConfig } from '../config'
 import { verifyDeployment } from '../config/fetch'
 
@@ -129,7 +137,16 @@ export const chugsplashProposeAbstractTask = async (
   route: ProposalRoute,
   cre: ChugSplashRuntimeEnvironment,
   configCache: ConfigCache
-) => {
+): Promise<{
+  result: ProposalResult
+  metatxs:
+    | {
+        signature: string
+        request: ForwardRequestType
+        deploymentId: string
+      }
+    | undefined
+}> => {
   const { networkName } = configCache
   const { organizationID, projectName } = parsedConfig.options
 
@@ -156,6 +173,15 @@ export const chugsplashProposeAbstractTask = async (
     configArtifacts,
     configCache
   )
+
+  if (
+    bundles.actionBundle.actions.length === 0 &&
+    bundles.targetBundle.targets.length === 0
+  ) {
+    spinner.succeed(`Nothing to execute in this deployment. Exiting early.`)
+    return { result: ProposalResult.NO_CHANGE, metatxs: undefined }
+  }
+
   const deploymentId = getDeploymentId(bundles, configUri)
 
   spinner.start(`Checking the status of ${parsedConfig.options.projectName}...`)
@@ -230,7 +256,7 @@ export const chugsplashProposeAbstractTask = async (
         integration
       )
 
-      return metatxs
+      return { result: ProposalResult.SUCCESS, metatxs }
     }
   }
 }

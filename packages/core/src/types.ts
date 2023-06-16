@@ -75,3 +75,8 @@ export enum ProposalRoute {
   REMOTE_EXECUTION,
   LOCAL_EXECUTION,
 }
+
+export enum ProposalResult {
+  SUCCESS,
+  NO_CHANGE,
+}

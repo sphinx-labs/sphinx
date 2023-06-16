@@ -232,7 +232,7 @@ contract ChugSplash is
         bytes memory data = utils.slice(result, 0, result.length - 32);
 
         if (success) {
-            (string memory projectName, string memory warnings) = abi.decode(
+            (string memory successMessage, string memory warnings) = abi.decode(
                 data,
                 (string, string)
             );
@@ -242,7 +242,7 @@ contract ChugSplash is
             }
 
             if (!silent) {
-                emit log(StdStyle.green(string.concat("Successfully proposed ", projectName, ".")));
+                emit log(successMessage);
             }
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
@@ -459,7 +459,6 @@ contract ChugSplash is
 
         bool localNetwork = isLocalNetwork(_rpcUrl);
         string memory networkName = getChainAlias(_rpcUrl);
-
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             contractConfigs.length
         );
@@ -685,8 +684,8 @@ contract ChugSplash is
     ) private view returns (OptionalLog memory) {
         // We iterate over the events in descending order because the most recent event is at the
         // end of the array.
-        for (uint256 i = executionLogs.length - 1; i >= 0; i--) {
-            Vm.Log memory log = executionLogs[i];
+        for (uint256 i = executionLogs.length; i > 0; i--) {
+            Vm.Log memory log = executionLogs[i - 1];
             uint256 numTopics = log.topics.length;
             if (
                 log.emitter == _emitter &&
