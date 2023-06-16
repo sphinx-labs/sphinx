@@ -73,7 +73,7 @@ const command = args[0]
           '',
           'foundry',
           configArtifacts,
-          ProposalRoute.REMOTE_EXECUTION,
+          ProposalRoute.RELAY,
           cre,
           configCache
         )
