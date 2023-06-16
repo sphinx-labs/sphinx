@@ -5,8 +5,10 @@ import {
   TypedMessage,
   MessageTypes,
 } from '@metamask/eth-sig-util'
-import { ForwarderABI, FORWARDER_ADDRESS } from '@chugsplash/contracts'
+import { ForwarderABI } from '@chugsplash/contracts'
 import axios from 'axios'
+
+import { FORWARDER_ADDRESS } from './addresses'
 
 const EIP712Domain = [
   { name: 'name', type: 'string' },

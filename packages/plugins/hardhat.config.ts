@@ -12,12 +12,15 @@ dotenv.config()
 const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
 
 const config: HardhatUserConfig = {
+  paths: {
+    sources: './contracts/test',
+  },
   solidity: {
     version: '0.8.15',
     settings: {
       outputSelection: {
         '*': {
-          '*': ['storageLayout'],
+          '*': ['storageLayout', 'evm.gasEstimates'],
         },
       },
       optimizer: {

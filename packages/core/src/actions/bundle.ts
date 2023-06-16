@@ -1,10 +1,11 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
   ConfigArtifacts,
+  ConfigCache,
   ParsedChugSplashConfig,
   contractKindHashes,
 } from '../config/types'
@@ -13,11 +14,12 @@ import {
   extendStorageLayout,
 } from '../languages/solidity/storage'
 import {
-  getCreate3Address,
   getCreationCodeWithConstructorArgs,
-  getChugSplashManagerAddress,
+  getImplAddress,
+  getDefaultProxyInitCode,
 } from '../utils'
 import {
+  BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
   ChugSplashActionType,
@@ -29,6 +31,8 @@ import {
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
+import { getChugSplashManagerAddress } from '../addresses'
+import { getCreate3Address } from '../config/utils'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -64,6 +68,28 @@ export const getDeployContractActions = (
   return actionBundle.actions
     .map((action) => fromRawChugSplashAction(action.action))
     .filter(isDeployContractAction)
+}
+
+export const getDeployContractActionBundle = (
+  actionBundle: ChugSplashActionBundle
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isDeployContractAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getSetStorageActionBundle = (
+  actionBundle: ChugSplashActionBundle
+): Array<BundledChugSplashAction> => {
+  return actionBundle.actions.filter((action) =>
+    isSetStorageAction(fromRawChugSplashAction(action.action))
+  )
+}
+
+export const getNumDeployContractActions = (
+  actionBundle: ChugSplashActionBundle
+): number => {
+  return getDeployContractActionBundle(actionBundle).length
 }
 
 /**
@@ -271,17 +297,17 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
   )
 }
 
-export const makeBundlesFromConfig = async (
-  provider: providers.Provider,
+export const makeBundlesFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashBundles> => {
-  const actionBundle = await makeActionBundleFromConfig(
-    provider,
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashBundles => {
+  const actionBundle = makeActionBundleFromConfig(
     parsedConfig,
-    artifacts
+    artifacts,
+    configCache
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig)
+  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
   return { actionBundle, targetBundle }
 }
 
@@ -292,39 +318,78 @@ export const makeBundlesFromConfig = async (
  * @param env Environment variables to inject into the config file.
  * @returns Action bundle generated from the parsed config file.
  */
-export const makeActionBundleFromConfig = async (
-  provider: providers.Provider,
+export const makeActionBundleFromConfig = (
   parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts
-): Promise<ChugSplashActionBundle> => {
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
-
+  artifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): ChugSplashActionBundle => {
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
     const { buildInfo, artifact } = artifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
+    const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
+    const { kind, address, salt, constructorArgs } = contractConfig
+    const managerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.organizationID
+    )
 
-    // Skip adding a `DEPLOY_CONTRACT` action if the contract has already been deployed.
-    if (
-      (await provider.getCode(
-        getCreate3Address(managerAddress, contractConfig.salt)
-      )) === '0x'
-    ) {
-      // Add a DEPLOY_CONTRACT action.
+    if (!isTargetDeployed) {
+      if (kind === 'immutable') {
+        // Add a DEPLOY_CONTRACT action for the unproxied contract.
+        actions.push({
+          referenceName,
+          addr: address,
+          contractKindHash: contractKindHashes[kind],
+          salt,
+          code: getCreationCodeWithConstructorArgs(
+            bytecode,
+            constructorArgs,
+            abi
+          ),
+        })
+      } else if (kind === 'proxy') {
+        // Add a DEPLOY_CONTRACT action for the default proxy.
+        actions.push({
+          referenceName,
+          addr: address,
+          contractKindHash: contractKindHashes[kind],
+          salt,
+          code: getDefaultProxyInitCode(managerAddress),
+        })
+      } else {
+        throw new Error(
+          `${referenceName} is not deployed. Should never happen.`
+        )
+      }
+    }
+
+    if (kind !== 'immutable') {
+      // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
+      // for the implementation to be deployed already. We don't check for that here because this
+      // would slow down the Foundry plugin's FFI call to retrieve the MinimalConfig, since we would
+      // need to run the parsing logic in order to get the implementation's constructor args and
+      // bytecode.
+
+      const implInitCode = getCreationCodeWithConstructorArgs(
+        bytecode,
+        constructorArgs,
+        abi
+      )
+      // We use a 'salt' value that's a hash of the implementation contract's init code. This
+      // essentially mimics the behavior of Create2 in the sense that the implementation's address
+      // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
+      // contracts that have already been deployed.
+      const implSalt = ethers.utils.keccak256(implInitCode)
+      const implAddress = getCreate3Address(managerAddress, implSalt)
+
       actions.push({
         referenceName,
-        addr: contractConfig.address,
-        contractKindHash: contractKindHashes[contractConfig.kind],
-        salt: contractConfig.salt,
-        code: getCreationCodeWithConstructorArgs(
-          bytecode,
-          contractConfig.constructorArgs,
-          abi
-        ),
+        addr: implAddress,
+        contractKindHash: contractKindHashes['immutable'],
+        salt: implSalt,
+        code: implInitCode,
       })
     }
 
@@ -347,8 +412,8 @@ export const makeActionBundleFromConfig = async (
     for (const segment of segments) {
       actions.push({
         referenceName,
-        addr: contractConfig.address,
-        contractKindHash: contractKindHashes[contractConfig.kind],
+        addr: address,
+        contractKindHash: contractKindHashes[kind],
         key: segment.key,
         offset: segment.offset,
         value: segment.val,
@@ -369,7 +434,8 @@ export const makeActionBundleFromConfig = async (
  * @returns Target bundle generated from the parsed config file.
  */
 export const makeTargetBundleFromConfig = (
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts
 ): ChugSplashTargetBundle => {
   const { projectName, organizationID } = parsedConfig.options
 
@@ -379,14 +445,21 @@ export const makeTargetBundleFromConfig = (
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
+    const { abi, bytecode } = configArtifacts[referenceName].artifact
+
     // Only add targets for proxies.
-    if (contractConfig.kind !== 'no-proxy') {
+    if (contractConfig.kind !== 'immutable') {
       targets.push({
         projectName,
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
-        implementation: getCreate3Address(managerAddress, contractConfig.salt),
+        implementation: getImplAddress(
+          managerAddress,
+          bytecode,
+          contractConfig.constructorArgs,
+          abi
+        ),
       })
     }
   }

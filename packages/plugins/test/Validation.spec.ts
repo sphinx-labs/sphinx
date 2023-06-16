@@ -5,16 +5,12 @@ import '../dist'
 
 import { expect } from 'chai'
 import hre from 'hardhat'
-import {
-  assertValidUserConfigFields,
-  readUnvalidatedChugSplashConfig,
-  readValidatedChugSplashConfig,
-} from '@chugsplash/core'
+import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
 
-import { getConfigArtifacts } from '../src/hardhat/artifacts'
-import { createChugSplashRuntime } from '../src/utils'
+import { createChugSplashRuntime } from '../src/cre'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-const variableValidateConfigPath = './chugsplash/VariableValidation.config.ts'
+const variableValidateConfigPath = './chugsplash/Validation.config.ts'
 const constructorArgConfigPath =
   './chugsplash/ConstructorArgValidation.config.ts'
 const noProxyContractReferenceConfigPath =
@@ -25,30 +21,12 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
-    const varValidationUserConfig = await readUnvalidatedChugSplashConfig(
-      variableValidateConfigPath
-    )
-    const constructorArgsValidationUserConfig =
-      await readUnvalidatedChugSplashConfig(constructorArgConfigPath)
-    const noProxyValidationUserConfig = await readUnvalidatedChugSplashConfig(
-      noProxyContractReferenceConfigPath
-    )
-    const varValidationArtifacts = await getConfigArtifacts(
-      hre,
-      varValidationUserConfig.contracts
-    )
-    const constructorArgsValidationArtifacts = await getConfigArtifacts(
-      hre,
-      constructorArgsValidationUserConfig.contracts
-    )
-
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
     }
 
     const cre = await createChugSplashRuntime(
-      variableValidateConfigPath,
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -59,12 +37,11 @@ describe('Validate', () => {
 
     try {
       await readValidatedChugSplashConfig(
-        provider,
         variableValidateConfigPath,
-        varValidationArtifacts,
-        'hardhat',
+        provider,
         cre,
-        false
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
@@ -72,23 +49,27 @@ describe('Validate', () => {
 
     try {
       await readValidatedChugSplashConfig(
-        provider,
         constructorArgConfigPath,
-        constructorArgsValidationArtifacts,
-        'hardhat',
+        provider,
         cre,
-        false
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
     } catch (e) {
       /* empty */
     }
 
-    await assertValidUserConfigFields(
-      noProxyValidationUserConfig,
-      provider,
-      cre,
-      false
-    )
+    try {
+      await readValidatedChugSplashConfig(
+        noProxyContractReferenceConfigPath,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
+      )
+    } catch (e) {
+      /* empty */
+    }
   })
 
   it('did catch invalid variable arrayInt8', async () => {
@@ -371,12 +352,6 @@ describe('Validate', () => {
     )
   })
 
-  it('did catch invalid reference to no-proxy contract in constructor arguments of no-proxy contract', async () => {
-    expect(validationOutput).to.have.string(
-      `Invalid contract reference: {{ Stateless }}. Contract references to no-proxy contracts are not allowed in other no-proxy contracts.`
-    )
-  })
-
   it('did catch invalid definition of function type', async () => {
     expect(validationOutput).to.have.string(
       `Detected value for functionType which is a function. Function variables should be ommitted from your ChugSplash config.`
@@ -428,6 +403,12 @@ describe('Validate', () => {
     )
     expect(validationOutput).to.have.string(
       `- Reverter2. Reason: 'Reverter: revert'`
+    )
+  })
+
+  it('did catch missing contract kind field', async () => {
+    expect(validationOutput).to.have.string(
+      `Missing contract 'kind' field for VariableValidation`
     )
   })
 })
