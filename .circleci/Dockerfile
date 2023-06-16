@@ -16,18 +16,13 @@ WORKDIR /opt/foundry
 # Only diff from upstream docker image is this clone instead
 # of COPY. We select a specific commit to use.
 RUN git clone https://github.com/foundry-rs/foundry.git . \
-    && git checkout fca0a6c5ed3576a692c2444ec459e0ee5321e3e5
-
-   Compiling foundry-cli v0.2.0 (/opt/foundry/cli)
-   Compiling anvil v0.1.0 (/opt/foundry/anvil)
-   Compiling chisel v0.1.1 (/opt/foundry/chisel)
+    && git checkout da2392e58bb8a7fefeba46b40c4df1afad8ccd22
 
 RUN source $HOME/.profile && \
     cargo build --release && \
     strip /opt/foundry/target/release/forge && \
     strip /opt/foundry/target/release/cast && \
-    strip /opt/foundry/target/release/anvil && \
-    strip
+    strip /opt/foundry/target/release/anvil
 
 FROM ethereum/client-go:alltools-v1.10.25 as geth
 
