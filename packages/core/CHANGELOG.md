@@ -1,5 +1,16 @@
 # @chugsplash/core
 
+## 0.11.0
+
+### Minor Changes
+
+- b6d1f76: Overhaul Foundry Integration
+
+### Patch Changes
+
+- Updated dependencies [b6d1f76]
+  - @chugsplash/contracts@0.8.0
+
 ## 0.10.1
 
 ### Patch Changes
