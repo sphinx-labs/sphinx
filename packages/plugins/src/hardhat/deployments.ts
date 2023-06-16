@@ -9,17 +9,16 @@ import {
   chugsplashDeployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  getDefaultProxyAddress,
-  readUnvalidatedChugSplashConfig,
+  readUserChugSplashConfig,
   readValidatedChugSplashConfig,
-  getCreate3Address,
   getChugSplashManagerAddress,
-  getNonProxyCreate3Salt,
+  getTargetAddress,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import ora from 'ora'
 
-import { getConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../utils'
+import { makeGetConfigArtifacts } from './artifacts'
+import { createChugSplashRuntime } from '../cre'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -46,18 +45,22 @@ export const fetchFilesRecursively = (dir): string[] => {
 export const deployAllChugSplashConfigs = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
-  ipfsUrl: string,
   fileNames?: string[]
 ) => {
+  const spinner = ora({ isSilent: silent })
+
   fileNames =
     fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
+  const getConfigArtifacts = makeGetConfigArtifacts(hre)
 
   for (const configPath of fileNames) {
     const cre = await createChugSplashRuntime(
-      configPath,
       false,
       true,
       canonicalConfigPath,
@@ -69,31 +72,26 @@ export const deployAllChugSplashConfigs = async (
     if (isEmptyChugSplashConfig(configPath)) {
       continue
     }
-    const userConfig = await readUnvalidatedChugSplashConfig(configPath)
+    const { parsedConfig, configArtifacts, configCache } =
+      await readValidatedChugSplashConfig(
+        configPath,
+        hre.ethers.provider,
+        cre,
+        getConfigArtifacts
+      )
 
-    const configArtifacts = await getConfigArtifacts(hre, userConfig.contracts)
-
-    const parsedConfig = await readValidatedChugSplashConfig(
-      hre.ethers.provider,
-      configPath,
-      configArtifacts,
-      'hardhat',
-      cre,
-      true
-    )
-
-    const signer = hre.ethers.provider.getSigner()
     await chugsplashDeployAbstractTask(
-      hre.ethers.provider,
-      hre.ethers.provider.getSigner(),
-      configPath,
-      await signer.getAddress(),
-      configArtifacts,
+      provider,
+      signer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig
+      parsedConfig,
+      configCache,
+      configArtifacts,
+      undefined,
+      spinner
     )
   }
 }
@@ -113,7 +111,7 @@ export const getContract = async (
   const resolvedConfigs = await Promise.all(
     filteredConfigNames.map(async (configFileName) => {
       return {
-        config: await readUnvalidatedChugSplashConfig(configFileName),
+        config: await readUserChugSplashConfig(configFileName),
         filePath: configFileName,
       }
     })
@@ -146,20 +144,14 @@ export const getContract = async (
   const managerAddress = getChugSplashManagerAddress(organizationID)
   const contractConfig = userConfig.config.contracts[referenceName]
 
-  let address =
-    contractConfig.externalProxy ||
-    getDefaultProxyAddress(organizationID, projectName, referenceName)
-  if (contractConfig.kind === 'no-proxy') {
-    address = getCreate3Address(
+  const address =
+    contractConfig.address ??
+    getTargetAddress(
       managerAddress,
-      getNonProxyCreate3Salt(
-        projectName,
-        referenceName,
-        contractConfig.salt ?? ethers.constants.HashZero
-      )
+      projectName,
+      referenceName,
+      contractConfig.salt
     )
-  }
-
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }

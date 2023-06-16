@@ -32,7 +32,7 @@ You'll need to have the following pieces of software installed before you can st
 Once you've installed the necessary prerequisites, you'll need to clone the ChugSplash monorepo and install its dependencies:
 
 ```sh
-git clone https://github.com/smartcontracts/chugsplash.git
+git clone https://github.com/chugsplash/chugsplash.git
 cd chugsplash
 yarn install
 ```
@@ -52,6 +52,9 @@ Hopefully that wasn't too bad.
 
 ## Common development stuff
 
+### Environment Variables
+You'll want to define some environment variables when working with ChugSplash locally. Environment variables are required for the plugins, executor, and demo packages. You'll find `.env.example` files in each of those directories which describe the necessary variables.
+
 ### Building
 
 ```sh
@@ -66,7 +69,13 @@ yarn lint
 ```
 
 ### Testing
+We currently have automated tests in our plugins and executor packages. To run the complete automated test suite, you'll need to create an `.env` file in the `packages/executor` directory with two environment variables:
+```
+IPFS_PROJECT_ID=<Infura ipfs project id to retrieve config file>
+IPFS_API_KEY_SECRET=<Infura ipfs api key to retrieve config file>
+```
 
+Once you've define those environment variables, run the tests:
 ```sh
 yarn test
 ```

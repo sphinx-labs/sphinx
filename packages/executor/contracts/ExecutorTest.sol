@@ -8,7 +8,7 @@ contract ExecutorProxyTest {
     string public storageName;
 }
 
-contract ExecutorNonProxyTest {
+contract ExecutorImmutableTest {
     uint8 public val;
 
     constructor(uint8 _val) {

@@ -69,8 +69,8 @@ If this contract was initially deployed behind a proxy using a different tool. T
 
 ## Kind
 An optional field defining the type of contract:
-- no-proxy: A stateless immutable contract to be deployed without a proxy
-- standard-transparent: Standard transparent proxies not deployed using OpenZeppelin.
+- immutable: An immutable contract to be deployed without a proxy
+- external-transparent: Standard transparent proxies not deployed using OpenZeppelin or ChugSplash.
 - oz-transparent: An OpenZeppelin transparent proxy
 - oz-ownable-uups: An OpenZeppelin UUPS proxy using Ownable
 - oz-access-control-uups: An OpenZeppelin UUPS proxy using Access Control
