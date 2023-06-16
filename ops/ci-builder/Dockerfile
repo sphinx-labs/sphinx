@@ -13,16 +13,8 @@ RUN apt-get update && \
 
 WORKDIR /opt/foundry
 
-# Only diff from upstream docker image is this clone instead
-# of COPY. We select a specific commit to use.
-RUN git clone https://github.com/foundry-rs/foundry.git . \
-    && git checkout da2392e58bb8a7fefeba46b40c4df1afad8ccd22
-
-RUN source $HOME/.profile && \
-    cargo build --release && \
-    strip /opt/foundry/target/release/forge && \
-    strip /opt/foundry/target/release/cast && \
-    strip /opt/foundry/target/release/anvil
+RUN source $HOME/.profile && cargo install --git https://github.com/foundry-rs/foundry#75ce53730e1933d346bf438e287f7c85174370e0 \
+    --profile local --force foundry-cli anvil chisel
 
 FROM ethereum/client-go:alltools-v1.10.25 as geth
 
@@ -34,9 +26,6 @@ ENV GOPATH=/go
 ENV PATH=/usr/local/go/bin:$GOPATH/bin:$PATH
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY --from=foundry-build /opt/foundry/target/release/forge /usr/local/bin/forge
-COPY --from=foundry-build /opt/foundry/target/release/cast /usr/local/bin/cast
-COPY --from=foundry-build /opt/foundry/target/release/anvil /usr/local/bin/anvil
 COPY --from=geth /usr/local/bin/abigen /usr/local/bin/abigen
 COPY --from=echidna-test /usr/local/bin/echidna-test /usr/local/bin/echidna-test
 COPY check-changed.sh /usr/local/bin/check-changed
