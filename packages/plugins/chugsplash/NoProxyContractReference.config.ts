@@ -20,21 +20,18 @@ const config: UserChugSplashConfig = {
         _immutableContractReference:
           '0x1111111111111111111111111111111111111111',
       },
-      variables: {
-        hello: 'world',
-      },
     },
-    StatelessTwo: {
-      contract: 'Stateless',
-      kind: 'immutable',
-      constructorArgs: {
-        _immutableUint: 1,
-        _immutableContractReference: '{{ Stateless }}',
-      },
-      variables: {
-        hello: 'world',
-      },
-    },
+    // StatelessTwo: {
+    //   contract: 'Stateless',
+    //   kind: 'immutable',
+    //   constructorArgs: {
+    //     _immutableUint: 1,
+    //     _immutableContractReference: '{{ Stateless }}',
+    //   },
+    //   variables: {
+    //     hello: 'world',
+    //   },
+    // },
   },
 }
 

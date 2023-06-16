@@ -123,7 +123,7 @@ contract ChugSplash is
         ChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
         manager.cancelActiveChugSplashDeployment();
-    }       
+    }
 
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
@@ -287,7 +287,7 @@ contract ChugSplash is
 
         ConfigCache memory configCache = getConfigCache(configs.minimalConfig, registry, manager, _rpcUrl);
 
-        BundleInfo memory bundleInfo = ffiGetBundleInfo(configCache, configs.userConfigStr);
+        BundleInfo memory bundleInfo = ffiGetBundleInfo(configCache, _configPath);
 
         address deployer = utils.msgSender();
         // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
@@ -728,16 +728,22 @@ contract ChugSplash is
      */
     function ffiGetBundleInfo(
         ConfigCache memory _configCache,
-        string memory _userConfigStr
+        // string memory _userConfigStr
+        string memory _configPath
     ) private returns (BundleInfo memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](6);
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = string.concat(rootFfiPath, "get-bundle-info.js");
-        cmds[3] = vm.toString(abi.encode(_configCache));
-        cmds[4] = _userConfigStr;
-        cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
+        cmds[1] = "ts-node";
+        cmds[2] = "--swc";
+        cmds[3] = string.concat(rootFfiPath, "get-bundle-info.js");
+        cmds[4] = vm.toString(abi.encode(_configCache));
+        cmds[5] = _configPath;
+        cmds[6] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
+
+        for (uint i = 0; i < cmds.length; i++) {
+            console.log(cmds[i]);
+        }
 
         bytes memory result = vm.ffi(cmds);
 

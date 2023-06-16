@@ -79,6 +79,7 @@ export const makeGetConfigArtifacts = (
   return async (contractConfigs: UserContractConfigs) => {
     const buildInfoPath = join(buildInfoFolder)
 
+    const c = Date.now()
     const buildInfoPromises = fs
       .readdirSync(buildInfoPath)
       .filter((fileName) => {
@@ -95,7 +96,11 @@ export const makeGetConfigArtifacts = (
         )
       })
 
+    const d = Date.now()
+
     const buildInfos = await Promise.all(buildInfoPromises)
+    const e = Date.now()
+    console.log('parse', e - d)
 
     const configArtifactPromises = Object.entries(contractConfigs).map(
       async ([referenceName, contractConfig]) => {

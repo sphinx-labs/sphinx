@@ -9,7 +9,10 @@ import { FailureAction } from '@chugsplash/core/dist/types'
 import { getBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
-import { writeCanonicalConfig } from '@chugsplash/core/dist'
+import {
+  readUserChugSplashConfig,
+  writeCanonicalConfig,
+} from '@chugsplash/core/dist'
 
 import { createChugSplashRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
@@ -24,8 +27,9 @@ import {
 
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
-const userConfigStr = args[1]
-const userConfig = JSON.parse(userConfigStr)
+const configPath = args[1]
+// const userConfigStr = args[1]
+// const userConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
 
 ;(async () => {
@@ -65,6 +69,8 @@ const broadcasting = args[2] === 'true'
       artifactFolder,
       buildInfoFolder
     )
+
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
