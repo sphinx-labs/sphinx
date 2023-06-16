@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.16.1
+
+### Patch Changes
+
+- 83a83e2: Fix issue where reading registry code fails on live network during proposal
+
 ## 0.16.0
 
 ### Minor Changes
