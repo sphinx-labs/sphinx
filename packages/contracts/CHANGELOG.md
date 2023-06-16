@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.8.0
+
+### Minor Changes
+
+- b6d1f76: Overhaul Foundry Integration
+
 ## 0.7.3
 
 ### Patch Changes
