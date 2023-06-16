@@ -6,20 +6,22 @@ import {
   DeploymentState,
   claimExecutorPayment,
   compileRemoteBundles,
-  executeDeployment,
+  executeTask,
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
+  getProjectOwnerAddress,
   hasSufficientFundsForExecution,
   trackExecuted,
-  getDeploymentId,
+  computeDeploymentId,
   ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
+  getDeployContractActions,
   deploymentDoesRevert,
-  ConfigArtifacts,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
+import { getChainId } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
 
@@ -56,7 +58,6 @@ const generateRetryEvent = (
 const tryVerification = async (
   logger: Logger,
   canonicalConfig: CanonicalChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
   network: string,
@@ -66,7 +67,7 @@ const tryVerification = async (
 ) => {
   // verify on etherscan
   try {
-    if (isSupportedNetworkOnEtherscan(network)) {
+    if (isSupportedNetworkOnEtherscan(await getChainId(rpcProvider))) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
@@ -74,7 +75,6 @@ const tryVerification = async (
         )
         await verifyChugSplashConfig(
           canonicalConfig,
-          configArtifacts,
           rpcProvider,
           network,
           apiKey
@@ -100,7 +100,6 @@ const tryVerification = async (
         await tryVerification(
           logger,
           canonicalConfig,
-          configArtifacts,
           rpcProvider,
           projectName,
           network,
@@ -233,12 +232,13 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // executor), or using the Config URI
   let bundles: ChugSplashBundles
   let canonicalConfig: CanonicalChugSplashConfig
-  let configArtifacts: ConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, canonicalConfig, configArtifacts } =
-      await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
+    ;({ bundles, canonicalConfig } = await compileRemoteBundles(
+      rpcProvider,
+      proposalEvent.args.configUri
+    ))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
@@ -247,8 +247,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
   const { projectName, organizationID } = canonicalConfig.options
 
-  const expectedDeploymentId = getDeploymentId(
-    bundles,
+  const expectedDeploymentId = computeDeploymentId(
+    bundles.actionBundle.root,
+    bundles.targetBundle.root,
+    bundles.actionBundle.actions.length,
+    bundles.targetBundle.targets.length,
+    getDeployContractActions(bundles.actionBundle).length,
     proposalEvent.args.configUri
   )
 
@@ -342,18 +346,19 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     // execute deployment
     try {
-      const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
-      const success = await executeDeployment(
-        manager,
+      const success = await executeTask({
+        chugSplashManager: manager,
+        deploymentState,
         bundles,
-        blockGasLimit,
-        configArtifacts,
-        rpcProvider
-      )
+        executor: wallet,
+        provider: rpcProvider,
+        projectName,
+        logger,
+      })
 
       if (!success) {
         // This likely means one of the user's constructors reverted during execution. We already
-        // logged the error inside `executeDeployment`, so we just discard the event and return.
+        // logged the error inside `executeTask`, so we just discard the event and return.
         process.send({ action: 'discard', payload: executorEvent })
         return
       }
@@ -402,7 +407,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     await tryVerification(
       logger,
       canonicalConfig,
-      configArtifacts,
       rpcProvider,
       projectName,
       network,
@@ -412,7 +416,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     )
 
     await trackExecuted(
-      await manager.owner(),
+      await getProjectOwnerAddress(manager),
       organizationID,
       projectName,
       network,

@@ -1,7 +1,7 @@
 import { BigNumber, utils } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 
-import { ParsedConfigVariable, UserConfigVariable } from '../../config/types'
+import { ParsedConfigVariable, UserConfigVariable } from '../../config'
 import { keywords } from '../../constants'
 import {
   SolidityStorageObj,

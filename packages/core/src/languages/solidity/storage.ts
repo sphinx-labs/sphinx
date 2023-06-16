@@ -622,7 +622,7 @@ export const computeStorageSegments = (
   contractConfig: ParsedContractConfig,
   dereferencer: ASTDereferencer
 ): Array<StorageSlotSegment> => {
-  if (contractConfig.kind === 'immutable') {
+  if (contractConfig.kind === 'no-proxy') {
     return []
   }
 

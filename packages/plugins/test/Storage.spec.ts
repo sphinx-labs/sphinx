@@ -104,7 +104,7 @@ describe('Storage', () => {
     )
   })
 
-  it('does set immutable contract with reference to immutable contract', async () => {
+  it('does set immutable contract with reference to no-proxy contract', async () => {
     expect(await MySimpleStorage.immutableStatelessReference()).equals(
       Stateless.address
     )

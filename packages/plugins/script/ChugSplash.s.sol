@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.13;
 
-import { ChugSplash } from "../contracts/foundry/ChugSplash.sol";
+import "forge-std/Script.sol";
+import "../foundry-contracts/ChugSplash.sol";
+import "../contracts/Storage.sol";
+import { SimpleStorage } from "../contracts/SimpleStorage.sol";
 
-contract ChugSplashScript is ChugSplash {
+contract ChugSplashDeploy is Script {
     function run() public {
-        deploy("./chugsplash/Storage.config.ts", vm.rpcUrl("anvil"));
+        string memory configPath = "./chugsplash/foundry/deploy.t.js";
+        ChugSplash chugsplash = new ChugSplash();
+        chugsplash.deploy(configPath, false);
     }
 }

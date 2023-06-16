@@ -2,20 +2,10 @@ import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { ChugSplashBundles } from '../actions/types'
-import {
-  callWithTimeout,
-  getChugSplashManagerReadOnly,
-  getChugSplashRegistryReadOnly,
-  getConfigArtifactsRemote,
-  getDeploymentId,
-} from '../utils'
-import {
-  CanonicalChugSplashConfig,
-  ConfigArtifacts,
-  ConfigCache,
-} from './types'
-import { makeBundlesFromConfig } from '../actions/bundle'
-import { getConfigCache } from './parse'
+import { bundleRemoteSubtask } from '../languages/solidity/compiler'
+import { callWithTimeout, computeDeploymentId } from '../utils'
+import { CanonicalChugSplashConfig } from './types'
+import { getDeployContractActions } from '../actions/bundle'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
@@ -62,11 +52,10 @@ export const chugsplashFetchSubtask = async (args: {
 }
 
 export const verifyDeployment = async (
+  provider: providers.Provider,
   configUri: string,
   deploymentId: string,
-  configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache,
-  ipfsUrl?: string
+  ipfsUrl: string
 ) => {
   const config = await callWithTimeout<CanonicalChugSplashConfig>(
     chugsplashFetchSubtask({ configUri, ipfsUrl }),
@@ -74,9 +63,22 @@ export const verifyDeployment = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
+  const { actionBundle, targetBundle } = await bundleRemoteSubtask({
+    provider,
+    canonicalConfig: config,
+  })
 
-  if (deploymentId !== getDeploymentId(bundles, configUri)) {
+  if (
+    deploymentId !==
+    computeDeploymentId(
+      actionBundle.root,
+      targetBundle.root,
+      actionBundle.actions.length,
+      targetBundle.targets.length,
+      getDeployContractActions(actionBundle).length,
+      configUri
+    )
+  ) {
     throw new Error(
       'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
@@ -91,12 +93,11 @@ export const verifyDeployment = async (
  * @returns Compiled ChugSplashBundle.
  */
 export const compileRemoteBundles = async (
-  provider: providers.JsonRpcProvider,
+  provider: providers.Provider,
   configUri: string
 ): Promise<{
   bundles: ChugSplashBundles
   canonicalConfig: CanonicalChugSplashConfig
-  configArtifacts: ConfigArtifacts
 }> => {
   const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
     chugsplashFetchSubtask({ configUri }),
@@ -104,23 +105,6 @@ export const compileRemoteBundles = async (
     'Failed to fetch config file from IPFS'
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(canonicalConfig)
-
-  const configCache = await getConfigCache(
-    provider,
-    canonicalConfig,
-    configArtifacts,
-    getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(
-      provider,
-      canonicalConfig.options.organizationID
-    )
-  )
-
-  const bundles = makeBundlesFromConfig(
-    canonicalConfig,
-    configArtifacts,
-    configCache
-  )
-  return { bundles, canonicalConfig, configArtifacts }
+  const bundles = await bundleRemoteSubtask({ provider, canonicalConfig })
+  return { bundles, canonicalConfig }
 }

@@ -1,51 +1,39 @@
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
+  EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  IMMUTABLE_TYPE_HASH,
-  DEFAULT_PROXY_TYPE_HASH,
-  EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  NO_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber } from 'ethers'
+import { BigNumber, constants } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
 
-export const userContractKinds = [
+export const externalContractKinds = [
   'oz-transparent',
   'oz-ownable-uups',
   'oz-access-control-uups',
-  'external-transparent',
-  'immutable',
-  'proxy',
+  'external-default',
+  'no-proxy',
 ]
-export type UserContractKind =
+export type ExternalContractKind =
   | 'oz-transparent'
   | 'oz-ownable-uups'
   | 'oz-access-control-uups'
-  | 'external-transparent'
-  | 'immutable'
-  | 'proxy'
+  | 'external-default'
+  | 'no-proxy'
 
 export const contractKindHashes: { [contractKind: string]: string } = {
-  'external-transparent': EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  'internal-default': constants.HashZero,
+  'external-default': EXTERNAL_DEFAULT_PROXY_TYPE_HASH,
   'oz-transparent': OZ_TRANSPARENT_PROXY_TYPE_HASH,
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
-  immutable: IMMUTABLE_TYPE_HASH,
-  proxy: DEFAULT_PROXY_TYPE_HASH,
+  'no-proxy': NO_PROXY_TYPE_HASH,
 }
 
-export type ContractKind = UserContractKind | 'proxy'
-
-export enum ContractKindEnum {
-  INTERNAL_DEFAULT,
-  OZ_TRANSPARENT,
-  OZ_OWNABLE_UUPS,
-  OZ_ACCESS_CONTROL_UUPS,
-  EXTERNAL_DEFAULT,
-  IMMUTABLE,
-}
+export type ContractKind = ExternalContractKind | 'internal-default'
 
 /**
  * Allowable types for ChugSplash config variables defined by the user.
@@ -94,32 +82,28 @@ export interface ParsedChugSplashConfig {
   contracts: ParsedContractConfigs
 }
 
-export type UnsafeAllow = {
-  delegatecall?: boolean
-  selfdestruct?: boolean
-  missingPublicUpgradeTo?: boolean
-  emptyPush?: boolean
-  flexibleConstructor?: boolean
-  renames?: boolean
-  skipStorageCheck?: boolean
-}
-
 /**
  * User-defined contract definition in a ChugSplash config.
  */
 export type UserContractConfig = {
   contract: string
-  address?: string
-  kind: UserContractKind
+  externalProxy?: string
+  kind?: ExternalContractKind
   previousBuildInfo?: string
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
-  salt?: UserSalt
-  unsafeAllow?: UnsafeAllow
+  salt?: string
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowRenames?: boolean
+  unsafeSkipStorageCheck?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
+  unsafeAllow?: {
+    delegatecall?: boolean
+    selfdestruct?: boolean
+    missingPublicUpgradeTo?: boolean
+  }
 }
-
-export type UserSalt = string | number
 
 export type UserContractConfigs = {
   [referenceName: string]: UserContractConfig
@@ -139,12 +123,10 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  constructorArgs: ParsedConfigVariables
-  isUserDefinedAddress: boolean
-  unsafeAllow: UnsafeAllow
   salt: string
-  previousBuildInfo?: string
-  previousFullyQualifiedName?: string
+  constructorArgs: ParsedConfigVariables
+  unsafeAllowEmptyPush?: boolean
+  unsafeAllowFlexibleConstructor?: boolean
 }
 
 export type ParsedContractConfigs = {
@@ -176,47 +158,3 @@ export type ConfigArtifacts = {
     artifact: ContractArtifact
   }
 }
-
-export type ConfigCache = {
-  blockGasLimit: BigNumber
-  localNetwork: boolean
-  networkName: string
-  contractConfigCache: ContractConfigCache
-}
-
-export type ContractConfigCache = {
-  [referenceName: string]: {
-    isTargetDeployed: boolean
-    deploymentRevert: DeploymentRevert
-    importCache: ImportCache
-    deployedCreationCodeWithArgsHash?: string
-    previousConfigUri?: string
-  }
-}
-
-export type DeploymentRevert = {
-  deploymentReverted: boolean
-  revertString?: string
-}
-
-export type ImportCache = {
-  requiresImport: boolean
-  currProxyAdmin?: string
-}
-
-export type MinimalConfig = {
-  organizationID: string
-  projectName: string
-  contracts: Array<MinimalContractConfig>
-}
-
-export type MinimalContractConfig = {
-  referenceName: string
-  addr: string
-  kind: ContractKindEnum
-  userSaltHash: string
-}
-
-export type GetConfigArtifacts = (
-  contractConfigs: UserContractConfigs
-) => Promise<ConfigArtifacts>

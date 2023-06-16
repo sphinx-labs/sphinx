@@ -6,7 +6,6 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { Semver, Version } from "./Semver.sol";
-import { ChugSplashRegistryEvents } from "./ChugSplashRegistryEvents.sol";
 
 /**
  * @title ChugSplashRegistry
@@ -19,7 +18,7 @@ import { ChugSplashRegistryEvents } from "./ChugSplashRegistryEvents.sol";
  *         implementation.
  *
  */
-contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents {
+contract ChugSplashRegistry is Ownable, Initializable {
     /**
      * @notice Mapping of organization IDs to ChugSplashManagerProxy addresses.
      */
@@ -47,6 +46,78 @@ contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents 
      *         address.
      */
     mapping(uint => mapping(uint => mapping(uint => address))) public versions;
+
+    /**
+     * @notice Emitted whenever registration is finalized for a given organization ID.
+     *
+     * @param organizationID Organization ID that was registered.
+     * @param managerImpl    Address of the initial ChugSplashManager implementation for this
+     *                       project.
+     * @param owner          Address of the initial owner of the project.
+     * @param caller         Address that finalized registration.
+     * @param retdata        Return data from the ChugSplashManager initializer.
+     */
+    event ChugSplashRegistrationFinalized(
+        bytes32 indexed organizationID,
+        address indexed managerImpl,
+        address owner,
+        address caller,
+        bytes retdata
+    );
+
+    /**
+     * @notice Emitted whenever a ChugSplashManager contract announces an event on the registry. We
+     *         use this to avoid needing a complex indexing system when we're trying to find events
+     *         emitted by the various manager contracts.
+     *
+     * @param eventNameHash Hash of the name of the event being announced.
+     * @param manager       Address of the ChugSplashManagerProxy announcing an event.
+     * @param eventName     Name of the event being announced.
+     */
+    event EventAnnounced(string indexed eventNameHash, address indexed manager, string eventName);
+
+    /**
+     * @notice Emitted whenever a ChugSplashManager contract wishes to announce an event on the
+     *         registry, including a field for arbitrary data. We use this to avoid needing a
+     *         complex indexing system when we're trying to find events emitted by the various
+     *         manager contracts.
+     *
+     * @param eventNameHash Hash of the name of the event being announced.
+     * @param manager       Address of the ChugSplashManagerProxy announcing an event.
+     * @param dataHash      Hash of the extra data sent by the ChugSplashManager.
+     * @param eventName     Name of the event being announced.
+     * @param data          The extra data.
+     */
+    event EventAnnouncedWithData(
+        string indexed eventNameHash,
+        address indexed manager,
+        bytes indexed dataHash,
+        string eventName,
+        bytes data
+    );
+
+    /**
+     * @notice Emitted whenever a new contract kind is added.
+     *
+     * @param contractKindHash Hash representing the contract kind.
+     * @param adapter          Address of the adapter for the contract kind.
+     */
+    event ContractKindAdded(bytes32 contractKindHash, address adapter);
+
+    /**
+     * @notice Emitted whenever a new ChugSplashManager implementation is added.
+     *
+     * @param major  Major version of the ChugSplashManager.
+     * @param minor     Minor version of the ChugSplashManager.
+     * @param patch    Patch version of the ChugSplashManager.
+     * @param manager Address of the ChugSplashManager implementation.
+     */
+    event VersionAdded(
+        uint256 indexed major,
+        uint256 indexed minor,
+        uint256 indexed patch,
+        address manager
+    );
 
     /**
      * @param _owner Address of the owner of the registry.

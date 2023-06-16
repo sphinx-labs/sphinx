@@ -5,11 +5,7 @@ import {
   buildInfo as chugsplashBuildInfo,
 } from '@chugsplash/contracts'
 
-import {
-  ConfigArtifacts,
-  ParsedChugSplashConfig,
-  contractKindHashes,
-} from '../config/types'
+import { ConfigArtifacts, ParsedChugSplashConfig } from '../config/types'
 import {
   CompilerOutput,
   SolidityStorageLayout,
@@ -18,9 +14,10 @@ import {
   writeDeploymentFolderForNetwork,
   getConstructorArgs,
   writeDeploymentArtifact,
+  getChugSplashManagerAddress,
 } from '../utils'
+
 import 'core-js/features/array/at'
-import { getChugSplashManagerAddress } from '../addresses'
 
 /**
  * Gets the storage layout for a contract.
@@ -70,8 +67,7 @@ export const writeDeploymentArtifacts = async (
 
     const receipt = await deploymentEvent.getTransactionReceipt()
 
-    if (deploymentEvent.args.contractKindHash === contractKindHashes['proxy']) {
-      // The deployment event is for a default proxy.
+    if (deploymentEvent.event === 'DefaultProxyDeployed') {
       const { metadata, storageLayout } =
         chugsplashBuildInfo.output.contracts[
           '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
@@ -83,7 +79,7 @@ export const writeDeploymentArtifacts = async (
 
       // Define the deployment artifact for the proxy.
       const proxyArtifact = {
-        address: deploymentEvent.args.contractAddress,
+        address: deploymentEvent.args.proxy,
         abi: ProxyABI,
         transactionHash: deploymentEvent.transactionHash,
         solcInputHash: chugsplashBuildInfo.id,
@@ -101,9 +97,7 @@ export const writeDeploymentArtifacts = async (
           typeof metadata === 'string' ? metadata : JSON.stringify(metadata),
         args: [managerAddress],
         bytecode: ProxyArtifact.bytecode,
-        deployedBytecode: await provider.getCode(
-          deploymentEvent.args.contractAddress
-        ),
+        deployedBytecode: await provider.getCode(deploymentEvent.args.proxy),
         devdoc,
         userdoc,
         storageLayout,
@@ -116,7 +110,7 @@ export const writeDeploymentArtifacts = async (
         proxyArtifact,
         `${deploymentEvent.args.referenceName}Proxy`
       )
-    } else {
+    } else if (deploymentEvent.event === 'ContractDeployed') {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
       const { artifact, buildInfo } = configArtifacts[referenceName]

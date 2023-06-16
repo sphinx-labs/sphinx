@@ -10,6 +10,7 @@ out/
 
 # ChugSplash artifacts
 .canonical-configs
+logs/
 
 # Typescript
 dist/
@@ -17,5 +18,3 @@ tsconfig.tsbuildinfo
 
 node_modules/@chugsplash
 .openzeppelin/*
-
-broadcast/

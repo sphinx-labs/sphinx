@@ -4,33 +4,26 @@
   "description": "ChugSplash plugins",
   "main": "dist/index",
   "types": "dist/index",
-  "bin": {
-    "chugsplash": "./dist/cli/index.js"
-  },
   "files": [
-    "dist/*",
-    "contracts/foundry/*",
-    "out/artifacts/ChugSplash.sol/ChugSplash.json"
+    "dist/*"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
-    "build": "yarn build:ts && yarn build:contracts",
-    "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "npx hardhat clean && npx hardhat compile && yarn generate && mkdir -p ./dist/contracts && cp -R ./contracts/foundry/* ./dist/contracts/",
-    "generate": "npx ts-node script/write-constants.ts > contracts/foundry/ChugSplashConstants.sol",
+    "build": "yarn build:ts",
+    "build:ts": "tsc -p ./tsconfig.json && yarn build:contracts",
+    "build:contracts": "npx hardhat clean && npx hardhat compile && mkdir -p ./dist/contracts && cp ./foundry-contracts/* ./dist/contracts/",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
-    "test:forge": "forge test",
+    "test:forge": "anvil & ANVIL_PID=$! && forge test && kill $ANVIL_PID",
     "test:hardhat": "npx hardhat test --config-paths './chugsplash/Storage.config.ts, ./chugsplash/Create3.config.ts'",
-    "test:coverage": "export DEV_FILE_PATH='./dist/' && export DISABLE_ANALYTICS=true && yarn test",
+    "test:coverage": "export DEV_FILE_PATH='./dist/foundry/index.js' && export DISABLE_ANALYTICS=true && IS_CHUGSPLASH_TEST=true && yarn test",
     "test:kill": "kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
     "lint:ts:fix": "yarn lint:ts:check --fix",
     "lint:ts:check": "eslint . --max-warnings=0",
-    "pre-commit": "lint-staged",
-    "yalc:publish": "yarn build && yalc publish"
+    "pre-commit": "lint-staged"
   },
   "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/plugins#readme",
   "license": "MIT",
@@ -49,9 +42,6 @@
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.24.0",
-    "@prb/math": "^4.0.0",
-    "@swc/core": "^1.3.62",
-    "@thirdweb-dev/contracts": "^3.5.1",
     "dotenv": "^16.0.3",
     "ethers": "^5.6.9",
     "ipfs-http-client": "56.0.3",
@@ -59,8 +49,6 @@
     "node-fetch": "^2.6.7",
     "ora": "^5.4.1",
     "semver": "^7.3.7",
-    "solmate": "^6.7.0",
-    "yargs": "^17.7.2",
     "yesno": "^0.4.0"
   },
   "devDependencies": {
@@ -68,11 +56,7 @@
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
-    "@thirdweb-dev/contracts": "^3.5.1",
-    "@types/yargs": "^17.0.24",
     "chai": "^4.3.7",
-    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400",
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {

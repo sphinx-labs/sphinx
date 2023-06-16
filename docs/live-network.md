@@ -49,6 +49,8 @@ If you leave an optional variable empty, ChugSplash will use its default value.
 
 * `SKIP_STORAGE_CHECK` (`boolean`): Set this to `true` to upgrade your project without using the storage layout safety checker. Only set it to `true` when you're confident that the upgrade won't lead to storage layout issues.
   * Default value: `false`
+* `NEW_OWNER` (`address`): Address that will receive ownership of the project after the deployment/upgrade is executed.
+  * Default value: Address corresponding to the `PRIVATE_KEY` environment variable.
 * `WITHDRAW_FUNDS` (`boolean`): Set this to `false` if you'd like to skip withdrawing leftover funds at the end of the deployment/upgrade to reduce the number of transactions in future upgrades for the project.
   * Default value: `true`
 

@@ -1,34 +1,35 @@
+import * as path from 'path'
 import * as fs from 'fs'
-import { join } from 'path'
-import { promisify } from 'util'
 
 import {
   BuildInfo,
-  ContractArtifact,
-} from '@chugsplash/core/dist/languages/solidity/types'
-import {
-  parseFoundryArtifact,
-  validateBuildInfo,
-  execAsync,
-} from '@chugsplash/core/dist/utils'
-import {
   ConfigArtifacts,
-  GetConfigArtifacts,
+  ContractArtifact,
+  parseFoundryArtifact,
   UserContractConfigs,
-} from '@chugsplash/core/dist/config/types'
-import { parse } from 'semver'
-
-const readFileAsync = promisify(fs.readFile)
-const existsAsync = promisify(fs.exists)
+} from '@chugsplash/core'
 
 export const getBuildInfo = (
-  buildInfos: Array<BuildInfo>,
+  buildInfoFolder: string,
   sourceName: string
 ): BuildInfo => {
+  const completeFilePath = path.join(buildInfoFolder)
+
+  // Get the inputs from the build info folder.
+  const inputs = fs
+    .readdirSync(completeFilePath)
+    .filter((file) => {
+      return file.endsWith('.json')
+    })
+    .map((file) => {
+      return JSON.parse(
+        fs.readFileSync(path.join(buildInfoFolder, file), 'utf8')
+      )
+    })
+
   // Find the correct build info file
-  for (const input of buildInfos) {
-    if (input?.output?.contracts[sourceName] !== undefined) {
-      validateBuildInfo(input, 'foundry')
+  for (const input of inputs) {
+    if (input?.output?.sources[sourceName] !== undefined) {
       return input
     }
   }
@@ -37,109 +38,69 @@ export const getBuildInfo = (
     `Failed to find build info for ${sourceName}. Please check that you:
 1. Imported this file in your script
 2. Set 'force=true' in your foundry.toml
-3. Check that you've set the correct build info directory in your foundry.toml.`
+3. Check that ${buildInfoFolder} is the correct build info directory.`
   )
 }
 
-export const getContractArtifact = async (
+export const getContractArtifact = (
   name: string,
   artifactFilder: string
-): Promise<ContractArtifact> => {
+): ContractArtifact => {
   const folderName = `${name}.sol`
   const fileName = `${name}.json`
-  const completeFilePath = join(artifactFilder, folderName, fileName)
+  const completeFilePath = path.join(artifactFilder, folderName, fileName)
 
-  if (!(await existsAsync(completeFilePath))) {
+  if (!fs.existsSync(completeFilePath)) {
     throw new Error(
-      `Could not find artifact for: ${name}. Please make sure that this contract exists in either the src, script, or test directory that you've configured in your foundry.toml.`
+      `Could not find artifact for: ${name}. Did you forget to import it in your script file?`
     )
   }
 
-  const artifact = JSON.parse(await readFileAsync(completeFilePath, 'utf8'))
+  const artifact = JSON.parse(fs.readFileSync(completeFilePath, 'utf8'))
 
   return parseFoundryArtifact(artifact)
 }
 
-/**
- * Creates a callback for `getConfigArtifacts`, which is a function that maps each contract in the
- * config to its artifact and build info. We use a callback to create a standard interface for the
- * `getConfigArtifacts` function, which has a separate implementation for the Hardhat and Foundry
- * plugin.
- *
- * @param hre Hardhat runtime environment.
- * @param contractConfigs Contract configurations.
- * @param artifactFolder Path to the artifact folder.
- * @param buildInfoFolder Path to the build info folder.
- * @returns Paths to the build info and contract artifact files.
- */
-export const makeGetConfigArtifacts = (
+export const getConfigArtifacts = async (
+  contractConfigs: UserContractConfigs,
   artifactFolder: string,
   buildInfoFolder: string
-): GetConfigArtifacts => {
-  return async (contractConfigs: UserContractConfigs) => {
-    const buildInfoPath = join(buildInfoFolder)
+): Promise<ConfigArtifacts> => {
+  const configArtifacts: ConfigArtifacts = {}
 
-    const buildInfoPromises = fs
-      .readdirSync(buildInfoPath)
-      .filter((fileName) => {
-        return fileName.endsWith('.json')
-      })
-      .map((fileName) => ({
-        name: fileName,
-        time: fs.statSync(`${buildInfoPath}/${fileName}`).mtime.getTime(),
-      }))
-      .sort((a, b) => b.time - a.time)
-      .map(async (file) => {
-        return JSON.parse(
-          await readFileAsync(join(buildInfoFolder, file.name), 'utf8')
-        )
-      })
-
-    const buildInfos = await Promise.all(buildInfoPromises)
-
-    const configArtifactPromises = Object.entries(contractConfigs).map(
-      async ([referenceName, contractConfig]) => {
-        const artifact = await getContractArtifact(
-          contractConfig.contract,
-          artifactFolder
-        )
-        const buildInfo = getBuildInfo(buildInfos, artifact.sourceName)
-
-        return {
-          referenceName,
-          artifact,
-          buildInfo,
-        }
-      }
+  for (const [referenceName, contractConfig] of Object.entries(
+    contractConfigs
+  )) {
+    const artifact = getContractArtifact(
+      contractConfig.contract,
+      artifactFolder
     )
+    const buildInfo = getBuildInfo(buildInfoFolder, artifact.sourceName)
 
-    const resolved = await Promise.all(configArtifactPromises)
-
-    const configArtifacts: ConfigArtifacts = {}
-
-    for (const { referenceName, artifact, buildInfo } of resolved) {
-      configArtifacts[referenceName] = {
-        artifact,
-        buildInfo,
-      }
+    configArtifacts[referenceName] = {
+      artifact,
+      buildInfo,
     }
-    return configArtifacts
   }
+  return configArtifacts
 }
 
-/**
- * Attempts to infer the default solc version given by `solc --version`. If this fails, it will
- * return the default solc version used by Foundry's "Getting Started" guide, which is 0.8.20.
- */
-export const inferSolcVersion = async (): Promise<string> => {
-  // This is the default solc version used by Foundry's "Getting Started" guide.
-  const defaultSolcVersion = '0.8.20'
-  try {
-    const solcVersionOutput = await execAsync('solc --version')
-    const solcVersionRaw = solcVersionOutput.stdout.split('Version: ')[1]
-    const parsed = parse(solcVersionRaw)
-    return parsed ? parsed.toString() : defaultSolcVersion
-  } catch (err) {
-    return defaultSolcVersion
+export const cleanPath = (dirtyPath: string) => {
+  let cleanQuotes = dirtyPath.replace(/'/g, '')
+  cleanQuotes = cleanQuotes.replace(/"/g, '')
+  return cleanQuotes.trim()
+}
+
+export const fetchPaths = (outPath: string, buildInfoPath: string) => {
+  const artifactFolder = path.resolve(outPath)
+  const buildInfoFolder = path.resolve(buildInfoPath)
+  const deploymentFolder = path.resolve('deployments')
+  const canonicalConfigPath = path.resolve('.canonical-configs')
+
+  return {
+    artifactFolder,
+    buildInfoFolder,
+    deploymentFolder,
+    canonicalConfigPath,
   }
 }

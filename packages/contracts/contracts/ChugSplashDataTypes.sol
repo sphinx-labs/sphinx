@@ -12,13 +12,12 @@ import { Version } from "./Semver.sol";
  * @custom:field targets The number of targets in the deployment.
  * @custom:field actionRoot The root of the Merkle tree of actions.
  * @custom:field targetRoot The root of the Merkle tree of targets.
- * @custom:field numImmutableContracts The number of non-proxy contracts in the deployment.
+ * @custom:field numNonProxyContracts The number of non-proxy contracts in the deployment.
  * @custom:field actionsExecuted The number of actions that have been executed so far in the
    deployment.
  * @custom:field timeClaimed The time at which the deployment was claimed by a remote executor.
  * @custom:field selectedExecutor The address of the selected remote executor.
  * @custom:field remoteExecution Whether or not the deployment is being executed remotely.
- * @custom:field configUri URI pointing to the config file for the deployment.
  */
 struct DeploymentState {
     DeploymentStatus status;
@@ -26,12 +25,11 @@ struct DeploymentState {
     uint256 targets;
     bytes32 actionRoot;
     bytes32 targetRoot;
-    uint256 numImmutableContracts;
+    uint256 numNonProxyContracts;
     uint256 actionsExecuted;
     uint256 timeClaimed;
     address selectedExecutor;
     bool remoteExecution;
-    string configUri;
 }
 
 /**
@@ -43,7 +41,7 @@ struct DeploymentState {
  * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  * @custom:field referenceName The reference name associated with the contract.
  */
-struct RawChugSplashAction {
+struct ChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
     address payable addr;
@@ -112,34 +110,4 @@ struct RegistrationInfo {
     Version version;
     address owner;
     bytes managerInitializerData;
-}
-
-struct ChugSplashBundles {
-    ChugSplashActionBundle actionBundle;
-    ChugSplashTargetBundle targetBundle;
-}
-
-struct ChugSplashActionBundle {
-    bytes32 root;
-    BundledChugSplashAction[] actions;
-}
-
-struct ChugSplashTargetBundle {
-    bytes32 root;
-    BundledChugSplashTarget[] targets;
-}
-
-struct BundledChugSplashAction {
-    RawChugSplashAction action;
-    ActionProof proof;
-}
-
-struct BundledChugSplashTarget {
-    ChugSplashTarget target;
-    bytes32[] siblings;
-}
-
-struct ActionProof {
-    uint256 actionIndex;
-    bytes32[] siblings;
 }

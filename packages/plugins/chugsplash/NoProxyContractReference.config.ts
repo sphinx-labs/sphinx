@@ -14,7 +14,7 @@ const config: UserChugSplashConfig = {
   contracts: {
     Stateless: {
       contract: 'Stateless',
-      kind: 'immutable',
+      kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
         _immutableContractReference:
@@ -26,7 +26,7 @@ const config: UserChugSplashConfig = {
     },
     StatelessTwo: {
       contract: 'Stateless',
-      kind: 'immutable',
+      kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 1,
         _immutableContractReference: '{{ Stateless }}',

@@ -19,12 +19,12 @@ const config: UserChugSplashConfig = {
   contracts: {
     Stateless: {
       contract: 'Stateless',
-      kind: 'immutable',
+      kind: 'no-proxy',
       constructorArgs: {
         _immutableUint: 2,
         _immutableContractReference: ethers.constants.AddressZero,
       },
-      salt: 1,
+      salt: '0x' + '11'.repeat(32),
     },
   },
 }

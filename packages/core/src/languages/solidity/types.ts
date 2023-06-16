@@ -94,13 +94,6 @@ export interface CompilerOutputContract {
     methodIdentifiers: {
       [methodSignature: string]: string
     }
-    gasEstimates: {
-      creation: {
-        totalCost: string
-        codeDepositCost: string
-        executionCost: string
-      }
-    }
   }
   metadata: string | CompilerOutputMetadata
 }

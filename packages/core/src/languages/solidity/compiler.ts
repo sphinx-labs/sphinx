@@ -4,12 +4,23 @@ import {
   CompilerDownloader,
   CompilerPlatform,
 } from 'hardhat/internal/solidity/compiler/downloader'
+import { providers } from 'ethers'
 
-import {
-  CompilerOutput,
-  CompilerOutputContracts,
-  CompilerOutputMetadata,
-} from './types'
+import { CanonicalChugSplashConfig } from '../../config/types'
+import { ChugSplashBundles, makeBundlesFromConfig } from '../../actions'
+import { CompilerOutputContracts, CompilerOutputMetadata } from './types'
+import { getConfigArtifactsRemote } from '../../utils'
+
+export const bundleRemoteSubtask = async (args: {
+  provider: providers.Provider
+  canonicalConfig: CanonicalChugSplashConfig
+}): Promise<ChugSplashBundles> => {
+  const { provider, canonicalConfig } = args
+
+  const artifacts = await getConfigArtifactsRemote(canonicalConfig)
+
+  return makeBundlesFromConfig(provider, canonicalConfig, artifacts)
+}
 
 // Credit: NomicFoundation
 // https://github.com/NomicFoundation/hardhat/blob/main/packages/hardhat-core/src/builtin-tasks/compile.ts
@@ -92,40 +103,4 @@ export const getMinimumCompilerInput = (
   }
 
   return minimumCompilerInput
-}
-
-/**
- * Returns the minimum compiler output for a given source name.
- *
- * @param fullCompilerOutput The full compiler output object.
- * @param fullOutputContracts The full compiler output contract object.
- * @param sourceName The source name.
- * @returns Minimum compiler input necessary to compile the source name.
- */
-export const getMinimumCompilerOutput = (
-  fullCompilerOutput: CompilerOutput,
-  fullOutputContracts: CompilerOutputContracts,
-  sourceName: string,
-  contractName: string
-): CompilerOutput => {
-  const contractOutput = fullOutputContracts[sourceName][contractName]
-  const metadata: CompilerOutputMetadata =
-    typeof contractOutput.metadata === 'string'
-      ? JSON.parse(contractOutput.metadata)
-      : contractOutput.metadata
-
-  const minimumSources: CompilerOutput['sources'] = {}
-  const minimumContracts: CompilerOutput['contracts'] = {}
-  for (const newSourceName of Object.keys(metadata.sources)) {
-    minimumSources[newSourceName] = fullCompilerOutput.sources[newSourceName]
-    minimumContracts[newSourceName] =
-      fullCompilerOutput.contracts[newSourceName]
-  }
-
-  const minimumCompilerOutput: CompilerOutput = {
-    contracts: minimumContracts,
-    sources: minimumSources,
-  }
-
-  return minimumCompilerOutput
 }

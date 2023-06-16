@@ -18,9 +18,4 @@ interface ICreate3 {
     ) external returns (address deployed);
 
     function getAddress(bytes32 _salt) external view returns (address);
-
-    function getAddressFromDeployer(
-        bytes32 _salt,
-        address _deployer
-    ) external view returns (address);
 }
