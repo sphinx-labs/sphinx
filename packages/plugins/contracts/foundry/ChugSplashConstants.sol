@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.2 <0.9.0;
+pragma solidity ^0.8.0;
 
 struct ChugSplashContractInfo {
   bytes creationCode;
@@ -7,21 +7,21 @@ struct ChugSplashContractInfo {
 }
 
 contract ChugSplashConstants {
-  address external constant registryAddress = 0x45a655ACd8e43808d1440a2764e0796b9d90a6aa;
-  bytes32 external constant managerProxyInitCodeHash = 0xc69f84d0e1cf90abfaa4ec339036b743d78e054638305e71984af41bb2cf48c0;
-  uint256 external constant major = 1;
-  uint256 external constant minor = 0;
-  uint256 external constant patch = 0;
-  bytes32 external constant defaultProxyTypeHash = 0x0000000000000000000000000000000000000000000000000000000000000000;
-  bytes32 external constant ozTransparentProxyTypeHash = 0xd76431e21c065b4b093c05924ead6faf5da6f979ba0fb1dae58a8b668ec8c957;
-  bytes32 external constant ozUUPSOwnableProxyTypeHash = 0x449ff20099d041c42fe19798275484d3a5e1603a748082b78b39101f99874a6d;
-  bytes32 external constant ozUUPSAccessControlProxyTypeHash = 0x1c5f131e15ecec1d947abdce4f5a027d0e80aec46dd702783e0bdddb954d2b5f;
-  bytes32 external constant externalTransparentProxyTypeHash = 0x7138a168ac6b86b6fcccbf21c6c4131a5e180eb9213a05933a5df6c402693c2b;
-  address external constant managerImplementationAddress = 0xb920F0626628551Eb1779F086d062268dF225473;
-  address external constant ozTransparentAdapterAddr = 0x68D5AF121858f81D5855516be8947e55CeFb693a;
-  address external constant ozUUPSOwnableAdapterAddr = 0x59A4A0564eb0cB97864F3eAAed87Bf35cAaD6410;
-  address external constant ozUUPSAccessControlAdapterAddr = 0xf9c17Eb2d59CeA2820b37C3B8AcC762bb37c9742;
-  address external constant defaultAdapterAddr = 0xE0F9453135FB547C06eb9B5e36b3470552Fe358F;
+  address public constant registryAddress = 0x45a655ACd8e43808d1440a2764e0796b9d90a6aa;
+  bytes32 public constant managerProxyInitCodeHash = 0xc69f84d0e1cf90abfaa4ec339036b743d78e054638305e71984af41bb2cf48c0;
+  uint256 public constant major = 1;
+  uint256 public constant minor = 0;
+  uint256 public constant patch = 0;
+  bytes32 public constant defaultProxyTypeHash = 0x0000000000000000000000000000000000000000000000000000000000000000;
+  bytes32 public constant ozTransparentProxyTypeHash = 0xd76431e21c065b4b093c05924ead6faf5da6f979ba0fb1dae58a8b668ec8c957;
+  bytes32 public constant ozUUPSOwnableProxyTypeHash = 0x449ff20099d041c42fe19798275484d3a5e1603a748082b78b39101f99874a6d;
+  bytes32 public constant ozUUPSAccessControlProxyTypeHash = 0x1c5f131e15ecec1d947abdce4f5a027d0e80aec46dd702783e0bdddb954d2b5f;
+  bytes32 public constant externalTransparentProxyTypeHash = 0x7138a168ac6b86b6fcccbf21c6c4131a5e180eb9213a05933a5df6c402693c2b;
+  address public constant managerImplementationAddress = 0xb920F0626628551Eb1779F086d062268dF225473;
+  address public constant ozTransparentAdapterAddr = 0x68D5AF121858f81D5855516be8947e55CeFb693a;
+  address public constant ozUUPSOwnableAdapterAddr = 0x59A4A0564eb0cB97864F3eAAed87Bf35cAaD6410;
+  address public constant ozUUPSAccessControlAdapterAddr = 0xf9c17Eb2d59CeA2820b37C3B8AcC762bb37c9742;
+  address public constant defaultAdapterAddr = 0xE0F9453135FB547C06eb9B5e36b3470552Fe358F;
 
   function getChugSplashContractInfo() external pure returns (ChugSplashContractInfo[] memory) {
     ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](14);

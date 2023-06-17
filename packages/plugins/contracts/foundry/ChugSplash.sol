@@ -3,10 +3,11 @@ pragma solidity >=0.6.2 <0.9.0;
 
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
-import { StdChains } from "forge-std/StdChains.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { strings } from "./lib/strings.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
 import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { IOwnable } from "@chugsplash/contracts/contracts/interfaces/IOwnable.sol";
@@ -30,7 +31,6 @@ import {
     ChugSplashTargetBundle,
     BundledChugSplashTarget
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import {
     MinimalConfig,
     Configs,
@@ -156,7 +156,7 @@ contract ChugSplash is
         if (targetContractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT) {
             contractKindHash = constants.defaultProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
-            contractKindHash = constants.transparentProxyTypeHash();
+            contractKindHash = constants.externalTransparentProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_OWNABLE_UUPS) {
             contractKindHash = constants.ozUUPSOwnableProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
@@ -687,7 +687,7 @@ contract ChugSplash is
         return OptionalLog({ exists: false, value: emptyLog });
     }
 
-    function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
+    function getCurrentChugSplashManagerVersion() private view returns (Version memory) {
         return Version({ major: constants.major(), minor: constants.minor(), patch: constants.patch() });
     }
 
@@ -944,14 +944,14 @@ contract ChugSplash is
         return addr;
     }
 
-    function getChugSplashRegistry() internal pure returns (IChugSplashRegistry) {
+    function getChugSplashRegistry() internal view returns (IChugSplashRegistry) {
         return IChugSplashRegistry(constants.registryAddress());
     }
 
     function getChugSplashManager(
         IChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) private pure returns (IChugSplashManager) {
+    ) private view returns (IChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
             constants.managerProxyInitCodeHash(),

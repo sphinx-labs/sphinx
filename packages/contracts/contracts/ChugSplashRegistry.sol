@@ -20,7 +20,12 @@ import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
  *         implementation.
  *
  */
-contract ChugSplashRegistry is Ownable, Initializable, ChugSplashRegistryEvents, IChugSplashRegistry {
+contract ChugSplashRegistry is
+    Ownable,
+    Initializable,
+    ChugSplashRegistryEvents,
+    IChugSplashRegistry
+{
     /**
      * @notice Mapping of organization IDs to ChugSplashManagerProxy addresses.
      */

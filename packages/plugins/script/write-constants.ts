@@ -109,7 +109,7 @@ const writeConstants = async () => {
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
-    `pragma solidity >=0.6.2 <0.9.0;\n\n` +
+    `pragma solidity ^0.8.0;\n\n` +
     `struct ChugSplashContractInfo {\n` +
     `  bytes creationCode;\n` +
     `  address expectedAddress;\n` +
@@ -118,7 +118,7 @@ const writeConstants = async () => {
     `${Object.entries(constants)
       .map(
         ([name, { type, value }]) =>
-          `  ${type} external constant ${name} = ${value};`
+          `  ${type} public constant ${name} = ${value};`
       )
       .join('\n')}\n\n` +
     `  function getChugSplashContractInfo() external pure returns (ChugSplashContractInfo[] memory) {\n` +
