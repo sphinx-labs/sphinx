@@ -133,7 +133,7 @@ export const makeGetConfigArtifacts = (
  */
 export const inferSolcVersion = async (): Promise<string> => {
   // This is the default solc version used by Foundry's "Getting Started" guide.
-  const defaultSolcVersion = '0.8.20'
+  const defaultSolcVersion = '0.8.19'
   try {
     const solcVersionOutput = await execAsync('solc --version')
     const solcVersionRaw = solcVersionOutput.stdout.split('Version: ')[1]
