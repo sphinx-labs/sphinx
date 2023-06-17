@@ -4,9 +4,10 @@ pragma solidity >=0.6.2 <0.9.0;
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
 import { StdChains } from "forge-std/StdChains.sol";
+import { StdStyle } from "forge-std/StdStyle.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { strings } from "./lib/strings.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
-import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import {
     ChugSplashManagerEvents
@@ -14,7 +15,6 @@ import {
 import {
     ChugSplashRegistryEvents
 } from "@chugsplash/contracts/contracts/ChugSplashRegistryEvents.sol";
-import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
 import { Version } from "@chugsplash/contracts/contracts/Semver.sol";
 import {
     ChugSplashBundles,
@@ -29,7 +29,6 @@ import {
     ChugSplashTargetBundle,
     BundledChugSplashTarget
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
-import { DefaultCreate3 } from "@chugsplash/contracts/contracts/DefaultCreate3.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import {
     MinimalConfig,
@@ -48,13 +47,11 @@ import {
     OptionalBytes32
 } from "./ChugSplashPluginTypes.sol";
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
-import { StdStyle } from "forge-std/StdStyle.sol";
 import { ChugSplashContractInfo, ChugSplashConstants } from "./ChugSplashConstants.sol";
 
 contract ChugSplash is
     Script,
     Test,
-    DefaultCreate3,
     ChugSplashManagerEvents,
     ChugSplashRegistryEvents,
     ChugSplashConstants
