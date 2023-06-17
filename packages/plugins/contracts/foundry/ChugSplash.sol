@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity >=0.6.2 <0.9.0;
 
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
@@ -50,7 +50,6 @@ import {
 import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
 import { ChugSplashContractInfo, ChugSplashConstants } from "./ChugSplashConstants.sol";
-import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol";
 
 contract ChugSplash is
     Script,
@@ -189,9 +188,9 @@ contract ChugSplash is
         address deployer = utils.msgSender();
         require(ownerAddress == deployer, "ChugSplash: You are not the owner of this proxy.");
 
-        // transfer ownership of the proxy
-        Proxy proxy = Proxy(payable(_proxy));
-        proxy.changeAdmin(address(manager));
+        // TODO: transfer ownership of the proxy
+        // We need to use an interface here instead of importing the Proxy contract from Optimism b/c
+        // it requires a specific solidity compiler version.
     }
 
     // TODO: Test once we are officially supporting upgradable contracts
