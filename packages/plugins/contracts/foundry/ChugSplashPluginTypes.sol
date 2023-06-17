@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity >=0.6.2 <0.9.0;
 
 struct MinimalConfig {
     bytes32 organizationID;
