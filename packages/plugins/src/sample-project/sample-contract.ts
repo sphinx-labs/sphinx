@@ -18,7 +18,10 @@ contract HelloChugSplash {
 `
 }
 
-export const getSampleFoundryDeployFile = (solcVersion: string) => {
+export const getSampleFoundryDeployFile = (
+  solcVersion: string,
+  configPath: string
+) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
@@ -28,14 +31,17 @@ contract ChugSplashDeploy is ChugSplash {
   function run() public {
     uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
     vm.startBroadcast(deployerPrivateKey);
-    deploy('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
+    deploy('${configPath}', vm.rpcUrl("anvil"));
     vm.stopBroadcast();
   }
 }
 `
 }
 
-export const getSampleGenerateArtifactFile = (solcVersion: string) => {
+export const getSampleGenerateArtifactFile = (
+  solcVersion: string,
+  configPath: string
+) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
@@ -43,13 +49,16 @@ import "@chugsplash/plugins/ChugSplash.sol";
 
 contract ChugSplashGenerateArtifacts is ChugSplash {
   function setUp() public {
-    generateArtifacts('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
+    generateArtifacts('${configPath}', vm.rpcUrl("anvil"));
   }
 }
 `
 }
 
-export const getSampleFoundryTestFile = (solcVersion: string) => {
+export const getSampleFoundryTestFile = (
+  solcVersion: string,
+  configPath: string
+) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
@@ -61,8 +70,8 @@ contract HelloChugSplashTest is ChugSplash {
   HelloChugSplash helloChugSplash;
   function setUp() public {
     silence();
-    deploy('./chugsplash/hello-chugsplash.js', vm.rpcUrl("anvil"));
-    helloChugSplash = HelloChugSplash(getAddress('./chugsplash/hello-chugsplash.js', "MyFirstContract"));
+    deploy('${configPath}', vm.rpcUrl("anvil"));
+    helloChugSplash = HelloChugSplash(getAddress('${configPath}', "MyFirstContract"));
   }
 
   function testSetNumber() public {
