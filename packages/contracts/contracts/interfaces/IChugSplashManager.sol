@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { ChugSplashRegistry } from "../ChugSplashRegistry.sol";
+// TODO: manager should import this iface
+
+import { IChugSplashRegistry } from "./IChugSplashRegistry.sol";
 import { Version } from "../Semver.sol";
+import {
+    DeploymentState,
+    RawChugSplashAction,
+    ChugSplashTarget
+} from "../ChugSplashDataTypes.sol";
 
 /**
  * @title ChugSplashManager
@@ -34,7 +41,7 @@ interface IChugSplashManager {
      *
      * @return Address of the ChugSplashRegistry.
      */
-    function registry() external view returns (ChugSplashRegistry);
+    function registry() external view returns (IChugSplashRegistry);
 
     /**
      * @notice Organization ID for this contract.
@@ -42,4 +49,46 @@ interface IChugSplashManager {
      * @return 32-byte organization ID.
      */
     function organizationID() external view returns (bytes32);
+
+    function cancelActiveChugSplashDeployment() external;
+
+    function exportProxy(
+            address payable _proxy,
+            bytes32 _contractKindHash,
+            address _newOwner
+        ) external;
+
+    function isProposer(address _addr) external view returns (bool);
+
+    function propose(
+            bytes32 _actionRoot,
+            bytes32 _targetRoot,
+            uint256 _numActions,
+            uint256 _numTargets,
+            uint256 _numImmutableContracts,
+            string memory _configUri,
+            bool _remoteExecution
+        ) external;
+
+    function approve(bytes32 _deploymentId) external;
+
+    function activeDeploymentId() external view returns (bytes32);
+
+    function deployments(bytes32 _deploymentId) external view returns (DeploymentState memory);
+
+    function executeActions(
+            RawChugSplashAction[] memory _actions,
+            uint256[] memory _actionIndexes,
+            bytes32[][] memory _proofs
+        ) external;
+
+    function initiateUpgrade(
+            ChugSplashTarget[] memory _targets,
+            bytes32[][] memory _proofs
+        ) external;
+
+    function finalizeUpgrade(
+            ChugSplashTarget[] memory _targets,
+            bytes32[][] memory _proofs
+        ) external;
 }

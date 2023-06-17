@@ -7,8 +7,9 @@ import { StdChains } from "forge-std/StdChains.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { strings } from "./lib/strings.sol";
-import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
-import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
+import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import { IOwnable } from "@chugsplash/contracts/contracts/interfaces/IOwnable.sol";
 import {
     ChugSplashManagerEvents
 } from "@chugsplash/contracts/contracts/ChugSplashManagerEvents.sol";
@@ -55,8 +56,7 @@ contract ChugSplash is
     Script,
     Test,
     ChugSplashManagerEvents,
-    ChugSplashRegistryEvents,
-    ChugSplashConstants
+    ChugSplashRegistryEvents
 {
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address private constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
@@ -74,6 +74,7 @@ contract ChugSplash is
     mapping(string => mapping(string => mapping(bytes32 => address))) private deployed;
 
     ChugSplashUtils private immutable utils;
+    ChugSplashConstants private immutable constants;
 
     // Get owner address
     uint private key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
@@ -106,6 +107,7 @@ contract ChugSplash is
      */
     constructor() {
         utils = new ChugSplashUtils();
+        constants = new ChugSplashConstants();
     }
 
     function silence() internal {
@@ -115,11 +117,11 @@ contract ChugSplash is
     function cancel(string memory _configPath, string memory _rpcUrl) internal initializeChugSplash(_rpcUrl) {
         Configs memory configs = ffiGetConfigs(_configPath);
 
-        ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
+        IChugSplashRegistry registry = getChugSplashRegistry();
+        IChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
         manager.cancelActiveChugSplashDeployment();
-    }       
+    }
 
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
@@ -131,8 +133,8 @@ contract ChugSplash is
         Configs memory configs = ffiGetConfigs(_configPath);
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
-        ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = ChugSplashManager(
+        IChugSplashRegistry registry = getChugSplashRegistry();
+        IChugSplashManager manager = IChugSplashManager(
             registry.projects(minimalConfig.organizationID)
         );
 
@@ -152,15 +154,15 @@ contract ChugSplash is
 
         bytes32 contractKindHash;
         if (targetContractConfig.kind == ContractKindEnum.INTERNAL_DEFAULT) {
-            contractKindHash = DEFAULT_PROXY_TYPE_HASH;
+            contractKindHash = constants.defaultProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_TRANSPARENT) {
-            contractKindHash = OZ_TRANSPARENT_PROXY_TYPE_HASH;
+            contractKindHash = constants.transparentProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_OWNABLE_UUPS) {
-            contractKindHash = OZ_UUPS_OWNABLE_PROXY_TYPE_HASH;
+            contractKindHash = constants.ozUUPSOwnableProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.OZ_ACCESS_CONTROL_UUPS) {
-            contractKindHash = OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH;
+            contractKindHash = constants.ozUUPSAccessControlProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.EXTERNAL_DEFAULT) {
-            contractKindHash = EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH;
+            contractKindHash = constants.externalTransparentProxyTypeHash();
         } else if (targetContractConfig.kind == ContractKindEnum.IMMUTABLE) {
             revert("Cannot export a proxy for a contract that does not use a proxy.");
         } else {
@@ -178,8 +180,8 @@ contract ChugSplash is
     ) internal initializeChugSplash(_rpcUrl) {
         Configs memory configs = ffiGetConfigs(_configPath);
 
-        ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = ChugSplashManager(
+        IChugSplashRegistry registry = getChugSplashRegistry();
+        IChugSplashManager manager = IChugSplashManager(
             registry.projects(configs.minimalConfig.organizationID)
         );
 
@@ -278,8 +280,8 @@ contract ChugSplash is
             _configPath
         );
 
-        ChugSplashRegistry registry = getChugSplashRegistry();
-        ChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
+        IChugSplashRegistry registry = getChugSplashRegistry();
+        IChugSplashManager manager = getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
         ConfigCache memory configCache = getConfigCache(configs.minimalConfig, registry, manager, _rpcUrl);
 
@@ -381,8 +383,8 @@ contract ChugSplash is
     }
 
     function finalizeRegistration(
-        ChugSplashRegistry _registry,
-        ChugSplashManager _manager,
+        IChugSplashRegistry _registry,
+        IChugSplashManager _manager,
         bytes32 _organizationID,
         address _newOwner,
         bool _allowManagedProposals
@@ -402,7 +404,7 @@ contract ChugSplash is
                 initializerData
             );
         } else {
-            address existingOwner = _manager.owner();
+            address existingOwner = IOwnable(address(_manager)).owner();
             if (existingOwner != _newOwner) {
                 revert(
                     string.concat(
@@ -415,26 +417,26 @@ contract ChugSplash is
     }
 
     function isProjectClaimed(
-        ChugSplashRegistry _registry,
+        IChugSplashRegistry _registry,
         address _manager
     ) private view returns (bool) {
         return _registry.managerProxies(_manager);
     }
 
-    function transferProjectOwnership(ChugSplashManager _manager, address _newOwner, address _currOwner) private {
+    function transferProjectOwnership(IChugSplashManager _manager, address _newOwner, address _currOwner) private {
         if (_newOwner != _currOwner) {
             if (_newOwner == address(0)) {
-                _manager.renounceOwnership();
+                IOwnable(address(_manager)).renounceOwnership();
             } else {
-                _manager.transferOwnership(_newOwner);
+                IOwnable(address(_manager)).transferOwnership(_newOwner);
             }
         }
     }
 
     function getConfigCache(
         MinimalConfig memory _minimalConfig,
-        ChugSplashRegistry _registry,
-        ChugSplashManager _manager,
+        IChugSplashRegistry _registry,
+        IChugSplashManager _manager,
         string memory _rpcUrl
     ) private returns (ConfigCache memory) {
         MinimalContractConfig[] memory contractConfigs = _minimalConfig.contracts;
@@ -520,7 +522,7 @@ contract ChugSplash is
     }
 
     function getDeployedCreationCodeWithArgsHash(
-        ChugSplashManager _manager,
+        IChugSplashManager _manager,
         string memory _referenceName,
         address _contractAddress
     ) private view returns (OptionalBytes32 memory) {
@@ -578,7 +580,7 @@ contract ChugSplash is
     }
 
     function getPreviousConfigUri(
-        ChugSplashRegistry _registry,
+        IChugSplashRegistry _registry,
         address _proxyAddress,
         bool _localNetwork,
         string memory _rpcUrl
@@ -622,7 +624,7 @@ contract ChugSplash is
 
             bytes32 deploymentId = latestUpgradeEvent.value.topics[1];
 
-            DeploymentState memory deploymentState = ChugSplashManager(payable(manager))
+            DeploymentState memory deploymentState = IChugSplashManager(payable(manager))
                 .deployments(deploymentId);
 
             return OptionalString({ exists: true, value: deploymentState.configUri });
@@ -686,7 +688,7 @@ contract ChugSplash is
     }
 
     function getCurrentChugSplashManagerVersion() private pure returns (Version memory) {
-        return Version({ major: major, minor: minor, patch: patch });
+        return Version({ major: constants.major(), minor: constants.minor(), patch: constants.patch() });
     }
 
     // This function returns the user config string as a performance optimization. Reading
@@ -860,7 +862,7 @@ contract ChugSplash is
     }
 
     function ensureChugSplashInitialized(string memory _rpcUrl) internal {
-        ChugSplashRegistry registry = getChugSplashRegistry();
+        IChugSplashRegistry registry = getChugSplashRegistry();
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
@@ -869,7 +871,7 @@ contract ChugSplash is
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
             );
 
-            ChugSplashContractInfo[] memory contracts = getChugSplashContractInfo();
+            ChugSplashContractInfo[] memory contracts = constants.getChugSplashContractInfo();
             for (uint i = 0; i < contracts.length; i++) {
                 ChugSplashContractInfo memory ct = contracts[i];
                 address addr = create2Deploy(ct.creationCode);
@@ -880,28 +882,28 @@ contract ChugSplash is
             vm.startPrank(systemOwnerAddress);
 
             // Add initial manager version
-            registry.addVersion(managerImplementationAddress);
+            registry.addVersion(constants.managerImplementationAddress());
 
             // Add transparent proxy type
             registry.addContractKind(
                 keccak256("oz-transparent"),
-                ozTransparentAdapterAddr
+                constants.ozTransparentAdapterAddr()
             );
 
             // Add uups ownable proxy type
             registry.addContractKind(
                 keccak256("oz-ownable-uups"),
-                ozUUPSOwnableAdapterAddr
+                constants.ozUUPSOwnableAdapterAddr()
             );
 
             // Add uups access control proxy type
             registry.addContractKind(
                 keccak256("oz-access-control-uups"),
-                ozUUPSAccessControlAdapterAddr
+                constants.ozUUPSAccessControlAdapterAddr()
             );
 
             // Add default proxy type
-            registry.addContractKind(bytes32(0), defaultAdapterAddr);
+            registry.addContractKind(bytes32(0), constants.defaultAdapterAddr());
 
             vm.stopPrank();
         } else {
@@ -942,20 +944,20 @@ contract ChugSplash is
         return addr;
     }
 
-    function getChugSplashRegistry() internal pure returns (ChugSplashRegistry) {
-        return ChugSplashRegistry(registryAddress);
+    function getChugSplashRegistry() internal pure returns (IChugSplashRegistry) {
+        return IChugSplashRegistry(constants.registryAddress());
     }
 
     function getChugSplashManager(
-        ChugSplashRegistry _registry,
+        IChugSplashRegistry _registry,
         bytes32 _organizationID
-    ) private pure returns (ChugSplashManager) {
+    ) private pure returns (IChugSplashManager) {
         address managerAddress = Create2.computeAddress(
             _organizationID,
-            managerProxyInitCodeHash,
+            constants.managerProxyInitCodeHash(),
             address(_registry)
         );
-        return ChugSplashManager(payable(managerAddress));
+        return IChugSplashManager(payable(managerAddress));
     }
 
     function inefficientSlice(
@@ -1074,7 +1076,7 @@ contract ChugSplash is
      */
     function executeBatchActions(
         BundledChugSplashAction[] memory actions,
-        ChugSplashManager manager,
+        IChugSplashManager manager,
         uint maxGasLimit,
         DeployContractCost[] memory deployContractCosts
     ) private returns (DeploymentStatus) {
@@ -1140,7 +1142,7 @@ contract ChugSplash is
     }
 
     function executeDeployment(
-        ChugSplashManager manager,
+        IChugSplashManager manager,
         ChugSplashBundles memory bundles,
         uint256 blockGasLimit,
         DeployContractCost[] memory deployContractCosts

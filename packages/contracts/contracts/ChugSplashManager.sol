@@ -31,6 +31,7 @@ import {
     ContextUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
+import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 
 /**
  * @title ChugSplashManager
@@ -75,7 +76,7 @@ contract ChugSplashManager is
     /**
      * @notice Address of the ChugSplashRegistry.
      */
-    ChugSplashRegistry public immutable registry;
+    IChugSplashRegistry public immutable registry;
 
     /**
      * @notice Address of the Create3 contract.

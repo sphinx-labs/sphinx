@@ -35,7 +35,7 @@ contract ChugSplashTest is ChugSplash {
     Stateless     myStateless;
     Stateless      myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
-    ChugSplashRegistry registry;
+    IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     string deployConfig = "./chugsplash/Storage.config.ts";
