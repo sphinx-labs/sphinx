@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.8.1
+
+### Patch Changes
+
+- 60d60bc: Include contract source files in release
+
 ## 0.8.0
 
 ### Minor Changes

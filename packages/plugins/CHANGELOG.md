@@ -1,5 +1,13 @@
 # @chugsplash/plugins
 
+## 0.16.2
+
+### Patch Changes
+
+- 60d60bc: Specify compiler version range for foundry library contracts
+- Updated dependencies [60d60bc]
+  - @chugsplash/contracts@0.8.1
+
 ## 0.16.1
 
 ### Patch Changes
