@@ -1,8 +1,9 @@
 name: Publish Docker image
 
 on:
-  pull_request:
-    types: [ synchronize ]
+  push:
+    branches:
+      - develop
 
 jobs:
   checkchanged:
