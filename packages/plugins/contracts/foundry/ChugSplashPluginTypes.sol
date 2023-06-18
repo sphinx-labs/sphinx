@@ -16,21 +16,6 @@ struct BundleInfo {
     ChugSplashBundles bundles;
 }
 
-import {
-    ChugSplashBundles
-} from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
-
-struct Configs {
-    MinimalConfig minimalConfig;
-    string userConfigStr;
-}
-
-struct BundleInfo {
-    string configUri;
-    DeployContractCost[] deployContractCosts;
-    ChugSplashBundles bundles;
-}
-
 struct MinimalConfig {
     bytes32 organizationID;
     string projectName;
