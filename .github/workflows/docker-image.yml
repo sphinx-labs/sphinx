@@ -3,7 +3,7 @@ name: Publish Docker image
 on:
   push:
     branches:
-      - develop
+      - sg/temp
 
 jobs:
   checkchanged:
@@ -19,7 +19,7 @@ jobs:
         run: >
           echo \
             "didChange=$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
-            ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} \
+            ${{github.event.before}} ${{github.event.after}} \
             )" >> "$GITHUB_OUTPUT"
 
   build-and-push-image:
@@ -49,5 +49,5 @@ jobs:
           context: ./ops/ci-builder/
           file: ./ops/ci-builder/Dockerfile
           push: true
-          tags: samgoldman/ci-builder:latest, samgoldman/ci-builder:${{ github.event.pull_request.head.sha }}
+          tags: samgoldman/ci-builder:latest, samgoldman/ci-builder:${{github.event.after}}
           labels: ${{ steps.meta.outputs.labels }}
