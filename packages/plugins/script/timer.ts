@@ -5,7 +5,7 @@ const execAsync = util.promisify(exec)
 
 const main = async () => {
   let agg = 0
-  const runs = 20
+  const runs = 19
   for (let i = 0; i < runs; i++) {
     const begin = Date.now()
     await execAsync('forge script script/ChugSplash.s.sol')
