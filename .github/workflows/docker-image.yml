@@ -17,9 +17,9 @@ jobs:
       - id: step1
         run: >
           echo \
-            "::set-output name=changed::$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
+            "{changed}=$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
             ${{github.event.before}} ${{github.event.after}} \
-            )"
+            )" >> $GITHUB_OUTPUT
 
   build-and-push-image:
     runs-on: ubuntu-latest
