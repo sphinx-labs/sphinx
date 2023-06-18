@@ -20,8 +20,8 @@ RUN source $HOME/.profile && \
     strip $HOME/.cargo/bin/cast && \
     strip $HOME/.cargo/bin/anvil && \
     mkdir -p /opt/foundry && \
-    cp $HOME/.cargo/bin/forge /opt/foundry && \
     cp $HOME/.cargo/bin/cast /opt/foundry && \
+    cp $HOME/.cargo/bin/forge /opt/foundry && \
     cp $HOME/.cargo/bin/anvil /opt/foundry
 
 FROM ethereum/client-go:alltools-v1.10.25 as geth
