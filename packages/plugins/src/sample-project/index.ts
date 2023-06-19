@@ -104,7 +104,10 @@ export const writeSampleProjectFiles = (
     const testFilePath = path.join(testPath, testFileName)
     if (!fs.existsSync(testFilePath)) {
       // Create the sample test file.
-      fs.writeFileSync(testFilePath, getSampleFoundryTestFile(solcVersion))
+      fs.writeFileSync(
+        testFilePath,
+        getSampleFoundryTestFile(solcVersion, configPath)
+      )
     }
 
     // Check if the sample test file exists.
@@ -112,7 +115,10 @@ export const writeSampleProjectFiles = (
     const deployFilePath = path.join(scriptPath, deployFileName)
     if (!fs.existsSync(deployFilePath)) {
       // Create the sample test file.
-      fs.writeFileSync(deployFilePath, getSampleFoundryDeployFile(solcVersion))
+      fs.writeFileSync(
+        deployFilePath,
+        getSampleFoundryDeployFile(solcVersion, configPath)
+      )
     }
 
     const generateArtifactName = 'GenerateArtifact.s.sol'
@@ -121,7 +127,7 @@ export const writeSampleProjectFiles = (
       // Create the sample test file.
       fs.writeFileSync(
         generateArtifactPath,
-        getSampleGenerateArtifactFile(solcVersion)
+        getSampleGenerateArtifactFile(solcVersion, configPath)
       )
     }
   }

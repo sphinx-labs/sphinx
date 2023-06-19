@@ -72,8 +72,11 @@ yargs(hideBin(process.argv))
       }
 
       const rootFfiPath =
-        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/dist/'
-      const proposeContractPath = join(rootFfiPath, 'contracts/Propose.sol')
+        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+      const proposeContractPath = join(
+        rootFfiPath,
+        'contracts/foundry/Propose.sol'
+      )
 
       process.env['CHUGSPLASH_INTERNAL_NETWORK'] = network
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
@@ -86,7 +89,7 @@ yargs(hideBin(process.argv))
         // because it's a convenient way to ensure that the latest versions of the contracts are
         // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
         // TypeScript configs. This can't be done by calling the TypeScript propose function
-        // directly because calling `npx chugsplash` uses Node, not `ts-node`.
+        // directly because calling `npx chugsplash` uses Node, not TS Node.
         await execAsync(
           `forge script ${proposeContractPath} --rpc-url ${network}`
         )

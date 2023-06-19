@@ -3,7 +3,10 @@ version: 2.1
 jobs:
   yarn-monorepo:
     docker:
-      - image: ethereumoptimism/ci-builder:latest
+      - image: samgoldman/ci-builder:latest
+        auth:
+          username: samgoldman
+          password: $DOCKERHUB_PASSWORD
     steps:
       - restore_cache:
           keys:
@@ -48,7 +51,10 @@ jobs:
         type: string
         default: this-package-does-not-exist
     docker:
-      - image: ethereumoptimism/ci-builder:latest
+      - image: samgoldman/ci-builder:latest
+        auth:
+          username: samgoldman
+          password: $DOCKERHUB_PASSWORD
     steps:
       - restore_cache:
           keys:

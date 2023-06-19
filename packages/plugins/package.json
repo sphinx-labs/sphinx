@@ -10,7 +10,8 @@
   "files": [
     "dist/*",
     "contracts/foundry/*",
-    "out/artifacts/ChugSplash.sol/ChugSplash.json"
+    "out/artifacts/ChugSplash.sol/ChugSplash.json",
+    "out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
@@ -22,7 +23,7 @@
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "forge test",
     "test:hardhat": "npx hardhat test --config-paths './chugsplash/Storage.config.ts, ./chugsplash/Create3.config.ts'",
-    "test:coverage": "export DEV_FILE_PATH='./dist/' && export DISABLE_ANALYTICS=true && yarn test",
+    "test:coverage": "export DEV_FILE_PATH='./' && export DISABLE_ANALYTICS=true && yarn test",
     "test:kill": "kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
@@ -72,7 +73,7 @@
     "@types/yargs": "^17.0.24",
     "chai": "^4.3.7",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#b00f504daf0bdd8cf2e67973e2c86bd213cda400",
+    "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {

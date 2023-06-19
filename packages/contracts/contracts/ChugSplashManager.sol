@@ -11,7 +11,7 @@ import {
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
+import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "./interfaces/IProxyAdapter.sol";
 import {
@@ -75,7 +75,7 @@ contract ChugSplashManager is
     /**
      * @notice Address of the ChugSplashRegistry.
      */
-    ChugSplashRegistry public immutable registry;
+    IChugSplashRegistry public immutable registry;
 
     /**
      * @notice Address of the Create3 contract.
@@ -360,7 +360,7 @@ contract ChugSplashManager is
      * @param _version                   Version of this contract.
      */
     constructor(
-        ChugSplashRegistry _registry,
+        IChugSplashRegistry _registry,
         address _create3,
         IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
