@@ -47,9 +47,10 @@ contract ChugSplash is Script {
     address private systemOwnerAddress =
         key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
+
     string private rootPath =
-        vm.envOr("DEV_FILE_PATH", string("./node_modules/@chugsplash/plugins/dist/"));
-    string private rootFfiPath = string(abi.encodePacked(rootPath, "foundry/"));
+        vm.envOr("DEV_FILE_PATH", string("./node_modules/@chugsplash/plugins/"));
+    string private rootFfiPath = string(abi.encodePacked(rootPath, "dist/foundry/"));
     string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
     modifier noVmBroadcast() {
@@ -63,8 +64,7 @@ contract ChugSplash is Script {
        to the user.
      */
     constructor() {
-        // TODO
-        bytes memory creationCode = vm.getCode('./out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json');
+        bytes memory creationCode = vm.getCode(string(abi.encodePacked(rootPath, "/out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json")));
         address utilsAddr = address(0);
         assembly {
             utilsAddr := create(0, add(creationCode, 0x20), mload(creationCode))
