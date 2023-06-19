@@ -1,5 +1,11 @@
 # @chugsplash/contracts
 
+## 0.8.2
+
+### Patch Changes
+
+- 586c823: Minimize size of ChugSplash.sol and allow Solidity versions >= 0.7.4
+
 ## 0.8.1
 
 ### Patch Changes
