@@ -72,8 +72,11 @@ yargs(hideBin(process.argv))
       }
 
       const rootFfiPath =
-        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/dist/'
-      const proposeContractPath = join(rootFfiPath, 'contracts/Propose.sol')
+        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+      const proposeContractPath = join(
+        rootFfiPath,
+        'contracts/foundry/Propose.sol'
+      )
 
       process.env['CHUGSPLASH_INTERNAL_NETWORK'] = network
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
