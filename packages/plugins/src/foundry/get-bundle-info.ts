@@ -38,6 +38,7 @@ const broadcasting = args[2] === 'true'
       canonicalConfigFolder,
       storageLayout,
       gasEstimates,
+      cachePath,
     } = await getFoundryConfigOptions()
 
     if (!storageLayout || !gasEstimates) {
@@ -72,7 +73,8 @@ const broadcasting = args[2] === 'true'
 
     const getConfigArtifacts = makeGetConfigArtifacts(
       artifactFolder,
-      buildInfoFolder
+      buildInfoFolder,
+      cachePath
     )
 
     const configArtifacts = await getConfigArtifacts(userConfig.contracts)
@@ -102,16 +104,16 @@ const broadcasting = args[2] === 'true'
       writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
 
       const ipfsHash = configUri.replace('ipfs://', '')
-      const cachePath = path.resolve('./cache')
+      const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
       // Create the canonical config network folder if it doesn't already exist.
-      if (!fs.existsSync(cachePath)) {
-        fs.mkdirSync(cachePath)
+      if (!fs.existsSync(artifactCachePath)) {
+        fs.mkdirSync(artifactCachePath)
       }
 
       // Write the config artifacts to the local file system. It will exist in a JSON file that has the
       // config URI as its name.
       fs.writeFileSync(
-        path.join(cachePath, `${ipfsHash}.json`),
+        path.join(artifactCachePath, `${ipfsHash}.json`),
         JSON.stringify(configArtifacts, null, 2)
       )
     }

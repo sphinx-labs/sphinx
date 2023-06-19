@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import { join } from 'path'
+import path, { join } from 'path'
 import { promisify } from 'util'
 
 import {
@@ -19,26 +19,28 @@ import {
 import { parse } from 'semver'
 
 const readFileAsync = promisify(fs.readFile)
-const existsAsync = promisify(fs.exists)
 
 export const getBuildInfo = (
-  buildInfos: Array<BuildInfo>,
+  buildInfos: Array<{
+    buildInfo: BuildInfo
+    name: string
+  }>,
   sourceName: string
-): BuildInfo => {
+):
+  | {
+      buildInfo: BuildInfo
+      name: string
+    }
+  | false => {
   // Find the correct build info file
   for (const input of buildInfos) {
-    if (input?.output?.contracts[sourceName] !== undefined) {
-      validateBuildInfo(input, 'foundry')
+    if (input?.buildInfo.output?.contracts[sourceName] !== undefined) {
+      validateBuildInfo(input.buildInfo, 'foundry')
       return input
     }
   }
 
-  throw new Error(
-    `Failed to find build info for ${sourceName}. Please check that you:
-1. Imported this file in your script
-2. Set 'force=true' in your foundry.toml
-3. Check that you've set the correct build info directory in your foundry.toml.`
-  )
+  return false
 }
 
 export const getContractArtifact = async (
@@ -57,11 +59,11 @@ export const getContractArtifact = async (
   const [file, contract] = qualifiedSections?.split(':') ?? ['', '']
   const qualifiedFilePath = join(artifactFilder, file, `${contract}.json`)
 
-  if (await existsAsync(standardFilePath)) {
+  if (fs.existsSync(standardFilePath)) {
     return parseFoundryArtifact(
       JSON.parse(await readFileAsync(standardFilePath, 'utf8'))
     )
-  } else if (await existsAsync(qualifiedFilePath)) {
+  } else if (fs.existsSync(qualifiedFilePath)) {
     return parseFoundryArtifact(
       JSON.parse(await readFileAsync(qualifiedFilePath, 'utf8'))
     )
@@ -91,55 +93,166 @@ export const getContractArtifact = async (
  */
 export const makeGetConfigArtifacts = (
   artifactFolder: string,
-  buildInfoFolder: string
+  buildInfoFolder: string,
+  cachePath: string
 ): GetConfigArtifacts => {
   return async (contractConfigs: UserContractConfigs) => {
+    // Check if the cache directory exists, and create it if not
+    if (!fs.existsSync(cachePath)) {
+      fs.mkdirSync(cachePath)
+    }
+
+    const buildInfoCacheFilePath = join(cachePath, 'chugsplash-cache.json')
+    let buildInfoCache: Record<
+      string,
+      {
+        name: string
+        time: number
+        contracts: string[]
+      }
+    > = fs.existsSync(buildInfoCacheFilePath)
+      ? JSON.parse(fs.readFileSync(buildInfoCacheFilePath, 'utf8'))
+      : {}
+
     const buildInfoPath = join(buildInfoFolder)
 
-    const buildInfoPromises = fs
+    // Find all the build info files and their last modified time
+    const buildInfoFileNames = fs
       .readdirSync(buildInfoPath)
       .filter((fileName) => {
         return fileName.endsWith('.json')
       })
+
+    // If there are no build info files, then clear the cache
+    if (buildInfoFileNames.length === 0) {
+      buildInfoCache = {}
+    }
+
+    const buildInfoFileNamesWithTime = buildInfoFileNames
       .map((fileName) => ({
         name: fileName,
-        time: fs.statSync(`${buildInfoPath}/${fileName}`).mtime.getTime(),
+        time: fs.statSync(path.join(buildInfoPath, fileName)).mtime.getTime(),
       }))
       .sort((a, b) => b.time - a.time)
-      .map(async (file) => {
-        return JSON.parse(
-          await readFileAsync(join(buildInfoFolder, file.name), 'utf8')
-        )
-      })
 
-    const buildInfos = await Promise.all(buildInfoPromises)
+    // Read all of the new/modified files and update the cache to reflect the changes
+    // Keep an in memory cache of the read files so we don't have to read them again later
+    const localBuildInfoCache = {}
+    await Promise.all(
+      buildInfoFileNamesWithTime
+        .filter((file) => buildInfoCache[file.name]?.time !== file.time)
+        .map(async (file) => {
+          // If the file exists in the cache and the time has changed, then we just update the time
+          if (
+            buildInfoCache[file.name]?.time &&
+            buildInfoCache[file.name]?.time !== file.time
+          ) {
+            buildInfoCache[file.name].time = file.time
+            return
+          }
 
-    const configArtifactPromises = Object.entries(contractConfigs).map(
-      async ([referenceName, contractConfig]) => {
-        const artifact = await getContractArtifact(
-          contractConfig.contract,
-          artifactFolder
-        )
-        const buildInfo = getBuildInfo(buildInfos, artifact.sourceName)
+          const buildInfo = JSON.parse(
+            fs.readFileSync(join(buildInfoFolder, file.name), 'utf8')
+          )
 
-        return {
-          referenceName,
-          artifact,
-          buildInfo,
-        }
-      }
+          // We keep track of the last modified time in each build info file so we can easily fine the most recently generated build info files
+          // We also keep track of all the contracts output by each build info file, so we can easily look up the required file for each source name
+          buildInfoCache[file.name] = {
+            name: file.name,
+            time: file.time,
+            contracts: Object.keys(buildInfo.output.contracts),
+          }
+
+          localBuildInfoCache[file.name] = buildInfo
+        })
+    )
+    // Just make sure the files are sorted by time
+    const sortedCachedFiles = Object.values(buildInfoCache).sort(
+      (a, b) => b.time - a.time
     )
 
-    const resolved = await Promise.all(configArtifactPromises)
+    // Look through the cache, read all the contract artifacts, and find all of the build info files names required for the passed in contract config
+    const toReadFiles: string[] = []
+    const resolved = await Promise.all(
+      Object.entries(contractConfigs).map(
+        async ([referenceName, contractConfig]) => {
+          const artifact = await getContractArtifact(
+            contractConfig.contract,
+            artifactFolder
+          )
+
+          // Look through the cahce for the first build info file that contains the contract
+          for (const file of sortedCachedFiles) {
+            if (file.contracts.includes(artifact.sourceName)) {
+              const buildInfo =
+                file.name in localBuildInfoCache
+                  ? (localBuildInfoCache[file.name] as BuildInfo)
+                  : undefined
+
+              // Keep track of if we need to read the file or not
+              if (!buildInfo && !toReadFiles.includes(file.name)) {
+                toReadFiles.push(file.name)
+              }
+
+              return {
+                referenceName,
+                artifact,
+                buildInfoName: file.name,
+                buildInfo,
+              }
+            }
+          }
+
+          // Throw an error if no build info file is found in the cache for this contract
+          // This should only happen if the user manually deletes a build info file
+          throw new Error(
+            `Failed to find build info for ${artifact.sourceName}. Try recompiling with force: forge build --force`
+          )
+        }
+      )
+    )
+
+    // Read any build info files that we didn't already have in memory
+    await Promise.all(
+      toReadFiles.map(async (file) => {
+        try {
+          const buildInfo = JSON.parse(
+            await readFileAsync(join(buildInfoFolder, file), 'utf8')
+          )
+          localBuildInfoCache[file] = buildInfo
+        } catch (e) {
+          // Throw an error if we can't read the file
+          // This should only happen if the user manually deleted the file
+          throw new Error(
+            `Failed to read file ${file}. Try recompiling with force: forge build --force`
+          )
+        }
+      })
+    )
+
+    // Combine the cached build infos with the contract artifacts
+    const completeArtifacts = resolved.map((artifactInfo) => {
+      return {
+        ...artifactInfo,
+        buildInfo: localBuildInfoCache[artifactInfo.buildInfoName],
+      }
+    })
+
+    // Write the updated build info cache
+    fs.writeFileSync(
+      buildInfoCacheFilePath,
+      JSON.stringify(buildInfoCache, null, 2)
+    )
 
     const configArtifacts: ConfigArtifacts = {}
 
-    for (const { referenceName, artifact, buildInfo } of resolved) {
+    for (const { referenceName, artifact, buildInfo } of completeArtifacts) {
       configArtifacts[referenceName] = {
         artifact,
         buildInfo,
       }
     }
+
     return configArtifacts
   }
 }

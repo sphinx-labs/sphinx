@@ -27,6 +27,7 @@ export const getFoundryConfigOptions = async (): Promise<{
   buildInfoFolder: string
   deploymentFolder: string
   canonicalConfigFolder: string
+  cachePath: string
   storageLayout: boolean
   gasEstimates: boolean
 }> => {
@@ -38,6 +39,8 @@ export const getFoundryConfigOptions = async (): Promise<{
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
 
+  const cachePath = forgeConfig.cache_path
+
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
   // artifacts will contain the necessary info as long as the config includes the expected options
   const storageLayout = forgeConfig.extra_output.includes('storageLayout')
@@ -47,5 +50,6 @@ export const getFoundryConfigOptions = async (): Promise<{
     ...resolvePaths(forgeConfig.out, buildInfoPath),
     storageLayout,
     gasEstimates,
+    cachePath,
   }
 }
