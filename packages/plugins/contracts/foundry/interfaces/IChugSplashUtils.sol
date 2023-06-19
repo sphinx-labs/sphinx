@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity >=0.7.4 <0.9.0;
+pragma experimental ABIEncoderV2;
 
-// TODO: narrow
-import { Vm } from 'forge-std/Vm.sol';
+import { VmSafe } from 'forge-std/Vm.sol';
 import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
 import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import {
@@ -20,15 +20,13 @@ import {
     MinimalConfig,
     OptionalBytes32
 } from "../ChugSplashPluginTypes.sol";
-import { ChugSplashContractInfo } from "../ChugSplashConstants.sol";
 
 interface IChugSplashUtils {
     struct OptionalLog {
-        Vm.Log value;
+        VmSafe.Log value;
         bool exists;
     }
 
-    function DETERMINISTIC_DEPLOYMENT_PROXY() external view returns (address);
     function actionBundle() external pure returns (ChugSplashActionBundle memory);
     function configCache() external pure returns (ConfigCache memory);
     function create2Deploy(bytes memory _creationCode) external returns (address);
@@ -70,14 +68,14 @@ interface IChugSplashUtils {
         IChugSplashManager _manager,
         string memory _rpcUrl,
         string memory _mainFfiScriptPath,
-        Vm.Log[] memory _executionLogs
+        VmSafe.Log[] memory _executionLogs
     ) external returns (ConfigCache memory);
     function getCurrentChugSplashManagerVersion() external pure returns (Version memory);
     function getDeployedCreationCodeWithArgsHash(
         IChugSplashManager _manager,
         string memory _referenceName,
         address _contractAddress,
-        Vm.Log[] memory _executionLogs
+        VmSafe.Log[] memory _executionLogs
     ) external pure returns (OptionalBytes32 memory);
     function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri)
         external
@@ -85,7 +83,7 @@ interface IChugSplashUtils {
         returns (bytes32);
     function getEIP1967ProxyAdminAddress(address _proxyAddress) external view returns (address);
     function getLatestEvent(
-        Vm.Log[] memory _executionLogs,
+        VmSafe.Log[] memory _executionLogs,
         address _emitter,
         bytes32 _topic1,
         OptionalBytes32 memory _topic2,
@@ -99,13 +97,13 @@ interface IChugSplashUtils {
         bool _localNetwork,
         string memory _rpcUrl,
         string memory _mainFfiScriptPath,
-        Vm.Log[] memory _executionLogs
+        VmSafe.Log[] memory _executionLogs
     ) external returns (OptionalString memory);
     function inefficientSlice(BundledChugSplashAction[] memory selected, uint256 start, uint256 end)
         external
         pure
         returns (BundledChugSplashAction[] memory sliced);
-    function initializeChugSplash(
+    function initialize(
         string memory _rpcUrl,
         bool _isRecurrentBroadcast,
         string memory _mainFfiScriptPath,
@@ -119,4 +117,5 @@ interface IChugSplashUtils {
     function slice(bytes memory _data, uint256 _start, uint256 _end) external pure returns (bytes memory);
     function targetBundle() external pure returns (ChugSplashTargetBundle memory);
     function toBytes32(address _addr) external pure returns (bytes32);
+    function getCodeSize(address _addr) external view returns (uint256);
     }

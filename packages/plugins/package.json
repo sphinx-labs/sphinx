@@ -10,7 +10,8 @@
   "files": [
     "dist/*",
     "contracts/foundry/*",
-    "out/artifacts/ChugSplash.sol/ChugSplash.json"
+    "out/artifacts/ChugSplash.sol/ChugSplash.json",
+    "out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity >=0.7.4 <0.9.0;
+pragma experimental ABIEncoderV2;
 
 import { IChugSplashRegistry } from "./IChugSplashRegistry.sol";
 import { DeploymentState, RawChugSplashAction, ChugSplashTarget, Version } from "../ChugSplashDataTypes.sol";

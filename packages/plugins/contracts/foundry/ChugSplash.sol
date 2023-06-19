@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity >=0.7.4 <0.9.0;
+pragma experimental ABIEncoderV2;
 
 import { Script } from "forge-std/Script.sol";
-import { Vm, VmSafe } from "forge-std/Vm.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
 import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
@@ -29,21 +30,17 @@ import {
     OptionalAddress
 } from "./ChugSplashPluginTypes.sol";
 import { IChugSplashUtils } from "./interfaces/IChugSplashUtils.sol";
-import { IChugSplashDeploy } from "./ChugSplashDeploy.sol";
 
-contract ChugSplash is
-    Script,
-    IChugSplashDeploy
-{
+contract ChugSplash is Script {
 
-    Vm.Log[] private executionLogs;
-    bool private silent = false;
+    VmSafe.Log[] private executionLogs;
+    bool internal silent;
 
     // Maps a ChugSplash config path to a deployed contract's reference name to the deployed
     // contract's address.
     mapping(string => mapping(string => mapping(bytes32 => address))) private deployed;
 
-    IChugSplashUtils private immutable utils;
+    IChugSplashUtils internal utils;
 
     // Get owner address
     uint private key = vm.envOr("CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY", uint(0));
@@ -52,8 +49,8 @@ contract ChugSplash is
 
     string private rootPath =
         vm.envOr("DEV_FILE_PATH", string("./node_modules/@chugsplash/plugins/dist/"));
-    string private rootFfiPath = string.concat(rootPath, "foundry/");
-    string private mainFfiScriptPath = string.concat(rootFfiPath, "index.js");
+    string private rootFfiPath = string(abi.encodePacked(rootPath, "foundry/"));
+    string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
     modifier noVmBroadcast() {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
@@ -66,6 +63,7 @@ contract ChugSplash is
        to the user.
      */
     constructor() {
+        // TODO
         bytes memory creationCode = vm.getCode('./out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json');
         address utilsAddr = address(0);
         assembly {
@@ -85,12 +83,12 @@ contract ChugSplash is
         deploy(_configPath, _rpcUrl, newOwner);
     }
 
-    function TODOinitializeChugSplash(string memory _rpcUrl) private {
+    function initializeChugSplash(string memory _rpcUrl) internal {
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
         bool isRecurrentBroadcast = callerMode == VmSafe.CallerMode.RecurrentBroadcast;
         if (isRecurrentBroadcast) vm.stopBroadcast();
-        (bool success, ) = address(utils).delegatecall(abi.encodeCall(IChugSplashUtils.initializeChugSplash, (_rpcUrl, isRecurrentBroadcast, mainFfiScriptPath, systemOwnerAddress)));
-        require(success, "TODO: this is a bug");
+        (bool success, bytes memory retdata) = address(utils).delegatecall(abi.encodeWithSelector(IChugSplashUtils.initialize.selector, _rpcUrl, isRecurrentBroadcast, mainFfiScriptPath, systemOwnerAddress));
+        require(success, string(utils.removeSelector(retdata)));
         if (isRecurrentBroadcast) vm.startBroadcast(msgSender);
     }
 
@@ -99,7 +97,7 @@ contract ChugSplash is
         string memory _rpcUrl,
         OptionalAddress memory _newOwner
     ) private noVmBroadcast {
-        TODOinitializeChugSplash(_rpcUrl);
+        initializeChugSplash(_rpcUrl);
 
         Configs memory configs = ffiGetConfigs(
             _configPath
@@ -108,9 +106,9 @@ contract ChugSplash is
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
         IChugSplashManager manager = utils.getChugSplashManager(registry, configs.minimalConfig.organizationID);
 
-        (bool success, bytes memory configCacheBytes) = address(utils).delegatecall(abi.encodeCall(IChugSplashUtils.getConfigCache, (configs.minimalConfig, registry, manager, _rpcUrl, mainFfiScriptPath, executionLogs)));
-        require(success, "TODO: this is a bug");
-        ConfigCache memory configCache = abi.decode(configCacheBytes, (ConfigCache));
+        (bool success, bytes memory retdata) = address(utils).delegatecall(abi.encodeWithSelector(IChugSplashUtils.getConfigCache.selector, configs.minimalConfig, registry, manager, _rpcUrl, mainFfiScriptPath, executionLogs));
+        require(success, string(utils.removeSelector(retdata)));
+        ConfigCache memory configCache = abi.decode(retdata, (ConfigCache));
 
         BundleInfo memory bundleInfo = getBundleInfo(configCache, configs.userConfigStr);
 
@@ -129,21 +127,21 @@ contract ChugSplash is
 
         if (deploymentState.status == DeploymentStatus.CANCELLED) {
             revert(
-                string.concat(
+                string(abi.encodePacked(
                     configs.minimalConfig.projectName,
                     " was previously cancelled on ",
                     configCache.networkName
-                )
+                ))
             );
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
             if (!manager.isProposer(deployer)) {
                 revert(
-                    string.concat(
+                    string(abi.encodePacked(
                         "ChugSplash: caller is not a proposer. Caller's address: ",
                         vm.toString(deployer)
-                    )
+                    ))
                 );
             }
 
@@ -180,11 +178,11 @@ contract ChugSplash is
 
             if (!executionSuccess) {
                 revert(
-                    string.concat(
+                    string(abi.encodePacked(
                         "ChugSplash: failed to execute ",
                         configs.minimalConfig.projectName,
                         "likely because one of the user's constructors reverted during the deployment."
-                    )
+                    ))
                 );
             }
         }
@@ -200,19 +198,19 @@ contract ChugSplash is
             for (uint i = 0; i < configs.minimalConfig.contracts.length; i++) {
                 MinimalContractConfig memory contractConfig = configs.minimalConfig.contracts[i];
                 console.log(
-                    string.concat(
+                    string(abi.encodePacked(
                         contractConfig.referenceName,
                         ": ",
                         vm.toString(contractConfig.addr)
-                    )
+                    ))
                 );
             }
         }
     }
 
     function getBundleInfo(ConfigCache memory _configCache, string memory _userConfigStr) private returns (BundleInfo memory) {
-        (bool success, bytes memory retdata) = address(utils).delegatecall(abi.encodeCall(IChugSplashUtils.ffiGetEncodedBundleInfo, (_configCache, _userConfigStr, rootFfiPath)));
-        require(success, "TODO: this is a bug");
+        (bool success, bytes memory retdata) = address(utils).delegatecall(abi.encodeWithSelector(IChugSplashUtils.ffiGetEncodedBundleInfo.selector, _configCache, _userConfigStr, rootFfiPath));
+        require(success, string(utils.removeSelector(retdata)));
         bytes memory data = abi.decode(retdata, (bytes));
         return utils.decodeBundleInfo(data);
     }
@@ -242,10 +240,10 @@ contract ChugSplash is
             address existingOwner = IOwnable(address(_manager)).owner();
             if (existingOwner != _newOwner) {
                 revert(
-                    string.concat(
+                    string(abi.encodePacked(
                         "ChugSplash: project already owned by: ",
                         vm.toString(existingOwner)
-                    )
+                    ))
                 );
             }
         }
@@ -278,24 +276,24 @@ contract ChugSplash is
     // future FFI calls.
     function ffiGetConfigs(
         string memory _configPath
-    ) private returns (Configs memory) {
-        // string memory ffiScriptPath = string.concat(rootFfiPath, "get-configs.js");
+    ) internal returns (Configs memory) {
+        string memory ffiScriptPath = string(abi.encodePacked(rootFfiPath, "get-configs.js"));
 
-        // string[] memory cmds = new string[](5);
-        // cmds[0] = "npx";
-        // // We use ts-node here to support TypeScript ChugSplash config files.
-        // cmds[1] = "ts-node";
-        // // Using SWC speeds up the process of transpiling TypeScript into JavaScript
-        // cmds[2] = "--swc";
-        // cmds[3] = ffiScriptPath;
-        // cmds[4] = _configPath;
+        string[] memory cmds = new string[](5);
+        cmds[0] = "npx";
+        // We use ts-node here to support TypeScript ChugSplash config files.
+        cmds[1] = "ts-node";
+        // Using SWC speeds up the process of transpiling TypeScript into JavaScript
+        cmds[2] = "--swc";
+        cmds[3] = ffiScriptPath;
+        cmds[4] = _configPath;
 
-        // bytes memory result = vm.ffi(cmds);
-        // (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
-        //     result,
-        //     (MinimalConfig, string)
-        // );
-        // return Configs(minimalConfig, userConfigStr);
+        bytes memory result = vm.ffi(cmds);
+        (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
+            result,
+            (MinimalConfig, string)
+        );
+        return Configs(minimalConfig, userConfigStr);
     }
 
     function getAddress(
@@ -313,15 +311,15 @@ contract ChugSplash is
         address addr = deployed[_configPath][_referenceName][userSaltHash];
 
         require(
-            addr.code.length > 0,
-            string.concat(
+            utils.getCodeSize(addr) > 0,
+            string(abi.encodePacked(
                 "Could not find contract: ",
                 _referenceName,
                 " in ",
                 _configPath,
                 ". ",
                 "Did you misspell the contract's reference name or forget to deploy the config?"
-            )
+            ))
         );
 
         return addr;
@@ -450,7 +448,7 @@ contract ChugSplash is
     }
 
     function pushRecordedLogs() private {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
+        VmSafe.Log[] memory logs = vm.getRecordedLogs();
         for (uint i = 0; i < logs.length; i++) {
             executionLogs.push(logs[i]);
         }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity >=0.7.4 <0.9.0;
+pragma experimental ABIEncoderV2;
 
 import { CommonBase } from "forge-std/Base.sol";
 import { VmSafe } from "forge-std/Vm.sol";
@@ -56,13 +57,16 @@ import { ChugSplashUtils } from "./ChugSplashUtils.sol";
 import { ChugSplashContractInfo, ChugSplashConstants } from "./ChugSplashConstants.sol";
 import { IChugSplashUtils } from "./interfaces/IChugSplashUtils.sol";
 
-// TODO: revert messages
+/**
+ * @notice This contract should not define mutable variables since it may be delegatecalled
+   by other contracts.
+ */
 contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, ChugSplashRegistryEvents, IChugSplashUtils {
 
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
     address public constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initializeChugSplash(string memory _rpcUrl, bool _isRecurrentBroadcast, string memory _mainFfiScriptPath, address _systemOwner) external {
+    function initialize(string memory _rpcUrl, bool _isRecurrentBroadcast, string memory _mainFfiScriptPath, address _systemOwner) external {
         if (isLocalNetwork(_rpcUrl) && _isRecurrentBroadcast) {
             ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
         }
@@ -115,9 +119,6 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
 
             vm.stopPrank();
         } else {
-            // TODO: we need to put this error message somewhere else since we delegatecall this function
-            // We're on a forked or live network that doesn't have ChugSplash deployed, which
-            // means we don't support ChugSplash on this network yet.
             revert(
                 "ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
             );
@@ -724,6 +725,9 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
     }
 
     function removeSelector(bytes memory _data) external view returns (bytes memory) {
+        if (_data.length < 4) {
+            return _data;
+        }
         return this.slice(_data, 4, _data.length);
     }
 
@@ -753,5 +757,13 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             }
         }
         return (deployContractActions, setStorageActions);
+    }
+
+    function getCodeSize(address _addr) external view returns (uint256) {
+        uint256 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return size;
     }
 }
