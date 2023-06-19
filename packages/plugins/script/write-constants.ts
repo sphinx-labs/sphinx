@@ -51,23 +51,23 @@ const writeConstants = async () => {
       type: 'uint256',
       value: patch,
     },
-    DEFAULT_PROXY_TYPE_HASH: {
+    defaultProxyTypeHash: {
       type: 'bytes32',
       value: DEFAULT_PROXY_TYPE_HASH,
     },
-    OZ_TRANSPARENT_PROXY_TYPE_HASH: {
+    ozTransparentProxyTypeHash: {
       type: 'bytes32',
       value: OZ_TRANSPARENT_PROXY_TYPE_HASH,
     },
-    OZ_UUPS_OWNABLE_PROXY_TYPE_HASH: {
+    ozUUPSOwnableProxyTypeHash: {
       type: 'bytes32',
       value: OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
     },
-    OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH: {
+    ozUUPSAccessControlProxyTypeHash: {
       type: 'bytes32',
       value: OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
     },
-    EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH: {
+    externalTransparentProxyTypeHash: {
       type: 'bytes32',
       value: EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
     },
@@ -118,10 +118,10 @@ const writeConstants = async () => {
     `${Object.entries(constants)
       .map(
         ([name, { type, value }]) =>
-          `  ${type} constant internal ${name} = ${value};`
+          `  ${type} public constant ${name} = ${value};`
       )
       .join('\n')}\n\n` +
-    `  function getChugSplashContractInfo() internal pure returns (ChugSplashContractInfo[] memory) {\n` +
+    `  function getChugSplashContractInfo() public pure returns (ChugSplashContractInfo[] memory) {\n` +
     `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${CHUGSPLASH_CONTRACT_INFO.length});\n` +
     `${contractInfo
       .map(

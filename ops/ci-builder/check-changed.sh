@@ -2,7 +2,7 @@ files=$(git diff --diff-filter=ACMRT -w --name-only $2 $3 )
 
 if [[ $files == *$1* ]]
 then
-  echo 'true'
+  echo true
 else
-  echo 'false'
+  echo false
 fi

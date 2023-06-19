@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity 0.8.15;
 
+import "forge-std/Test.sol";
 import "../../contracts/foundry/ChugSplash.sol";
+import { ChugSplashUtils } from "../../contracts/foundry/ChugSplashUtils.sol";
 import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
 import { Storage } from "../../contracts/test/Storage.sol";
 import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
-import { Semver } from "@chugsplash/contracts/contracts/Semver.sol";
 import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
 import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
@@ -26,7 +27,7 @@ import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.so
  * https://github.com/chugsplash/chugsplash/tree/develop/packages/contracts/test
  */
 
-contract ChugSplashTest is ChugSplash {
+contract ChugSplashTest is ChugSplash, Test {
     type UserDefinedType is uint256;
 
     Storage myStorage;
@@ -35,7 +36,7 @@ contract ChugSplashTest is ChugSplash {
     Stateless     myStateless;
     Stateless      myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
-    ChugSplashRegistry registry;
+    IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
     string deployConfig = "./chugsplash/Storage.config.ts";
@@ -55,7 +56,7 @@ contract ChugSplashTest is ChugSplash {
         myStatelessWithSalt = Stateless(getAddress(create3Config, "Stateless", keccak256('1')));
         myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
 
-        registry = getChugSplashRegistry();
+        registry = utils.getChugSplashRegistry();
     }
 
     function testHasDifferentAddressWithSalt() public {
