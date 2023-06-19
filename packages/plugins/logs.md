@@ -5,7 +5,7 @@
 3.91: sg/foundry-ifaces after putting most of ChugSplash.sol into Utils.sol, using standard imports w/o IUtils.sol
 2.39: sg/foundry-ifaces with IUtils.sol and vm.getCode('Utils.sol') in constructor of ChugSplash.sol
 1.84: sg/foundry-ifaces (technically sg/ifaces) merged into develop
-**actually**, it seems like it takes 2.93s for sg/ifaces to compile. not sure why there was a 1s discrepancy
+**actually**, it seems like it takes 2.93s for sg/ifaces to compile. not sure why there is a 1s discrepancy
 .382: inherit empty ChugSplash.sol and Script.sol in script file, and call `deploy(...)` in `run()`
 0s: theoretical baseline: chugsplash.s.sol imports Test and Script and has a small `run()`
 
