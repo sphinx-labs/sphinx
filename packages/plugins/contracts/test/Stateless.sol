@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import { Storage } from "./Storage.sol";
-import { Version } from "@chugsplash/contracts/contracts/Semver.sol";
+import { Version } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 
 contract Stateless {
     uint public immutable immutableUint;

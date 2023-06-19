@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.0;
 
-/**
- * @notice Version number as a struct.
- *
- * @custom:field major Major version number.
- * @custom:field minor Minor version number.
- * @custom:field patch Patch version number.
- */
-struct Version {
-    uint256 major;
-    uint256 minor;
-    uint256 patch;
-}
+import { Version } from "./ChugSplashDataTypes.sol";
 
 /**
  * @title Semver

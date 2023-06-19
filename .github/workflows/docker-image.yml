@@ -9,7 +9,7 @@ jobs:
   checkchanged:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.step1.outputs.changed }}
+      changed: ${{ steps.step1.outputs.didChange }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -18,14 +18,14 @@ jobs:
       - id: step1
         run: >
           echo \
-            "changed=$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
+            "didChange=$(./ops/ci-builder/check-changed.sh ops/ci-builder/Dockerfile \
             ${{github.event.before}} ${{github.event.after}} \
-            )" >> $GITHUB_OUTPUT
+            )" >> "$GITHUB_OUTPUT"
 
   build-and-push-image:
     runs-on: ubuntu-latest
     needs: checkchanged
-    if: ${{ needs.checkchanged.outputs.changed == 'true' }}
+    if: ${{needs.checkchanged.outputs.changed}}
     name: Push Docker image to Docker Hub
     steps:
       - name: Check out the repo
