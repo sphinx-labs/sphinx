@@ -1,3 +1,14 @@
+`forge build` chugsplash.s.sol after changing the file slightly, using "solc finished in x":
+4.31: develop
+2.75: sg/foundry-ifaces after ryan
+2.75: sg/foundry-ifaces after ryan and making ChugSplashConstants rly small
+3.91: sg/foundry-ifaces after putting most of ChugSplash.sol into Utils.sol, using standard imports w/o IUtils.sol
+2.39: sg/foundry-ifaces with IUtils.sol and vm.getCode('Utils.sol') in constructor of ChugSplash.sol
+1.84: sg/foundry-ifaces merged into develop
+.382: inherit empty ChugSplash.sol and Script.sol in script file, and call `deploy(...)` in `run()`
+0s: theoretical baseline: chugsplash.s.sol imports Test and Script and has a small `run()`
+
+
 Storage.config.ts:
 3.220: original (after sg/foundry-ts, before ts-import)
 ~3.22: pate/ts-import (w/o ts-import cache)
