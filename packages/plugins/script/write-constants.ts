@@ -121,7 +121,7 @@ const writeConstants = async () => {
           `  ${type} public constant ${name} = ${value};`
       )
       .join('\n')}\n\n` +
-    `  function getChugSplashContractInfo() external pure returns (ChugSplashContractInfo[] memory) {\n` +
+    `  function getChugSplashContractInfo() public pure returns (ChugSplashContractInfo[] memory) {\n` +
     `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${CHUGSPLASH_CONTRACT_INFO.length});\n` +
     `${contractInfo
       .map(

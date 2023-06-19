@@ -4,8 +4,7 @@ pragma solidity ^0.8.15;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ICrossChainAdapter } from "./interfaces/ICrossChainAdapter.sol";
 import { ChugSplashRegistry } from "./ChugSplashRegistry.sol";
-import { Version } from "./Semver.sol";
-import { RegistrationInfo, CrossChainMessageInfo } from "./ChugSplashDataTypes.sol";
+import { Version, RegistrationInfo, CrossChainMessageInfo } from "./ChugSplashDataTypes.sol";
 
 /**
  * @title ChugSplashClaimer

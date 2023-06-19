@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Version } from "../Semver.sol";
+import { Version } from "../ChugSplashDataTypes.sol";
 
 interface IChugSplashRegistry {
     function projects(bytes32) external view returns (address payable);

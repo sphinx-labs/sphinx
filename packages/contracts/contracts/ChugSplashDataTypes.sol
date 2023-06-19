@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Version } from "./Semver.sol";
-
 /**
  * @notice Struct representing the state of a deployment.
  *
@@ -106,6 +104,19 @@ struct CrossChainMessageInfo {
     address payable originEndpoint;
     uint32 destDomainID;
     uint256 relayerFee;
+}
+
+/**
+ * @notice Version number as a struct.
+ *
+ * @custom:field major Major version number.
+ * @custom:field minor Minor version number.
+ * @custom:field patch Patch version number.
+ */
+struct Version {
+    uint256 major;
+    uint256 minor;
+    uint256 patch;
 }
 
 struct RegistrationInfo {

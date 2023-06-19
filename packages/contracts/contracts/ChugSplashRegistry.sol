@@ -5,9 +5,10 @@ import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
-import { Semver, Version } from "./Semver.sol";
+import { Semver } from "./Semver.sol";
 import { ChugSplashRegistryEvents } from "./ChugSplashRegistryEvents.sol";
 import { IChugSplashRegistry } from "./interfaces/IChugSplashRegistry.sol";
+import { Version } from "./ChugSplashDataTypes.sol";
 
 /**
  * @title ChugSplashRegistry

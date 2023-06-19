@@ -6,7 +6,8 @@ import {
     RawChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
-    DeploymentStatus
+    DeploymentStatus,
+    Version
 } from "./ChugSplashDataTypes.sol";
 import {
     OwnableUpgradeable
@@ -22,7 +23,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ICreate3 } from "./interfaces/ICreate3.sol";
-import { Semver, Version } from "./Semver.sol";
+import { Semver } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 import {
     ERC2771ContextUpgradeable
@@ -174,16 +175,6 @@ contract ChugSplashManager is
      * @notice Reverts if the caller is not a remote executor.
      */
     error CallerIsNotRemoteExecutor();
-
-    /**
-     * @notice Reverts if the caller is not a proposer.
-     */
-    error CallerIsNotProposer();
-
-    /**
-     * @notice Reverts if the deployment state is not proposable.
-     */
-    error DeploymentStateIsNotProposable();
 
     /**
      * @notice Reverts if there isn't at least `OWNER_BOND_AMOUNT` in this contract. Only applies
@@ -445,9 +436,7 @@ contract ChugSplashManager is
         string memory _configUri,
         bool _remoteExecution
     ) public {
-        if (!isProposer(_msgSender())) {
-            revert CallerIsNotProposer();
-        }
+        require(isProposer(_msgSender()), "caller is not proposer");
 
         // Compute the deployment ID.
         bytes32 deploymentId = keccak256(
@@ -464,14 +453,13 @@ contract ChugSplashManager is
         DeploymentState storage deployment = _deployments[deploymentId];
 
         DeploymentStatus status = deployment.status;
-        if (
-            status != DeploymentStatus.EMPTY &&
-            status != DeploymentStatus.COMPLETED &&
-            status != DeploymentStatus.CANCELLED &&
-            status != DeploymentStatus.FAILED
-        ) {
-            revert DeploymentStateIsNotProposable();
-        }
+        require(
+            status == DeploymentStatus.EMPTY ||
+            status == DeploymentStatus.COMPLETED ||
+            status == DeploymentStatus.CANCELLED ||
+            status == DeploymentStatus.FAILED,
+            "deployment is not proposable"
+        );
 
         deployment.status = DeploymentStatus.PROPOSED;
         deployment.actionRoot = _actionRoot;

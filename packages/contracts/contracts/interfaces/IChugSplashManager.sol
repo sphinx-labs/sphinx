@@ -2,8 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { IChugSplashRegistry } from "./IChugSplashRegistry.sol";
-import { Version } from "../Semver.sol";
-import { DeploymentState, RawChugSplashAction, ChugSplashTarget } from "../ChugSplashDataTypes.sol";
+import { DeploymentState, RawChugSplashAction, ChugSplashTarget, Version } from "../ChugSplashDataTypes.sol";
 
 /**
  * @title ChugSplashManager

@@ -2,7 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {
-    ChugSplashBundles
+    ChugSplashActionBundle,
+    ChugSplashTargetBundle
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 
 struct Configs {
@@ -13,7 +14,8 @@ struct Configs {
 struct BundleInfo {
     string configUri;
     DeployContractCost[] deployContractCosts;
-    ChugSplashBundles bundles;
+    ChugSplashActionBundle actionBundle;
+    ChugSplashTargetBundle targetBundle;
 }
 
 struct MinimalConfig {
