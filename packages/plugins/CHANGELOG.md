@@ -1,5 +1,15 @@
 # @chugsplash/plugins
 
+## 0.16.3
+
+### Patch Changes
+
+- 98794eb: Add `vm.readCallers` to the Foundry deployment process
+- 8d2bf40: Fix issues with sample project generation
+- 586c823: Minimize size of ChugSplash.sol and allow Solidity versions >= 0.7.4
+- Updated dependencies [586c823]
+  - @chugsplash/contracts@0.8.2
+
 ## 0.16.2
 
 ### Patch Changes
