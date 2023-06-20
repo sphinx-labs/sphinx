@@ -72,7 +72,9 @@ yargs(hideBin(process.argv))
       }
 
       const rootFfiPath =
-        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+        process.env.DEV_ENVIRONMENT === 'true'
+          ? './'
+          : './node_modules/@chugsplash/plugins/'
       const proposeContractPath = join(
         rootFfiPath,
         'contracts/foundry/Propose.sol'
