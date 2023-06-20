@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.16.4
+
+### Patch Changes
+
+- d239c16: Fix sample project bugs
+
 ## 0.16.3
 
 ### Patch Changes
