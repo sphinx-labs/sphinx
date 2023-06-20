@@ -82,14 +82,7 @@ Inside the newly created file, remappings.txt, copy paste the following:
 ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
 @chugsplash/plugins=node_modules/@chugsplash/plugins/contracts/foundry
-@chugsplash/contracts=node_modules/@chugsplash/contracts/contracts/
-@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
-@eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
-@eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
-@thirdweb-dev/contracts/=node_modules/@thirdweb-dev/contracts/
-solmate/src/=node_modules/solmate/src/
-@prb/math/=node_modules/prb/math/src/
+@chugsplash/contracts=node_modules/@chugsplash/contracts/
 ```
 
 ## 5. Initialize ChugSplash
