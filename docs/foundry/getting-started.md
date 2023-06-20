@@ -11,7 +11,6 @@ In this guide, you'll learn how to test and deploy a contract using ChugSplash.
 5. [Initialize ChugSplash](#5-initialize-chugsplash)
 6. [Run the tests](#6-run-the-tests)
 7. [Deploy on Anvil](#7-deploy-on-anvil)
-8. [Generate deployment artifacts](#8-generate-deployment-artifacts)
 
 ## Prerequisites
 
@@ -35,6 +34,11 @@ forge init hello_foundry && cd hello_foundry
 Then, delete the files that come with the default Foundry project:
 ```
 rm src/Counter.sol script/Counter.s.sol test/Counter.t.sol
+```
+
+Finally, make sure forge-std is updated to the latest version:
+```
+forge update lib/forge-std
 ```
 
 ## 2. Install ChugSplash
@@ -99,7 +103,6 @@ You'll see we've created a few new files:
 - `src/HelloChugSplash.sol`: A sample contract to be deployed
 - `chugsplash/HelloChugSplash.config.ts`: A ChugSplash config file, which contains the deployment info for the project
 - `script/HelloChugSplash.s.sol`: A script for deploying the sample project
-- `script/GenerateArtifact.s.sol`: A script for generating deployment artifacts for the sample project
 - `test/HelloChugSplash.t.sol`: A script for running local tests of the project using ChugSplash
 
 The ChugSplash config for the sample project just deploys a single immutable contract HelloChugSplash. We'll explain the details of the ChugSplash config file in the next guide.
@@ -129,12 +132,6 @@ anvil
 In a new window, run the deployment script:
 ```
 forge script script/HelloChugSplash.s.sol --broadcast
-```
-
-## 8. Generate deployment artifacts
-After you've broadcast your deployment transactions, you can then generate the associated deployment artifacts:
-```
-forge script script/GenerateArtifact.s.sol
 ```
 
 ## Learn More
