@@ -131,7 +131,7 @@ anvil
 
 In a new window, run the deployment script:
 ```
-forge script script/HelloChugSplash.s.sol --broadcast
+forge script script/HelloChugSplash.s.sol --rpc-url anvil --broadcast
 ```
 
 ## Learn More
