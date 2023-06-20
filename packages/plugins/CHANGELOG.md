@@ -1,5 +1,11 @@
 # @chugsplash/plugins
 
+## 0.16.5
+
+### Patch Changes
+
+- aebb841: Fix issue importing ChugSplashUtils artifacts
+
 ## 0.16.4
 
 ### Patch Changes
