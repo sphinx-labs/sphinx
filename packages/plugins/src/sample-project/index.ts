@@ -15,7 +15,6 @@ import {
   getSampleContractFile,
   getSampleFoundryDeployFile,
   getSampleFoundryTestFile,
-  getSampleGenerateArtifactFile,
 } from './sample-contract'
 import {
   sampleTestFileJavaScript,
@@ -118,16 +117,6 @@ export const writeSampleProjectFiles = (
       fs.writeFileSync(
         deployFilePath,
         getSampleFoundryDeployFile(solcVersion, configPath)
-      )
-    }
-
-    const generateArtifactName = 'GenerateArtifact.s.sol'
-    const generateArtifactPath = path.join(scriptPath, generateArtifactName)
-    if (!fs.existsSync(generateArtifactPath)) {
-      // Create the sample test file.
-      fs.writeFileSync(
-        generateArtifactPath,
-        getSampleGenerateArtifactFile(solcVersion, configPath)
       )
     }
   }
