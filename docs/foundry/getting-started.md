@@ -23,6 +23,11 @@ You must also have a basic understanding of how to use Foundry. [See here](https
 
 ## 1. Setup a Foundry project
 
+First, run:
+```
+foundryup
+```
+
 If you have an existing foundry project, navigate to it then [skip to step #2](#2-install-chugsplash).
 
 If you're starting a new project, run:
