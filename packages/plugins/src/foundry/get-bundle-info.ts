@@ -1,4 +1,4 @@
-import path from 'path'
+import path, { resolve } from 'path'
 import fs from 'fs'
 
 import {
@@ -46,11 +46,20 @@ const broadcasting = args[2] === 'true'
       )
     }
 
+    const rootImportPath =
+      process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+    const utilsArtifactFolder = `${rootImportPath}out/artifacts`
+
     const ChugSplashUtilsABI =
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+      require(resolve(
+        `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
+      )).abi
 
-    const configCache = decodeCachedConfig(encodedConfigCache, artifactFolder)
+    const configCache = decodeCachedConfig(
+      encodedConfigCache,
+      ChugSplashUtilsABI
+    )
 
     const cre = await createChugSplashRuntime(
       false,
