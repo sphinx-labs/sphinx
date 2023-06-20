@@ -2,11 +2,8 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
-  artifactFolder: string
+  ChugSplashUtilsABI: any
 ) => {
-  const ChugSplashUtilsABI =
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(`${artifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
   const configCacheType = ChugSplashUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
