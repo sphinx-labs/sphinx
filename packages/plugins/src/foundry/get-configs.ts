@@ -1,3 +1,5 @@
+import { resolve } from 'path'
+
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import {
   getMinimalConfig,
@@ -19,14 +21,15 @@ const configPath = args[0]
 
   const minimalConfig = getMinimalConfig(userConfig)
 
-  const utilsArtifactFolder =
-    process.env.DEV_ENVIRONMENT === 'true'
-      ? '.'
-      : './node_modules/@chugsplash/plugins/out/artifacts'
+  const rootImportPath =
+    process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+  const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
   const ChugSplashUtilsABI =
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require(`${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`).abi
+    require(resolve(
+      `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
+    )).abi
   const minimalConfigType = ChugSplashUtilsABI.find(
     (fragment) => fragment.name === 'minimalConfig'
   ).outputs[0]
