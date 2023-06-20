@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { join, resolve } from 'path'
+import { join } from 'path'
 
 import * as dotenv from 'dotenv'
 import yargs from 'yargs'
@@ -144,7 +144,7 @@ yargs(hideBin(process.argv))
       const solcVersion = solc ?? (await inferSolcVersion())
 
       writeSampleProjectFiles(
-        resolve('chugsplash'),
+        'chugsplash',
         src,
         test,
         isTypeScriptProject,

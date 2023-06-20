@@ -38,23 +38,6 @@ contract ChugSplashDeploy is ChugSplash {
 `
 }
 
-export const getSampleGenerateArtifactFile = (
-  solcVersion: string,
-  configPath: string
-) => {
-  return `// SPDX-License-Identifier: MIT
-pragma solidity ^${solcVersion};
-
-import "@chugsplash/plugins/ChugSplash.sol";
-
-contract ChugSplashGenerateArtifacts is ChugSplash {
-  function setUp() public {
-    generateArtifacts('${configPath}', vm.rpcUrl("anvil"));
-  }
-}
-`
-}
-
 export const getSampleFoundryTestFile = (
   solcVersion: string,
   configPath: string
@@ -66,7 +49,7 @@ import "@chugsplash/plugins/ChugSplash.sol";
 import { HelloChugSplash } from "../src/HelloChugSplash.sol";
 import "forge-std/Test.sol";
 
-contract HelloChugSplashTest is ChugSplash {
+contract HelloChugSplashTest is ChugSplash, Test {
   HelloChugSplash helloChugSplash;
   function setUp() public {
     silence();
