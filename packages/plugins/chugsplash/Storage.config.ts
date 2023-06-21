@@ -3,8 +3,9 @@ import { ethers } from 'ethers'
 
 import {
   variables,
-  constructorArgs,
   complexConstructorArgs,
+  immutableConstructorArgsOne,
+  immutableConstructorArgsTwo,
 } from '../test/constants'
 
 const projectName = 'My First Project'
@@ -24,8 +25,13 @@ const config: UserChugSplashConfig = {
     MyStorage: {
       contract: 'contracts/test/ContainsStorage.sol:Storage',
       kind: 'proxy',
-      constructorArgs,
+      constructorArgs: immutableConstructorArgsOne,
       variables,
+    },
+    MyOtherImmutables: {
+      contract: 'contracts/test/ContainsStorage.sol:OtherImmutables',
+      kind: 'proxy',
+      constructorArgs: immutableConstructorArgsTwo,
     },
     ComplexConstructorArgs: {
       contract: 'ComplexConstructorArgs',

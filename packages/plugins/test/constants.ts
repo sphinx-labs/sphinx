@@ -52,13 +52,16 @@ export const invalidConstructorArgsPartTwo = {
   },
 }
 
-export const constructorArgs = {
+export const immutableConstructorArgsOne = {
   _immutableInt: ethers.constants.MinInt256.toString(),
   _immutableInt8: -128,
   _immutableUint: ethers.constants.MaxUint256.toString(),
   _immutableUint8: 255,
   _immutableBool: true,
   _immutableBytes32: '0x' + '11'.repeat(32),
+}
+
+export const immutableConstructorArgsTwo = {
   _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
   _immutableBigNumberUint: ethers.constants.MaxUint256,
   _immutableBigNumberInt: ethers.constants.MinInt256,
