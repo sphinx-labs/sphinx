@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../../contracts/foundry/ChugSplash.sol";
 import { ChugSplashUtils } from "../../contracts/foundry/ChugSplashUtils.sol";
 import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
-import { Storage } from "../../contracts/test/Storage.sol";
+import { Storage } from "../../contracts/test/ContainsStorage.sol";
 import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";

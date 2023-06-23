@@ -45,19 +45,36 @@ export const getContractArtifact = async (
   name: string,
   artifactFilder: string
 ): Promise<ContractArtifact> => {
+  // Try to find the artifact in the standard format
   const folderName = `${name}.sol`
   const fileName = `${name}.json`
-  const completeFilePath = join(artifactFilder, folderName, fileName)
+  const standardFilePath = join(artifactFilder, folderName, fileName)
 
-  if (!(await existsAsync(completeFilePath))) {
+  // Try to find the artifact in the qualified format
+  // Technically we don't need the full path to the file b/c foundry outputs a flat directory structure
+  // For clarity and consistency with other tools, we still handle the fully qualified format and recommend it
+  const qualifiedSections = name.split('/').pop()
+  const [file, contract] = qualifiedSections?.split(':') ?? ['', '']
+  const qualifiedFilePath = join(artifactFilder, file, `${contract}.json`)
+
+  if (await existsAsync(standardFilePath)) {
+    return parseFoundryArtifact(
+      JSON.parse(await readFileAsync(standardFilePath, 'utf8'))
+    )
+  } else if (await existsAsync(qualifiedFilePath)) {
+    return parseFoundryArtifact(
+      JSON.parse(await readFileAsync(qualifiedFilePath, 'utf8'))
+    )
+  } else {
+    // If we can't find the artifact, throw an error and recommend checking their options and using fully qualified format
     throw new Error(
-      `Could not find artifact for: ${name}. Please make sure that this contract exists in either the src, script, or test directory that you've configured in your foundry.toml.`
+      `Could not find artifact for: ${name}.
+- Please make sure that this contract exists in either the src, script, or test directory that you've configured in your foundry.toml.
+- If you have multiple contracts in the same file or have files with different names from the contracts they contain, please use the fully qualified name for the contract.
+  For example: 'path/to/file/SomeFile.sol:MyContract'
+`
     )
   }
-
-  const artifact = JSON.parse(await readFileAsync(completeFilePath, 'utf8'))
-
-  return parseFoundryArtifact(artifact)
 }
 
 /**
