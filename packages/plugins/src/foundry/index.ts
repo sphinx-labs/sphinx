@@ -42,8 +42,12 @@ const command = args[0]
         const rpcUrl = args[2]
         const privateKey = args[3]
 
-        const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-          await getFoundryConfigOptions()
+        const {
+          artifactFolder,
+          buildInfoFolder,
+          canonicalConfigFolder,
+          cachePath,
+        } = await getFoundryConfigOptions()
 
         const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
         const cre = await createChugSplashRuntime(
@@ -60,7 +64,7 @@ const command = args[0]
             configPath,
             provider,
             cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder),
+            makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
             FailureAction.THROW
           )
         const wallet = new ethers.Wallet(privateKey, provider)
@@ -148,7 +152,7 @@ const command = args[0]
       break
     }
     case 'generateArtifacts': {
-      const { canonicalConfigFolder, deploymentFolder } =
+      const { canonicalConfigFolder, deploymentFolder, cachePath } =
         await getFoundryConfigOptions()
 
       const configPath = args[1]
@@ -185,7 +189,9 @@ const command = args[0]
       )
 
       const configArtifacts: ConfigArtifacts = JSON.parse(
-        fs.readFileSync(`./cache/${ipfsHash}.json`).toString()
+        fs
+          .readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`)
+          .toString()
       )
 
       await postDeploymentActions(
