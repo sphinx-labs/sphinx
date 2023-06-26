@@ -45,8 +45,18 @@ export const getBuildInfo = (
 
 export const getContractArtifact = async (
   name: string,
-  artifactFilder: string
+  artifactFilder: string,
+  cachedContractNames: Record<string, string[]>
 ): Promise<ContractArtifact> => {
+  const sources = cachedContractNames[name]
+  if (sources?.length > 1) {
+    throw new Error(
+      `Detected multiple contracts with the name ${name} in different files, to resolve this:
+- Use the fully qualified name for this contract: 'path/to/file/SomeFile.sol:MyContract'
+- Or rename one of the contracts and force recompile: 'forge build --force'`
+    )
+  }
+
   // Try to find the artifact in the standard format
   const folderName = `${name}.sol`
   const fileName = `${name}.json`
@@ -103,16 +113,26 @@ export const makeGetConfigArtifacts = (
     }
 
     const buildInfoCacheFilePath = join(cachePath, 'chugsplash-cache.json')
-    let buildInfoCache: Record<
-      string,
-      {
-        name: string
-        time: number
-        contracts: string[]
-      }
-    > = fs.existsSync(buildInfoCacheFilePath)
+    let buildInfoCache: {
+      // We track all contract names and the associated source files that contain them
+      // This allows us to detect ambiguous contract names and prompt the user to use fully qualified names
+      contracts: Record<string, string[]>
+      // We keep track of the last modified time in each build info file so we can easily find the most recently generated build info files
+      // We also keep track of all the contract files output by each build info file, so we can easily look up the required file for each contract artifact
+      files: Record<
+        string,
+        {
+          name: string
+          time: number
+          contracts: string[]
+        }
+      >
+    } = fs.existsSync(buildInfoCacheFilePath)
       ? JSON.parse(fs.readFileSync(buildInfoCacheFilePath, 'utf8'))
-      : {}
+      : {
+          contracts: {},
+          files: {},
+        }
 
     const buildInfoPath = join(buildInfoFolder)
 
@@ -123,9 +143,19 @@ export const makeGetConfigArtifacts = (
         return fileName.endsWith('.json')
       })
 
-    // If there are no build info files, then clear the cache
-    if (buildInfoFileNames.length === 0) {
-      buildInfoCache = {}
+    const cachedNames = Object.keys(buildInfoCache.files)
+    // If there is only one build info file and it is not in the cache,
+    // then clear the cache b/c the user must have force recompiled
+    if (
+      buildInfoFileNames.length === 1 &&
+      (!cachedNames.includes(buildInfoFileNames[0]) ||
+        // handles an edge case where the user made a change and then reverted it and force recompiled
+        buildInfoFileNames.length > 1)
+    ) {
+      buildInfoCache = {
+        contracts: {},
+        files: {},
+      }
     }
 
     const buildInfoFileNamesWithTime = buildInfoFileNames
@@ -140,14 +170,14 @@ export const makeGetConfigArtifacts = (
     const localBuildInfoCache = {}
     await Promise.all(
       buildInfoFileNamesWithTime
-        .filter((file) => buildInfoCache[file.name]?.time !== file.time)
+        .filter((file) => buildInfoCache.files[file.name]?.time !== file.time)
         .map(async (file) => {
           // If the file exists in the cache and the time has changed, then we just update the time
           if (
-            buildInfoCache[file.name]?.time &&
-            buildInfoCache[file.name]?.time !== file.time
+            buildInfoCache.files[file.name]?.time &&
+            buildInfoCache.files[file.name]?.time !== file.time
           ) {
-            buildInfoCache[file.name].time = file.time
+            buildInfoCache.files[file.name].time = file.time
             return
           }
 
@@ -155,9 +185,26 @@ export const makeGetConfigArtifacts = (
             fs.readFileSync(join(buildInfoFolder, file.name), 'utf8')
           )
 
-          // We keep track of the last modified time in each build info file so we can easily fine the most recently generated build info files
-          // We also keep track of all the contracts output by each build info file, so we can easily look up the required file for each source name
-          buildInfoCache[file.name] = {
+          // Update the contract name to source file dictionary in the cache
+          Object.keys(buildInfo.output.contracts).map((contractSourceName) => {
+            const contractOutput =
+              buildInfo.output.contracts[contractSourceName]
+            const contractNames = Object.keys(contractOutput)
+            contractNames.map((contractName) => {
+              if (!buildInfoCache.contracts[contractName]) {
+                buildInfoCache.contracts[contractName] = [contractSourceName]
+              } else if (
+                !buildInfoCache.contracts[contractName].includes(
+                  contractSourceName
+                )
+              ) {
+                buildInfoCache.contracts[contractName].push(contractSourceName)
+              }
+            })
+          })
+
+          // Update the build info file dictionary in the cache
+          buildInfoCache.files[file.name] = {
             name: file.name,
             time: file.time,
             contracts: Object.keys(buildInfo.output.contracts),
@@ -167,7 +214,7 @@ export const makeGetConfigArtifacts = (
         })
     )
     // Just make sure the files are sorted by time
-    const sortedCachedFiles = Object.values(buildInfoCache).sort(
+    const sortedCachedFiles = Object.values(buildInfoCache.files).sort(
       (a, b) => b.time - a.time
     )
 
@@ -178,7 +225,8 @@ export const makeGetConfigArtifacts = (
         async ([referenceName, contractConfig]) => {
           const artifact = await getContractArtifact(
             contractConfig.contract,
-            artifactFolder
+            artifactFolder,
+            buildInfoCache.contracts
           )
 
           // Look through the cahce for the first build info file that contains the contract
