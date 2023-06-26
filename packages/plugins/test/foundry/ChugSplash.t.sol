@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../../contracts/foundry/ChugSplash.sol";
 import { ChugSplashUtils } from "../../contracts/foundry/ChugSplashUtils.sol";
 import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
-import { Storage } from "../../contracts/test/ContainsStorage.sol";
+import { OtherImmutables, Storage, Types } from "../../contracts/test/ContainsStorage.sol";
 import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
@@ -31,6 +31,7 @@ contract ChugSplashTest is ChugSplash, Test {
     type UserDefinedType is uint256;
 
     Storage myStorage;
+    OtherImmutables myOtherImmutables;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
     Stateless     myStateless;
@@ -51,6 +52,7 @@ contract ChugSplashTest is ChugSplash, Test {
         deploy(create3Config, vm.rpcUrl("anvil"));
 
         myStorage = Storage(getAddress(deployConfig, "MyStorage"));
+        myOtherImmutables = OtherImmutables(getAddress(deployConfig, "MyOtherImmutables"));
         mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
         myStateless = Stateless(getAddress(deployConfig, "Stateless"));
         myStatelessWithSalt = Stateless(getAddress(create3Config, "Stateless", keccak256('1')));
@@ -103,15 +105,23 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetImmutableUserDefinedType() public {
-        assertEq(Storage.UserDefinedType.unwrap(myStorage.immutableUserDefinedType()), type(uint256).max);
+        assertEq(Types.UserDefinedType.unwrap(myOtherImmutables.immutableUserDefinedType()), type(uint256).max);
     }
 
     function testSetImmutableBigNumberUint() public {
-        assertEq(myStorage.immutableBigNumberUint(), type(uint256).max);
+        assertEq(myOtherImmutables.immutableBigNumberUint(), type(uint256).max);
     }
 
     function testSetImmutableBigNumberInt() public {
-        assertEq(myStorage.immutableBigNumberInt(), type(int256).min);
+        assertEq(myOtherImmutables.immutableBigNumberInt(), type(int256).min);
+    }
+
+    function testSetImmutableAddress() public {
+        assertEq(myOtherImmutables.immutableAddress(), address(0x1111111111111111111111111111111111111111));
+    }
+
+    function testSetImmutableContract() public {
+        assertEq(address(myOtherImmutables.immutableContract()), address(0x1111111111111111111111111111111111111111));
     }
 
     function testSetContractReference() public {
@@ -163,53 +173,53 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetUserDefinedType() public {
-        assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+        assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
     }
 
     function testSetUserDefinedBytes() public {
-        assertEq(Storage.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()), 0x1111111111111111111111111111111111111111111111111111111111111111);
+        assertEq(Types.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()), 0x1111111111111111111111111111111111111111111111111111111111111111);
     }
 
     function testSetUserDefinedInt() public {
-        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedInt()),  type(int256).min);
+        assertEq(Types.UserDefinedInt.unwrap(myStorage.userDefinedInt()),  type(int256).min);
     }
 
     function testSetUserDefinedInt8() public {
-        assertEq(Storage.UserDefinedInt8.unwrap(myStorage.userDefinedInt8()), type(int8).min);
+        assertEq(Types.UserDefinedInt8.unwrap(myStorage.userDefinedInt8()), type(int8).min);
     }
 
     function testSetUserDefinedUint8() public {
-        assertEq(Storage.UserDefinedUint8.unwrap(myStorage.userDefinedUint8()), 255);
+        assertEq(Types.UserDefinedUint8.unwrap(myStorage.userDefinedUint8()), 255);
     }
 
     function testSetUserDefinedBool() public {
-        assertEq(Storage.UserDefinedBool.unwrap(myStorage.userDefinedBool()), true);
+        assertEq(Types.UserDefinedBool.unwrap(myStorage.userDefinedBool()), true);
     }
 
     function testSetUserDefinedBigNumberInt() public {
-        assertEq(Storage.UserDefinedInt.unwrap(myStorage.userDefinedBigNumberInt()), 0);
+        assertEq(Types.UserDefinedInt.unwrap(myStorage.userDefinedBigNumberInt()), 0);
     }
 
     function testSetStringToUserDefinedTypeMapping() public {
-        (Storage.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
-        assertEq(Storage.UserDefinedType.unwrap(a), 1000000000000000000);
+        (Types.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
+        assertEq(Types.UserDefinedType.unwrap(a), 1000000000000000000);
     }
 
     function testSetUserDefinedTypeToStringMapping() public {
-        assertEq(myStorage.userDefinedToStringMapping(Storage.UserDefinedType.wrap(1000000000000000000)), 'testVal');
+        assertEq(myStorage.userDefinedToStringMapping(Types.UserDefinedType.wrap(1000000000000000000)), 'testVal');
     }
 
     function testSetComplexStruct() public {
-        (int32 a, Storage.UserDefinedType c) = myStorage.complexStruct();
+        (int32 a, Types.UserDefinedType c) = myStorage.complexStruct();
         assertEq(a, 4);
-        assertEq(Storage.UserDefinedType.unwrap(c), 1000000000000000000);
+        assertEq(Types.UserDefinedType.unwrap(c), 1000000000000000000);
         assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
     }
 
     function testSetUserDefinedFixedArray() public {
         uint64[2] memory uintFixedArray = [1000000000000000000, 1000000000000000000];
         for (uint i = 0; i < uintFixedArray.length; i++) {
-            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)), uintFixedArray[i]);
+            assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)), uintFixedArray[i]);
         }
     }
 
@@ -221,7 +231,7 @@ contract ChugSplashTest is ChugSplash, Test {
 
         for (uint i = 0; i < nestedArray.length; i++) {
             for (uint j = 0; j < nestedArray[i].length; j++) {
-                assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)), nestedArray[i][j]);
+                assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)), nestedArray[i][j]);
             }
         }
     }
@@ -229,7 +239,7 @@ contract ChugSplashTest is ChugSplash, Test {
     function testSetUserDefinedDynamicArray() public {
         uint64[3] memory uintDynamicArray = [1000000000000000000, 1000000000000000000, 1000000000000000000];
         for (uint i = 0; i < uintDynamicArray.length; i++) {
-            assertEq(Storage.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)), uintDynamicArray[i]);
+            assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)), uintDynamicArray[i]);
         }
     }
 

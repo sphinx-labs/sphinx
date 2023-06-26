@@ -3,19 +3,22 @@ pragma solidity ^0.8.9;
 
 import { SimpleStorage } from "./SimpleStorage.sol";
 
-contract Storage {
+library Types {
+    enum TestEnum {
+        A,
+        B,
+        C
+    }
+
     type UserDefinedType is uint256;
     type UserDefinedBytes32 is bytes32;
     type UserDefinedInt is int;
     type UserDefinedInt8 is int8;
     type UserDefinedUint8 is uint8;
     type UserDefinedBool is bool;
+}
 
-    enum TestEnum {
-        A,
-        B,
-        C
-    }
+contract Storage {
     struct SimpleStruct {
         bytes32 a;
         uint128 b;
@@ -24,7 +27,7 @@ contract Storage {
     struct ComplexStruct {
         int32 a;
         mapping(uint32 => string) b;
-        UserDefinedType c;
+        Types.UserDefinedType c;
     }
 
     int public immutable immutableInt;
@@ -33,12 +36,6 @@ contract Storage {
     uint8 public immutable immutableUint8;
     bool public immutable immutableBool;
     bytes32 public immutable immutableBytes32;
-    UserDefinedType public immutable immutableUserDefinedType;
-    uint public immutable immutableBigNumberUint;
-    int public immutable immutableBigNumberInt;
-    address public immutable immutableAddress;
-    Storage public immutable immutableContract;
-    TestEnum public immutable immutableEnum;
 
     constructor(
         int _immutableInt,
@@ -46,13 +43,7 @@ contract Storage {
         uint _immutableUint,
         uint8 _immutableUint8,
         bool _immutableBool,
-        bytes32 _immutableBytes32,
-        UserDefinedType _immutableUserDefinedType,
-        uint _immutableBigNumberUint,
-        int _immutableBigNumberInt,
-        address _immutableAddress,
-        Storage _immutableContract,
-        TestEnum _immutableEnum
+        bytes32 _immutableBytes32
     ) {
         immutableInt = _immutableInt;
         immutableInt8 = _immutableInt8;
@@ -60,12 +51,6 @@ contract Storage {
         immutableUint8 = _immutableUint8;
         immutableBool = _immutableBool;
         immutableBytes32 = _immutableBytes32;
-        immutableUserDefinedType = _immutableUserDefinedType;
-        immutableBigNumberUint = _immutableBigNumberUint;
-        immutableBigNumberInt = _immutableBigNumberInt;
-        immutableAddress = _immutableAddress;
-        immutableContract = _immutableContract;
-        immutableEnum = _immutableEnum;
     }
 
     function(uint256) internal pure returns (uint256) internalFunc;
@@ -85,21 +70,21 @@ contract Storage {
     bytes32 public bytes32Test;
     address public addressTest;
     address payable public payableAddressTest;
-    UserDefinedType public userDefinedTypeTest;
-    UserDefinedBytes32 public userDefinedBytesTest;
-    UserDefinedInt public userDefinedInt;
-    UserDefinedInt8 public userDefinedInt8;
-    UserDefinedUint8 public userDefinedUint8;
-    UserDefinedBool public userDefinedBool;
-    UserDefinedInt public userDefinedBigNumberInt;
-    mapping(UserDefinedType => string) public userDefinedToStringMapping;
-    mapping(string => UserDefinedType) public stringToUserDefinedMapping;
-    UserDefinedType[2] public userDefinedFixedArray;
-    UserDefinedType[2][2] public userDefinedFixedNestedArray;
-    UserDefinedType[] public userDefinedDynamicArray;
+    Types.UserDefinedType public userDefinedTypeTest;
+    Types.UserDefinedBytes32 public userDefinedBytesTest;
+    Types.UserDefinedInt public userDefinedInt;
+    Types.UserDefinedInt8 public userDefinedInt8;
+    Types.UserDefinedUint8 public userDefinedUint8;
+    Types.UserDefinedBool public userDefinedBool;
+    Types.UserDefinedInt public userDefinedBigNumberInt;
+    mapping(Types.UserDefinedType => string) public userDefinedToStringMapping;
+    mapping(string => Types.UserDefinedType) public stringToUserDefinedMapping;
+    Types.UserDefinedType[2] public userDefinedFixedArray;
+    Types.UserDefinedType[2][2] public userDefinedFixedNestedArray;
+    Types.UserDefinedType[] public userDefinedDynamicArray;
     Storage public contractTest;
-    TestEnum public enumTest;
-    TestEnum public bigNumberEnumTest;
+    Types.TestEnum public enumTest;
+    Types.TestEnum public bigNumberEnumTest;
     SimpleStruct public simpleStruct;
     ComplexStruct public complexStruct;
     uint64[5] public uint64FixedArray;
@@ -124,12 +109,37 @@ contract Storage {
     mapping(int128 => string) public int128ToStringMapping;
     mapping(address => string) public addressToStringMapping;
     mapping(SimpleStorage => string) public contractToStringMapping;
-    mapping(TestEnum => string) public enumToStringMapping;
+    mapping(Types.TestEnum => string) public enumToStringMapping;
     mapping(bytes => string) public bytesToStringMapping;
     mapping(string => mapping(string => string)) public nestedMapping;
     mapping(uint8 => mapping(string => mapping(address => uint))) public multiNestedMapping;
 
     function getComplexStructMappingVal(uint32 _mappingKey) external view returns (string memory) {
         return complexStruct.b[_mappingKey];
+    }
+}
+
+contract OtherImmutables {
+    Types.UserDefinedType public immutable immutableUserDefinedType;
+    uint public immutable immutableBigNumberUint;
+    int public immutable immutableBigNumberInt;
+    address public immutable immutableAddress;
+    Storage public immutable immutableContract;
+    Types.TestEnum public immutable immutableEnum;
+
+    constructor(
+        Types.UserDefinedType _immutableUserDefinedType,
+        uint _immutableBigNumberUint,
+        int _immutableBigNumberInt,
+        address _immutableAddress,
+        Storage _immutableContract,
+        Types.TestEnum _immutableEnum
+    ) {
+        immutableUserDefinedType = _immutableUserDefinedType;
+        immutableBigNumberUint = _immutableBigNumberUint;
+        immutableBigNumberInt = _immutableBigNumberInt;
+        immutableAddress = _immutableAddress;
+        immutableContract = _immutableContract;
+        immutableEnum = _immutableEnum;
     }
 }

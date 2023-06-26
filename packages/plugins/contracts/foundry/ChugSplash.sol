@@ -330,7 +330,7 @@ contract ChugSplash is Script {
     function executeBatchActions(
         BundledChugSplashAction[] memory actions,
         IChugSplashManager manager,
-        uint maxGasLimit,
+        uint bufferedGasLimit,
         DeployContractCost[] memory deployContractCosts
     ) private returns (DeploymentStatus) {
         // Pull the deployment state from the contract to make sure we're up to date
@@ -364,7 +364,7 @@ contract ChugSplash is Script {
             // Figure out the maximum number of actions that can be executed in a single batch
             uint batchSize = utils.findMaxBatchSize(
                 utils.inefficientSlice(filteredActions, executed, filteredActions.length),
-                maxGasLimit,
+                bufferedGasLimit - ((bufferedGasLimit) * 20) / 100,
                 deployContractCosts
             );
             BundledChugSplashAction[] memory batch = utils.inefficientSlice(
@@ -377,7 +377,6 @@ contract ChugSplash is Script {
                 uint256[] memory _actionIndexes,
                 bytes32[][] memory _proofs
             ) = utils.disassembleActions(batch);
-            uint bufferedGasLimit = ((maxGasLimit) * 120) / 100;
             manager.executeActions{ gas: bufferedGasLimit }(rawActions, _actionIndexes, _proofs);
 
             // Return early if the deployment failed
@@ -408,11 +407,12 @@ contract ChugSplash is Script {
             actionBundle
         );
 
+        uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
         // Execute all the deploy contract actions and exit early if the deployment failed
         DeploymentStatus status = executeBatchActions(
             deployContractActions,
             manager,
-            blockGasLimit / 2,
+            bufferedGasLimit,
             deployContractCosts
         );
         if (status == DeploymentStatus.FAILED) {
@@ -436,7 +436,7 @@ contract ChugSplash is Script {
         manager.initiateUpgrade{ gas: 1000000 }(targets, proofs);
 
         // Execute all the set storage actions
-        executeBatchActions(setStorageActions, manager, blockGasLimit / 2, deployContractCosts);
+        executeBatchActions(setStorageActions, manager, bufferedGasLimit, deployContractCosts);
 
         // Complete the upgrade
         manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);

@@ -2,15 +2,25 @@ import { chugsplash } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { complexConstructorArgs, constructorArgs, variables } from './constants'
+import {
+  complexConstructorArgs,
+  immutableConstructorArgsOne,
+  immutableConstructorArgsTwo,
+  variables,
+} from './constants'
 
 describe('Storage', () => {
   let MyStorage: Contract
+  let MyOtherImmutables: Contract
   let MySimpleStorage: Contract
   let Stateless: Contract
   let ComplexConstructorArgs: Contract
   before(async () => {
     MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
+    MyOtherImmutables = await chugsplash.getContract(
+      'My First Project',
+      'MyOtherImmutables'
+    )
     MySimpleStorage = await chugsplash.getContract(
       'My First Project',
       'MySimpleStorage'
@@ -34,67 +44,73 @@ describe('Storage', () => {
 
   it('does set immutable int', async () => {
     expect(await MyStorage.immutableInt()).to.deep.equals(
-      BigNumber.from(constructorArgs._immutableInt)
+      BigNumber.from(immutableConstructorArgsOne._immutableInt)
     )
   })
 
   it('does set immutable int8', async () => {
     expect(await MyStorage.immutableInt8()).equals(
-      constructorArgs._immutableInt8
+      immutableConstructorArgsOne._immutableInt8
     )
   })
 
   it('does set immutable uint', async () => {
     expect(await MyStorage.immutableUint()).to.deep.equals(
-      BigNumber.from(constructorArgs._immutableUint)
+      BigNumber.from(immutableConstructorArgsOne._immutableUint)
     )
   })
 
   it('does set immutable uint8', async () => {
     expect(await MyStorage.immutableUint8()).equals(
-      constructorArgs._immutableUint8
+      immutableConstructorArgsOne._immutableUint8
     )
   })
 
   it('does set immutable bool', async () => {
     expect(await MyStorage.immutableBool()).equals(
-      constructorArgs._immutableBool
+      immutableConstructorArgsOne._immutableBool
     )
   })
 
   it('does set immutable bytes', async () => {
     expect(await MyStorage.immutableBytes32()).equals(
-      constructorArgs._immutableBytes32
+      immutableConstructorArgsOne._immutableBytes32
     )
   })
 
   it('does set immutable user defined type', async () => {
-    expect(await MyStorage.immutableUserDefinedType()).to.deep.equals(
-      BigNumber.from(constructorArgs._immutableUserDefinedType)
+    expect(await MyOtherImmutables.immutableUserDefinedType()).to.deep.equals(
+      BigNumber.from(immutableConstructorArgsTwo._immutableUserDefinedType)
     )
   })
 
   it('does set immutable BigNumber int', async () => {
-    expect(await MyStorage.immutableBigNumberInt()).to.deep.equals(
-      constructorArgs._immutableBigNumberInt
+    expect(await MyOtherImmutables.immutableBigNumberInt()).to.deep.equals(
+      immutableConstructorArgsTwo._immutableBigNumberInt
     )
   })
 
   it('does set immutable BigNumber uint', async () => {
-    expect(await MyStorage.immutableBigNumberUint()).to.deep.equals(
-      constructorArgs._immutableBigNumberUint
+    expect(await MyOtherImmutables.immutableBigNumberUint()).to.deep.equals(
+      immutableConstructorArgsTwo._immutableBigNumberUint
     )
   })
 
   it('does set immutable address', async () => {
-    expect(await MyStorage.immutableAddress()).equals(
-      constructorArgs._immutableAddress
+    expect(await MyOtherImmutables.immutableAddress()).equals(
+      immutableConstructorArgsTwo._immutableAddress
     )
   })
 
   it('does set immutable contract', async () => {
-    expect(await MyStorage.immutableContract()).equals(
-      constructorArgs._immutableContract
+    expect(await MyOtherImmutables.immutableContract()).equals(
+      immutableConstructorArgsTwo._immutableContract
+    )
+  })
+
+  it('does set immutable enum', async () => {
+    expect(await MyOtherImmutables.immutableEnum()).equals(
+      immutableConstructorArgsTwo._immutableEnum
     )
   })
 
