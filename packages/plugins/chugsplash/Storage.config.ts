@@ -22,7 +22,7 @@ const config: UserChugSplashConfig = {
   },
   contracts: {
     MyStorage: {
-      contract: 'Storage',
+      contract: 'contracts/test/ContainsStorage.sol:Storage',
       kind: 'proxy',
       constructorArgs,
       variables,
