@@ -1349,4 +1349,63 @@ contract ChugSplashManager is
     {
         return ERC2771ContextUpgradeable._msgData();
     }
+
+    mapping(address => string) public contractToProjectName;
+
+    // TODO(docs) everywhere
+
+    // TODO: mv
+    struct ContractAddressAndKind {
+        address addr;
+        bytes32 contractKindHash;
+    }
+
+    struct ProjectAndReferenceName {
+        string projectName;
+        string referenceName;
+    }
+
+    // projectName => referenceName => ContractInfo
+    mapping(string => mapping(string => ContractAddressAndKind)) public projects;
+
+    // contract address => project name and reference name
+    mapping(address => ProjectAndReferenceName) public contracts;
+
+    struct ContractInfo {
+        string referenceName;
+        address addr;
+        bytes32 contractKindHash;
+    }
+
+    // TODO(docs): a contract can only belong to one project at a time
+    function setContractInfo(
+        string memory _projectName,
+        ContractInfo[] memory _contractInfoArray
+    ) external onlyOwner {
+        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
+        if (_contractInfoArray.length == 0) return;
+
+        string memory referenceName;
+        address addr;
+        bytes32 contractKindHash;
+        uint256 numContracts = _contractInfoArray.length;
+        for (uint256 i = 0; i < numContracts; i++) {
+            referenceName = _contractInfoArray[i].referenceName;
+            addr = _contractInfoArray[i].addr;
+            contractKindHash = _contractInfoArray[i].contractKindHash;
+
+            if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
+            if (addr == address(0)) revert ContractAddressCannotBeZero();
+            // TODO(docs): contract kind hash represents _, so we don't revert if it's bytes32(0)
+
+            projects[_projectName][referenceName] = ContractAddressAndKind({
+                addr: addr,
+                contractKindHash: contractKindHash
+            });
+            contracts[addr] = ProjectAndReferenceName({
+                projectName: _projectName,
+                referenceName: referenceName
+            });
+        }
+    }
 }
