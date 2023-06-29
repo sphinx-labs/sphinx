@@ -16,7 +16,7 @@
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json",
-    "build:contracts": "npx hardhat clean && npx hardhat compile && forge build && yarn generate",
+    "build:contracts": "npx hardhat clean && yarn generate && npx hardhat compile && forge build",
     "generate": "npx ts-node script/write-constants.ts > contracts/foundry/ChugSplashConstants.sol",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",

@@ -142,7 +142,16 @@ const command = args[0]
       )
 
       try {
-        await initializeChugSplash(provider, wallet, [], [], [])
+        await initializeChugSplash(
+          provider,
+          wallet,
+          [],
+          [],
+          [],
+          (
+            await provider.getNetwork()
+          ).chainId
+        )
       } catch (e) {
         if (!e.reason.includes('could not detect network')) {
           throw e

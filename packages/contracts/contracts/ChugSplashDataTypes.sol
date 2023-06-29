@@ -68,6 +68,27 @@ struct ChugSplashTarget {
 }
 
 /**
+ * @notice Struct representing a cross-chain funding message.
+ *
+ * @custom:field The destination chain id.
+ * @custom:field The endpoint outbound proof type.
+ * @custom:field The contract receiving the message.
+ * @custom:field The address receiving the airdrop.
+ * @custom:field The amount to airdrop.
+ * @custom:field Whether to pay with ZRO (layer zero token), will cause revert if true.
+ * @custom:field The message payload.
+ */
+struct FunderAction {
+    uint16 dstChainId;
+    uint16 outboundProofType;
+    address receiverAddress;
+    address airdropAddress;
+    uint airdropAmount;
+    bool payInZRO;
+    bytes payload;
+}
+
+/**
  * @notice Enum representing possible action types.
  *
  * @custom:value SET_STORAGE Set a storage slot value in a proxy contract.

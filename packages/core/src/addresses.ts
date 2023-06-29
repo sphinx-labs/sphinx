@@ -21,6 +21,9 @@ import {
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
   ForwarderArtifact,
+  LZEndpointMockArtifact,
+  FunderArtifact,
+  LZReceiverArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -174,6 +177,44 @@ export const FORWARDER_ADDRESS = utils.getCreate2Address(
   constants.HashZero,
   utils.solidityKeccak256(['bytes'], [ForwarderArtifact.bytecode])
 )
+
+export const getMockEndPointAddress = (chainId: number) =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'uint16'],
+      [LZEndpointMockArtifact.bytecode, chainId]
+    )
+  )
+
+export const getFunderAddress = (endpointAddress: string) => {
+  return utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'address'],
+      [
+        FunderArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+      ]
+    )
+  )
+}
+
+export const getLZReceiverAddress = (endpointAddress: string) => {
+  return utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'address'],
+      [
+        LZReceiverArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+      ]
+    )
+  )
+}
 
 export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
