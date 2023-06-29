@@ -334,6 +334,11 @@ contract ChugSplashManager is
      */
     error FailedToGetAddress();
 
+    error ProjectNameCannotBeEmpty();
+    error ContractAlreadyBelongsToAProject();
+    error ReferenceNameCannotBeEmpty();
+    error ContractAddressCannotBeZero();
+
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
@@ -708,16 +713,18 @@ contract ChugSplashManager is
        callable by the owner. Note that this function allows the owner to send ownership of their
        proxy to address(0), which would make their proxy non-upgradeable.
      *
-     * @param _proxy  Address of the proxy to transfer ownership of.
-     * @param _contractKindHash  Hash of the contract kind, which represents the proxy type.
      * @param _newOwner  Address of the owner to receive ownership of the proxy.
      */
     function exportProxy(
-        address payable _proxy,
-        bytes32 _contractKindHash,
+        string memory _projectName,
+        string memory _referenceName,
         address _newOwner
     ) external onlyOwner {
-        if (_proxy.code.length == 0) {
+        ContractAddressAndKind memory info = projects[_projectName][_referenceName];
+        address proxy = info.addr;
+        bytes32 contractKindHash = info.contractKindHash;
+
+        if (proxy.code.length == 0) {
             revert ContractDoesNotExist();
         }
 
@@ -726,17 +733,17 @@ contract ChugSplashManager is
         }
 
         // Get the adapter that corresponds to this contract type.
-        address adapter = registry.adapters(_contractKindHash);
+        address adapter = registry.adapters(contractKindHash);
         if (adapter == address(0)) {
             revert InvalidContractKind();
         }
 
-        emit ProxyExported(_proxy, _contractKindHash, _newOwner);
+        emit ProxyExported(proxy, contractKindHash, _newOwner);
 
         // Delegatecall the adapter to change ownership of the proxy.
         // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
+            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (payable(proxy), _newOwner))
         );
         if (!success) {
             revert ProxyExportFailed();
@@ -1377,7 +1384,7 @@ contract ChugSplashManager is
         bytes32 contractKindHash;
     }
 
-    // TODO(docs): a contract can only belong to one project at a time
+    // TODO(docs): will revert if any of the contracts already belong to another project
     function setContractInfo(
         string memory _projectName,
         ContractInfo[] memory _contractInfoArray
@@ -1393,6 +1400,9 @@ contract ChugSplashManager is
             referenceName = _contractInfoArray[i].referenceName;
             addr = _contractInfoArray[i].addr;
             contractKindHash = _contractInfoArray[i].contractKindHash;
+
+            if (bytes(contracts[addr].projectName).length > 0)
+                revert ContractAlreadyBelongsToAProject();
 
             if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
             if (addr == address(0)) revert ContractAddressCannotBeZero();
