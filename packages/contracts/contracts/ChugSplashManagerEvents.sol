@@ -117,7 +117,7 @@ contract ChugSplashManagerEvents {
      * @param owner  Address of the owner.
      * @param amount ETH amount withdrawn.
      */
-    event OwnerWithdrewETH(address indexed owner, uint256 amount);
+    event OwnerWithdrewETH(address indexed owner, address indexed to, uint256 amount);
 
     /**
      * @notice Emitted when the owner of this contract adds or removes a proposer.

@@ -757,16 +757,16 @@ contract ChugSplashManager is
      *         owed to the executor and protocol. Cannot be called when there is an active
                deployment, as this would rug the remote executor.
      */
-    function withdrawOwnerETH() external onlyOwner {
+    function withdrawOwnerETH(address _to) external onlyOwner {
         if (activeDeploymentId != bytes32(0)) {
             revert AnotherDeploymentInProgress();
         }
 
         uint256 amount = address(this).balance - totalDebt();
 
-        emit OwnerWithdrewETH(_msgSender(), amount);
+        emit OwnerWithdrewETH(_msgSender(), _to, amount);
 
-        (bool success, ) = payable(_msgSender()).call{ value: amount }(new bytes(0));
+        (bool success, ) = payable(_to).call{ value: amount }(new bytes(0));
         if (!success) {
             revert WithdrawalFailed();
         }
@@ -1378,6 +1378,9 @@ contract ChugSplashManager is
     // contract address => project name and reference name
     mapping(address => ProjectAndReferenceName) public contracts;
 
+    // projectName => number of contracts in the project
+    mapping(string => uint256) public numContracts;
+
     struct ContractInfo {
         string referenceName;
         address addr;
@@ -1385,28 +1388,32 @@ contract ChugSplashManager is
     }
 
     // TODO(docs): will revert if any of the contracts already belong to another project
-    function setContractInfo(
+    function addContractsToProject(
         string memory _projectName,
         ContractInfo[] memory _contractInfoArray
     ) external onlyOwner {
         if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
         if (_contractInfoArray.length == 0) return;
 
+        uint256 numContractsToAdd = _contractInfoArray.length;
+        numContracts[_projectName] += numContractsToAdd;
+
         string memory referenceName;
         address addr;
         bytes32 contractKindHash;
-        uint256 numContracts = _contractInfoArray.length;
-        for (uint256 i = 0; i < numContracts; i++) {
+        for (uint256 i = 0; i < numContractsToAdd; i++) {
             referenceName = _contractInfoArray[i].referenceName;
             addr = _contractInfoArray[i].addr;
             contractKindHash = _contractInfoArray[i].contractKindHash;
-
-            if (bytes(contracts[addr].projectName).length > 0)
-                revert ContractAlreadyBelongsToAProject();
-
             if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
             if (addr == address(0)) revert ContractAddressCannotBeZero();
             // TODO(docs): contract kind hash represents _, so we don't revert if it's bytes32(0)
+
+            if (bytes(contracts[addr].projectName).length > 0)
+                revert AddressAlreadyExistsInAProject();
+
+            if (projects[_projectName][referenceName].addr != address(0))
+                revert ReferenceNameAlreadyExistsInProject();
 
             projects[_projectName][referenceName] = ContractAddressAndKind({
                 addr: addr,
@@ -1416,6 +1423,34 @@ contract ChugSplashManager is
                 projectName: _projectName,
                 referenceName: referenceName
             });
+        }
+    }
+
+    function removeContractsFromProject(
+        string memory _projectName,
+        string[] memory _referenceNames
+    ) external onlyOwner {
+        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
+        if (_referenceNames.length == 0) return;
+
+        uint256 numContractsToRemove = _referenceNames.length;
+        numContracts[_projectName] -= numContractsToRemove;
+
+        string memory referenceName;
+        address addr;
+        for (uint256 i = 0; i < numContractsToRemove; i++) {
+            referenceName = _referenceNames[i];
+            if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
+
+            addr = projects[_projectName][referenceName].addr;
+
+            if (addr == address(0)) revert ContractNotInProject();
+
+            projects[_projectName][referenceName] = ContractAddressAndKind({
+                addr: address(0),
+                contractKindHash: bytes32(0)
+            });
+            contracts[addr] = ProjectAndReferenceName({ projectName: "", referenceName: "" });
         }
     }
 }

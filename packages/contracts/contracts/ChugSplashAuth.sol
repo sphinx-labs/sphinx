@@ -38,7 +38,39 @@ contract ChugSplashAuth is AccessControl {
         ownerThreshold = _ownerThreshold;
     }
 
-    // TODO: should we use Openzeppelin's roleAdmin functionality?
+    // TODO: input validation
+    function propose(
+        bytes32 _authRootToVerify,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _request, _signatures, _proof)
+    {
+        (bytes32 authRootToPropose, uint256 numActions, uint256 numLeafs) = abi.decode(
+            _request.data,
+            (bytes32, uint256, uint256)
+        );
+
+        require(
+            authStates[authRootToPropose].status == AuthActionStatus.EMPTY,
+            "ChugSplashAuth: auth action not empty"
+        );
+        require(authRootToPropose != bytes32(0), "ChugSplashAuth: auth root cannot be address(0)");
+        require(numLeafs > 0, "ChugSplashAuth: numLeafs must be greater than 0");
+        // This check enforces expected user behavior, which is that one auth root will be signed
+        // by a proposer, and another auth root will be signed by another role after the proposal.
+        require(authRootToPropose != _authRootToVerify, "ChugSplashAuth: auth roots cannot match");
+
+        authStates[authRootToPropose] = AuthState({
+            status: AuthActionStatus.PROPOSED,
+            numActions: numActions,
+            numLeafs: numLeafs,
+            actionsExecuted: 0
+        });
+    }
 
     // TODO: we should either disable all the AccessControl functions that we don't use or implement
     // the necessary functionality ourselves (or look at other libraries)
@@ -50,6 +82,7 @@ contract ChugSplashAuth is AccessControl {
         ActionProof memory _proof
     )
         public
+        incrementNonce
         isValidAuthAction(
             ownerThreshold,
             DEFAULT_ADMIN_ROLE,
@@ -59,19 +92,69 @@ contract ChugSplashAuth is AccessControl {
             _proof
         )
     {
-        (address _projectManager, bool _add) = abi.decode(_request.data, (address, bool));
+        (address projectManager, bool add) = abi.decode(_request.data, (address, bool));
 
         require(
-            _projectManager != address(0),
+            projectManager != address(0),
             "ChugSplashAuth: project manager cannot be address(0)"
         );
 
-        nonce += 1;
-
-        _add
-            ? _grantRole(PROJECT_MANAGER_ROLE, _projectManager)
-            : _revokeRole(PROJECT_MANAGER_ROLE, _projectManager);
+        add
+            ? _grantRole(PROJECT_MANAGER_ROLE, projectManager)
+            : _revokeRole(PROJECT_MANAGER_ROLE, projectManager);
     }
+
+    function setOwner(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(
+            ownerThreshold,
+            DEFAULT_ADMIN_ROLE,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        )
+    {
+        (address owner, bool add) = abi.decode(_request.data, (address, bool));
+
+        require(owner != address(0), "ChugSplashAuth: owner cannot be address(0)");
+
+        add ? _grantRole(DEFAULT_ADMIN_ROLE, owner) : _revokeRole(DEFAULT_ADMIN_ROLE, owner);
+    }
+
+    // TODO: events
+
+    function setOwnerThreshold(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(
+            ownerThreshold,
+            DEFAULT_ADMIN_ROLE,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        )
+    {
+        uint256 newThreshold = abi.decode(_request.data, (uint256));
+
+        require(newThreshold > 0, "ChugSplashAuth: threshold cannot be 0");
+
+        ownerThreshold = newThreshold;
+    }
+
+    // TODO: do you have logic for adding and removing each role?
 
     function exportProxy(
         bytes32 _authRoot,
@@ -80,6 +163,7 @@ contract ChugSplashAuth is AccessControl {
         ActionProof memory _proof
     )
         public
+        incrementNonce
         isValidAuthAction(
             ownerThreshold,
             DEFAULT_ADMIN_ROLE,
@@ -94,8 +178,6 @@ contract ChugSplashAuth is AccessControl {
             (string, string, address)
         );
 
-        nonce += 1;
-
         manager.exportProxy(projectName, referenceName, newOwner);
     }
 
@@ -107,9 +189,9 @@ contract ChugSplashAuth is AccessControl {
         bytes[] memory _signatures,
         ActionProof memory _proof
     ) {
-        AuthAction memory authAction = authActions[_authRoot];
+        AuthState memory authState = authStates[_authRoot];
         require(
-            authAction.status == AuthActionStatus.PROPOSED,
+            authState.status == AuthActionStatus.PROPOSED,
             "ChugSplashAuth: action must be proposed"
         );
 
@@ -120,7 +202,7 @@ contract ChugSplashAuth is AccessControl {
             _verifyingRole,
             _signatures,
             _proof,
-            authAction.numLeafs
+            authState.numLeafs
         );
         _;
     }
@@ -132,6 +214,7 @@ contract ChugSplashAuth is AccessControl {
         ActionProof memory _proof
     )
         public
+        incrementNonce
         isValidAuthAction(
             ownerThreshold,
             DEFAULT_ADMIN_ROLE,
@@ -145,12 +228,65 @@ contract ChugSplashAuth is AccessControl {
 
         require(proposer != address(0), "ChugSplashAuth: proposer cannot be address(0)");
 
-        nonce += 1;
-
-        _grantRole(PROPOSER_ROLE_HASH, proposer);
+        _grantRole(PROPOSER_ROLE, proposer);
     }
 
-    
+    // TODO: change name to "updateState"
+    modifier incrementNonce(bytes32 _authRoot) {
+        _;
+        nonce += 1;
+        AuthState memory authState = authStates[_authRoot];
+        authState.actionsExecuted += 1;
+        if (authState.actionsExecuted == authState.numActions) {
+            authState.status = AuthActionStatus.COMPLETED;
+            // emit AuthActionCompleted(...);
+        }
+    }
+
+    function updateProject(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(
+            ownerThreshold,
+            DEFAULT_ADMIN_ROLE,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        )
+    {
+        (
+            string memory projectName,
+            address[] memory projectOwnersToRemove,
+            uint256 newThreshold,
+            address[] memory newProjectOwners
+        ) = abi.decode(_request.data, (string, address[], uint256, address[]));
+
+        require(bytes(projectName).length > 0, "ChugSplashAuth: project name cannot be empty");
+        require(newThreshold > 0, "ChugSplashAuth: threshold must be greater than 0");
+        require(thresholds[projectName] > 0, "ChugSplashAuth: project does not exist");
+
+        thresholds[projectName] = newThreshold;
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+
+        uint256 numRemoved = projectOwnersToRemove.length;
+        for (uint256 i = 0; i < numRemoved; i++) {
+            _revokeRole(projectOwnerRole, projectOwnersToRemove[i]);
+        }
+
+        uint256 numAdded = newProjectOwners.length;
+        for (uint256 i = 0; i < numAdded; i++) {
+            _grantRole(projectOwnerRole, newProjectOwners[i]);
+        }
+    }
+
+    // TODO: check that you always increment the nonce
 
     // TODO: mv or rm
     struct ContractInfoWithReferenceName {
@@ -166,21 +302,13 @@ contract ChugSplashAuth is AccessControl {
     // projectName => threshold
     mapping(string => uint256) public thresholds;
 
-    // merkle root of auth tree => AuthAction
-    mapping(bytes32 => AuthAction) public authActions;
+    // merkle root of auth tree => AuthState
+    mapping(bytes32 => AuthState) public authStates;
 
-    struct AuthBundle {
-        bytes32 root;
-        BundledAuthAction[] actions;
-    }
-
-    struct BundledAuthAction {
-        AuthAction action;
-        ActionProof proof;
-    }
-
-    struct AuthAction {
+    struct AuthState {
         AuthActionStatus status;
+        uint256 actionsExecuted;
+        uint256 numActions;
         uint256 numLeafs;
     }
 
@@ -190,7 +318,7 @@ contract ChugSplashAuth is AccessControl {
         COMPLETED
     }
 
-    bytes32 private constant PROPOSER_ROLE_HASH = keccak256("ProposerRole");
+    bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
 
     bytes32 private constant PROJECT_MANAGER_ROLE = keccak256("ProjectManagerRole");
 
@@ -199,16 +327,6 @@ contract ChugSplashAuth is AccessControl {
     // TODO: after writing every permissioned function: add a modifier or something that checks if
     // the authRoot has been proposed
 
-    // TODO: require that the authRoots are different
-    // TODO: input validation
-    // TODO: must be signed by a proposer
-    // function proposeAuthAction(bytes32 _proposedAuthRoot, ForwardRequest memory _request, bytes[] memory _signatures, ActionProof memory _proof) external {
-    //     require(authActions[_authRoot].status == AuthActionStatus.EMPTY, "ChugSplashAuth: auth action not empty");
-    //     authActions[_authRoot] = AuthAction({ status: AuthActionStatus.PROPOSED, numLeafs: _numLeafs });
-
-    //     verifySignatures(_authRoot, _request, 1, PROPOSER_ROLE_HASH, _signatures, _proof, authAction.numLeafs);
-    // }
-
     // TODO(docs): meta transaction must be signed by a project manager
     // TODO(docs): the call to `manager.setContractKind` will revert if any of the contracts already belong to a project
     function createProject(
@@ -216,27 +334,28 @@ contract ChugSplashAuth is AccessControl {
         ForwardRequest memory _request,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof) {
-        // TODO: rm _ from these vars
+    )
+        public
+        incrementNonce
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+    {
         (
-            string memory _projectName,
-            uint256 _threshold,
-            address[] memory _projectOwners,
-            ContractInfo[] memory _contractInfoArray
+            string memory projectName,
+            uint256 threshold,
+            address[] memory projectOwners,
+            ContractInfo[] memory contractInfoArray
         ) = abi.decode(_request.data, (string, uint256, address[], ContractInfo[]));
 
-        require(bytes(_projectName).length > 0, "ChugSplashAuth: project name cannot be empty");
-        require(_threshold > 0, "ChugSplashAuth: threshold must be greater than 0");
-        require(thresholds[_projectName] == 0, "ChugSplashAuth: project already exists");
+        require(bytes(projectName).length > 0, "ChugSplashAuth: project name cannot be empty");
+        require(threshold > 0, "ChugSplashAuth: threshold must be greater than 0");
+        require(thresholds[projectName] == 0, "ChugSplashAuth: project already exists");
 
-        nonce += 1;
+        thresholds[projectName] = threshold;
 
-        thresholds[_projectName] = _threshold;
-
-        bytes32 projectOwnerRoleHash = keccak256(abi.encodePacked(_projectName, "ProjectOwner"));
-        uint256 numProjectOwners = _projectOwners.length;
+        bytes32 projectOwnerRoleHash = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        uint256 numProjectOwners = projectOwners.length;
         for (uint256 i = 0; i < numProjectOwners; i++) {
-            address projectOwner = _projectOwners[i];
+            address projectOwner = projectOwners[i];
             require(
                 projectOwner != address(0),
                 "ChugSplashAuth: project owner cannot be address(0)"
@@ -244,9 +363,202 @@ contract ChugSplashAuth is AccessControl {
             _grantRole(projectOwnerRoleHash, projectOwner);
         }
 
-        if (_contractInfoArray.length > 0) {
-            manager.setContractInfo(_projectName, _contractInfoArray);
+        if (contractInfoArray.length > 0) {
+            manager.addContractsToProject(projectName, contractInfoArray);
         }
+    }
+
+    function revokeProposer(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+    {
+        address proposerToRemove = abi.decode(_request.data, (address));
+        _revokeRole(DEFAULT_ADMIN_ROLE, proposerToRemove);
+    }
+
+    function withdrawETH(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    )
+        public
+        incrementNonce
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+    {
+        address receiver = abi.decode(_request.data, (address, ));
+        manager.withdrawOwnerETH(receiver);
+    }
+
+    function approveDeployment(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        (
+            string memory projectName,
+            bytes32 actionRoot,
+            bytes32 targetRoot,
+            uint256 numActions,
+            uint256 numTargets,
+            uint256 numImmutableContracts,
+            string memory configUri
+        ) = abi.decode(_request.data, (string, uint256, address[], ContractInfo[]));
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        manager.approveDeployment(
+            actionRoot,
+            targetRoot,
+            numActions,
+            numTargets,
+            numImmutableContracts,
+            configUri,
+            true
+        );
+    }
+
+    function setProjectThreshold(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        (string memory projectName, uint256 newThreshold) = abi.decode(
+            _request.data,
+            (string, uint256)
+        );
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        require(newThreshold > 0, "ChugSplashAuth: threshold cannot be 0");
+
+        thresholds[projectName] = newThreshold;
+    }
+
+    function setProjectOwner(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        (string memory projectName, address projectOwner, bool add) = abi.decode(
+            _request.data,
+            (string, address, bool)
+        );
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        require(projectOwner != address(0), "ChugSplashAuth: project owner cannot be address(0)");
+
+        add
+            ? _grantRole(projectOwnerRole, projectOwner)
+            : _revokeRole(projectOwnerRole, projectOwner);
+    }
+
+    function removeProject(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        (string memory projectName, string[] memory referenceNames) = abi.decode(
+            _request.data,
+            (string, string[])
+        );
+        require(referenceNames.length > 0, "ChugSplashAuth: no contracts to remove");
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        manager.removeContractsFromProject(projectName, referenceNames);
+
+        require(
+            manager.numContracts[projectName] == 0,
+            "ChugSplashAuth: leftover contract(s) in project"
+        );
+
+        thresholds[projectName] = 0;
+    }
+
+    function cancelActiveDeployment(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        string memory projectName = abi.decode(_request.data, (string));
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        manager.cancelActiveChugSplashDeployment();
+    }
+
+    function cancelActiveDeployment(
+        bytes32 _authRoot,
+        ForwardRequest memory _request,
+        bytes[] memory _signatures,
+        ActionProof memory _proof
+    ) public incrementNonce {
+        string memory projectName = abi.decode(_request.data, (string));
+
+        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+        assertValidAuthAction(
+            thresholds[projectName],
+            projectOwnerRole,
+            _authRoot,
+            _request,
+            _signatures,
+            _proof
+        );
+
+        manager.cancelActiveChugSplashDeployment();
     }
 
     uint256 public nonce;
