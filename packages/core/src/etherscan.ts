@@ -30,7 +30,7 @@ import { getChugSplashManagerAddress } from './addresses'
 import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { CHUGSPLASH_CONTRACT_INFO } from './contract-info'
+import { getChugSplashConstants } from './contract-info'
 
 export interface EtherscanResponseBody {
   status: string
@@ -136,7 +136,7 @@ export const verifyChugSplash = async (
     artifact,
     expectedAddress,
     constructorArgs,
-  } of CHUGSPLASH_CONTRACT_INFO) {
+  } of getChugSplashConstants((await provider.getNetwork()).chainId)) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(

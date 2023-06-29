@@ -2,3 +2,6 @@
 pragma solidity ^0.8.15;
 
 import { Forwarder } from "@thirdweb-dev/contracts/forwarder/Forwarder.sol";
+import {
+    LZEndpointMock
+} from "@layerzerolabs/solidity-examples/contracts/mocks/LZEndpointMock.sol";
