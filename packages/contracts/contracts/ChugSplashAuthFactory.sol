@@ -66,8 +66,6 @@ contract ChugSplashAuthFactory is Ownable {
 
     address public currentAuthImplementation;
 
-    // TODO: check specs in linear. already did registry spec and "Remove trusted managed proposal logic"
-
     /**
      * @param _owner Address of the owner of this contract.
      */
@@ -106,7 +104,6 @@ contract ChugSplashAuthFactory is Ownable {
         // Set the auth proxy admin to itself
         authProxy.changeAdmin(authProxyAddress);
 
-        // TODO: update event
         emit AuthDeployed(
             salt,
             managerProxy,
