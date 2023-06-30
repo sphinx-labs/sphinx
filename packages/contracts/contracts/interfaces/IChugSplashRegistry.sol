@@ -5,16 +5,11 @@ pragma experimental ABIEncoderV2;
 import { Version } from "../ChugSplashDataTypes.sol";
 
 interface IChugSplashRegistry {
-    function projects(bytes32) external view returns (address payable);
+    function managers(bytes32) external view returns (address payable);
 
-    function finalizeRegistration(
-        bytes32 _organizationID,
-        address _owner,
-        Version memory _version,
-        bytes memory _data
-    ) external;
+    function register(address _owner, bytes memory _data, uint256 _saltNonce) external returns (address);
 
-    function managerProxies(address) external view returns (bool);
+    function isDeployed(address) external view returns (bool);
 
     function addContractKind(bytes32 _contractKindHash, address _adapter) external;
 

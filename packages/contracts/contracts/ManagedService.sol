@@ -6,7 +6,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 /**
  * @title ManagedService
  * @notice Contract controlled by the ChugSplash managed service. This contract allows the managed
-   service to remotely execute deployments, propose deployments, and collect the protocol's fee.
+   service to remotely execute deployments and collect the protocol's fee.
 Users can opt in to this functionality if they choose to do so.
  */
 contract ManagedService is AccessControl {

@@ -19,6 +19,7 @@ pragma solidity >=0.7.4 <0.9.0;
  * @custom:field configUri URI pointing to the config file for the deployment.
  */
 struct DeploymentState {
+    string projectName;
     DeploymentStatus status;
     bool[] actions;
     uint256 targets;
@@ -37,34 +38,24 @@ struct DeploymentState {
  *
  * @custom:field actionType The type of action.
  * @custom:field data The ABI-encoded data associated with the action.
- * @custom:field addr The address of the contract to which the action applies.
- * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  * @custom:field referenceName The reference name associated with the contract.
  */
 struct RawChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
-    address payable addr;
-    bytes32 contractKindHash;
     string referenceName;
 }
 
 /**
  * @notice Struct representing a target.
  *
- * @custom:field projectName The name of the project associated with the target.
  * @custom:field referenceName The reference name associated with the target.
- * @custom:field addr The address of the proxy associated with this target.
  * @custom:field implementation The address that will be the proxy's implementation at the end of
    the deployment.
- * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  */
 struct ChugSplashTarget {
-    string projectName;
     string referenceName;
-    address payable addr;
     address implementation;
-    bytes32 contractKindHash;
 }
 
 /**
@@ -83,7 +74,6 @@ enum ChugSplashActionType {
    with the `CANCELLED` status being an exception.
  *
  * @custom:value EMPTY The deployment does not exist.
- * @custom:value PROPOSED The deployment has been proposed.
  * @custom:value APPROVED The deployment has been approved by the owner.
  * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
  * @custom:value COMPLETED The deployment has been completed.
@@ -92,7 +82,6 @@ enum ChugSplashActionType {
  */
 enum DeploymentStatus {
     EMPTY,
-    PROPOSED,
     APPROVED,
     PROXIES_INITIATED,
     COMPLETED,
@@ -153,4 +142,41 @@ struct BundledChugSplashTarget {
 struct ActionProof {
     uint256 actionIndex;
     bytes32[] siblings;
+}
+
+struct ForwardRequest {
+    uint256 chainId;
+    address from;
+    address to;
+    uint256 nonce;
+    bytes data;
+}
+
+struct ContractInfo {
+    string referenceName;
+    address addr;
+    bytes32 contractKindHash;
+}
+
+struct ContractKindAndAddress {
+    address addr;
+    bytes32 contractKindHash;
+}
+
+struct ProjectAndReferenceName {
+    string projectName;
+    string referenceName;
+}
+
+struct AuthState {
+    AuthStatus status;
+    uint256 actionsExecuted;
+    uint256 numActions;
+    uint256 numLeafs;
+}
+
+enum AuthStatus {
+    EMPTY,
+    PROPOSED,
+    COMPLETED
 }

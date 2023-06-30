@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 contract ChugSplashManagerEvents {
     /**
-     * @notice Emitted when a deployment is proposed.
+     * @notice Emitted when a deployment is approved.
 
-     * @param deploymentId   ID of the deployment that was proposed.
+     * @param deploymentId   ID of the deployment that was approved.
      * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
      * @param numActions   Number of actions in the deployment.
@@ -13,9 +13,9 @@ contract ChugSplashManagerEvents {
      * @param numImmutableContracts   Number of non-proxy contracts in the deployment.
      * @param configUri  URI of the config file that can be used to fetch the deployment.
      * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
-     * @param proposer     Address of the account that proposed the deployment.
+     * @param approver     Address of the account that approved the deployment.
      */
-    event ChugSplashDeploymentProposed(
+    event ChugSplashDeploymentApproved(
         bytes32 indexed deploymentId,
         bytes32 actionRoot,
         bytes32 targetRoot,
@@ -24,7 +24,7 @@ contract ChugSplashManagerEvents {
         uint256 numImmutableContracts,
         string configUri,
         bool remoteExecution,
-        address proposer
+        address approver
     );
 
     /**
@@ -120,25 +120,6 @@ contract ChugSplashManagerEvents {
     event OwnerWithdrewETH(address indexed owner, address indexed to, uint256 amount);
 
     /**
-     * @notice Emitted when the owner of this contract adds or removes a proposer.
-     *
-     * @param proposer Address of the proposer that was added or removed.
-     * @param isProposer Boolean indicating if the proposer was added or removed.
-     * @param owner Address of the owner.
-     */
-    event ProposerSet(address indexed proposer, bool indexed isProposer, address indexed owner);
-
-    /**
-     * @notice Emitted when the owner of this contract toggles the ability of the ManagedService
-       contract to propose deployments.
-     *
-        * @param isManaged Boolean indicating if the ManagedService contract is allowed to propose
-          deployments.
-        * @param owner Address of the owner.
-     */
-    event ToggledManagedProposals(bool isManaged, address indexed owner);
-
-    /**
      * @notice Emitted when ETH is deposited in this contract.
      *
      * @param from   Address of the account that deposited ETH.
@@ -153,7 +134,6 @@ contract ChugSplashManagerEvents {
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
-     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
@@ -161,7 +141,6 @@ contract ChugSplashManagerEvents {
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
-        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 

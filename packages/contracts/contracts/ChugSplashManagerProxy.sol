@@ -9,7 +9,7 @@ import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
  * @title ChugSplashManagerProxy
  * @notice Proxy contract owned by the user. This contract delegatecalls into the ChugSplashManager
    contract to perform deployments. This proxy is designed to be upgradable by the user in a fully
-   opt-in manner. New implementations of the ChugSplashManager must be approved by the
+   opt-in manner. New implementations of the ChugSplashManager must be approved by the owner of the
    ChugSplashRegistry contract to prevent malicious ChugSplashManager implementations from being
    used.
  */

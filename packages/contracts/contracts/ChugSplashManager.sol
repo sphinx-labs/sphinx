@@ -6,7 +6,10 @@ import {
     RawChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
-    DeploymentStatus
+    DeploymentStatus,
+    ContractInfo,
+    ContractKindAndAddress,
+    ProjectAndReferenceName
 } from "./ChugSplashDataTypes.sol";
 import {
     OwnableUpgradeable
@@ -25,9 +28,6 @@ import { ICreate3 } from "./interfaces/ICreate3.sol";
 import { Semver, Version } from "./Semver.sol";
 import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 import {
-    ERC2771ContextUpgradeable
-} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
-import {
     ContextUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
@@ -36,7 +36,7 @@ import { ChugSplashManagerEvents } from "./ChugSplashManagerEvents.sol";
  * @title ChugSplashManager
  * @custom:version 1.0.0
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
-   deployments. It contains the functionality for proposing, approving, and executing deployments,
+   deployments. It contains the functionality for approving and executing deployments,
    paying remote executors, and exporting proxies out of the ChugSplash system if desired. It exists
    as a single implementation contract behind ChugSplashManagerProxy contracts.
 
@@ -53,18 +53,12 @@ contract ChugSplashManager is
     ReentrancyGuardUpgradeable,
     Semver,
     IChugSplashManager,
-    ERC2771ContextUpgradeable,
     ChugSplashManagerEvents
 {
     /**
      * @notice Role required to be a remote executor for a deployment.
      */
     bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
-
-    /**
-     * @notice Role required to propose deployments through the ManagedService contract.
-     */
-    bytes32 internal constant MANAGED_PROPOSER_ROLE = keccak256("MANAGED_PROPOSER_ROLE");
 
     /**
      * @notice The contract kind hash for contracts that do not use a proxy (i.e. immutable
@@ -80,17 +74,17 @@ contract ChugSplashManager is
     /**
      * @notice Address of the Create3 contract.
      */
-    address public immutable create3;
+    address internal immutable create3;
 
     /**
      * @notice Address of the GasPriceCalculator contract.
      */
-    IGasPriceCalculator public immutable gasPriceCalculator;
+    IGasPriceCalculator internal immutable gasPriceCalculator;
 
     /**
      * @notice Address of the ManagedService contract.
      */
-    IAccessControl public immutable managedService;
+    IAccessControl internal immutable managedService;
 
     /**
      * @notice Amount that must be stored in this contract in order to remotely execute a
@@ -102,20 +96,20 @@ contract ChugSplashManager is
        `executionLockTime`. This is necessary to prevent owners from trolling the remote executor by
        immediately cancelling and withdrawing funds.
      */
-    uint256 public immutable ownerBondAmount;
+    uint256 internal immutable ownerBondAmount;
 
     /**
      * @notice Amount of time for a remote executor to finish executing a deployment once they have
        claimed it.
      */
-    uint256 public immutable executionLockTime;
+    uint256 internal immutable executionLockTime;
 
     /**
      * @notice Percentage that the remote executor profits from a deployment. This is denominated as
        a percentage of the cost of execution. For example, if a deployment costs 1 gwei to execute
        and the executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
      */
-    uint256 public immutable executorPaymentPercentage;
+    uint256 internal immutable executorPaymentPercentage;
 
     /**
      * @notice Percentage that the protocol creators profit during a remotely executed deployment.
@@ -123,7 +117,7 @@ contract ChugSplashManager is
        costs 1 gwei to execute and the protocolPaymentPercentage is 10, then the protocol will
        profit 0.1 gwei. Note that the protocol does not profit during a self-executed deployment.
      */
-    uint256 public immutable protocolPaymentPercentage;
+    uint256 internal immutable protocolPaymentPercentage;
 
     /**
      * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
@@ -132,21 +126,9 @@ contract ChugSplashManager is
     mapping(address => uint256) public executorDebt;
 
     /**
-     * @notice Maps an address to a boolean indicating if the address has been approved by the owner
-       to propose deployments. Note that this does include proposers from the managed service (see
-       `isProposer`).
-     */
-    mapping(address => bool) public proposers;
-
-    /**
      * @notice Mapping of deployment IDs to deployment state.
      */
     mapping(bytes32 => DeploymentState) internal _deployments;
-
-    /**
-     * @notice Organization ID for this contract.
-     */
-    bytes32 public organizationID;
 
     /**
      * @notice ID of the currently active deployment.
@@ -164,36 +146,20 @@ contract ChugSplashManager is
     uint256 public totalProtocolDebt;
 
     /**
-     * @notice A boolean indicating if the owner of this contract has approved the ManagedService
-       contract to propose deployments on their behalf.
-     */
-    bool public allowManagedProposals;
-
-    /**
      * @notice Reverts if the caller is not a remote executor.
      */
     error CallerIsNotRemoteExecutor();
 
     /**
-     * @notice Reverts if the caller is not a proposer.
+     * @notice Reverts if the deployment state cannot be approved.
      */
-    error CallerIsNotProposer();
-
-    /**
-     * @notice Reverts if the deployment state is not proposable.
-     */
-    error DeploymentStateIsNotProposable();
+    error DeploymentStateIsNotApprovable();
 
     /**
      * @notice Reverts if there isn't at least `OWNER_BOND_AMOUNT` in this contract. Only applies
        to deployments that will be remotely executed.
      */
     error InsufficientOwnerBond();
-
-    /**
-     * @notice Reverts if the deployment state is not proposed.
-     */
-    error DeploymentIsNotProposed();
 
     /**
      * @notice Reverts if there is another active deployment ID.
@@ -335,15 +301,17 @@ contract ChugSplashManager is
     error FailedToGetAddress();
 
     error ProjectNameCannotBeEmpty();
-    error ContractAlreadyBelongsToAProject();
     error ReferenceNameCannotBeEmpty();
     error ContractAddressCannotBeZero();
+    error AddressAlreadyExistsInAProject();
+    error ReferenceNameAlreadyExistsInProject();
+    error ContractNotInProject();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
      */
     modifier onlyExecutor() {
-        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, _msgSender())) {
+        if (!managedService.hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
             revert CallerIsNotRemoteExecutor();
         }
         _;
@@ -373,12 +341,8 @@ contract ChugSplashManager is
         uint256 _ownerBondAmount,
         uint256 _executorPaymentPercentage,
         uint256 _protocolPaymentPercentage,
-        Version memory _version,
-        address _trustedForwarder
-    )
-        Semver(_version.major, _version.minor, _version.patch)
-        ERC2771ContextUpgradeable(_trustedForwarder)
-    {
+        Version memory _version
+    ) Semver(_version.major, _version.minor, _version.patch) {
         registry = _registry;
         create3 = _create3;
         gasPriceCalculator = _gasPriceCalculator;
@@ -387,36 +351,24 @@ contract ChugSplashManager is
         ownerBondAmount = _ownerBondAmount;
         executorPaymentPercentage = _executorPaymentPercentage;
         protocolPaymentPercentage = _protocolPaymentPercentage;
+
+        _disableInitializers();
     }
 
     /**
      * @notice Allows anyone to send ETH to this contract.
      */
     receive() external payable {
-        emit ETHDeposited(_msgSender(), msg.value);
+        emit ETHDeposited(msg.sender, msg.value);
         registry.announce("ETHDeposited");
     }
 
     /**
      * @inheritdoc IChugSplashManager
-     *
-     * @param _data Initialization data. We expect the following data, ABI-encoded:
-     *              - address _owner: Address of the owner of this contract.
-     *              - bytes32 _organizationID: Organization ID for this contract.
-     *              - bool _allowManagedProposals: Whether or not to allow upgrade proposals from
-     *                the ManagedService contract.
-     *
+
      * @return Empty bytes.
      */
-    function initialize(bytes memory _data) external initializer returns (bytes memory) {
-        (address _owner, bytes32 _organizationID, bool _allowManagedProposals) = abi.decode(
-            _data,
-            (address, bytes32, bool)
-        );
-
-        organizationID = _organizationID;
-        allowManagedProposals = _allowManagedProposals;
-
+    function initialize(address _owner, bytes memory) external initializer returns (bytes memory) {
         __ReentrancyGuard_init();
         __Ownable_init();
         _transferOwnership(_owner);
@@ -425,10 +377,9 @@ contract ChugSplashManager is
     }
 
     /**
-     * @notice Propose a new deployment. No action can be taken on the deployment until it is
-       approved via the `approve` function. Only callable by the owner of this contract, a proposer
-       that has been approved by the owner, or the ManagedService contract, if
-       `allowManagedProposals` is true. These permissions prevent spam.
+     * @notice Approve a deployment. Only callable by the owner of this contract. If remote
+       execution is enabled, there must be at least `ownerBondAmount` deposited in this contract
+       before the deployment can be approved.
      *
      * @param _actionRoot Root of the Merkle tree containing the actions for the deployment.
      * This may be `bytes32(0)` if there are no actions in the deployment.
@@ -440,7 +391,8 @@ contract ChugSplashManager is
      * @param _configUri  URI pointing to the config file for the deployment.
      * @param _remoteExecution Whether or not to allow remote execution of the deployment.
      */
-    function propose(
+    function approve(
+        string memory _projectName,
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -448,14 +400,16 @@ contract ChugSplashManager is
         uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
-    ) public {
-        if (!isProposer(_msgSender())) {
-            revert CallerIsNotProposer();
+    ) public onlyOwner {
+        if (activeDeploymentId != bytes32(0)) {
+            revert AnotherDeploymentInProgress();
         }
+        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
 
         // Compute the deployment ID.
         bytes32 deploymentId = keccak256(
             abi.encode(
+                _projectName,
                 _actionRoot,
                 _targetRoot,
                 _numActions,
@@ -467,88 +421,6 @@ contract ChugSplashManager is
 
         DeploymentState storage deployment = _deployments[deploymentId];
 
-        DeploymentStatus status = deployment.status;
-        if (
-            status != DeploymentStatus.EMPTY &&
-            status != DeploymentStatus.COMPLETED &&
-            status != DeploymentStatus.CANCELLED &&
-            status != DeploymentStatus.FAILED
-        ) {
-            revert DeploymentStateIsNotProposable();
-        }
-
-        deployment.status = DeploymentStatus.PROPOSED;
-        deployment.actionRoot = _actionRoot;
-        deployment.targetRoot = _targetRoot;
-        deployment.numImmutableContracts = _numImmutableContracts;
-        deployment.actions = new bool[](_numActions);
-        deployment.targets = _numTargets;
-        deployment.remoteExecution = _remoteExecution;
-        deployment.configUri = _configUri;
-
-        emit ChugSplashDeploymentProposed(
-            deploymentId,
-            _actionRoot,
-            _targetRoot,
-            _numActions,
-            _numTargets,
-            _numImmutableContracts,
-            _configUri,
-            _remoteExecution,
-            _msgSender()
-        );
-        registry.announceWithData("ChugSplashDeploymentProposed", abi.encodePacked(_msgSender()));
-    }
-
-    /**
-     * @notice Wrapper on the propose function which allows for a gasless proposal where the cost of
-     *         the using proposal is added to the protocol debt. This allows us to provide gasless
-     *         proposals using meta transactions while collecting the cost from the user after
-     *         execution completes.
-     */
-    function gaslesslyPropose(
-        bytes32 _actionRoot,
-        bytes32 _targetRoot,
-        uint256 _numActions,
-        uint256 _numTargets,
-        uint256 _numImmutableContracts,
-        string memory _configUri,
-        bool _remoteExecution
-    ) external {
-        uint256 initialGasLeft = gasleft();
-
-        propose(
-            _actionRoot,
-            _targetRoot,
-            _numActions,
-            _numTargets,
-            _numImmutableContracts,
-            _configUri,
-            _remoteExecution
-        );
-
-        // Get the gas price
-        uint256 gasPrice = gasPriceCalculator.getGasPrice();
-        // Estimate the cost of the call data
-        uint256 calldataGasUsed = _msgData().length * 16;
-        // Calculate the gas used for the entire transaction, and add a buffer of 50k.
-        uint256 estGasUsed = 100_000 + calldataGasUsed + initialGasLeft - gasleft();
-        uint256 proposalCost = gasPrice * estGasUsed;
-
-        // Add the cost of the proposal to the protocol debt
-        totalProtocolDebt += proposalCost;
-    }
-
-    /**
-     * @notice Allows the owner to approve a deployment to be executed. If remote execution is
-       enabled, there must be at least `ownerBondAmount` deposited in this contract before the
-       deployment can be approved. The deployment must be proposed before it can be approved.
-     *
-     * @param _deploymentId ID of the deployment to approve
-     */
-    function approve(bytes32 _deploymentId) external onlyOwner {
-        DeploymentState storage deployment = _deployments[_deploymentId];
-
         if (
             deployment.remoteExecution &&
             address(this).balance > totalDebt() &&
@@ -557,19 +429,38 @@ contract ChugSplashManager is
             revert InsufficientOwnerBond();
         }
 
-        if (deployment.status != DeploymentStatus.PROPOSED) {
-            revert DeploymentIsNotProposed();
+        DeploymentStatus status = deployment.status;
+        if (
+            status != DeploymentStatus.EMPTY &&
+            status != DeploymentStatus.COMPLETED &&
+            status != DeploymentStatus.CANCELLED &&
+            status != DeploymentStatus.FAILED
+        ) {
+            revert DeploymentStateIsNotApprovable();
         }
 
-        if (activeDeploymentId != bytes32(0)) {
-            revert AnotherDeploymentInProgress();
-        }
-
-        activeDeploymentId = _deploymentId;
+        deployment.projectName = _projectName;
         deployment.status = DeploymentStatus.APPROVED;
+        deployment.actionRoot = _actionRoot;
+        deployment.targetRoot = _targetRoot;
+        deployment.numImmutableContracts = _numImmutableContracts;
+        deployment.actions = new bool[](_numActions);
+        deployment.targets = _numTargets;
+        deployment.remoteExecution = _remoteExecution;
+        deployment.configUri = _configUri;
 
-        emit ChugSplashDeploymentApproved(_deploymentId);
-        registry.announce("ChugSplashDeploymentApproved");
+        emit ChugSplashDeploymentApproved(
+            deploymentId,
+            _actionRoot,
+            _targetRoot,
+            _numActions,
+            _numTargets,
+            _numImmutableContracts,
+            _configUri,
+            _remoteExecution,
+            msg.sender
+        );
+        registry.announceWithData("ChugSplashDeploymentApproved", abi.encodePacked(msg.sender));
     }
 
     /**
@@ -624,7 +515,7 @@ contract ChugSplashManager is
         ) {
             // Give the owner's bond to the executor if the deployment is cancelled within the
             // `executionLockTime` window.
-            executorDebt[_msgSender()] += ownerBondAmount;
+            executorDebt[msg.sender] += ownerBondAmount;
             totalExecutorDebt += ownerBondAmount;
         }
 
@@ -634,7 +525,7 @@ contract ChugSplashManager is
 
         emit ChugSplashDeploymentCancelled(
             cancelledDeploymentId,
-            _msgSender(),
+            msg.sender,
             deployment.actionsExecuted
         );
         registry.announce("ChugSplashDeploymentCancelled");
@@ -662,9 +553,9 @@ contract ChugSplashManager is
         }
 
         deployment.timeClaimed = block.timestamp;
-        deployment.selectedExecutor = _msgSender();
+        deployment.selectedExecutor = msg.sender;
 
-        emit ChugSplashDeploymentClaimed(activeDeploymentId, _msgSender());
+        emit ChugSplashDeploymentClaimed(activeDeploymentId, msg.sender);
         registry.announce("ChugSplashDeploymentClaimed");
     }
 
@@ -681,19 +572,19 @@ contract ChugSplashManager is
         if (_amount == 0) {
             revert AmountMustBeGreaterThanZero();
         }
-        if (executorDebt[_msgSender()] < _amount) {
+        if (executorDebt[msg.sender] < _amount) {
             revert InsufficientExecutorDebt();
         }
         if (_amount + totalProtocolDebt > address(this).balance) {
             revert InsufficientFunds();
         }
 
-        executorDebt[_msgSender()] -= _amount;
+        executorDebt[msg.sender] -= _amount;
         totalExecutorDebt -= _amount;
 
-        emit ExecutorPaymentClaimed(_msgSender(), _amount, executorDebt[_msgSender()]);
+        emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
 
-        (bool paidExecutor, ) = payable(_msgSender()).call{ value: _amount }(new bytes(0));
+        (bool paidExecutor, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         if (!paidExecutor) {
             revert WithdrawalFailed();
         }
@@ -720,7 +611,7 @@ contract ChugSplashManager is
         string memory _referenceName,
         address _newOwner
     ) external onlyOwner {
-        ContractAddressAndKind memory info = projects[_projectName][_referenceName];
+        ContractKindAndAddress memory info = projects[_projectName][_referenceName];
         address proxy = info.addr;
         bytes32 contractKindHash = info.contractKindHash;
 
@@ -764,7 +655,7 @@ contract ChugSplashManager is
 
         uint256 amount = address(this).balance - totalDebt();
 
-        emit OwnerWithdrewETH(_msgSender(), _to, amount);
+        emit OwnerWithdrewETH(msg.sender, _to, amount);
 
         (bool success, ) = payable(_to).call{ value: amount }(new bytes(0));
         if (!success) {
@@ -772,33 +663,6 @@ contract ChugSplashManager is
         }
 
         registry.announce("OwnerWithdrewETH");
-    }
-
-    /**
-     * @notice Allows the owner of this contract to add or remove a proposer.
-     *
-     * @param _proposer Address of the proposer to add or remove.
-     * @param _isProposer Whether or not the proposer should be added or removed.
-     */
-    function setProposer(address _proposer, bool _isProposer) external onlyOwner {
-        proposers[_proposer] = _isProposer;
-
-        emit ProposerSet(_proposer, _isProposer, _msgSender());
-        registry.announceWithData("ProposerSet", abi.encodePacked(_isProposer));
-    }
-
-    /**
-     * @notice Allows the owner to toggle whether or not proposals via the ManagedService contract
-       is allowed.
-     */
-    function toggleAllowManagedProposals() external onlyOwner {
-        allowManagedProposals = !allowManagedProposals;
-
-        emit ToggledManagedProposals(allowManagedProposals, _msgSender());
-        registry.announceWithData(
-            "ToggledManagedProposals",
-            abi.encodePacked(allowManagedProposals)
-        );
     }
 
     /**
@@ -868,15 +732,7 @@ contract ChugSplashManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(
-                        abi.encode(
-                            action.referenceName,
-                            action.addr,
-                            action.actionType,
-                            action.contractKindHash,
-                            action.data
-                        )
-                    ),
+                    keccak256(abi.encode(action.referenceName, action.actionType, action.data)),
                     actionIndex,
                     proof,
                     deployment.actions.length
@@ -900,7 +756,17 @@ contract ChugSplashManager is
                     _completeDeployment(deployment);
                 }
             } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
-                _setProxyStorage(deployment, action, actionIndex);
+                ContractKindAndAddress memory kindAndAddress = projects[deployment.projectName][
+                    action.referenceName
+                ];
+                if (kindAndAddress.addr == address(0)) revert ContractAddressCannotBeZero();
+                _setProxyStorage(
+                    deployment,
+                    kindAndAddress.addr,
+                    kindAndAddress.contractKindHash,
+                    actionIndex,
+                    action.data
+                );
             } else {
                 revert InvalidActionType();
             }
@@ -944,28 +810,29 @@ contract ChugSplashManager is
             revert IncorrectNumberOfTargets();
         }
 
+        string memory projectName = deployment.projectName;
         ChugSplashTarget memory target;
         bytes32[] memory proof;
+        ContractKindAndAddress memory kindAndAddress;
+        bytes32 contractKindHash;
+        address addr;
         for (uint256 i = 0; i < numTargets; i++) {
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
+            kindAndAddress = projects[projectName][target.referenceName];
+            contractKindHash = kindAndAddress.contractKindHash;
+            addr = kindAndAddress.addr;
+
+            if (addr == address(0)) revert ContractAddressCannotBeZero();
+            if (contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
             if (
                 !MerkleTree.verify(
                     deployment.targetRoot,
-                    keccak256(
-                        abi.encode(
-                            target.projectName,
-                            target.referenceName,
-                            target.addr,
-                            target.implementation,
-                            target.contractKindHash
-                        )
-                    ),
+                    keccak256(abi.encode(target.referenceName, target.implementation)),
                     i,
                     proof,
                     deployment.targets
@@ -974,7 +841,7 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
-            address adapter = registry.adapters(target.contractKindHash);
+            address adapter = registry.adapters(contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
             }
@@ -986,7 +853,7 @@ contract ChugSplashManager is
             // they are not upgradable and cannot have state.
             // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateUpgrade, (target.addr))
+                abi.encodeCall(IProxyAdapter.initiateUpgrade, (payable(addr)))
             );
             if (!success) {
                 revert FailedToInitiateUpgrade();
@@ -996,7 +863,7 @@ contract ChugSplashManager is
         // Mark the deployment as initiated.
         deployment.status = DeploymentStatus.PROXIES_INITIATED;
 
-        emit ProxiesInitiated(activeDeploymentId, _msgSender());
+        emit ProxiesInitiated(activeDeploymentId, msg.sender);
         registry.announce("ProxiesInitiated");
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
@@ -1032,28 +899,29 @@ contract ChugSplashManager is
             revert IncorrectNumberOfTargets();
         }
 
+        string memory projectName = deployment.projectName;
         ChugSplashTarget memory target;
         bytes32[] memory proof;
+        ContractKindAndAddress memory kindAndAddress;
+        bytes32 contractKindHash;
+        address addr;
         for (uint256 i = 0; i < numTargets; i++) {
             target = _targets[i];
             proof = _proofs[i];
 
-            if (target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
+            kindAndAddress = projects[projectName][target.referenceName];
+            contractKindHash = kindAndAddress.contractKindHash;
+            addr = kindAndAddress.addr;
+
+            if (addr == address(0)) revert ContractAddressCannotBeZero();
+            if (contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
                 revert OnlyProxiesAllowed();
             }
 
             if (
                 !MerkleTree.verify(
                     deployment.targetRoot,
-                    keccak256(
-                        abi.encode(
-                            target.projectName,
-                            target.referenceName,
-                            target.addr,
-                            target.implementation,
-                            target.contractKindHash
-                        )
-                    ),
+                    keccak256(abi.encode(target.referenceName, target.implementation)),
                     i,
                     proof,
                     deployment.targets
@@ -1063,44 +931,28 @@ contract ChugSplashManager is
             }
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = registry.adapters(target.contractKindHash);
+            address adapter = registry.adapters(contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
             }
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.finalizeUpgrade, (target.addr, target.implementation))
+                abi.encodeCall(
+                    IProxyAdapter.finalizeUpgrade,
+                    (payable(addr), target.implementation)
+                )
             );
             if (!success) {
                 revert FailedToFinalizeUpgrade();
             }
-            emit ProxyUpgraded(
-                activeDeploymentId,
-                target.addr,
-                target.projectName,
-                target.referenceName
-            );
-            registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
+            emit ProxyUpgraded(activeDeploymentId, addr, projectName, target.referenceName);
+            registry.announceWithData("ProxyUpgraded", abi.encodePacked(addr));
         }
 
         _completeDeployment(deployment);
 
         _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
-    }
-
-    /**
-     * @notice Determines if a given address is allowed to propose deployments.
-     *
-     * @param _addr Address to check.
-     *
-     * @return True if the address is allowed to propose deployments, otherwise false.
-     */
-    function isProposer(address _addr) public view returns (bool) {
-        return
-            (allowManagedProposals && managedService.hasRole(MANAGED_PROPOSER_ROLE, _addr)) ||
-            proposers[_addr] ||
-            _addr == owner();
     }
 
     /**
@@ -1129,39 +981,38 @@ contract ChugSplashManager is
      * @notice Modifies a storage slot value within a proxy contract.
      *
      * @param _deployment The current deployment state struct.
-     * @param _action The `SET_STORAGE` action to execute.
      * @param _actionIndex The index of the action.
      */
     function _setProxyStorage(
         DeploymentState memory _deployment,
-        RawChugSplashAction memory _action,
-        uint256 _actionIndex
+        address _addr,
+        bytes32 _contractKindHash,
+        uint256 _actionIndex,
+        bytes memory _data
     ) internal {
+        if (_addr == address(0)) revert ContractAddressCannotBeZero();
         if (_deployment.status != DeploymentStatus.PROXIES_INITIATED) {
             revert ProxiesAreNotInitiated();
         }
 
         // Get the adapter for this reference name.
-        address adapter = registry.adapters(_action.contractKindHash);
+        address adapter = registry.adapters(_contractKindHash);
 
-        if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
+        if (_contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
             revert OnlyProxiesAllowed();
         }
 
-        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
-            _action.data,
-            (bytes32, uint8, bytes)
-        );
+        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(_data, (bytes32, uint8, bytes));
         // Delegatecall the adapter to call `setStorage` on the proxy.
         // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setStorage, (_action.addr, key, offset, val))
+            abi.encodeCall(IProxyAdapter.setStorage, (payable(_addr), key, offset, val))
         );
         if (!success) {
             revert SetStorageFailed();
         }
 
-        emit SetProxyStorage(activeDeploymentId, _action.addr, _msgSender(), _actionIndex);
+        emit SetProxyStorage(activeDeploymentId, _addr, msg.sender, _actionIndex);
         registry.announce("SetProxyStorage");
     }
 
@@ -1234,7 +1085,6 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
-                    _action.contractKindHash,
                     keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");
@@ -1244,7 +1094,7 @@ contract ChugSplashManager is
                 // (e.g. a constructor that reverts).
 
                 // Give the owner's bond to the executor.
-                executorDebt[_msgSender()] += ownerBondAmount;
+                executorDebt[msg.sender] += ownerBondAmount;
                 totalExecutorDebt += ownerBondAmount;
 
                 emit DeploymentFailed(
@@ -1271,7 +1121,7 @@ contract ChugSplashManager is
     function _completeDeployment(DeploymentState storage _deployment) internal {
         _deployment.status = DeploymentStatus.COMPLETED;
 
-        emit ChugSplashDeploymentCompleted(activeDeploymentId, _msgSender());
+        emit ChugSplashDeploymentCompleted(activeDeploymentId, msg.sender);
         registry.announce("ChugSplashDeploymentCompleted");
 
         activeDeploymentId = bytes32(0);
@@ -1296,7 +1146,7 @@ contract ChugSplashManager is
         // byte of calldata and 4 gas is used per zero-byte of calldata. We use 16 for simplicity
         // and because we must overestimate the executor's payment to ensure that it doesn't lose
         // money.
-        uint256 calldataGasUsed = _msgData().length * 16;
+        uint256 calldataGasUsed = msg.data.length * 16;
 
         // Estimate the total gas used in this transaction. We calculate this by adding the gas used
         // by the calldata with the net estimated gas used by this function so far (i.e.
@@ -1311,7 +1161,7 @@ contract ChugSplashManager is
 
         // Add the executor's payment to the executor debt.
         totalExecutorDebt += executorPayment;
-        executorDebt[_msgSender()] += executorPayment;
+        executorDebt[msg.sender] += executorPayment;
 
         // Add the protocol's payment to the protocol debt.
         totalProtocolDebt += protocolPayment;
@@ -1326,54 +1176,17 @@ contract ChugSplashManager is
 
      */
     function _assertCallerIsOwnerOrSelectedExecutor(bool _remoteExecution) internal view {
-        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != _msgSender()) {
+        if (_remoteExecution == true && getSelectedExecutor(activeDeploymentId) != msg.sender) {
             revert CallerIsNotSelectedExecutor();
-        } else if (_remoteExecution == false && owner() != _msgSender()) {
+        } else if (_remoteExecution == false && owner() != msg.sender) {
             revert CallerIsNotOwner();
         }
     }
 
-    /**
-     * @notice Use the ERC2771Recipient implementation to get the sender of the current call.
-     */
-    function _msgSender()
-        internal
-        view
-        override(ContextUpgradeable, ERC2771ContextUpgradeable)
-        returns (address sender)
-    {
-        sender = ERC2771ContextUpgradeable._msgSender();
-    }
-
-    /**
-     * @notice Use the ERC2771Recipient implementation to get the data of the current call.
-     */
-    function _msgData()
-        internal
-        view
-        override(ContextUpgradeable, ERC2771ContextUpgradeable)
-        returns (bytes calldata)
-    {
-        return ERC2771ContextUpgradeable._msgData();
-    }
-
     mapping(address => string) public contractToProjectName;
 
-    // TODO(docs) everywhere
-
-    // TODO: mv
-    struct ContractAddressAndKind {
-        address addr;
-        bytes32 contractKindHash;
-    }
-
-    struct ProjectAndReferenceName {
-        string projectName;
-        string referenceName;
-    }
-
-    // projectName => referenceName => ContractInfo
-    mapping(string => mapping(string => ContractAddressAndKind)) public projects;
+    // projectName => referenceName => contract kind and address
+    mapping(string => mapping(string => ContractKindAndAddress)) public projects;
 
     // contract address => project name and reference name
     mapping(address => ProjectAndReferenceName) public contracts;
@@ -1381,17 +1194,13 @@ contract ChugSplashManager is
     // projectName => number of contracts in the project
     mapping(string => uint256) public numContracts;
 
-    struct ContractInfo {
-        string referenceName;
-        address addr;
-        bytes32 contractKindHash;
-    }
-
     // TODO(docs): will revert if any of the contracts already belong to another project
+
     function addContractsToProject(
         string memory _projectName,
         ContractInfo[] memory _contractInfoArray
     ) external onlyOwner {
+        if (activeDeploymentId != bytes32(0)) revert AnotherDeploymentInProgress();
         if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
         if (_contractInfoArray.length == 0) return;
 
@@ -1415,7 +1224,7 @@ contract ChugSplashManager is
             if (projects[_projectName][referenceName].addr != address(0))
                 revert ReferenceNameAlreadyExistsInProject();
 
-            projects[_projectName][referenceName] = ContractAddressAndKind({
+            projects[_projectName][referenceName] = ContractKindAndAddress({
                 addr: addr,
                 contractKindHash: contractKindHash
             });
@@ -1430,6 +1239,7 @@ contract ChugSplashManager is
         string memory _projectName,
         string[] memory _referenceNames
     ) external onlyOwner {
+        if (activeDeploymentId != bytes32(0)) revert AnotherDeploymentInProgress();
         if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
         if (_referenceNames.length == 0) return;
 
@@ -1446,11 +1256,25 @@ contract ChugSplashManager is
 
             if (addr == address(0)) revert ContractNotInProject();
 
-            projects[_projectName][referenceName] = ContractAddressAndKind({
+            projects[_projectName][referenceName] = ContractKindAndAddress({
                 addr: address(0),
                 contractKindHash: bytes32(0)
             });
             contracts[addr] = ProjectAndReferenceName({ projectName: "", referenceName: "" });
         }
+    }
+
+    function incrementProtocolDebt(uint256 _initialGasLeft) external onlyOwner {
+        uint256 gasPrice = gasPriceCalculator.getGasPrice();
+
+        // Estimate the cost of the call data
+        uint256 calldataGasUsed = msg.data.length * 16;
+        // Calculate the gas used for the entire transaction, and add a buffer of 50k.
+        uint256 estGasUsed = 50_000 + calldataGasUsed + _initialGasLeft - gasleft();
+
+        uint256 cost = gasPrice * estGasUsed;
+        if (cost + totalDebt() > address(this).balance) revert InsufficientFunds();
+
+        totalProtocolDebt += cost;
     }
 }
