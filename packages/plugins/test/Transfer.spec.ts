@@ -4,7 +4,7 @@ import '@openzeppelin/hardhat-upgrades'
 import '../dist'
 
 import { expect } from 'chai'
-import hre, { ethers } from 'hardhat'
+import hre, { ethers, chugsplash } from 'hardhat'
 import {
   getChugSplashManagerAddress,
   chugsplashDeployAbstractTask,
@@ -13,6 +13,7 @@ import {
   contractKindHashes,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
+  chugsplashClaimAbstractTask,
 } from '@chugsplash/core'
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
@@ -28,8 +29,10 @@ import { projectName as ownableName } from '../chugsplash/projects/proxies/UUPSO
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
+  let claimer: SignerWithAddress
   before(async () => {
     const signers = await hre.ethers.getSigners()
+    claimer = signers[0]
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
@@ -65,9 +68,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    console.log('a')
     const userConfig = await readUserChugSplashConfig(configPath)
-    console.log('b')
 
     const cre = await createChugSplashRuntime(
       false,
@@ -75,14 +76,23 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false,
+      true,
       process.stdout
+    )
+
+    await chugsplashClaimAbstractTask(
+      provider,
+      claimer,
+      userConfig,
+      false,
+      await claimer.getAddress(),
+      'hardhat',
+      cre
     )
 
     const managerAddress = getChugSplashManagerAddress(
       userConfig.options.organizationID
     )
-    console.log('c')
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -96,7 +106,6 @@ describe('Transfer', () => {
       TransparentUpgradableTokenV1.address,
       managerAddress
     )
-    console.log('d')
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
@@ -106,7 +115,6 @@ describe('Transfer', () => {
         cre,
         makeGetConfigArtifacts(hre)
       )
-    console.log('e')
 
     const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
@@ -123,15 +131,14 @@ describe('Transfer', () => {
       undefined,
       spinner
     )
-    console.log('f')
 
-    const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
-      'Transparent Upgradable Token',
+    const TransparentUpgradableTokenV2 = await chugsplash.getContract(
+      transparentName,
       'Token'
     )
 
     // check upgrade completed successfully
-    expect(await TransparentUpgradableTokenV2.address).to.equal(
+    expect(TransparentUpgradableTokenV2.address).to.equal(
       TransparentUpgradableTokenV1.address,
       'contracts do not have the same address'
     )

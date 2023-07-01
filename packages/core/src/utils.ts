@@ -191,7 +191,6 @@ export const finalizeRegistration = async (
   spinner.start(`Claiming the project...`)
 
   if (!(await isProjectClaimed(registry, manager.address))) {
-    console.log('not claimed')
     // Encode the initialization arguments for the ChugSplashManager contract.
     // Note: Future versions of ChugSplash may require different arguments encoded in this way.
     const initializerData = ethers.utils.defaultAbiCoder.encode(
@@ -208,27 +207,14 @@ export const finalizeRegistration = async (
         await getGasPriceOverrides(provider)
       )
     ).wait()
-    console.log('done claiming')
   } else {
-    console.log('get owner')
-    let existingOwnerAddress
-    try {
-      existingOwnerAddress = await manager.owner()
-    } catch (e) {
-      console.error(e)
-    }
-    console.log('got owner')
-    console.log(existingOwnerAddress)
+    const existingOwnerAddress = await manager.owner()
     if (existingOwnerAddress !== newOwnerAddress) {
-      console.log('mismatch')
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      console.log('already claimed')
       spinner.succeed(`Project was already claimed by the caller.`)
     }
   }
-
-  console.log('returning')
 }
 
 export const getChugSplashRegistry = (signer: Signer): Contract => {

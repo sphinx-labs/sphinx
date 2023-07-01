@@ -48,8 +48,6 @@ describe('Meta txs', () => {
         makeGetConfigArtifacts(hre)
       )
 
-    manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
-
     await chugsplashClaimAbstractTask(
       provider,
       signer,
@@ -91,6 +89,7 @@ describe('Meta txs', () => {
     // Send meta-tx through relayer to the forwarder contract
     const gasLimit = (request.gas + 50000).toString()
     await Forwarder.execute(request, signature, { gasLimit })
+    manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
   })
 
   it('does propose with meta txs', async () => {

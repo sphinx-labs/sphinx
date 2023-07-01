@@ -492,10 +492,8 @@ export const chugsplashDeployAbstractTask = async (
   const { organizationID, projectName } = parsedProjectConfig.options
   const { networkName, blockGasLimit, localNetwork } = projectConfigCache
 
-  console.log('1')
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(signer, organizationID)
-  console.log('2')
 
   // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the user-defined new owner, if it exists.
@@ -509,7 +507,6 @@ export const chugsplashDeployAbstractTask = async (
     provider,
     spinner
   )
-  console.log('3')
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -539,7 +536,6 @@ export const chugsplashDeployAbstractTask = async (
       `${projectName} was previously cancelled on ${networkName}.`
     )
   }
-  console.log('4')
 
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been proposed before.`)
@@ -559,7 +555,6 @@ export const chugsplashDeployAbstractTask = async (
     )
     currDeploymentStatus = DeploymentStatus.PROPOSED
   }
-  console.log('5')
 
   if (currDeploymentStatus === DeploymentStatus.PROPOSED) {
     await (
@@ -588,7 +583,6 @@ export const chugsplashDeployAbstractTask = async (
       )
     }
   }
-  console.log('6')
 
   initialDeploymentStatus === DeploymentStatus.COMPLETED
     ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
@@ -605,7 +599,6 @@ export const chugsplashDeployAbstractTask = async (
     )
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
-  console.log('7')
 
   // TODO(post): foundry: this must only be called if the deployment was broadcasted.
   await postDeploymentActions(
@@ -625,8 +618,6 @@ export const chugsplashDeployAbstractTask = async (
     spinner,
     process.env.ETHERSCAN_API_KEY
   )
-
-  console.log('8')
 }
 
 // TODO(post): we need to make `provider` an optional parameter. it should be undefined on the in-process
