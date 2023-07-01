@@ -9,12 +9,12 @@ import {
   CURRENT_CHUGSPLASH_MANAGER_VERSION,
   getChugSplashRegistryAddress,
   getManagerProxyInitCodeHash,
-  CHUGSPLASH_CONTRACT_INFO,
   getChugSplashManagerV1Address,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
+  getChugSplashConstants,
 } from '@chugsplash/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
@@ -93,8 +93,13 @@ const writeConstants = async () => {
     },
   }
 
-  const contractInfo = CHUGSPLASH_CONTRACT_INFO.map(
-    ({ artifact, constructorArgs, expectedAddress }) => {
+  const contractInfo = getChugSplashConstants(31337)
+    .filter(
+      (el) =>
+        el.artifact.contractName !== 'ChugSplashFunder' &&
+        el.artifact.contractName !== 'ChugSplashLZReceiver'
+    )
+    .map(({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact
 
       const iface = new ethers.utils.Interface(abi)
@@ -104,8 +109,7 @@ const writeConstants = async () => {
       )
 
       return { creationCode, expectedAddress }
-    }
-  )
+    })
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
@@ -122,7 +126,7 @@ const writeConstants = async () => {
       )
       .join('\n')}\n\n` +
     `  function getChugSplashContractInfo() public pure returns (ChugSplashContractInfo[] memory) {\n` +
-    `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${CHUGSPLASH_CONTRACT_INFO.length});\n` +
+    `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${contractInfo.length});\n` +
     `${contractInfo
       .map(
         ({ creationCode, expectedAddress }, i) =>

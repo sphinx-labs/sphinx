@@ -37,3 +37,14 @@ export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
   minor: 0,
   patch: 0,
 }
+
+export const LAYERZERO_ENDPOINT_ADDRESSES = {
+  5: {
+    address: '0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23',
+    lzChainId: 10121,
+  },
+  420: {
+    address: '0xae92d5aD7583AD66E49A0c67BAd18F6ba52dDDc1',
+    lzChainId: 10132,
+  },
+}

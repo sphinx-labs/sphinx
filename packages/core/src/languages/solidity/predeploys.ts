@@ -43,7 +43,7 @@ import {
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
-import { CHUGSPLASH_CONTRACT_INFO } from '../../contract-info'
+import { getChugSplashConstants } from '../../contract-info'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -83,6 +83,9 @@ export const initializeAndVerifyChugSplash = async (
     config.executors,
     config.proposers,
     config.callers,
+    (
+      await provider.getNetwork()
+    ).chainId,
     logger
   )
 
@@ -130,7 +133,17 @@ export const ensureChugSplashInitialized = async (
   if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
     return
   } else if (await isLocalNetwork(provider)) {
-    await initializeChugSplash(provider, signer, executors, [], [], logger)
+    await initializeChugSplash(
+      provider,
+      signer,
+      executors,
+      [],
+      [],
+      (
+        await provider.getNetwork()
+      ).chainId,
+      logger
+    )
   } else {
     throw new Error(
       `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
@@ -144,6 +157,7 @@ export const initializeChugSplash = async (
   executors: string[],
   proposers: string[],
   callers: string[],
+  chainId: number,
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
@@ -153,7 +167,7 @@ export const initializeChugSplash = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of CHUGSPLASH_CONTRACT_INFO) {
+  } of getChugSplashConstants(chainId)) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[ChugSplash]: deploying ${contractName}...`)
