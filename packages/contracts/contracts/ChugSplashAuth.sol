@@ -43,13 +43,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     IChugSplashManager public manager;
 
-    uint256 public ownerThreshold;
+    uint256 public orgOwnerThreshold;
 
     uint256 public nonce;
 
     /**
      * @notice Boolean indicating whether or not a proposal has been made. After this occurs, the
-     *         the owners of this contract can no longer call `setup`.
+     *         the org owners of this contract can no longer call `setup`.
      */
     bool public firstProposalOccurred;
 
@@ -112,39 +112,39 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      * @param _manager Address of the ChugSplashManager contract.
      * @param _data Arbitrary data. Provides a flexible interface for future versions of this
                     contract. In this version, the data is expected to be the ABI-encoded
-                    list of owners and the owner threshold.
+                    list of org owners and the org owner threshold.
      */
     function initialize(
         address _manager,
         bytes memory _data
     ) external initializer {
-        (address[] memory _owners, uint256 _ownerThreshold) = abi.decode(
+        (address[] memory _orgOwners, uint256 _orgOwnerThreshold) = abi.decode(
             _data,
             (address[], uint256)
         );
 
-        require(_ownerThreshold > 0, "threshold must be greater than 0");
+        require(_orgOwnerThreshold > 0, "threshold must be greater than 0");
         require(
-            _owners.length >= _ownerThreshold,
-            "threshold exceeds number of owners"
+            _orgOwners.length >= _orgOwnerThreshold,
+            "threshold exceeds number of org owners"
         );
 
-        for (uint256 i = 0; i < _owners.length; i++) {
-            address owner = _owners[i];
-            _assertValidRoleMemberAddress(owner);
+        for (uint256 i = 0; i < _orgOwners.length; i++) {
+            address orgOwner = _orgOwners[i];
+            _assertValidRoleMemberAddress(orgOwner);
 
-            // Throw an error if the caller is attempting to add the same owner twice, since this
-            // means that the caller made a mistake.
+            // Throw an error if the caller is attempting to add the same org owner twice, since
+            // this means that the caller made a mistake.
             require(
-                !hasRole(DEFAULT_ADMIN_ROLE, owner),
+                !hasRole(DEFAULT_ADMIN_ROLE, orgOwner),
                 "address already has role"
             );
 
-            _grantRole(DEFAULT_ADMIN_ROLE, owner);
+            _grantRole(DEFAULT_ADMIN_ROLE, orgOwner);
         }
 
         manager = IChugSplashManager(_manager);
-        ownerThreshold = _ownerThreshold;
+        orgOwnerThreshold = _orgOwnerThreshold;
 
         __AccessControlEnumerable_init();
     }
@@ -221,15 +221,17 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         }
     }
 
-    /********************************** OWNER FUNCTIONS **********************************/
+    /********************************** ORG OWNER FUNCTIONS **********************************/
 
     /**
-     * @notice Sets up initial roles. Must be signed by at least `ownerThreshold` owners. This is
-     *         the only permissioned function in this contract that doesn't require that the auth
+     * @notice Sets up initial roles. The number of org owner signatures must be at least
+               `orgOwnerThreshold`.
+
+               This is the only permissioned function in this contract that doesn't require that the auth
                Merkle root has been proposed in a separate transaction.
 
                This function is callable until the first proposal occurs. This allows for the
-               possibility that the initial owners mistakenly enter the wrong list proposers. For
+               possibility that the org owners mistakenly enter invalid initial proposers. For
                example, they may enter proposers addresses that don't exist on this chain. If this
                function were only callable once, then this contract would be unusable in this
                scenario, since every other function requires that a proposal has first occurred.
@@ -262,7 +264,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         verifySignatures(
             _authRoot,
             _request,
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures,
             _proof,
@@ -321,7 +323,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -358,7 +360,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -383,7 +385,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -399,7 +401,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         _grantRole(PROPOSER_ROLE, proposer);
     }
 
-    function setOwner(
+    function setOrgOwner(
         bytes32 _authRoot,
         ForwardRequest memory _request,
         bytes[] memory _signatures,
@@ -408,7 +410,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -416,25 +418,25 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _proof
         )
     {
-        (address owner, bool add) = abi.decode(_request.data, (address, bool));
+        (address orgOwner, bool add) = abi.decode(_request.data, (address, bool));
 
         if (add) {
-            _assertValidRoleMemberAddress(owner);
+            _assertValidRoleMemberAddress(orgOwner);
             require(
-                !hasRole(DEFAULT_ADMIN_ROLE, owner),
+                !hasRole(DEFAULT_ADMIN_ROLE, orgOwner),
                 "address already has role"
             );
-            _grantRole(DEFAULT_ADMIN_ROLE, owner);
+            _grantRole(DEFAULT_ADMIN_ROLE, orgOwner);
         } else {
             require(
-                getRoleMemberCount(DEFAULT_ADMIN_ROLE) > ownerThreshold,
+                getRoleMemberCount(DEFAULT_ADMIN_ROLE) > orgOwnerThreshold,
                 "removing owner would yield unreachable threshold"
             );
             require(
-                hasRole(DEFAULT_ADMIN_ROLE, owner),
+                hasRole(DEFAULT_ADMIN_ROLE, orgOwner),
                 "address does not have role"
             );
-            _revokeRole(DEFAULT_ADMIN_ROLE, owner);
+            _revokeRole(DEFAULT_ADMIN_ROLE, orgOwner);
         }
     }
 
@@ -449,7 +451,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -500,7 +502,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         }
     }
 
-    function setOwnerThreshold(
+    function setOrgOwnerThreshold(
         bytes32 _authRoot,
         ForwardRequest memory _request,
         bytes[] memory _signatures,
@@ -509,7 +511,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -522,10 +524,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         require(newThreshold > 0, "threshold cannot be 0");
         require(
             getRoleMemberCount(DEFAULT_ADMIN_ROLE) >= newThreshold,
-            "threshold exceeds number of owners"
+            "threshold exceeds number of org owners"
         );
 
-        ownerThreshold = newThreshold;
+        orgOwnerThreshold = newThreshold;
     }
 
     function transferDeployerOwnership(
@@ -537,7 +539,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -563,7 +565,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -589,7 +591,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
@@ -615,7 +617,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         public
         updateState(_authRoot, gasleft())
         isValidAuthAction(
-            ownerThreshold,
+            orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
             _request,
