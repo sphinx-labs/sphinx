@@ -68,23 +68,39 @@ struct ChugSplashTarget {
 }
 
 /**
- * @notice Struct representing a cross-chain funding message.
+ * @notice Struct representing a LayerZero cross-chain message that includes airdropping
+ *         funds to an address on the destination chain.
  *
- * @custom:field The destination chain id.
- * @custom:field The endpoint outbound proof type.
- * @custom:field The contract receiving the message.
- * @custom:field The address receiving the airdrop.
- * @custom:field The amount to airdrop.
- * @custom:field Whether to pay with ZRO (layer zero token), will cause revert if true.
- * @custom:field The message payload.
+ * @custom:field dstChainId The destination chain id.
+ * @custom:field outboundProofType The endpoint outbound proof type.
+ * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
+ *               function.
+ * @custom:field airdropAddress The address receiving the airdrop.
+ * @custom:field airdropAmount The amount to airdrop.
+ * @custom:field payload The message payload.
  */
-struct FunderAction {
+struct LayerZeroAirdropMessage {
     uint16 dstChainId;
     uint16 outboundProofType;
-    address receiverAddress;
+    uint256 destGas;
     address airdropAddress;
     uint airdropAmount;
-    bool payInZRO;
+    bytes payload;
+}
+
+/**
+ * @notice Struct representing a LayerZero cross-chain message.
+ *
+ * @custom:field dstChainId The destination chain id.
+ * @custom:field outboundProofType The endpoint outbound proof type.
+ * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
+ *               function.
+ * @custom:field payload The message payload.
+ */
+struct LayerZeroMessage {
+    uint16 dstChainId;
+    uint16 outboundProofType;
+    uint256 destGas;
     bytes payload;
 }
 

@@ -96,7 +96,7 @@ const writeConstants = async () => {
   const contractInfo = getChugSplashConstants(31337)
     .filter(
       (el) =>
-        el.artifact.contractName !== 'ChugSplashFunder' &&
+        el.artifact.contractName !== 'ChugSplashLZSender' &&
         el.artifact.contractName !== 'ChugSplashLZReceiver'
     )
     .map(({ artifact, constructorArgs, expectedAddress }) => {

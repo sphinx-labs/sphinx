@@ -15,7 +15,7 @@ export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contract
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
-export const FunderArtifact = require('../artifacts/contracts/ChugSplashFunder.sol/ChugSplashFunder.json')
+export const FunderArtifact = require('../artifacts/contracts/ChugSplashLZSender.sol/ChugSplashLZSender.json')
 export const LZReceiverArtifact = require('../artifacts/contracts/ChugSplashLZReceiver.sol/ChugSplashLZReceiver.json')
 export const LZEndpointMockArtifact = require('../artifacts/@layerzerolabs/solidity-examples/contracts/mocks/LZEndpointMock.sol/LZEndpointMock.json')
 

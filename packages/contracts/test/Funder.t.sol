@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import { Test } from "forge-std/Test.sol";
-import { ChugSplashFunder } from "contracts/ChugSplashFunder.sol";
+import { ChugSplashLZSender } from "contracts/ChugSplashLZSender.sol";
 import { FunderAction } from "contracts/ChugSplashDataTypes.sol";
 import { ChugSplashLZReceiver } from "contracts/ChugSplashLZReceiver.sol";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@layerzerolabs/solidity-examples/contracts/mocks/LZEndpointMock.sol";
 
 contract FunderTest is Test {
-    ChugSplashFunder public funder;
+    ChugSplashLZSender public funder;
     ChugSplashLZReceiver public receiver;
     LZEndpointMock public endpoint;
     address public airdropAddressOne = address(0x1111111111111111111111111111111111111111);
@@ -22,7 +22,7 @@ contract FunderTest is Test {
         uint16 chainId = uint16(block.chainid);
 
         endpoint = new LZEndpointMock(chainId);
-        funder = new ChugSplashFunder(address(endpoint));
+        funder = new ChugSplashLZSender(address(endpoint));
         receiver = new ChugSplashLZReceiver(address(endpoint));
 
         endpoint.setDestLzEndpoint(address(funder), address(endpoint));
