@@ -81,7 +81,6 @@ export const chugsplashClaimAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   config: UserChugSplashConfig | ParsedChugSplashConfig,
-  allowManagedProposals: boolean,
   owner: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
@@ -98,7 +97,6 @@ export const chugsplashClaimAbstractTask = async (
     manager,
     organizationID,
     owner,
-    allowManagedProposals,
     provider,
     spinner
   )
@@ -510,7 +508,6 @@ export const chugsplashDeployAbstractTask = async (
     manager,
     organizationID,
     signerAddress,
-    false,
     provider,
     spinner
   )

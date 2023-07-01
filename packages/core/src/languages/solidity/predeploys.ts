@@ -36,11 +36,7 @@ import {
   verifyChugSplash,
 } from '../../etherscan'
 import { ChugSplashSystemConfig } from './types'
-import {
-  CALLER_ROLE,
-  MANAGED_PROPOSER_ROLE,
-  REMOTE_EXECUTOR_ROLE,
-} from '../../constants'
+import { CALLER_ROLE, REMOTE_EXECUTOR_ROLE } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
 import { getChugSplashConstants } from '../../contract-info'
@@ -257,22 +253,6 @@ export const initializeChugSplash = async (
     }
   }
   logger?.info('[ChugSplash]: finished assigning executor roles')
-
-  logger?.info('[ChugSplash]: assigning proposer roles...')
-  for (const proposer of proposers) {
-    if (
-      (await ManagedService.hasRole(MANAGED_PROPOSER_ROLE, proposer)) === false
-    ) {
-      await (
-        await ManagedService.connect(signer).grantRole(
-          MANAGED_PROPOSER_ROLE,
-          proposer,
-          await getGasPriceOverrides(provider)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[ChugSplash]: finished assigning proposer roles')
 
   logger?.info('[ChugSplash]: assigning caller roles...')
   for (const caller of callers) {

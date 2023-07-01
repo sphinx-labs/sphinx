@@ -114,7 +114,7 @@ contract ChugSplash is Script {
         address deployer = utils.msgSender();
         // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
         // transfer ownership to the new owner specified by the user, if it exists.
-        finalizeRegistration(registry, manager, configs.minimalConfig.organizationID, deployer, false);
+        finalizeRegistration(registry, manager, configs.minimalConfig.organizationID, deployer);
 
         if (bundleInfo.actionBundle.actions.length == 0 && bundleInfo.targetBundle.targets.length == 0) {
             console.log("Nothing to execute in this deployment. Exiting early.");
@@ -218,14 +218,12 @@ contract ChugSplash is Script {
         IChugSplashRegistry _registry,
         IChugSplashManager _manager,
         bytes32 _organizationID,
-        address _newOwner,
-        bool _allowManagedProposals
+        address _newOwner
     ) private {
         if (!utils.isProjectClaimed(_registry, address(_manager))) {
             bytes memory initializerData = abi.encode(
                 _newOwner,
-                _organizationID,
-                _allowManagedProposals
+                _organizationID
             );
 
             Version memory managerVersion = utils.getCurrentChugSplashManagerVersion();

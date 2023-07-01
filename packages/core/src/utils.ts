@@ -184,7 +184,6 @@ export const finalizeRegistration = async (
   manager: ethers.Contract,
   organizationID: string,
   newOwnerAddress: string,
-  allowManagedProposals: boolean,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
@@ -195,7 +194,7 @@ export const finalizeRegistration = async (
     // Note: Future versions of ChugSplash may require different arguments encoded in this way.
     const initializerData = ethers.utils.defaultAbiCoder.encode(
       ['address', 'bytes32', 'bool'],
-      [newOwnerAddress, organizationID, allowManagedProposals]
+      [newOwnerAddress, organizationID]
     )
 
     await (

@@ -13,7 +13,7 @@ import { Version } from "./ChugSplashDataTypes.sol";
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. This
- *         contract allows callers to register new managers. Also, every event emitted in the
+ *         contract allows callers to register new ChugSplashmanagers. Also, every event emitted in the
  *         ChugSplash system is announced through this contract. This makes it easy for clients to
  *         find and index events that occur throughout the deployment process. Lastly, the owner of
  *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
