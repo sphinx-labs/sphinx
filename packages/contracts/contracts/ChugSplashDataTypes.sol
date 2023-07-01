@@ -68,24 +68,22 @@ struct ChugSplashTarget {
 }
 
 /**
- * @notice Struct representing a LayerZero cross-chain message that includes airdropping
+ * @notice Struct representing a LayerZero cross-chain message that includes sending
  *         funds to an address on the destination chain.
  *
  * @custom:field dstChainId The destination chain id.
  * @custom:field outboundProofType The endpoint outbound proof type.
  * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
  *               function.
- * @custom:field airdropAddress The address receiving the airdrop.
- * @custom:field airdropAmount The amount to airdrop.
- * @custom:field payload The message payload.
+ * @custom:field airdropAddress The address receiving the airdrop on the destination chain.
+ * @custom:field airdropAmount The amount to airdrop on the destination chain.
  */
-struct LayerZeroAirdropMessage {
+struct LayerZeroFundingMessage {
     uint16 dstChainId;
     uint16 outboundProofType;
     uint256 destGas;
     address airdropAddress;
     uint airdropAmount;
-    bytes payload;
 }
 
 /**
@@ -95,7 +93,7 @@ struct LayerZeroAirdropMessage {
  * @custom:field outboundProofType The endpoint outbound proof type.
  * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
  *               function.
- * @custom:field payload The message payload.
+ * @custom:field payload The message payload to send to the receiver on the destination chain.
  */
 struct LayerZeroMessage {
     uint16 dstChainId;

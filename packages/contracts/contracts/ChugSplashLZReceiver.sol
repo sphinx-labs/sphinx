@@ -59,7 +59,11 @@ contract ChugSplashLZReceiver is NonblockingLzApp {
 
         emit ReceivedCrossChainMessage(_srcChainId, _srcAddress, _nonce, keccak256(_payload));
 
-        // TODO - handle if the message was for registration here
+        if (_payload.length > 0) {
+            (address to, bytes memory data) = abi.decode(_payload, (address, bytes));
+            (bool success, bytes memory retdata) = to.call(data);
+            require(success, string(retdata));
+        }
     }
 
     /**

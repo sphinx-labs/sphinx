@@ -5,7 +5,7 @@ import { LzApp } from "@layerzerolabs/solidity-examples/contracts/lzApp/Nonblock
 import {
     ILayerZeroEndpoint
 } from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";
-import { LayerZeroAirdropMessage, LayerZeroMessage } from "./ChugSplashDataTypes.sol";
+import { LayerZeroFundingMessage, LayerZeroMessage } from "./ChugSplashDataTypes.sol";
 
 contract ChugSplashLZSender is LzApp {
 
@@ -42,19 +42,19 @@ contract ChugSplashLZSender is LzApp {
     }
 
     /**
-     * @notice Handles sending a batch of LayerZero cross-chain messages that send funds to
-     *         contracts on destination chains. This contract assumes off-chain logic checked that
+     * @notice Handles sending a batch of LayerZero cross-chain messages that fund
+     *         contracts on destination chains. This contract assumestoff-chain logic checked that
                the airdrop amount is less than the total airdrop amount allowed by LayerZero, which
                varies by chain, and is hard to calculate on-chain.
      *
-     * @param messages Array of LayerZeroAirdropMessage structs
+     * @param messages Array of LayerZeroFundingMessage structs
      */
-    function sendBatchMessagesWithAirdrop(LayerZeroAirdropMessage[] memory messages) public payable {
+    function sendBatchFunds(LayerZeroFundingMessage[] memory messages) public payable {
         // Calculate the total amount to be sent
         uint total = 0;
         bytes[] memory adapterParams = new bytes[](messages.length);
         uint[] memory nativeFees = new uint[](messages.length);
-        LayerZeroAirdropMessage memory message;
+        LayerZeroFundingMessage memory message;
         bytes memory adapterParam;
         for (uint i = 0; i < messages.length; i++) {
             message = messages[i];
@@ -78,7 +78,7 @@ contract ChugSplashLZSender is LzApp {
             (uint fee, ) = lzEndpoint.estimateFees(
                 message.dstChainId,
                 address(this),
-                message.payload,
+                "", // We don't send a message payload when sending funds
                 false, // This contract dose not support paying with LayerZero's ZRO token
                 adapterParam
             );
@@ -99,7 +99,7 @@ contract ChugSplashLZSender is LzApp {
 
             _lzSend(
                 message.dstChainId,
-                message.payload,
+                "", // We don't send a message payload when sending funds
                 payable(msg.sender),
                 address(0x0),
                 adapterParam,
@@ -109,12 +109,12 @@ contract ChugSplashLZSender is LzApp {
     }
 
     /**
-     * @notice Handles sending a batch of LayerZero cross-chain messages that do not include
-     *         airdropping funds to an address on the destination chain.
+     * @notice Handles sending a batch of LayerZero cross-chain messages. Does not include
+     *         sending funds to an address on the destination chain.
      *
-     * @param messages Array of LayerZeroAirdropMessage structs.
+     * @param messages Array of LayerZeroFundingMessage structs.
      */
-    function sendBatchMessagesNonAirdrop(LayerZeroMessage[] memory messages) public payable {
+    function sendBatchMessages(LayerZeroMessage[] memory messages) public payable {
         // Calculate the total amount to be sent
         uint total = 0;
         bytes[] memory adapterParams = new bytes[](messages.length);
