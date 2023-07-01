@@ -7,12 +7,8 @@ describe('Create3', () => {
   let Stateless: Contract
   let StatelessWithSalt: Contract
   before(async () => {
-    Stateless = await chugsplash.getContract('My First Project', 'Stateless')
-    StatelessWithSalt = await chugsplash.getContract(
-      'My First Project',
-      'Stateless',
-      1
-    )
+    Stateless = await chugsplash.getContract('Storage', 'Stateless')
+    StatelessWithSalt = await chugsplash.getContract('Create3', 'Stateless', 1)
   })
 
   it('has different address than contract without salt', () => {

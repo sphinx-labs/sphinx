@@ -1,18 +1,10 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { UserProjectConfig } from '@chugsplash/core'
 
-import { fetchBuildInfo } from '../../test/constants'
+import { fetchBuildInfo } from '../../../test/constants'
 
-const projectName = 'UUPS Ownable Upgradable Token'
+const projectName = 'UUPSOwnableUpgradableToken'
 
-const config: UserChugSplashConfig = {
-  // Configuration options for the project:
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
     Token: {
       contract: 'UUPSOwnableUpgradableV2',
@@ -39,4 +31,4 @@ const config: UserChugSplashConfig = {
   },
 }
 
-export default config
+export { config, projectName }

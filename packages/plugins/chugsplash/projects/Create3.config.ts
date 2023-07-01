@@ -1,21 +1,12 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
+import { UserProjectConfig } from '@chugsplash/core'
 import { ethers } from 'ethers'
 
-const projectName = 'My First Project'
-export const orgId = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes(projectName)
-)
+const projectName = 'Create3'
 
 // This config intentionally uses the same organizationID, projectName, and reference name as the
 // `Stateless` contract in `Storage.config.ts`. The purpose of this is to test that the Create3
 // calculation generates a different address when adding a user-defined salt into the calculation.
-const config: UserChugSplashConfig = {
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
     Stateless: {
       contract: 'Stateless',
@@ -29,4 +20,4 @@ const config: UserChugSplashConfig = {
   },
 }
 
-export default config
+export { config, projectName }

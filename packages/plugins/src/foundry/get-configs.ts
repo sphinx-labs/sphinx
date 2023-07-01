@@ -10,6 +10,7 @@ import { getFoundryConfigOptions } from './options'
 
 const args = process.argv.slice(2)
 const configPath = args[0]
+const projectName = args[1]
 
 // This function is in its own file to minimize the number of dependencies that are imported, as
 // this speeds up the execution time of the script when called via FFI from Foundry.
@@ -19,7 +20,7 @@ const configPath = args[0]
     getFoundryConfigOptions(),
   ])
 
-  const minimalConfig = getMinimalConfig(userConfig)
+  const minimalConfig = getMinimalConfig(userConfig, projectName)
 
   const rootImportPath =
     process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'

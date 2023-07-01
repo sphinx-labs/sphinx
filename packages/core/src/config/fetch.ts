@@ -6,22 +6,22 @@ import {
   callWithTimeout,
   getChugSplashManagerReadOnly,
   getChugSplashRegistryReadOnly,
-  getConfigArtifactsRemote,
   getDeploymentId,
+  getProjectConfigArtifactsRemote,
 } from '../utils'
 import {
-  CanonicalChugSplashConfig,
-  ConfigArtifacts,
-  ConfigCache,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
+  ProjectConfigCache,
 } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { getConfigCache } from './parse'
+import { getProjectConfigCache } from './parse'
 
 export const chugsplashFetchSubtask = async (args: {
   configUri: string
   ipfsUrl?: string
-}): Promise<CanonicalChugSplashConfig> => {
-  let config: CanonicalChugSplashConfig
+}): Promise<CanonicalProjectConfig> => {
+  let config: CanonicalProjectConfig
   let ipfs: IPFSHTTPClient
   if (args.ipfsUrl) {
     ipfs = create({
@@ -64,17 +64,21 @@ export const chugsplashFetchSubtask = async (args: {
 export const verifyDeployment = async (
   configUri: string,
   deploymentId: string,
-  configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache,
+  projectConfigArtifacts: ProjectConfigArtifacts,
+  projectConfigCache: ProjectConfigCache,
   ipfsUrl?: string
 ) => {
-  const config = await callWithTimeout<CanonicalChugSplashConfig>(
+  const config = await callWithTimeout<CanonicalProjectConfig>(
     chugsplashFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
+  const bundles = makeBundlesFromConfig(
+    config,
+    projectConfigArtifacts,
+    projectConfigCache
+  )
 
   if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(
@@ -95,32 +99,34 @@ export const compileRemoteBundles = async (
   configUri: string
 ): Promise<{
   bundles: ChugSplashBundles
-  canonicalConfig: CanonicalChugSplashConfig
-  configArtifacts: ConfigArtifacts
+  canonicalProjectConfig: CanonicalProjectConfig
+  projectConfigArtifacts: ProjectConfigArtifacts
 }> => {
-  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
+  const canonicalProjectConfig = await callWithTimeout<CanonicalProjectConfig>(
     chugsplashFetchSubtask({ configUri }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(canonicalConfig)
+  const projectConfigArtifacts = await getProjectConfigArtifactsRemote(
+    canonicalProjectConfig
+  )
 
-  const configCache = await getConfigCache(
+  const configCache = await getProjectConfigCache(
     provider,
-    canonicalConfig,
-    configArtifacts,
+    canonicalProjectConfig,
+    projectConfigArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(
       provider,
-      canonicalConfig.options.organizationID
+      canonicalProjectConfig.options.organizationID
     )
   )
 
   const bundles = makeBundlesFromConfig(
-    canonicalConfig,
-    configArtifacts,
+    canonicalProjectConfig,
+    projectConfigArtifacts,
     configCache
   )
-  return { bundles, canonicalConfig, configArtifacts }
+  return { bundles, canonicalProjectConfig, projectConfigArtifacts }
 }

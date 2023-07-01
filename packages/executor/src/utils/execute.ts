@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import {
-  CanonicalChugSplashConfig,
   DeploymentState,
   claimExecutorPayment,
   compileRemoteBundles,
@@ -17,7 +16,8 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
   deploymentDoesRevert,
-  ConfigArtifacts,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -55,8 +55,8 @@ const generateRetryEvent = (
 
 const tryVerification = async (
   logger: Logger,
-  canonicalConfig: CanonicalChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  canonicalConfig: CanonicalProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
   network: string,
@@ -232,12 +232,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
   let bundles: ChugSplashBundles
-  let canonicalConfig: CanonicalChugSplashConfig
-  let configArtifacts: ConfigArtifacts
+  let canonicalProjectConfig: CanonicalProjectConfig
+  let projectConfigArtifacts: ProjectConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, canonicalConfig, configArtifacts } =
+    ;({ bundles, canonicalProjectConfig, projectConfigArtifacts } =
       await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
@@ -245,7 +245,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName, organizationID } = canonicalConfig.options
+  const { projectName, organizationID } = canonicalProjectConfig.options
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
@@ -261,7 +261,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // log error and return
     logger.error(
       '[ChugSplash]: error: compiled deployment id does not match proposal event deployment id',
-      canonicalConfig.options
+      canonicalProjectConfig.options
     )
     return
   }
@@ -305,7 +305,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         logger.error(
           '[ChugSplash]: error: claiming deployment error',
           err,
-          canonicalConfig.options
+          canonicalProjectConfig.options
         )
 
         // retry events which failed due to other errors
@@ -335,7 +335,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       rpcProvider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      canonicalConfig
+      canonicalProjectConfig
     )
   ) {
     logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
@@ -347,7 +347,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         manager,
         bundles,
         blockGasLimit,
-        configArtifacts,
+        projectConfigArtifacts,
         rpcProvider
       )
 
@@ -374,7 +374,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       logger.error(
         '[ChugSplash]: error: execution error',
         e,
-        canonicalConfig.options
+        canonicalProjectConfig.options
       )
 
       // retry the deployment later
@@ -401,8 +401,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // verify on etherscan 10s later
     await tryVerification(
       logger,
-      canonicalConfig,
-      configArtifacts,
+      canonicalProjectConfig,
+      projectConfigArtifacts,
       rpcProvider,
       projectName,
       network,
@@ -414,7 +414,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     await trackExecuted(
       await manager.owner(),
       organizationID,
-      projectName,
       network,
       undefined
     )

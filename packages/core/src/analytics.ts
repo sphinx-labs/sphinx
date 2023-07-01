@@ -17,7 +17,6 @@ const timeout = (prom, time) => {
 export const trackExecuted = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration | undefined
 ) => {
@@ -30,7 +29,6 @@ export const trackExecuted = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -42,7 +40,6 @@ export const trackExecuted = async (
 export const trackRegistrationFinalized = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -55,7 +52,6 @@ export const trackRegistrationFinalized = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -67,7 +63,6 @@ export const trackRegistrationFinalized = async (
 export const trackProposed = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -80,7 +75,6 @@ export const trackProposed = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -92,7 +86,6 @@ export const trackProposed = async (
 export const trackApproved = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -105,7 +98,6 @@ export const trackApproved = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -117,7 +109,6 @@ export const trackApproved = async (
 export const trackDeployed = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -130,7 +121,6 @@ export const trackDeployed = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -142,7 +132,6 @@ export const trackDeployed = async (
 export const trackCancel = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -155,7 +144,6 @@ export const trackCancel = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -188,7 +176,6 @@ export const trackListProjects = async (
 export const trackExportProxy = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -201,7 +188,6 @@ export const trackExportProxy = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -213,7 +199,6 @@ export const trackExportProxy = async (
 export const trackImportProxy = async (
   user_id: string,
   organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -226,7 +211,6 @@ export const trackImportProxy = async (
       user_id,
       event_properties: {
         organizationID,
-        projectName,
         network: networkName,
         integration,
       },

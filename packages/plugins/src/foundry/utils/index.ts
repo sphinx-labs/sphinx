@@ -12,8 +12,8 @@ import {
   execAsync,
 } from '@chugsplash/core/dist/utils'
 import {
-  ConfigArtifacts,
   GetConfigArtifacts,
+  ProjectConfigArtifacts,
   UserContractConfigs,
 } from '@chugsplash/core/dist/config/types'
 import { parse } from 'semver'
@@ -292,16 +292,16 @@ export const makeGetConfigArtifacts = (
       JSON.stringify(buildInfoCache, null, 2)
     )
 
-    const configArtifacts: ConfigArtifacts = {}
+    const projectConfigArtifacts: ProjectConfigArtifacts = {}
 
     for (const { referenceName, artifact, buildInfo } of completeArtifacts) {
-      configArtifacts[referenceName] = {
+      projectConfigArtifacts[referenceName] = {
         artifact,
         buildInfo,
       }
     }
 
-    return configArtifacts
+    return projectConfigArtifacts
   }
 }
 

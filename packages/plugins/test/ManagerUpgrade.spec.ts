@@ -12,12 +12,12 @@ import {
 } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { orgId } from '../chugsplash/Storage.config'
+import { orgId } from '../chugsplash/chugsplash.config'
 
 describe('Manager Upgrade', () => {
   let Stateless: Contract
   beforeEach(async () => {
-    Stateless = await chugsplash.getContract('My First Project', 'Stateless')
+    Stateless = await chugsplash.getContract('Storage', 'Stateless')
     const signer = await hre.ethers.getImpersonatedSigner(
       OWNER_MULTISIG_ADDRESS
     )

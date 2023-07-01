@@ -1,11 +1,13 @@
-import hre from 'hardhat'
+// Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
+
+import hre from 'hardhat'
 import { Contract } from 'ethers'
 import {
   chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
   FORWARDER_ADDRESS,
-  getChugSplashManagerReadOnly,
+  getChugSplashManager,
   ProposalRoute,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
@@ -15,7 +17,8 @@ import { expect } from 'chai'
 import { createChugSplashRuntime } from '../../plugins/src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-const configPath = './chugsplash/Metatx.config.ts'
+const configPath = './chugsplash/chugsplash.config.ts'
+import { projectName } from '../chugsplash/projects/Metatx.config'
 
 describe('Meta txs', () => {
   process.env['LOCAL_TEST_METATX_PROPOSE'] = 'true'
@@ -33,23 +36,25 @@ describe('Meta txs', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true
+      false
     )
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
         configPath,
+        projectName,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
       )
 
-    // claim
+    manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
+
     await chugsplashClaimAbstractTask(
       provider,
       signer,
       parsedConfig,
-      true,
+      false,
       signerAddress,
       'hardhat',
       cre
@@ -58,14 +63,14 @@ describe('Meta txs', () => {
     const metatxs = await chugsplashProposeAbstractTask(
       provider,
       signer,
-      parsedConfig,
+      parsedConfig.projects[projectName],
       configPath,
       '',
       'hardhat',
       configArtifacts,
       ProposalRoute.RELAY,
       cre,
-      configCache
+      configCache[projectName]
     )
 
     const { request, signature, deploymentId } = metatxs!
@@ -86,10 +91,6 @@ describe('Meta txs', () => {
     // Send meta-tx through relayer to the forwarder contract
     const gasLimit = (request.gas + 50000).toString()
     await Forwarder.execute(request, signature, { gasLimit })
-    manager = getChugSplashManagerReadOnly(
-      hre.ethers.provider,
-      parsedConfig.options.organizationID
-    )
   })
 
   it('does propose with meta txs', async () => {

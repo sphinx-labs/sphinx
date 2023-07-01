@@ -7,9 +7,9 @@ import {
   BuildInfo,
   ParsedContractConfig,
   toOpenZeppelinContractKind,
-  ConfigArtifacts,
   GetConfigArtifacts,
   validateBuildInfo,
+  ProjectConfigArtifacts,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -79,8 +79,8 @@ export const makeGetConfigArtifacts = (
 ): GetConfigArtifacts => {
   return async (
     contractConfigs: UserContractConfigs
-  ): Promise<ConfigArtifacts> => {
-    const configArtifacts: ConfigArtifacts = {}
+  ): Promise<ProjectConfigArtifacts> => {
+    const projectConfigArtifacts: ProjectConfigArtifacts = {}
     for (const [referenceName, contractConfig] of Object.entries(
       contractConfigs
     )) {
@@ -90,12 +90,12 @@ export const makeGetConfigArtifacts = (
         artifact.sourceName,
         artifact.contractName
       )
-      configArtifacts[referenceName] = {
+      projectConfigArtifacts[referenceName] = {
         artifact,
         buildInfo,
       }
     }
-    return configArtifacts
+    return projectConfigArtifacts
   }
 }
 

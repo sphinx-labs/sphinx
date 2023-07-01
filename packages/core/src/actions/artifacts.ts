@@ -6,8 +6,8 @@ import {
 } from '@chugsplash/contracts'
 
 import {
-  ConfigArtifacts,
-  ParsedChugSplashConfig,
+  ParsedProjectConfig,
+  ProjectConfigArtifacts,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -51,17 +51,16 @@ export const getDeployedBytecode = async (
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedProjectConfig: ParsedProjectConfig,
+  organizationID: string,
   deploymentEvents: ethers.Event[],
   networkName: string,
   deploymentFolderPath: string,
-  configArtifacts: ConfigArtifacts
+  projectConfigArtifacts: ProjectConfigArtifacts
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
+  const managerAddress = getChugSplashManagerAddress(organizationID)
 
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {
@@ -119,10 +118,10 @@ export const writeDeploymentArtifacts = async (
     } else {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
-      const { artifact, buildInfo } = configArtifacts[referenceName]
+      const { artifact, buildInfo } = projectConfigArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
       const constructorArgValues = getConstructorArgs(
-        parsedConfig.contracts[referenceName].constructorArgs,
+        parsedProjectConfig.contracts[referenceName].constructorArgs,
         abi
       )
       const { metadata } = buildInfo.output.contracts[sourceName][contractName]

@@ -42,15 +42,13 @@ export const fetchFilesRecursively = (dir): string[] => {
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployAllChugSplashConfigs = async (
+export const deployAllChugSplashProjects = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
-  fileNames?: string[]
+  configPath: string,
+  projectNames?: string[]
 ) => {
   const spinner = ora({ isSilent: silent })
-
-  fileNames =
-    fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -59,27 +57,31 @@ export const deployAllChugSplashConfigs = async (
   const deploymentFolder = hre.config.paths.deployments
   const getConfigArtifacts = makeGetConfigArtifacts(hre)
 
-  for (const configPath of fileNames) {
-    const cre = await createChugSplashRuntime(
-      false,
-      true,
-      canonicalConfigPath,
-      hre,
-      silent
-    )
+  const cre = await createChugSplashRuntime(
+    false,
+    true,
+    canonicalConfigPath,
+    hre,
+    silent
+  )
 
-    // Skip this config if it's empty.
-    if (isEmptyChugSplashConfig(configPath)) {
-      continue
-    }
+  if (!projectNames) {
+    const userConfig = await readUserChugSplashConfig(configPath)
+    projectNames = projectNames
+      ? projectNames
+      : Object.keys(userConfig.projects)
+  }
+
+  for (const projectName of projectNames) {
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
         configPath,
+        projectName,
         hre.ethers.provider,
         cre,
         getConfigArtifacts
       )
-
+    const projectConfig = parsedConfig.projects[projectName]
     await chugsplashDeployAbstractTask(
       provider,
       signer,
@@ -87,9 +89,9 @@ export const deployAllChugSplashConfigs = async (
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
+      projectConfig,
+      configCache[projectName],
+      configArtifacts[projectName],
       undefined,
       spinner
     )
@@ -118,10 +120,15 @@ export const getContract = async (
   )
 
   const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
-    const { options, contracts } = resolvedConfig.config
+    const projects = resolvedConfig.config.projects
+    if (!projects) {
+      return false
+    }
+    const projectConfig = projects[projectName]
+    const { contracts } = projectConfig
     return (
+      projectConfig &&
       Object.keys(contracts).includes(referenceName) &&
-      options.projectName === projectName &&
       contracts[referenceName].salt === userSalt
     )
   })
@@ -142,7 +149,8 @@ export const getContract = async (
   const userConfig = userConfigs[0]
   const { organizationID } = userConfig.config.options
   const managerAddress = getChugSplashManagerAddress(organizationID)
-  const contractConfig = userConfig.config.contracts[referenceName]
+  const project = userConfig.config.projects[projectName]
+  const contractConfig = project.contracts[referenceName]
 
   const address =
     contractConfig.address ??
@@ -160,7 +168,7 @@ export const getContract = async (
     address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
-        userConfig.config.contracts[referenceName].contract
+        project.contracts[referenceName].contract
       ).abi
     ),
     hre.ethers.provider.getSigner()

@@ -7,7 +7,6 @@ import { expect } from 'chai'
 import hre, { ethers } from 'hardhat'
 import {
   getChugSplashManagerAddress,
-  chugsplashClaimAbstractTask,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
@@ -18,22 +17,19 @@ import {
 import { BigNumber } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
+import ora from 'ora'
 
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-const uupsOwnableUpgradeConfigPath =
-  './chugsplash/proxies/UUPSOwnableUpgradableUpgrade.config.ts'
-const uupsAccessControlUpgradeConfigPath =
-  './chugsplash/proxies/UUPSAccessControlUpgradableUpgrade.config.ts'
-const transparentUpgradeConfigPath =
-  './chugsplash/proxies/TransparentUpgradableUpgrade.config.ts'
+const configPath = './chugsplash/chugsplash.config.ts'
+import { projectName as transparentName } from '../chugsplash/projects/proxies/TransparentUpgradableUpgrade.config'
+import { projectName as accessControlName } from '../chugsplash/projects/proxies/UUPSAccessControlUpgradableUpgrade.config'
+import { projectName as ownableName } from '../chugsplash/projects/proxies/UUPSOwnableUpgradableUpgrade.config'
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
-  let claimer: SignerWithAddress
   before(async () => {
     const signers = await hre.ethers.getSigners()
-    claimer = signers[0]
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
@@ -69,9 +65,9 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      transparentUpgradeConfigPath
-    )
+    console.log('a')
+    const userConfig = await readUserChugSplashConfig(configPath)
+    console.log('b')
 
     const cre = await createChugSplashRuntime(
       false,
@@ -79,23 +75,14 @@ describe('Transfer', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true,
-      process.stdout
-    )
-
-    await chugsplashClaimAbstractTask(
-      provider,
-      claimer,
-      userConfig,
       false,
-      signer.address,
-      'hardhat',
-      cre
+      process.stdout
     )
 
     const managerAddress = getChugSplashManagerAddress(
       userConfig.options.organizationID
     )
+    console.log('c')
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -109,27 +96,34 @@ describe('Transfer', () => {
       TransparentUpgradableTokenV1.address,
       managerAddress
     )
+    console.log('d')
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        transparentUpgradeConfigPath,
+        configPath,
+        transparentName,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
       )
+    console.log('e')
+
+    const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      hre.ethers.provider.getSigner(),
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
-      undefined
+      parsedConfig.projects[transparentName],
+      configCache[transparentName],
+      configArtifacts[transparentName],
+      undefined,
+      spinner
     )
+    console.log('f')
 
     const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
       'Transparent Upgradable Token',
@@ -176,9 +170,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      uupsOwnableUpgradeConfigPath
-    )
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const cre = await createChugSplashRuntime(
       false,
@@ -188,16 +180,6 @@ describe('Transfer', () => {
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true,
       process.stdout
-    )
-
-    await chugsplashClaimAbstractTask(
-      provider,
-      claimer,
-      userConfig,
-      false,
-      signer.address,
-      'hardhat',
-      cre
     )
 
     const managerAddress = getChugSplashManagerAddress(
@@ -214,7 +196,8 @@ describe('Transfer', () => {
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        uupsOwnableUpgradeConfigPath,
+        configPath,
+        ownableName,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
@@ -227,9 +210,9 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
+      parsedConfig.projects[ownableName],
+      configCache[ownableName],
+      configArtifacts[ownableName],
       undefined
     )
 
@@ -256,7 +239,9 @@ describe('Transfer', () => {
 
     await manager.exportProxy(
       UUPSUpgradableTokenV2.address,
-      contractKindHashes[parsedConfig.contracts['Token'].kind],
+      contractKindHashes[
+        parsedConfig.projects[ownableName].contracts['Token'].kind
+      ],
       signer.address
     )
 
@@ -298,9 +283,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      uupsAccessControlUpgradeConfigPath
-    )
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const cre = await createChugSplashRuntime(
       false,
@@ -310,16 +293,6 @@ describe('Transfer', () => {
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
       true,
       process.stdout
-    )
-
-    await chugsplashClaimAbstractTask(
-      provider,
-      claimer,
-      userConfig,
-      false,
-      signer.address,
-      'hardhat',
-      cre
     )
 
     const managerAddress = getChugSplashManagerAddress(
@@ -341,7 +314,8 @@ describe('Transfer', () => {
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        uupsAccessControlUpgradeConfigPath,
+        configPath,
+        accessControlName,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
@@ -354,9 +328,9 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
+      parsedConfig.projects[accessControlName],
+      configCache[accessControlName],
+      configArtifacts[accessControlName],
       undefined
     )
 
@@ -384,7 +358,9 @@ describe('Transfer', () => {
     )
     await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,
-      contractKindHashes[parsedConfig.contracts['Token'].kind],
+      contractKindHashes[
+        parsedConfig.projects[accessControlName].contracts['Token'].kind
+      ],
       signer.address
     )
 
