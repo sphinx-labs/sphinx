@@ -4,6 +4,7 @@ pragma solidity >=0.7.4 <0.9.0;
 /**
  * @notice Struct representing the state of a deployment.
  *
+ * @custom:field projectName The name of the project.
  * @custom:field status The status of the deployment.
  * @custom:field actions An array of booleans representing whether or not an action has been
    executed.
@@ -38,11 +39,15 @@ struct DeploymentState {
  *
  * @custom:field actionType The type of action.
  * @custom:field data The ABI-encoded data associated with the action.
+ * @custom:field addr The address of the contract to which the action applies.
+ * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  * @custom:field referenceName The reference name associated with the contract.
  */
 struct RawChugSplashAction {
     ChugSplashActionType actionType;
     bytes data;
+    address payable addr;
+    bytes32 contractKindHash;
     string referenceName;
 }
 
@@ -50,12 +55,16 @@ struct RawChugSplashAction {
  * @notice Struct representing a target.
  *
  * @custom:field referenceName The reference name associated with the target.
+ * @custom:field addr The address of the proxy associated with this target.
  * @custom:field implementation The address that will be the proxy's implementation at the end of
    the deployment.
+ * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  */
 struct ChugSplashTarget {
     string referenceName;
+    address payable addr;
     address implementation;
+    bytes32 contractKindHash;
 }
 
 /**
@@ -87,12 +96,6 @@ enum DeploymentStatus {
     COMPLETED,
     CANCELLED,
     FAILED
-}
-
-struct CrossChainMessageInfo {
-    address payable originEndpoint;
-    uint32 destDomainID;
-    uint256 relayerFee;
 }
 
 /**
@@ -155,17 +158,6 @@ struct ForwardRequest {
 struct ContractInfo {
     string referenceName;
     address addr;
-    bytes32 contractKindHash;
-}
-
-struct ContractKindAndAddress {
-    address addr;
-    bytes32 contractKindHash;
-}
-
-struct ProjectAndReferenceName {
-    string projectName;
-    string referenceName;
 }
 
 struct AuthState {

@@ -72,4 +72,6 @@ contract ChugSplashRegistryEvents {
         uint256 indexed patch,
         address manager
     );
+
+    event CurrentManagerImplementationSet(address indexed _manager);
 }

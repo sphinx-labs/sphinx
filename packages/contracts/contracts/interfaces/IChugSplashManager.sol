@@ -16,7 +16,9 @@ import {
  * @notice Interface that must be inherited by the ChugSplashManager contract.
  */
 interface IChugSplashManager {
-    function numContracts(string memory _projectName) external view returns (uint256);
+    function contractToProject(address) external returns (string memory);
+
+    function numContracts(string memory) external returns (uint256);
 
     /**
      * @notice Initializes this contract. Must only be callable one time, which should occur
@@ -44,8 +46,8 @@ interface IChugSplashManager {
     function cancelActiveChugSplashDeployment() external;
 
     function exportProxy(
-        string memory _projectName,
-        string memory _referenceName,
+        address payable _proxy,
+        bytes32 _contractKindHash,
         address _newOwner
     ) external;
 
@@ -84,13 +86,5 @@ interface IChugSplashManager {
 
     function incrementProtocolDebt(uint256 _initialGasLeft) external;
 
-    function removeContractsFromProject(
-        string memory _projectName,
-        string[] memory _referenceNames
-    ) external;
-
-    function addContractsToProject(
-        string memory _projectName,
-        ContractInfo[] memory _contractInfoArray
-    ) external;
+    function transferContractToProject(address _addr, string memory _projectName) external;
 }

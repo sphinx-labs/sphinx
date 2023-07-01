@@ -39,6 +39,8 @@ contract ChugSplashAuthFactory is Ownable {
         address impl
     );
 
+    event CurrentAuthImplementationSet(address indexed impl);
+
     IChugSplashRegistry public immutable registry;
 
     /**
@@ -74,24 +76,28 @@ contract ChugSplashAuthFactory is Ownable {
         _transferOwnership(_owner);
     }
 
-    function deploy(bytes memory _authData, bytes memory _registryData, uint256 _saltNonce) external {
-        require(currentAuthImplementation != address(0), "ChugSplashAuthFactory: no auth implementation");
+    function deploy(
+        bytes memory _authData,
+        bytes memory _registryData,
+        uint256 _saltNonce
+    ) external {
+        require(
+            currentAuthImplementation != address(0),
+            "ChugSplashAuthFactory: no auth implementation"
+        );
 
         bytes32 salt = keccak256(abi.encode(_authData, _saltNonce));
-        require(
-            address(auths[salt]) == address(0),
-            "ChugSplashAuthFactory: already deployed"
-        );
+        require(address(auths[salt]) == address(0), "ChugSplashAuthFactory: already deployed");
 
         address authProxyAddress = getAuthProxyAddress(salt);
 
         address managerProxy = registry.register(authProxyAddress, _registryData, _saltNonce);
 
-        ChugSplashAuthProxy authProxy = new ChugSplashAuthProxy{ salt: salt }(
-            this,
-            address(this)
+        ChugSplashAuthProxy authProxy = new ChugSplashAuthProxy{ salt: salt }(this, address(this));
+        require(
+            address(authProxy) == authProxyAddress,
+            "ChugSplashAuthFactory: failed to deploy auth proxy"
         );
-        require(address(authProxy) == authProxyAddress, "ChugSplashAuthFactory: failed to deploy auth proxy");
 
         auths[salt] = payable(authProxyAddress);
         isDeployed[authProxyAddress] = true;
@@ -104,12 +110,7 @@ contract ChugSplashAuthFactory is Ownable {
         // Set the auth proxy admin to itself
         authProxy.changeAdmin(authProxyAddress);
 
-        emit AuthDeployed(
-            salt,
-            managerProxy,
-            currentAuthImplementation,
-            msg.sender
-        );
+        emit AuthDeployed(salt, managerProxy, currentAuthImplementation, msg.sender);
     }
 
     /**
@@ -137,13 +138,20 @@ contract ChugSplashAuthFactory is Ownable {
         emit VersionAdded(major, minor, patch, _auth);
     }
 
-    function setCurrentAuthImplementation(address _auth) external onlyOwner {
-        require(authImplementations[_auth], "ChugSplashAuthFactory: invalid auth implementation");
-        currentAuthImplementation = _auth;
+    function setCurrentAuthImplementation(address _impl) external onlyOwner {
+        require(authImplementations[_impl], "ChugSplashAuthFactory: invalid auth implementation");
+        currentAuthImplementation = _impl;
+        emit CurrentAuthImplementationSet(_impl);
     }
 
     // Get the Create2 address using the Create2 library
     function getAuthProxyAddress(bytes32 _salt) private view returns (address) {
-        return Create2.computeAddress(_salt, keccak256(abi.encodePacked(type(ChugSplashAuthProxy).creationCode, this, address(this))));
+        return
+            Create2.computeAddress(
+                _salt,
+                keccak256(
+                    abi.encodePacked(type(ChugSplashAuthProxy).creationCode, this, address(this))
+                )
+            );
     }
 }

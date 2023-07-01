@@ -7,7 +7,11 @@ import { Version } from "../ChugSplashDataTypes.sol";
 interface IChugSplashRegistry {
     function managers(bytes32) external view returns (address payable);
 
-    function register(address _owner, bytes memory _data, uint256 _saltNonce) external returns (address);
+    function register(
+        address _owner,
+        bytes memory _data,
+        uint256 _saltNonce
+    ) external returns (address);
 
     function isDeployed(address) external view returns (bool);
 

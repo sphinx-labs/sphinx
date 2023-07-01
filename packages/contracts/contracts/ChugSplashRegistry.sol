@@ -73,14 +73,18 @@ contract ChugSplashRegistry is
             ChugSplashManagerProxy. This allows a single owner address to own multiple different
             proxy contracts.
      */
-    function register(address _owner, bytes memory _data, uint256 _saltNonce) external returns (address) {
-        require(currentManagerImplementation != address(0), "ChugSplashRegistry: no manager implementation");
+    function register(
+        address _owner,
+        bytes memory _data,
+        uint256 _saltNonce
+    ) external returns (address) {
+        require(
+            currentManagerImplementation != address(0),
+            "ChugSplashRegistry: no manager implementation"
+        );
 
         bytes32 salt = keccak256(abi.encode(_owner, _data, _saltNonce));
-        require(
-            address(managers[salt]) == address(0),
-            "ChugSplashRegistry: already registered"
-        );
+        require(address(managers[salt]) == address(0), "ChugSplashRegistry: already registered");
 
         ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
@@ -190,7 +194,12 @@ contract ChugSplashRegistry is
     }
 
     function setCurrentManagerImplementation(address _manager) external onlyOwner {
-        require(managerImplementations[_manager], "ChugSplashRegistry: invalid manager implementation");
+        require(
+            managerImplementations[_manager],
+            "ChugSplashRegistry: invalid manager implementation"
+        );
         currentManagerImplementation = _manager;
+
+        emit CurrentManagerImplementationSet(_manager);
     }
 }

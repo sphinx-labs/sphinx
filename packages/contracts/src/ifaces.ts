@@ -41,4 +41,3 @@ export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
 export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
-export const ForwarderABI = ForwarderArtifact.abi

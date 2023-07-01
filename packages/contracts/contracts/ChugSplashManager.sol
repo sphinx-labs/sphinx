@@ -6,10 +6,7 @@ import {
     RawChugSplashAction,
     ChugSplashTarget,
     ChugSplashActionType,
-    DeploymentStatus,
-    ContractInfo,
-    ContractKindAndAddress,
-    ProjectAndReferenceName
+    DeploymentStatus
 } from "./ChugSplashDataTypes.sol";
 import {
     OwnableUpgradeable
@@ -125,17 +122,12 @@ contract ChugSplashManager is
     uint256 internal immutable protocolPaymentPercentage;
 
     /**
-     * @notice Mapping of project name to reference name to contract kind and address.
+     * @notice Mapping of contract addresses to the project name that they belong to.
      */
-    mapping(string => mapping(string => ContractKindAndAddress)) public projects;
+    mapping(address => string) public contractToProject;
 
     /**
-     * @notice Mapping of contract address to project name and reference name.
-     */
-    mapping(address => ProjectAndReferenceName) public contracts;
-
-    /**
-     * @notice Mapping of project name to the number of contracts in the project.
+     * @notice Mapping from project name to the number of contracts that are in the project.
      */
     mapping(string => uint256) public numContracts;
 
@@ -184,7 +176,7 @@ contract ChugSplashManager is
     /**
      * @notice Reverts if there is another active deployment ID.
      */
-    error AnotherDeploymentInProgress();
+    error DeploymentInProgress();
 
     /**
      * @notice Reverts if there is currently no active deployment ID.
@@ -321,11 +313,7 @@ contract ChugSplashManager is
     error FailedToGetAddress();
 
     error ProjectNameCannotBeEmpty();
-    error ReferenceNameCannotBeEmpty();
-    error ContractAddressCannotBeZero();
-    error AddressAlreadyExistsInAProject();
-    error ReferenceNameAlreadyExistsInThisProject();
-    error ContractNotInProject();
+    error ContractDoesNotExistInProject();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
@@ -422,7 +410,7 @@ contract ChugSplashManager is
         bool _remoteExecution
     ) public onlyOwner {
         if (activeDeploymentId != bytes32(0)) {
-            revert AnotherDeploymentInProgress();
+            revert DeploymentInProgress();
         }
         if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
 
@@ -470,7 +458,9 @@ contract ChugSplashManager is
         deployment.configUri = _configUri;
 
         emit ChugSplashDeploymentApproved(
+            _projectName,
             deploymentId,
+            _projectName,
             _actionRoot,
             _targetRoot,
             _numActions,
@@ -627,34 +617,32 @@ contract ChugSplashManager is
      * @param _newOwner  Address of the owner to receive ownership of the proxy.
      */
     function exportProxy(
-        string memory _projectName,
-        string memory _referenceName,
+        address payable _proxy,
+        bytes32 _contractKindHash,
         address _newOwner
     ) external onlyOwner {
-        ContractKindAndAddress memory info = projects[_projectName][_referenceName];
-        address proxy = info.addr;
-        bytes32 contractKindHash = info.contractKindHash;
-
-        if (proxy.code.length == 0) {
+        if (_proxy.code.length == 0) {
             revert ContractDoesNotExist();
         }
 
         if (activeDeploymentId != bytes32(0)) {
-            revert AnotherDeploymentInProgress();
+            revert DeploymentInProgress();
         }
 
         // Get the adapter that corresponds to this contract type.
-        address adapter = registry.adapters(contractKindHash);
+        address adapter = registry.adapters(_contractKindHash);
         if (adapter == address(0)) {
             revert InvalidContractKind();
         }
 
-        emit ProxyExported(proxy, contractKindHash, _newOwner);
+        _transferContractToProject(_proxy, "");
+
+        emit ProxyExported(_proxy, _contractKindHash, _newOwner);
 
         // Delegatecall the adapter to change ownership of the proxy.
         // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (payable(proxy), _newOwner))
+            abi.encodeCall(IProxyAdapter.changeProxyAdmin, (_proxy, _newOwner))
         );
         if (!success) {
             revert ProxyExportFailed();
@@ -670,7 +658,7 @@ contract ChugSplashManager is
      */
     function withdrawOwnerETH(address _to) external onlyOwner {
         if (activeDeploymentId != bytes32(0)) {
-            revert AnotherDeploymentInProgress();
+            revert DeploymentInProgress();
         }
 
         uint256 amount = address(this).balance - totalDebt();
@@ -685,79 +673,6 @@ contract ChugSplashManager is
         registry.announce("OwnerWithdrewETH");
     }
 
-    /**
-     * @notice Will revert if any of the contracts already belong to another project.
-     */
-    function addContractsToProject(
-        string memory _projectName,
-        ContractInfo[] memory _contractInfoArray
-    ) external onlyOwner {
-        if (activeDeploymentId != bytes32(0)) revert AnotherDeploymentInProgress();
-        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
-        if (_contractInfoArray.length == 0) return;
-
-        uint256 numContractsToAdd = _contractInfoArray.length;
-        numContracts[_projectName] += numContractsToAdd;
-
-        string memory referenceName;
-        address addr;
-        bytes32 contractKindHash;
-        for (uint256 i = 0; i < numContractsToAdd; i++) {
-            referenceName = _contractInfoArray[i].referenceName;
-            addr = _contractInfoArray[i].addr;
-            contractKindHash = _contractInfoArray[i].contractKindHash;
-
-            if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
-            if (addr == address(0)) revert ContractAddressCannotBeZero();
-            // We don't revert if `contractKindHash == bytes32(0)` because this corresponds to a
-            // valid default proxy contract kind.
-
-            if (bytes(contracts[addr].projectName).length > 0)
-                revert AddressAlreadyExistsInAProject();
-
-            if (projects[_projectName][referenceName].addr != address(0))
-                revert ReferenceNameAlreadyExistsInThisProject();
-
-            projects[_projectName][referenceName] = ContractKindAndAddress({
-                addr: addr,
-                contractKindHash: contractKindHash
-            });
-            contracts[addr] = ProjectAndReferenceName({
-                projectName: _projectName,
-                referenceName: referenceName
-            });
-        }
-    }
-
-    function removeContractsFromProject(
-        string memory _projectName,
-        string[] memory _referenceNames
-    ) external onlyOwner {
-        if (activeDeploymentId != bytes32(0)) revert AnotherDeploymentInProgress();
-        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
-        if (_referenceNames.length == 0) return;
-
-        uint256 numContractsToRemove = _referenceNames.length;
-        numContracts[_projectName] -= numContractsToRemove;
-
-        string memory referenceName;
-        address addr;
-        for (uint256 i = 0; i < numContractsToRemove; i++) {
-            referenceName = _referenceNames[i];
-            if (bytes(referenceName).length == 0) revert ReferenceNameCannotBeEmpty();
-
-            addr = projects[_projectName][referenceName].addr;
-
-            if (addr == address(0)) revert ContractNotInProject();
-
-            projects[_projectName][referenceName] = ContractKindAndAddress({
-                addr: address(0),
-                contractKindHash: bytes32(0)
-            });
-            contracts[addr] = ProjectAndReferenceName({ projectName: "", referenceName: "" });
-        }
-    }
-
     function incrementProtocolDebt(uint256 _initialGasLeft) external onlyOwner {
         uint256 gasPrice = gasPriceCalculator.getGasPrice();
 
@@ -770,6 +685,15 @@ contract ChugSplashManager is
         if (cost + totalDebt() > address(this).balance) revert InsufficientFunds();
 
         totalProtocolDebt += cost;
+
+        emit ProtocolDebtAdded(cost, totalProtocolDebt);
+    }
+
+    function transferContractToProject(
+        address _addr,
+        string memory _projectName
+    ) external onlyOwner {
+        _transferContractToProject(_addr, _projectName);
     }
 
     /**
@@ -827,7 +751,6 @@ contract ChugSplashManager is
         RawChugSplashAction memory action;
         uint256 actionIndex;
         bytes32[] memory proof;
-        ContractKindAndAddress memory kindAndAddress;
         for (uint256 i = 0; i < numActions; i++) {
             action = _actions[i];
             actionIndex = _actionIndexes[i];
@@ -840,7 +763,15 @@ contract ChugSplashManager is
             if (
                 !MerkleTree.verify(
                     deployment.actionRoot,
-                    keccak256(abi.encode(action.referenceName, action.actionType, action.data)),
+                    keccak256(
+                        abi.encode(
+                            action.referenceName,
+                            action.addr,
+                            action.actionType,
+                            action.contractKindHash,
+                            action.data
+                        )
+                    ),
                     actionIndex,
                     proof,
                     deployment.actions.length
@@ -849,16 +780,16 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
+            if (!equals(contractToProject[action.addr], deployment.projectName)) {
+                revert ContractDoesNotExistInProject();
+            }
+
             // Mark the action as executed and update the total number of executed actions.
             deployment.actionsExecuted++;
             deployment.actions[actionIndex] = true;
 
-            kindAndAddress = projects[deployment.projectName][
-                action.referenceName
-            ];
-
             if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
-                _attemptContractDeployment(deployment, action, kindAndAddress, actionIndex);
+                _attemptContractDeployment(deployment, action, actionIndex);
 
                 if (
                     deployment.actionsExecuted == deployment.actions.length &&
@@ -868,18 +799,7 @@ contract ChugSplashManager is
                     _completeDeployment(deployment);
                 }
             } else if (action.actionType == ChugSplashActionType.SET_STORAGE) {
-                // If the contract address does not exist in this project, then the deployment
-                // cannot be completed, so we mark it as failed. This should never be triggered
-                // because it should be caught in `initiateUpgrade`, but we check just in case.
-                if (kindAndAddress.addr == address(0)) _deploymentFailed(deployment, action.referenceName);
-
-                _setProxyStorage(
-                    deployment,
-                    kindAndAddress.addr,
-                    kindAndAddress.contractKindHash,
-                    actionIndex,
-                    action.data
-                );
+                _setProxyStorage(deployment, action, actionIndex);
             } else {
                 revert InvalidActionType();
             }
@@ -923,28 +843,30 @@ contract ChugSplashManager is
             revert IncorrectNumberOfTargets();
         }
 
-        string memory projectName = deployment.projectName;
         ChugSplashTarget memory target;
         bytes32[] memory proof;
-        ContractKindAndAddress memory kindAndAddress;
-        bytes32 contractKindHash;
-        address addr;
         for (uint256 i = 0; i < numTargets; i++) {
             target = _targets[i];
             proof = _proofs[i];
 
-            kindAndAddress = projects[projectName][target.referenceName];
-            contractKindHash = kindAndAddress.contractKindHash;
-            addr = kindAndAddress.addr;
-
-            if (contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH || contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH) {
+            if (
+                target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
+                target.contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
+            ) {
                 revert OnlyProxiesAllowed();
             }
 
             if (
                 !MerkleTree.verify(
                     deployment.targetRoot,
-                    keccak256(abi.encode(target.referenceName, target.implementation)),
+                    keccak256(
+                        abi.encode(
+                            target.referenceName,
+                            target.addr,
+                            target.implementation,
+                            target.contractKindHash
+                        )
+                    ),
                     i,
                     proof,
                     deployment.targets
@@ -953,14 +875,14 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
-            address adapter = registry.adapters(contractKindHash);
+            address adapter = registry.adapters(target.contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
             }
 
-            // If the contract address does not exist in this project, then the deployment cannot be
-            // completed, so we mark it as failed.
-            if (addr == address(0)) _deploymentFailed(deployment, target.referenceName);
+            if (!equals(contractToProject[target.addr], deployment.projectName)) {
+                revert ContractDoesNotExistInProject();
+            }
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
             // ChugSplashManager can interact with a proxy that is in the process of being updated.
@@ -969,7 +891,7 @@ contract ChugSplashManager is
             // they are not upgradable and cannot have state.
             // slither-disable-next-line controlled-delegatecall
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(IProxyAdapter.initiateUpgrade, (payable(addr)))
+                abi.encodeCall(IProxyAdapter.initiateUpgrade, (target.addr))
             );
             if (!success) {
                 revert FailedToInitiateUpgrade();
@@ -1015,28 +937,30 @@ contract ChugSplashManager is
             revert IncorrectNumberOfTargets();
         }
 
-        string memory projectName = deployment.projectName;
         ChugSplashTarget memory target;
         bytes32[] memory proof;
-        ContractKindAndAddress memory kindAndAddress;
-        bytes32 contractKindHash;
-        address addr;
         for (uint256 i = 0; i < numTargets; i++) {
             target = _targets[i];
             proof = _proofs[i];
 
-            kindAndAddress = projects[projectName][target.referenceName];
-            contractKindHash = kindAndAddress.contractKindHash;
-            addr = kindAndAddress.addr;
-
-            if (contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH || contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH) {
+            if (
+                target.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
+                target.contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
+            ) {
                 revert OnlyProxiesAllowed();
             }
 
             if (
                 !MerkleTree.verify(
                     deployment.targetRoot,
-                    keccak256(abi.encode(target.referenceName, target.implementation)),
+                    keccak256(
+                        abi.encode(
+                            target.referenceName,
+                            target.addr,
+                            target.implementation,
+                            target.contractKindHash
+                        )
+                    ),
                     i,
                     proof,
                     deployment.targets
@@ -1046,24 +970,28 @@ contract ChugSplashManager is
             }
 
             // Get the proxy type and adapter for this reference name.
-            address adapter = registry.adapters(contractKindHash);
+            address adapter = registry.adapters(target.contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
             }
 
             // Upgrade the proxy's implementation contract.
             (bool success, ) = adapter.delegatecall(
-                abi.encodeCall(
-                    IProxyAdapter.finalizeUpgrade,
-                    (payable(addr), target.implementation)
-                )
+                abi.encodeCall(IProxyAdapter.finalizeUpgrade, (target.addr, target.implementation))
             );
             if (!success) {
                 revert FailedToFinalizeUpgrade();
             }
 
-            emit ProxyUpgraded(activeDeploymentId, addr, projectName, target.referenceName);
-            registry.announceWithData("ProxyUpgraded", abi.encodePacked(addr));
+            _transferContractToProject(target.addr, deployment.projectName);
+
+            emit ProxyUpgraded(
+                activeDeploymentId,
+                target.addr,
+                deployment.projectName,
+                target.referenceName
+            );
+            registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
         _completeDeployment(deployment);
@@ -1097,38 +1025,42 @@ contract ChugSplashManager is
      * @notice Modifies a storage slot value within a proxy contract.
      *
      * @param _deployment The current deployment state struct.
+     * @param _action The `SET_STORAGE` action to execute.
      * @param _actionIndex The index of the action.
      */
     function _setProxyStorage(
         DeploymentState memory _deployment,
-        address _addr,
-        bytes32 _contractKindHash,
-        uint256 _actionIndex,
-        bytes memory _data
+        RawChugSplashAction memory _action,
+        uint256 _actionIndex
     ) internal {
-        if (_addr == address(0)) revert ContractAddressCannotBeZero();
         if (_deployment.status != DeploymentStatus.PROXIES_INITIATED) {
             revert ProxiesAreNotInitiated();
         }
 
-        // Get the adapter for this reference name.
-        address adapter = registry.adapters(_contractKindHash);
-
-        if (_contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH || _contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH) {
+        if (
+            _action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH ||
+            _action.contractKindHash == IMPLEMENTATION_CONTRACT_KIND_HASH
+        ) {
             revert OnlyProxiesAllowed();
         }
 
-        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(_data, (bytes32, uint8, bytes));
+        // Get the adapter for this reference name.
+        address adapter = registry.adapters(_action.contractKindHash);
+
+        (bytes32 key, uint8 offset, bytes memory val) = abi.decode(
+            _action.data,
+            (bytes32, uint8, bytes)
+        );
         // Delegatecall the adapter to call `setStorage` on the proxy.
         // slither-disable-next-line controlled-delegatecall
         (bool success, ) = adapter.delegatecall(
-            abi.encodeCall(IProxyAdapter.setStorage, (payable(_addr), key, offset, val))
+            abi.encodeCall(IProxyAdapter.setStorage, (_action.addr, key, offset, val))
         );
         if (!success) {
             revert SetStorageFailed();
         }
 
-        emit SetProxyStorage(activeDeploymentId, _addr, msg.sender, _actionIndex);
+        emit SetProxyStorage(activeDeploymentId, _action.addr, msg.sender, _actionIndex);
         registry.announce("SetProxyStorage");
     }
 
@@ -1146,7 +1078,6 @@ contract ChugSplashManager is
     function _attemptContractDeployment(
         DeploymentState storage _deployment,
         RawChugSplashAction memory _action,
-        ContractKindAndAddress memory _kindAndAddress,
         uint256 _actionIndex
     ) internal {
         if (_deployment.status != DeploymentStatus.APPROVED) {
@@ -1171,19 +1102,6 @@ contract ChugSplashManager is
         }
 
         address expectedAddress = abi.decode(expectedAddressBytes, (address));
-
-        // If the contract's address already exists in a different
-        // project, mark the deployment as failed. TODO: is this sentence accurate?: This removes the possibility of a contract in
-        // one project getting transferred to a different project without the project owner's
-        // consent.
-        bytes memory existingProjectNameBytes = bytes(contracts[expectedAddress].projectName);
-        if (existingProjectNameBytes.length > 0 && (keccak256(existingProjectNameBytes) != keccak256(bytes(_deployment.projectName)))) {
-            _deploymentFailed(_deployment, referenceName);
-        }
-
-        if (_kindAndAddress.contractKindHash != IMPLEMENTATION_CONTRACT_KIND_HASH) {
-            _updateExecutedContract(_deployment.projectName, referenceName, _kindAndAddress);
-        }
 
         // Check if the contract has already been deployed.
         if (expectedAddress.code.length > 0) {
@@ -1210,6 +1128,13 @@ contract ChugSplashManager is
 
             if (expectedAddress == actualAddress) {
                 // Contract was deployed successfully.
+
+                // We only transfer immutable contracts to the project here. Proxies are transferred
+                // at the end of an upgrade.
+                if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
+                    _transferContractToProject(actualAddress, _deployment.projectName);
+                }
+
                 emit ContractDeployed(
                     referenceName,
                     actualAddress,
@@ -1222,27 +1147,24 @@ contract ChugSplashManager is
                 // Contract deployment failed. Could happen if insufficient gas is supplied to this
                 // transaction or if the creation bytecode has logic that causes the call to fail
                 // (e.g. a constructor that reverts).
-                _deploymentFailed(_deployment, referenceName);
+
+                // Give the owner's bond to the executor.
+                executorDebt[msg.sender] += ownerBondAmount;
+                totalExecutorDebt += ownerBondAmount;
+
+                emit DeploymentFailed(
+                    _deployment.projectName,
+                    referenceName,
+                    activeDeploymentId,
+                    _deployment.projectName,
+                    referenceName
+                );
+                registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
+
+                activeDeploymentId = bytes32(0);
+                _deployment.status = DeploymentStatus.FAILED;
             }
         }
-    }
-
-    function _deploymentFailed(DeploymentState memory _deployment, string memory _referenceName) private {
-        // Give the owner's bond to the executor.
-        executorDebt[msg.sender] += ownerBondAmount;
-        totalExecutorDebt += ownerBondAmount;
-
-        emit DeploymentFailed(
-            _deployment.projectName,
-            _referenceName,
-            activeDeploymentId,
-            _deployment.projectName,
-            _referenceName
-        );
-        registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
-
-        activeDeploymentId = bytes32(0);
-        _deployment.status = DeploymentStatus.FAILED;
     }
 
     /**
@@ -1316,22 +1238,27 @@ contract ChugSplashManager is
         }
     }
 
-    // TODO: perhaps change function name
-    function _updateExecutedContract(string memory _projectName, string memory _referenceName, ContractKindAndAddress memory _kindAndAddress) private {
-        // TODO: three mappings: numContracts, projects, contracts
-        // cases:
-        // - contract exists in a different project
-        // - reference name is not in this project
-        // - reference name is not in any project
-        // - reference name is in this project w/ different address or different contract kind
+    function _transferContractToProject(address _addr, string memory _projectName) private {
+        string memory existingProject = contractToProject[_addr];
 
-        projects[_projectName][_referenceName] = _kindAndAddress;
-
-
-        if (kindAndAddress.addr == address(0)) {
-            // Contract does not exist in project
-        } else {
-            // Contract already exists in project
+        if (equals(existingProject, _projectName)) {
+            return;
         }
+
+        if (bytes(existingProject).length > 0) {
+            numContracts[existingProject] -= 1;
+        }
+
+        if (bytes(_projectName).length > 0) {
+            numContracts[_projectName] += 1;
+        }
+
+        contractToProject[_addr] = _projectName;
+
+        emit ContractTransferredToProject(_projectName, _addr, _projectName);
+    }
+
+    function equals(string memory _str1, string memory _str2) public pure returns (bool) {
+        return keccak256(bytes(_str1)) == keccak256(bytes(_str2));
     }
 }

@@ -5,7 +5,9 @@ contract ChugSplashManagerEvents {
     /**
      * @notice Emitted when a deployment is approved.
 
+     * @param projectNameHash   Hash of the project name that was approved.
      * @param deploymentId   ID of the deployment that was approved.
+     * @param projectName    Project name that was approved.
      * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
      * @param numActions   Number of actions in the deployment.
@@ -16,7 +18,9 @@ contract ChugSplashManagerEvents {
      * @param approver     Address of the account that approved the deployment.
      */
     event ChugSplashDeploymentApproved(
+        string indexed projectNameHash,
         bytes32 indexed deploymentId,
+        string projectName,
         bytes32 actionRoot,
         bytes32 targetRoot,
         uint256 numActions,
@@ -179,4 +183,8 @@ contract ChugSplashManagerEvents {
         string projectName,
         string referenceName
     );
+
+    event ProtocolDebtAdded(uint256 cost, uint256 totalProtocolDebt);
+
+    event ContractTransferredToProject(string projectNameHash, address contractAddress, string projectName);
 }
