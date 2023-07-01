@@ -3,6 +3,7 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   IMMUTABLE_TYPE_HASH,
+  IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
@@ -33,6 +34,7 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   immutable: IMMUTABLE_TYPE_HASH,
+  implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 

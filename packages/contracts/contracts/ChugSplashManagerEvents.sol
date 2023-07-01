@@ -166,17 +166,17 @@ contract ChugSplashManagerEvents {
      * @notice Emitted when a deployment fails. This should only occur if the constructor of a
        deployed contract reverts.
      *
+     * @param projectNameHash Hash of the project name.
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param expectedAddress   Expected Create3 address of the contract.
      * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
+     * @param projectName       String project name.
      * @param referenceName     String reference name.
-     * @param actionIndex Index of the action that attempted to deploy the contract.
      */
     event DeploymentFailed(
+        string indexed projectNameHash,
         string indexed referenceNameHash,
-        address indexed expectedAddress,
         bytes32 indexed deploymentId,
-        string referenceName,
-        uint256 actionIndex
+        string projectName,
+        string referenceName
     );
 }

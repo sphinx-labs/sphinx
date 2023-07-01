@@ -7,7 +7,6 @@ ds-test/=node_modules/ds-test/src/
 solidity-stringutils=node_modules/solidity-stringutils/src/
 @eth-optimism/contracts-bedrock/=node_modules/@eth-optimism/contracts-bedrock/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
-@thirdweb-dev/contracts/=node_modules/@thirdweb-dev/contracts/
 solmate/src/=node_modules/solmate/src/
 @prb/math/=node_modules/prb/math/src/
 @chugsplash/plugins=./foundry-contracts/

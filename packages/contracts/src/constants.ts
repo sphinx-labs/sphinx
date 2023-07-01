@@ -31,6 +31,9 @@ export const OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH = ethers.utils.keccak256(
 export const IMMUTABLE_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('immutable')
 )
+export const IMPLEMENTATION_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('implementation')
+)
 export const DEFAULT_PROXY_TYPE_HASH = ethers.constants.HashZero
 
 export const DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS =

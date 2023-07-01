@@ -47,13 +47,21 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     uint256 public nonce;
 
-    // TODO(docs)
+    /**
+     * @notice Boolean indicating whether or not a proposal has been made. After this occurs, the
+     *         the owners of this contract can no longer call `setup`.
+     */
     bool public firstProposalOccurred;
 
-    // projectName => threshold
+    /**
+     * @notice Mapping of project names to the threshold required to execute an action for that
+     *        project.
+     */
     mapping(string => uint256) public thresholds;
 
-    // merkle root of auth tree => AuthState
+    /**
+     * @notice Mapping of an auth tree's Merkle root to the corresponding AuthState.
+     */
     mapping(bytes32 => AuthState) public authStates;
 
     modifier isValidAuthAction(
@@ -86,7 +94,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         authState.actionsExecuted += 1;
         if (authState.actionsExecuted == authState.numActions) {
             authState.status = AuthStatus.COMPLETED;
-            // emit AuthActionCompleted(...);
+            // TODO(events): emit AuthActionCompleted(...);
         }
         manager.incrementProtocolDebt(_initialGasLeft);
     }
@@ -96,7 +104,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         _disableInitializers();
     }
 
-    // TODO(docs): generic _data input variable because...
+    /**
+     * @notice Initializes this contract. Must only be callable one time, which should occur
+       immediately after contract creation. This is necessary because this contract is meant to
+       exist as an implementation behind proxies.
+     *
+     * @param _manager Address of the ChugSplashManager contract.
+     * @param _data Arbitrary data. Provides a flexible interface for future versions of this
+                    contract. In this version, the data is expected to be the ABI-encoded
+                    list of owners and the owner threshold.
+     */
     function initialize(
         address _manager,
         bytes memory _data
@@ -114,7 +131,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         for (uint256 i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
-            _assertValidAuthAddress(owner);
+            _assertValidRoleMemberAddress(owner);
 
             // Throw an error if the caller is attempting to add the same owner twice, since this
             // means that the caller made a mistake.
@@ -145,6 +162,21 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         isValidAuthAction(_threshold, _verifyingRole, _authRoot, _request, _signatures, _proof)
     {}
 
+    /**
+     * @notice Verifies a list of EIP-712 meta transaction signatures.
+     *
+     * @param _authRoot Merkle root of the auth tree. The signers of the signatures
+     *                  initiated the meta transaction by signing this value.
+     * @param _request  ForwardRequest struct. This is the decoded leaf of the auth tree.
+     * @param _threshold Number of signatures required to execute the meta transaction.
+     * @param _verifyingRole Role that the signers of the signatures must have.
+     * @param _signatures List of meta transaction signatures. These must correspond to
+     *                      signer addresses that are in ascending order. E.g. The signature that
+                            corresponds to the signer `0x00...` should come before the signature
+                            that corresponds to the signer `0xff...`.
+     * @param _proof    Merkle proof of the leaf in the auth tree.
+     * @param _numLeafs Total number of leaves in the auth tree.
+     */
     function verifySignatures(
         bytes32 _authRoot,
         ForwardRequest memory _request,
@@ -162,9 +194,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         for (uint256 i = 0; i < _threshold; i++) {
             bytes memory signature = _signatures[i];
             require(signature.length == 65, "invalid signature length");
-
-            // TODO: tell ryan that the `_signatures` array must yield 'from' addresses that are in
-            // ascending order. this applies to every function on this contract that takes in `_signatures`
 
             bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, _authRoot);
             signer = ECDSAUpgradeable.recover(typedDataHash, signature);
@@ -194,9 +223,24 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /********************************** OWNER FUNCTIONS **********************************/
 
-    // TODO(docs) this is the only permissioned function that doesn't require a proposal.
-    // TODO(docs): this can't be called after the first proposal has occurred. this is because...
-    function initialSetup(
+    /**
+     * @notice Sets up initial roles. Must be signed by at least `ownerThreshold` owners. This is
+     *         the only permissioned function in this contract that doesn't require that the auth
+               Merkle root has been proposed in a separate transaction.
+
+               This function is callable until the first proposal occurs. This allows for the
+               possibility that the initial owners mistakenly enter the wrong list proposers. For
+               example, they may enter proposers addresses that don't exist on this chain. If this
+               function were only callable once, then this contract would be unusable in this
+               scenario, since every other function requires that a proposal has first occurred.
+     *
+     * @param _authRoot Merkle root of the auth tree.
+     * @param _request ForwardRequest struct. This is the decoded leaf of the auth tree.
+     * @param _signatures List of meta transaction signatures. Must correspond to signer addresses
+     *                    in ascending order (see `verifySignatures` for more info).
+     * @param _proof    Merkle proof of the leaf in the auth tree.
+     */
+    function setup(
         bytes32 _authRoot,
         ForwardRequest memory _request,
         bytes[] memory _signatures,
@@ -204,25 +248,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     )
         public
         updateState(_authRoot, gasleft())
-        // TODO: this modifier checks if the authRoot is proposed, which you don't want to do here
-        isValidAuthAction(
-            ownerThreshold,
-            DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _request,
-            _signatures,
-            _proof
-        )
     {
         require(!firstProposalOccurred, "cannot setup after first proposal");
 
-        // TODO(docs): we add an '_' to the end of addProposer because there's a function in this contract with the same name
         (
             address[] memory proposers,
-            bool[] memory addProposer_,
+            bool[] memory addProposer_, // We append an '_' because there's a function called `addProposer`
             address[] memory projectManagers,
-            bool[] memory addProjectManager
-        ) = abi.decode(_request.data, (address[], bool[], address[], bool[]));
+            bool[] memory addProjectManager,
+            uint256 _numLeafs
+        ) = abi.decode(_request.data, (address[], bool[], address[], bool[], uint256));
+
+        verifySignatures(
+            _authRoot,
+            _request,
+            ownerThreshold,
+            DEFAULT_ADMIN_ROLE,
+            _signatures,
+            _proof,
+            _numLeafs
+        );
 
         uint256 numProposers = proposers.length;
         uint256 numProjectManagers = projectManagers.length;
@@ -238,7 +283,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             add = addProposer_[i];
             addr = proposers[i];
             if (add) {
-                _assertValidAuthAddress(addr);
+                _assertValidRoleMemberAddress(addr);
                 require(!hasRole(PROPOSER_ROLE, addr), "address already has role");
                 _grantRole(PROPOSER_ROLE, addr);
             } else {
@@ -251,7 +296,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             add = addProjectManager[i];
             addr = projectManagers[i];
             if (add) {
-                _assertValidAuthAddress(addr);
+                _assertValidRoleMemberAddress(addr);
                 require(
                     !hasRole(PROJECT_MANAGER_ROLE, addr),
                     "address already has role"
@@ -287,8 +332,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         (address projectManager, bool add) = abi.decode(_request.data, (address, bool));
 
         if (add) {
-            // TODO: come up with better name for this function
-            _assertValidAuthAddress(projectManager);
+            _assertValidRoleMemberAddress(projectManager);
             require(
                 !hasRole(PROJECT_MANAGER_ROLE, projectManager),
                 "address already has role"
@@ -303,13 +347,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         }
     }
 
-    // TODO: we should remove the `address` field in the action and target bundles. instead, the
-    // Manager contract should contain a mapping from project names to reference names to addresses.
-    // this prevents a situation where a malicious project owner attempts to perform actions on
-    // contracts outside of its project. This mapping should be updated during execution probably.
-    // We also need logic that updates this mapping when importing proxies and when transferring a
-    // contract from project A to project B. We should require that a contract can only belong to
-    // one project at a time.
+    // TODO: update the projects and contracts mapping in executeActions (if completed early) or finalizeUpgrade.
 
     function exportProxy(
         bytes32 _authRoot,
@@ -355,7 +393,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     {
         address proposer = abi.decode(_request.data, (address));
 
-        _assertValidAuthAddress(proposer);
+        _assertValidRoleMemberAddress(proposer);
 
         require(!hasRole(PROPOSER_ROLE, proposer), "address already has role");
         _grantRole(PROPOSER_ROLE, proposer);
@@ -381,7 +419,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         (address owner, bool add) = abi.decode(_request.data, (address, bool));
 
         if (add) {
-            _assertValidAuthAddress(owner);
+            _assertValidRoleMemberAddress(owner);
             require(
                 !hasRole(DEFAULT_ADMIN_ROLE, owner),
                 "address already has role"
@@ -453,7 +491,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         address newProjectOwner;
         for (uint256 i = 0; i < numToAdd; i++) {
             newProjectOwner = newProjectOwners[i];
-            _assertValidAuthAddress(newProjectOwner);
+            _assertValidRoleMemberAddress(newProjectOwner);
             require(
                 !hasRole(projectOwnerRole, newProjectOwner),
                 "address already has role"
@@ -610,8 +648,11 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /************************ PROJECT MANAGER FUNCTIONS *****************************/
 
-    // TODO(docs): meta transaction must be signed by a project manager
-    // TODO(docs): the call to `manager.setContractKind` will revert if any of the contracts already belong to a project
+    /**
+     * @notice Creates a new project with the given name and threshold. Must be signed by at least
+       one project manager. Note that this function wil revert if any of the contracts in the new
+       project already belong to an existing project.
+     */
     function createProject(
         bytes32 _authRoot,
         ForwardRequest memory _request,
@@ -638,7 +679,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         uint256 numProjectOwners = projectOwners.length;
         for (uint256 i = 0; i < numProjectOwners; i++) {
             address projectOwner = projectOwners[i];
-            _assertValidAuthAddress(projectOwner);
+            _assertValidRoleMemberAddress(projectOwner);
             require(
                 !hasRole(projectOwnerRole, projectOwner),
                 "address already has role"
@@ -778,7 +819,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         );
 
         if (add) {
-            _assertValidAuthAddress(projectOwner);
+            _assertValidRoleMemberAddress(projectOwner);
             require(
                 !hasRole(projectOwnerRole, projectOwner),
                 "address already has role"
@@ -796,8 +837,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(projectOwnerRole, projectOwner);
         }
     }
-
-    // TODO: rm thirdweb everywhere in repo
 
     function removeProject(
         bytes32 _authRoot,
@@ -931,7 +970,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /**************************** OPENZEPPELIN FUNCTIONS ******************************/
 
-    // TODO(docs): explain
+    /**
+     * @notice Disables the ability to grant roles with OpenZeppelin's standard AccessControl
+       function. This must instead occur through the functions defined by this contract.
+     */
     function grantRole(
         bytes32,
         address
@@ -939,6 +981,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         revert("function disabled");
     }
 
+    /**
+     * @notice Disables the ability to revoke roles with OpenZeppelin's standard AccessControl
+       function. This must instead occur through the functions defined by this contract.
+     */
     function revokeRole(
         bytes32,
         address
@@ -946,6 +992,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         revert("function disabled");
     }
 
+    /**
+     * @notice Disables the ability to renounce roles with OpenZeppelin's standard AccessControl
+       function. This must instead occur through the functions defined by this contract.
+     */
     function renounceRole(
         bytes32,
         address
@@ -955,7 +1005,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /****************************** PRIVATE FUNCTIONS ******************************/
 
-    function _assertValidAuthAddress(address _addr) private view {
+    function _assertValidRoleMemberAddress(address _addr) private view {
         require(_addr != address(0), "cannot be address(0)");
         require(_addr != address(this), "address cannot be this contract");
     }

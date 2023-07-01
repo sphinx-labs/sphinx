@@ -387,7 +387,7 @@ export const makeActionBundleFromConfig = (
       actions.push({
         referenceName,
         addr: implAddress,
-        contractKindHash: contractKindHashes['immutable'],
+        contractKindHash: contractKindHashes['implementation'],
         salt: implSalt,
         code: implInitCode,
       })
