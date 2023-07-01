@@ -20,7 +20,6 @@ import {
   DefaultGasPriceCalculatorArtifact,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
-  ForwarderArtifact,
   LZEndpointMockArtifact,
   FunderArtifact,
   LZReceiverArtifact,
@@ -170,12 +169,6 @@ export const OZ_TRANSPARENT_ADAPTER_ADDRESS = utils.getCreate2Address(
       utils.defaultAbiCoder.encode(['address'], [DEFAULT_UPDATER_ADDRESS]),
     ]
   )
-)
-
-export const FORWARDER_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(['bytes'], [ForwarderArtifact.bytecode])
 )
 
 export const getMockEndPointAddress = (chainId: number) =>
