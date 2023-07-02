@@ -4,7 +4,7 @@ import '@openzeppelin/hardhat-upgrades'
 import '../dist'
 
 import { expect } from 'chai'
-import hre, { ethers, chugsplash } from 'hardhat'
+import hre, { chugsplash } from 'hardhat'
 import {
   getChugSplashManagerAddress,
   chugsplashDeployAbstractTask,
@@ -14,25 +14,26 @@ import {
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
   chugsplashClaimAbstractTask,
+  FailureAction,
 } from '@chugsplash/core'
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers, providers } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 import ora from 'ora'
 
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-const configPath = './chugsplash/chugsplash.config.ts'
+const configPath = './chugsplash/proxies.config.ts'
 import { projectName as transparentName } from '../chugsplash/projects/proxies/TransparentUpgradableUpgrade.config'
 import { projectName as accessControlName } from '../chugsplash/projects/proxies/UUPSAccessControlUpgradableUpgrade.config'
 import { projectName as ownableName } from '../chugsplash/projects/proxies/UUPSOwnableUpgradableUpgrade.config'
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
-  let claimer: SignerWithAddress
+  let claimer: providers.JsonRpcSigner
   before(async () => {
     const signers = await hre.ethers.getSigners()
-    claimer = signers[0]
+    claimer = hre.ethers.provider.getSigner()
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
@@ -113,14 +114,15 @@ describe('Transfer', () => {
         transparentName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
 
     const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
     await chugsplashDeployAbstractTask(
       provider,
-      hre.ethers.provider.getSigner(),
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -207,12 +209,13 @@ describe('Transfer', () => {
         ownableName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -240,7 +243,7 @@ describe('Transfer', () => {
 
     // test claim ownership
     const manager = getChugSplashManager(
-      signer,
+      claimer,
       parsedConfig.options.organizationID
     )
 
@@ -249,12 +252,12 @@ describe('Transfer', () => {
       contractKindHashes[
         parsedConfig.projects[ownableName].contracts['Token'].kind
       ],
-      signer.address
+      await claimer.getAddress()
     )
 
     // check signer is owner again
     expect(await UUPSUpgradableTokenV2.owner()).to.equal(
-      signer.address,
+      await claimer.getAddress(),
       'proxy owner is not signer'
     )
   })
@@ -325,12 +328,13 @@ describe('Transfer', () => {
         accessControlName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        FailureAction.THROW
       )
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
@@ -360,7 +364,7 @@ describe('Transfer', () => {
 
     // test claiming back ownership
     const manager = getChugSplashManager(
-      signer,
+      claimer,
       parsedConfig.options.organizationID
     )
     await manager.exportProxy(
@@ -368,14 +372,14 @@ describe('Transfer', () => {
       contractKindHashes[
         parsedConfig.projects[accessControlName].contracts['Token'].kind
       ],
-      signer.address
+      await claimer.getAddress()
     )
 
     // check signer is owner again
     expect(
       await UUPSAccessControlUpgradableTokenV2.hasRole(
         ethers.constants.HashZero,
-        signer.address
+        await claimer.getAddress()
       )
     ).to.equal(true, 'proxy owner is not signer')
 

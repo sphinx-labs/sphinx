@@ -125,11 +125,10 @@ export const getContract = async (
       return false
     }
     const projectConfig = projects[projectName]
-    const { contracts } = projectConfig
     return (
       projectConfig &&
-      Object.keys(contracts).includes(referenceName) &&
-      contracts[referenceName].salt === userSalt
+      Object.keys(projectConfig.contracts).includes(referenceName) &&
+      projectConfig.contracts[referenceName].salt === userSalt
     )
   })
 
