@@ -651,7 +651,7 @@ export const makeTargetBundleFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts
 ): ChugSplashTargetBundle => {
-  const { projectName, deployer } = parsedProjectConfig.options
+  const { deployer } = parsedProjectConfig.options
 
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -662,7 +662,6 @@ export const makeTargetBundleFromConfig = (
     // Only add targets for proxies.
     if (contractConfig.kind !== 'immutable') {
       targets.push({
-        projectName,
         referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,

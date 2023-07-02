@@ -38,7 +38,6 @@ import { getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
 import {
   alreadyProposedMessage,
-  errorProjectNotClaimed,
   resolveNetworkName,
   successfulProposalMessage,
 } from '../messages'
@@ -72,7 +71,7 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
+// import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
 import { readUserChugSplashConfig } from '../config'
 import { verifyDeployment } from '../config/fetch'
 

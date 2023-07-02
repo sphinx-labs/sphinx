@@ -9,10 +9,10 @@ import {
   projectName as create3Name,
   config as create3Config,
 } from './projects/Create3.config'
-import {
-  projectName as metatxName,
-  config as metatxConfig,
-} from './projects/Metatx.config'
+// import {
+//   projectName as metatxName,
+//   config as metatxConfig,
+// } from './projects/Metatx.config'
 import {
   projectName as noProxyContractReferenceName,
   config as noProxyContractReferenceConfig,
@@ -33,7 +33,7 @@ const config: UserChugSplashConfig = {
   projects: {
     [constructorArgName]: constructorArgConfig,
     [create3Name]: create3Config,
-    [metatxName]: metatxConfig,
+    // [metatxName]: metatxConfig,
     [noProxyContractReferenceName]: noProxyContractReferenceConfig,
     [storageName]: storageConfig,
     [validationName]: validationConfig,

@@ -114,7 +114,7 @@ contract ChugSplash is Script {
         address deployer = utils.msgSender();
         // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
         // transfer ownership to the new owner specified by the user, if it exists.
-        register(registry, manager, deployer);
+        register(registry, manager, deployer, 0);
 
         if (bundleInfo.actionBundle.actions.length == 0 && bundleInfo.targetBundle.targets.length == 0) {
             console.log("Nothing to execute in this deployment. Exiting early.");

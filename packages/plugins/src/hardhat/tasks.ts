@@ -12,7 +12,6 @@ import {
 import {
   getChugSplashRegistry,
   chugsplashFetchSubtask,
-  chugsplashProposeAbstractTask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,

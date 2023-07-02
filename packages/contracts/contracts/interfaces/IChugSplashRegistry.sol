@@ -24,4 +24,6 @@ interface IChugSplashRegistry {
     function announceWithData(string memory _event, bytes memory _data) external;
 
     function adapters(bytes32) external view returns (address);
+
+    function setCurrentManagerImplementation(address _manager) external;
 }
