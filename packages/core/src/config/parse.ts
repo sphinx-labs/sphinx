@@ -166,7 +166,7 @@ export const readUnvalidatedParsedConfig = async (
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       projectConfig,
       projectName,
-      userConfig.options.organizationID,
+      userConfig.options.deployer,
       projectConfigArtifacts,
       cre,
       failureAction
@@ -191,7 +191,7 @@ export const readValidatedChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction = FailureAction.EXIT,
+  failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
   configArtifacts: ConfigArtifacts
@@ -211,7 +211,7 @@ export const readValidatedChugSplashConfig = async (
     project,
     configArtifacts,
     getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
+    getChugSplashManagerReadOnly(parsedConfig.options.deployer, provider)
   )
 
   await postParsingValidation(
@@ -239,16 +239,16 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  */
 export const assertValidUserConfigFields = (
   config: UserProjectConfig,
-  organizationID: string,
+  deployer: string,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ) => {
   const validReferenceNames = Object.keys(config.contracts)
 
-  if (!ethers.utils.isHexString(organizationID, 32)) {
+  if (!ethers.utils.isAddress(deployer)) {
     logValidationError(
       'error',
-      `Organization ID must be a 32-byte hex string. Instead, got: ${organizationID}`,
+      `Deployer must be a valid address. Instead, got: ${deployer}`,
       [],
       cre.silent,
       cre.stream
@@ -1741,9 +1741,7 @@ export const assertValidParsedChugSplashFile = async (
 ): Promise<void> => {
   const { canonicalConfigPath } = cre
 
-  const chugSplashManagerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
+  const chugSplashManagerAddress = parsedConfig.options.deployer
 
   // Check that all user-defined contract addresses have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
@@ -2100,8 +2098,8 @@ const logUnsafeOptions = (
 export const assertValidConstructorArgs = (
   projectConfig: UserProjectConfig,
   projectName: string,
-  organizationID: string,
   configArtifacts: ProjectConfigArtifacts,
+  deployer: string,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ): {
@@ -2109,8 +2107,6 @@ export const assertValidConstructorArgs = (
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
 } => {
-  const managerAddress = getChugSplashManagerAddress(organizationID)
-
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedConstructorArgs = {}
   const contractReferences: { [referenceName: string]: string } = {}
@@ -2124,8 +2120,7 @@ export const assertValidConstructorArgs = (
     // Set the address to the user-defined value if it exists, otherwise set it to the
     // Create3 address given to contracts deployed within the ChugSplash system.
     contractReferences[referenceName] =
-      address ??
-      getTargetAddress(managerAddress, projectName, referenceName, salt)
+      address ?? getTargetAddress(deployer, projectName, referenceName, salt)
   }
 
   // Resolve all contract references.
@@ -2212,7 +2207,7 @@ const assertValidContractVariables = (
 const constructParsedConfig = (
   userProjectConfig: UserProjectConfig,
   projectName: string,
-  organizationID: string,
+  deployer: string,
   projectConfigArtifacts: ProjectConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
@@ -2221,7 +2216,7 @@ const constructParsedConfig = (
 ): ParsedProjectConfig => {
   const parsedConfig: ParsedProjectConfig = {
     options: {
-      organizationID,
+      deployer,
       projectName,
     },
     contracts: {},
@@ -2300,7 +2295,7 @@ export const setDefaultContractOptions = (
 export const getUnvalidatedParsedProjectConfig = (
   userProjectConfig: UserProjectConfig,
   projectName: string,
-  organizationID: string,
+  deployer: string,
   projectConfigArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
@@ -2309,12 +2304,7 @@ export const getUnvalidatedParsedProjectConfig = (
   logUnsafeOptions(userProjectConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserConfigFields(
-    userProjectConfig,
-    organizationID,
-    cre,
-    failureAction
-  )
+  assertValidUserConfigFields(userProjectConfig, deployer, cre, failureAction)
 
   const configWithDefaultOptions = setDefaultContractOptions(userProjectConfig)
 
@@ -2328,8 +2318,8 @@ export const getUnvalidatedParsedProjectConfig = (
   } = assertValidConstructorArgs(
     configWithDefaultOptions,
     projectName,
-    organizationID,
     projectConfigArtifacts,
+    deployer,
     cre,
     failureAction
   )
@@ -2345,7 +2335,7 @@ export const getUnvalidatedParsedProjectConfig = (
   const parsedConfig = constructParsedConfig(
     validProjectConfig,
     projectName,
-    organizationID,
+    deployer,
     projectConfigArtifacts,
     contractReferences,
     parsedVariables,

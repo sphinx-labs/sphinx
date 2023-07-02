@@ -118,8 +118,8 @@ export const compileRemoteBundles = async (
     projectConfigArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(
-      provider,
-      canonicalProjectConfig.options.organizationID
+      canonicalProjectConfig.options.deployer,
+      provider
     )
   )
 

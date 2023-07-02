@@ -614,6 +614,8 @@ contract ChugSplashManager is
        callable by the owner. Note that this function allows the owner to send ownership of their
        proxy to address(0), which would make their proxy non-upgradeable.
      *
+     * @param _proxy  Address of the proxy to transfer ownership of.
+     * @param _contractKindHash  Hash of the contract kind, which represents the proxy type.
      * @param _newOwner  Address of the owner to receive ownership of the proxy.
      */
     function exportProxy(
@@ -635,7 +637,7 @@ contract ChugSplashManager is
             revert InvalidContractKind();
         }
 
-        _transferContractToProject(_proxy, "");
+        _transferContract(_proxy, "");
 
         emit ProxyExported(_proxy, _contractKindHash, _newOwner);
 
@@ -693,7 +695,7 @@ contract ChugSplashManager is
         address _addr,
         string memory _projectName
     ) external onlyOwner {
-        _transferContractToProject(_addr, _projectName);
+        _transferContract(_addr, _projectName);
     }
 
     /**
@@ -983,7 +985,7 @@ contract ChugSplashManager is
                 revert FailedToFinalizeUpgrade();
             }
 
-            _transferContractToProject(target.addr, deployment.projectName);
+            _transferContract(target.addr, deployment.projectName);
 
             emit ProxyUpgraded(
                 activeDeploymentId,
@@ -1132,7 +1134,7 @@ contract ChugSplashManager is
                 // We only transfer immutable contracts to the project here. Proxies are transferred
                 // at the end of an upgrade.
                 if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
-                    _transferContractToProject(actualAddress, _deployment.projectName);
+                    _transferContract(actualAddress, _deployment.projectName);
                 }
 
                 emit ContractDeployed(
@@ -1140,6 +1142,7 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
+                    _action.contractKindHash,
                     keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");
@@ -1238,7 +1241,7 @@ contract ChugSplashManager is
         }
     }
 
-    function _transferContractToProject(address _addr, string memory _projectName) private {
+    function _transferContract(address _addr, string memory _projectName) private {
         string memory existingProject = contractToProject[_addr];
 
         if (equals(existingProject, _projectName)) {
@@ -1255,7 +1258,7 @@ contract ChugSplashManager is
 
         contractToProject[_addr] = _projectName;
 
-        emit ContractTransferredToProject(_projectName, _addr, _projectName);
+        emit ContractTransferred(_projectName, _addr, _projectName);
     }
 
     function equals(string memory _str1, string memory _str2) public pure returns (bool) {

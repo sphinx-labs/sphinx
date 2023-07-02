@@ -47,9 +47,7 @@ export const verifyChugSplashConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const managerAddress = getChugSplashManagerAddress(
-    canonicalProjectConfig.options.organizationID
-  )
+  const managerAddress = canonicalProjectConfig.options.deployer
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any

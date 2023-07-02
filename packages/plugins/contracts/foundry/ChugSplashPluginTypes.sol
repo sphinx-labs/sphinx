@@ -19,7 +19,7 @@ struct BundleInfo {
 }
 
 struct MinimalConfig {
-    bytes32 organizationID;
+    address deployer;
     string projectName;
     MinimalContractConfig[] contracts;
 }

@@ -96,6 +96,9 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             // Add initial manager version
             registry.addVersion(managerImplementationAddress);
 
+            // Set the default manager version
+            registry.setCurrentManagerImplementation(managerImplementationAddress);
+
             // Add transparent proxy type
             registry.addContractKind(
                 keccak256("oz-transparent"),
@@ -266,11 +269,11 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return IChugSplashRegistry(registryAddress);
     }
 
-    function isProjectClaimed(
+    function isProjectRegistered(
         IChugSplashRegistry _registry,
         address _manager
     ) external view returns (bool) {
-        return _registry.managerProxies(_manager);
+        return _registry.isDeployed(_manager);
     }
 
     function getDeployedCreationCodeWithArgsHash(
@@ -393,18 +396,6 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         }
 
         return addr;
-    }
-
-    function getChugSplashManager(
-        IChugSplashRegistry _registry,
-        bytes32 _organizationID
-    ) public pure returns (IChugSplashManager) {
-        address managerAddress = Create2.computeAddress(
-            _organizationID,
-            managerProxyInitCodeHash,
-            address(_registry)
-        );
-        return IChugSplashManager(payable(managerAddress));
     }
 
     function inefficientSlice(

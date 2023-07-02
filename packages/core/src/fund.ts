@@ -19,9 +19,9 @@ import { ParsedProjectConfig, contractKindHashes } from './config/types'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  organizationID: string
+  deployer: string
 ): Promise<ethers.BigNumber> => {
-  const managerReadOnly = getChugSplashManagerReadOnly(provider, organizationID)
+  const managerReadOnly = getChugSplashManagerReadOnly(deployer, provider)
 
   const managerBalance = await provider.getBalance(managerReadOnly.address)
   const totalDebt = await managerReadOnly.totalDebt()
@@ -30,12 +30,9 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
-  organizationID: string
+  deployer: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(
-    provider,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManagerReadOnly(deployer, provider)
 
   if (
     (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
@@ -126,7 +123,7 @@ export const hasSufficientFundsForExecution = async (
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedProjectConfig.options.organizationID
+    parsedProjectConfig.options.deployer
   )
 
   const currExecutionCost = await estimateExecutionCost(
@@ -153,7 +150,7 @@ export const getAmountToDeposit = async (
 
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.organizationID
+    parsedConfig.options.deployer
   )
 
   const amountToDeposit = includeBuffer

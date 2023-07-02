@@ -13,7 +13,6 @@ export enum ChugSplashActionType {
  */
 export enum DeploymentStatus {
   EMPTY,
-  PROPOSED,
   APPROVED,
   PROXIES_INITIATED,
   COMPLETED,
@@ -33,7 +32,6 @@ export interface RawChugSplashAction {
 }
 
 export interface ChugSplashTarget {
-  projectName: string
   referenceName: string
   addr: string
   implementation: string

@@ -52,7 +52,6 @@ export const getDeployedBytecode = async (
 export const writeDeploymentArtifacts = async (
   provider: ethers.providers.Provider,
   parsedProjectConfig: ParsedProjectConfig,
-  organizationID: string,
   deploymentEvents: ethers.Event[],
   networkName: string,
   deploymentFolderPath: string,
@@ -60,7 +59,7 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const managerAddress = parsedProjectConfig.options.deployer
 
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {

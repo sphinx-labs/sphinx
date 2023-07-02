@@ -86,9 +86,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         Configs memory configs = ffiGetConfigs(_configPath);
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = IChugSplashManager(
-            registry.projects(configs.minimalConfig.organizationID)
-        );
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
 
@@ -138,9 +136,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = IChugSplashManager(
-            registry.projects(minimalConfig.organizationID)
-        );
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
 
@@ -181,7 +177,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         Configs memory configs = ffiGetConfigs(_configPath);
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = utils.getChugSplashManager(registry, configs.minimalConfig.organizationID);
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         manager.cancelActiveChugSplashDeployment();
     }

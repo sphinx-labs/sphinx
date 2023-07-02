@@ -231,7 +231,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes[] memory _signatures,
         ActionProof memory _proof,
         uint256 _numLeafs
-    ) public view {
+    ) private view {
         if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
 

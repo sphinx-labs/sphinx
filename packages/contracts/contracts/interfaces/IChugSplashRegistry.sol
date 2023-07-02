@@ -9,8 +9,8 @@ interface IChugSplashRegistry {
 
     function register(
         address _owner,
-        bytes memory _data,
-        uint256 _saltNonce
+        uint256 _saltNonce,
+        bytes memory _data
     ) external returns (address);
 
     function isDeployed(address) external view returns (bool);

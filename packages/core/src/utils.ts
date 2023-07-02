@@ -174,41 +174,40 @@ export const checkIsUpgrade = async (
  * Finalizes the registration of an organization ID.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param organizationID ID of the organization.
- * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
+ * @param ownerAddress Owner of the ChugSplashManager contract deployed by this call.
  * @returns True if the organization ID was already registered for the first time in this call, and
  * false if the project was already registered by the caller.
  */
-export const finalizeRegistration = async (
+export const register = async (
   registry: ethers.Contract,
   manager: ethers.Contract,
-  organizationID: string,
-  newOwnerAddress: string,
+  ownerAddress: string,
+  saltNonce: number,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
   spinner.start(`Claiming the project...`)
 
-  if (!(await isProjectClaimed(registry, manager.address))) {
+  if (!(await isProjectRegistered(registry, manager.address))) {
     // Encode the initialization arguments for the ChugSplashManager contract.
-    // Note: Future versions of ChugSplash may require different arguments encoded in this way.
     const initializerData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes32', 'bool'],
-      [newOwnerAddress, organizationID]
+      ['address', 'bytes'],
+      // The 'bytes' field is unused in this version of the ChugSplashManager contract,
+      // but may be used in future versions
+      [ownerAddress, '']
     )
 
     await (
-      await registry.finalizeRegistration(
-        organizationID,
-        newOwnerAddress,
-        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
+      await registry.register(
+        ownerAddress,
+        saltNonce,
         initializerData,
         await getGasPriceOverrides(provider)
       )
     ).wait()
   } else {
     const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== newOwnerAddress) {
+    if (existingOwnerAddress !== ownerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
       spinner.succeed(`Project was already claimed by the caller.`)
@@ -235,25 +234,17 @@ export const getChugSplashRegistryReadOnly = (
 }
 
 export const getChugSplashManager = (
-  signer: Signer,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    signer
-  )
+  deployer: string,
+  signer: Signer
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, signer)
 }
 
 export const getChugSplashManagerReadOnly = (
-  provider: providers.Provider,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    provider
-  )
+  deployer: string,
+  provider: providers.Provider
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, provider)
 }
 
 export const chugsplashLog = (
@@ -447,11 +438,11 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-export const isProjectClaimed = async (
+export const isProjectRegistered = async (
   registry: ethers.Contract,
   managerAddress: string
 ) => {
-  return registry.managerProxies(managerAddress)
+  return registry.isDeployed(managerAddress)
 }
 
 export const isInternalDefaultProxy = async (

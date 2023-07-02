@@ -6,7 +6,6 @@ import {
   UserChugSplashConfig,
 } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-import { getChugSplashManagerAddress } from '../addresses'
 
 /**
  * Returns a minimal version of the ChugSplash config. This is used as a substitute for the full
@@ -18,8 +17,7 @@ export const getMinimalConfig = (
   userConfig: UserChugSplashConfig,
   projectName: string
 ): MinimalConfig => {
-  const { organizationID } = userConfig.options
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const { deployer } = userConfig.options
 
   if (!Object.keys(userConfig.projects).includes(projectName)) {
     // We always exit early here because everything after this wont work without a valid project name
@@ -35,8 +33,7 @@ export const getMinimalConfig = (
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ??
-      getTargetAddress(managerAddress, projectName, referenceName, salt)
+      address ?? getTargetAddress(deployer, projectName, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
@@ -46,7 +43,6 @@ export const getMinimalConfig = (
     })
   }
   return {
-    organizationID,
     projectName,
     contracts: minimalContractConfigs,
   }

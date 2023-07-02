@@ -91,9 +91,7 @@ describe('Transfer', () => {
       cre
     )
 
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = userConfig.options.deployer
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -191,9 +189,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = userConfig.options.deployer
 
     await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
 
@@ -242,10 +238,7 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const manager = getChugSplashManager(
-      claimer,
-      parsedConfig.options.organizationID
-    )
+    const manager = getChugSplashManager(parsedConfig.options.deployer, claimer)
 
     await manager.exportProxy(
       UUPSUpgradableTokenV2.address,
@@ -305,9 +298,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = userConfig.options.deployer
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
       ethers.constants.HashZero,
@@ -363,10 +354,7 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const manager = getChugSplashManager(
-      claimer,
-      parsedConfig.options.organizationID
-    )
+    const manager = getChugSplashManager(parsedConfig.options.deployer, claimer)
     await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,
       contractKindHashes[

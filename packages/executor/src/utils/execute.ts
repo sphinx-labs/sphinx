@@ -161,7 +161,6 @@ export type ResponseMessage = {
     message: string
     err: Error
     options: {
-      organizationID: string
       projectName: string
       skipStorageCheck?: boolean
     }
@@ -223,9 +222,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  // Retrieve the corresponding proposal event to get the config URI.
-  const [proposalEvent] = await manager.queryFilter(
-    manager.filters.ChugSplashDeploymentProposed(activeDeploymentId)
+  // Retrieve the corresponding approval event to get the config URI.
+  const [approvalEvent] = await manager.queryFilter(
+    manager.filters.ChugSplashDeploymentApproved(activeDeploymentId)
   )
 
   logger.info('[ChugSplash]: retrieving the deployment...')
@@ -238,22 +237,22 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Handle if the config cannot be fetched
   try {
     ;({ bundles, canonicalProjectConfig, projectConfigArtifacts } =
-      await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
+      await compileRemoteBundles(rpcProvider, approvalEvent.args.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName, organizationID } = canonicalProjectConfig.options
+  const { projectName } = canonicalProjectConfig.options
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    proposalEvent.args.configUri
+    approvalEvent.args.configUri
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
-  if (expectedDeploymentId !== proposalEvent.args.deploymentId) {
+  if (expectedDeploymentId !== approvalEvent.args.deploymentId) {
     // We cannot execute the current deployment, so we dicard the event
     // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
     process.send({ action: 'discard', payload: executorEvent })
@@ -413,7 +412,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     await trackExecuted(
       await manager.owner(),
-      organizationID,
       network,
       undefined
     )

@@ -6,7 +6,7 @@ import { Contract } from 'ethers'
 import {
   chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
-  finalizeRegistration,
+  register,
   FORWARDER_ADDRESS,
   getChugSplashManager,
   getChugSplashRegistry,
@@ -67,7 +67,7 @@ describe('Meta txs', () => {
     // const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
     // manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
 
-    // await finalizeRegistration(
+    // await register(
     //   registry,
     //   manager,
     //   parsedConfig.options.organizationID,

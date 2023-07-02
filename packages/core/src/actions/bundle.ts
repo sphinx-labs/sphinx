@@ -202,9 +202,8 @@ export const getActionHash = (action: RawChugSplashAction): string => {
 export const getTargetHash = (target: ChugSplashTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['string', 'string', 'address', 'address', 'bytes32'],
+      ['string', 'address', 'address', 'bytes32'],
       [
-        target.projectName,
         target.referenceName,
         target.addr,
         target.implementation,
@@ -539,6 +538,7 @@ export const makeActionBundleFromConfig = (
   projectArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache
 ): ChugSplashActionBundle => {
+  const managerAddress = parsedConfig.options.deployer
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -548,9 +548,6 @@ export const makeActionBundleFromConfig = (
     const { isTargetDeployed } =
       projectConfigCache.contractConfigCache[referenceName]
     const { kind, address, salt, constructorArgs } = contractConfig
-    const managerAddress = getChugSplashManagerAddress(
-      parsedConfig.options.organizationID
-    )
 
     if (!isTargetDeployed) {
       if (kind === 'immutable') {
@@ -654,9 +651,7 @@ export const makeTargetBundleFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts
 ): ChugSplashTargetBundle => {
-  const { projectName, organizationID } = parsedProjectConfig.options
-
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const { projectName, deployer } = parsedProjectConfig.options
 
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -672,7 +667,7 @@ export const makeTargetBundleFromConfig = (
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
         implementation: getImplAddress(
-          managerAddress,
+          deployer,
           bytecode,
           contractConfig.constructorArgs,
           abi

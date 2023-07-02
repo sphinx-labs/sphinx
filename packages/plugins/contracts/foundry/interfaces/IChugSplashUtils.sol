@@ -60,7 +60,6 @@ interface IChugSplashUtils {
         DeployContractCost[] memory costs
     ) external pure returns (uint256);
     function getChainAlias(string memory _rpcUrl) external view returns (string memory);
-    function getChugSplashManager(IChugSplashRegistry _registry, bytes32 _organizationID) external pure returns (IChugSplashManager);
     function getChugSplashRegistry() external pure returns (IChugSplashRegistry);
     function getConfigCache(
         MinimalConfig memory _minimalConfig,
@@ -110,7 +109,7 @@ interface IChugSplashUtils {
         address _systemOwner
     ) external;
     function isLocalNetwork(string memory _rpcUrl) external pure returns (bool);
-    function isProjectClaimed(IChugSplashRegistry _registry, address _manager) external view returns (bool);
+    function isProjectRegistered(IChugSplashRegistry _registry, address _manager) external view returns (bool);
     function minimalConfig() external pure returns (MinimalConfig memory);
     function msgSender() external view returns (address);
     function removeSelector(bytes memory _data) external view returns (bytes memory);

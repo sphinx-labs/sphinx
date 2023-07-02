@@ -26,11 +26,9 @@ import {
   config as validationConfig,
 } from './projects/Validation.config'
 
-export const orgId = ethers.constants.HashZero
-
 const config: UserChugSplashConfig = {
   options: {
-    organizationID: orgId,
+
   },
   projects: {
     [constructorArgName]: constructorArgConfig,

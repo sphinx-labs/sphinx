@@ -103,7 +103,7 @@ contract ChugSplash is Script {
         );
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = utils.getChugSplashManager(registry, configs.minimalConfig.organizationID);
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         (bool success, bytes memory retdata) = address(utils).delegatecall(abi.encodeWithSelector(IChugSplashUtils.getConfigCache.selector, configs.minimalConfig, registry, manager, _rpcUrl, mainFfiScriptPath, executionLogs));
         require(success, string(utils.removeSelector(retdata)));
@@ -114,7 +114,7 @@ contract ChugSplash is Script {
         address deployer = utils.msgSender();
         // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
         // transfer ownership to the new owner specified by the user, if it exists.
-        finalizeRegistration(registry, manager, configs.minimalConfig.organizationID, deployer);
+        register(registry, manager, deployer);
 
         if (bundleInfo.actionBundle.actions.length == 0 && bundleInfo.targetBundle.targets.length == 0) {
             console.log("Nothing to execute in this deployment. Exiting early.");
@@ -135,17 +135,9 @@ contract ChugSplash is Script {
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
-            if (!manager.isProposer(deployer)) {
-                revert(
-                    string(abi.encodePacked(
-                        "ChugSplash: caller is not a proposer. Caller's address: ",
-                        vm.toString(deployer)
-                    ))
-                );
-            }
-
             (uint256 numImmutableContracts, ) = utils.getNumActions(bundleInfo.actionBundle.actions);
-            manager.propose{ gas: 1000000 }(
+            manager.approve{ gas: 1000000 }(
+                configs.minimalConfig.projectName,
                 bundleInfo.actionBundle.root,
                 bundleInfo.targetBundle.root,
                 bundleInfo.actionBundle.actions.length,
@@ -155,11 +147,6 @@ contract ChugSplash is Script {
                 false
             );
 
-            deploymentState.status = DeploymentStatus.PROPOSED;
-        }
-
-        if (deploymentState.status == DeploymentStatus.PROPOSED) {
-            manager.approve{ gas: 1000000 }(deploymentId);
             deploymentState.status = DeploymentStatus.APPROVED;
         }
 
@@ -214,23 +201,20 @@ contract ChugSplash is Script {
         return utils.decodeBundleInfo(data);
     }
 
-    function finalizeRegistration(
+    function register(
         IChugSplashRegistry _registry,
         IChugSplashManager _manager,
-        bytes32 _organizationID,
-        address _newOwner
+        address _newOwner,
+        uint256 _saltNonce
     ) private {
-        if (!utils.isProjectClaimed(_registry, address(_manager))) {
+        if (!utils.isProjectRegistered(_registry, address(_manager))) {
             bytes memory initializerData = abi.encode(
-                _newOwner,
-                _organizationID
+                _newOwner, new bytes(0)
             );
 
-            Version memory managerVersion = utils.getCurrentChugSplashManagerVersion();
-            _registry.finalizeRegistration{ gas: 1000000 }(
-                _organizationID,
+            _registry.register{ gas: 1000000 }(
                 _newOwner,
-                managerVersion,
+                _saltNonce,
                 initializerData
             );
         } else {

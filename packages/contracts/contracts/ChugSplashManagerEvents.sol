@@ -138,6 +138,7 @@ contract ChugSplashManagerEvents {
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
+     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
@@ -145,6 +146,7 @@ contract ChugSplashManagerEvents {
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
+        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 
@@ -186,5 +188,5 @@ contract ChugSplashManagerEvents {
 
     event ProtocolDebtAdded(uint256 cost, uint256 totalProtocolDebt);
 
-    event ContractTransferredToProject(string projectNameHash, address contractAddress, string projectName);
+    event ContractTransferred(string projectNameHash, address contractAddress, string projectName);
 }

@@ -40,8 +40,6 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
 
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
@@ -141,63 +139,59 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .setAction(chugsplashDeployTask)
 
-export const chugsplashProposeTask = async (
-  args: {
-    configPath: string
-    project: string
-    ipfsUrl: string
-    silent: boolean
-    noCompile: boolean
-    confirm: boolean
-  },
-  hre: HardhatRuntimeEnvironment
-) => {
-  const { configPath, project, ipfsUrl, silent, noCompile, confirm } = args
-  const cre = await createChugSplashRuntime(
-    true,
-    confirm,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
-
-  if (!noCompile) {
-    await hre.run(TASK_COMPILE, {
-      quiet: true,
-    })
+// TODO(propose)
+export const chugsplashProposeTask = async () =>
+  //   args: {
+  //     configPath: string
+  //     project: string
+  //     ipfsUrl: string
+  //     silent: boolean
+  //     noCompile: boolean
+  //     confirm: boolean
+  //   },
+  //   hre: HardhatRuntimeEnvironment
+  {
+    //   const { configPath, project, ipfsUrl, silent, noCompile, confirm } = args
+    //   const cre = await createChugSplashRuntime(
+    //     true,
+    //     confirm,
+    //     hre.config.paths.canonicalConfigs,
+    //     hre,
+    //     silent
+    //   )
+    //   if (!noCompile) {
+    //     await hre.run(TASK_COMPILE, {
+    //       quiet: true,
+    //     })
+    //   }
+    //   const provider = hre.ethers.provider
+    //   const signer = hre.ethers.provider.getSigner()
+    //   await ensureChugSplashInitialized(provider, signer)
+    //   const { parsedConfig, configArtifacts, configCache } =
+    //     await readValidatedChugSplashConfig(
+    //       configPath,
+    //       project,
+    //       provider,
+    //       cre,
+    //       makeGetConfigArtifacts(hre)
+    //     )
+    //   const projectNames =
+    //     project === 'all' ? Object.keys(parsedConfig.projects) : project
+    //   for (const name of projectNames) {
+    //     await chugsplashProposeAbstractTask(
+    //       provider,
+    //       signer,
+    //       parsedConfig.projects[name],
+    //       configPath,
+    //       ipfsUrl,
+    //       'hardhat',
+    //       configArtifacts,
+    //       ProposalRoute.RELAY,
+    //       cre,
+    //       configCache[name]
+    //     )
+    //   }
   }
-
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-  await ensureChugSplashInitialized(provider, signer)
-
-  const { parsedConfig, configArtifacts, configCache } =
-    await readValidatedChugSplashConfig(
-      configPath,
-      project,
-      provider,
-      cre,
-      makeGetConfigArtifacts(hre)
-    )
-
-  const projectNames =
-    project === 'all' ? Object.keys(parsedConfig.projects) : project
-
-  for (const name of projectNames) {
-    await chugsplashProposeAbstractTask(
-      provider,
-      signer,
-      parsedConfig.projects[name],
-      configPath,
-      ipfsUrl,
-      'hardhat',
-      configArtifacts,
-      ProposalRoute.RELAY,
-      cre,
-      configCache[name]
-    )
-  }
-}
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash project')
@@ -214,165 +208,6 @@ task(TASK_CHUGSPLASH_PROPOSE)
     'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
   )
   .setAction(chugsplashProposeTask)
-
-subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
-  .setDescription('Lists all existing ChugSplash projects')
-  .setAction(async (_, hre) => {
-    const signer = hre.ethers.provider.getSigner()
-
-    await ensureChugSplashInitialized(hre.ethers.provider, signer)
-
-    const ChugSplashRegistry = getChugSplashRegistry(
-      hre.ethers.provider.getSigner()
-    )
-
-    const events = await ChugSplashRegistry.queryFilter(
-      ChugSplashRegistry.filters.ChugSplashProjectClaimed()
-    )
-
-    console.table(
-      events.map((event) => {
-        if (event.args === undefined) {
-          throw new Error(
-            `ChugSplashProjectClaimed event does not have arguments.`
-          )
-        }
-
-        return {
-          name: event.args.organizationID,
-          manager: event.args.manager,
-        }
-      })
-    )
-  })
-
-subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
-  .setDescription('Lists all deployments for a given project')
-  .addParam('organizationID', 'Organization ID')
-  .addFlag('includeExecuted', 'include deployments that have been executed')
-  .setAction(
-    async (
-      args: {
-        organizationID: string
-        includeExecuted: boolean
-      },
-      hre
-    ) => {
-      const signer = hre.ethers.provider.getSigner()
-
-      await ensureChugSplashInitialized(hre.ethers.provider, signer)
-
-      const ChugSplashRegistry = getChugSplashRegistry(signer)
-
-      const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.organizationID),
-        ChugSplashManagerABI,
-        signer
-      )
-
-      // Get events for all deployments that have been proposed. This array includes
-      // events that have been approved and executed, which will be filtered out.
-      const proposedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashDeploymentProposed()
-      )
-
-      // Exit early if there are no proposals for the project.
-      if (proposedEvents.length === 0) {
-        console.log('There are no deployments for this project.')
-        return
-      }
-
-      // Filter out the approved deployment event if there is a currently active deployment
-      const activeDeploymentId = await ChugSplashManager.activeDeploymentId()
-
-      let approvedEvent: any
-      if (activeDeploymentId !== ethers.constants.HashZero) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const proposedEvent = proposedEvents[i]
-          if (proposedEvent.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          }
-
-          const deploymentId = proposedEvent.args.deploymentId
-          if (deploymentId === activeDeploymentId) {
-            // Remove the active deployment event in-place and return it.
-            approvedEvent = proposedEvents.splice(i, 1)
-
-            // It's fine to break out of the loop here since there is only one
-            // active deployment at a time.
-            break
-          }
-        }
-      }
-
-      const executedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashDeploymentCompleted()
-      )
-
-      for (const executed of executedEvents) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const proposed = proposedEvents[i]
-          if (proposed.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          } else if (executed.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentCompleted event does not have arguments.`
-            )
-          }
-          // Remove the event if the deployment IDs match
-          if (proposed.args.deploymentId === executed.args.deploymentId) {
-            proposedEvents.splice(i, 1)
-          }
-        }
-      }
-
-      if (proposedEvents.length === 0) {
-        // Accounts for the case where there is only one deployment, and it is approved.
-        console.log('There are currently no proposed deployments.')
-      } else {
-        // Display the proposed deployments
-        console.log(`Proposals:`)
-        proposedEvents.forEach((event) => {
-          if (event.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          }
-          console.log(
-            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        })
-      }
-
-      // Display the approved deployment if it exists
-      if (activeDeploymentId !== ethers.constants.HashZero) {
-        console.log('Approved:')
-        console.log(
-          `Deployment ID: ${activeDeploymentId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
-        )
-      }
-
-      // Display the executed deployments if the user has specified to do so
-      if (args.includeExecuted) {
-        console.log('\n')
-        console.log('Executed:')
-        executedEvents.forEach((event) => {
-          if (event.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentCompleted event does not have arguments.`
-            )
-          }
-          console.log(
-            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        })
-      }
-    }
-  )
 
 task(TASK_NODE)
   .addOptionalParam('configPath', 'Path to chugsplash config')
@@ -555,10 +390,11 @@ task(TASK_RUN)
 export const chugsplashCancelTask = async (
   args: {
     configPath: string
+    project: string
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath } = args
+  const { configPath, project } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -574,6 +410,7 @@ export const chugsplashCancelTask = async (
   await chugsplashCancelAbstractTask(
     provider,
     signer,
+    project,
     configPath,
     'hardhat',
     cre
@@ -583,6 +420,7 @@ export const chugsplashCancelTask = async (
 task(TASK_CHUGSPLASH_CANCEL)
   .setDescription('Cancel an active ChugSplash project.')
   .addParam('configPath', 'Path to the ChugSplash config file to cancel')
+  .addParam('project', 'Name of the ChugSplash project to cancel')
   .setAction(chugsplashCancelTask)
 
 export const exportProxyTask = async (

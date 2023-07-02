@@ -78,7 +78,7 @@ export type ParsedConfigVariable =
 
 export interface UserChugSplashConfig {
   options: {
-    organizationID: string
+    deployer: string
   }
   projects: UserProjectConfigs
 }
@@ -96,7 +96,7 @@ export type UserProjectConfigs = {
 
 export interface ParsedChugSplashConfig {
   options: {
-    organizationID: string
+    deployer: string
   }
   projects: ParsedProjectConfigs
 }
@@ -106,7 +106,7 @@ export interface ParsedChugSplashConfig {
  */
 export interface ParsedProjectConfig {
   options: {
-    organizationID: string
+    deployer: string
     projectName: string
   }
   contracts: ParsedContractConfigs
@@ -235,7 +235,6 @@ export type ImportCache = {
 }
 
 export type MinimalConfig = {
-  organizationID: string
   projectName: string
   contracts: Array<MinimalContractConfig>
 }

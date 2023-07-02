@@ -241,10 +241,20 @@ export const getChugSplashManagerV1Address = () =>
     )
   )
 
-export const getChugSplashManagerAddress = (organizationID: string) => {
+export const getChugSplashManagerAddress = (
+  owner: string,
+  saltNonce: number
+) => {
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['address', 'uint256', 'bytes'],
+      [owner, saltNonce, '']
+    )
+  )
+
   return utils.getCreate2Address(
     getChugSplashRegistryAddress(),
-    organizationID,
+    salt,
     getManagerProxyInitCodeHash()
   )
 }

@@ -17,13 +17,6 @@ export const resolveNetworkName = async (
   return networkName
 }
 
-export const errorProjectNotClaimed = (organizationID: string) => {
-  throw new Error(
-    `The organization ID "${organizationID}" has not been claimed.\n` +
-      `Go to ${WEBSITE_URL} to claim it.`
-  )
-}
-
 export const successfulProposalMessage = async (
   provider: ethers.providers.JsonRpcProvider,
   amount: BigNumber,
