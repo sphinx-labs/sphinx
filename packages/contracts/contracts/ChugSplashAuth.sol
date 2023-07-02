@@ -298,7 +298,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         (
             SetRoleMember[] memory proposers,
             SetRoleMember[] memory projectManagers,
-            uint256 _numLeafs
+            uint256 numLeafs
         ) = abi.decode(_action.data, (SetRoleMember[], SetRoleMember[], uint256));
 
         verifySignatures(
@@ -308,7 +308,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             DEFAULT_ADMIN_ROLE,
             _signatures,
             _proof,
-            _numLeafs
+            numLeafs
         );
 
         uint256 numProposers = proposers.length;

@@ -19,6 +19,9 @@ import {
   getDefaultProxyInitCode,
 } from '../utils'
 import {
+  AuthAction,
+  AuthActionBundle,
+  AuthActionType,
   BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -27,6 +30,7 @@ import {
   ChugSplashTarget,
   ChugSplashTargetBundle,
   DeployContractAction,
+  RawAuthAction,
   RawChugSplashAction,
   SetStorageAction,
 } from './types'
@@ -235,85 +239,99 @@ export const makeTargetBundle = (
   }
 }
 
-export interface BaseAuthAction {
-  chainId: number
-  from: string
-  to: string
-  nonce: number
-}
-
-export interface ApproveDeploymentAction extends BaseAuthAction {
-  projectName: string
-  actionRoot: string
-  targetRoot: string
-  numActions: number
-  numTargets: number
-  numImmutableContracts: number
-  configUri: string
-}
-
-export interface RawAuthAction {
-  chainId: number
-  from: string
-  to: string
-  nonce: number
-  data: string
-}
-
-// TODO: mv
-export enum AuthActionType {
-  ADD_PROPOSER,
-  APPROVE_DEPLOYMENT,
-  CANCEL_ACTIVE_DEPLOYMENT,
-  CREATE_PROJECT,
-  EXPORT_PROXY,
-  PROPOSE,
-  REMOVE_PROJECT,
-  REMOVE_PROPOSER,
-  SET_ORG_OWNER,
-  SET_ORG_OWNER_THRESHOLD,
-  SET_PROJECT_MANAGER,
-  SET_PROJECT_OWNER,
-  SET_PROJECT_THRESHOLD,
-  SETUP,
-  TRANSFER_DEPLOYER_OWNERSHIP,
-  UPDATE_CONTRACTS_IN_PROJECT,
-  UPDATE_PROJECT,
-  UPGRADE_AUTH_IMPLEMENTATION,
-  UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION,
-  UPGRADE_DEPLOYER_IMPLEMENTATION,
-  WITHDRAW_ETH,
-}
-
-export interface SetupAuthAction extends BaseAuthAction {
-  
-
-export interface AddProposerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.ADD_PROPOSER
-  proposer: string
-}
-
-export interface ApproveDeploymentAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.APPROVE_DEPLOYMENT
-  projectName: string
-  actionRoot: string
-  targetRoot: string
-  numActions: number
-  numTargets: number
-  numImmutableContracts: number
-  configUri: string
-}
-
-export type AuthAction = AddProposerAuthAction | ApproveDeploymentAuthAction
-
-export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
-  let data: string
+export const getEncodedAuthActionData = (action: AuthAction): string => {
   switch (action.actionType) {
+    /************************ ORG OWNER ACTIONS *****************************/
+    case AuthActionType.SETUP:
+      return utils.defaultAbiCoder.encode(
+        ['tuple(address,bool)[]', 'tuple(address,bool)[]', 'uint256'],
+        [action.proposers, action.projectManagers, action.numLeafs]
+      )
+    case AuthActionType.SET_PROJECT_MANAGER:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bool'],
+        [action.projectManager, action.add]
+      )
+
+    case AuthActionType.EXPORT_PROXY:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bytes32', 'address'],
+        [action.proxy, action.contractKindHash, action.newOwner]
+      )
     case AuthActionType.ADD_PROPOSER:
-      data = utils.defaultAbiCoder.encode(['address'], [action.proposer])
-      break
+      return utils.defaultAbiCoder.encode(['address'], [action.proposer])
+
+    case AuthActionType.SET_ORG_OWNER:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bool'],
+        [action.orgOwner, action.add]
+      )
+
+    case AuthActionType.UPDATE_PROJECT:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'address[]', 'uint256', 'address[]'],
+        [
+          action.projectName,
+          action.projectOwnersToRemove,
+          action.newThreshold,
+          action.newProjectOwners,
+        ]
+      )
+    case AuthActionType.SET_ORG_OWNER_THRESHOLD:
+      return utils.defaultAbiCoder.encode(['uint256'], [action.newThreshold])
+
+    case AuthActionType.TRANSFER_DEPLOYER_OWNERSHIP:
+      return utils.defaultAbiCoder.encode(['address'], [action.newOwner])
+
+    case AuthActionType.UPGRADE_DEPLOYER_IMPLEMENTATION:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bytes'],
+        [action.impl, action.data]
+      )
+
+    case AuthActionType.UPGRADE_AUTH_IMPLEMENTATION:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bytes'],
+        [action.impl, action.data]
+      )
+
+    case AuthActionType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION:
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bytes', 'address', 'bytes'],
+        [
+          action.deployerImpl,
+          action.deployerData,
+          action.authImpl,
+          action.authData,
+        ]
+      )
+
+    /************************ PROJECT MANAGER ACTIONS *****************************/
+
+    case AuthActionType.CREATE_PROJECT:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'uint256', 'address[]', 'tuple(string,address)[]'],
+        [
+          action.projectName,
+          action.threshold,
+          action.projectOwners,
+          action.contractInfoArray,
+        ]
+      )
+
+    case AuthActionType.REMOVE_PROPOSER:
+      return utils.defaultAbiCoder.encode(
+        ['address'],
+        [action.proposerToRemove]
+      )
+
+    case AuthActionType.WITHDRAW_ETH:
+      return utils.defaultAbiCoder.encode(['address'], [action.receiver])
+
+    /***************************** PROJECT OWNER ACTIONS ****************************/
+
     case AuthActionType.APPROVE_DEPLOYMENT:
-      data = utils.defaultAbiCoder.encode(
+      return utils.defaultAbiCoder.encode(
         [
           'string',
           'bytes32',
@@ -333,12 +351,59 @@ export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
           action.configUri,
         ]
       )
-      break
+
+    case AuthActionType.SET_PROJECT_THRESHOLD:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'uint256'],
+        [action.projectName, action.newThreshold]
+      )
+
+    case AuthActionType.SET_PROJECT_OWNER:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'address', 'bool'],
+        [action.projectName, action.projectOwner, action.add]
+      )
+
+    case AuthActionType.REMOVE_PROJECT:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'address[]'],
+        [action.projectName, action.addresses]
+      )
+
+    case AuthActionType.CANCEL_ACTIVE_DEPLOYMENT:
+      return utils.defaultAbiCoder.encode(['string'], [action.projectName])
+
+    case AuthActionType.UPDATE_CONTRACTS_IN_PROJECT:
+      return utils.defaultAbiCoder.encode(
+        ['string', 'address[]', 'bool[]'],
+        [action.projectName, action.contractAddresses, action.addContract]
+      )
+
+    /****************************** PROPOSER ACTIONS ******************************/
+
+    case AuthActionType.PROPOSE:
+      return utils.defaultAbiCoder.encode(
+        ['bytes32', 'uint256', 'uint256'],
+        [action.authRootToPropose, action.numActions, action.numLeafs]
+      )
 
     default:
       throw Error(`Unknown auth action type. Should never happen.`)
   }
+}
 
+/**
+ * Computes the hash of an auth action.
+ *
+ * @param action Auth action to compute the hash of.
+ * @return Hash of the action.
+ */
+export const getAuthActionHash = (action: RawAuthAction): string => {
+  return ethers.utils.keccak256(action.data)
+}
+
+export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
+  const data = getEncodedAuthActionData(action)
   const { chainId, from, to, nonce } = action
   return { chainId, from, to, nonce, data }
 }
@@ -350,9 +415,7 @@ export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
  * @param actions Series of auth actions.
  * @return Bundled actions.
  */
-export const makeAuthBundle = (
-  actions: AuthAction[]
-): ChugSplashActionBundle => {
+export const makeAuthBundle = (actions: AuthAction[]): AuthActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
     return toRawAuthAction(action)
