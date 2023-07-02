@@ -13,7 +13,7 @@ import { Version } from "./ChugSplashDataTypes.sol";
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. This
- *         contract allows callers to register new ChugSplashmanagers. Also, every event emitted in the
+ *         contract allows callers to register new ChugSplashManagers. Also, every event emitted in the
  *         ChugSplash system is announced through this contract. This makes it easy for clients to
  *         find and index events that occur throughout the deployment process. Lastly, the owner of
  *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
@@ -75,15 +75,15 @@ contract ChugSplashRegistry is
      */
     function register(
         address _owner,
-        bytes memory _data,
-        uint256 _saltNonce
+        uint256 _saltNonce,
+        bytes memory _data
     ) external returns (address) {
         require(
             currentManagerImplementation != address(0),
             "ChugSplashRegistry: no manager implementation"
         );
 
-        bytes32 salt = keccak256(abi.encode(_owner, _data, _saltNonce));
+        bytes32 salt = keccak256(abi.encode(_owner, _saltNonce, _data));
         require(address(managers[salt]) == address(0), "ChugSplashRegistry: already registered");
 
         ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
