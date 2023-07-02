@@ -103,7 +103,6 @@ export const relaySignedRequest = async (
   request: ForwardRequestType,
   orgId: string,
   deploymentId: string,
-  projectName: string,
   networkId: number,
   estimatedGasCost: BigNumber
 ) => {
@@ -117,7 +116,6 @@ export const relaySignedRequest = async (
       signature,
       request,
       onChainId: deploymentId,
-      projectName,
       networkId,
       estimatedGasCost: estimatedGasCost.toString(),
     })

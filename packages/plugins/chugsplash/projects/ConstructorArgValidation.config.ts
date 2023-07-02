@@ -1,21 +1,13 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { UserProjectConfig } from '@chugsplash/core'
 
 import {
   invalidConstructorArgsPartOne,
   invalidConstructorArgsPartTwo,
-} from '../test/constants'
+} from '../../test/constants'
 
-const projectName = 'Constructor Args Validation'
+const projectName = 'ConstructorArgValidation'
 
-const config: UserChugSplashConfig = {
-  // Configuration options for the project:
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
     ConstructorArgsValidationPartOne: {
       contract: 'ConstructorArgsValidationPartOne',
@@ -35,4 +27,4 @@ const config: UserChugSplashConfig = {
   },
 }
 
-export default config
+export { config, projectName }

@@ -10,7 +10,7 @@ import {
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
-import { ParsedChugSplashConfig, contractKindHashes } from './config/types'
+import { ParsedProjectConfig, contractKindHashes } from './config/types'
 
 /**
  * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This
@@ -122,11 +122,11 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  parsedConfig: ParsedChugSplashConfig
+  parsedProjectConfig: ParsedProjectConfig
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.organizationID
+    parsedProjectConfig.options.organizationID
   )
 
   const currExecutionCost = await estimateExecutionCost(
@@ -142,7 +142,7 @@ export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(

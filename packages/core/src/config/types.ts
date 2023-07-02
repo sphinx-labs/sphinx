@@ -38,6 +38,8 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
 
+export type Project = string | 'all'
+
 export type ContractKind = UserContractKind | 'proxy'
 
 export enum ContractKindEnum {
@@ -74,26 +76,44 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-/**
- * Full user-defined config object that can be used to commit a deployment/upgrade.
- */
 export interface UserChugSplashConfig {
   options: {
     organizationID: string
-    projectName: string
   }
+  projects: UserProjectConfigs
+}
+
+/**
+ * Full user-defined config object that can be used to commit a deployment/upgrade.
+ */
+export interface UserProjectConfig {
   contracts: UserContractConfigs
+}
+
+export type UserProjectConfigs = {
+  [projectName: string]: UserProjectConfig
+}
+
+export interface ParsedChugSplashConfig {
+  options: {
+    organizationID: string
+  }
+  projects: ParsedProjectConfigs
 }
 
 /**
  * Full parsed config object.
  */
-export interface ParsedChugSplashConfig {
+export interface ParsedProjectConfig {
   options: {
     organizationID: string
     projectName: string
   }
   contracts: ParsedContractConfigs
+}
+
+export type ParsedProjectConfigs = {
+  [projectName: string]: ParsedProjectConfig
 }
 
 export type UnsafeAllow = {
@@ -161,7 +181,7 @@ export type ParsedConfigVariables = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
+export interface CanonicalProjectConfig extends ParsedProjectConfig {
   inputs: Array<ChugSplashInput>
 }
 
@@ -173,6 +193,10 @@ export type ChugSplashInput = {
 }
 
 export type ConfigArtifacts = {
+  [projectName: string]: ProjectConfigArtifacts
+}
+
+export type ProjectConfigArtifacts = {
   [referenceName: string]: {
     buildInfo: BuildInfo
     artifact: ContractArtifact
@@ -180,6 +204,10 @@ export type ConfigArtifacts = {
 }
 
 export type ConfigCache = {
+  [projectName: string]: ProjectConfigCache
+}
+
+export type ProjectConfigCache = {
   blockGasLimit: BigNumber
   localNetwork: boolean
   networkName: string
@@ -221,4 +249,4 @@ export type MinimalContractConfig = {
 
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
-) => Promise<ConfigArtifacts>
+) => Promise<ProjectConfigArtifacts>

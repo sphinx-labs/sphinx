@@ -21,7 +21,7 @@
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "forge test",
-    "test:hardhat": "npx hardhat test --config-paths './chugsplash/Storage.config.ts, ./chugsplash/Create3.config.ts'",
+    "test:hardhat": "npx hardhat test --config-path ./chugsplash/chugsplash.config.ts --projects 'Create3, Storage'",
     "test:coverage": "export DEV_FILE_PATH='./' && export DISABLE_ANALYTICS=true && yarn test",
     "test:kill": "kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",

@@ -13,13 +13,13 @@ import {
   getDeployContractActionBundle,
   getSetStorageActionBundle,
 } from './bundle'
-import { ConfigArtifacts } from '../config/types'
+import { ProjectConfigArtifacts } from '../config/types'
 
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: ChugSplashBundles,
   blockGasLimit: ethers.BigNumber,
-  configArtifacts: ConfigArtifacts,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   provider: ethers.providers.Provider,
   logger?: Logger | undefined
 ): Promise<boolean> => {
@@ -43,7 +43,7 @@ export const executeDeployment = async (
     deployContractActionBundle,
     manager,
     maxGasLimit,
-    configArtifacts,
+    projectConfigArtifacts,
     provider,
     logger
   )
@@ -72,7 +72,7 @@ export const executeDeployment = async (
     setStorageActionBundle,
     manager,
     maxGasLimit,
-    configArtifacts,
+    projectConfigArtifacts,
     provider,
     logger
   )
@@ -103,11 +103,11 @@ export const executeDeployment = async (
 const findMaxBatchSize = async (
   actions: BundledChugSplashAction[],
   maxGasLimit: ethers.BigNumber,
-  configArtifacts: ConfigArtifacts
+  projectConfigArtifacts: ProjectConfigArtifacts
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
   // binary search. Can often save a significant amount of time on execution.
-  if (await executable(actions, maxGasLimit, configArtifacts)) {
+  if (await executable(actions, maxGasLimit, projectConfigArtifacts)) {
     return actions.length
   }
 
@@ -117,7 +117,13 @@ const findMaxBatchSize = async (
   let max = actions.length
   while (min < max) {
     const mid = Math.ceil((min + max) / 2)
-    if (await executable(actions.slice(0, mid), maxGasLimit, configArtifacts)) {
+    if (
+      await executable(
+        actions.slice(0, mid),
+        maxGasLimit,
+        projectConfigArtifacts
+      )
+    ) {
       min = mid
     } else {
       max = mid - 1
@@ -143,7 +149,7 @@ const executeBatchActions = async (
   actions: BundledChugSplashAction[],
   manager: ethers.Contract,
   maxGasLimit: ethers.BigNumber,
-  configArtifacts: ConfigArtifacts,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   provider: providers.Provider,
   logger?: Logger | undefined
 ): Promise<DeploymentStatus> => {
@@ -168,7 +174,7 @@ const executeBatchActions = async (
     const batchSize = await findMaxBatchSize(
       filtered.slice(executed),
       maxGasLimit,
-      configArtifacts
+      projectConfigArtifacts
     )
 
     // Pull out the next batch of actions.
@@ -212,14 +218,14 @@ const executeBatchActions = async (
 export const executable = async (
   selected: BundledChugSplashAction[],
   maxGasLimit: ethers.BigNumber,
-  configArtifacts: ConfigArtifacts
+  projectConfigArtifacts: ProjectConfigArtifacts
 ): Promise<boolean> => {
   let estGasUsed: ethers.BigNumber = ethers.BigNumber.from(0)
 
   for (const action of selected) {
     const { actionType, referenceName } = action.action
     if (actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
-      const { buildInfo, artifact } = configArtifacts[referenceName]
+      const { buildInfo, artifact } = projectConfigArtifacts[referenceName]
       const { sourceName, contractName } = artifact
 
       const deployContractCost = getEstDeployContractCost(

@@ -8,14 +8,14 @@ import {
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
   postDeploymentActions,
-  CanonicalChugSplashConfig,
   getChugSplashManagerReadOnly,
   DeploymentState,
-  ConfigArtifacts,
   initializeChugSplash,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -41,6 +41,7 @@ const command = args[0]
         const configPath = args[1]
         const rpcUrl = args[2]
         const privateKey = args[3]
+        const projectName = args[4]
 
         const {
           artifactFolder,
@@ -62,6 +63,7 @@ const command = args[0]
         const { parsedConfig, configArtifacts, configCache } =
           await readValidatedChugSplashConfig(
             configPath,
+            projectName,
             provider,
             cre,
             makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
@@ -69,22 +71,24 @@ const command = args[0]
           )
         const wallet = new ethers.Wallet(privateKey, provider)
 
+        const projectConfig = parsedConfig.projects[projectName]
+
         await chugsplashProposeAbstractTask(
           provider,
           wallet,
-          parsedConfig,
+          projectConfig,
           configPath,
           '',
           'foundry',
           configArtifacts,
           ProposalRoute.RELAY,
           cre,
-          configCache
+          configCache[projectName]
         )
 
         const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
           ['string', 'string'],
-          [parsedConfig.options.projectName, getPrettyWarnings()]
+          [projectConfig, getPrettyWarnings()]
         )
 
         const encodedSuccess = hexConcat([
@@ -193,11 +197,11 @@ const command = args[0]
       )
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
-      const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
+      const canonicalConfig: CanonicalProjectConfig = JSON.parse(
         fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
       )
 
-      const configArtifacts: ConfigArtifacts = JSON.parse(
+      const configArtifacts: ProjectConfigArtifacts = JSON.parse(
         fs
           .readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`)
           .toString()

@@ -31,7 +31,7 @@ import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import { deployAllChugSplashConfigs } from './deployments'
+import { deployAllChugSplashProjects } from './deployments'
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../cre'
 
@@ -60,6 +60,7 @@ subtask(TASK_CHUGSPLASH_FETCH)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
+    project: string
     newOwner: string
     silent: boolean
     noCompile: boolean
@@ -67,7 +68,7 @@ export const chugsplashDeployTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, newOwner, silent, noCompile, confirm } = args
+  const { configPath, project, newOwner, silent, noCompile, confirm } = args
   const spinner = ora({ isSilent: silent })
 
   if (!noCompile) {
@@ -98,29 +99,36 @@ export const chugsplashDeployTask = async (
   const { parsedConfig, configCache, configArtifacts } =
     await readValidatedChugSplashConfig(
       configPath,
+      project,
       provider,
       cre,
       makeGetConfigArtifacts(hre)
     )
 
-  await chugsplashDeployAbstractTask(
-    provider,
-    signer,
-    canonicalConfigPath,
-    deploymentFolder,
-    'hardhat',
-    cre,
-    parsedConfig,
-    configCache,
-    configArtifacts,
-    newOwner,
-    spinner
-  )
+  const projectNames =
+    project === 'all' ? Object.keys(parsedConfig.projects) : [project]
+
+  for (const name of projectNames) {
+    await chugsplashDeployAbstractTask(
+      provider,
+      signer,
+      canonicalConfigPath,
+      deploymentFolder,
+      'hardhat',
+      cre,
+      parsedConfig.projects[name],
+      configCache[name],
+      configArtifacts[name],
+      newOwner,
+      spinner
+    )
+  }
 }
 
 task(TASK_CHUGSPLASH_DEPLOY)
   .setDescription('Deploys a ChugSplash config file')
   .addParam('configPath', 'Path to the ChugSplash config file to deploy')
+  .addParam('project', 'The name of the project to deploy')
   .addOptionalParam(
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
@@ -136,6 +144,7 @@ task(TASK_CHUGSPLASH_DEPLOY)
 export const chugsplashProposeTask = async (
   args: {
     configPath: string
+    project: string
     ipfsUrl: string
     silent: boolean
     noCompile: boolean
@@ -143,7 +152,7 @@ export const chugsplashProposeTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile, confirm } = args
+  const { configPath, project, ipfsUrl, silent, noCompile, confirm } = args
   const cre = await createChugSplashRuntime(
     true,
     confirm,
@@ -165,28 +174,35 @@ export const chugsplashProposeTask = async (
   const { parsedConfig, configArtifacts, configCache } =
     await readValidatedChugSplashConfig(
       configPath,
+      project,
       provider,
       cre,
       makeGetConfigArtifacts(hre)
     )
 
-  await chugsplashProposeAbstractTask(
-    provider,
-    signer,
-    parsedConfig,
-    configPath,
-    ipfsUrl,
-    'hardhat',
-    configArtifacts,
-    ProposalRoute.RELAY,
-    cre,
-    configCache
-  )
+  const projectNames =
+    project === 'all' ? Object.keys(parsedConfig.projects) : project
+
+  for (const name of projectNames) {
+    await chugsplashProposeAbstractTask(
+      provider,
+      signer,
+      parsedConfig.projects[name],
+      configPath,
+      ipfsUrl,
+      'hardhat',
+      configArtifacts,
+      ProposalRoute.RELAY,
+      cre,
+      configCache[name]
+    )
+  }
 }
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Proposes a new ChugSplash project')
   .addParam('configPath', 'Path to the ChugSplash config file to propose')
+  .addParam('project', 'The name of the project to deploy')
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addOptionalParam(
     'ipfsUrl',
@@ -359,7 +375,7 @@ subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
   )
 
 task(TASK_NODE)
-  .addFlag('deployAll', 'Deploy all ChugSplash config files on startup')
+  .addOptionalParam('configPath', 'Path to chugsplash config')
   .addFlag(
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
@@ -369,7 +385,7 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        deployAll: boolean
+        configPath: string
         disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
@@ -378,7 +394,7 @@ task(TASK_NODE)
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, disableChugsplash, hide: silent, noCompile } = args
+      const { configPath, disableChugsplash, hide: silent, noCompile } = args
 
       if (!disableChugsplash) {
         const spinner = ora({ isSilent: silent })
@@ -390,13 +406,16 @@ task(TASK_NODE)
 
         spinner.succeed('ChugSplash has been initialized.')
 
-        if (deployAll) {
+        if (configPath) {
+          if (!configPath) {
+            throw Error('Must specify a config path to deploy all projects')
+          }
           if (!noCompile) {
             await hre.run(TASK_COMPILE, {
               quiet: true,
             })
           }
-          await deployAllChugSplashConfigs(hre, silent)
+          await deployAllChugSplashProjects(hre, silent, configPath)
           const networkName = await resolveNetworkName(
             hre.ethers.provider,
             'hardhat'
@@ -417,17 +436,17 @@ task(TASK_TEST)
     `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addFlag(
-    'skipDeploy',
-    'Skip deploying any ChugSplash config files before running the test(s)'
-  )
   .addOptionalParam(
     'configPath',
     'Optional path to the single ChugSplash config file to test.'
   )
   .addOptionalParam(
-    'configPaths',
-    'Optional paths to ChugSplash config files to test. Format must be a comma-separated string.'
+    'project',
+    'Optional name of a ChugSplash project to test. Format must be a comma-separated string.'
+  )
+  .addOptionalParam(
+    'projects',
+    'Optional names of to ChugSplash projects to test. Format must be a comma-separated string.'
   )
   .setAction(
     async (
@@ -436,13 +455,13 @@ task(TASK_TEST)
         noCompile: boolean
         confirm: boolean
         configPath: string
-        configPaths: string
-        skipDeploy: string
+        project: string
+        projects: string
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { silent, noCompile, configPath, configPaths, skipDeploy } = args
+      const { silent, noCompile, configPath, project, projects } = args
 
       const signer = hre.ethers.provider.getSigner()
       const networkName = await resolveNetworkName(
@@ -474,20 +493,25 @@ task(TASK_TEST)
               quiet: true,
             })
           }
-          if (!skipDeploy) {
-            let configPathArray: string[] | undefined
-            if (configPath && configPaths) {
-              throw new Error(
-                `Cannot specify both '--config-path' and '--config-paths'.`
-              )
-            } else if (configPath) {
-              configPathArray = [configPath]
-            } else if (configPaths) {
-              // Remove all whitespace and split by commas
-              configPathArray = configPaths.replace(/\s+/g, '').split(',')
+
+          if (configPath) {
+            let projectNames: string[] | undefined
+            if (project) {
+              projectNames = [project]
+            } else if (projects) {
+              projectNames = projects.replace(/\s+/g, '').split(',')
             }
 
-            await deployAllChugSplashConfigs(hre, silent, configPathArray)
+            await deployAllChugSplashProjects(
+              hre,
+              silent,
+              configPath,
+              projectNames
+            )
+          } else {
+            if (project || projects) {
+              throw new Error('Must specify a chugsplash config path')
+            }
           }
         }
         await writeSnapshotId(
@@ -501,27 +525,19 @@ task(TASK_TEST)
   )
 
 task(TASK_RUN)
-  .addFlag(
-    'deployAll',
-    'Deploy all ChugSplash configs before executing your script.'
-  )
-  .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
+  .addOptionalParam('configPath', 'Path to ChugSplash config file')
   .setAction(
     async (
       args: {
-        deployAll: boolean
+        configPath: string
         noCompile: boolean
-        confirm: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, noCompile } = args
+      const { configPath, noCompile } = args
 
-      if (deployAll) {
+      if (configPath) {
         const signer = hre.ethers.provider.getSigner()
 
         await ensureChugSplashInitialized(hre.ethers.provider, signer)
@@ -530,7 +546,7 @@ task(TASK_RUN)
             quiet: true,
           })
         }
-        await deployAllChugSplashConfigs(hre, true)
+        await deployAllChugSplashProjects(hre, true, configPath)
       }
       await runSuper(args)
     }
@@ -571,13 +587,14 @@ task(TASK_CHUGSPLASH_CANCEL)
 
 export const exportProxyTask = async (
   args: {
+    project: string
     configPath: string
     referenceName: string
     silent: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, referenceName, silent } = args
+  const { configPath, project, referenceName, silent } = args
   const cre = await createChugSplashRuntime(
     false,
     true,
@@ -591,6 +608,7 @@ export const exportProxyTask = async (
 
   const { parsedConfig } = await readValidatedChugSplashConfig(
     configPath,
+    project,
     provider,
     cre,
     makeGetConfigArtifacts(hre)
@@ -600,6 +618,7 @@ export const exportProxyTask = async (
     provider,
     signer,
     configPath,
+    project,
     referenceName,
     'hardhat',
     parsedConfig,
@@ -615,6 +634,7 @@ task(TASK_CHUGSPLASH_EXPORT_PROXY)
     'configPath',
     'Path to the ChugSplash config file for the project that owns the target contract'
   )
+  .addParam('project', 'The name of the project this proxy is a part of')
   .addParam(
     'referenceName',
     'Reference name of the contract that should be transferred to you'

@@ -16,18 +16,15 @@ describe('Storage', () => {
   let Stateless: Contract
   let ComplexConstructorArgs: Contract
   before(async () => {
-    MyStorage = await chugsplash.getContract('My First Project', 'MyStorage')
+    MyStorage = await chugsplash.getContract('Storage', 'MyStorage')
     MyOtherImmutables = await chugsplash.getContract(
-      'My First Project',
+      'Storage',
       'MyOtherImmutables'
     )
-    MySimpleStorage = await chugsplash.getContract(
-      'My First Project',
-      'MySimpleStorage'
-    )
-    Stateless = await chugsplash.getContract('My First Project', 'Stateless')
+    MySimpleStorage = await chugsplash.getContract('Storage', 'MySimpleStorage')
+    Stateless = await chugsplash.getContract('Storage', 'Stateless')
     ComplexConstructorArgs = await chugsplash.getContract(
-      'My First Project',
+      'Storage',
       'ComplexConstructorArgs'
     )
   })

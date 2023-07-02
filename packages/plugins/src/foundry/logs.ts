@@ -1,6 +1,6 @@
 // These variables are used to capture any errors or warnings that occur during the ChugSplash
 
-import { ConfigArtifacts } from '@chugsplash/core/dist/config/types'
+import { ProjectConfigArtifacts } from '@chugsplash/core/dist/config/types'
 import { getEstDeployContractCost } from '@chugsplash/core/dist/utils'
 import { BigNumber } from 'ethers/lib/ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -71,11 +71,11 @@ export const getPrettyWarnings = (): string => {
 }
 
 export const getDeployContractCosts = (
-  configArtifacts: ConfigArtifacts
+  projectConfigArtifacts: ProjectConfigArtifacts
 ): DeployContractCost[] => {
   const deployContractCosts: DeployContractCost[] = []
   for (const [referenceName, { artifact, buildInfo }] of Object.entries(
-    configArtifacts
+    projectConfigArtifacts
   )) {
     const { sourceName, contractName } = artifact
 
