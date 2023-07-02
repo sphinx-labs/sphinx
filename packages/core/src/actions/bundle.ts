@@ -1,5 +1,5 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers } from 'ethers'
+import { ethers, utils } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
@@ -230,6 +230,156 @@ export const makeTargetBundle = (
         siblings: tree.getProof(getTargetHash(target), idx).map((element) => {
           return element.data
         }),
+      }
+    }),
+  }
+}
+
+export interface BaseAuthAction {
+  chainId: number
+  from: string
+  to: string
+  nonce: number
+}
+
+export interface ApproveDeploymentAction extends BaseAuthAction {
+  projectName: string
+  actionRoot: string
+  targetRoot: string
+  numActions: number
+  numTargets: number
+  numImmutableContracts: number
+  configUri: string
+}
+
+export interface RawAuthAction {
+  chainId: number
+  from: string
+  to: string
+  nonce: number
+  data: string
+}
+
+// TODO: mv
+export enum AuthActionType {
+  ADD_PROPOSER,
+  APPROVE_DEPLOYMENT,
+  CANCEL_ACTIVE_DEPLOYMENT,
+  CREATE_PROJECT,
+  EXPORT_PROXY,
+  PROPOSE,
+  REMOVE_PROJECT,
+  REMOVE_PROPOSER,
+  SET_ORG_OWNER,
+  SET_ORG_OWNER_THRESHOLD,
+  SET_PROJECT_MANAGER,
+  SET_PROJECT_OWNER,
+  SET_PROJECT_THRESHOLD,
+  SETUP,
+  TRANSFER_DEPLOYER_OWNERSHIP,
+  UPDATE_CONTRACTS_IN_PROJECT,
+  UPDATE_PROJECT,
+  UPGRADE_AUTH_IMPLEMENTATION,
+  UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION,
+  UPGRADE_DEPLOYER_IMPLEMENTATION,
+  WITHDRAW_ETH,
+}
+
+export interface SetupAuthAction extends BaseAuthAction {
+  
+
+export interface AddProposerAuthAction extends BaseAuthAction {
+  actionType: AuthActionType.ADD_PROPOSER
+  proposer: string
+}
+
+export interface ApproveDeploymentAuthAction extends BaseAuthAction {
+  actionType: AuthActionType.APPROVE_DEPLOYMENT
+  projectName: string
+  actionRoot: string
+  targetRoot: string
+  numActions: number
+  numTargets: number
+  numImmutableContracts: number
+  configUri: string
+}
+
+export type AuthAction = AddProposerAuthAction | ApproveDeploymentAuthAction
+
+export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
+  let data: string
+  switch (action.actionType) {
+    case AuthActionType.ADD_PROPOSER:
+      data = utils.defaultAbiCoder.encode(['address'], [action.proposer])
+      break
+    case AuthActionType.APPROVE_DEPLOYMENT:
+      data = utils.defaultAbiCoder.encode(
+        [
+          'string',
+          'bytes32',
+          'bytes32',
+          'uint256',
+          'uint256',
+          'uint256',
+          'string',
+        ],
+        [
+          action.projectName,
+          action.actionRoot,
+          action.targetRoot,
+          action.numActions,
+          action.numTargets,
+          action.numImmutableContracts,
+          action.configUri,
+        ]
+      )
+      break
+
+    default:
+      throw Error(`Unknown auth action type. Should never happen.`)
+  }
+
+  const { chainId, from, to, nonce } = action
+  return { chainId, from, to, nonce, data }
+}
+
+/**
+ * Generates a bundle of auth actions. Effectively encodes the inputs that will be provided to the
+ * ChugSplashAuth contract.
+ *
+ * @param actions Series of auth actions.
+ * @return Bundled actions.
+ */
+export const makeAuthBundle = (
+  actions: AuthAction[]
+): ChugSplashActionBundle => {
+  // Turn the "nice" action structs into raw actions.
+  const rawActions = actions.map((action) => {
+    return toRawAuthAction(action)
+  })
+
+  // Now compute the hash for each action.
+  const elements = rawActions.map((action) => {
+    return getAuthActionHash(action)
+  })
+
+  const tree = makeMerkleTree(elements)
+
+  const root = toHexString(tree.getRoot())
+
+  return {
+    root: root !== '0x' ? root : ethers.constants.HashZero,
+    actions: rawActions.map((action, idx) => {
+      return {
+        action,
+        proof: {
+          actionIndex: idx,
+          siblings: tree
+            .getProof(getAuthActionHash(action), idx)
+            .map((element) => {
+              return element.data
+            }),
+        },
       }
     }),
   }

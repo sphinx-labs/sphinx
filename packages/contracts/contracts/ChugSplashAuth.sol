@@ -20,8 +20,9 @@ import {
     ActionProof,
     AuthState,
     AuthStatus,
-    ForwardRequest,
-    ContractInfo
+    AuthAction,
+    ContractInfo,
+    SetRoleMember
 } from "./ChugSplashDataTypes.sol";
 import { ChugSplashManagerProxy } from "./ChugSplashManagerProxy.sol";
 import { Semver, Version } from "./Semver.sol";
@@ -54,7 +55,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     bool public firstProposalOccurred;
 
     /**
-     * @notice Mapping of project names to the threshold required to execute an action for that
+     * @notice Mapping of project names to the threshold required to execute an auth action for that
      *        project.
      */
     mapping(string => uint256) public thresholds;
@@ -68,7 +69,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         uint256 _threshold,
         bytes32 _verifyingRole,
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     ) {
@@ -77,7 +78,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         verifySignatures(
             _authRoot,
-            _request,
+            _action,
             _threshold,
             _verifyingRole,
             _signatures,
@@ -87,15 +88,8 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         _;
     }
 
-    modifier updateState(bytes32 _authRoot, uint256 _initialGasLeft) {
+    modifier incrementProtocolDebt(uint256 _initialGasLeft) {
         _;
-        nonce += 1;
-        AuthState memory authState = authStates[_authRoot];
-        authState.actionsExecuted += 1;
-        if (authState.actionsExecuted == authState.numActions) {
-            authState.status = AuthStatus.COMPLETED;
-            emit AuthStateCompleted(_authRoot);
-        }
         manager.incrementProtocolDebt(_initialGasLeft);
     }
 
@@ -205,13 +199,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         uint256 _threshold,
         bytes32 _verifyingRole,
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         private
         view
-        isValidAuthAction(_threshold, _verifyingRole, _authRoot, _request, _signatures, _proof)
+        isValidAuthAction(_threshold, _verifyingRole, _authRoot, _action, _signatures, _proof)
     {}
 
     /**
@@ -219,7 +213,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      *
      * @param _authRoot Merkle root of the auth tree. The signers of the signatures
      *                  initiated the meta transaction by signing this value.
-     * @param _request  ForwardRequest struct. This is the decoded leaf of the auth tree.
+     * @param _action  AuthAction struct. This is the decoded leaf of the auth tree.
      * @param _threshold Number of signatures required to execute the meta transaction.
      * @param _verifyingRole Role that the signers of the signatures must have.
      * @param _signatures List of meta transaction signatures. These must correspond to
@@ -231,7 +225,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      */
     function verifySignatures(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         uint256 _threshold,
         bytes32 _verifyingRole,
         bytes[] memory _signatures,
@@ -252,16 +246,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
             if (signer <= prevSigner) revert DuplicateSigner();
 
-            // Validate the fields of the ForwardRequest
-            if (_request.from != signer) revert InvalidFromAddress();
-            if (_request.to != address(manager)) revert InvalidToAddress();
-            if (_request.chainId != block.chainid) revert InvalidChainId();
-            if (_request.nonce != nonce) revert InvalidNonce();
+            // Validate the fields of the AuthAction
+            if (_action.from != signer) revert InvalidFromAddress();
+            if (_action.to != address(manager)) revert InvalidToAddress();
+            if (_action.chainId != block.chainid) revert InvalidChainId();
+            if (_action.nonce != nonce) revert InvalidNonce();
 
             if (
                 !Lib_MerkleTree.verify(
                     _authRoot,
-                    keccak256(_request.data),
+                    keccak256(_action.data),
                     _proof.actionIndex,
                     _proof.siblings,
                     _numLeafs
@@ -288,30 +282,28 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                scenario, since every other function requires that a proposal has first occurred.
      *
      * @param _authRoot Merkle root of the auth tree.
-     * @param _request ForwardRequest struct. This is the decoded leaf of the auth tree.
+     * @param _action AuthAction struct. This is the decoded leaf of the auth tree.
      * @param _signatures List of meta transaction signatures. Must correspond to signer addresses
      *                    in ascending order (see `verifySignatures` for more info).
      * @param _proof    Merkle proof of the leaf in the auth tree.
      */
     function setup(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         if (firstProposalOccurred) revert FirstProposalOccurred();
 
         (
-            address[] memory proposers,
-            bool[] memory addProposer_, // We append an '_' because there's a function called `addProposer`
-            address[] memory projectManagers,
-            bool[] memory addProjectManager,
+            SetRoleMember[] memory proposers,
+            SetRoleMember[] memory projectManagers,
             uint256 _numLeafs
-        ) = abi.decode(_request.data, (address[], bool[], address[], bool[], uint256));
+        ) = abi.decode(_action.data, (SetRoleMember[], SetRoleMember[], uint256));
 
         verifySignatures(
             _authRoot,
-            _request,
+            _action,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures,
@@ -321,58 +313,59 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         uint256 numProposers = proposers.length;
         uint256 numProjectManagers = projectManagers.length;
-        if (numProposers != addProposer_.length) revert ArrayLengthMismatch();
-        if (numProjectManagers != addProjectManager.length) revert ArrayLengthMismatch();
+        if (proposers.length != projectManagers.length) revert ArrayLengthMismatch();
 
         bool add;
-        address addr;
+        address member;
         for (uint256 i = 0; i < numProposers; i++) {
-            add = addProposer_[i];
-            addr = proposers[i];
+            add = proposers[i].add;
+            member = proposers[i].member;
             if (add) {
-                _assertValidRoleMemberAddress(addr);
-                if (hasRole(PROPOSER_ROLE, addr)) revert AddressAlreadyHasRole();
-                _grantRole(PROPOSER_ROLE, addr);
+                _assertValidRoleMemberAddress(member);
+                if (hasRole(PROPOSER_ROLE, member)) revert AddressAlreadyHasRole();
+                _grantRole(PROPOSER_ROLE, member);
             } else {
-                if (!hasRole(PROPOSER_ROLE, addr)) revert AddressDoesNotHaveRole();
-                _revokeRole(PROPOSER_ROLE, addr);
+                if (!hasRole(PROPOSER_ROLE, member)) revert AddressDoesNotHaveRole();
+                _revokeRole(PROPOSER_ROLE, member);
             }
         }
 
         for (uint256 i = 0; i < numProjectManagers; i++) {
-            add = addProjectManager[i];
-            addr = projectManagers[i];
+            add = projectManagers[i].add;
+            member = projectManagers[i].member;
             if (add) {
-                _assertValidRoleMemberAddress(addr);
-                if (hasRole(PROJECT_MANAGER_ROLE, addr)) revert AddressAlreadyHasRole();
-                _grantRole(PROJECT_MANAGER_ROLE, addr);
+                _assertValidRoleMemberAddress(member);
+                if (hasRole(PROJECT_MANAGER_ROLE, member)) revert AddressAlreadyHasRole();
+                _grantRole(PROJECT_MANAGER_ROLE, member);
             } else {
-                if (!hasRole(PROJECT_MANAGER_ROLE, addr)) revert AddressDoesNotHaveRole();
-                _revokeRole(PROJECT_MANAGER_ROLE, addr);
+                if (!hasRole(PROJECT_MANAGER_ROLE, member)) revert AddressDoesNotHaveRole();
+                _revokeRole(PROJECT_MANAGER_ROLE, member);
             }
         }
+
+        nonce += 1;
 
         emit AuthSetup(_authRoot, _proof.actionIndex);
     }
 
     function setProjectManager(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        (address projectManager, bool add) = abi.decode(_request.data, (address, bool));
+        (address projectManager, bool add) = abi.decode(_action.data, (address, bool));
 
         if (add) {
             _assertValidRoleMemberAddress(projectManager);
@@ -383,30 +376,34 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(PROJECT_MANAGER_ROLE, projectManager);
         }
 
+        _updateProposedState(_authRoot);
+
         emit ProjectManagerSet(_authRoot, _proof.actionIndex);
     }
 
     function exportProxy(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
         (address proxy, bytes32 contractKindHash, address newOwner) = abi.decode(
-            _request.data,
+            _action.data,
             (address, bytes32, address)
         );
+
+        _updateProposedState(_authRoot);
 
         manager.exportProxy(payable(proxy), contractKindHash, newOwner);
 
@@ -415,49 +412,51 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function addProposer(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        address proposer = abi.decode(_request.data, (address));
+        address proposer = abi.decode(_action.data, (address));
 
         _assertValidRoleMemberAddress(proposer);
 
         if (hasRole(PROPOSER_ROLE, proposer)) revert AddressAlreadyHasRole();
         _grantRole(PROPOSER_ROLE, proposer);
 
+        _updateProposedState(_authRoot);
+
         emit ProposerAdded(_authRoot, _proof.actionIndex);
     }
 
     function setOrgOwner(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        (address orgOwner, bool add) = abi.decode(_request.data, (address, bool));
+        (address orgOwner, bool add) = abi.decode(_action.data, (address, bool));
 
         if (add) {
             _assertValidRoleMemberAddress(orgOwner);
@@ -470,22 +469,24 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(DEFAULT_ADMIN_ROLE, orgOwner);
         }
 
+        _updateProposedState(_authRoot);
+
         emit OrgOwnerSet(_authRoot, _proof.actionIndex);
     }
 
     function updateProject(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
@@ -497,7 +498,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 address[] memory projectOwnersToRemove,
                 uint256 newThreshold,
                 address[] memory newProjectOwners
-            ) = abi.decode(_request.data, (string, address[], uint256, address[]));
+            ) = abi.decode(_action.data, (string, address[], uint256, address[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
             if (newThreshold == 0) revert ThresholdCannotBeZero();
@@ -528,27 +529,29 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
+        _updateProposedState(_authRoot);
+
         emit ProjectUpdated(_authRoot, _proof.actionIndex);
     }
 
     function setOrgOwnerThreshold(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        uint256 newThreshold = abi.decode(_request.data, (uint256));
+        uint256 newThreshold = abi.decode(_action.data, (uint256));
 
         if (newThreshold == 0) revert ThresholdCannotBeZero();
         if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) < newThreshold)
@@ -556,27 +559,31 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         orgOwnerThreshold = newThreshold;
 
+        _updateProposedState(_authRoot);
+
         emit OrgOwnerThresholdSet(_authRoot, _proof.actionIndex);
     }
 
     function transferDeployerOwnership(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        address newOwner = abi.decode(_request.data, (address));
+        address newOwner = abi.decode(_action.data, (address));
+
+        _updateProposedState(_authRoot);
 
         IOwnable managerOwnable = IOwnable(address(manager));
         newOwner == address(0)
@@ -584,30 +591,33 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             : managerOwnable.transferOwnership(newOwner);
         ChugSplashManagerProxy(payable(address(manager))).changeAdmin(newOwner);
 
+
         emit DeployerOwnershipTransferred(_authRoot, _proof.actionIndex);
     }
 
     // Reverts if the ChugSplashManager is currently executing a deployment.
     function upgradeDeployerImplementation(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
         if (manager.isExecuting()) revert DeploymentInProgress();
 
-        (address impl, bytes memory data) = abi.decode(_request.data, (address, bytes));
+        _updateProposedState(_authRoot);
+
+        (address impl, bytes memory data) = abi.decode(_action.data, (address, bytes));
         ChugSplashManagerProxy deployerProxy = ChugSplashManagerProxy(payable(address(manager)));
         if (data.length > 0) {
             deployerProxy.upgradeToAndCall(impl, data);
@@ -615,27 +625,31 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             deployerProxy.upgradeTo(impl);
         }
 
+
         emit DeployerUpgraded(_authRoot, _proof.actionIndex);
     }
 
     function upgradeAuthImplementation(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
-        (address impl, bytes memory data) = abi.decode(_request.data, (address, bytes));
+        (address impl, bytes memory data) = abi.decode(_action.data, (address, bytes));
+
+        _updateProposedState(_authRoot);
+
         ChugSplashManagerProxy authProxy = ChugSplashManagerProxy(payable(address(this)));
         if (data.length > 0) {
             authProxy.upgradeToAndCall(impl, data);
@@ -649,22 +663,24 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     // Reverts if the ChugSplashManager is currently executing a deployment.
     function upgradeDeployerAndAuthImpl(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
+        incrementProtocolDebt(gasleft())
         isValidAuthAction(
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         )
     {
         if (manager.isExecuting()) revert DeploymentInProgress();
+
+        _updateProposedState(_authRoot);
 
         // Use scope here to prevent "Stack too deep" error
         {
@@ -673,7 +689,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 bytes memory deployerData,
                 address authImpl,
                 bytes memory authData
-            ) = abi.decode(_request.data, (address, bytes, address, bytes));
+            ) = abi.decode(_action.data, (address, bytes, address, bytes));
 
             ChugSplashManagerProxy deployerProxy = ChugSplashManagerProxy(
                 payable(address(manager))
@@ -705,14 +721,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      */
     function createProject(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+        incrementProtocolDebt(gasleft())
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
     {
+        _updateProposedState(_authRoot);
+
         // Use scope here to prevent "Stack too deep" error
         {
             (
@@ -720,7 +738,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 uint256 threshold,
                 address[] memory projectOwners,
                 ContractInfo[] memory contractInfoArray
-            ) = abi.decode(_request.data, (string, uint256, address[], ContractInfo[]));
+            ) = abi.decode(_action.data, (string, uint256, address[], ContractInfo[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
             if (threshold == 0) revert ThresholdCannotBeZero();
@@ -762,32 +780,35 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function removeProposer(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+        incrementProtocolDebt(gasleft())
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
     {
-        address proposerToRemove = abi.decode(_request.data, (address));
+        address proposerToRemove = abi.decode(_action.data, (address));
         if (!hasRole(PROPOSER_ROLE, proposerToRemove)) revert AddressDoesNotHaveRole();
         _revokeRole(PROPOSER_ROLE, proposerToRemove);
+
+        _updateProposedState(_authRoot);
 
         emit ProposerRemoved(_authRoot, _proof.actionIndex);
     }
 
     function withdrawETH(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
     )
         public
-        updateState(_authRoot, gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _request, _signatures, _proof)
+        incrementProtocolDebt(gasleft())
+        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
     {
-        address receiver = abi.decode(_request.data, (address));
+        address receiver = abi.decode(_action.data, (address));
+        _updateProposedState(_authRoot);
         manager.withdrawOwnerETH(receiver);
         emit ETHWithdrawn(_authRoot, _proof.actionIndex);
     }
@@ -796,10 +817,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function approveDeployment(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         (
             string memory projectName,
             bytes32 actionRoot,
@@ -809,7 +830,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             uint256 numImmutableContracts,
             string memory configUri
         ) = abi.decode(
-                _request.data,
+                _action.data,
                 (string, bytes32, bytes32, uint256, uint256, uint256, string)
             );
 
@@ -817,10 +838,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             thresholds[projectName],
             keccak256(abi.encodePacked(projectName, "ProjectOwner")),
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
+
+        _updateProposedState(_authRoot);
 
         manager.approve(
             projectName,
@@ -838,12 +861,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function setProjectThreshold(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, uint256 newThreshold) = abi.decode(
-            _request.data,
+            _action.data,
             (string, uint256)
         );
 
@@ -852,7 +875,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             thresholds[projectName],
             projectOwnerRole,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
@@ -862,17 +885,19 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         thresholds[projectName] = newThreshold;
 
+        _updateProposedState(_authRoot);
+
         emit ProjectThresholdChanged(_authRoot, _proof.actionIndex);
     }
 
     function setProjectOwner(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, address projectOwner, bool add) = abi.decode(
-            _request.data,
+            _action.data,
             (string, address, bool)
         );
 
@@ -884,7 +909,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             projectThreshold,
             projectOwnerRole,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
@@ -900,6 +925,8 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(projectOwnerRole, projectOwner);
         }
 
+        _updateProposedState(_authRoot);
+
         emit ProjectOwnerSet(_authRoot, _proof.actionIndex);
     }
 
@@ -907,15 +934,17 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     // a deployment that is currently executing.
     function removeProject(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, address[] memory addresses) = abi.decode(
-            _request.data,
+            _action.data,
             (string, address[])
         );
         if (addresses.length == 0) revert EmptyArray();
+
+        _updateProposedState(_authRoot);
 
         string memory activeProjectName = manager
             .deployments(manager.activeDeploymentId())
@@ -928,10 +957,11 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             thresholds[projectName],
             projectOwnerRole,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
+
 
         uint256 numContractsToRemove = addresses.length;
         string memory existingProjectName;
@@ -952,21 +982,23 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function cancelActiveDeployment(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
-        string memory projectName = abi.decode(_request.data, (string));
+    ) public incrementProtocolDebt(gasleft()) {
+        string memory projectName = abi.decode(_action.data, (string));
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
         assertValidAuthAction(
             thresholds[projectName],
             projectOwnerRole,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
+
+        _updateProposedState(_authRoot);
 
         manager.cancelActiveChugSplashDeployment();
 
@@ -978,20 +1010,22 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     // currently executing.
     function updateContractsInProject(
         bytes32 _authRoot,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public updateState(_authRoot, gasleft()) {
+    ) public incrementProtocolDebt(gasleft()) {
         (
             string memory projectName,
             address[] memory contractAddresses,
             bool[] memory addContract
-        ) = abi.decode(_request.data, (string, address[], bool[]));
+        ) = abi.decode(_action.data, (string, address[], bool[]));
 
         uint256 numContracts = contractAddresses.length;
         if (numContracts == 0) revert EmptyArray();
 
         if (numContracts != addContract.length) revert ArrayLengthMismatch();
+
+        _updateProposedState(_authRoot);
 
         string memory activeProjectName = manager
             .deployments(manager.activeDeploymentId())
@@ -1004,10 +1038,11 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             thresholds[projectName],
             projectOwnerRole,
             _authRoot,
-            _request,
+            _action,
             _signatures,
             _proof
         );
+
 
         uint256 numContractsToUpdate = contractAddresses.length;
         bool add;
@@ -1034,13 +1069,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     function propose(
         bytes32 _authRootToVerify,
-        ForwardRequest memory _request,
+        AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _request, _signatures, _proof) {
-        uint256 initialGasLeft = gasleft();
+    ) public incrementProtocolDebt(gasleft()) isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _action, _signatures, _proof) {
         (bytes32 authRootToPropose, uint256 numActions, uint256 numLeafs) = abi.decode(
-            _request.data,
+            _action.data,
             (bytes32, uint256, uint256)
         );
 
@@ -1064,8 +1098,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         }
 
         nonce += 1;
-
-        manager.incrementProtocolDebt(initialGasLeft);
 
         emit AuthRootProposed(authRootToPropose, _authRootToVerify, _proof.actionIndex);
     }
@@ -1106,6 +1138,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     }
 
     /****************************** PRIVATE FUNCTIONS ******************************/
+
+    function _updateProposedState(bytes32 _authRoot) private {
+        AuthState storage authState = authStates[_authRoot];
+        nonce += 1;
+        authState.actionsExecuted += 1;
+        if (authState.actionsExecuted == authState.numActions) {
+            authState.status = AuthStatus.COMPLETED;
+            emit AuthStateCompleted(_authRoot);
+        }
+    }
 
     function _assertValidRoleMemberAddress(address _addr) private view {
         if (_addr == address(0)) revert RoleMemberCannotBeZeroAddress();

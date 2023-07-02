@@ -182,7 +182,7 @@ struct ActionProof {
     bytes32[] siblings;
 }
 
-struct ForwardRequest {
+struct AuthAction {
     uint256 chainId;
     address from;
     address to;
@@ -206,4 +206,9 @@ enum AuthStatus {
     EMPTY,
     PROPOSED,
     COMPLETED
+}
+
+struct SetRoleMember {
+    address member;
+    bool add;
 }
