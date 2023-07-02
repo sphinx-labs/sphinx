@@ -82,7 +82,8 @@ import { getCreate3Address } from './config/utils'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
-  configUri: string
+  configUri: string,
+  projectName: string
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
@@ -94,8 +95,17 @@ export const getDeploymentId = (
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
       [
+        'string',
+        'bytes32',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'uint256',
+        'string',
+      ],
+      [
+        projectName,
         actionRoot,
         targetRoot,
         numActions,
@@ -182,35 +192,27 @@ export const register = async (
   registry: ethers.Contract,
   manager: ethers.Contract,
   ownerAddress: string,
-  saltNonce: number,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
-  spinner.start(`Claiming the project...`)
+  spinner.start(`Registering the project...`)
 
   if (!(await isProjectRegistered(registry, manager.address))) {
-    // Encode the initialization arguments for the ChugSplashManager contract.
-    const initializerData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes'],
-      // The 'bytes' field is unused in this version of the ChugSplashManager contract,
-      // but may be used in future versions
-      [ownerAddress, '']
-    )
-
     await (
       await registry.register(
         ownerAddress,
-        saltNonce,
-        initializerData,
+        0, // We set the saltNonce to 0 for now.
+        [], // We don't pass any extra initializer data to the ChugSplashManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
+    spinner.succeed(`Project registered.`)
   } else {
     const existingOwnerAddress = await manager.owner()
     if (existingOwnerAddress !== ownerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      spinner.succeed(`Project was already claimed by the caller.`)
+      spinner.succeed(`Project was already registered by the caller.`)
     }
   }
 }

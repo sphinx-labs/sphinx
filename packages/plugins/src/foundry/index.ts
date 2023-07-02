@@ -15,6 +15,7 @@ import {
   FailureAction,
   CanonicalProjectConfig,
   ProjectConfigArtifacts,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -177,10 +178,8 @@ const command = args[0]
 
       const config = await readUserChugSplashConfig(configPath)
 
-      const manager = getChugSplashManagerReadOnly(
-        config.options.deployer,
-        provider
-      )
+      const deployer = getChugSplashManagerAddress(config.options.owner)
+      const manager = getChugSplashManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.
       const deploymentCompletedEvent = (

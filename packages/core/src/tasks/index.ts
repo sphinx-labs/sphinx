@@ -74,26 +74,27 @@ import {
 // import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
 import { readUserChugSplashConfig } from '../config'
 import { verifyDeployment } from '../config/fetch'
+import { getChugSplashManagerAddress } from '../addresses'
 
 // Load environment variables from .env
 dotenv.config()
 
-export const chugsplashClaimAbstractTask = async (
+export const chugsplashRegisterAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   config: UserChugSplashConfig | ParsedChugSplashConfig,
-  owner: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const { deployer } = config.options
+  const { owner } = config.options
+  const deployer = getChugSplashManagerAddress(owner)
 
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 
-  await register(registry, manager, owner, 0, provider, spinner)
+  await register(registry, manager, owner, provider, spinner)
 
   const networkName = await resolveNetworkName(provider, integration)
   const projectOwner = await getChugSplashManager(deployer, signer).owner()
@@ -352,7 +353,7 @@ export const chugsplashApproveAbstractTask = async (
     projectConfigCache
   )
 
-  const deploymentId = getDeploymentId(bundles, configUri)
+  const deploymentId = getDeploymentId(bundles, configUri, projectName)
   const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
@@ -470,10 +471,10 @@ export const chugsplashDeployAbstractTask = async (
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 
-  // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
+  // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the user-defined new owner, if it exists.
   const signerAddress = await signer.getAddress()
-  await register(registry, manager, signerAddress, 0, provider, spinner)
+  await register(registry, manager, signerAddress, provider, spinner)
 
   spinner.start(`Checking the status of ${projectName}...`)
 
@@ -491,7 +492,7 @@ export const chugsplashDeployAbstractTask = async (
     return
   }
 
-  const deploymentId = getDeploymentId(bundles, configUri)
+  const deploymentId = getDeploymentId(bundles, configUri, projectName)
   const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
@@ -671,7 +672,7 @@ export const chugsplashCancelAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   const userConfig = await readUserChugSplashConfig(configPath)
-  const { deployer } = userConfig.options
+  const deployer = getChugSplashManagerAddress(userConfig.options.owner)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
@@ -721,12 +722,12 @@ export const chugsplashExportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const { deployer } = parsedConfig.options
+  const deployer = getChugSplashManagerAddress(parsedConfig.options.owner)
 
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 
-  // Throw an error if the project has not been claimed
+  // Throw an error if the project has not been registered
   if ((await isProjectRegistered(registry, manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
@@ -778,11 +779,11 @@ export const chugsplashImportProxyAbstractTask = async (
   spinner.start('Checking project registration...')
 
   const userConfig = await readUserChugSplashConfig(configPath)
-  const { deployer } = userConfig.options
+  const deployer = getChugSplashManagerAddress(userConfig.options.owner)
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 
-  // Throw an error if the project has not been claimed
+  // Throw an error if the project has not been registered
   if ((await isProjectRegistered(registry, manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }

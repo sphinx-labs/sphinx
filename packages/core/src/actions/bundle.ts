@@ -202,13 +202,8 @@ export const getActionHash = (action: RawChugSplashAction): string => {
 export const getTargetHash = (target: ChugSplashTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['string', 'address', 'address', 'bytes32'],
-      [
-        target.referenceName,
-        target.addr,
-        target.implementation,
-        target.contractKindHash,
-      ]
+      ['address', 'address', 'bytes32'],
+      [target.addr, target.implementation, target.contractKindHash]
     )
   )
 }
@@ -662,7 +657,6 @@ export const makeTargetBundleFromConfig = (
     // Only add targets for proxies.
     if (contractConfig.kind !== 'immutable') {
       targets.push({
-        referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
         implementation: getImplAddress(

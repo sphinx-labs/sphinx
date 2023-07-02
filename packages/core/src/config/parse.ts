@@ -144,7 +144,9 @@ export const readUnvalidatedParsedConfig = async (
   }
 
   const parsedConfig: ParsedChugSplashConfig = {
-    options: userConfig.options,
+    options: {
+      owner: userConfig.options.owner,
+    },
     projects: {},
   }
 
@@ -166,10 +168,10 @@ export const readUnvalidatedParsedConfig = async (
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       projectConfig,
       projectName,
-      userConfig.options.deployer,
       projectConfigArtifacts,
       cre,
-      failureAction
+      failureAction,
+      userConfig.options.owner
     )
 
     parsedConfig.projects[projectName] = parsedProjectConfig
@@ -205,13 +207,17 @@ export const readValidatedChugSplashConfig = async (
     failureAction
   )
 
+  const projectName =
+    project === 'all' ? Object.keys(parsedConfig.projects)[0] : project
+  const deployer = parsedConfig.projects[projectName].options.deployer
+
   const configCache = await getConfigCache(
     provider,
     parsedConfig,
     project,
     configArtifacts,
     getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(parsedConfig.options.deployer, provider)
+    getChugSplashManagerReadOnly(deployer, provider)
   )
 
   await postParsingValidation(
@@ -239,16 +245,16 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  */
 export const assertValidUserConfigFields = (
   config: UserProjectConfig,
-  deployer: string,
   cre: ChugSplashRuntimeEnvironment,
-  failureAction: FailureAction
+  failureAction: FailureAction,
+  owner: string
 ) => {
   const validReferenceNames = Object.keys(config.contracts)
 
-  if (!ethers.utils.isAddress(deployer)) {
+  if (!ethers.utils.isAddress(owner)) {
     logValidationError(
       'error',
-      `Deployer must be a valid address. Instead, got: ${deployer}`,
+      `Owner must be a valid address. Instead, got: ${owner}`,
       [],
       cre.silent,
       cre.stream
@@ -2295,18 +2301,20 @@ export const setDefaultContractOptions = (
 export const getUnvalidatedParsedProjectConfig = (
   userProjectConfig: UserProjectConfig,
   projectName: string,
-  deployer: string,
   projectConfigArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  failureAction: FailureAction
+  failureAction: FailureAction,
+  owner: string
 ): ParsedProjectConfig => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userProjectConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserConfigFields(userProjectConfig, deployer, cre, failureAction)
+  assertValidUserConfigFields(userProjectConfig, cre, failureAction, owner)
 
   const configWithDefaultOptions = setDefaultContractOptions(userProjectConfig)
+
+  const deployer = getChugSplashManagerAddress(owner)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses

@@ -18,8 +18,8 @@ contract ChugSplashManagerEvents {
      * @param approver     Address of the account that approved the deployment.
      */
     event ChugSplashDeploymentApproved(
-        string indexed projectNameHash,
         bytes32 indexed deploymentId,
+        string indexed projectNameHash,
         string projectName,
         bytes32 actionRoot,
         bytes32 targetRoot,
@@ -30,13 +30,6 @@ contract ChugSplashManagerEvents {
         bool remoteExecution,
         address approver
     );
-
-    /**
-     * @notice Emitted when a ChugSplash deployment is approved.
-     *
-     * @param deploymentId ID of the deployment that was approved.
-     */
-    event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
 
     /**
      * @notice Emitted when a storage slot in a proxy is modified.
@@ -64,8 +57,7 @@ contract ChugSplashManagerEvents {
     event ProxyUpgraded(
         bytes32 indexed deploymentId,
         address indexed proxy,
-        string projectName,
-        string referenceName
+        string projectName
     );
 
     /**

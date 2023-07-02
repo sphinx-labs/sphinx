@@ -314,6 +314,7 @@ contract ChugSplashManager is
 
     error ProjectNameCannotBeEmpty();
     error ContractDoesNotExistInProject();
+    error ContractExistsInOtherProject();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
@@ -447,6 +448,8 @@ contract ChugSplashManager is
             revert DeploymentStateIsNotApprovable();
         }
 
+        activeDeploymentId = deploymentId;
+
         deployment.projectName = _projectName;
         deployment.status = DeploymentStatus.APPROVED;
         deployment.actionRoot = _actionRoot;
@@ -458,8 +461,8 @@ contract ChugSplashManager is
         deployment.configUri = _configUri;
 
         emit ChugSplashDeploymentApproved(
-            _projectName,
             deploymentId,
+            _projectName,
             _projectName,
             _actionRoot,
             _targetRoot,
@@ -738,6 +741,8 @@ contract ChugSplashManager is
     ) public nonReentrant {
         uint256 initialGasLeft = gasleft();
 
+        if (activeDeploymentId == bytes32(0)) revert NoActiveDeployment();
+
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
@@ -782,8 +787,9 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
-            if (!equals(contractToProject[action.addr], deployment.projectName)) {
-                revert ContractDoesNotExistInProject();
+            string memory existingProjectName = contractToProject[action.addr];
+            if (bytes(existingProjectName).length > 0 && !equals(existingProjectName, deployment.projectName)) {
+                revert ContractExistsInOtherProject();
             }
 
             // Mark the action as executed and update the total number of executed actions.
@@ -863,7 +869,6 @@ contract ChugSplashManager is
                     deployment.targetRoot,
                     keccak256(
                         abi.encode(
-                            target.referenceName,
                             target.addr,
                             target.implementation,
                             target.contractKindHash
@@ -957,7 +962,6 @@ contract ChugSplashManager is
                     deployment.targetRoot,
                     keccak256(
                         abi.encode(
-                            target.referenceName,
                             target.addr,
                             target.implementation,
                             target.contractKindHash
@@ -990,8 +994,7 @@ contract ChugSplashManager is
             emit ProxyUpgraded(
                 activeDeploymentId,
                 target.addr,
-                deployment.projectName,
-                target.referenceName
+                deployment.projectName
             );
             registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }

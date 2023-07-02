@@ -32,7 +32,6 @@ export interface RawChugSplashAction {
 }
 
 export interface ChugSplashTarget {
-  referenceName: string
   addr: string
   implementation: string
   contractKindHash: string

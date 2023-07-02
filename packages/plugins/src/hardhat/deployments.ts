@@ -146,7 +146,7 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
-  const { deployer } = userConfig.config.options
+  const deployer = getChugSplashManagerAddress(userConfig.config.options.owner)
   const project = userConfig.config.projects[projectName]
   const contractConfig = project.contracts[referenceName]
 

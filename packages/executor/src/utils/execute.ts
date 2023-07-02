@@ -248,7 +248,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    approvalEvent.args.configUri
+    approvalEvent.args.configUri,
+    projectName
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
@@ -410,11 +411,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       1
     )
 
-    await trackExecuted(
-      await manager.owner(),
-      network,
-      undefined
-    )
+    await trackExecuted(await manager.owner(), network, undefined)
   } else {
     logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
 

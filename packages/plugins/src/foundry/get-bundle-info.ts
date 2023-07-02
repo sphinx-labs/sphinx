@@ -88,10 +88,10 @@ const projectName = args[3]
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       userConfig.projects[projectName],
       projectName,
-      userConfig.options.deployer,
       projectConfigArtifacts,
       cre,
-      FailureAction.THROW
+      FailureAction.THROW,
+      userConfig.options.owner
     )
 
     await projectPostParsingValidation(

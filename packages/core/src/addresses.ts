@@ -21,7 +21,7 @@ import {
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
   LZEndpointMockArtifact,
-  FunderArtifact,
+  LZSenderArtifact,
   LZReceiverArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
@@ -181,15 +181,18 @@ export const getMockEndPointAddress = (chainId: number) =>
     )
   )
 
-export const getFunderAddress = (endpointAddress: string) => {
+export const getLZSenderAddress = (endpointAddress: string) => {
   return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
-      ['bytes', 'address'],
+      ['bytes', 'bytes'],
       [
-        FunderArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+        LZSenderArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'tuple(uint16,address)[]', 'address'],
+          [endpointAddress, [], getOwnerAddress()]
+        ),
       ]
     )
   )
@@ -200,10 +203,13 @@ export const getLZReceiverAddress = (endpointAddress: string) => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
-      ['bytes', 'address'],
+      ['bytes', 'bytes'],
       [
         LZReceiverArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [endpointAddress, getOwnerAddress()]
+        ),
       ]
     )
   )
@@ -241,14 +247,13 @@ export const getChugSplashManagerV1Address = () =>
     )
   )
 
-export const getChugSplashManagerAddress = (
-  owner: string,
-  saltNonce: number
-) => {
+export const getChugSplashManagerAddress = (owner: string) => {
+  // We set the saltNonce to 0 for now since we can safely assume that each owner
+  // will only have one manager contract for now.
   const salt = utils.keccak256(
     utils.defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes'],
-      [owner, saltNonce, '']
+      [owner, 0, []]
     )
   )
 

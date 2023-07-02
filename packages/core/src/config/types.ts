@@ -78,7 +78,7 @@ export type ParsedConfigVariable =
 
 export interface UserChugSplashConfig {
   options: {
-    deployer: string
+    owner: string
   }
   projects: UserProjectConfigs
 }
@@ -96,7 +96,7 @@ export type UserProjectConfigs = {
 
 export interface ParsedChugSplashConfig {
   options: {
-    deployer: string
+    owner: string
   }
   projects: ParsedProjectConfigs
 }

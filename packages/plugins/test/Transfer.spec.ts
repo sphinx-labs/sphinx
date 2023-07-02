@@ -13,7 +13,7 @@ import {
   contractKindHashes,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
-  chugsplashClaimAbstractTask,
+  chugsplashRegisterAbstractTask,
   FailureAction,
 } from '@chugsplash/core'
 import { BigNumber, ethers, providers } from 'ethers'
@@ -81,7 +81,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    await chugsplashClaimAbstractTask(
+    await chugsplashRegisterAbstractTask(
       provider,
       claimer,
       userConfig,

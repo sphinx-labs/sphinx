@@ -54,14 +54,12 @@ struct RawChugSplashAction {
 /**
  * @notice Struct representing a target.
  *
- * @custom:field referenceName The reference name associated with the target.
  * @custom:field addr The address of the proxy associated with this target.
  * @custom:field implementation The address that will be the proxy's implementation at the end of
    the deployment.
  * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  */
 struct ChugSplashTarget {
-    string referenceName;
     address payable addr;
     address implementation;
     bytes32 contractKindHash;

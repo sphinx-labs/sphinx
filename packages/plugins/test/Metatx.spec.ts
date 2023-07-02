@@ -4,7 +4,7 @@
 // import hre from 'hardhat'
 // import { Contract } from 'ethers'
 // import {
-//   chugsplashClaimAbstractTask,
+//   chugsplashRegisterAbstractTask,
 //   chugsplashProposeAbstractTask,
 //   register,
 //   FORWARDER_ADDRESS,
@@ -51,7 +51,7 @@
 //         makeGetConfigArtifacts(hre)
 //       )
 
-//     // await chugsplashClaimAbstractTask(
+//     // await chugsplashRegisterAbstractTask(
 //     //   provider,
 //     //   signer,
 //     //   parsedConfig,

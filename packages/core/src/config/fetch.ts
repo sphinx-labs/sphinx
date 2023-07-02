@@ -65,6 +65,7 @@ export const verifyDeployment = async (
   configUri: string,
   deploymentId: string,
   projectConfigArtifacts: ProjectConfigArtifacts,
+  projectName: string,
   projectConfigCache: ProjectConfigCache,
   ipfsUrl?: string
 ) => {
@@ -80,7 +81,7 @@ export const verifyDeployment = async (
     projectConfigCache
   )
 
-  if (deploymentId !== getDeploymentId(bundles, configUri)) {
+  if (deploymentId !== getDeploymentId(bundles, configUri, projectName)) {
     throw new Error(
       'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
