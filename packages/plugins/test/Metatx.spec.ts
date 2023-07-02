@@ -6,13 +6,16 @@ import { Contract } from 'ethers'
 import {
   chugsplashClaimAbstractTask,
   chugsplashProposeAbstractTask,
+  finalizeRegistration,
   FORWARDER_ADDRESS,
   getChugSplashManager,
+  getChugSplashRegistry,
   ProposalRoute,
   readValidatedChugSplashConfig,
 } from '@chugsplash/core'
 import { ForwarderArtifact } from '@chugsplash/contracts'
 import { expect } from 'chai'
+import ora from 'ora'
 
 import { createChugSplashRuntime } from '../../plugins/src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -27,7 +30,7 @@ describe('Meta txs', () => {
   let manager: Contract
   before(async () => {
     const provider = hre.ethers.provider
-    const signer = provider.getSigner()
+    const signer = hre.ethers.provider.getSigner()
     const signerAddress = await signer.getAddress()
 
     const cre = await createChugSplashRuntime(
@@ -36,7 +39,7 @@ describe('Meta txs', () => {
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      false
+      true
     )
 
     const { parsedConfig, configArtifacts, configCache } =
@@ -48,15 +51,31 @@ describe('Meta txs', () => {
         makeGetConfigArtifacts(hre)
       )
 
-    await chugsplashClaimAbstractTask(
-      provider,
-      signer,
-      parsedConfig,
-      false,
-      signerAddress,
-      'hardhat',
-      cre
-    )
+    // await chugsplashClaimAbstractTask(
+    //   provider,
+    //   signer,
+    //   parsedConfig,
+    //   false,
+    //   signerAddress,
+    //   'hardhat',
+    //   cre
+    // )
+
+    // // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
+    // // transfer ownership to the user-defined new owner, if it exists.
+    // const registry = await getChugSplashRegistry(signer)
+    // const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
+    // manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
+
+    // await finalizeRegistration(
+    //   registry,
+    //   manager,
+    //   parsedConfig.options.organizationID,
+    //   signerAddress,
+    //   false,
+    //   provider,
+    //   spinner
+    // )
 
     const metatxs = await chugsplashProposeAbstractTask(
       provider,
@@ -89,7 +108,6 @@ describe('Meta txs', () => {
     // Send meta-tx through relayer to the forwarder contract
     const gasLimit = (request.gas + 50000).toString()
     await Forwarder.execute(request, signature, { gasLimit })
-    manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
   })
 
   it('does propose with meta txs', async () => {

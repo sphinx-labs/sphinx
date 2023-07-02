@@ -20,7 +20,7 @@ const config: UserProjectConfig = {
         'UUPSUpgradeable:__gap': '{ gap }',
         _roles: [],
       },
-      address: '0x62DB6c1678Ca81ea0d946EA3dd75b4F71421A2aE',
+      address: '0xED8CAB8a931A4C0489ad3E3FB5BdEA84f74fD23E',
       kind: 'oz-access-control-uups',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
