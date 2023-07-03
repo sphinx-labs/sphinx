@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import {
-  CanonicalChugSplashConfig,
   DeploymentState,
   claimExecutorPayment,
   compileRemoteBundles,
@@ -17,7 +16,8 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
   deploymentDoesRevert,
-  ConfigArtifacts,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
 } from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -55,8 +55,8 @@ const generateRetryEvent = (
 
 const tryVerification = async (
   logger: Logger,
-  canonicalConfig: CanonicalChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  canonicalConfig: CanonicalProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
   network: string,
@@ -161,7 +161,6 @@ export type ResponseMessage = {
     message: string
     err: Error
     options: {
-      organizationID: string
       projectName: string
       skipStorageCheck?: boolean
     }
@@ -223,37 +222,38 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  // Retrieve the corresponding proposal event to get the config URI.
-  const [proposalEvent] = await manager.queryFilter(
-    manager.filters.ChugSplashDeploymentProposed(activeDeploymentId)
+  // Retrieve the corresponding approval event to get the config URI.
+  const [approvalEvent] = await manager.queryFilter(
+    manager.filters.ChugSplashDeploymentApproved(activeDeploymentId)
   )
 
   logger.info('[ChugSplash]: retrieving the deployment...')
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
   let bundles: ChugSplashBundles
-  let canonicalConfig: CanonicalChugSplashConfig
-  let configArtifacts: ConfigArtifacts
+  let canonicalProjectConfig: CanonicalProjectConfig
+  let projectConfigArtifacts: ProjectConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, canonicalConfig, configArtifacts } =
-      await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
+    ;({ bundles, canonicalProjectConfig, projectConfigArtifacts } =
+      await compileRemoteBundles(rpcProvider, approvalEvent.args.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName, organizationID } = canonicalConfig.options
+  const { projectName } = canonicalProjectConfig.options
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    proposalEvent.args.configUri
+    approvalEvent.args.configUri,
+    projectName
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
-  if (expectedDeploymentId !== proposalEvent.args.deploymentId) {
+  if (expectedDeploymentId !== approvalEvent.args.deploymentId) {
     // We cannot execute the current deployment, so we dicard the event
     // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
     process.send({ action: 'discard', payload: executorEvent })
@@ -261,7 +261,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // log error and return
     logger.error(
       '[ChugSplash]: error: compiled deployment id does not match proposal event deployment id',
-      canonicalConfig.options
+      canonicalProjectConfig.options
     )
     return
   }
@@ -305,7 +305,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         logger.error(
           '[ChugSplash]: error: claiming deployment error',
           err,
-          canonicalConfig.options
+          canonicalProjectConfig.options
         )
 
         // retry events which failed due to other errors
@@ -335,7 +335,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       rpcProvider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      canonicalConfig
+      canonicalProjectConfig
     )
   ) {
     logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
@@ -347,7 +347,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         manager,
         bundles,
         blockGasLimit,
-        configArtifacts,
+        projectConfigArtifacts,
         rpcProvider
       )
 
@@ -374,7 +374,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       logger.error(
         '[ChugSplash]: error: execution error',
         e,
-        canonicalConfig.options
+        canonicalProjectConfig.options
       )
 
       // retry the deployment later
@@ -401,8 +401,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // verify on etherscan 10s later
     await tryVerification(
       logger,
-      canonicalConfig,
-      configArtifacts,
+      canonicalProjectConfig,
+      projectConfigArtifacts,
       rpcProvider,
       projectName,
       network,
@@ -411,13 +411,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       1
     )
 
-    await trackExecuted(
-      await manager.owner(),
-      organizationID,
-      projectName,
-      network,
-      undefined
-    )
+    await trackExecuted(await manager.owner(), network, undefined)
   } else {
     logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
 

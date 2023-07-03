@@ -1,39 +1,42 @@
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
-import '../dist'
+import '../../dist'
 
 import { expect } from 'chai'
-import hre, { ethers } from 'hardhat'
+import hre, { chugsplash } from 'hardhat'
 import {
-  getChugSplashManagerAddress,
-  chugsplashClaimAbstractTask,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
   contractKindHashes,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
+  chugsplashRegisterAbstractTask,
+  FailureAction,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers, providers } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
+import ora from 'ora'
 
-import { createChugSplashRuntime } from '../src/cre'
-import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-const uupsOwnableUpgradeConfigPath =
-  './chugsplash/proxies/UUPSOwnableUpgradableUpgrade.config.ts'
-const uupsAccessControlUpgradeConfigPath =
-  './chugsplash/proxies/UUPSAccessControlUpgradableUpgrade.config.ts'
-const transparentUpgradeConfigPath =
-  './chugsplash/proxies/TransparentUpgradableUpgrade.config.ts'
+import { createChugSplashRuntime } from '../../src/cre'
+import { makeGetConfigArtifacts } from '../../src/hardhat/artifacts'
+import { projectName as transparentName } from '../../chugsplash/projects/proxies/TransparentUpgradableUpgrade.config'
+import { projectName as accessControlName } from '../../chugsplash/projects/proxies/UUPSAccessControlUpgradableUpgrade.config'
+import { projectName as ownableName } from '../../chugsplash/projects/proxies/UUPSOwnableUpgradableUpgrade.config'
+
+const configPath = './chugsplash/main.config.ts'
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
-  let claimer: SignerWithAddress
+  let claimer: providers.JsonRpcSigner
+  let claimerAddress: string
   before(async () => {
     const signers = await hre.ethers.getSigners()
-    claimer = signers[0]
+    claimer = hre.ethers.provider.getSigner()
+    claimerAddress = await claimer.getAddress()
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
@@ -69,9 +72,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      transparentUpgradeConfigPath
-    )
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const cre = await createChugSplashRuntime(
       false,
@@ -83,19 +84,15 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    await chugsplashClaimAbstractTask(
+    await chugsplashRegisterAbstractTask(
       provider,
       claimer,
       userConfig,
-      false,
-      signer.address,
       'hardhat',
       cre
     )
 
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -112,32 +109,39 @@ describe('Transfer', () => {
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        transparentUpgradeConfigPath,
+        configPath,
+        transparentName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        claimerAddress,
+        FailureAction.THROW
       )
+
+    const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
-      undefined
+      parsedConfig.options.owner,
+      parsedConfig.projects[transparentName],
+      configCache[transparentName],
+      configArtifacts[transparentName],
+      undefined,
+      spinner
     )
 
-    const TransparentUpgradableTokenV2 = await hre.chugsplash.getContract(
-      'Transparent Upgradable Token',
+    const TransparentUpgradableTokenV2 = await chugsplash.getContract(
+      transparentName,
       'Token'
     )
 
     // check upgrade completed successfully
-    expect(await TransparentUpgradableTokenV2.address).to.equal(
+    expect(TransparentUpgradableTokenV2.address).to.equal(
       TransparentUpgradableTokenV1.address,
       'contracts do not have the same address'
     )
@@ -176,9 +180,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      uupsOwnableUpgradeConfigPath
-    )
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const cre = await createChugSplashRuntime(
       false,
@@ -190,19 +192,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    await chugsplashClaimAbstractTask(
-      provider,
-      claimer,
-      userConfig,
-      false,
-      signer.address,
-      'hardhat',
-      cre
-    )
-
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
 
@@ -214,22 +204,26 @@ describe('Transfer', () => {
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        uupsOwnableUpgradeConfigPath,
+        configPath,
+        ownableName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        claimerAddress,
+        FailureAction.THROW
       )
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
+      parsedConfig.options.owner,
+      parsedConfig.projects[ownableName],
+      configCache[ownableName],
+      configArtifacts[ownableName],
       undefined
     )
 
@@ -249,20 +243,22 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const manager = getChugSplashManager(
-      signer,
-      parsedConfig.options.organizationID
+    const deployerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.owner
     )
+    const manager = getChugSplashManager(deployerAddress, claimer)
 
     await manager.exportProxy(
       UUPSUpgradableTokenV2.address,
-      contractKindHashes[parsedConfig.contracts['Token'].kind],
-      signer.address
+      contractKindHashes[
+        parsedConfig.projects[ownableName].contracts['Token'].kind
+      ],
+      await claimer.getAddress()
     )
 
     // check signer is owner again
     expect(await UUPSUpgradableTokenV2.owner()).to.equal(
-      signer.address,
+      await claimer.getAddress(),
       'proxy owner is not signer'
     )
   })
@@ -298,9 +294,7 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(
-      uupsAccessControlUpgradeConfigPath
-    )
+    const userConfig = await readUserChugSplashConfig(configPath)
 
     const cre = await createChugSplashRuntime(
       false,
@@ -312,19 +306,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    await chugsplashClaimAbstractTask(
-      provider,
-      claimer,
-      userConfig,
-      false,
-      signer.address,
-      'hardhat',
-      cre
-    )
-
-    const managerAddress = getChugSplashManagerAddress(
-      userConfig.options.organizationID
-    )
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
       ethers.constants.HashZero,
@@ -341,22 +323,26 @@ describe('Transfer', () => {
 
     const { parsedConfig, configArtifacts, configCache } =
       await readValidatedChugSplashConfig(
-        uupsAccessControlUpgradeConfigPath,
+        configPath,
+        accessControlName,
         provider,
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        claimerAddress,
+        FailureAction.THROW
       )
 
     await chugsplashDeployAbstractTask(
       provider,
-      signer,
+      claimer,
       canonicalConfigPath,
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
+      parsedConfig.options.owner,
+      parsedConfig.projects[accessControlName],
+      configCache[accessControlName],
+      configArtifacts[accessControlName],
       undefined
     )
 
@@ -378,21 +364,23 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const manager = getChugSplashManager(
-      signer,
-      parsedConfig.options.organizationID
+    const deployerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.owner
     )
+    const manager = getChugSplashManager(deployerAddress, claimer)
     await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,
-      contractKindHashes[parsedConfig.contracts['Token'].kind],
-      signer.address
+      contractKindHashes[
+        parsedConfig.projects[accessControlName].contracts['Token'].kind
+      ],
+      await claimer.getAddress()
     )
 
     // check signer is owner again
     expect(
       await UUPSAccessControlUpgradableTokenV2.hasRole(
         ethers.constants.HashZero,
-        signer.address
+        await claimer.getAddress()
       )
     ).to.equal(true, 'proxy owner is not signer')
 

@@ -91,7 +91,7 @@ contract ChugSplashAuthFactory is Ownable {
 
         address authProxyAddress = getAuthProxyAddress(salt);
 
-        address managerProxy = registry.register(authProxyAddress, _registryData, _saltNonce);
+        address managerProxy = registry.register(authProxyAddress, _saltNonce, _registryData);
 
         ChugSplashAuthProxy authProxy = new ChugSplashAuthProxy{ salt: salt }(this, address(this));
         require(

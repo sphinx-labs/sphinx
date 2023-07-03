@@ -5,7 +5,7 @@ import { Contract } from 'ethers'
 import {
   ProposalRoute,
   chugsplashApproveAbstractTask,
-  chugsplashClaimAbstractTask,
+  chugsplashRegisterAbstractTask,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
   readValidatedChugSplashConfig,
@@ -49,7 +49,7 @@ describe('Remote Execution', () => {
       )
 
     // claim
-    await chugsplashClaimAbstractTask(
+    await chugsplashRegisterAbstractTask(
       provider,
       signer,
       parsedConfig,

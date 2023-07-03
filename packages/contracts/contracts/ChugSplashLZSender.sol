@@ -8,12 +8,11 @@ import {
 import { LayerZeroFundingMessage, LayerZeroMessage } from "./ChugSplashDataTypes.sol";
 
 contract ChugSplashLZSender is LzApp {
-
     /**
      * @custom:field chainId Chain ID of the destination chain.
-     * @custom:field lzReceiver Address of the ChugSplashLZReceiver contract on the destination chain.
-       This is set as the only trusted remote contract, which ensures that users don't accidentally
-       send messages or funds to untrusted contracts.
+     * @custom:field lzReceiver Address of the ChugSplashLZReceiver contract on the destination
+       chain. This is set as the only trusted remote contract, which ensures that users don't
+       accidentally send messages or funds to untrusted contracts.
      */
     struct DestinationChainInfo {
         uint16 chainId;
@@ -28,7 +27,11 @@ contract ChugSplashLZSender is LzApp {
                           the permissioned functions on the inherited LzApp contract. This will
                           mainly be used for updating the trusted remote address.
      */
-    constructor(address _localEndpoint, DestinationChainInfo[] memory _destChains, address _owner) LzApp(_localEndpoint) {
+    constructor(
+        address _localEndpoint,
+        DestinationChainInfo[] memory _destChains,
+        address _owner
+    ) LzApp(_localEndpoint) {
         DestinationChainInfo memory destChain;
         bytes memory addressPair;
         for (uint i = 0; i < _destChains.length; i++) {
@@ -127,10 +130,7 @@ contract ChugSplashLZSender is LzApp {
             // Use LayerZero's adapter params v1 to specify a custom amount of gas to send to the
             // `lzReceive` function on the destination chain.
             uint16 version = 1;
-            adapterParam = abi.encodePacked(
-                version,
-                message.destGas
-            );
+            adapterParam = abi.encodePacked(version, message.destGas);
             adapterParams[i] = adapterParam;
 
             (uint fee, ) = lzEndpoint.estimateFees(

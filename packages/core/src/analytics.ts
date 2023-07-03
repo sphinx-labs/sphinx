@@ -16,8 +16,6 @@ const timeout = (prom, time) => {
 
 export const trackExecuted = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration | undefined
 ) => {
@@ -29,8 +27,6 @@ export const trackExecuted = async (
       event_type: 'chugsplash executed',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -41,8 +37,6 @@ export const trackExecuted = async (
 
 export const trackRegistrationFinalized = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -54,8 +48,6 @@ export const trackRegistrationFinalized = async (
       event_type: 'chugsplash registration finalized',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -66,8 +58,6 @@ export const trackRegistrationFinalized = async (
 
 export const trackProposed = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -79,8 +69,6 @@ export const trackProposed = async (
       event_type: 'chugsplash propose',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -91,8 +79,6 @@ export const trackProposed = async (
 
 export const trackApproved = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -104,8 +90,6 @@ export const trackApproved = async (
       event_type: 'chugsplash approve',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -116,8 +100,6 @@ export const trackApproved = async (
 
 export const trackDeployed = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -129,8 +111,6 @@ export const trackDeployed = async (
       event_type: 'chugsplash deploy',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -141,8 +121,6 @@ export const trackDeployed = async (
 
 export const trackCancel = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -154,8 +132,6 @@ export const trackCancel = async (
       event_type: 'chugsplash cancel',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -187,8 +163,6 @@ export const trackListProjects = async (
 
 export const trackExportProxy = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -200,8 +174,6 @@ export const trackExportProxy = async (
       event_type: 'chugsplash export proxy',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },
@@ -212,8 +184,6 @@ export const trackExportProxy = async (
 
 export const trackImportProxy = async (
   user_id: string,
-  organizationID: string,
-  projectName: string,
   networkName: string,
   integration: Integration
 ) => {
@@ -225,8 +195,6 @@ export const trackImportProxy = async (
       event_type: 'chugsplash import proxy',
       user_id,
       event_properties: {
-        organizationID,
-        projectName,
         network: networkName,
         integration,
       },

@@ -3,7 +3,6 @@ import { constants } from 'ethers'
 
 const config: UserChugSplashConfig = {
   options: {
-    organizationID: constants.HashZero,
     projectName: 'Remote Executor Test',
   },
   contracts: {

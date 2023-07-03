@@ -293,6 +293,22 @@ export const initializeChugSplash = async (
 
   logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
 
+  logger?.info('[ChugSplash]: setting the default ChugSplashManager version')
+
+  if (
+    (await ChugSplashRegistry.currentManagerImplementation()) !==
+    chugSplashManagerV1Address
+  ) {
+    await (
+      await ChugSplashRegistry.connect(signer).setCurrentManagerImplementation(
+        chugSplashManagerV1Address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  logger?.info('[ChugSplash]: set the default ChugSplashManager version')
+
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )

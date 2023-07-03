@@ -314,6 +314,7 @@ contract ChugSplashManager is
 
     error ProjectNameCannotBeEmpty();
     error ContractDoesNotExistInProject();
+    error ContractExistsInOtherProject();
 
     /**
      * @notice Modifier that reverts if the caller is not a remote executor.
@@ -447,6 +448,8 @@ contract ChugSplashManager is
             revert DeploymentStateIsNotApprovable();
         }
 
+        activeDeploymentId = deploymentId;
+
         deployment.projectName = _projectName;
         deployment.status = DeploymentStatus.APPROVED;
         deployment.actionRoot = _actionRoot;
@@ -458,8 +461,8 @@ contract ChugSplashManager is
         deployment.configUri = _configUri;
 
         emit ChugSplashDeploymentApproved(
-            _projectName,
             deploymentId,
+            _projectName,
             _projectName,
             _actionRoot,
             _targetRoot,
@@ -614,6 +617,8 @@ contract ChugSplashManager is
        callable by the owner. Note that this function allows the owner to send ownership of their
        proxy to address(0), which would make their proxy non-upgradeable.
      *
+     * @param _proxy  Address of the proxy to transfer ownership of.
+     * @param _contractKindHash  Hash of the contract kind, which represents the proxy type.
      * @param _newOwner  Address of the owner to receive ownership of the proxy.
      */
     function exportProxy(
@@ -780,8 +785,12 @@ contract ChugSplashManager is
                 revert InvalidMerkleProof();
             }
 
-            if (!equals(contractToProject[action.addr], deployment.projectName)) {
-                revert ContractDoesNotExistInProject();
+            string memory existingProjectName = contractToProject[action.addr];
+            if (
+                bytes(existingProjectName).length > 0 &&
+                !equals(existingProjectName, deployment.projectName)
+            ) {
+                revert ContractExistsInOtherProject();
             }
 
             // Mark the action as executed and update the total number of executed actions.
@@ -789,6 +798,10 @@ contract ChugSplashManager is
             deployment.actions[actionIndex] = true;
 
             if (action.actionType == ChugSplashActionType.DEPLOY_CONTRACT) {
+                if (deployment.status != DeploymentStatus.APPROVED) {
+                    revert DeploymentIsNotApproved();
+                }
+
                 _attemptContractDeployment(deployment, action, actionIndex);
 
                 if (
@@ -860,12 +873,7 @@ contract ChugSplashManager is
                 !MerkleTree.verify(
                     deployment.targetRoot,
                     keccak256(
-                        abi.encode(
-                            target.referenceName,
-                            target.addr,
-                            target.implementation,
-                            target.contractKindHash
-                        )
+                        abi.encode(target.addr, target.implementation, target.contractKindHash)
                     ),
                     i,
                     proof,
@@ -954,12 +962,7 @@ contract ChugSplashManager is
                 !MerkleTree.verify(
                     deployment.targetRoot,
                     keccak256(
-                        abi.encode(
-                            target.referenceName,
-                            target.addr,
-                            target.implementation,
-                            target.contractKindHash
-                        )
+                        abi.encode(target.addr, target.implementation, target.contractKindHash)
                     ),
                     i,
                     proof,
@@ -985,12 +988,7 @@ contract ChugSplashManager is
 
             _transferContractToProject(target.addr, deployment.projectName);
 
-            emit ProxyUpgraded(
-                activeDeploymentId,
-                target.addr,
-                deployment.projectName,
-                target.referenceName
-            );
+            emit ProxyUpgraded(activeDeploymentId, target.addr, deployment.projectName);
             registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
@@ -1080,10 +1078,6 @@ contract ChugSplashManager is
         RawChugSplashAction memory _action,
         uint256 _actionIndex
     ) internal {
-        if (_deployment.status != DeploymentStatus.APPROVED) {
-            revert DeploymentIsNotApproved();
-        }
-
         (bytes32 salt, bytes memory creationCodeWithConstructorArgs) = abi.decode(
             _action.data,
             (bytes32, bytes)
@@ -1129,9 +1123,7 @@ contract ChugSplashManager is
             if (expectedAddress == actualAddress) {
                 // Contract was deployed successfully.
 
-                // We only transfer immutable contracts to the project here. Proxies are transferred
-                // at the end of an upgrade.
-                if (_action.contractKindHash == IMMUTABLE_CONTRACT_KIND_HASH) {
+                if (_action.contractKindHash != IMPLEMENTATION_CONTRACT_KIND_HASH) {
                     _transferContractToProject(actualAddress, _deployment.projectName);
                 }
 
@@ -1140,6 +1132,7 @@ contract ChugSplashManager is
                     actualAddress,
                     activeDeploymentId,
                     referenceName,
+                    _action.contractKindHash,
                     keccak256(creationCodeWithConstructorArgs)
                 );
                 registry.announce("ContractDeployed");
@@ -1255,7 +1248,7 @@ contract ChugSplashManager is
 
         contractToProject[_addr] = _projectName;
 
-        emit ContractTransferredToProject(_projectName, _addr, _projectName);
+        emit ContractTransferred(_projectName, _addr, _projectName);
     }
 
     function equals(string memory _str1, string memory _str2) public pure returns (bool) {

@@ -1,9 +1,10 @@
+import { ProjectConfigCache } from '@chugsplash/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
   ChugSplashUtilsABI: any
-) => {
+): ProjectConfigCache => {
   const configCacheType = ChugSplashUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
@@ -13,21 +14,21 @@ export const decodeCachedConfig = (
     encodedConfigCache
   )[0]
 
-  const structuredConfigCache = {
+  const structuredConfigCache: ProjectConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
     localNetwork: configCache.localNetwork,
     networkName: configCache.networkName,
+    isRegistered: configCache.isRegistered,
     contractConfigCache: {},
   }
 
   for (const cachedContract of configCache.contractConfigCache) {
     structuredConfigCache.contractConfigCache[cachedContract.referenceName] = {
-      referenceName: cachedContract.referenceName,
+      existingProjectName: cachedContract.existingProjectName,
       isTargetDeployed: cachedContract.isTargetDeployed,
       deploymentRevert: {
         deploymentReverted: cachedContract.deploymentRevert.deploymentReverted,
-        deploymentRevertReason: cachedContract.deploymentRevert.revertString
-          .exists
+        revertString: cachedContract.deploymentRevert.revertString.exists
           ? cachedContract.deploymentRevert.revertString.value
           : undefined,
       },

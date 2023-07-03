@@ -13,7 +13,7 @@ import {
   DefaultGasPriceCalculatorArtifact,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
-  FunderArtifact,
+  LZSenderArtifact,
   LZReceiverArtifact,
 } from '@chugsplash/contracts'
 
@@ -34,7 +34,7 @@ import {
   MANAGED_SERVICE_ADDRESS,
   REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
-  getFunderAddress,
+  getLZSenderAddress,
   getLZReceiverAddress,
   getMockEndPointAddress,
 } from './addresses'
@@ -120,14 +120,14 @@ export const getChugSplashConstants = (
       constructorArgs: [getChugSplashRegistryAddress()],
     },
     {
-      artifact: FunderArtifact,
-      expectedAddress: getFunderAddress(lzEndpointAddress),
-      constructorArgs: [lzEndpointAddress],
+      artifact: LZSenderArtifact,
+      expectedAddress: getLZSenderAddress(lzEndpointAddress),
+      constructorArgs: [lzEndpointAddress, [], getOwnerAddress()],
     },
     {
       artifact: LZReceiverArtifact,
       expectedAddress: getLZReceiverAddress(lzEndpointAddress),
-      constructorArgs: [lzEndpointAddress],
+      constructorArgs: [lzEndpointAddress, getOwnerAddress()],
     },
   ]
 }

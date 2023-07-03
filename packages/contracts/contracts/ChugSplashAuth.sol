@@ -231,7 +231,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes[] memory _signatures,
         ActionProof memory _proof,
         uint256 _numLeafs
-    ) public view {
+    ) private view {
         if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
 
@@ -272,8 +272,8 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      * @notice Sets up initial roles. The number of org owner signatures must be at least
                `orgOwnerThreshold`.
 
-               This is the only permissioned function in this contract that doesn't require that the auth
-               Merkle root has been proposed in a separate transaction.
+               This is the only permissioned function in this contract that doesn't require
+               that the auth Merkle root has been proposed in a separate transaction.
 
                This function is callable until the first proposal occurs. This allows for the
                possibility that the org owners mistakenly enter invalid initial proposers. For
@@ -591,7 +591,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             : managerOwnable.transferOwnership(newOwner);
         ChugSplashManagerProxy(payable(address(manager))).changeAdmin(newOwner);
 
-
         emit DeployerOwnershipTransferred(_authRoot, _proof.actionIndex);
     }
 
@@ -624,7 +623,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         } else {
             deployerProxy.upgradeTo(impl);
         }
-
 
         emit DeployerUpgraded(_authRoot, _proof.actionIndex);
     }
@@ -829,10 +827,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             uint256 numTargets,
             uint256 numImmutableContracts,
             string memory configUri
-        ) = abi.decode(
-                _action.data,
-                (string, bytes32, bytes32, uint256, uint256, uint256, string)
-            );
+        ) = abi.decode(_action.data, (string, bytes32, bytes32, uint256, uint256, uint256, string));
 
         assertValidAuthAction(
             thresholds[projectName],
@@ -962,7 +957,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _proof
         );
 
-
         uint256 numContractsToRemove = addresses.length;
         string memory existingProjectName;
         for (uint256 i = 0; i < numContractsToRemove; i++) {
@@ -1043,7 +1037,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _proof
         );
 
-
         uint256 numContractsToUpdate = contractAddresses.length;
         bool add;
         for (uint256 i = 0; i < numContractsToUpdate; i++) {
@@ -1072,7 +1065,11 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthAction memory _action,
         bytes[] memory _signatures,
         ActionProof memory _proof
-    ) public incrementProtocolDebt(gasleft()) isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _action, _signatures, _proof) {
+    )
+        public
+        incrementProtocolDebt(gasleft())
+        isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _action, _signatures, _proof)
+    {
         (bytes32 authRootToPropose, uint256 numActions, uint256 numLeafs) = abi.decode(
             _action.data,
             (bytes32, uint256, uint256)

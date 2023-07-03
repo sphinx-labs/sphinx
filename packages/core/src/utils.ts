@@ -44,15 +44,15 @@ import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
-  CanonicalChugSplashConfig,
+  CanonicalProjectConfig,
   UserContractKind,
   userContractKinds,
-  ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
   ParsedConfigVariables,
-  ConfigArtifacts,
   ParsedConfigVariable,
+  ParsedProjectConfig,
+  ProjectConfigArtifacts,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -60,11 +60,8 @@ import {
   ChugSplashBundles,
   DeploymentState,
 } from './actions/types'
-import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
-import {
-  getChugSplashManagerAddress,
-  getChugSplashRegistryAddress,
-} from './addresses'
+import { Integration } from './constants'
+import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -82,7 +79,8 @@ import { getCreate3Address } from './config/utils'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
-  configUri: string
+  configUri: string,
+  projectName: string
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
@@ -94,8 +92,17 @@ export const getDeploymentId = (
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
       [
+        'string',
+        'bytes32',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'uint256',
+        'string',
+      ],
+      [
+        projectName,
         actionRoot,
         targetRoot,
         numActions,
@@ -158,7 +165,7 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
 
 export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedProjectConfig
 ): Promise<boolean | string> => {
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -171,47 +178,36 @@ export const checkIsUpgrade = async (
 }
 
 /**
- * Finalizes the registration of an organization ID.
+ * Finalizes the registration of an organization.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param organizationID ID of the organization.
- * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
- * @returns True if the organization ID was already registered for the first time in this call, and
- * false if the project was already registered by the caller.
+ * @param ownerAddress Owner of the ChugSplashManager contract deployed by this call.
  */
-export const finalizeRegistration = async (
+export const register = async (
   registry: ethers.Contract,
   manager: ethers.Contract,
-  organizationID: string,
-  newOwnerAddress: string,
+  ownerAddress: string,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
-  spinner.start(`Claiming the project...`)
+  spinner.start(`Registering the project...`)
 
-  if (!(await isProjectClaimed(registry, manager.address))) {
-    // Encode the initialization arguments for the ChugSplashManager contract.
-    // Note: Future versions of ChugSplash may require different arguments encoded in this way.
-    const initializerData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes32', 'bool'],
-      [newOwnerAddress, organizationID]
-    )
-
+  if (!(await isProjectRegistered(registry, manager.address))) {
     await (
-      await registry.finalizeRegistration(
-        organizationID,
-        newOwnerAddress,
-        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
-        initializerData,
+      await registry.register(
+        ownerAddress,
+        0, // We set the saltNonce to 0 for now.
+        [], // We don't pass any extra initializer data to this version of the ChugSplashManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
+    spinner.succeed(`Project registered.`)
   } else {
     const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== newOwnerAddress) {
+    if (existingOwnerAddress !== ownerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      spinner.succeed(`Project was already claimed by the caller.`)
+      spinner.succeed(`Project was already registered by the caller.`)
     }
   }
 }
@@ -235,25 +231,17 @@ export const getChugSplashRegistryReadOnly = (
 }
 
 export const getChugSplashManager = (
-  signer: Signer,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    signer
-  )
+  deployer: string,
+  signer: Signer
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, signer)
 }
 
 export const getChugSplashManagerReadOnly = (
-  provider: providers.Provider,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    provider
-  )
+  deployer: string,
+  provider: providers.Provider
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, provider)
 }
 
 export const chugsplashLog = (
@@ -281,7 +269,7 @@ export const chugsplashLog = (
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   silent: boolean
 ) => {
   if (!silent) {
@@ -350,7 +338,7 @@ export const formatEther = (
 export const readCanonicalConfig = async (
   canonicalConfigFolderPath: string,
   configUri: string
-): Promise<CanonicalChugSplashConfig | undefined> => {
+): Promise<CanonicalProjectConfig | undefined> => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Check that the file containing the canonical config exists.
@@ -368,7 +356,7 @@ export const readCanonicalConfig = async (
 export const writeCanonicalConfig = (
   canonicalConfigFolderPath: string,
   configUri: string,
-  canonicalConfig: CanonicalChugSplashConfig
+  canonicalConfig: CanonicalProjectConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
@@ -447,11 +435,11 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-export const isProjectClaimed = async (
+export const isProjectRegistered = async (
   registry: ethers.Contract,
   managerAddress: string
-) => {
-  return registry.managerProxies(managerAddress)
+): Promise<boolean> => {
+  return registry.isDeployed(managerAddress)
 }
 
 export const isInternalDefaultProxy = async (
@@ -894,7 +882,7 @@ export const getPreviousConfigUri = async (
 export const fetchAndCacheCanonicalConfig = async (
   configUri: string,
   canonicalConfigFolderPath: string
-): Promise<CanonicalChugSplashConfig> => {
+): Promise<CanonicalProjectConfig> => {
   const localCanonicalConfig = await readCanonicalConfig(
     canonicalConfigFolderPath,
     configUri
@@ -902,12 +890,11 @@ export const fetchAndCacheCanonicalConfig = async (
   if (localCanonicalConfig) {
     return localCanonicalConfig
   } else {
-    const remoteCanonicalConfig =
-      await callWithTimeout<CanonicalChugSplashConfig>(
-        chugsplashFetchSubtask({ configUri }),
-        30000,
-        'Failed to fetch config file from IPFS'
-      )
+    const remoteCanonicalConfig = await callWithTimeout<CanonicalProjectConfig>(
+      chugsplashFetchSubtask({ configUri }),
+      30000,
+      'Failed to fetch config file from IPFS'
+    )
 
     // Cache the canonical config by saving it to the local filesystem.
     writeCanonicalConfig(
@@ -919,9 +906,9 @@ export const fetchAndCacheCanonicalConfig = async (
   }
 }
 
-export const getConfigArtifactsRemote = async (
-  canonicalConfig: CanonicalChugSplashConfig
-): Promise<ConfigArtifacts> => {
+export const getProjectConfigArtifactsRemote = async (
+  canonicalConfig: CanonicalProjectConfig
+): Promise<ProjectConfigArtifacts> => {
   const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
   for (const chugsplashInput of canonicalConfig.inputs) {
@@ -961,7 +948,7 @@ export const getConfigArtifactsRemote = async (
     })
   }
 
-  const artifacts: ConfigArtifacts = {}
+  const artifacts: ProjectConfigArtifacts = {}
   // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts

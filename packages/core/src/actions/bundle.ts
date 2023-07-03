@@ -4,9 +4,9 @@ import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 
 import {
-  ConfigArtifacts,
-  ConfigCache,
-  ParsedChugSplashConfig,
+  ParsedProjectConfig,
+  ProjectConfigArtifacts,
+  ProjectConfigCache,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -202,14 +202,8 @@ export const getActionHash = (action: RawChugSplashAction): string => {
 export const getTargetHash = (target: ChugSplashTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ['string', 'string', 'address', 'address', 'bytes32'],
-      [
-        target.projectName,
-        target.referenceName,
-        target.addr,
-        target.implementation,
-        target.contractKindHash,
-      ]
+      ['address', 'address', 'bytes32'],
+      [target.addr, target.implementation, target.contractKindHash]
     )
   )
 }
@@ -511,16 +505,19 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 }
 
 export const makeBundlesFromConfig = (
-  parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts,
-  configCache: ConfigCache
+  parsedProjectConfig: ParsedProjectConfig,
+  projectArtifacts: ProjectConfigArtifacts,
+  projectConfigCache: ProjectConfigCache
 ): ChugSplashBundles => {
   const actionBundle = makeActionBundleFromConfig(
-    parsedConfig,
-    artifacts,
-    configCache
+    parsedProjectConfig,
+    projectArtifacts,
+    projectConfigCache
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, artifacts)
+  const targetBundle = makeTargetBundleFromConfig(
+    parsedProjectConfig,
+    projectArtifacts
+  )
   return { actionBundle, targetBundle }
 }
 
@@ -532,21 +529,20 @@ export const makeBundlesFromConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = (
-  parsedConfig: ParsedChugSplashConfig,
-  artifacts: ConfigArtifacts,
-  configCache: ConfigCache
+  parsedConfig: ParsedProjectConfig,
+  projectArtifacts: ProjectConfigArtifacts,
+  projectConfigCache: ProjectConfigCache
 ): ChugSplashActionBundle => {
+  const managerAddress = parsedConfig.options.deployer
   const actions: ChugSplashAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { buildInfo, artifact } = artifacts[referenceName]
+    const { buildInfo, artifact } = projectArtifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
-    const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
+    const { isTargetDeployed } =
+      projectConfigCache.contractConfigCache[referenceName]
     const { kind, address, salt, constructorArgs } = contractConfig
-    const managerAddress = getChugSplashManagerAddress(
-      parsedConfig.options.organizationID
-    )
 
     if (!isTargetDeployed) {
       if (kind === 'immutable') {
@@ -647,28 +643,24 @@ export const makeActionBundleFromConfig = (
  * @returns Target bundle generated from the parsed config file.
  */
 export const makeTargetBundleFromConfig = (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts
+  parsedProjectConfig: ParsedProjectConfig,
+  projectConfigArtifacts: ProjectConfigArtifacts
 ): ChugSplashTargetBundle => {
-  const { projectName, organizationID } = parsedConfig.options
-
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const { deployer } = parsedProjectConfig.options
 
   const targets: ChugSplashTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
+    parsedProjectConfig.contracts
   )) {
-    const { abi, bytecode } = configArtifacts[referenceName].artifact
+    const { abi, bytecode } = projectConfigArtifacts[referenceName].artifact
 
     // Only add targets for proxies.
     if (contractConfig.kind !== 'immutable') {
       targets.push({
-        projectName,
-        referenceName,
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
         implementation: getImplAddress(
-          managerAddress,
+          deployer,
           bytecode,
           contractConfig.constructorArgs,
           abi

@@ -1,18 +1,10 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { UserProjectConfig } from '@chugsplash/core'
 
-import { fetchBuildInfo } from '../../test/constants'
+import { fetchBuildInfo } from '../../../test/constants'
 
-const projectName = 'UUPS Ownable Upgradable Token'
+const projectName = 'UUPSOwnableUpgradableToken'
 
-const config: UserChugSplashConfig = {
-  // Configuration options for the project:
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
     Token: {
       contract: 'UUPSOwnableUpgradableV2',
@@ -28,7 +20,7 @@ const config: UserChugSplashConfig = {
         _owner: '{ preserve }',
       },
       kind: 'oz-ownable-uups',
-      address: '0xA7c8B0D74b68EF10511F27e97c379FB1651e1eD2',
+      address: '0x5095d3313C76E8d29163e40a0223A5816a8037D8',
       // We must specify these explicitly because newer versions of OpenZeppelin's Hardhat plugin
       // don't create the Network file in the `.openzeppelin/` folder anymore:
       // https://docs.openzeppelin.com/upgrades-plugins/1.x/network-files#temporary-files
@@ -39,4 +31,4 @@ const config: UserChugSplashConfig = {
   },
 }
 
-export default config
+export { config, projectName }

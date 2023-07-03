@@ -1,21 +1,21 @@
 import * as fs from 'fs'
 
 import {
-  chugsplashProposeAbstractTask,
   readValidatedChugSplashConfig,
   readUserChugSplashConfig,
   ProposalRoute,
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
   postDeploymentActions,
-  CanonicalChugSplashConfig,
   getChugSplashManagerReadOnly,
   DeploymentState,
-  ConfigArtifacts,
   initializeChugSplash,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -34,71 +34,76 @@ const command = args[0]
 
 ;(async () => {
   switch (command) {
-    case 'propose': {
-      process.stderr.write = validationStderrWrite
+    // TODO: update this
+    // case 'propose': {
+    //   process.stderr.write = validationStderrWrite
 
-      try {
-        const configPath = args[1]
-        const rpcUrl = args[2]
-        const privateKey = args[3]
+    //   try {
+    //     const configPath = args[1]
+    //     const rpcUrl = args[2]
+    //     const privateKey = args[3]
+    //     const projectName = args[4]
 
-        const {
-          artifactFolder,
-          buildInfoFolder,
-          canonicalConfigFolder,
-          cachePath,
-        } = await getFoundryConfigOptions()
+    //     const {
+    //       artifactFolder,
+    //       buildInfoFolder,
+    //       canonicalConfigFolder,
+    //       cachePath,
+    //     } = await getFoundryConfigOptions()
 
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-        const cre = await createChugSplashRuntime(
-          true,
-          true,
-          canonicalConfigFolder,
-          undefined,
-          true,
-          process.stderr
-        )
+    //     const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
+    //     const cre = await createChugSplashRuntime(
+    //       true,
+    //       true,
+    //       canonicalConfigFolder,
+    //       undefined,
+    //       true,
+    //       process.stderr
+    //     )
 
-        const { parsedConfig, configArtifacts, configCache } =
-          await readValidatedChugSplashConfig(
-            configPath,
-            provider,
-            cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-            FailureAction.THROW
-          )
-        const wallet = new ethers.Wallet(privateKey, provider)
+    //     const { parsedConfig, configArtifacts, configCache } =
+    //       await readValidatedChugSplashConfig(
+    //         configPath,
+    //         projectName,
+    //         provider,
+    //         cre,
+    //         makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+    //         FailureAction.THROW
+    //       )
+    //     const wallet = new ethers.Wallet(privateKey, provider)
 
-        await chugsplashProposeAbstractTask(
-          provider,
-          wallet,
-          parsedConfig,
-          configPath,
-          '',
-          'foundry',
-          configArtifacts,
-          ProposalRoute.RELAY,
-          cre,
-          configCache
-        )
+    //     const projectConfig = parsedConfig.projects[projectName]
 
-        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
-          ['string', 'string'],
-          [parsedConfig.options.projectName, getPrettyWarnings()]
-        )
+    //     await chugsplashProposeAbstractTask(
+    //       provider,
+    //       wallet,
+    //       projectConfig,
+    //       configPath,
+    //       '',
+    //       'foundry',
+    //       configArtifacts,
+    //       ProposalRoute.RELAY,
+    //       cre,
+    //       configCache[projectName]
+    //     )
 
-        const encodedSuccess = hexConcat([
-          encodedProjectNameAndWarnings,
-          defaultAbiCoder.encode(['bool'], [true]), // true = success
-        ])
+    //     const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
+    //       ['string', 'string'],
+    //       [projectConfig, getPrettyWarnings()]
+    //     )
 
-        process.stdout.write(encodedSuccess)
-      } catch (err) {
-        const encodedFailure = getEncodedFailure(err)
-        process.stdout.write(encodedFailure)
-      }
-      break
-    }
+    //     const encodedSuccess = hexConcat([
+    //       encodedProjectNameAndWarnings,
+    //       defaultAbiCoder.encode(['bool'], [true]), // true = success
+    //     ])
+
+    //     process.stdout.write(encodedSuccess)
+    //   } catch (err) {
+    //     const encodedFailure = getEncodedFailure(err)
+    //     process.stdout.write(encodedFailure)
+    //   }
+    //   break
+    // }
     case 'getPreviousConfigUri': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]
@@ -173,10 +178,8 @@ const command = args[0]
 
       const config = await readUserChugSplashConfig(configPath)
 
-      const manager: Contract = await getChugSplashManagerReadOnly(
-        provider,
-        config.options.organizationID
-      )
+      const deployer = getChugSplashManagerAddress(config.options.owner)
+      const manager = getChugSplashManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.
       const deploymentCompletedEvent = (
@@ -193,11 +196,11 @@ const command = args[0]
       )
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
-      const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
+      const canonicalConfig: CanonicalProjectConfig = JSON.parse(
         fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
       )
 
-      const configArtifacts: ConfigArtifacts = JSON.parse(
+      const configArtifacts: ProjectConfigArtifacts = JSON.parse(
         fs
           .readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`)
           .toString()

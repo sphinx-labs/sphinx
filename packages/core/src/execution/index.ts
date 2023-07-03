@@ -11,7 +11,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { getChugSplashManager, getDeploymentEvents } from '../utils'
-import { ParsedChugSplashConfig } from '../config/types'
+import { ParsedProjectConfig } from '../config/types'
 
 export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,
@@ -28,14 +28,14 @@ export const getNumDeployedContracts = (
 export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedProjectConfig: ParsedProjectConfig,
   bundles: ChugSplashBundles,
   deploymentId: string,
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const { projectName, organizationID } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
+  const { projectName, deployer } = parsedProjectConfig.options
+  const ChugSplashManager = getChugSplashManager(deployer, signer)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await ChugSplashManager.deployments(
@@ -78,7 +78,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      parsedConfig,
+      parsedProjectConfig,
       false
     )
     if (amountToDeposit.gt(0)) {

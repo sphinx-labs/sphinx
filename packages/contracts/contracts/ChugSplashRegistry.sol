@@ -13,7 +13,8 @@ import { Version } from "./ChugSplashDataTypes.sol";
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. This
- *         contract allows callers to register new ChugSplashManagers. Also, every event emitted in the
+ *         contract allows callers to register new ChugSplashManagers. Also, every event emitted in
+           the
  *         ChugSplash system is announced through this contract. This makes it easy for clients to
  *         find and index events that occur throughout the deployment process. Lastly, the owner of
  *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
@@ -65,8 +66,8 @@ contract ChugSplashRegistry is
     }
 
     /**
-     * @notice Registers a new ChugSplashManagerProxy. The address of each new proxy is calculated via
-        CREATE2, using the `_owner` and `_saltNonce` as the salt.
+     * @notice Registers a new ChugSplashManagerProxy. The address of each new proxy is calculated
+        via CREATE2, using the `_owner` and `_saltNonce` as the salt.
      *
      * @param _owner Address of the owner of the ChugSplashManagerProxy.
      * @param _saltNonce Nonce that generates the salt that determines the address of the new

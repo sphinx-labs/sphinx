@@ -18,8 +18,8 @@ contract ChugSplashManagerEvents {
      * @param approver     Address of the account that approved the deployment.
      */
     event ChugSplashDeploymentApproved(
-        string indexed projectNameHash,
         bytes32 indexed deploymentId,
+        string indexed projectNameHash,
         string projectName,
         bytes32 actionRoot,
         bytes32 targetRoot,
@@ -30,13 +30,6 @@ contract ChugSplashManagerEvents {
         bool remoteExecution,
         address approver
     );
-
-    /**
-     * @notice Emitted when a ChugSplash deployment is approved.
-     *
-     * @param deploymentId ID of the deployment that was approved.
-     */
-    event ChugSplashDeploymentApproved(bytes32 indexed deploymentId);
 
     /**
      * @notice Emitted when a storage slot in a proxy is modified.
@@ -61,12 +54,7 @@ contract ChugSplashManagerEvents {
      */
     event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
 
-    event ProxyUpgraded(
-        bytes32 indexed deploymentId,
-        address indexed proxy,
-        string projectName,
-        string referenceName
-    );
+    event ProxyUpgraded(bytes32 indexed deploymentId, address indexed proxy, string projectName);
 
     /**
      * @notice Emitted when a deployment is completed.
@@ -138,6 +126,7 @@ contract ChugSplashManagerEvents {
      * @param contractAddress   Address of the deployed contract.
      * @param deploymentId          ID of the deployment in which the contract was deployed.
      * @param referenceName     String reference name.
+     * @param contractKindHash Hash of the contract kind.
      * @param creationCodeWithArgsHash Hash of the creation code with constructor args.
      */
     event ContractDeployed(
@@ -145,6 +134,7 @@ contract ChugSplashManagerEvents {
         address indexed contractAddress,
         bytes32 indexed deploymentId,
         string referenceName,
+        bytes32 contractKindHash,
         bytes32 creationCodeWithArgsHash
     );
 
@@ -186,5 +176,5 @@ contract ChugSplashManagerEvents {
 
     event ProtocolDebtAdded(uint256 cost, uint256 totalProtocolDebt);
 
-    event ContractTransferredToProject(string projectNameHash, address contractAddress, string projectName);
+    event ContractTransferred(string projectNameHash, address contractAddress, string projectName);
 }

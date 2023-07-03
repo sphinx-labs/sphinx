@@ -7,8 +7,9 @@ import { ChugSplashAuthFactory } from "./ChugSplashAuthFactory.sol";
 /**
  * @title ChugSplashAuthProxy
  * @notice Proxy contract owned by the user. This proxy is designed to be upgradable by the user in
-   a fully opt-in manner. New implementations of ChugSplashAuth must be approved by the owner of the
-   ChugSplashAuthFactory contract to prevent malicious ChugSplashAuth implementations from being used.
+   an opt-in manner. New implementations of ChugSplashAuth must be approved by the owner of the
+   ChugSplashAuthFactory contract to prevent malicious ChugSplashAuth implementations from being
+   used.
  */
 contract ChugSplashAuthProxy is Proxy {
     /**

@@ -12,8 +12,12 @@ import { StdStyle } from "forge-std/StdStyle.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
-import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import {
+    IChugSplashRegistry
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import {
+    IChugSplashManager
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { IOwnable } from "@chugsplash/contracts/contracts/interfaces/IOwnable.sol";
 import {
     ChugSplashManagerEvents
@@ -61,12 +65,23 @@ import { IChugSplashUtils } from "./interfaces/IChugSplashUtils.sol";
  * @notice This contract should not define mutable variables since it may be delegatecalled
    by other contracts.
  */
-contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, ChugSplashRegistryEvents, IChugSplashUtils {
-
+contract ChugSplashUtils is
+    Test,
+    ChugSplashConstants,
+    ChugSplashManagerEvents,
+    ChugSplashRegistryEvents,
+    IChugSplashUtils
+{
     // Source: https://github.com/Arachnid/deterministic-deployment-proxy
-    address public constant DETERMINISTIC_DEPLOYMENT_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address public constant DETERMINISTIC_DEPLOYMENT_PROXY =
+        0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    function initialize(string memory _rpcUrl, bool _isRecurrentBroadcast, string memory _mainFfiScriptPath, address _systemOwner) external {
+    function initialize(
+        string memory _rpcUrl,
+        bool _isRecurrentBroadcast,
+        string memory _mainFfiScriptPath,
+        address _systemOwner
+    ) external {
         if (isLocalNetwork(_rpcUrl) && _isRecurrentBroadcast) {
             ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
         }
@@ -87,7 +102,13 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             for (uint i = 0; i < contracts.length; i++) {
                 ChugSplashContractInfo memory ct = contracts[i];
                 address addr = create2Deploy(ct.creationCode);
-                require(addr == ct.expectedAddress, string.concat("address mismatch. expected address: ", vm.toString(ct.expectedAddress)));
+                require(
+                    addr == ct.expectedAddress,
+                    string.concat(
+                        "address mismatch. expected address: ",
+                        vm.toString(ct.expectedAddress)
+                    )
+                );
             }
 
             // Impersonate system owner
@@ -96,17 +117,14 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             // Add initial manager version
             registry.addVersion(managerImplementationAddress);
 
+            // Set the default manager version
+            registry.setCurrentManagerImplementation(managerImplementationAddress);
+
             // Add transparent proxy type
-            registry.addContractKind(
-                keccak256("oz-transparent"),
-                ozTransparentAdapterAddr
-            );
+            registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);
 
             // Add uups ownable proxy type
-            registry.addContractKind(
-                keccak256("oz-ownable-uups"),
-                ozUUPSOwnableAdapterAddr
-            );
+            registry.addContractKind(keccak256("oz-ownable-uups"), ozUUPSOwnableAdapterAddr);
 
             // Add uups access control proxy type
             registry.addContractKind(
@@ -136,6 +154,14 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         for (uint i = 0; i < parts.length; i++) {
             parts[i] = strings.toString(strings.split(sliceUrl, delim));
         }
+        if (parts.length < 2) {
+            revert(
+                string.concat(
+                    _rpcUrl,
+                    " is not a valid RPC url. Are you sure you're function arguments are in the correct order?"
+                )
+            );
+        }
         string memory host = parts[1];
 
         if (equals(host, "//127.0.0.1") || equals(host, "//localhost")) {
@@ -147,9 +173,13 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
 
     // These provide an easy way to get structs off-chain via the ABI.
     function actionBundle() external pure returns (ChugSplashActionBundle memory) {}
+
     function targetBundle() external pure returns (ChugSplashTargetBundle memory) {}
+
     function configCache() external pure returns (ConfigCache memory) {}
+
     function minimalConfig() external pure returns (MinimalConfig memory) {}
+
     function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
 
     function slice(
@@ -170,17 +200,19 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
      */
     function ffiGetEncodedBundleInfo(
         ConfigCache memory _configCache,
+        string memory _projectName,
         string memory _userConfigStr,
         string memory _rootFfiPath
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](6);
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
         cmds[3] = vm.toString(abi.encode(_configCache));
         cmds[4] = _userConfigStr;
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
+        cmds[6] = _projectName;
 
         bytes memory result = vm.ffi(cmds);
         return result;
@@ -228,12 +260,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             if (bytes(warnings).length > 0) {
                 console.log(StdStyle.yellow(warnings));
             }
-            return BundleInfo(
-                configUri,
-                costs,
-                decodedActionBundle,
-                decodedTargetBundle
-            );
+            return BundleInfo(configUri, costs, decodedActionBundle, decodedTargetBundle);
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
             if (bytes(warnings).length > 0) {
@@ -266,11 +293,11 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return IChugSplashRegistry(registryAddress);
     }
 
-    function isProjectClaimed(
+    function isProjectRegistered(
         IChugSplashRegistry _registry,
         address _manager
-    ) external view returns (bool) {
-        return _registry.managerProxies(_manager);
+    ) public view returns (bool) {
+        return _registry.isDeployed(_manager);
     }
 
     function getDeployedCreationCodeWithArgsHash(
@@ -310,7 +337,12 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return address(uint160(uint256(ownerBytes32)));
     }
 
-    function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri) external pure returns (bytes32) {
+    function getDeploymentId(
+        ChugSplashActionBundle memory _actionBundle,
+        ChugSplashTargetBundle memory _targetBundle,
+        string memory _configUri,
+        string memory _projectName
+    ) external pure returns (bytes32) {
         bytes32 actionRoot = _actionBundle.root;
         bytes32 targetRoot = _targetBundle.root;
         uint256 numActions = _actionBundle.actions.length;
@@ -320,6 +352,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return
             keccak256(
                 abi.encode(
+                    _projectName,
                     actionRoot,
                     targetRoot,
                     numActions,
@@ -389,22 +422,13 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         if (addr.code.length == 0) {
             bytes memory code = bytes.concat(bytes32(0), _creationCode);
             (bool success, ) = DETERMINISTIC_DEPLOYMENT_PROXY.call(code);
-            require(success, string.concat("failed to deploy contract. expected address: ", vm.toString(addr)));
+            require(
+                success,
+                string.concat("failed to deploy contract. expected address: ", vm.toString(addr))
+            );
         }
 
         return addr;
-    }
-
-    function getChugSplashManager(
-        IChugSplashRegistry _registry,
-        bytes32 _organizationID
-    ) public pure returns (IChugSplashManager) {
-        address managerAddress = Create2.computeAddress(
-            _organizationID,
-            managerProxyInitCodeHash,
-            address(_registry)
-        );
-        return IChugSplashManager(payable(managerAddress));
     }
 
     function inefficientSlice(
@@ -567,21 +591,30 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         string memory _mainFfiScriptPath,
         Vm.Log[] memory _executionLogs
     ) external returns (ConfigCache memory) {
-        MinimalContractConfig[] memory contractConfigs = _minimalConfig.contracts;
-
-        bool localNetwork = isLocalNetwork(_rpcUrl);
+        bool isRegistered = isProjectRegistered(_registry, address(_manager));
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
-            contractConfigs.length
+            _minimalConfig.contracts.length
         );
         for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            MinimalContractConfig memory contractConfig = contractConfigs[i];
+            MinimalContractConfig memory contractConfig = _minimalConfig.contracts[i];
+
+            string memory existingProjectName = isRegistered
+                ? _manager.contractToProject(contractConfig.addr)
+                : "";
 
             bool isTargetDeployed = contractConfig.addr.code.length > 0;
 
             OptionalString memory previousConfigUri = isTargetDeployed &&
                 contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? getPreviousConfigUri(_registry, contractConfig.addr, localNetwork, _rpcUrl, _mainFfiScriptPath, _executionLogs)
+                ? getPreviousConfigUri(
+                    _registry,
+                    contractConfig.addr,
+                    isLocalNetwork(_rpcUrl),
+                    _rpcUrl,
+                    _mainFfiScriptPath,
+                    _executionLogs
+                )
                 : OptionalString({ exists: false, value: "" });
 
             OptionalBytes32 memory deployedCreationCodeWithArgsHash = isTargetDeployed
@@ -631,6 +664,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             }
 
             contractConfigCache[i] = ContractConfigCache({
+                existingProjectName: existingProjectName,
                 referenceName: contractConfig.referenceName,
                 isTargetDeployed: isTargetDeployed,
                 deployedCreationCodeWithArgsHash: deployedCreationCodeWithArgsHash,
@@ -642,8 +676,9 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
 
         return
             ConfigCache({
+                isRegistered: isRegistered,
                 blockGasLimit: block.gaslimit,
-                localNetwork: localNetwork,
+                localNetwork: isLocalNetwork(_rpcUrl),
                 networkName: getChainAlias(_rpcUrl),
                 contractConfigCache: contractConfigCache
             });
@@ -680,9 +715,15 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             }
 
             // The ChugSplashManager's address is stored as a topic in the ProxyUpgraded event.
-            address manager = abi.decode(bytes.concat(latestRegistryEvent.value.topics[2]), (address));
+            address manager = abi.decode(
+                bytes.concat(latestRegistryEvent.value.topics[2]),
+                (address)
+            );
 
-            OptionalBytes32 memory proxyTopic = OptionalBytes32({ exists: true, value: toBytes32(_proxyAddress) });
+            OptionalBytes32 memory proxyTopic = OptionalBytes32({
+                exists: true,
+                value: toBytes32(_proxyAddress)
+            });
             OptionalLog memory latestUpgradeEvent = getLatestEvent(
                 _executionLogs,
                 manager,
@@ -731,7 +772,9 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return this.slice(_data, 4, _data.length);
     }
 
-    function getActionsByType(ChugSplashActionBundle memory _actionBundle) external pure returns (BundledChugSplashAction[] memory, BundledChugSplashAction[] memory) {
+    function getActionsByType(
+        ChugSplashActionBundle memory _actionBundle
+    ) external pure returns (BundledChugSplashAction[] memory, BundledChugSplashAction[] memory) {
         // Get number of deploy contract and set state actions
         (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(
             _actionBundle.actions
