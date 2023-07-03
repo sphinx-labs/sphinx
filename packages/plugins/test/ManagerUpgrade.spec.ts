@@ -12,12 +12,13 @@ import {
 } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { orgId } from '../chugsplash/chugsplash.config'
+import { owner } from '../chugsplash/manager-upgrade.config'
 
 describe('Manager Upgrade', () => {
   let Stateless: Contract
+  let Registry: Contract
   beforeEach(async () => {
-    Stateless = await chugsplash.getContract('Storage', 'Stateless')
+    Stateless = await chugsplash.getContract('ManagerUpgrade', 'Stateless')
     const signer = await hre.ethers.getImpersonatedSigner(
       OWNER_MULTISIG_ADDRESS
     )
@@ -25,24 +26,24 @@ describe('Manager Upgrade', () => {
       OWNER_MULTISIG_ADDRESS,
       '0x10000000000000000000',
     ])
-    const registry = await getChugSplashRegistry(signer)
-    await registry.addVersion(Stateless.address)
+    Registry = getChugSplashRegistry(signer)
+    await Registry.addVersion(Stateless.address)
   })
 
   it('does upgrade chugsplash manager', async () => {
-    const signer = hre.ethers.provider.getSigner()
-    const managerProxyAddress = getChugSplashManagerAddress()
+    const signer = await hre.ethers.getSigner(owner)
+    const managerProxyAddress = getChugSplashManagerAddress(owner)
 
-    const managerProxy = new Contract(
+    const ManagerProxy = new Contract(
       managerProxyAddress,
       ChugSplashManagerProxyArtifact.abi,
       signer
     )
 
-    await managerProxy.upgradeTo(Stateless.address)
+    await ManagerProxy.upgradeTo(Stateless.address)
 
     const StatelessManager = new Contract(
-      managerProxy.address,
+      ManagerProxy.address,
       Stateless.interface,
       signer
     )

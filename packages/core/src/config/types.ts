@@ -208,6 +208,7 @@ export type ConfigCache = {
 }
 
 export type ProjectConfigCache = {
+  isRegistered: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
   networkName: string
@@ -216,6 +217,7 @@ export type ProjectConfigCache = {
 
 export type ContractConfigCache = {
   [referenceName: string]: {
+    existingProjectName: string
     isTargetDeployed: boolean
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
@@ -235,6 +237,8 @@ export type ImportCache = {
 }
 
 export type MinimalConfig = {
+  deployer: string
+  owner: string
   projectName: string
   contracts: Array<MinimalContractConfig>
 }

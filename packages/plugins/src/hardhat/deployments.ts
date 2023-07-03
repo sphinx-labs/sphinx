@@ -37,6 +37,31 @@ export const fetchFilesRecursively = (dir): string[] => {
 }
 
 /**
+ * Returns the signer for the given owner address. This is different from Hardhat's `getSigners`
+ * function because it will throw an error if the signer is not found.
+ *
+ * @param hre Hardhat Runtime Environment.
+ * @param address Address of the signer.
+ */
+export const getSignerFromOwnerAddress = async (
+  hre: HardhatRuntimeEnvironment,
+  address: string
+): Promise<ethers.Signer> => {
+  const signers = await hre.ethers.getSigners()
+  const signer = signers.find((s) => s.address === address)
+
+  if (!signer) {
+    const { chainId } = await hre.ethers.provider.getNetwork()
+    throw new Error(
+      `Could not find the signer for the owner: ${address}.\n` +
+        `Please change the 'owner' address in your ChugSplash config file or include\n` +
+        `this signer in your Hardhat config file for the chain ID: ${chainId}`
+    )
+  }
+  return signer
+}
+
+/**
  * Deploys a list of ChugSplash config files.
  *
  * @param hre Hardhat Runtime Environment.
@@ -51,7 +76,7 @@ export const deployAllChugSplashProjects = async (
   const spinner = ora({ isSilent: silent })
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  // TODO: do this everywhere else you call the deployabstracttask
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -81,6 +106,12 @@ export const deployAllChugSplashProjects = async (
         cre,
         getConfigArtifacts
       )
+
+    const signer = await getSignerFromOwnerAddress(
+      hre,
+      parsedConfig.options.owner
+    )
+
     const projectConfig = parsedConfig.projects[projectName]
     await chugsplashDeployAbstractTask(
       provider,
@@ -89,6 +120,7 @@ export const deployAllChugSplashProjects = async (
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig.options.owner,
       projectConfig,
       configCache[projectName],
       configArtifacts[projectName],
@@ -134,14 +166,14 @@ export const getContract = async (
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project with ID "${projectName}" that contains the reference name "${referenceName}".`
+      `Cannot find a project called "${projectName}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects with ID "${projectName}" contain the reference name "${referenceName}"\n` +
-        `Please merge these projects or change one of the organization IDs.`
+      `Multiple projects called "${projectName}" contain the reference name "${referenceName}"\n` +
+        `Please merge these projects or change one of the project names.`
     )
   }
 
@@ -154,7 +186,9 @@ export const getContract = async (
     contractConfig.address ??
     getTargetAddress(deployer, projectName, referenceName, contractConfig.salt)
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
-    throw new Error(`The contract for ${referenceName} has not been deployed.`)
+    throw new Error(
+      `The contract for ${referenceName} has not been deployed. Address: ${address}`
+    )
   }
 
   const Proxy = new ethers.Contract(

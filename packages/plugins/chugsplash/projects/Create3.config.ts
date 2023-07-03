@@ -3,9 +3,9 @@ import { ethers } from 'ethers'
 
 const projectName = 'Create3'
 
-// This config intentionally uses the same organizationID, projectName, and reference name as the
-// `Stateless` contract in `Storage.config.ts`. The purpose of this is to test that the Create3
-// calculation generates a different address when adding a user-defined salt into the calculation.
+// This config uses the same projectName and reference name as the `Stateless` contract in
+// `Storage.config.ts`. The purpose of this is to test that the Create3 calculation generates a
+// different address when adding a user-defined salt into the calculation.
 const config: UserProjectConfig = {
   contracts: {
     Stateless: {

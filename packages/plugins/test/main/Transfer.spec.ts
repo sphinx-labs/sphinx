@@ -1,12 +1,11 @@
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
-import '../dist'
+import '../../dist'
 
 import { expect } from 'chai'
 import hre, { chugsplash } from 'hardhat'
 import {
-  getChugSplashManagerAddress,
   chugsplashDeployAbstractTask,
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
@@ -15,18 +14,20 @@ import {
   readUserChugSplashConfig,
   chugsplashRegisterAbstractTask,
   FailureAction,
+  getChugSplashManagerAddress,
 } from '@chugsplash/core'
 import { BigNumber, ethers, providers } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import * as ProxyAdminArtifact from '@openzeppelin/contracts/build/contracts/ProxyAdmin.json'
 import ora from 'ora'
 
-import { createChugSplashRuntime } from '../src/cre'
-import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-const configPath = './chugsplash/proxies.config.ts'
-import { projectName as transparentName } from '../chugsplash/projects/proxies/TransparentUpgradableUpgrade.config'
-import { projectName as accessControlName } from '../chugsplash/projects/proxies/UUPSAccessControlUpgradableUpgrade.config'
-import { projectName as ownableName } from '../chugsplash/projects/proxies/UUPSOwnableUpgradableUpgrade.config'
+import { createChugSplashRuntime } from '../../src/cre'
+import { makeGetConfigArtifacts } from '../../src/hardhat/artifacts'
+import { projectName as transparentName } from '../../chugsplash/projects/proxies/TransparentUpgradableUpgrade.config'
+import { projectName as accessControlName } from '../../chugsplash/projects/proxies/UUPSAccessControlUpgradableUpgrade.config'
+import { projectName as ownableName } from '../../chugsplash/projects/proxies/UUPSOwnableUpgradableUpgrade.config'
+
+const configPath = './chugsplash/main.config.ts'
 
 describe('Transfer', () => {
   let signer: SignerWithAddress
@@ -85,13 +86,11 @@ describe('Transfer', () => {
       provider,
       claimer,
       userConfig,
-      false,
-      await claimer.getAddress(),
       'hardhat',
       cre
     )
 
-    const managerAddress = userConfig.options.deployer
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -125,6 +124,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig.options.owner,
       parsedConfig.projects[transparentName],
       configCache[transparentName],
       configArtifacts[transparentName],
@@ -189,7 +189,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    const managerAddress = userConfig.options.deployer
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
 
@@ -216,6 +216,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig.options.owner,
       parsedConfig.projects[ownableName],
       configCache[ownableName],
       configArtifacts[ownableName],
@@ -238,7 +239,10 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const manager = getChugSplashManager(parsedConfig.options.deployer, claimer)
+    const deployerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.owner
+    )
+    const manager = getChugSplashManager(deployerAddress, claimer)
 
     await manager.exportProxy(
       UUPSUpgradableTokenV2.address,
@@ -298,7 +302,7 @@ describe('Transfer', () => {
       process.stdout
     )
 
-    const managerAddress = userConfig.options.deployer
+    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
       ethers.constants.HashZero,
@@ -330,6 +334,7 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig.options.owner,
       parsedConfig.projects[accessControlName],
       configCache[accessControlName],
       configArtifacts[accessControlName],
@@ -354,7 +359,10 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const manager = getChugSplashManager(parsedConfig.options.deployer, claimer)
+    const deployerAddress = getChugSplashManagerAddress(
+      parsedConfig.options.owner
+    )
+    const manager = getChugSplashManager(deployerAddress, claimer)
     await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,
       contractKindHashes[

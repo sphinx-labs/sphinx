@@ -46,6 +46,7 @@ import {
   readBuildInfo,
   fetchAndCacheCanonicalConfig,
   getProjectConfigArtifactsRemote,
+  isProjectRegistered,
 } from '../utils'
 import {
   ParsedChugSplashConfig,
@@ -2387,6 +2388,12 @@ export const projectPostParsingValidation = async (
   const { blockGasLimit, localNetwork, contractConfigCache } =
     projectConfigCache
 
+  assertAddressesNotInAnotherProject(
+    parsedProjectConfig,
+    projectConfigCache,
+    cre
+  )
+
   assertNoUpgradableContracts(parsedProjectConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
@@ -2642,6 +2649,7 @@ export const getProjectConfigCache = async (
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
+  const isRegistered = await isProjectRegistered(registry, manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
@@ -2656,6 +2664,10 @@ export const getProjectConfigCache = async (
       constructorArgs,
       abi
     )
+
+    const existingProjectName = isRegistered
+      ? await manager.contractToProject(address)
+      : ''
 
     const isTargetDeployed = (await provider.getCode(address)) !== '0x'
 
@@ -2753,6 +2765,7 @@ export const getProjectConfigCache = async (
     }
 
     contractConfigCache[referenceName] = {
+      existingProjectName,
       isTargetDeployed,
       deployedCreationCodeWithArgsHash,
       deploymentRevert: deploymentRevert ?? {
@@ -2766,6 +2779,7 @@ export const getProjectConfigCache = async (
   }
 
   return {
+    isRegistered,
     blockGasLimit,
     localNetwork,
     networkName,
@@ -2803,6 +2817,31 @@ export const getConfigCache = async (
   }
 
   return configCache
+}
+
+const assertAddressesNotInAnotherProject = (
+  parsedProjectConfig: ParsedProjectConfig,
+  projectConfigCache: ProjectConfigCache,
+  cre: ChugSplashRuntimeEnvironment
+): void => {
+  if (!projectConfigCache.isRegistered) {
+    return
+  }
+
+  const projectName = parsedProjectConfig.options.projectName
+  for (const referenceName of Object.keys(parsedProjectConfig.contracts)) {
+    const existingProjectName =
+      projectConfigCache.contractConfigCache[referenceName].existingProjectName
+    if (existingProjectName.length > 0 && existingProjectName !== projectName) {
+      logValidationError(
+        'error',
+        `The address for '${referenceName}' already belongs to an existing project: '${existingProjectName}'. Please use this project name instead.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  }
 }
 
 const assertNoValidationErrors = (failureAction: FailureAction): void => {

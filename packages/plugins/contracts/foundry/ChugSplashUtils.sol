@@ -272,7 +272,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
     function isProjectRegistered(
         IChugSplashRegistry _registry,
         address _manager
-    ) external view returns (bool) {
+    ) public view returns (bool) {
         return _registry.isDeployed(_manager);
     }
 
@@ -313,7 +313,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return address(uint160(uint256(ownerBytes32)));
     }
 
-    function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri) external pure returns (bytes32) {
+    function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri, string memory _projectName) external pure returns (bytes32) {
         bytes32 actionRoot = _actionBundle.root;
         bytes32 targetRoot = _targetBundle.root;
         uint256 numActions = _actionBundle.actions.length;
@@ -323,6 +323,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         return
             keccak256(
                 abi.encode(
+                    _projectName,
                     actionRoot,
                     targetRoot,
                     numActions,
@@ -558,21 +559,21 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
         string memory _mainFfiScriptPath,
         Vm.Log[] memory _executionLogs
     ) external returns (ConfigCache memory) {
-        MinimalContractConfig[] memory contractConfigs = _minimalConfig.contracts;
-
-        bool localNetwork = isLocalNetwork(_rpcUrl);
+        bool isRegistered = isProjectRegistered(_registry, address(_manager));
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
-            contractConfigs.length
+            _minimalConfig.contracts.length
         );
         for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            MinimalContractConfig memory contractConfig = contractConfigs[i];
+            MinimalContractConfig memory contractConfig = _minimalConfig.contracts[i];
+
+            string memory existingProjectName = isRegistered ? _manager.contractToProject(contractConfig.addr) : '';
 
             bool isTargetDeployed = contractConfig.addr.code.length > 0;
 
             OptionalString memory previousConfigUri = isTargetDeployed &&
                 contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? getPreviousConfigUri(_registry, contractConfig.addr, localNetwork, _rpcUrl, _mainFfiScriptPath, _executionLogs)
+                ? getPreviousConfigUri(_registry, contractConfig.addr, isLocalNetwork(_rpcUrl), _rpcUrl, _mainFfiScriptPath, _executionLogs)
                 : OptionalString({ exists: false, value: "" });
 
             OptionalBytes32 memory deployedCreationCodeWithArgsHash = isTargetDeployed
@@ -622,6 +623,7 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
             }
 
             contractConfigCache[i] = ContractConfigCache({
+                existingProjectName: existingProjectName,
                 referenceName: contractConfig.referenceName,
                 isTargetDeployed: isTargetDeployed,
                 deployedCreationCodeWithArgsHash: deployedCreationCodeWithArgsHash,
@@ -633,8 +635,9 @@ contract ChugSplashUtils is Test, ChugSplashConstants, ChugSplashManagerEvents, 
 
         return
             ConfigCache({
+                isRegistered: isRegistered,
                 blockGasLimit: block.gaslimit,
-                localNetwork: localNetwork,
+                localNetwork: isLocalNetwork(_rpcUrl),
                 networkName: getChainAlias(_rpcUrl),
                 contractConfigCache: contractConfigCache
             });

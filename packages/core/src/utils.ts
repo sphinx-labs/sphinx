@@ -60,11 +60,8 @@ import {
   ChugSplashBundles,
   DeploymentState,
 } from './actions/types'
-import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
-import {
-  getChugSplashManagerAddress,
-  getChugSplashRegistryAddress,
-} from './addresses'
+import { Integration } from './constants'
+import { getChugSplashRegistryAddress } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -181,12 +178,10 @@ export const checkIsUpgrade = async (
 }
 
 /**
- * Finalizes the registration of an organization ID.
+ * Finalizes the registration of an organization.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
  * @param ownerAddress Owner of the ChugSplashManager contract deployed by this call.
- * @returns True if the organization ID was already registered for the first time in this call, and
- * false if the project was already registered by the caller.
  */
 export const register = async (
   registry: ethers.Contract,
@@ -202,7 +197,7 @@ export const register = async (
       await registry.register(
         ownerAddress,
         0, // We set the saltNonce to 0 for now.
-        [], // We don't pass any extra initializer data to the ChugSplashManager.
+        [], // We don't pass any extra initializer data to this version of the ChugSplashManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -443,7 +438,7 @@ export const getGasPriceOverrides = async (
 export const isProjectRegistered = async (
   registry: ethers.Contract,
   managerAddress: string
-) => {
+): Promise<boolean> => {
   return registry.isDeployed(managerAddress)
 }
 

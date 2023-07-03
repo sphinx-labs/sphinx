@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
@@ -10,7 +9,6 @@ import {
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import {
-  getChugSplashRegistry,
   chugsplashFetchSubtask,
   chugsplashDeployAbstractTask,
   resolveNetworkName,
@@ -20,17 +18,18 @@ import {
   chugsplashImportProxyAbstractTask,
   readValidatedChugSplashConfig,
   ensureChugSplashInitialized,
-  ProposalRoute,
   isHardhatFork,
   isLocalNetwork,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import { deployAllChugSplashProjects } from './deployments'
+import {
+  deployAllChugSplashProjects,
+  getSignerFromOwnerAddress,
+} from './deployments'
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../cre'
 
@@ -85,8 +84,7 @@ export const chugsplashDeployTask = async (
   )
 
   const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-  await ensureChugSplashInitialized(provider, signer)
+  await ensureChugSplashInitialized(provider, hre.ethers.provider.getSigner())
 
   spinner.succeed('ChugSplash is ready!')
 
@@ -102,6 +100,11 @@ export const chugsplashDeployTask = async (
       makeGetConfigArtifacts(hre)
     )
 
+  const signer = await getSignerFromOwnerAddress(
+    hre,
+    parsedConfig.options.owner
+  )
+
   const projectNames =
     project === 'all' ? Object.keys(parsedConfig.projects) : [project]
 
@@ -113,6 +116,7 @@ export const chugsplashDeployTask = async (
       deploymentFolder,
       'hardhat',
       cre,
+      parsedConfig.options.owner,
       parsedConfig.projects[name],
       configCache[name],
       configArtifacts[name],
@@ -267,6 +271,7 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .setDescription(
+    // TODO: is this still true?
     `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")

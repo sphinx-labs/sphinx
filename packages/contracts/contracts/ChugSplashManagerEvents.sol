@@ -54,11 +54,7 @@ contract ChugSplashManagerEvents {
      */
     event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
 
-    event ProxyUpgraded(
-        bytes32 indexed deploymentId,
-        address indexed proxy,
-        string projectName
-    );
+    event ProxyUpgraded(bytes32 indexed deploymentId, address indexed proxy, string projectName);
 
     /**
      * @notice Emitted when a deployment is completed.

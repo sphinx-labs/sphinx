@@ -76,7 +76,7 @@ interface IChugSplashUtils {
         address _contractAddress,
         VmSafe.Log[] memory _executionLogs
     ) external pure returns (OptionalBytes32 memory);
-    function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri)
+    function getDeploymentId(ChugSplashActionBundle memory _actionBundle, ChugSplashTargetBundle memory _targetBundle, string memory _configUri, string memory _projectName)
         external
         pure
         returns (bytes32);

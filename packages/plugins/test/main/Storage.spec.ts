@@ -7,7 +7,7 @@ import {
   immutableConstructorArgsOne,
   immutableConstructorArgsTwo,
   variables,
-} from './constants'
+} from '../constants'
 
 describe('Storage', () => {
   let MyStorage: Contract

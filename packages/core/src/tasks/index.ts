@@ -459,6 +459,7 @@ export const chugsplashDeployAbstractTask = async (
   deploymentFolder: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
+  configOwner: string, // TODO: rm
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigCache: ProjectConfigCache,
   projectConfigArtifacts: ProjectConfigArtifacts,
@@ -503,6 +504,24 @@ export const chugsplashDeployAbstractTask = async (
     throw new Error(
       `${projectName} was previously cancelled on ${networkName}.`
     )
+  }
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedProjectConfig.contracts
+  )) {
+    if (contractConfig.isUserDefinedAddress) {
+      const existingProjectName =
+        projectConfigCache.contractConfigCache[referenceName]
+          .existingProjectName
+
+      if (existingProjectName !== projectName) {
+        await manager.transferContractToProject(
+          contractConfig.address,
+          projectName,
+          await getGasPriceOverrides(provider)
+        )
+      }
+    }
   }
 
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {

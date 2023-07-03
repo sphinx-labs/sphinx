@@ -45,6 +45,8 @@ export const getMinimalConfig = (
     })
   }
   return {
+    deployer,
+    owner,
     projectName,
     contracts: minimalContractConfigs,
   }

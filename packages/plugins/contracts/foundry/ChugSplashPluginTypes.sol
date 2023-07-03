@@ -20,6 +20,7 @@ struct BundleInfo {
 
 struct MinimalConfig {
     address deployer;
+    address owner;
     string projectName;
     MinimalContractConfig[] contracts;
 }
@@ -37,6 +38,7 @@ struct MinimalContractConfig {
 }
 
 struct ConfigCache {
+    bool isRegistered;
     uint256 blockGasLimit;
     bool localNetwork;
     string networkName;
@@ -44,6 +46,7 @@ struct ConfigCache {
 }
 
 struct ContractConfigCache {
+    string existingProjectName;
     string referenceName;
     bool isTargetDeployed;
     DeploymentRevert deploymentRevert;

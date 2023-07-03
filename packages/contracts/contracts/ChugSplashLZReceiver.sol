@@ -4,7 +4,9 @@ pragma solidity ^0.8.15;
 import {
     ILayerZeroEndpoint
 } from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";
-import { NonblockingLzApp } from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
+import {
+    NonblockingLzApp
+} from "@layerzerolabs/solidity-examples/contracts/lzApp/NonblockingLzApp.sol";
 
 /**
  * @title ChugSplashLZReceiver
