@@ -76,10 +76,10 @@ contract ChugSplash is Script {
     }
 
     // This is the entry point for the ChugSplash deploy command.
-    function deploy(string memory _configPath, string memory _rpcUrl) public {
+    function deploy(string memory _configPath, string memory _projectName, string memory _rpcUrl) public {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
-        deploy(_configPath, _rpcUrl, newOwner);
+        deploy(_configPath, _projectName, _rpcUrl, newOwner);
     }
 
     function initializeChugSplash(string memory _rpcUrl) internal {
@@ -93,13 +93,14 @@ contract ChugSplash is Script {
 
     function deploy(
         string memory _configPath,
+        string memory _projectName,
         string memory _rpcUrl,
         OptionalAddress memory _newOwner
     ) private noVmBroadcast {
         initializeChugSplash(_rpcUrl);
 
         Configs memory configs = ffiGetConfigs(
-            _configPath
+            _configPath, _projectName
         );
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
@@ -253,7 +254,8 @@ contract ChugSplash is Script {
     // TypeScript user configs can be slow, so we read it once here and pass it in to
     // future FFI calls.
     function ffiGetConfigs(
-        string memory _configPath
+        string memory _configPath,
+        string memory _projectName
     ) internal returns (Configs memory) {
         string memory ffiScriptPath = string(abi.encodePacked(rootFfiPath, "get-configs.js"));
 
@@ -267,11 +269,23 @@ contract ChugSplash is Script {
         cmds[4] = _configPath;
 
         bytes memory result = vm.ffi(cmds);
-        (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
-            result,
-            (MinimalConfig, string)
-        );
-        return Configs(minimalConfig, userConfigStr);
+
+        // The success boolean is the last 32 bytes of the result.
+        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
+        bool success = abi.decode(successBytes, (bool));
+
+        bytes memory data = utils.slice(result, 0, result.length - 32);
+
+        if (success) {
+            (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
+                result,
+                (MinimalConfig, string)
+            );
+            return Configs(minimalConfig, userConfigStr);
+        } else {
+            (string memory errors, ) = abi.decode(data, (string, string));
+            revert(errors);
+        }
     }
 
     function getAddress(
