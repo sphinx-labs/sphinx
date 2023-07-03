@@ -20,6 +20,7 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
+    const signerAddress = await hre.ethers.provider.getSigner().getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
@@ -41,6 +42,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -54,6 +56,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -67,6 +70,7 @@ describe('Validate', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
