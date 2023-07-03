@@ -3,15 +3,19 @@ pragma solidity >=0.7.4 <0.9.0;
 
 import { console } from "forge-std/console.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { ChugSplash } from './ChugSplash.sol';
+import { ChugSplash } from "./ChugSplash.sol";
 import {
     Configs,
     MinimalConfig,
     MinimalContractConfig,
     ContractKindEnum
 } from "./ChugSplashPluginTypes.sol";
-import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
-import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import {
+    IChugSplashRegistry
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import {
+    IChugSplashManager
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { ChugSplashConstants } from "./ChugSplashConstants.sol";
 
 contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
@@ -65,7 +69,9 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
             }
 
             if (!silent) {
-                console.log(StdStyle.green(string.concat("Successfully proposed ", projectName, ".")));
+                console.log(
+                    StdStyle.green(string.concat("Successfully proposed ", projectName, "."))
+                );
             }
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
@@ -79,13 +85,15 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(
         string memory _configPath,
+        string memory _projectName,
         address _proxy,
         string memory _rpcUrl
     ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+
         IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
@@ -127,15 +135,17 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
         string memory _configPath,
+        string memory _projectName,
         string memory _referenceName,
         address _newOwner,
         string memory _rpcUrl
     ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
+
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
         IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
@@ -172,11 +182,16 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         manager.exportProxy(payable(targetContractConfig.addr), contractKindHash, _newOwner);
     }
 
-    function cancel(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
+    function cancel(
+        string memory _configPath,
+        string memory _projectName,
+        string memory _rpcUrl
+    ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+
         IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         manager.cancelActiveChugSplashDeployment();

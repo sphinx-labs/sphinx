@@ -2,7 +2,7 @@ import '@nomiclabs/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { ethers } from 'ethers'
+import { Signer, ethers } from 'ethers'
 import {
   isEmptyChugSplashConfig,
   isContractDeployed,
@@ -71,6 +71,7 @@ export const deployAllChugSplashProjects = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
   configPath: string,
+  signer: Signer,
   projectNames?: string[]
 ) => {
   const spinner = ora({ isSilent: silent })
@@ -104,13 +105,9 @@ export const deployAllChugSplashProjects = async (
         projectName,
         hre.ethers.provider,
         cre,
-        getConfigArtifacts
+        getConfigArtifacts,
+        await signer.getAddress()
       )
-
-    const signer = await getSignerFromOwnerAddress(
-      hre,
-      parsedConfig.options.owner
-    )
 
     const projectConfig = parsedConfig.projects[projectName]
     await chugsplashDeployAbstractTask(
