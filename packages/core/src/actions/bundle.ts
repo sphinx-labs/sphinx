@@ -239,7 +239,7 @@ export const getEncodedAuthActionData = (action: AuthAction): string => {
     case AuthActionType.SETUP:
       return utils.defaultAbiCoder.encode(
         ['tuple(address,bool)[]', 'tuple(address,bool)[]', 'uint256'],
-        [action.proposers, action.projectManagers, action.numLeafs]
+        [action.proposers, action.projectManagers, action.totalNumLeafs]
       )
     case AuthActionType.SET_PROJECT_MANAGER:
       return utils.defaultAbiCoder.encode(
@@ -378,7 +378,7 @@ export const getEncodedAuthActionData = (action: AuthAction): string => {
     case AuthActionType.PROPOSE:
       return utils.defaultAbiCoder.encode(
         ['bytes32', 'uint256', 'uint256'],
-        [action.authRootToPropose, action.numActions, action.numLeafs]
+        [action.authRootToPropose, action.numActions, action.totalNumLeafs]
       )
 
     default:

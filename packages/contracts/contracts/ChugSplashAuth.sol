@@ -13,14 +13,13 @@ import {
 import {
     ECDSAUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
-import { Lib_MerkleTree } from "@eth-optimism/contracts/libraries/utils/Lib_MerkleTree.sol";
+import { MerkleProofUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IOwnable } from "./interfaces/IOwnable.sol";
 import {
-    ActionProof,
     AuthState,
     AuthStatus,
-    AuthAction,
+    AuthLeaf,
     ContractInfo,
     SetRoleMember
 } from "./ChugSplashDataTypes.sol";
@@ -46,8 +45,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     uint256 public orgOwnerThreshold;
 
-    uint256 public nonce;
-
     /**
      * @notice Boolean indicating whether or not a proposal has been made. After this occurs, the
      *         the org owners of this contract can no longer call `setup`.
@@ -55,35 +52,34 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     bool public firstProposalOccurred;
 
     /**
-     * @notice Mapping of project names to the threshold required to execute an auth action for that
+     * @notice Mapping of project names to the threshold required to execute an auth leaf for that
      *        project.
      */
     mapping(string => uint256) public thresholds;
 
     /**
-     * @notice Mapping of an auth tree's Merkle root to the corresponding AuthState.
+     * @notice Mapping of an auth Merkle root to the corresponding AuthState.
      */
     mapping(bytes32 => AuthState) public authStates;
 
-    modifier isValidAuthAction(
+    modifier isValidProposedAuthLeaf(
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
         uint256 _threshold,
         bytes32 _verifyingRole,
-        bytes32 _authRoot,
-        AuthAction memory _action,
-        bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes[] memory _signatures
     ) {
         AuthState memory authState = authStates[_authRoot];
         if (authState.status != AuthStatus.PROPOSED) revert AuthStateNotProposed();
 
         verifySignatures(
             _authRoot,
-            _action,
+            _leaf,
+            _proof,
             _threshold,
             _verifyingRole,
-            _signatures,
-            _proof,
-            authState.numLeafs
+            _signatures
         );
         _;
     }
@@ -93,32 +89,32 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.incrementProtocolDebt(_initialGasLeft);
     }
 
-    event AuthStateCompleted(bytes32 indexed authRoot);
-    event AuthSetup(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectManagerSet(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProxyExported(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProposerAdded(bytes32 indexed authRoot, uint256 actionIndex);
-    event OrgOwnerSet(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectUpdated(bytes32 indexed authRoot, uint256 actionIndex);
-    event OrgOwnerThresholdSet(bytes32 indexed authRoot, uint256 actionIndex);
-    event DeployerOwnershipTransferred(bytes32 indexed authRoot, uint256 actionIndex);
-    event DeployerUpgraded(bytes32 indexed authRoot, uint256 actionIndex);
-    event AuthContractUpgraded(bytes32 indexed authRoot, uint256 actionIndex);
-    event DeployerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectCreated(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProposerRemoved(bytes32 indexed authRoot, uint256 actionIndex);
-    event ETHWithdrawn(bytes32 indexed authRoot, uint256 actionIndex);
-    event DeploymentApproved(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectThresholdChanged(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectOwnerSet(bytes32 indexed authRoot, uint256 actionIndex);
-    event ProjectRemoved(bytes32 indexed authRoot, uint256 actionIndex);
-    event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 actionIndex);
-    event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 actionIndex);
+    event AuthSetup(bytes32 indexed authRoot);
+    event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProposerAdded(bytes32 indexed authRoot, uint256 leafIndex);
+    event OrgOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
+    event OrgOwnerThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event DeployerOwnershipTransferred(bytes32 indexed authRoot, uint256 leafIndex);
+    event DeployerUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
+    event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
+    event DeployerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProjectCreated(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProposerRemoved(bytes32 indexed authRoot, uint256 leafIndex);
+    event ETHWithdrawn(bytes32 indexed authRoot, uint256 leafIndex);
+    event DeploymentApproved(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProjectThresholdChanged(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProjectOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProjectRemoved(bytes32 indexed authRoot, uint256 leafIndex);
+    event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
+    event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthRootProposed(
-        bytes32 indexed proposedAuthRoot,
-        bytes32 indexed verifiedAuthRoot,
-        uint256 verifiedActionIndex
+        bytes32 indexed authRoot,
+        address indexed proposer,
+        uint256 numLeafs
     );
+    event AuthStateCompleted(bytes32 indexed authRoot, uint256 numLeafs);
 
     error AuthStateNotProposed();
     error ThresholdCannotBeZero();
@@ -131,7 +127,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     error InvalidFromAddress();
     error InvalidToAddress();
     error InvalidChainId();
-    error InvalidNonce();
+    error InvalidLeafIndex();
     error InvalidMerkleProof();
     error FirstProposalOccurred();
     error ArrayLengthMismatch();
@@ -146,10 +142,9 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     error ProjectHasActiveDeployment();
     error ContractDoesNotExistInProject();
     error LeftoverContractsInProject();
-    error AuthRootAlreadyProposed();
+    error AuthStateNotEmpty();
     error InvalidAuthRoot();
     error InvalidNumLeafs();
-    error AuthRootsCannotMatch();
     error FunctionDisabled();
     error RoleMemberCannotBeZeroAddress();
     error RoleMemberCannotBeThisContract();
@@ -195,25 +190,24 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         __AccessControlEnumerable_init();
     }
 
-    function assertValidAuthAction(
+    function assertValidProposedAuthLeaf(
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
         uint256 _threshold,
         bytes32 _verifyingRole,
-        bytes32 _authRoot,
-        AuthAction memory _action,
-        bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes[] memory _signatures
     )
         private
         view
-        isValidAuthAction(_threshold, _verifyingRole, _authRoot, _action, _signatures, _proof)
+        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures)
     {}
 
     /**
      * @notice Verifies a list of EIP-712 meta transaction signatures.
      *
-     * @param _authRoot Merkle root of the auth tree. The signers of the signatures
-     *                  initiated the meta transaction by signing this value.
-     * @param _action  AuthAction struct. This is the decoded leaf of the auth tree.
+     * @param _authRoot Root of the auth Merkle tree that was signed in the meta transaction.
+     * @param _leaf  AuthLeaf struct. This is the decoded leaf of the auth tree.
      * @param _threshold Number of signatures required to execute the meta transaction.
      * @param _verifyingRole Role that the signers of the signatures must have.
      * @param _signatures List of meta transaction signatures. These must correspond to
@@ -221,19 +215,19 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                             corresponds to the signer `0x00...` should come before the signature
                             that corresponds to the signer `0xff...`.
      * @param _proof    Merkle proof of the leaf in the auth tree.
-     * @param _numLeafs Total number of leaves in the auth tree.
      */
     function verifySignatures(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
         uint256 _threshold,
         bytes32 _verifyingRole,
-        bytes[] memory _signatures,
-        ActionProof memory _proof,
-        uint256 _numLeafs
+        bytes[] memory _signatures
     ) private view {
         if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
+
+        uint256 leafsExecuted = authStates[_authRoot].leafsExecuted;
 
         address signer;
         address prevSigner = address(0);
@@ -246,19 +240,17 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
             if (signer <= prevSigner) revert DuplicateSigner();
 
-            // Validate the fields of the AuthAction
-            if (_action.from != signer) revert InvalidFromAddress();
-            if (_action.to != address(manager)) revert InvalidToAddress();
-            if (_action.chainId != block.chainid) revert InvalidChainId();
-            if (_action.nonce != nonce) revert InvalidNonce();
+            // Validate the fields of the AuthLeaf
+            if (_leaf.from != signer) revert InvalidFromAddress();
+            if (_leaf.to != address(manager)) revert InvalidToAddress();
+            if (_leaf.chainId != block.chainid) revert InvalidChainId();
+            if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
 
             if (
-                !Lib_MerkleTree.verify(
+                !MerkleProofUpgradeable.verify(
+                    _proof,
                     _authRoot,
-                    keccak256(_action.data),
-                    _proof.actionIndex,
-                    _proof.siblings,
-                    _numLeafs
+                    keccak256(_leaf.data)
                 )
             ) revert InvalidMerkleProof();
 
@@ -278,38 +270,40 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                This function is callable until the first proposal occurs. This allows for the
                possibility that the org owners mistakenly enter invalid initial proposers. For
                example, they may enter proposers addresses that don't exist on this chain. If this
-               function were only callable once, then this contract would be unusable in this
-               scenario, since every other function requires that a proposal has first occurred.
+               function was only callable once, then this contract would be unusable in this
+               scenario, since every other public function requires that a proposal has occurred.
      *
-     * @param _authRoot Merkle root of the auth tree.
-     * @param _action AuthAction struct. This is the decoded leaf of the auth tree.
+     * @param _authRoot Auth Merkle root for the Merkle tree that the owners approved.
+     * @param _leaf AuthLeaf struct. This is the decoded leaf of the auth tree.
      * @param _signatures List of meta transaction signatures. Must correspond to signer addresses
      *                    in ascending order (see `verifySignatures` for more info).
      * @param _proof    Merkle proof of the leaf in the auth tree.
      */
     function setup(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         if (firstProposalOccurred) revert FirstProposalOccurred();
 
-        (
-            SetRoleMember[] memory proposers,
-            SetRoleMember[] memory projectManagers,
-            uint256 numLeafs
-        ) = abi.decode(_action.data, (SetRoleMember[], SetRoleMember[], uint256));
-
         verifySignatures(
             _authRoot,
-            _action,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _signatures,
-            _proof,
-            numLeafs
+            _signatures
         );
+
+        AuthState storage authState = authStates[_authRoot];
+
+        if (authState.status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
+
+        (
+            SetRoleMember[] memory proposers,
+            SetRoleMember[] memory projectManagers
+        ) = abi.decode(_leaf.data, (SetRoleMember[], SetRoleMember[]));
 
         uint256 numProposers = proposers.length;
         uint256 numProjectManagers = projectManagers.length;
@@ -343,29 +337,34 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
-        nonce += 1;
+        // We mark the auth root as completed so that it can't be re-executed.
+        authStates[_authRoot] = AuthState({
+            status: AuthStatus.COMPLETED,
+            leafsExecuted: 1,
+            numLeafs: 1
+        });
 
-        emit AuthSetup(_authRoot, _proof.actionIndex);
+        emit AuthSetup(_authRoot);
     }
 
     function setProjectManager(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        (address projectManager, bool add) = abi.decode(_action.data, (address, bool));
+        (address projectManager, bool add) = abi.decode(_leaf.data, (address, bool));
 
         if (add) {
             _assertValidRoleMemberAddress(projectManager);
@@ -376,87 +375,87 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(PROJECT_MANAGER_ROLE, projectManager);
         }
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProjectManagerSet(_authRoot, _proof.actionIndex);
+        emit ProjectManagerSet(_authRoot, _leaf.index);
     }
 
     function exportProxy(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
         (address proxy, bytes32 contractKindHash, address newOwner) = abi.decode(
-            _action.data,
+            _leaf.data,
             (address, bytes32, address)
         );
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         manager.exportProxy(payable(proxy), contractKindHash, newOwner);
 
-        emit ProxyExported(_authRoot, _proof.actionIndex);
+        emit ProxyExported(_authRoot, _leaf.index);
     }
 
     function addProposer(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        address proposer = abi.decode(_action.data, (address));
+        address proposer = abi.decode(_leaf.data, (address));
 
         _assertValidRoleMemberAddress(proposer);
 
         if (hasRole(PROPOSER_ROLE, proposer)) revert AddressAlreadyHasRole();
         _grantRole(PROPOSER_ROLE, proposer);
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProposerAdded(_authRoot, _proof.actionIndex);
+        emit ProposerAdded(_authRoot, _leaf.index);
     }
 
     function setOrgOwner(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        (address orgOwner, bool add) = abi.decode(_action.data, (address, bool));
+        (address orgOwner, bool add) = abi.decode(_leaf.data, (address, bool));
 
         if (add) {
             _assertValidRoleMemberAddress(orgOwner);
@@ -469,26 +468,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(DEFAULT_ADMIN_ROLE, orgOwner);
         }
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit OrgOwnerSet(_authRoot, _proof.actionIndex);
+        emit OrgOwnerSet(_authRoot, _leaf.index);
     }
 
     function updateProject(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
         // Use scope here to prevent "Stack too deep" error
@@ -498,7 +497,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 address[] memory projectOwnersToRemove,
                 uint256 newThreshold,
                 address[] memory newProjectOwners
-            ) = abi.decode(_action.data, (string, address[], uint256, address[]));
+            ) = abi.decode(_leaf.data, (string, address[], uint256, address[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
             if (newThreshold == 0) revert ThresholdCannotBeZero();
@@ -529,29 +528,29 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProjectUpdated(_authRoot, _proof.actionIndex);
+        emit ProjectUpdated(_authRoot, _leaf.index);
     }
 
     function setOrgOwnerThreshold(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        uint256 newThreshold = abi.decode(_action.data, (uint256));
+        uint256 newThreshold = abi.decode(_leaf.data, (uint256));
 
         if (newThreshold == 0) revert ThresholdCannotBeZero();
         if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) < newThreshold)
@@ -559,31 +558,31 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         orgOwnerThreshold = newThreshold;
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit OrgOwnerThresholdSet(_authRoot, _proof.actionIndex);
+        emit OrgOwnerThresholdSet(_authRoot, _leaf.index);
     }
 
     function transferDeployerOwnership(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        address newOwner = abi.decode(_action.data, (address));
+        address newOwner = abi.decode(_leaf.data, (address));
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         IOwnable managerOwnable = IOwnable(address(manager));
         newOwner == address(0)
@@ -591,32 +590,32 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             : managerOwnable.transferOwnership(newOwner);
         ChugSplashManagerProxy(payable(address(manager))).changeAdmin(newOwner);
 
-        emit DeployerOwnershipTransferred(_authRoot, _proof.actionIndex);
+        emit DeployerOwnershipTransferred(_authRoot, _leaf.index);
     }
 
     // Reverts if the ChugSplashManager is currently executing a deployment.
     function upgradeDeployerImplementation(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
         if (manager.isExecuting()) revert DeploymentInProgress();
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        (address impl, bytes memory data) = abi.decode(_action.data, (address, bytes));
+        (address impl, bytes memory data) = abi.decode(_leaf.data, (address, bytes));
         ChugSplashManagerProxy deployerProxy = ChugSplashManagerProxy(payable(address(manager)));
         if (data.length > 0) {
             deployerProxy.upgradeToAndCall(impl, data);
@@ -624,29 +623,29 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             deployerProxy.upgradeTo(impl);
         }
 
-        emit DeployerUpgraded(_authRoot, _proof.actionIndex);
+        emit DeployerUpgraded(_authRoot, _leaf.index);
     }
 
     function upgradeAuthImplementation(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
-        (address impl, bytes memory data) = abi.decode(_action.data, (address, bytes));
+        (address impl, bytes memory data) = abi.decode(_leaf.data, (address, bytes));
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         ChugSplashManagerProxy authProxy = ChugSplashManagerProxy(payable(address(this)));
         if (data.length > 0) {
@@ -655,30 +654,30 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             authProxy.upgradeTo(impl);
         }
 
-        emit AuthContractUpgraded(_authRoot, _proof.actionIndex);
+        emit AuthContractUpgraded(_authRoot, _leaf.index);
     }
 
     // Reverts if the ChugSplashManager is currently executing a deployment.
     function upgradeDeployerAndAuthImpl(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             orgOwnerThreshold,
             DEFAULT_ADMIN_ROLE,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         )
     {
         if (manager.isExecuting()) revert DeploymentInProgress();
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         // Use scope here to prevent "Stack too deep" error
         {
@@ -687,7 +686,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 bytes memory deployerData,
                 address authImpl,
                 bytes memory authData
-            ) = abi.decode(_action.data, (address, bytes, address, bytes));
+            ) = abi.decode(_leaf.data, (address, bytes, address, bytes));
 
             ChugSplashManagerProxy deployerProxy = ChugSplashManagerProxy(
                 payable(address(manager))
@@ -707,7 +706,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
-        emit DeployerAndAuthContractUpgraded(_authRoot, _proof.actionIndex);
+        emit DeployerAndAuthContractUpgraded(_authRoot, _leaf.index);
     }
 
     /************************ PROJECT MANAGER FUNCTIONS *****************************/
@@ -719,15 +718,15 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      */
     function createProject(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
+        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
     {
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         // Use scope here to prevent "Stack too deep" error
         {
@@ -736,7 +735,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 uint256 threshold,
                 address[] memory projectOwners,
                 ContractInfo[] memory contractInfoArray
-            ) = abi.decode(_action.data, (string, uint256, address[], ContractInfo[]));
+            ) = abi.decode(_leaf.data, (string, uint256, address[], ContractInfo[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
             if (threshold == 0) revert ThresholdCannotBeZero();
@@ -773,106 +772,106 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
-        emit ProjectCreated(_authRoot, _proof.actionIndex);
+        emit ProjectCreated(_authRoot, _leaf.index);
     }
 
     function removeProposer(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
+        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
     {
-        address proposerToRemove = abi.decode(_action.data, (address));
+        address proposerToRemove = abi.decode(_leaf.data, (address));
         if (!hasRole(PROPOSER_ROLE, proposerToRemove)) revert AddressDoesNotHaveRole();
         _revokeRole(PROPOSER_ROLE, proposerToRemove);
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProposerRemoved(_authRoot, _proof.actionIndex);
+        emit ProposerRemoved(_authRoot, _leaf.index);
     }
 
     function withdrawETH(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(1, PROJECT_MANAGER_ROLE, _authRoot, _action, _signatures, _proof)
+        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
     {
-        address receiver = abi.decode(_action.data, (address));
-        _updateProposedState(_authRoot);
+        address receiver = abi.decode(_leaf.data, (address));
+        _updateProposedAuthState(_authRoot);
         manager.withdrawOwnerETH(receiver);
-        emit ETHWithdrawn(_authRoot, _proof.actionIndex);
+        emit ETHWithdrawn(_authRoot, _leaf.index);
     }
 
     /***************************** PROJECT OWNER FUNCTIONS ****************************/
 
     function approveDeployment(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         (
             string memory projectName,
             bytes32 actionRoot,
             bytes32 targetRoot,
-            uint256 numActions,
+            uint256 numLeafs,
             uint256 numTargets,
             uint256 numImmutableContracts,
             string memory configUri
-        ) = abi.decode(_action.data, (string, bytes32, bytes32, uint256, uint256, uint256, string));
+        ) = abi.decode(_leaf.data, (string, bytes32, bytes32, uint256, uint256, uint256, string));
 
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             thresholds[projectName],
             keccak256(abi.encodePacked(projectName, "ProjectOwner")),
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         manager.approve(
             projectName,
             actionRoot,
             targetRoot,
-            numActions,
+            numLeafs,
             numTargets,
             numImmutableContracts,
             configUri,
             true
         );
 
-        emit DeploymentApproved(_authRoot, _proof.actionIndex);
+        emit DeploymentApproved(_authRoot, _leaf.index);
     }
 
     function setProjectThreshold(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, uint256 newThreshold) = abi.decode(
-            _action.data,
+            _leaf.data,
             (string, uint256)
         );
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             thresholds[projectName],
             projectOwnerRole,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
         if (newThreshold == 0) revert ThresholdCannotBeZero();
@@ -880,19 +879,19 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         thresholds[projectName] = newThreshold;
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProjectThresholdChanged(_authRoot, _proof.actionIndex);
+        emit ProjectThresholdChanged(_authRoot, _leaf.index);
     }
 
     function setProjectOwner(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, address projectOwner, bool add) = abi.decode(
-            _action.data,
+            _leaf.data,
             (string, address, bool)
         );
 
@@ -900,13 +899,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
         uint256 projectThreshold = thresholds[projectName];
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             projectThreshold,
             projectOwnerRole,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
         if (add) {
@@ -920,26 +919,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _revokeRole(projectOwnerRole, projectOwner);
         }
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
-        emit ProjectOwnerSet(_authRoot, _proof.actionIndex);
+        emit ProjectOwnerSet(_authRoot, _leaf.index);
     }
 
     // Reverts if any of the contracts don't belong to the project. Also reverts if the project has
     // a deployment that is currently executing.
     function removeProject(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         (string memory projectName, address[] memory addresses) = abi.decode(
-            _action.data,
+            _leaf.data,
             (string, address[])
         );
         if (addresses.length == 0) revert EmptyArray();
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         string memory activeProjectName = manager
             .deployments(manager.activeDeploymentId())
@@ -948,13 +947,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             revert ProjectHasActiveDeployment();
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             thresholds[projectName],
             projectOwnerRole,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
         uint256 numContractsToRemove = addresses.length;
@@ -971,32 +970,32 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         thresholds[projectName] = 0;
 
-        emit ProjectRemoved(_authRoot, _proof.actionIndex);
+        emit ProjectRemoved(_authRoot, _leaf.index);
     }
 
     function cancelActiveDeployment(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
-        string memory projectName = abi.decode(_action.data, (string));
+        string memory projectName = abi.decode(_leaf.data, (string));
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             thresholds[projectName],
             projectOwnerRole,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         manager.cancelActiveChugSplashDeployment();
 
-        emit ActiveDeploymentCancelled(_authRoot, _proof.actionIndex);
+        emit ActiveDeploymentCancelled(_authRoot, _leaf.index);
     }
 
     // Allows the project owners to add or remove contracts to their project. Reverts if any of the
@@ -1004,22 +1003,22 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     // currently executing.
     function updateContractsInProject(
         bytes32 _authRoot,
-        AuthAction memory _action,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
         (
             string memory projectName,
             address[] memory contractAddresses,
             bool[] memory addContract
-        ) = abi.decode(_action.data, (string, address[], bool[]));
+        ) = abi.decode(_leaf.data, (string, address[], bool[]));
 
         uint256 numContracts = contractAddresses.length;
         if (numContracts == 0) revert EmptyArray();
 
         if (numContracts != addContract.length) revert ArrayLengthMismatch();
 
-        _updateProposedState(_authRoot);
+        _updateProposedAuthState(_authRoot);
 
         string memory activeProjectName = manager
             .deployments(manager.activeDeploymentId())
@@ -1028,13 +1027,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             revert ProjectHasActiveDeployment();
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidAuthAction(
+        assertValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
             thresholds[projectName],
             projectOwnerRole,
-            _authRoot,
-            _action,
-            _signatures,
-            _proof
+            _signatures
         );
 
         uint256 numContractsToUpdate = contractAddresses.length;
@@ -1055,48 +1054,62 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 : manager.transferContractToProject(contractAddress, "");
         }
 
-        emit ContractsInProjectUpdated(_authRoot, _proof.actionIndex);
+        emit ContractsInProjectUpdated(_authRoot, _leaf.index);
     }
 
     /****************************** PROPOSER FUNCTIONS ******************************/
 
+    /**
+     * @notice Allows a proposer to propose a new auth Merkle root.
+     *
+     * @param _authRoot The auth Merkle root to propose.
+     * @param _leaf The leaf that contains the proposal info.
+     * @param _signatures The meta transaction signature of the proposer that proves the
+     */
     function propose(
-        bytes32 _authRootToVerify,
-        AuthAction memory _action,
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
         bytes[] memory _signatures,
-        ActionProof memory _proof
+        bytes32[] memory _proof
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidAuthAction(1, PROPOSER_ROLE, _authRootToVerify, _action, _signatures, _proof)
     {
-        (bytes32 authRootToPropose, uint256 numActions, uint256 numLeafs) = abi.decode(
-            _action.data,
-            (bytes32, uint256, uint256)
+        verifySignatures(
+            _authRoot,
+            _leaf,
+            _proof,
+            1,
+            PROPOSER_ROLE,
+            _signatures
         );
 
-        AuthStatus status = authStates[authRootToPropose].status;
-        if (status == AuthStatus.PROPOSED) revert AuthRootAlreadyProposed();
-        if (authRootToPropose == bytes32(0)) revert InvalidAuthRoot();
-        if (numLeafs == 0) revert InvalidNumLeafs();
-        // This check enforces expected user behavior, which is that one auth root will be signed
-        // by a proposer, and another auth root will be signed by another role after the proposal.
-        if (authRootToPropose == _authRootToVerify) revert AuthRootsCannotMatch();
+        uint256 numLeafs = abi.decode(
+            _leaf.data,
+            (uint256)
+        );
 
-        authStates[authRootToPropose] = AuthState({
+        // The proposal counts as one of the auth leafs, so there must be at least one other
+        // leaf, or else there will be nothing left to execute for this auth root.
+        if (numLeafs <= 1) revert InvalidNumLeafs();
+
+        AuthState storage authState = authStates[_authRoot];
+
+        // We don't allow auth Merkle roots to be proposed more than once. Without this check, anyone can
+        // call this function to re-propose an auth root that has already been proposed.
+        if (authState.status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
+
+        authStates[_authRoot] = AuthState({
             status: AuthStatus.PROPOSED,
-            numActions: numActions,
-            numLeafs: numLeafs,
-            actionsExecuted: 0
+            leafsExecuted: 1, // The proposal counts as an auth leaf, so we start at 1
+            numLeafs: numLeafs
         });
 
         if (!firstProposalOccurred) {
             firstProposalOccurred = true;
         }
 
-        nonce += 1;
-
-        emit AuthRootProposed(authRootToPropose, _authRootToVerify, _proof.actionIndex);
+        emit AuthRootProposed(_authRoot, _leaf.from, numLeafs);
     }
 
     /**************************** OPENZEPPELIN FUNCTIONS ******************************/
@@ -1136,13 +1149,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /****************************** PRIVATE FUNCTIONS ******************************/
 
-    function _updateProposedState(bytes32 _authRoot) private {
+    function _updateProposedAuthState(bytes32 _authRoot) private {
         AuthState storage authState = authStates[_authRoot];
-        nonce += 1;
-        authState.actionsExecuted += 1;
-        if (authState.actionsExecuted == authState.numActions) {
+        authState.leafsExecuted += 1;
+        if (authState.leafsExecuted == authState.numLeafs) {
             authState.status = AuthStatus.COMPLETED;
-            emit AuthStateCompleted(_authRoot);
+            emit AuthStateCompleted(_authRoot, authState.numLeafs);
         }
     }
 

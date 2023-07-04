@@ -205,7 +205,7 @@ export interface SetupAuthAction extends BaseAuthAction {
   actionType: AuthActionType.SETUP
   proposers: Array<SetRoleMember>
   projectManagers: Array<SetRoleMember>
-  numLeafs: number
+  totalNumLeafs: number
 }
 
 export interface SetProjectManagerAuthAction extends BaseAuthAction {
@@ -335,7 +335,7 @@ export interface ProposeAuthAction extends BaseAuthAction {
   actionType: AuthActionType.PROPOSE
   authRootToPropose: string
   numActions: number
-  numLeafs: number
+  totalNumLeafs: number
 }
 
 export type AuthAction =
