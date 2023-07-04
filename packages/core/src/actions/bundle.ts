@@ -19,9 +19,9 @@ import {
   getDefaultProxyInitCode,
 } from '../utils'
 import {
-  AuthAction,
-  AuthActionBundle,
-  AuthActionType,
+  AuthLeaf,
+  AuthLeafBundle,
+  AuthLeafType,
   BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -30,12 +30,11 @@ import {
   ChugSplashTarget,
   ChugSplashTargetBundle,
   DeployContractAction,
-  RawAuthAction,
+  RawAuthLeaf,
   RawChugSplashAction,
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
-import { getChugSplashManagerAddress } from '../addresses'
 import { getCreate3Address } from '../config/utils'
 
 /**
@@ -233,98 +232,90 @@ export const makeTargetBundle = (
   }
 }
 
-export const getEncodedAuthActionData = (action: AuthAction): string => {
-  switch (action.actionType) {
+export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
+  switch (leaf.leafType) {
     /************************ ORG OWNER ACTIONS *****************************/
-    case AuthActionType.SETUP:
+    case AuthLeafType.SETUP:
       return utils.defaultAbiCoder.encode(
-        ['tuple(address,bool)[]', 'tuple(address,bool)[]', 'uint256'],
-        [action.proposers, action.projectManagers, action.totalNumLeafs]
+        ['tuple(address,bool)[]', 'tuple(address,bool)[]'],
+        [leaf.proposers, leaf.projectManagers]
       )
-    case AuthActionType.SET_PROJECT_MANAGER:
+    case AuthLeafType.SET_PROJECT_MANAGER:
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
-        [action.projectManager, action.add]
+        [leaf.projectManager, leaf.add]
       )
 
-    case AuthActionType.EXPORT_PROXY:
+    case AuthLeafType.EXPORT_PROXY:
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes32', 'address'],
-        [action.proxy, action.contractKindHash, action.newOwner]
+        [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
-    case AuthActionType.ADD_PROPOSER:
-      return utils.defaultAbiCoder.encode(['address'], [action.proposer])
+    case AuthLeafType.ADD_PROPOSER:
+      return utils.defaultAbiCoder.encode(['address'], [leaf.proposer])
 
-    case AuthActionType.SET_ORG_OWNER:
+    case AuthLeafType.SET_ORG_OWNER:
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
-        [action.orgOwner, action.add]
+        [leaf.orgOwner, leaf.add]
       )
 
-    case AuthActionType.UPDATE_PROJECT:
+    case AuthLeafType.UPDATE_PROJECT:
       return utils.defaultAbiCoder.encode(
         ['string', 'address[]', 'uint256', 'address[]'],
         [
-          action.projectName,
-          action.projectOwnersToRemove,
-          action.newThreshold,
-          action.newProjectOwners,
+          leaf.projectName,
+          leaf.projectOwnersToRemove,
+          leaf.newThreshold,
+          leaf.newProjectOwners,
         ]
       )
-    case AuthActionType.SET_ORG_OWNER_THRESHOLD:
-      return utils.defaultAbiCoder.encode(['uint256'], [action.newThreshold])
+    case AuthLeafType.SET_ORG_OWNER_THRESHOLD:
+      return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
 
-    case AuthActionType.TRANSFER_DEPLOYER_OWNERSHIP:
-      return utils.defaultAbiCoder.encode(['address'], [action.newOwner])
+    case AuthLeafType.TRANSFER_DEPLOYER_OWNERSHIP:
+      return utils.defaultAbiCoder.encode(['address'], [leaf.newOwner])
 
-    case AuthActionType.UPGRADE_DEPLOYER_IMPLEMENTATION:
+    case AuthLeafType.UPGRADE_DEPLOYER_IMPLEMENTATION:
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes'],
-        [action.impl, action.data]
+        [leaf.impl, leaf.data]
       )
 
-    case AuthActionType.UPGRADE_AUTH_IMPLEMENTATION:
+    case AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION:
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes'],
-        [action.impl, action.data]
+        [leaf.impl, leaf.data]
       )
 
-    case AuthActionType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION:
+    case AuthLeafType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION:
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes', 'address', 'bytes'],
-        [
-          action.deployerImpl,
-          action.deployerData,
-          action.authImpl,
-          action.authData,
-        ]
+        [leaf.deployerImpl, leaf.deployerData, leaf.authImpl, leaf.authData]
       )
 
     /************************ PROJECT MANAGER ACTIONS *****************************/
 
-    case AuthActionType.CREATE_PROJECT:
+    case AuthLeafType.CREATE_PROJECT:
       return utils.defaultAbiCoder.encode(
         ['string', 'uint256', 'address[]', 'tuple(string,address)[]'],
         [
-          action.projectName,
-          action.threshold,
-          action.projectOwners,
-          action.contractInfoArray,
+          leaf.projectName,
+          leaf.threshold,
+          leaf.projectOwners,
+          leaf.contractInfoArray,
         ]
       )
 
-    case AuthActionType.REMOVE_PROPOSER:
-      return utils.defaultAbiCoder.encode(
-        ['address'],
-        [action.proposerToRemove]
-      )
+    case AuthLeafType.REMOVE_PROPOSER:
+      return utils.defaultAbiCoder.encode(['address'], [leaf.proposerToRemove])
 
-    case AuthActionType.WITHDRAW_ETH:
-      return utils.defaultAbiCoder.encode(['address'], [action.receiver])
+    case AuthLeafType.WITHDRAW_ETH:
+      return utils.defaultAbiCoder.encode(['address'], [leaf.receiver])
 
     /***************************** PROJECT OWNER ACTIONS ****************************/
 
-    case AuthActionType.APPROVE_DEPLOYMENT:
+    case AuthLeafType.APPROVE_DEPLOYMENT:
       return utils.defaultAbiCoder.encode(
         [
           'string',
@@ -336,88 +327,85 @@ export const getEncodedAuthActionData = (action: AuthAction): string => {
           'string',
         ],
         [
-          action.projectName,
-          action.actionRoot,
-          action.targetRoot,
-          action.numActions,
-          action.numTargets,
-          action.numImmutableContracts,
-          action.configUri,
+          leaf.projectName,
+          leaf.actionRoot,
+          leaf.targetRoot,
+          leaf.numActions,
+          leaf.numTargets,
+          leaf.numImmutableContracts,
+          leaf.configUri,
         ]
       )
 
-    case AuthActionType.SET_PROJECT_THRESHOLD:
+    case AuthLeafType.SET_PROJECT_THRESHOLD:
       return utils.defaultAbiCoder.encode(
         ['string', 'uint256'],
-        [action.projectName, action.newThreshold]
+        [leaf.projectName, leaf.newThreshold]
       )
 
-    case AuthActionType.SET_PROJECT_OWNER:
+    case AuthLeafType.SET_PROJECT_OWNER:
       return utils.defaultAbiCoder.encode(
         ['string', 'address', 'bool'],
-        [action.projectName, action.projectOwner, action.add]
+        [leaf.projectName, leaf.projectOwner, leaf.add]
       )
 
-    case AuthActionType.REMOVE_PROJECT:
+    case AuthLeafType.REMOVE_PROJECT:
       return utils.defaultAbiCoder.encode(
         ['string', 'address[]'],
-        [action.projectName, action.addresses]
+        [leaf.projectName, leaf.addresses]
       )
 
-    case AuthActionType.CANCEL_ACTIVE_DEPLOYMENT:
-      return utils.defaultAbiCoder.encode(['string'], [action.projectName])
+    case AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT:
+      return utils.defaultAbiCoder.encode(['string'], [leaf.projectName])
 
-    case AuthActionType.UPDATE_CONTRACTS_IN_PROJECT:
+    case AuthLeafType.UPDATE_CONTRACTS_IN_PROJECT:
       return utils.defaultAbiCoder.encode(
         ['string', 'address[]', 'bool[]'],
-        [action.projectName, action.contractAddresses, action.addContract]
+        [leaf.projectName, leaf.contractAddresses, leaf.addContract]
       )
 
     /****************************** PROPOSER ACTIONS ******************************/
 
-    case AuthActionType.PROPOSE:
-      return utils.defaultAbiCoder.encode(
-        ['bytes32', 'uint256', 'uint256'],
-        [action.authRootToPropose, action.numActions, action.totalNumLeafs]
-      )
+    case AuthLeafType.PROPOSE:
+      return utils.defaultAbiCoder.encode(['uint256'], [leaf.numLeafs])
 
     default:
-      throw Error(`Unknown auth action type. Should never happen.`)
+      throw Error(`Unknown auth leaf type. Should never happen.`)
   }
 }
 
 /**
- * Computes the hash of an auth action.
+ * Computes the hash of an auth leaf.
  *
- * @param action Auth action to compute the hash of.
- * @return Hash of the action.
+ * @param leaf Auth leaf to compute the hash of.
+ * @return Hash of the leaf.
  */
-export const getAuthActionHash = (action: RawAuthAction): string => {
-  return ethers.utils.keccak256(action.data)
+export const getAuthLeafHash = (leaf: RawAuthLeaf): string => {
+  return ethers.utils.keccak256(leaf.data)
 }
 
-export const toRawAuthAction = (action: AuthAction): RawAuthAction => {
-  const data = getEncodedAuthActionData(action)
-  const { chainId, from, to, nonce } = action
-  return { chainId, from, to, nonce, data }
+export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
+  const data = getEncodedAuthLeafData(leaf)
+  const { chainId, from, to, index } = leaf
+  return { chainId, from, to, index, data }
 }
 
 /**
- * Generates a bundle of auth actions. Effectively encodes the inputs that will be provided to the
+ * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
  * ChugSplashAuth contract.
  *
- * @param actions Series of auth actions.
- * @return Bundled actions.
+ * @param leafs Series of auth leafs.
+ * @return Bundled leafs.
  */
-export const makeAuthBundle = (actions: AuthAction[]): AuthActionBundle => {
-  // Turn the "nice" action structs into raw actions.
-  const rawActions = actions.map((action) => {
-    return toRawAuthAction(action)
+export const makeAuthBundle = (leafs: AuthLeaf[]): AuthLeafBundle => {
+  // Turn the "nice" leaf structs into raw leafs.
+  const rawLeafs = leafs.map((leaf) => {
+    return toRawAuthLeaf(leaf)
   })
 
-  // Now compute the hash for each action.
-  const elements = rawActions.map((action) => {
-    return getAuthActionHash(action)
+  // Now compute the hash for each leaf.
+  const elements = rawLeafs.map((leaf) => {
+    return getAuthLeafHash(leaf)
   })
 
   const tree = makeMerkleTree(elements)
@@ -426,17 +414,12 @@ export const makeAuthBundle = (actions: AuthAction[]): AuthActionBundle => {
 
   return {
     root: root !== '0x' ? root : ethers.constants.HashZero,
-    actions: rawActions.map((action, idx) => {
+    leafs: rawLeafs.map((leaf, idx) => {
       return {
-        action,
-        proof: {
-          actionIndex: idx,
-          siblings: tree
-            .getProof(getAuthActionHash(action), idx)
-            .map((element) => {
-              return element.data
-            }),
-        },
+        leaf,
+        proof: tree.getProof(getAuthLeafHash(leaf), idx).map((element) => {
+          return element.data
+        }),
       }
     }),
   }

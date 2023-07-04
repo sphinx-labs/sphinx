@@ -98,22 +98,19 @@ export interface ChugSplashActionBundle {
 }
 
 /**
- * Auth action that is part of a bundle.
+ * Auth leaf that is part of a bundle.
  */
-export type BundledAuthAction = {
-  action: RawAuthAction
-  proof: {
-    actionIndex: number
-    siblings: string[]
-  }
+export type BundledAuthLeaf = {
+  leaf: RawAuthLeaf
+  proof: string[]
 }
 
 /**
- * Bundle of auth actions.
+ * Bundle of auth leafs.
  */
-export interface AuthActionBundle {
+export interface AuthLeafBundle {
   root: string
-  actions: BundledAuthAction[]
+  leafs: BundledAuthLeaf[]
 }
 
 /**
@@ -141,33 +138,22 @@ export type DeploymentState = {
   configUri: string
 }
 
-export interface BaseAuthAction {
+export interface BaseAuthLeaf {
   chainId: number
   from: string
   to: string
-  nonce: number
+  index: number
 }
 
-export interface ApproveDeploymentAction extends BaseAuthAction {
-  projectName: string
-  actionRoot: string
-  targetRoot: string
-  numActions: number
-  numTargets: number
-  numImmutableContracts: number
-  configUri: string
-}
-
-export interface RawAuthAction {
+export interface RawAuthLeaf {
   chainId: number
   from: string
   to: string
-  nonce: number
+  index: number
   data: string
 }
 
-// TODO: mv
-export enum AuthActionType {
+export enum AuthLeafType {
   ADD_PROPOSER,
   APPROVE_DEPLOYMENT,
   CANCEL_ACTIVE_DEPLOYMENT,
@@ -201,96 +187,94 @@ export type ContractInfo = {
   addr: string
 }
 
-export interface SetupAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.SETUP
+interface Setup extends BaseAuthLeaf {
+  leafType: AuthLeafType.SETUP
   proposers: Array<SetRoleMember>
   projectManagers: Array<SetRoleMember>
-  totalNumLeafs: number
 }
 
-export interface SetProjectManagerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.SET_PROJECT_MANAGER
+interface SetProjectManager extends BaseAuthLeaf {
+  leafType: AuthLeafType.SET_PROJECT_MANAGER
   projectManager: string
   add: boolean
 }
 
-export interface ExportProxyAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.EXPORT_PROXY
+interface ExportProxy extends BaseAuthLeaf {
+  leafType: AuthLeafType.EXPORT_PROXY
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
-export interface AddProposerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.ADD_PROPOSER
+interface AddProposer extends BaseAuthLeaf {
+  leafType: AuthLeafType.ADD_PROPOSER
   proposer: string
 }
 
-export interface SetOrgOwnerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.SET_ORG_OWNER
+interface SetOrgOwner extends BaseAuthLeaf {
+  leafType: AuthLeafType.SET_ORG_OWNER
   orgOwner: string
   add: boolean
 }
 
-export interface UpdateProjectAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.UPDATE_PROJECT
+interface UpdateProject extends BaseAuthLeaf {
+  leafType: AuthLeafType.UPDATE_PROJECT
   projectName: string
   projectOwnersToRemove: string[]
   newThreshold: number
   newProjectOwners: string[]
 }
 
-export interface SetOrgOwnerThreshold extends BaseAuthAction {
-  actionType: AuthActionType.SET_ORG_OWNER_THRESHOLD
+interface SetOrgOwnerThreshold extends BaseAuthLeaf {
+  leafType: AuthLeafType.SET_ORG_OWNER_THRESHOLD
   newThreshold: number
 }
 
-export interface TransferDeployerOwnershipAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.TRANSFER_DEPLOYER_OWNERSHIP
+interface TransferDeployerOwnership extends BaseAuthLeaf {
+  leafType: AuthLeafType.TRANSFER_DEPLOYER_OWNERSHIP
   newOwner: string
 }
 
-export interface UpgradeDeployerImplementationAuthAction
-  extends BaseAuthAction {
-  actionType: AuthActionType.UPGRADE_DEPLOYER_IMPLEMENTATION
+interface UpgradeDeployerImplementation extends BaseAuthLeaf {
+  leafType: AuthLeafType.UPGRADE_DEPLOYER_IMPLEMENTATION
   impl: string
   data: string
 }
 
-export interface UpgradeAuthImplementationAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.UPGRADE_AUTH_IMPLEMENTATION
+interface UpgradeAuthImplementation extends BaseAuthLeaf {
+  leafType: AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION
   impl: string
   data: string
 }
 
-export interface UpgradeAuthAndDeployerImplAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION
+interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
+  leafType: AuthLeafType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION
   deployerImpl: string
   deployerData: string
   authImpl: string
   authData: string
 }
 
-export interface CreateProjectAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.CREATE_PROJECT
+interface CreateProject extends BaseAuthLeaf {
+  leafType: AuthLeafType.CREATE_PROJECT
   projectName: string
   threshold: number
   projectOwners: string[]
   contractInfoArray: ContractInfo[]
 }
 
-export interface RemoveProposerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.REMOVE_PROPOSER
+interface RemoveProposer extends BaseAuthLeaf {
+  leafType: AuthLeafType.REMOVE_PROPOSER
   proposerToRemove: string
 }
 
-export interface WithdrawETHAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.WITHDRAW_ETH
+interface WithdrawETH extends BaseAuthLeaf {
+  leafType: AuthLeafType.WITHDRAW_ETH
   receiver: string
 }
 
-export interface ApproveDeploymentAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.APPROVE_DEPLOYMENT
+interface ApproveDeployment extends BaseAuthLeaf {
+  leafType: AuthLeafType.APPROVE_DEPLOYMENT
   projectName: string
   actionRoot: string
   targetRoot: string
@@ -300,63 +284,61 @@ export interface ApproveDeploymentAuthAction extends BaseAuthAction {
   configUri: string
 }
 
-export interface SetProjectThresholdAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.SET_PROJECT_THRESHOLD
+interface SetProjectThreshold extends BaseAuthLeaf {
+  leafType: AuthLeafType.SET_PROJECT_THRESHOLD
   projectName: string
   newThreshold: number
 }
 
-export interface SetProjectOwnerAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.SET_PROJECT_OWNER
+interface SetProjectOwner extends BaseAuthLeaf {
+  leafType: AuthLeafType.SET_PROJECT_OWNER
   projectName: string
   projectOwner: string
   add: boolean
 }
 
-export interface RemoveProjectAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.REMOVE_PROJECT
+interface RemoveProject extends BaseAuthLeaf {
+  leafType: AuthLeafType.REMOVE_PROJECT
   projectName: string
   addresses: string[]
 }
 
-export interface CancelActiveDeploymentAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.CANCEL_ACTIVE_DEPLOYMENT
+interface CancelActiveDeployment extends BaseAuthLeaf {
+  leafType: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT
   projectName: string
 }
 
-export interface UpdateContractsInProjectAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.UPDATE_CONTRACTS_IN_PROJECT
+interface UpdateContractsInProject extends BaseAuthLeaf {
+  leafType: AuthLeafType.UPDATE_CONTRACTS_IN_PROJECT
   projectName: string
   contractAddresses: string[]
   addContract: boolean[]
 }
 
-export interface ProposeAuthAction extends BaseAuthAction {
-  actionType: AuthActionType.PROPOSE
-  authRootToPropose: string
-  numActions: number
-  totalNumLeafs: number
+interface Propose extends BaseAuthLeaf {
+  leafType: AuthLeafType.PROPOSE
+  numLeafs: number
 }
 
-export type AuthAction =
-  | SetupAuthAction
-  | SetProjectManagerAuthAction
-  | ExportProxyAuthAction
-  | AddProposerAuthAction
-  | SetOrgOwnerAuthAction
-  | UpdateProjectAuthAction
+export type AuthLeaf =
+  | Setup
+  | SetProjectManager
+  | ExportProxy
+  | AddProposer
+  | SetOrgOwner
+  | UpdateProject
   | SetOrgOwnerThreshold
-  | TransferDeployerOwnershipAuthAction
-  | UpgradeDeployerImplementationAuthAction
-  | UpgradeAuthImplementationAuthAction
-  | UpgradeAuthAndDeployerImplAuthAction
-  | CreateProjectAuthAction
-  | RemoveProposerAuthAction
-  | WithdrawETHAuthAction
-  | ApproveDeploymentAuthAction
-  | SetProjectThresholdAuthAction
-  | SetProjectOwnerAuthAction
-  | RemoveProjectAuthAction
-  | CancelActiveDeploymentAuthAction
-  | UpdateContractsInProjectAuthAction
-  | ProposeAuthAction
+  | TransferDeployerOwnership
+  | UpgradeDeployerImplementation
+  | UpgradeAuthImplementation
+  | UpgradeAuthAndDeployerImpl
+  | CreateProject
+  | RemoveProposer
+  | WithdrawETH
+  | ApproveDeployment
+  | SetProjectThreshold
+  | SetProjectOwner
+  | RemoveProject
+  | CancelActiveDeployment
+  | UpdateContractsInProject
+  | Propose
