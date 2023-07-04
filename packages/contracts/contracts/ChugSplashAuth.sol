@@ -89,7 +89,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.incrementProtocolDebt(_initialGasLeft);
     }
 
-    event AuthSetup(bytes32 indexed authRoot);
+    event Setup(bytes32 indexed authRoot);
     event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
     event ProposerAdded(bytes32 indexed authRoot, uint256 leafIndex);
@@ -114,7 +114,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         address indexed proposer,
         uint256 numLeafs
     );
-    event AuthStateCompleted(bytes32 indexed authRoot, uint256 numLeafs);
+    event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
 
     error AuthStateNotProposed();
     error ThresholdCannotBeZero();
@@ -344,7 +344,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             numLeafs: 1
         });
 
-        emit AuthSetup(_authRoot);
+        emit Setup(_authRoot);
     }
 
     function setProjectManager(
@@ -1154,7 +1154,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         authState.leafsExecuted += 1;
         if (authState.leafsExecuted == authState.numLeafs) {
             authState.status = AuthStatus.COMPLETED;
-            emit AuthStateCompleted(_authRoot, authState.numLeafs);
+            emit AuthRootCompleted(_authRoot, authState.numLeafs);
         }
     }
 
