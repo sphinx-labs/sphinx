@@ -152,7 +152,6 @@ const command = args[0]
           wallet,
           [],
           [],
-          [],
           (
             await provider.getNetwork()
           ).chainId
