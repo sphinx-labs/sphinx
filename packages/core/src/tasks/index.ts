@@ -789,16 +789,15 @@ export const chugsplashExportProxyAbstractTask = async (
 export const chugsplashImportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  configPath: string,
   proxy: string,
   integration: Integration,
+  owner: string,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const userConfig = await readUserChugSplashConfig(configPath)
-  const deployer = getChugSplashManagerAddress(userConfig.options.owner)
+  const deployer = getChugSplashManagerAddress(owner)
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 

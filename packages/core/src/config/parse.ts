@@ -122,7 +122,8 @@ export const readUnvalidatedParsedConfig = async (
   project: Project,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction
+  failureAction: FailureAction,
+  owner: string
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
   configArtifacts: ConfigArtifacts
@@ -146,7 +147,7 @@ export const readUnvalidatedParsedConfig = async (
 
   const parsedConfig: ParsedChugSplashConfig = {
     options: {
-      owner: userConfig.options.owner,
+      owner,
     },
     projects: {},
   }
@@ -172,7 +173,7 @@ export const readUnvalidatedParsedConfig = async (
       projectConfigArtifacts,
       cre,
       failureAction,
-      userConfig.options.owner
+      owner
     )
 
     parsedConfig.projects[projectName] = parsedProjectConfig
@@ -194,6 +195,7 @@ export const readValidatedChugSplashConfig = async (
   provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
+  owner: string,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
   parsedConfig: ParsedChugSplashConfig
@@ -205,7 +207,8 @@ export const readValidatedChugSplashConfig = async (
     project,
     cre,
     getConfigArtifacts,
-    failureAction
+    failureAction,
+    owner
   )
 
   const projectName =

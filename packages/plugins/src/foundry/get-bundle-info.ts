@@ -81,7 +81,7 @@ const projectName = args[3]
       cachePath
     )
 
-    const projectConfigArtifacts = await getConfigArtifacts[projectName](
+    const projectConfigArtifacts = await getConfigArtifacts(
       userConfig.projects[projectName].contracts
     )
 
@@ -91,6 +91,8 @@ const projectName = args[3]
       projectConfigArtifacts,
       cre,
       FailureAction.THROW,
+      // The owner here was set when the user config was fetched in
+      // ffiGetConfigs, so it may not necessarily match the one in the file
       userConfig.options.owner
     )
 

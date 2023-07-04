@@ -32,9 +32,11 @@ const configPath = './chugsplash/main.config.ts'
 describe('Transfer', () => {
   let signer: SignerWithAddress
   let claimer: providers.JsonRpcSigner
+  let claimerAddress: string
   before(async () => {
     const signers = await hre.ethers.getSigners()
     claimer = hre.ethers.provider.getSigner()
+    claimerAddress = await claimer.getAddress()
     // Get the last signer. This ensures that the deployer of the OpenZeppelin proxies uses a
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
@@ -112,6 +114,7 @@ describe('Transfer', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        claimerAddress,
         FailureAction.THROW
       )
 
@@ -206,6 +209,7 @@ describe('Transfer', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        claimerAddress,
         FailureAction.THROW
       )
 
@@ -324,6 +328,7 @@ describe('Transfer', () => {
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        claimerAddress,
         FailureAction.THROW
       )
 

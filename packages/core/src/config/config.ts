@@ -16,9 +16,9 @@ import { getChugSplashManagerAddress } from '../addresses'
  */
 export const getMinimalConfig = (
   userConfig: UserChugSplashConfig,
-  projectName: string
+  projectName: string,
+  owner: string
 ): MinimalConfig => {
-  const { owner } = userConfig.options
   const deployer = getChugSplashManagerAddress(owner)
 
   if (!Object.keys(userConfig.projects).includes(projectName)) {

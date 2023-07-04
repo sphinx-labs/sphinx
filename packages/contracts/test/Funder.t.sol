@@ -5,7 +5,7 @@ pragma solidity 0.8.15;
 
 import { Test } from "forge-std/Test.sol";
 import { ChugSplashLZSender } from "contracts/ChugSplashLZSender.sol";
-import { FunderAction } from "contracts/ChugSplashDataTypes.sol";
+import { LayerZeroFundingMessage } from "contracts/ChugSplashDataTypes.sol";
 import { ChugSplashLZReceiver } from "contracts/ChugSplashLZReceiver.sol";
 import {
     LZEndpointMock
@@ -24,45 +24,44 @@ contract FunderTest is Test {
         uint16 chainId = uint16(block.chainid);
 
         endpoint = new LZEndpointMock(chainId);
-        funder = new ChugSplashLZSender(address(endpoint));
-        receiver = new ChugSplashLZReceiver(address(endpoint));
+        receiver = new ChugSplashLZReceiver(address(endpoint), msg.sender);
+
+        ChugSplashLZSender.DestinationChainInfo[] memory destinationChains = new ChugSplashLZSender.DestinationChainInfo[](1);
+        destinationChains[0] = ChugSplashLZSender.DestinationChainInfo(
+            chainId,
+            address(receiver)
+        );
+
+        funder = new ChugSplashLZSender(address(endpoint), destinationChains, msg.sender);
 
         endpoint.setDestLzEndpoint(address(funder), address(endpoint));
         endpoint.setDestLzEndpoint(address(receiver), address(endpoint));
 
         uint16 outboundProofType = 1;
-        bool payInZRO = false;
-        bytes memory payload = "";
-        FunderAction[] memory actions = new FunderAction[](3);
-        actions[0] = FunderAction(
+        LayerZeroFundingMessage[] memory actions = new LayerZeroFundingMessage[](3);
+        actions[0] = LayerZeroFundingMessage(
             chainId,
             outboundProofType,
-            address(receiver),
+            200000,
             airdropAddressOne,
-            airdropAmountOne,
-            payInZRO,
-            payload
+            airdropAmountOne
         );
-        actions[1] = FunderAction(
+        actions[1] = LayerZeroFundingMessage(
             chainId,
             outboundProofType,
-            address(receiver),
+            200000,
             airdropAddressOne,
-            airdropAmountOne,
-            payInZRO,
-            payload
+            airdropAmountOne
         );
-        actions[2] = FunderAction(
+        actions[2] = LayerZeroFundingMessage(
             chainId,
             outboundProofType,
-            address(receiver),
+            200000,
             airdropAddressTwo,
-            airdropAmountTwo,
-            payInZRO,
-            payload
+            airdropAmountTwo
         );
 
-        funder.sendBatchFundActions{ value: 1 ether }(actions);
+        funder.sendBatchFunds{ value: 1 ether }(actions);
     }
 
     function testDidReceiveFunds() public {

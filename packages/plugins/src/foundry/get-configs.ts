@@ -1,6 +1,6 @@
 import { resolve } from 'path'
 
-import { defaultAbiCoder } from 'ethers/lib/utils'
+import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   getMinimalConfig,
   readUserChugSplashConfig,
@@ -12,6 +12,7 @@ import { getEncodedFailure, validationStderrWrite } from './logs'
 const args = process.argv.slice(2)
 const configPath = args[0]
 const projectName = args[1]
+const owner = args[2]
 
 // This function is in its own file to minimize the number of dependencies that are imported, as
 // this speeds up the execution time of the script when called via FFI from Foundry.
@@ -27,7 +28,9 @@ const projectName = args[1]
       getFoundryConfigOptions(),
     ])
 
-    const minimalConfig = getMinimalConfig(userConfig, projectName)
+    // Default owner to passed in owner
+    userConfig.options.owner = owner
+    const minimalConfig = getMinimalConfig(userConfig, projectName, owner)
 
     const rootImportPath =
       process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
@@ -47,7 +50,12 @@ const projectName = args[1]
       [minimalConfig, JSON.stringify(userConfig)]
     )
 
-    process.stdout.write(encodedConfigs)
+    const encodedSuccess = hexConcat([
+      encodedConfigs,
+      defaultAbiCoder.encode(['bool'], [true]), // true = success
+    ])
+
+    process.stdout.write(encodedSuccess)
   } catch (err) {
     const encodedFailure = getEncodedFailure(err)
     process.stdout.write(encodedFailure)
