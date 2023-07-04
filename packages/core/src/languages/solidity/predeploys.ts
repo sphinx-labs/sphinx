@@ -36,7 +36,10 @@ import {
   verifyChugSplash,
 } from '../../etherscan'
 import { ChugSplashSystemConfig } from './types'
-import { CALLER_ROLE, REMOTE_EXECUTOR_ROLE } from '../../constants'
+import {
+  PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+  REMOTE_EXECUTOR_ROLE,
+} from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
 import { getChugSplashConstants } from '../../contract-info'
@@ -50,14 +53,13 @@ const fetchChugSplashSystemConfig = (configPath: string) => {
   )).default
   if (
     typeof exported === 'object' &&
-    exported.callers.length > 0 &&
     exported.executors.length > 0 &&
-    exported.proposers.length > 0
+    exported.relayers.length > 0
   ) {
     return exported
   } else {
     throw new Error(
-      'Config file must export a valid config object with a list of executors, callers, and proposers.'
+      'Config file must export a valid config object with a list of executors and relayers.'
     )
   }
 }
@@ -77,8 +79,7 @@ export const initializeAndVerifyChugSplash = async (
     provider,
     await provider.getSigner(),
     config.executors,
-    config.proposers,
-    config.callers,
+    config.relayers,
     (
       await provider.getNetwork()
     ).chainId,
@@ -134,7 +135,6 @@ export const ensureChugSplashInitialized = async (
       signer,
       executors,
       [],
-      [],
       (
         await provider.getNetwork()
       ).chainId,
@@ -151,8 +151,7 @@ export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
   executors: string[],
-  proposers: string[],
-  callers: string[],
+  relayers: string[],
   chainId: number,
   logger?: Logger
 ): Promise<void> => {
@@ -255,12 +254,17 @@ export const initializeChugSplash = async (
   logger?.info('[ChugSplash]: finished assigning executor roles')
 
   logger?.info('[ChugSplash]: assigning caller roles...')
-  for (const caller of callers) {
-    if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
+  for (const relayer of relayers) {
+    if (
+      (await ManagedService.hasRole(
+        PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+        relayer
+      )) === false
+    ) {
       await (
         await ManagedService.connect(signer).grantRole(
-          CALLER_ROLE,
-          caller,
+          PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+          relayer,
           await getGasPriceOverrides(provider)
         )
       ).wait()

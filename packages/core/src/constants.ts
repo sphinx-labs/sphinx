@@ -26,7 +26,9 @@ export const REMOTE_EXECUTOR_ROLE = utils.keccak256(
   utils.toUtf8Bytes('REMOTE_EXECUTOR_ROLE')
 )
 
-export const CALLER_ROLE = utils.keccak256(utils.toUtf8Bytes('CALLER_ROLE'))
+export const PROTOCOL_PAYMENT_RECIPIENT_ROLE = utils.keccak256(
+  utils.toUtf8Bytes('PROTOCOL_PAYMENT_RECIPIENT_ROLE')
+)
 
 export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
   major: 1,
