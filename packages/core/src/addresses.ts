@@ -220,7 +220,7 @@ export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  getManagedServiceAddress,
+  getManagedServiceAddress(),
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
