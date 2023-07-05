@@ -26,7 +26,7 @@ import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   getChugSplashManagerV1Address,
   getChugSplashRegistryAddress,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
@@ -232,7 +232,7 @@ export const initializeChugSplash = async (
   }
 
   const ManagedService = new ethers.Contract(
-    MANAGED_SERVICE_ADDRESS,
+    getManagedServiceAddress(),
     ManagedServiceArtifact.abi,
     signer
   )
