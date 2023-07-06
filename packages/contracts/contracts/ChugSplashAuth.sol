@@ -13,7 +13,9 @@ import {
 import {
     ECDSAUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
-import { MerkleProofUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
+import {
+    MerkleProofUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import { IChugSplashManager } from "./interfaces/IChugSplashManager.sol";
 import { IOwnable } from "./interfaces/IOwnable.sol";
 import {
@@ -73,14 +75,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthState memory authState = authStates[_authRoot];
         if (authState.status != AuthStatus.PROPOSED) revert AuthStateNotProposed();
 
-        verifySignatures(
-            _authRoot,
-            _leaf,
-            _proof,
-            _threshold,
-            _verifyingRole,
-            _signatures
-        );
+        verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
         _;
     }
 
@@ -92,16 +87,14 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     event Setup(bytes32 indexed authRoot);
     event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProposerAdded(bytes32 indexed authRoot, uint256 leafIndex);
     event OrgOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
     event OrgOwnerThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerOwnershipTransferred(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event ProjectCreated(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProposerRemoved(bytes32 indexed authRoot, uint256 leafIndex);
+    event ProposerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ETHWithdrawn(bytes32 indexed authRoot, uint256 leafIndex);
     event DeploymentApproved(bytes32 indexed authRoot, uint256 leafIndex);
     event ProjectThresholdChanged(bytes32 indexed authRoot, uint256 leafIndex);
@@ -109,11 +102,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     event ProjectRemoved(bytes32 indexed authRoot, uint256 leafIndex);
     event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
     event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
-    event AuthRootProposed(
-        bytes32 indexed authRoot,
-        address indexed proposer,
-        uint256 numLeafs
-    );
+    event AuthRootProposed(bytes32 indexed authRoot, address indexed proposer, uint256 numLeafs);
     event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
 
     error AuthStateNotProposed();
@@ -148,6 +137,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     error FunctionDisabled();
     error RoleMemberCannotBeZeroAddress();
     error RoleMemberCannotBeThisContract();
+    error LeftoverProjectOwners();
 
     constructor(Version memory _version) Semver(_version.major, _version.minor, _version.patch) {
         // Disables initializing the implementation contract. Does not impact proxy contracts.
@@ -190,78 +180,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         __AccessControlEnumerable_init();
     }
 
-    function assertValidProposedAuthLeaf(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes32[] memory _proof,
-        uint256 _threshold,
-        bytes32 _verifyingRole,
-        bytes[] memory _signatures
-    )
-        private
-        view
-        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures)
-    {}
-
-    /**
-     * @notice Verifies a list of EIP-712 meta transaction signatures.
-     *
-     * @param _authRoot Root of the auth Merkle tree that was signed in the meta transaction.
-     * @param _leaf  AuthLeaf struct. This is the decoded leaf of the auth tree.
-     * @param _threshold Number of signatures required to execute the meta transaction.
-     * @param _verifyingRole Role that the signers of the signatures must have.
-     * @param _signatures List of meta transaction signatures. These must correspond to
-     *                      signer addresses that are in ascending order. E.g. The signature that
-                            corresponds to the signer `0x00...` should come before the signature
-                            that corresponds to the signer `0xff...`.
-     * @param _proof    Merkle proof of the leaf in the auth tree.
-     */
-    function verifySignatures(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes32[] memory _proof,
-        uint256 _threshold,
-        bytes32 _verifyingRole,
-        bytes[] memory _signatures
-    ) private view {
-        if (_threshold == 0) revert ThresholdCannotBeZero();
-        if (_signatures.length < _threshold) revert NotEnoughSignatures();
-
-        uint256 leafsExecuted = authStates[_authRoot].leafsExecuted;
-
-        address signer;
-        address prevSigner = address(0);
-        for (uint256 i = 0; i < _threshold; i++) {
-            bytes memory signature = _signatures[i];
-            if (signature.length != 65) revert InvalidSignatureLength();
-
-            bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, _authRoot);
-            signer = ECDSAUpgradeable.recover(typedDataHash, signature);
-            if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
-            if (signer <= prevSigner) revert DuplicateSigner();
-
-            // Validate the fields of the AuthLeaf
-            if (_leaf.from != signer) revert InvalidFromAddress();
-            if (_leaf.to != address(manager)) revert InvalidToAddress();
-            if (_leaf.chainId != block.chainid) revert InvalidChainId();
-            if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
-
-            if (
-                !MerkleProofUpgradeable.verify(
-                    _proof,
-                    _authRoot,
-                    keccak256(_leaf.data)
-                )
-            ) revert InvalidMerkleProof();
-
-            prevSigner = signer;
-        }
-    }
-
     /********************************** ORG OWNER FUNCTIONS **********************************/
 
     /**
-     * @notice Sets up initial roles. The number of org owner signatures must be at least
+     * @notice Sets initial proposers. The number of org owner signatures must be at least
                `orgOwnerThreshold`.
 
                This is the only permissioned function in this contract that doesn't require
@@ -409,35 +331,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProxyExported(_authRoot, _leaf.index);
     }
 
-    function addProposer(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            orgOwnerThreshold,
-            DEFAULT_ADMIN_ROLE,
-            _signatures
-        )
-    {
-        address proposer = abi.decode(_leaf.data, (address));
-
-        _assertValidRoleMemberAddress(proposer);
-
-        if (hasRole(PROPOSER_ROLE, proposer)) revert AddressAlreadyHasRole();
-        _grantRole(PROPOSER_ROLE, proposer);
-
-        _updateProposedAuthState(_authRoot);
-
-        emit ProposerAdded(_authRoot, _leaf.index);
-    }
-
     function setOrgOwner(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -473,7 +366,9 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         emit OrgOwnerSet(_authRoot, _leaf.index);
     }
 
-    function updateProject(
+    // Reverts if any of the contracts don't belong to the project. Also reverts if the project has
+    // a deployment that is currently executing.
+    function removeProject(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
@@ -490,47 +385,54 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _signatures
         )
     {
+        (string memory projectName, address[] memory contractAddresses) = abi.decode(
+            _leaf.data,
+            (string, address[])
+        );
+
         // Use scope here to prevent "Stack too deep" error
         {
-            (
-                string memory projectName,
-                address[] memory projectOwnersToRemove,
-                uint256 newThreshold,
-                address[] memory newProjectOwners
-            ) = abi.decode(_leaf.data, (string, address[], uint256, address[]));
-
             if (bytes(projectName).length == 0) revert EmptyProjectName();
-            if (newThreshold == 0) revert ThresholdCannotBeZero();
+            // We don't assert that the contract addresses array is non-empty because it's possible that
+            // the project has no contracts.
+
             if (thresholds[projectName] == 0) revert ProjectDoesNotExist();
 
-            bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+            _updateProposedAuthState(_authRoot);
+
             if (
-                getRoleMemberCount(projectOwnerRole) -
-                    projectOwnersToRemove.length +
-                    newProjectOwners.length <
-                newThreshold
-            ) revert UnreachableThreshold();
+                keccak256(bytes(manager.deployments(manager.activeDeploymentId()).projectName)) ==
+                keccak256(bytes(projectName))
+            ) revert ProjectHasActiveDeployment();
 
-            thresholds[projectName] = newThreshold;
-
-            for (uint256 i = 0; i < projectOwnersToRemove.length; i++) {
-                address projectOwnerToRemove = projectOwnersToRemove[i];
-                if (!hasRole(projectOwnerRole, projectOwnerToRemove))
-                    revert AddressDoesNotHaveRole();
-                _revokeRole(projectOwnerRole, projectOwnerToRemove);
+            // Remove all of the contracts from the project.
+            uint256 numContractsToRemove = contractAddresses.length;
+            for (uint256 i = 0; i < numContractsToRemove; i++) {
+                address contractAddress = contractAddresses[i];
+                string memory existingProjectName = manager.contractToProject(contractAddress);
+                if (keccak256(bytes(existingProjectName)) != keccak256(bytes(projectName)))
+                    revert ContractDoesNotExistInProject();
+                manager.transferContractToProject(contractAddress, "");
             }
 
-            for (uint256 i = 0; i < newProjectOwners.length; i++) {
-                address newProjectOwner = newProjectOwners[i];
-                _assertValidRoleMemberAddress(newProjectOwner);
-                if (hasRole(projectOwnerRole, newProjectOwner)) revert AddressAlreadyHasRole();
-                _grantRole(projectOwnerRole, newProjectOwner);
+            if (manager.numContracts(projectName) > 0) revert LeftoverContractsInProject();
+
+            // Remove all of the project owners.
+            bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
+            uint256 numProjectOwners = getRoleMemberCount(projectOwnerRole);
+            for (uint256 i = 0; i < numProjectOwners; i++) {
+                address projectOwner = getRoleMember(projectOwnerRole, i);
+                _revokeRole(projectOwnerRole, projectOwner);
             }
+
+            if (getRoleMemberCount(projectOwnerRole) > 0) revert LeftoverProjectOwners();
         }
+
+        thresholds[projectName] = 0;
 
         _updateProposedAuthState(_authRoot);
 
-        emit ProjectUpdated(_authRoot, _leaf.index);
+        emit ProjectRemoved(_authRoot, _leaf.index);
     }
 
     function setOrgOwnerThreshold(
@@ -775,7 +677,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProjectCreated(_authRoot, _leaf.index);
     }
 
-    function removeProposer(
+    function setProposer(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
@@ -785,13 +687,20 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
     {
-        address proposerToRemove = abi.decode(_leaf.data, (address));
-        if (!hasRole(PROPOSER_ROLE, proposerToRemove)) revert AddressDoesNotHaveRole();
-        _revokeRole(PROPOSER_ROLE, proposerToRemove);
+        (address proposer, bool add) = abi.decode(_leaf.data, (address, bool));
+
+        if (add) {
+            _assertValidRoleMemberAddress(proposer);
+            if (hasRole(PROPOSER_ROLE, proposer)) revert AddressAlreadyHasRole();
+            _grantRole(PROPOSER_ROLE, proposer);
+        } else {
+            if (!hasRole(PROPOSER_ROLE, proposer)) revert AddressDoesNotHaveRole();
+            _revokeRole(PROPOSER_ROLE, proposer);
+        }
 
         _updateProposedAuthState(_authRoot);
 
-        emit ProposerRemoved(_authRoot, _leaf.index);
+        emit ProposerSet(_authRoot, _leaf.index);
     }
 
     function withdrawETH(
@@ -924,55 +833,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProjectOwnerSet(_authRoot, _leaf.index);
     }
 
-    // Reverts if any of the contracts don't belong to the project. Also reverts if the project has
-    // a deployment that is currently executing.
-    function removeProject(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        (string memory projectName, address[] memory addresses) = abi.decode(
-            _leaf.data,
-            (string, address[])
-        );
-        if (addresses.length == 0) revert EmptyArray();
-
-        _updateProposedAuthState(_authRoot);
-
-        string memory activeProjectName = manager
-            .deployments(manager.activeDeploymentId())
-            .projectName;
-        if (keccak256(bytes(activeProjectName)) == keccak256(bytes(projectName)))
-            revert ProjectHasActiveDeployment();
-
-        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            thresholds[projectName],
-            projectOwnerRole,
-            _signatures
-        );
-
-        uint256 numContractsToRemove = addresses.length;
-        string memory existingProjectName;
-        for (uint256 i = 0; i < numContractsToRemove; i++) {
-            address contractAddress = addresses[i];
-            existingProjectName = manager.contractToProject(contractAddress);
-            if (keccak256(bytes(existingProjectName)) != keccak256(bytes(projectName)))
-                revert ContractDoesNotExistInProject();
-            manager.transferContractToProject(contractAddress, "");
-        }
-
-        if (manager.numContracts(projectName) > 0) revert LeftoverContractsInProject();
-
-        thresholds[projectName] = 0;
-
-        emit ProjectRemoved(_authRoot, _leaf.index);
-    }
-
     function cancelActiveDeployment(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -999,8 +859,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     }
 
     // Allows the project owners to add or remove contracts to their project. Reverts if any of the
-    // contracts already belong to another project. Reverts if a deployment in this project is
-    // currently executing.
+    // contracts already belong to another project. Reverts if a deployment in the ChugSplashManager
+    // is currently being executed. Although this last check may not be strictly necessary, it
+    // guarantees that it's not possible for this project to claim a contract address that will soon
+    // be deployed by the active project, which would prevent that project from executing. This
+    // shouldn't be possible anyway, since the salt of each contract address includes the project
+    // name, but it's possible that the salt could change in the future, so we play it safe here.
     function updateContractsInProject(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -1020,11 +884,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _updateProposedAuthState(_authRoot);
 
-        string memory activeProjectName = manager
-            .deployments(manager.activeDeploymentId())
-            .projectName;
-        if (keccak256(bytes(activeProjectName)) == keccak256(bytes(projectName)))
-            revert ProjectHasActiveDeployment();
+        if (manager.isExecuting()) revert DeploymentInProgress();
 
         bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
         assertValidProposedAuthLeaf(
@@ -1071,23 +931,10 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
         bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-    {
-        verifySignatures(
-            _authRoot,
-            _leaf,
-            _proof,
-            1,
-            PROPOSER_ROLE,
-            _signatures
-        );
+    ) public incrementProtocolDebt(gasleft()) {
+        verifySignatures(_authRoot, _leaf, _proof, 1, PROPOSER_ROLE, _signatures);
 
-        uint256 numLeafs = abi.decode(
-            _leaf.data,
-            (uint256)
-        );
+        uint256 numLeafs = abi.decode(_leaf.data, (uint256));
 
         // The proposal counts as one of the auth leafs, so there must be at least one other
         // leaf, or else there will be nothing left to execute for this auth root.
@@ -1148,6 +995,69 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     }
 
     /****************************** PRIVATE FUNCTIONS ******************************/
+
+    /**
+     * @notice Verifies a list of EIP-712 meta transaction signatures.
+     *
+     * @param _authRoot Root of the auth Merkle tree that was signed in the meta transaction.
+     * @param _leaf  AuthLeaf struct. This is the decoded leaf of the auth tree.
+     * @param _threshold Number of signatures required to execute the meta transaction.
+     * @param _verifyingRole Role that the signers of the signatures must have.
+     * @param _signatures List of meta transaction signatures. These must correspond to
+     *                      signer addresses that are in ascending order. E.g. The signature that
+                            corresponds to the signer `0x00...` should come before the signature
+                            that corresponds to the signer `0xff...`.
+     * @param _proof    Merkle proof of the leaf in the auth tree.
+     */
+    function verifySignatures(
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
+        uint256 _threshold,
+        bytes32 _verifyingRole,
+        bytes[] memory _signatures
+    ) private view {
+        if (_threshold == 0) revert ThresholdCannotBeZero();
+        if (_signatures.length < _threshold) revert NotEnoughSignatures();
+
+        uint256 leafsExecuted = authStates[_authRoot].leafsExecuted;
+
+        address signer;
+        address prevSigner = address(0);
+        for (uint256 i = 0; i < _threshold; i++) {
+            bytes memory signature = _signatures[i];
+            if (signature.length != 65) revert InvalidSignatureLength();
+
+            bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, _authRoot);
+            signer = ECDSAUpgradeable.recover(typedDataHash, signature);
+            if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
+            if (signer <= prevSigner) revert DuplicateSigner();
+
+            // Validate the fields of the AuthLeaf
+            if (_leaf.from != signer) revert InvalidFromAddress();
+            if (_leaf.to != address(manager)) revert InvalidToAddress();
+            if (_leaf.chainId != block.chainid) revert InvalidChainId();
+            if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
+
+            if (!MerkleProofUpgradeable.verify(_proof, _authRoot, keccak256(_leaf.data)))
+                revert InvalidMerkleProof();
+
+            prevSigner = signer;
+        }
+    }
+
+    function assertValidProposedAuthLeaf(
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
+        uint256 _threshold,
+        bytes32 _verifyingRole,
+        bytes[] memory _signatures
+    )
+        private
+        view
+        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures)
+    {}
 
     function _updateProposedAuthState(bytes32 _authRoot) private {
         AuthState storage authState = authStates[_authRoot];

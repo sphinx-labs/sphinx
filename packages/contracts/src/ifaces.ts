@@ -16,6 +16,9 @@ export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adap
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
 export const LZSenderArtifact = require('../artifacts/contracts/ChugSplashLZSender.sol/ChugSplashLZSender.json')
+export const AuthArtifact = require('../artifacts/contracts/ChugSplashAuth.sol/ChugSplashAuth.json')
+export const AuthFactoryArtifact = require('../artifacts/contracts/ChugSplashAuthFactory.sol/ChugSplashAuthFactory.json')
+export const AuthProxyArtifact = require('../artifacts/contracts/ChugSplashAuthProxy.sol/ChugSplashAuthProxy.json')
 export const LZReceiverArtifact = require('../artifacts/contracts/ChugSplashLZReceiver.sol/ChugSplashLZReceiver.json')
 export const LZEndpointMockArtifact = require('../artifacts/@layerzerolabs/solidity-examples/contracts/mocks/LZEndpointMock.sol/LZEndpointMock.json')
 
@@ -45,5 +48,8 @@ export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
 export const LZSenderABI = LZSenderArtifact.abi
+export const AuthABI = AuthArtifact.abi
+export const AuthFactoryABI = AuthFactoryArtifact.abi
+export const AuthProxyABI = AuthProxyArtifact.abi
 export const LZReceiverABI = LZReceiverArtifact.abi
 export const LZEndpointMockABI = LZEndpointMockArtifact.abi

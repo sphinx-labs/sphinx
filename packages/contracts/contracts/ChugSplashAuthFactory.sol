@@ -94,6 +94,7 @@ contract ChugSplashAuthFactory is Ownable {
         address managerProxy = registry.register(authProxyAddress, _saltNonce, _registryData);
 
         ChugSplashAuthProxy authProxy = new ChugSplashAuthProxy{ salt: salt }(this, address(this));
+
         require(
             address(authProxy) == authProxyAddress,
             "ChugSplashAuthFactory: failed to deploy auth proxy"
@@ -150,7 +151,10 @@ contract ChugSplashAuthFactory is Ownable {
             Create2.computeAddress(
                 _salt,
                 keccak256(
-                    abi.encodePacked(type(ChugSplashAuthProxy).creationCode, this, address(this))
+                    abi.encodePacked(
+                        type(ChugSplashAuthProxy).creationCode,
+                        abi.encode(this, address(this))
+                    )
                 )
             );
     }

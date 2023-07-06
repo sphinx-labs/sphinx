@@ -26,11 +26,9 @@ contract FunderTest is Test {
         endpoint = new LZEndpointMock(chainId);
         receiver = new ChugSplashLZReceiver(address(endpoint), msg.sender);
 
-        ChugSplashLZSender.DestinationChainInfo[] memory destinationChains = new ChugSplashLZSender.DestinationChainInfo[](1);
-        destinationChains[0] = ChugSplashLZSender.DestinationChainInfo(
-            chainId,
-            address(receiver)
-        );
+        ChugSplashLZSender.DestinationChainInfo[]
+            memory destinationChains = new ChugSplashLZSender.DestinationChainInfo[](1);
+        destinationChains[0] = ChugSplashLZSender.DestinationChainInfo(chainId, address(receiver));
 
         funder = new ChugSplashLZSender(address(endpoint), destinationChains, msg.sender);
 
