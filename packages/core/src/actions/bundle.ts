@@ -397,7 +397,7 @@ export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
  * @param leafs Series of auth leafs.
  * @return Bundled leafs.
  */
-export const makeAuthBundle = (leafs: AuthLeaf[]): AuthLeafBundle => {
+export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
   // Turn the "nice" leaf structs into raw leafs.
   const rawLeafs = leafs.map((leaf) => {
     return toRawAuthLeaf(leaf)

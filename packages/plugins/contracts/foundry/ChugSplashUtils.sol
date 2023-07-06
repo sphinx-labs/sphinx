@@ -202,10 +202,11 @@ contract ChugSplashUtils is
         ConfigCache memory _configCache,
         string memory _projectName,
         string memory _userConfigStr,
-        string memory _rootFfiPath
+        string memory _rootFfiPath,
+        address _owner
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](7);
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
@@ -213,6 +214,7 @@ contract ChugSplashUtils is
         cmds[4] = _userConfigStr;
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
         cmds[6] = _projectName;
+        cmds[7] = vm.toString(_owner);
 
         bytes memory result = vm.ffi(cmds);
         return result;

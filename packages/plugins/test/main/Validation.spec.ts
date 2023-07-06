@@ -5,7 +5,7 @@ import '../../dist'
 
 import { expect } from 'chai'
 import hre from 'hardhat'
-import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
+import { FailureAction, readParsedOwnerConfig } from '@chugsplash/core'
 
 import { createChugSplashRuntime } from '../../src/cre'
 import { makeGetConfigArtifacts } from '../../src/hardhat/artifacts'
@@ -36,7 +36,7 @@ describe('Validate', () => {
     )
 
     try {
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         validationName,
         provider,
@@ -50,7 +50,7 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         constructorArgName,
         provider,
@@ -64,7 +64,7 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         noProxyName,
         provider,

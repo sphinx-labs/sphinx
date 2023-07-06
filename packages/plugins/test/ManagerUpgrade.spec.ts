@@ -1,7 +1,7 @@
 import '@nomiclabs/hardhat-ethers'
 
 import hre, { chugsplash } from 'hardhat'
-import { BigNumber, Contract } from 'ethers'
+import { BigNumber, Contract, Signer } from 'ethers'
 import {
   getChugSplashManagerAddress,
   getChugSplashRegistry,
@@ -12,13 +12,19 @@ import {
 } from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-import { owner } from '../chugsplash/manager-upgrade.config'
+const ownerAddress = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'
 
 describe('Manager Upgrade', () => {
   let Stateless: Contract
   let Registry: Contract
+  let owner: Signer
   beforeEach(async () => {
-    Stateless = await chugsplash.getContract('ManagerUpgrade', 'Stateless')
+    owner = await hre.ethers.getSigner(ownerAddress)
+    Stateless = await chugsplash.getContract(
+      'ManagerUpgrade',
+      'Stateless',
+      owner
+    )
     const signer = await hre.ethers.getImpersonatedSigner(
       OWNER_MULTISIG_ADDRESS
     )
@@ -31,13 +37,14 @@ describe('Manager Upgrade', () => {
   })
 
   it('does upgrade chugsplash manager', async () => {
-    const signer = await hre.ethers.getSigner(owner)
-    const managerProxyAddress = getChugSplashManagerAddress(owner)
+    const managerProxyAddress = getChugSplashManagerAddress(
+      await owner.getAddress()
+    )
 
     const ManagerProxy = new Contract(
       managerProxyAddress,
       ChugSplashManagerProxyArtifact.abi,
-      signer
+      owner
     )
 
     await ManagerProxy.upgradeTo(Stateless.address)
@@ -45,7 +52,7 @@ describe('Manager Upgrade', () => {
     const StatelessManager = new Contract(
       ManagerProxy.address,
       Stateless.interface,
-      signer
+      owner
     )
 
     const version = await StatelessManager.version()

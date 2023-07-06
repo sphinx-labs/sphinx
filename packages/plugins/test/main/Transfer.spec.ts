@@ -10,9 +10,8 @@ import {
   getEIP1967ProxyAdminAddress,
   getChugSplashManager,
   contractKindHashes,
-  readValidatedChugSplashConfig,
-  readUserChugSplashConfig,
-  chugsplashRegisterAbstractTask,
+  readParsedOwnerConfig,
+  registerOwner,
   FailureAction,
   getChugSplashManagerAddress,
 } from '@chugsplash/core'
@@ -30,7 +29,7 @@ import { projectName as ownableName } from '../../chugsplash/projects/proxies/UU
 const configPath = './chugsplash/main.config.ts'
 
 describe('Transfer', () => {
-  let signer: SignerWithAddress
+  let owner: SignerWithAddress
   let claimer: providers.JsonRpcSigner
   let claimerAddress: string
   before(async () => {
@@ -41,13 +40,13 @@ describe('Transfer', () => {
     // consistent nonce, which prevents a situation where the addresses of the proxies in this test
     // file don't match the addresses defined in the `address` field of the relevant
     // ChugSplash config files.
-    signer = signers[signers.length - 1]
+    owner = signers[signers.length - 1]
   })
 
   it('did upgrade transparent proxy', async () => {
     const MyTokenV1 = await hre.ethers.getContractFactory(
       'TransparentUpgradableV1',
-      signer
+      owner
     )
     hre.upgrades.silenceWarnings()
     const TransparentUpgradableTokenV1 = await hre.upgrades.deployProxy(
@@ -59,7 +58,7 @@ describe('Transfer', () => {
 
     // check owner is signer
     expect(await TransparentUpgradableTokenV1.owner()).to.equal(
-      signer.address,
+      owner.address,
       'proxy owner is not signer'
     )
 
@@ -72,27 +71,20 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(configPath)
-
     const cre = await createChugSplashRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true,
+      false,
       process.stdout
     )
 
-    await chugsplashRegisterAbstractTask(
-      provider,
-      claimer,
-      userConfig,
-      'hardhat',
-      cre
-    )
+    const ownerAddress = await owner.getAddress()
+    await registerOwner(provider, claimer, claimerAddress, 'hardhat', cre)
 
-    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
+    const managerAddress = getChugSplashManagerAddress(ownerAddress)
 
     const ProxyAdmin = await hre.ethers.getContractAt(
       ProxyAdminArtifact.abi,
@@ -100,7 +92,7 @@ describe('Transfer', () => {
         provider,
         TransparentUpgradableTokenV1.address
       ),
-      signer
+      owner
     )
     await ProxyAdmin.changeProxyAdmin(
       TransparentUpgradableTokenV1.address,
@@ -108,7 +100,7 @@ describe('Transfer', () => {
     )
 
     const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         transparentName,
         provider,
@@ -127,7 +119,6 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig.options.owner,
       parsedConfig.projects[transparentName],
       configCache[transparentName],
       configArtifacts[transparentName],
@@ -137,7 +128,8 @@ describe('Transfer', () => {
 
     const TransparentUpgradableTokenV2 = await chugsplash.getContract(
       transparentName,
-      'Token'
+      'Token',
+      owner
     )
 
     // check upgrade completed successfully
@@ -156,7 +148,7 @@ describe('Transfer', () => {
   it('did upgrade UUPS Ownable proxy', async () => {
     const MyTokenV1 = await hre.ethers.getContractFactory(
       'UUPSOwnableUpgradableV1',
-      signer
+      owner
     )
     hre.upgrades.silenceWarnings()
     const UUPSUpgradableTokenV1 = await hre.upgrades.deployProxy(MyTokenV1, {
@@ -167,7 +159,7 @@ describe('Transfer', () => {
 
     // check owner is signer
     expect(await UUPSUpgradableTokenV1.owner()).to.equal(
-      signer.address,
+      owner.address,
       'proxy owner is not signer'
     )
 
@@ -180,19 +172,17 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(configPath)
-
     const cre = await createChugSplashRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true,
+      false,
       process.stdout
     )
 
-    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
+    const managerAddress = getChugSplashManagerAddress(owner.address)
 
     await UUPSUpgradableTokenV1.transferOwnership(managerAddress)
 
@@ -203,7 +193,7 @@ describe('Transfer', () => {
     )
 
     const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         ownableName,
         provider,
@@ -220,7 +210,6 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig.options.owner,
       parsedConfig.projects[ownableName],
       configCache[ownableName],
       configArtifacts[ownableName],
@@ -243,9 +232,7 @@ describe('Transfer', () => {
     )
 
     // test claim ownership
-    const deployerAddress = getChugSplashManagerAddress(
-      parsedConfig.options.owner
-    )
+    const deployerAddress = getChugSplashManagerAddress(owner.address)
     const manager = getChugSplashManager(deployerAddress, claimer)
 
     await manager.exportProxy(
@@ -266,7 +253,7 @@ describe('Transfer', () => {
   it('did upgrade UUPS Access Control proxy', async () => {
     const MyTokenV1 = await hre.ethers.getContractFactory(
       'UUPSAccessControlUpgradableV1',
-      signer
+      owner
     )
     hre.upgrades.silenceWarnings()
     const UUPSAccessControlUpgradableTokenV1 = await hre.upgrades.deployProxy(
@@ -282,7 +269,7 @@ describe('Transfer', () => {
     expect(
       await UUPSAccessControlUpgradableTokenV1.hasRole(
         ethers.constants.HashZero,
-        signer.address
+        owner.address
       )
     ).to.equal(true, 'proxy owner is not signer')
 
@@ -294,19 +281,17 @@ describe('Transfer', () => {
     const canonicalConfigPath = hre.config.paths.canonicalConfigs
     const deploymentFolder = hre.config.paths.deployments
 
-    const userConfig = await readUserChugSplashConfig(configPath)
-
     const cre = await createChugSplashRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
       hre,
       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
-      true,
+      false,
       process.stdout
     )
 
-    const managerAddress = getChugSplashManagerAddress(userConfig.options.owner)
+    const managerAddress = getChugSplashManagerAddress(owner.address)
 
     await UUPSAccessControlUpgradableTokenV1.grantRole(
       ethers.constants.HashZero,
@@ -322,7 +307,7 @@ describe('Transfer', () => {
     ).to.equal(true, 'proxy owner is not chugsplash manager')
 
     const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         accessControlName,
         provider,
@@ -339,7 +324,6 @@ describe('Transfer', () => {
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig.options.owner,
       parsedConfig.projects[accessControlName],
       configCache[accessControlName],
       configArtifacts[accessControlName],
@@ -364,9 +348,7 @@ describe('Transfer', () => {
     )
 
     // test claiming back ownership
-    const deployerAddress = getChugSplashManagerAddress(
-      parsedConfig.options.owner
-    )
+    const deployerAddress = getChugSplashManagerAddress(owner.address)
     const manager = getChugSplashManager(deployerAddress, claimer)
     await manager.exportProxy(
       UUPSAccessControlUpgradableTokenV2.address,

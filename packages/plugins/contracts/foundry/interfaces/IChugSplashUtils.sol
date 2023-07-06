@@ -65,7 +65,8 @@ interface IChugSplashUtils {
         ConfigCache memory _configCache,
         string memory _projectName,
         string memory _userConfigStr,
-        string memory _rootFfiPath
+        string memory _rootFfiPath,
+        address _owner
     ) external returns (bytes memory);
 
     function decodeBundleInfo(bytes memory _data) external view returns (BundleInfo memory);

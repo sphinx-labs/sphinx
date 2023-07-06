@@ -121,9 +121,9 @@ contract ChugSplash is Script {
         OptionalAddress memory _newOwner
     ) private noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        address signer = utils.msgSender();
+        address owner = utils.msgSender();
 
-        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, owner);
 
         IChugSplashRegistry registry = utils.getChugSplashRegistry();
         IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
@@ -142,20 +142,20 @@ contract ChugSplash is Script {
         require(success, string(utils.removeSelector(retdata)));
         ConfigCache memory configCache = abi.decode(retdata, (ConfigCache));
 
-
         BundleInfo memory bundleInfo = getBundleInfo(
             configCache,
             _projectName,
-            configs.userConfigStr
+            configs.userConfigStr,
+            owner
         );
 
         require(
-            signer == configs.minimalConfig.owner,
+            owner == configs.minimalConfig.owner,
             string(
                 abi.encodePacked(
                     "The signer must match the 'owner' in the ChugSplash config.\n",
                     "Signer: ",
-                    vm.toString(signer),
+                    vm.toString(owner),
                     "\n",
                     "Owner:",
                     vm.toString(configs.minimalConfig.owner)
@@ -165,7 +165,7 @@ contract ChugSplash is Script {
 
         // Claim the project with the signer as the owner. Once we've completed the deployment
         // we'll transfer ownership to the new owner specified by the user, if it exists.
-        register(registry, manager, signer);
+        register(registry, manager, owner);
 
         if (
             bundleInfo.actionBundle.actions.length == 0 &&
@@ -242,7 +242,7 @@ contract ChugSplash is Script {
 
 
         if (_newOwner.exists) {
-            transferProjectOwnership(manager, _newOwner.value, signer);
+            transferProjectOwnership(manager, _newOwner.value, owner);
         }
 
         updateDeploymentMapping(_configPath, _projectName, configs.minimalConfig.contracts);
@@ -266,7 +266,8 @@ contract ChugSplash is Script {
     function getBundleInfo(
         ConfigCache memory _configCache,
         string memory _projectName,
-        string memory _userConfigStr
+        string memory _userConfigStr,
+        address _owner
     ) private returns (BundleInfo memory) {
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
@@ -274,7 +275,8 @@ contract ChugSplash is Script {
                 _configCache,
                 _projectName,
                 _userConfigStr,
-                rootFfiPath
+                rootFfiPath,
+                _owner
             )
         );
         require(success, string(utils.removeSelector(retdata)));
@@ -337,7 +339,7 @@ contract ChugSplash is Script {
     function ffiGetConfigs(
         string memory _configPath,
         string memory _projectName,
-        address owner
+        address _owner
     ) internal returns (Configs memory) {
         string memory ffiScriptPath = string(abi.encodePacked(rootFfiPath, "get-configs.js"));
 
@@ -350,7 +352,7 @@ contract ChugSplash is Script {
         cmds[3] = ffiScriptPath;
         cmds[4] = _configPath;
         cmds[5] = _projectName;
-        cmds[6] = vm.toString(owner);
+        cmds[6] = vm.toString(_owner);
 
         bytes memory result = vm.ffi(cmds);
 

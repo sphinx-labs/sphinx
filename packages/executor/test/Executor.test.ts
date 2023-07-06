@@ -5,10 +5,10 @@ import { Contract } from 'ethers'
 import {
   ProposalRoute,
   chugsplashApproveAbstractTask,
-  chugsplashRegisterAbstractTask,
+  registerOwner,
   chugsplashFundAbstractTask,
   chugsplashProposeAbstractTask,
-  readValidatedChugSplashConfig,
+  readParsedOwnerConfig,
 } from '@chugsplash/core'
 import { expect } from 'chai'
 import { makeGetConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
@@ -28,8 +28,8 @@ describe('Remote Execution', () => {
   let Immutable: Contract
   before(async () => {
     const provider = hre.ethers.provider
-    const signer = provider.getSigner()
-    const signerAddress = await signer.getAddress()
+    const owner = provider.getSigner()
+    const ownerAddress = await owner.getAddress()
 
     const cre = await createChugSplashRuntime(
       true,
@@ -41,7 +41,7 @@ describe('Remote Execution', () => {
     )
 
     const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         provider,
         cre,
@@ -49,20 +49,12 @@ describe('Remote Execution', () => {
       )
 
     // claim
-    await chugsplashRegisterAbstractTask(
-      provider,
-      signer,
-      parsedConfig,
-      true,
-      signerAddress,
-      'hardhat',
-      cre
-    )
+    await registerOwner(provider, owner, true, ownerAddress, 'hardhat', cre)
 
     // fund
     await chugsplashFundAbstractTask(
       provider,
-      signer,
+      owner,
       configPath,
       configArtifacts,
       'hardhat',
@@ -73,7 +65,7 @@ describe('Remote Execution', () => {
 
     await chugsplashProposeAbstractTask(
       provider,
-      signer,
+      owner,
       parsedConfig,
       configPath,
       '',
@@ -88,7 +80,7 @@ describe('Remote Execution', () => {
     await chugsplashApproveAbstractTask(
       configCache,
       provider,
-      signer,
+      owner,
       configPath,
       false,
       configArtifacts,
@@ -99,12 +91,14 @@ describe('Remote Execution', () => {
 
     Proxy = await chugsplash.getContract(
       parsedConfig.options.projectName,
-      'ExecutorProxyTest'
+      'ExecutorProxyTest',
+      owner
     )
 
     Immutable = await chugsplash.getContract(
       parsedConfig.options.projectName,
-      'ExecutorImmutableTest'
+      'ExecutorImmutableTest',
+      owner
     )
   })
 

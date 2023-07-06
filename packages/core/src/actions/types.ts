@@ -187,6 +187,18 @@ export type ContractInfo = {
   addr: string
 }
 
+export enum AuthStatus {
+  EMPTY,
+  PROPOSED,
+  COMPLETED,
+}
+
+export type AuthState = {
+  status: AuthStatus
+  leafsExecuted: BigNumber
+  numLeafs: BigNumber
+}
+
 interface Setup extends BaseAuthLeaf {
   leafType: AuthLeafType.SETUP
   proposers: Array<SetRoleMember>

@@ -12,6 +12,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  AuthFactoryABI,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -30,6 +31,8 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
 } from '../../addresses'
 import {
   isSupportedNetworkOnEtherscan,
@@ -312,6 +315,36 @@ export const initializeChugSplash = async (
   }
 
   logger?.info('[ChugSplash]: set the default ChugSplashManager version')
+
+  logger?.info('[ChugSplash]: setting the default ChugSplashAuth version')
+
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    signer
+  )
+
+  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
+    await (
+      await AuthFactory.addVersion(
+        AUTH_IMPL_V1_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  if (
+    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
+  ) {
+    await (
+      await AuthFactory.setCurrentAuthImplementation(
+        AUTH_IMPL_V1_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  logger?.info('[ChugSplash]: set the default ChugSplashAuth version')
 
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'

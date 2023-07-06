@@ -4,14 +4,14 @@
 // import hre from 'hardhat'
 // import { Contract } from 'ethers'
 // import {
-//   chugsplashRegisterAbstractTask,
+//   registerOwner,
 //   chugsplashProposeAbstractTask,
 //   register,
 //   FORWARDER_ADDRESS,
 //   getChugSplashManager,
 //   getChugSplashRegistry,
 //   ProposalRoute,
-//   readValidatedChugSplashConfig,
+//   readParsedOwnerConfig,
 // } from '@chugsplash/core'
 // import { ForwarderArtifact } from '@chugsplash/contracts'
 // import { expect } from 'chai'
@@ -43,7 +43,7 @@
 //     )
 
 //     const { parsedConfig, configArtifacts, configCache } =
-//       await readValidatedChugSplashConfig(
+//       await readParsedOwnerConfig(
 //         configPath,
 //         projectName,
 //         provider,
@@ -51,10 +51,9 @@
 //         makeGetConfigArtifacts(hre)
 //       )
 
-//     // await chugsplashRegisterAbstractTask(
+//     // await registerOwner(
 //     //   provider,
 //     //   signer,
-//     //   parsedConfig,
 //     //   false,
 //     //   signerAddress,
 //     //   'hardhat',

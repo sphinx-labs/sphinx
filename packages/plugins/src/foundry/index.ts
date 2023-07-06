@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 
 import {
-  readValidatedChugSplashConfig,
+  readParsedOwnerConfig,
   readUserChugSplashConfig,
   ProposalRoute,
   getChugSplashRegistryReadOnly,
@@ -62,7 +62,7 @@ const command = args[0]
     //     )
 
     //     const { parsedConfig, configArtifacts, configCache } =
-    //       await readValidatedChugSplashConfig(
+    //       await readParsedOwnerConfig(
     //         configPath,
     //         projectName,
     //         provider,
@@ -168,16 +168,14 @@ const command = args[0]
       const { canonicalConfigFolder, deploymentFolder, cachePath } =
         await getFoundryConfigOptions()
 
-      const configPath = args[1]
-      const networkName = args[2]
-      const rpcUrl = args[3]
+      const networkName = args[1]
+      const rpcUrl = args[2]
+      const ownerAddress = args[3]
 
       const provider: ethers.providers.JsonRpcProvider =
         new ethers.providers.JsonRpcProvider(rpcUrl)
 
-      const config = await readUserChugSplashConfig(configPath)
-
-      const deployer = getChugSplashManagerAddress(config.options.owner)
+      const deployer = getChugSplashManagerAddress(ownerAddress)
       const manager = getChugSplashManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.

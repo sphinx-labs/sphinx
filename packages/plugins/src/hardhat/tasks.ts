@@ -5,7 +5,6 @@ import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
   TASK_TEST,
-  TASK_RUN,
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import {
@@ -16,7 +15,7 @@ import {
   chugsplashCancelAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
-  readValidatedChugSplashConfig,
+  readParsedOwnerConfig,
   ensureChugSplashInitialized,
   isHardhatFork,
   isLocalNetwork,
@@ -24,11 +23,12 @@ import {
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { Signer } from 'ethers/lib/ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import {
   deployAllChugSplashProjects,
-  getSignerFromOwnerAddress,
+  getSignerFromAddress,
 } from './deployments'
 import { makeGetConfigArtifacts } from './artifacts'
 import { createChugSplashRuntime } from '../cre'
@@ -60,8 +60,9 @@ export const chugsplashDeployTask = async (
     newOwner: string
     silent: boolean
     noCompile: boolean
-    confirm: boolean
-    signer: string | undefined
+    confirmUpgrade?: boolean
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
@@ -71,10 +72,16 @@ export const chugsplashDeployTask = async (
     newOwner,
     silent,
     noCompile,
-    confirm,
-    signer: signerAddress,
+    confirmUpgrade,
+    signer,
+    useDefaultSigner,
   } = args
   const spinner = ora({ isSilent: silent })
+
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
+
+  const provider = hre.ethers.provider
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -86,17 +93,13 @@ export const chugsplashDeployTask = async (
 
   const cre = await createChugSplashRuntime(
     false,
-    confirm,
+    confirmUpgrade,
     hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
 
-  const ownerAddress =
-    signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
-
-  const provider = hre.ethers.provider
-  await ensureChugSplashInitialized(provider, hre.ethers.provider.getSigner())
+  await ensureChugSplashInitialized(provider, provider.getSigner())
 
   spinner.succeed('ChugSplash is ready!')
 
@@ -104,7 +107,7 @@ export const chugsplashDeployTask = async (
   const deploymentFolder = hre.config.paths.deployments
 
   const { parsedConfig, configCache, configArtifacts } =
-    await readValidatedChugSplashConfig(
+    await readParsedOwnerConfig(
       configPath,
       project,
       provider,
@@ -113,27 +116,19 @@ export const chugsplashDeployTask = async (
       ownerAddress
     )
 
-  const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
-
-  const projectNames =
-    project === 'all' ? Object.keys(parsedConfig.projects) : [project]
-
-  for (const name of projectNames) {
-    await chugsplashDeployAbstractTask(
-      provider,
-      signer,
-      canonicalConfigPath,
-      deploymentFolder,
-      'hardhat',
-      cre,
-      parsedConfig.options.owner,
-      parsedConfig.projects[name],
-      configCache[name],
-      configArtifacts[name],
-      newOwner,
-      spinner
-    )
-  }
+  await chugsplashDeployAbstractTask(
+    provider,
+    owner,
+    canonicalConfigPath,
+    deploymentFolder,
+    'hardhat',
+    cre,
+    parsedConfig.projects[project],
+    configCache[project],
+    configArtifacts[project],
+    newOwner,
+    spinner
+  )
 }
 
 task(TASK_CHUGSPLASH_DEPLOY)
@@ -142,7 +137,11 @@ task(TASK_CHUGSPLASH_DEPLOY)
   .addParam('project', 'The name of the project to deploy')
   .addOptionalParam(
     'signer',
-    'Signer to use for the deployment. If unspecified, defaults to the first configured signer.'
+    'Address of the signer that deploys the ChugSplash config.'
+  )
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
   )
   .addOptionalParam(
     'newOwner',
@@ -150,10 +149,10 @@ task(TASK_CHUGSPLASH_DEPLOY)
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
-  .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
+  // .addFlag(
+  //   'confirmUpgrade',
+  //   'Automatically confirm contract upgrade. Only applicable if upgrading on a live network.'
+  // )
   .setAction(chugsplashDeployTask)
 
 // TODO(propose)
@@ -185,7 +184,7 @@ export const chugsplashProposeTask = async () =>
     //   const signer = hre.ethers.provider.getSigner()
     //   await ensureChugSplashInitialized(provider, signer)
     //   const { parsedConfig, configArtifacts, configCache } =
-    //     await readValidatedChugSplashConfig(
+    //     await readParsedOwnerConfig(
     //       configPath,
     //       project,
     //       provider,
@@ -227,11 +226,6 @@ task(TASK_CHUGSPLASH_PROPOSE)
   .setAction(chugsplashProposeTask)
 
 task(TASK_NODE)
-  .addOptionalParam('configPath', 'Path to chugsplash config')
-  .addOptionalParam(
-    'signer',
-    'Signer to use for the deployment. If unspecified, defaults to the first configured signer.'
-  )
   .addFlag(
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
@@ -241,57 +235,31 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        configPath: string
         disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
-        confirm: boolean
-        signer: string | undefined
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const {
-        configPath,
-        disableChugsplash,
-        hide: silent,
-        noCompile,
-        signer: signerAddress,
-      } = args
+      const { disableChugsplash, hide: silent, noCompile } = args
+
+      if (!noCompile) {
+        await hre.run(TASK_COMPILE, {
+          quiet: true,
+        })
+      }
 
       if (!disableChugsplash) {
         const spinner = ora({ isSilent: silent })
         spinner.start('Booting up ChugSplash...')
 
-        const ownerAddress =
-          signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
-
-        const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
-
-        await ensureChugSplashInitialized(hre.ethers.provider, signer)
+        await ensureChugSplashInitialized(
+          hre.ethers.provider,
+          hre.ethers.provider.getSigner()
+        )
 
         spinner.succeed('ChugSplash has been initialized.')
-
-        if (configPath) {
-          if (!configPath) {
-            throw Error('Must specify a config path to deploy all projects')
-          }
-          if (!noCompile) {
-            await hre.run(TASK_COMPILE, {
-              quiet: true,
-            })
-          }
-          await deployAllChugSplashProjects(hre, silent, configPath, signer)
-          const networkName = await resolveNetworkName(
-            hre.ethers.provider,
-            'hardhat'
-          )
-          await writeSnapshotId(
-            hre.ethers.provider,
-            networkName,
-            hre.config.paths.deployments
-          )
-        }
       }
       await runSuper(args)
     }
@@ -299,25 +267,29 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .setDescription(
-    // TODO: is this still true?
     `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addOptionalParam(
+    'signer',
+    'Address of the signer that deploys the ChugSplash config.'
+  )
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
+  )
   .addOptionalParam(
     'configPath',
     'Optional path to the single ChugSplash config file to test.'
   )
   .addOptionalParam(
     'project',
-    'Optional name of a ChugSplash project to test. Format must be a comma-separated string.'
+    'Name of a ChugSplash project to deploy before running the tests.'
   )
   .addOptionalParam(
     'projects',
-    'Optional names of to ChugSplash projects to test. Format must be a comma-separated string.'
-  )
-  .addOptionalParam(
-    'signer',
-    'Signer to use for the deployment. If unspecified, defaults to the first configured signer.'
+    `Names of ChugSplash projects to deploy before running the tests.` +
+      `Format must be a comma-separated string, such as: 'Project1, Project2'.`
   )
   .setAction(
     async (
@@ -328,7 +300,8 @@ task(TASK_TEST)
         configPath: string
         project: string
         projects: string
-        signer: string | undefined
+        signer?: string
+        useDefaultSigner?: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
@@ -339,13 +312,10 @@ task(TASK_TEST)
         configPath,
         project,
         projects,
-        signer: signerAddress,
+        signer,
+        useDefaultSigner,
       } = args
 
-      const ownerAddress =
-        signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
-
-      const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
         'hardhat'
@@ -369,7 +339,10 @@ task(TASK_TEST)
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await ensureChugSplashInitialized(hre.ethers.provider, signer)
+          await ensureChugSplashInitialized(
+            hre.ethers.provider,
+            hre.ethers.provider.getSigner()
+          )
           if (!noCompile) {
             await hre.run(TASK_COMPILE, {
               quiet: true,
@@ -377,18 +350,24 @@ task(TASK_TEST)
           }
 
           if (configPath) {
-            let projectNames: string[] | undefined
+            let projectNames: string[]
             if (project) {
               projectNames = [project]
             } else if (projects) {
               projectNames = projects.replace(/\s+/g, '').split(',')
+            } else {
+              throw new Error(
+                'Must specify a ChugSplash project name using --project or --projects'
+              )
             }
+
+            const owner = await resolveOwner(hre, signer, useDefaultSigner)
 
             await deployAllChugSplashProjects(
               hre,
               silent,
               configPath,
-              signer,
+              owner,
               projectNames
             )
           } else {
@@ -407,42 +386,6 @@ task(TASK_TEST)
     }
   )
 
-task(TASK_RUN)
-  .addOptionalParam('configPath', 'Path to ChugSplash config file')
-  .addOptionalParam(
-    'signer',
-    'Signer to use for the deployment. If unspecified, defaults to the first configured signer.'
-  )
-  .setAction(
-    async (
-      args: {
-        configPath: string
-        noCompile: boolean
-        signer: string | undefined
-      },
-      hre: HardhatRuntimeEnvironment,
-      runSuper
-    ) => {
-      const { configPath, noCompile, signer: signerAddress } = args
-
-      if (configPath) {
-        const ownerAddress =
-          signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
-
-        const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
-
-        await ensureChugSplashInitialized(hre.ethers.provider, signer)
-        if (!noCompile) {
-          await hre.run(TASK_COMPILE, {
-            quiet: true,
-          })
-        }
-        await deployAllChugSplashProjects(hre, true, configPath, signer)
-      }
-      await runSuper(args)
-    }
-  )
-
 export const chugsplashCancelTask = async (
   args: {
     configPath: string
@@ -450,7 +393,7 @@ export const chugsplashCancelTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, project } = args
+  const { project } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -463,14 +406,7 @@ export const chugsplashCancelTask = async (
     false
   )
 
-  await chugsplashCancelAbstractTask(
-    provider,
-    signer,
-    project,
-    configPath,
-    'hardhat',
-    cre
-  )
+  await chugsplashCancelAbstractTask(provider, signer, project, 'hardhat', cre)
 }
 
 task(TASK_CHUGSPLASH_CANCEL)
@@ -485,7 +421,8 @@ export const exportProxyTask = async (
     configPath: string
     referenceName: string
     silent: boolean
-    signer: string | undefined
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
@@ -494,7 +431,8 @@ export const exportProxyTask = async (
     project,
     referenceName,
     silent,
-    signer: signerAddress,
+    signer,
+    useDefaultSigner,
   } = args
   const cre = await createChugSplashRuntime(
     false,
@@ -506,12 +444,10 @@ export const exportProxyTask = async (
 
   const provider = hre.ethers.provider
 
-  const ownerAddress =
-    signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
 
-  const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
-
-  const { parsedConfig } = await readValidatedChugSplashConfig(
+  const { parsedConfig } = await readParsedOwnerConfig(
     configPath,
     project,
     provider,
@@ -522,8 +458,7 @@ export const exportProxyTask = async (
 
   await chugsplashExportProxyAbstractTask(
     provider,
-    signer,
-    configPath,
+    owner,
     project,
     referenceName,
     'hardhat',
@@ -540,14 +475,15 @@ task(TASK_CHUGSPLASH_EXPORT_PROXY)
     'configPath',
     'Path to the ChugSplash config file for the project that owns the target contract'
   )
+  .addOptionalParam('signer', 'Address of the signer to use.')
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config file.'
+  )
   .addParam('project', 'The name of the project this proxy is a part of')
   .addParam(
     'referenceName',
     'Reference name of the contract that should be transferred to you'
-  )
-  .addOptionalParam(
-    'signer',
-    'Signer to use. If unspecified, defaults to the first configured signer.'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(exportProxyTask)
@@ -556,18 +492,17 @@ export const importProxyTask = async (
   args: {
     proxy: string
     silent: boolean
-    signer: string
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { proxy, silent, signer: signerAddress } = args
+  const { proxy, silent, signer, useDefaultSigner } = args
+
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
 
   const provider = hre.ethers.provider
-
-  const ownerAddress =
-    signerAddress ?? (await hre.ethers.provider.getSigner().getAddress())
-
-  const signer = await getSignerFromOwnerAddress(hre, ownerAddress)
 
   const cre = await createChugSplashRuntime(
     false,
@@ -579,10 +514,10 @@ export const importProxyTask = async (
 
   await chugsplashImportProxyAbstractTask(
     provider,
-    signer,
+    owner,
     proxy,
     'hardhat',
-    signerAddress,
+    ownerAddress,
     cre
   )
 }
@@ -593,13 +528,14 @@ task(TASK_CHUGSPLASH_IMPORT_PROXY)
     'configPath',
     'Path to the ChugSplash config file for the project that you would like to own the target contract'
   )
+  .addOptionalParam('signer', 'Address of the signer to use.')
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config file.'
+  )
   .addParam(
     'proxy',
     'Address of the contract that should have its ownership transferred to ChugSplash.'
-  )
-  .addOptionalParam(
-    'signer',
-    'Signer to use. If unspecified, defaults to the first configured signer.'
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .setAction(importProxyTask)
@@ -637,3 +573,23 @@ task(TASK_CHUGSPLASH_INIT)
   .setDescription('Sets up a ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's logs")
   .setAction(chugsplashInitTask)
+
+const resolveOwner = async (
+  hre: HardhatRuntimeEnvironment,
+  signerAddress?: string,
+  useDefaultSigner?: boolean
+): Promise<Signer> => {
+  if (!signerAddress && !useDefaultSigner) {
+    throw new Error(
+      'Must specify either --signer <address> or --default-signer'
+    )
+  } else if (signerAddress && useDefaultSigner) {
+    throw new Error(
+      'Cannot specify both --signer <address> and --default-signer'
+    )
+  } else if (signerAddress) {
+    return getSignerFromAddress(hre, signerAddress)
+  } else {
+    return hre.ethers.provider.getSigner()
+  }
+}

@@ -1,14 +1,20 @@
 import { expect } from 'chai'
-import { chugsplash } from 'hardhat'
-import { Contract, ethers } from 'ethers'
+import { chugsplash, ethers } from 'hardhat'
+import { Contract } from 'ethers'
 import '@nomiclabs/hardhat-ethers'
 
 describe('Create3', () => {
   let Stateless: Contract
   let StatelessWithSalt: Contract
   before(async () => {
-    Stateless = await chugsplash.getContract('Storage', 'Stateless')
-    StatelessWithSalt = await chugsplash.getContract('Create3', 'Stateless', 1)
+    const owner = ethers.provider.getSigner()
+    Stateless = await chugsplash.getContract('Storage', 'Stateless', owner)
+    StatelessWithSalt = await chugsplash.getContract(
+      'Create3',
+      'Stateless',
+      owner,
+      1
+    )
   })
 
   it('has different address than contract without salt', () => {

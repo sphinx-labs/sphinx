@@ -1,4 +1,4 @@
-import { chugsplash } from 'hardhat'
+import { chugsplash, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
@@ -16,16 +16,23 @@ describe('Storage', () => {
   let Stateless: Contract
   let ComplexConstructorArgs: Contract
   before(async () => {
-    MyStorage = await chugsplash.getContract('Storage', 'MyStorage')
+    const owner = ethers.provider.getSigner()
+    MyStorage = await chugsplash.getContract('Storage', 'MyStorage', owner)
     MyOtherImmutables = await chugsplash.getContract(
       'Storage',
-      'MyOtherImmutables'
+      'MyOtherImmutables',
+      owner
     )
-    MySimpleStorage = await chugsplash.getContract('Storage', 'MySimpleStorage')
-    Stateless = await chugsplash.getContract('Storage', 'Stateless')
+    MySimpleStorage = await chugsplash.getContract(
+      'Storage',
+      'MySimpleStorage',
+      owner
+    )
+    Stateless = await chugsplash.getContract('Storage', 'Stateless', owner)
     ComplexConstructorArgs = await chugsplash.getContract(
       'Storage',
-      'ComplexConstructorArgs'
+      'ComplexConstructorArgs',
+      owner
     )
   })
 

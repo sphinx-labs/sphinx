@@ -77,9 +77,7 @@ export type ParsedConfigVariable =
     }
 
 export interface UserChugSplashConfig {
-  options: {
-    owner: string
-  }
+  options?: OrgConfigOptions
   projects: UserProjectConfigs
 }
 
@@ -94,10 +92,28 @@ export type UserProjectConfigs = {
   [projectName: string]: UserProjectConfig
 }
 
+// TODO(docs): explain the importance of "never"
+export type OrgConfigOptions = {
+  orgOwners: Array<string>
+  orgOwnerThreshold: number
+  proposers: Array<string>
+  managers: Array<string>
+  owner?: never
+}
+
+// TODO(docs): explain the importance of "never"
+export type OwnerConfigOptions = {
+  owner: string
+  orgOwnerThreshold?: never
+  orgOwners?: never
+  proposers?: never
+  managers?: never
+}
+
+export type ConfigOptions = OwnerConfigOptions | OrgConfigOptions
+
 export interface ParsedChugSplashConfig {
-  options: {
-    owner: string
-  }
+  options: ConfigOptions
   projects: ParsedProjectConfigs
 }
 

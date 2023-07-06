@@ -19,17 +19,17 @@ import {
 import { ChugSplashConstants } from "./ChugSplashConstants.sol";
 
 contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
-    function generateArtifacts(string memory _configPath, string memory _rpcUrl) internal {
+    function generateArtifacts(address _owner, string memory _rpcUrl) internal {
         string memory networkName = utils.getChainAlias(_rpcUrl);
 
-        string[] memory cmds = new string[](10);
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
         cmds[3] = "generateArtifacts";
-        cmds[4] = _configPath;
-        cmds[5] = networkName;
-        cmds[6] = _rpcUrl;
+        cmds[4] = networkName;
+        cmds[5] = _rpcUrl;
+        cmds[6] = vm.toString(_owner);
 
         vm.ffi(cmds);
 

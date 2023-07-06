@@ -10,9 +10,10 @@ import {
   writeSnapshotId,
   resolveNetworkName,
   readUserChugSplashConfig,
-  readValidatedChugSplashConfig,
+  readParsedOwnerConfig,
   getChugSplashManagerAddress,
   getTargetAddress,
+  UserSalt,
 } from '@chugsplash/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
@@ -37,13 +38,13 @@ export const fetchFilesRecursively = (dir): string[] => {
 }
 
 /**
- * Returns the signer for the given owner address. This is different from Hardhat's `getSigners`
- * function because it will throw an error if the signer is not found.
+ * Returns the signer for the given address. This is different from Hardhat's `getSigners` function
+ * because it will throw an error if the signer does not exist in the user's Hardhat config file.
  *
  * @param hre Hardhat Runtime Environment.
  * @param address Address of the signer.
  */
-export const getSignerFromOwnerAddress = async (
+export const getSignerFromAddress = async (
   hre: HardhatRuntimeEnvironment,
   address: string
 ): Promise<ethers.Signer> => {
@@ -53,9 +54,8 @@ export const getSignerFromOwnerAddress = async (
   if (!signer) {
     const { chainId } = await hre.ethers.provider.getNetwork()
     throw new Error(
-      `Could not find the signer for the owner: ${address}.\n` +
-        `Please change the 'owner' address in your ChugSplash config file or include\n` +
-        `this signer in your Hardhat config file for the chain ID: ${chainId}`
+      `Could not find the signer for the address: ${address}.\n` +
+        `Please include this signer in your Hardhat config file for the chain ID: ${chainId}`
     )
   }
   return signer
@@ -72,12 +72,11 @@ export const deployAllChugSplashProjects = async (
   silent: boolean,
   configPath: string,
   signer: Signer,
-  projectNames?: string[]
+  projectNames: string[]
 ) => {
   const spinner = ora({ isSilent: silent })
 
   const provider = hre.ethers.provider
-  // TODO: do this everywhere else you call the deployabstracttask
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -91,16 +90,9 @@ export const deployAllChugSplashProjects = async (
     silent
   )
 
-  if (!projectNames) {
-    const userConfig = await readUserChugSplashConfig(configPath)
-    projectNames = projectNames
-      ? projectNames
-      : Object.keys(userConfig.projects)
-  }
-
   for (const projectName of projectNames) {
     const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
+      await readParsedOwnerConfig(
         configPath,
         projectName,
         hre.ethers.provider,
@@ -117,7 +109,6 @@ export const deployAllChugSplashProjects = async (
       deploymentFolder,
       'hardhat',
       cre,
-      parsedConfig.options.owner,
       projectConfig,
       configCache[projectName],
       configArtifacts[projectName],
@@ -131,7 +122,8 @@ export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
   referenceName: string,
-  userSalt?: string
+  owner: Signer,
+  userSalt?: UserSalt
 ): Promise<ethers.Contract> => {
   const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.chugsplash
@@ -175,7 +167,7 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
-  const deployer = getChugSplashManagerAddress(userConfig.config.options.owner)
+  const deployer = getChugSplashManagerAddress(await owner.getAddress())
   const project = userConfig.config.projects[projectName]
   const contractConfig = project.contracts[referenceName]
 

@@ -11,6 +11,7 @@ import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
   UserChugSplashConfig,
+  getChugSplashManagerAddress,
   writeCanonicalConfig,
 } from '@chugsplash/core/dist'
 
@@ -31,6 +32,7 @@ const userConfigStr = args[1]
 const userConfig: UserChugSplashConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
 const projectName = args[3]
+const ownerAddress = args[4]
 
 ;(async () => {
   process.stderr.write = validationStderrWrite
@@ -85,15 +87,14 @@ const projectName = args[3]
       userConfig.projects[projectName].contracts
     )
 
+    const deployerAddress = getChugSplashManagerAddress(ownerAddress)
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       userConfig.projects[projectName],
       projectName,
       projectConfigArtifacts,
       cre,
       FailureAction.THROW,
-      // The owner here was set when the user config was fetched in
-      // ffiGetConfigs, so it may not necessarily match the one in the file
-      userConfig.options.owner
+      deployerAddress
     )
 
     await projectPostParsingValidation(

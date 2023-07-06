@@ -23,6 +23,9 @@ import {
   LZEndpointMockArtifact,
   LZSenderArtifact,
   LZReceiverArtifact,
+  AuthFactoryArtifact,
+  AuthProxyArtifact,
+  AuthArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -215,6 +218,36 @@ export const getLZReceiverAddress = (endpointAddress: string) => {
   )
 }
 
+export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      AuthFactoryArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getOwnerAddress()]
+      ),
+    ]
+  )
+)
+
+export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      AuthArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['uint256', 'uint256', 'uint256'],
+        [1, 0, 0]
+      ),
+    ]
+  )
+)
+
 export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
@@ -248,7 +281,7 @@ export const getChugSplashManagerV1Address = () =>
   )
 
 export const getChugSplashManagerAddress = (owner: string) => {
-  // We set the saltNonce to 0 for now since we can safely assume that each owner
+  // We set the saltNonce to 0 since we can safely assume that each owner
   // will only have one manager contract for now.
   const salt = utils.keccak256(
     utils.defaultAbiCoder.encode(
@@ -261,6 +294,47 @@ export const getChugSplashManagerAddress = (owner: string) => {
     getChugSplashRegistryAddress(),
     salt,
     getManagerProxyInitCodeHash()
+  )
+}
+
+export const getAuthData = (
+  orgOwners: Array<string>,
+  orgOwnerThreshold: number
+): string => {
+  return utils.defaultAbiCoder.encode(
+    ['address[]', 'uint256'],
+    [orgOwners, orgOwnerThreshold]
+  )
+}
+
+export const getAuthSalt = (authData: string): string => {
+  // We set the saltNonce to 0 since we can safely assume that each owner
+  // will only have one manager contract for now.
+  return utils.keccak256(
+    utils.defaultAbiCoder.encode(['bytes', 'uint256'], [authData, 0])
+  )
+}
+
+export const getAuthAddress = (
+  orgOwners: Array<string>,
+  orgOwnerThreshold: number
+): string => {
+  const authData = getAuthData(orgOwners, orgOwnerThreshold)
+  const salt = getAuthSalt(authData)
+
+  return utils.getCreate2Address(
+    AUTH_FACTORY_ADDRESS,
+    salt,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        AuthProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
+        ),
+      ]
+    )
   )
 }
 

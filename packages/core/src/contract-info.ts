@@ -15,6 +15,8 @@ import {
   ProxyArtifact,
   LZSenderArtifact,
   LZReceiverArtifact,
+  AuthFactoryArtifact,
+  AuthArtifact,
 } from '@chugsplash/contracts'
 
 import { ContractArtifact } from './languages/solidity/types'
@@ -37,6 +39,8 @@ import {
   getLZSenderAddress,
   getLZReceiverAddress,
   getMockEndPointAddress,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
 } from './addresses'
 import { LAYERZERO_ENDPOINT_ADDRESSES } from './constants'
 
@@ -128,6 +132,16 @@ export const getChugSplashConstants = (
       artifact: LZReceiverArtifact,
       expectedAddress: getLZReceiverAddress(lzEndpointAddress),
       constructorArgs: [lzEndpointAddress, getOwnerAddress()],
+    },
+    {
+      artifact: AuthArtifact,
+      expectedAddress: AUTH_IMPL_V1_ADDRESS,
+      constructorArgs: [[1, 0, 0]],
+    },
+    {
+      artifact: AuthFactoryArtifact,
+      expectedAddress: AUTH_FACTORY_ADDRESS,
+      constructorArgs: [getChugSplashRegistryAddress(), getOwnerAddress()],
     },
   ]
 }

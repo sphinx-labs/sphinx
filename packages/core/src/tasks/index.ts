@@ -79,22 +79,21 @@ import { getChugSplashManagerAddress } from '../addresses'
 // Load environment variables from .env
 dotenv.config()
 
-export const chugsplashRegisterAbstractTask = async (
+export const registerOwner = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  config: UserChugSplashConfig | ParsedChugSplashConfig,
+  ownerAddress: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const { owner } = config.options
-  const deployer = getChugSplashManagerAddress(owner)
+  const deployer = getChugSplashManagerAddress(ownerAddress)
 
   const registry = getChugSplashRegistry(signer)
   const manager = getChugSplashManager(deployer, signer)
 
-  await register(registry, manager, owner, provider, spinner)
+  await register(registry, manager, ownerAddress, provider, spinner)
 
   const networkName = await resolveNetworkName(provider, integration)
   const projectOwner = await getChugSplashManager(deployer, signer).owner()
@@ -459,7 +458,6 @@ export const chugsplashDeployAbstractTask = async (
   deploymentFolder: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment,
-  configOwner: string, // TODO: rm
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigCache: ProjectConfigCache,
   projectConfigArtifacts: ProjectConfigArtifacts,
@@ -682,30 +680,29 @@ export const postDeploymentActions = async (
 
 export const chugsplashCancelAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer,
+  owner: ethers.Signer,
   projectName: string,
-  configPath: string,
   integration: Integration,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
 
-  const userConfig = await readUserChugSplashConfig(configPath)
-  const deployer = getChugSplashManagerAddress(userConfig.options.owner)
+  const ownerAddress = await owner.getAddress()
+  const deployer = getChugSplashManagerAddress(ownerAddress)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
-  const registry = getChugSplashRegistry(signer)
-  const manager = getChugSplashManager(deployer, signer)
+  const registry = getChugSplashRegistry(owner)
+  const manager = getChugSplashManager(deployer, owner)
 
   if (!(await isProjectRegistered(registry, manager.address))) {
     throw new Error(`Project has not been registered yet.`)
   }
 
-  const projectOwnerAddress = await manager.owner()
-  if (projectOwnerAddress !== (await signer.getAddress())) {
-    throw new Error(`Project is owned by: ${projectOwnerAddress}.
-You attempted to cancel the project using the address: ${await signer.getAddress()}`)
+  const currOwner = await manager.owner()
+  if (currOwner !== ownerAddress) {
+    throw new Error(`Project is owned by: ${currOwner}.
+You attempted to cancel the project using the address: ${await owner.getAddress()}`)
   }
 
   const activeDeploymentId = await manager.activeDeploymentId()
@@ -730,9 +727,8 @@ You attempted to cancel the project using the address: ${await signer.getAddress
 
 export const chugsplashExportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer,
-  configPath: string,
-  projectNamel: string,
+  owner: ethers.Signer,
+  projectName: string,
   referenceName: string,
   integration: Integration,
   parsedConfig: ParsedChugSplashConfig,
@@ -741,10 +737,11 @@ export const chugsplashExportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const deployer = getChugSplashManagerAddress(parsedConfig.options.owner)
+  const ownerAddress = await owner.getAddress()
+  const deployer = getChugSplashManagerAddress(ownerAddress)
 
-  const registry = getChugSplashRegistry(signer)
-  const manager = getChugSplashManager(deployer, signer)
+  const registry = getChugSplashRegistry(owner)
+  const manager = getChugSplashManager(deployer, owner)
 
   // Throw an error if the project has not been registered
   if ((await isProjectRegistered(registry, manager.address)) === false) {
@@ -753,7 +750,7 @@ export const chugsplashExportProxyAbstractTask = async (
 
   const projectOwner = await manager.owner()
 
-  const signerAddress = await signer.getAddress()
+  const signerAddress = await owner.getAddress()
   if (projectOwner !== signerAddress) {
     throw new Error(`Caller does not own the organization.`)
   }
@@ -770,7 +767,7 @@ export const chugsplashExportProxyAbstractTask = async (
   }
 
   const targetContract =
-    parsedConfig.projects[projectNamel].contracts[referenceName]
+    parsedConfig.projects[projectName].contracts[referenceName]
   await (
     await manager.exportProxy(
       targetContract.address,

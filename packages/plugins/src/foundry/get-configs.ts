@@ -6,13 +6,12 @@ import {
   readUserChugSplashConfig,
 } from '@chugsplash/core/dist/config/config'
 
-import { getFoundryConfigOptions } from './options'
 import { getEncodedFailure, validationStderrWrite } from './logs'
 
 const args = process.argv.slice(2)
 const configPath = args[0]
 const projectName = args[1]
-const owner = args[2]
+const ownerAddress = args[2]
 
 // This function is in its own file to minimize the number of dependencies that are imported, as
 // this speeds up the execution time of the script when called via FFI from Foundry.
@@ -23,14 +22,13 @@ const owner = args[2]
       throw Error('No project name provided')
     }
 
-    const [userConfig] = await Promise.all([
-      readUserChugSplashConfig(configPath),
-      getFoundryConfigOptions(),
-    ])
+    const userConfig = await readUserChugSplashConfig(configPath)
 
-    // Default owner to passed in owner
-    userConfig.options.owner = owner
-    const minimalConfig = getMinimalConfig(userConfig, projectName, owner)
+    const minimalConfig = getMinimalConfig(
+      userConfig,
+      projectName,
+      ownerAddress
+    )
 
     const rootImportPath =
       process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
