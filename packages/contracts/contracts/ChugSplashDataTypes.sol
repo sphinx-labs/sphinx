@@ -180,23 +180,42 @@ struct ActionProof {
     bytes32[] siblings;
 }
 
-struct AuthAction {
-    uint256 chainId;
-    address from;
-    address to;
-    uint256 nonce;
-    bytes data;
-}
-
 struct ContractInfo {
     string referenceName;
     address addr;
 }
 
+/**
+ * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
+   authenticated action taken by a permissioned account such as an organization owner or proposer.
+ *
+ * @custom:field chainId The chain ID for the leaf to be executed on.
+ * @custom:field from The address that signed the Merkle root of the leaf.
+ * @custom:field to The address that is the subject of the data in this leaf. This should always be
+                 a ChugSplashManager.
+ * @custom:field index The index of the leaf. Each index must be unique on a chain, and start from
+                 zero. Leafs must be executed in ascending order according to their index. This
+                 makes it possible to ensure that leafs in an Auth tree will be executed in a
+                 certain order, e.g. creating a proposal then approving it.
+ */
+struct AuthLeaf {
+    uint256 chainId;
+    address from;
+    address to;
+    uint256 index;
+    bytes data;
+}
+
+/**
+ * @notice Struct representing the state of an auth Merkle tree.
+ *
+ * @custom:field status The status of the auth Merkle tree.
+ * @custom:field leafsExecuted The number of auth leafs that have been executed.
+ * @custom:field numLeafs The total number of leafs in the auth Merkle tree on a chain.
+ */
 struct AuthState {
     AuthStatus status;
-    uint256 actionsExecuted;
-    uint256 numActions;
+    uint256 leafsExecuted;
     uint256 numLeafs;
 }
 
