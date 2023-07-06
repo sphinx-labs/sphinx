@@ -53,17 +53,18 @@ export const getChugSplashRegistryAddress = () =>
     )
   )
 
-export const MANAGED_SERVICE_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ManagedServiceArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
-    ]
+export const getManagedServiceAddress = () =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ManagedServiceArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
+      ]
+    )
   )
-)
 
 export const REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
   utils.getCreate2Address(
@@ -219,7 +220,7 @@ export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress(),
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
