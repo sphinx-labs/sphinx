@@ -152,27 +152,25 @@ export interface RawAuthLeaf {
 }
 
 export enum AuthLeafType {
-  ADD_PROPOSER,
-  APPROVE_DEPLOYMENT,
-  CANCEL_ACTIVE_DEPLOYMENT,
-  CREATE_PROJECT,
-  EXPORT_PROXY,
-  PROPOSE,
-  REMOVE_PROJECT,
-  REMOVE_PROPOSER,
-  SET_ORG_OWNER,
-  SET_ORG_OWNER_THRESHOLD,
-  SET_PROJECT_MANAGER,
-  SET_PROJECT_OWNER,
-  SET_PROJECT_THRESHOLD,
-  SETUP,
-  TRANSFER_DEPLOYER_OWNERSHIP,
-  UPDATE_CONTRACTS_IN_PROJECT,
-  UPDATE_PROJECT,
-  UPGRADE_AUTH_IMPLEMENTATION,
-  UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION,
-  UPGRADE_DEPLOYER_IMPLEMENTATION,
-  WITHDRAW_ETH,
+  approveDeployment,
+  cancelActiveDeployment,
+  createProject,
+  exportProxy,
+  propose,
+  removeProject,
+  setProposer,
+  setOrgOwner,
+  setOrgOwnerThreshold,
+  setProjectManager,
+  setProjectOwner,
+  setProjectThreshold,
+  setup,
+  transferDeployerOwnership,
+  updateContractsInProject,
+  upgradeAuthImplementation,
+  upgradeDeployerAndAuthImpl,
+  upgradeDeployerImplementation,
+  withdrawETH,
 }
 
 export type SetRoleMember = {
@@ -198,67 +196,54 @@ export type AuthState = {
 }
 
 interface Setup extends BaseAuthLeaf {
-  leafType: 'SETUP'
+  leafType: 'setup'
   proposers: Array<SetRoleMember>
   managers: Array<SetRoleMember>
 }
 
 interface SetProjectManager extends BaseAuthLeaf {
-  leafType: 'SET_PROJECT_MANAGER'
+  leafType: 'setProjectManager'
   projectManager: string
   add: boolean
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: 'EXPORT_PROXY'
+  leafType: 'exportProxy'
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
-interface AddProposer extends BaseAuthLeaf {
-  leafType: 'ADD_PROPOSER'
-  proposer: string
-}
-
 interface SetOrgOwner extends BaseAuthLeaf {
-  leafType: 'SET_ORG_OWNER'
+  leafType: 'setOrgOwner'
   orgOwner: string
   add: boolean
 }
 
-interface UpdateProject extends BaseAuthLeaf {
-  leafType: 'UPDATE_PROJECT'
-  projectName: string
-  projectOwnersToRemove: string[]
-  newThreshold: number
-  newProjectOwners: string[]
-}
-
 interface SetOrgOwnerThreshold extends BaseAuthLeaf {
-  leafType: 'SET_ORG_OWNER_THRESHOLD'
+  leafType: 'setOrgOwnerThreshold'
   newThreshold: number
 }
 
 interface TransferDeployerOwnership extends BaseAuthLeaf {
-  leafType: 'TRANSFER_DEPLOYER_OWNERSHIP'
+  leafType: 'transferDeployerOwnership'
   newOwner: string
 }
 
 interface UpgradeDeployerImplementation extends BaseAuthLeaf {
-  leafType: 'UPGRADE_DEPLOYER_IMPLEMENTATION'
+  leafType: 'upgradeDeployerImplementation'
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: 'UPGRADE_AUTH_IMPLEMENTATION'
+  leafType: 'upgradeAuthImplementation'
   impl: string
   data: string
 }
 
 interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
-  leafType: 'UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION'
+  leafType: 'upgradeDeployerAndAuthImpl'
   deployerImpl: string
   deployerData: string
   authImpl: string
@@ -266,25 +251,26 @@ interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
 }
 
 interface CreateProject extends BaseAuthLeaf {
-  leafType: 'CREATE_PROJECT'
+  leafType: 'createProject'
   projectName: string
   threshold: number
   projectOwners: string[]
   contractInfoArray: ContractInfo[]
 }
 
-interface RemoveProposer extends BaseAuthLeaf {
-  leafType: 'REMOVE_PROPOSER'
-  proposerToRemove: string
+interface SetProposer extends BaseAuthLeaf {
+  leafType: 'setProposer'
+  proposer: string
+  add: boolean
 }
 
 interface WithdrawETH extends BaseAuthLeaf {
-  leafType: 'WITHDRAW_ETH'
+  leafType: 'withdrawETH'
   receiver: string
 }
 
 interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: 'APPROVE_DEPLOYMENT'
+  leafType: 'approveDeployment'
   projectName: string
   actionRoot: string
   targetRoot: string
@@ -295,38 +281,38 @@ interface ApproveDeployment extends BaseAuthLeaf {
 }
 
 interface SetProjectThreshold extends BaseAuthLeaf {
-  leafType: 'SET_PROJECT_THRESHOLD'
+  leafType: 'setProjectThreshold'
   projectName: string
   newThreshold: number
 }
 
 interface SetProjectOwner extends BaseAuthLeaf {
-  leafType: 'SET_PROJECT_OWNER'
+  leafType: 'setProjectOwner'
   projectName: string
   projectOwner: string
   add: boolean
 }
 
 interface RemoveProject extends BaseAuthLeaf {
-  leafType: 'REMOVE_PROJECT'
+  leafType: 'removeProject'
   projectName: string
-  addresses: string[]
+  contractAddresses: string[]
 }
 
 interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: 'CANCEL_ACTIVE_DEPLOYMENT'
+  leafType: 'cancelActiveDeployment'
   projectName: string
 }
 
 interface UpdateContractsInProject extends BaseAuthLeaf {
-  leafType: 'UPDATE_CONTRACTS_IN_PROJECT'
+  leafType: 'updateContractsInProject'
   projectName: string
   contractAddresses: string[]
   addContract: boolean[]
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: 'PROPOSE'
+  leafType: 'propose'
   numLeafs: number
 }
 
@@ -334,16 +320,14 @@ export type AuthLeaf =
   | Setup
   | SetProjectManager
   | ExportProxy
-  | AddProposer
   | SetOrgOwner
-  | UpdateProject
   | SetOrgOwnerThreshold
   | TransferDeployerOwnership
   | UpgradeDeployerImplementation
   | UpgradeAuthImplementation
   | UpgradeAuthAndDeployerImpl
   | CreateProject
-  | RemoveProposer
+  | SetProposer
   | WithdrawETH
   | ApproveDeployment
   | SetProjectThreshold

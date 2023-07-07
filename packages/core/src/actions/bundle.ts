@@ -235,7 +235,7 @@ export const makeTargetBundle = (
 export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   switch (leaf.leafType) {
     /************************ ORG OWNER ACTIONS *****************************/
-    case 'SETUP':
+    case 'setup':
       return utils.defaultAbiCoder.encode(
         [
           'tuple(address member, bool add)[]',
@@ -243,55 +243,49 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         ],
         [leaf.proposers, leaf.managers]
       )
-    case 'SET_PROJECT_MANAGER':
+    case 'setProjectManager':
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
         [leaf.projectManager, leaf.add]
       )
 
-    case 'EXPORT_PROXY':
+    case 'exportProxy':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes32', 'address'],
         [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
-    case 'ADD_PROPOSER':
-      return utils.defaultAbiCoder.encode(['address'], [leaf.proposer])
 
-    case 'SET_ORG_OWNER':
+    case 'setOrgOwner':
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
         [leaf.orgOwner, leaf.add]
       )
 
-    case 'UPDATE_PROJECT':
+    case 'removeProject':
       return utils.defaultAbiCoder.encode(
-        ['string', 'address[]', 'uint256', 'address[]'],
-        [
-          leaf.projectName,
-          leaf.projectOwnersToRemove,
-          leaf.newThreshold,
-          leaf.newProjectOwners,
-        ]
+        ['string', 'address[]'],
+        [leaf.projectName, leaf.contractAddresses]
       )
-    case 'SET_ORG_OWNER_THRESHOLD':
+
+    case 'setOrgOwnerThreshold':
       return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
 
-    case 'TRANSFER_DEPLOYER_OWNERSHIP':
+    case 'transferDeployerOwnership':
       return utils.defaultAbiCoder.encode(['address'], [leaf.newOwner])
 
-    case 'UPGRADE_DEPLOYER_IMPLEMENTATION':
+    case 'upgradeDeployerImplementation':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes'],
         [leaf.impl, leaf.data]
       )
 
-    case 'UPGRADE_AUTH_IMPLEMENTATION':
+    case 'upgradeAuthImplementation':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes'],
         [leaf.impl, leaf.data]
       )
 
-    case 'UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION':
+    case 'upgradeDeployerAndAuthImpl':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes', 'address', 'bytes'],
         [leaf.deployerImpl, leaf.deployerData, leaf.authImpl, leaf.authData]
@@ -299,7 +293,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
 
     /************************ PROJECT MANAGER ACTIONS *****************************/
 
-    case 'CREATE_PROJECT':
+    case 'createProject':
       return utils.defaultAbiCoder.encode(
         [
           'string',
@@ -315,15 +309,18 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         ]
       )
 
-    case 'REMOVE_PROPOSER':
-      return utils.defaultAbiCoder.encode(['address'], [leaf.proposerToRemove])
+    case 'setProposer':
+      return utils.defaultAbiCoder.encode(
+        ['address', 'bool'],
+        [leaf.proposer, leaf.add]
+      )
 
-    case 'WITHDRAW_ETH':
+    case 'withdrawETH':
       return utils.defaultAbiCoder.encode(['address'], [leaf.receiver])
 
     /***************************** PROJECT OWNER ACTIONS ****************************/
 
-    case 'APPROVE_DEPLOYMENT':
+    case 'approveDeployment':
       return utils.defaultAbiCoder.encode(
         [
           'string',
@@ -345,28 +342,22 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         ]
       )
 
-    case 'SET_PROJECT_THRESHOLD':
+    case 'setProjectThreshold':
       return utils.defaultAbiCoder.encode(
         ['string', 'uint256'],
         [leaf.projectName, leaf.newThreshold]
       )
 
-    case 'SET_PROJECT_OWNER':
+    case 'setProjectOwner':
       return utils.defaultAbiCoder.encode(
         ['string', 'address', 'bool'],
         [leaf.projectName, leaf.projectOwner, leaf.add]
       )
 
-    case 'REMOVE_PROJECT':
-      return utils.defaultAbiCoder.encode(
-        ['string', 'address[]'],
-        [leaf.projectName, leaf.addresses]
-      )
-
-    case 'CANCEL_ACTIVE_DEPLOYMENT':
+    case 'cancelActiveDeployment':
       return utils.defaultAbiCoder.encode(['string'], [leaf.projectName])
 
-    case 'UPDATE_CONTRACTS_IN_PROJECT':
+    case 'updateContractsInProject':
       return utils.defaultAbiCoder.encode(
         ['string', 'address[]', 'bool[]'],
         [leaf.projectName, leaf.contractAddresses, leaf.addContract]
@@ -374,7 +365,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
 
     /****************************** PROPOSER ACTIONS ******************************/
 
-    case 'PROPOSE':
+    case 'propose':
       return utils.defaultAbiCoder.encode(['uint256'], [leaf.numLeafs])
 
     default:

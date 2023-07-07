@@ -283,7 +283,7 @@ const makeAuthLeafs = (
         )
 
       const setupLeaf: AuthLeaf = {
-        leafType: AuthLeafType.SETUP,
+        leafType: AuthLeafType.setup,
         proposers: proposersToSet,
         managers: managersToSet,
         chainId,

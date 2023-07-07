@@ -3057,10 +3057,23 @@ const getParsedOrgConfigOptions = (
   // - network doesn't correspond to local chain ID or a live network supported by chugsplash. list
   //   the supported chains
 
-  // TODO: include local network for foundry too
-  const chainIds = networks.map(
-    (network) => SUPPORTED_LIVE_NETWORKS[network] ?? localChainId
-  )
+  if (networks.includes('local') && localChainId === undefined) {
+    logValidationError(
+      'error',
+      `TODO: user included a 'local' network, but could not find a local chain ID`,
+      [],
+      silent,
+      stream
+    )
+  }
+
+  assertNoValidationErrors(failureAction)
+
+  const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
+
+  if (networks.includes('local')) {
+    chainIds.push(localChainId)
+  }
 
   return {
     chainIds,
