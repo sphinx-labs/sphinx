@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import "hardhat/console.sol";
+
 import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
@@ -37,11 +39,13 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     bytes32 private constant PROJECT_MANAGER_ROLE = keccak256("ProjectManagerRole");
 
-    bytes32 private constant TYPE_HASH = keccak256("EIP712Domain(string name)");
+    bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
 
-    bytes32 private constant NAME_HASH = keccak256(bytes("ChugSplash"));
+    bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("ChugSplash"));
 
-    bytes32 private constant DOMAIN_SEPARATOR = keccak256(abi.encode(TYPE_HASH, NAME_HASH));
+    bytes32 private constant DOMAIN_SEPARATOR = keccak256(abi.encode(DOMAIN_TYPE_HASH, DOMAIN_NAME_HASH));
+
+    bytes32 private constant TYPE_HASH = keccak256("AuthRoot(bytes32 root)");
 
     IChugSplashManager public manager;
 
@@ -102,7 +106,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     event ProjectRemoved(bytes32 indexed authRoot, uint256 leafIndex);
     event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
     event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
-    event AuthRootProposed(bytes32 indexed authRoot, address indexed proposer, uint256 numLeafs);
+    event AuthRootProposed(bytes32 indexed authRoot, uint256 numLeafs);
     event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
 
     error AuthStateNotProposed();
@@ -113,7 +117,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     error InvalidSignatureLength();
     error UnauthorizedSigner();
     error DuplicateSigner();
-    error InvalidFromAddress();
     error InvalidToAddress();
     error InvalidChainId();
     error InvalidLeafIndex();
@@ -956,7 +959,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             firstProposalOccurred = true;
         }
 
-        emit AuthRootProposed(_authRoot, _leaf.from, numLeafs);
+        emit AuthRootProposed(_authRoot, numLeafs);
     }
 
     /**************************** OPENZEPPELIN FUNCTIONS ******************************/
@@ -1028,22 +1031,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             bytes memory signature = _signatures[i];
             if (signature.length != 65) revert InvalidSignatureLength();
 
-            bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, _authRoot);
+            bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
+            bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
             signer = ECDSAUpgradeable.recover(typedDataHash, signature);
             if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
             if (signer <= prevSigner) revert DuplicateSigner();
 
             // Validate the fields of the AuthLeaf
-            if (_leaf.from != signer) revert InvalidFromAddress();
             if (_leaf.to != address(manager)) revert InvalidToAddress();
             if (_leaf.chainId != block.chainid) revert InvalidChainId();
             if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
 
-            if (!MerkleProofUpgradeable.verify(_proof, _authRoot, keccak256(_leaf.data)))
+            if (!MerkleProofUpgradeable.verify(_proof, _authRoot, getAuthLeafHash(_leaf)))
                 revert InvalidMerkleProof();
 
             prevSigner = signer;
         }
+    }
+
+    function getAuthLeafHash(AuthLeaf memory _leaf) private pure returns (bytes32) {
+        return keccak256(abi.encode(_leaf.chainId, _leaf.to, _leaf.index, _leaf.data));
     }
 
     function assertValidProposedAuthLeaf(

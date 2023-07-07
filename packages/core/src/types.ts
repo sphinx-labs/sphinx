@@ -10,6 +10,7 @@ export type ChugSplashRuntimeEnvironment = {
   canonicalConfigPath: string
   remoteExecution: boolean
   confirmUpgrade: boolean
+  localChainId: number
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined

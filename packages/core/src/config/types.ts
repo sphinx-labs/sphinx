@@ -77,7 +77,7 @@ export type ParsedConfigVariable =
     }
 
 export interface UserChugSplashConfig {
-  options?: OrgConfigOptions
+  options?: UserOrgConfigOptions
   projects: UserProjectConfigs
 }
 
@@ -93,12 +93,21 @@ export type UserProjectConfigs = {
 }
 
 // TODO(docs): explain the importance of "never"
-export type OrgConfigOptions = {
+export interface OrgConfigOptions {
   orgOwners: Array<string>
   orgOwnerThreshold: number
   proposers: Array<string>
   managers: Array<string>
   owner?: never
+}
+
+// TODO(docs): networks contains string network names, e.g. "TODO"
+export interface UserOrgConfigOptions extends OrgConfigOptions {
+  networks: Array<string>
+}
+
+export interface ParsedOrgConfigOptions extends OrgConfigOptions {
+  chainIds: Array<number>
 }
 
 // TODO(docs): explain the importance of "never"
@@ -108,12 +117,13 @@ export type OwnerConfigOptions = {
   orgOwners?: never
   proposers?: never
   managers?: never
+  networks?: never
 }
 
-export type ConfigOptions = OwnerConfigOptions | OrgConfigOptions
+export type ParsedConfigOptions = OwnerConfigOptions | ParsedOrgConfigOptions
 
 export interface ParsedChugSplashConfig {
-  options: ConfigOptions
+  options: ParsedConfigOptions
   projects: ParsedProjectConfigs
 }
 

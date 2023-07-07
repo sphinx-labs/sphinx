@@ -1,4 +1,4 @@
-import { BigNumber, Contract } from 'ethers'
+import { BigNumber, Contract, ethers } from 'ethers'
 import {
   signTypedData,
   SignTypedDataVersion,
@@ -14,17 +14,17 @@ import {
 //   { name: 'verifyingContract', type: 'address' },
 // ]
 
-type BaseForwardRequestType = {
-  from: string
-  to: string
-  data: string
-}
+// type BaseForwardRequestType = {
+//   from: string
+//   to: string
+//   data: string
+// }
 
-export type ForwardRequestType = BaseForwardRequestType & {
-  value: number
-  gas: number
-  nonce: number
-}
+// export type ForwardRequestType = BaseForwardRequestType & {
+//   value: number
+//   gas: number
+//   nonce: number
+// }
 
 // const ForwardRequest = [
 //   { name: 'from', type: 'address' },
@@ -54,28 +54,31 @@ export type ForwardRequestType = BaseForwardRequestType & {
 //   }
 // }
 
-export const signMessage = async (
-  key: string,
-  data: TypedMessage<MessageTypes>
-) => {
-  // If signer is a private key, use it to sign
-  const privateKey = Buffer.from(key.replace(/^0x/, ''), 'hex')
-  return signTypedData({
-    privateKey,
-    data,
-    version: SignTypedDataVersion.V4,
-  })
+// TODO: rm @metamask dependency?
+export const signAuthRootMetaTxn = async (
+  signer: ethers.providers.JsonRpcSigner,
+  authRoot: string
+): Promise<string> => {
+  const domain = {
+    name: 'ChugSplash',
+  }
+
+  const types = { AuthRoot: [{ name: 'root', type: 'bytes32' }] }
+  const value = { root: authRoot }
+
+  const signature = await signer._signTypedData(domain, types, value)
+  return signature
 }
 
-export const buildRequest = async (
-  forwarder: Contract,
-  input: BaseForwardRequestType
-): Promise<ForwardRequestType> => {
-  const nonce = await forwarder
-    .getNonce(input.from)
-    .then((n: BigNumber) => n.toString())
-  return { value: 0, gas: 1e6, nonce, ...input }
-}
+// export const buildRequest = async (
+//   forwarder: Contract,
+//   input: BaseForwardRequestType
+// ): Promise<ForwardRequestType> => {
+//   const nonce = await forwarder
+//     .getNonce(input.from)
+//     .then((n: BigNumber) => n.toString())
+//   return { value: 0, gas: 1e6, nonce, ...input }
+// }
 
 // export const buildTypedData = async (
 //   forwarder: Contract,

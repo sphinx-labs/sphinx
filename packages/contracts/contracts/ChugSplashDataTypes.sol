@@ -190,7 +190,6 @@ struct ContractInfo {
    authenticated action taken by a permissioned account such as an organization owner or proposer.
  *
  * @custom:field chainId The chain ID for the leaf to be executed on.
- * @custom:field from The address that signed the Merkle root of the leaf.
  * @custom:field to The address that is the subject of the data in this leaf. This should always be
                  a ChugSplashManager.
  * @custom:field index The index of the leaf. Each index must be unique on a chain, and start from
@@ -200,7 +199,6 @@ struct ContractInfo {
  */
 struct AuthLeaf {
     uint256 chainId;
-    address from;
     address to;
     uint256 index;
     bytes data;

@@ -140,14 +140,12 @@ export type DeploymentState = {
 
 export interface BaseAuthLeaf {
   chainId: number
-  from: string
   to: string
   index: number
 }
 
 export interface RawAuthLeaf {
   chainId: number
-  from: string
   to: string
   index: number
   data: string
@@ -202,7 +200,7 @@ export type AuthState = {
 interface Setup extends BaseAuthLeaf {
   leafType: AuthLeafType.SETUP
   proposers: Array<SetRoleMember>
-  projectManagers: Array<SetRoleMember>
+  managers: Array<SetRoleMember>
 }
 
 interface SetProjectManager extends BaseAuthLeaf {

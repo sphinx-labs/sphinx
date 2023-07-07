@@ -158,7 +158,7 @@ contract ChugSplashUtils is
             revert(
                 string.concat(
                     _rpcUrl,
-                    " is not a valid RPC url. Are you sure you're function arguments are in the correct order?"
+                    " is not a valid RPC url."
                 )
             );
         }
@@ -681,6 +681,7 @@ contract ChugSplashUtils is
                 isRegistered: isRegistered,
                 blockGasLimit: block.gaslimit,
                 localNetwork: isLocalNetwork(_rpcUrl),
+                chainId: block.chainid,
                 networkName: getChainAlias(_rpcUrl),
                 contractConfigCache: contractConfigCache
             });

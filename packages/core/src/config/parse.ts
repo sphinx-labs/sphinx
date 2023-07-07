@@ -71,9 +71,16 @@ import {
   UserChugSplashConfig,
   OwnerConfigOptions,
   OrgConfigOptions,
-  ConfigOptions,
+  ParsedConfigOptions,
+  ParsedOrgConfigOptions,
+  UserOrgConfigOptions,
 } from './types'
-import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
+import {
+  CONTRACT_SIZE_LIMIT,
+  Keyword,
+  SUPPORTED_LIVE_NETWORKS,
+  keywords,
+} from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -164,15 +171,18 @@ export const getParsedOrgConfig = async (
     throw new Error(`TODO`)
   }
 
-  assertValidOrgConfigOptions(userConfig.options, cre)
+  const parsedConfigOptions = getParsedOrgConfigOptions(userConfig.options, cre)
 
   // TODO: the rest of this fn is repeated w/ readParsedOwner, so consider refactoring
+
+  // TODO: case: the user enters chainId=1337 for their local network. i think we can support this
+  // by adding a field to the CRE for the local network's chainId.
 
   const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
     userConfig,
     projectArray,
     deployerAddress,
-    userConfig.options,
+    parsedConfigOptions,
     cre,
     getConfigArtifacts,
     failureAction
@@ -203,7 +213,7 @@ export const readUnvalidatedParsedConfig = async (
   userConfig: UserChugSplashConfig,
   projects: Array<Project>,
   deployerAddress: string,
-  configOptions: ConfigOptions,
+  configOptions: ParsedConfigOptions,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction
@@ -2733,6 +2743,7 @@ export const getProjectConfigCache = async (
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
+  const { chainId } = await provider.getNetwork()
   const networkName = await resolveNetworkName(provider, 'hardhat')
   const isRegistered = await isProjectRegistered(registry, manager.address)
 
@@ -2866,7 +2877,7 @@ export const getProjectConfigCache = async (
   return {
     isRegistered,
     blockGasLimit,
-    localNetwork,
+    localNetworkInfo,
     networkName,
     contractConfigCache,
   }
@@ -2880,7 +2891,9 @@ export const getConfigCache = async (
   manager: ethers.Contract
 ): Promise<ConfigCache> => {
   const configCache: ConfigCache = {}
-  for (const [projectName, projectConfig] of Object.entries(parsedConfig)) {
+  for (const [projectName, projectConfig] of Object.entries(
+    parsedConfig.projects
+  )) {
     configCache[projectName] = await getProjectConfigCache(
       provider,
       projectConfig,
@@ -3011,17 +3024,21 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-const assertValidOrgConfigOptions = (
-  options: OrgConfigOptions,
+const getParsedOrgConfigOptions = (
+  options: UserOrgConfigOptions,
   cre: ChugSplashRuntimeEnvironment
-) => {
-  if (options.owner) {
+): ParsedOrgConfigOptions => {
+  const { owner, networks, orgOwners, orgOwnerThreshold, proposers, managers } =
+    options
+  const { localChainId, silent, stream } = cre
+
+  if (owner) {
     logValidationError(
       'error',
       `TODO(docs): use 'owners' instead of 'owner'`,
       [],
-      cre.silent,
-      cre.stream
+      silent,
+      stream
     )
   }
 
@@ -3031,5 +3048,24 @@ const assertValidOrgConfigOptions = (
   // - any of the owners are not valid addresses
   // - any of the owner addresses are duplicates
   // that's it for org owner + orgThreshold validation
-  // etc
+  // repeat the above for every other address field + threshold combo
+
+  // Validate the networks
+  // - networks.length === 0
+  // - networks contains any duplicates
+  // - network doesn't correspond to local chain ID or a live network supported by chugsplash. list
+  //   the supported chains
+
+  // TODO: include local network for foundry too
+  const chainIds = networks.map(
+    (network) => SUPPORTED_LIVE_NETWORKS[network] ?? localChainId
+  )
+
+  return {
+    chainIds,
+    orgOwners,
+    orgOwnerThreshold,
+    proposers,
+    managers,
+  }
 }

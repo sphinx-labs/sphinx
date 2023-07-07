@@ -237,8 +237,11 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     /************************ ORG OWNER ACTIONS *****************************/
     case AuthLeafType.SETUP:
       return utils.defaultAbiCoder.encode(
-        ['tuple(address,bool)[]', 'tuple(address,bool)[]'],
-        [leaf.proposers, leaf.projectManagers]
+        [
+          'tuple(address member, bool add)[]',
+          'tuple(address member, bool add)[]',
+        ],
+        [leaf.proposers, leaf.managers]
       )
     case AuthLeafType.SET_PROJECT_MANAGER:
       return utils.defaultAbiCoder.encode(
@@ -298,7 +301,12 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
 
     case AuthLeafType.CREATE_PROJECT:
       return utils.defaultAbiCoder.encode(
-        ['string', 'uint256', 'address[]', 'tuple(string,address)[]'],
+        [
+          'string',
+          'uint256',
+          'address[]',
+          'tuple(string referenceName, address addr)[]',
+        ],
         [
           leaf.projectName,
           leaf.threshold,
@@ -381,13 +389,19 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
  * @return Hash of the leaf.
  */
 export const getAuthLeafHash = (leaf: RawAuthLeaf): string => {
-  return ethers.utils.keccak256(leaf.data)
+  const { chainId, to, index, data } = leaf
+  return ethers.utils.keccak256(
+    ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'address', 'uint256', 'bytes'],
+      [chainId, to, index, data]
+    )
+  )
 }
 
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
-  const { chainId, from, to, index } = leaf
-  return { chainId, from, to, index, data }
+  const { chainId, to, index } = leaf
+  return { chainId, to, index, data }
 }
 
 /**

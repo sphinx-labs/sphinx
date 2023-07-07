@@ -5,6 +5,18 @@ export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 
 export const WEBSITE_URL = `https://chugsplash.io`
 
+// Maps a live network name to its chain ID
+export const SUPPORTED_LIVE_NETWORKS: {
+  [networkName: string]: number
+} = {
+  // Mainnets
+  mainnet: 1,
+  optimism: 10,
+  // Testnets
+  goerli: 5,
+  'optimism-goerli': 420,
+}
+
 // Etherscan constants
 export const customChains: CustomChain[] = []
 
