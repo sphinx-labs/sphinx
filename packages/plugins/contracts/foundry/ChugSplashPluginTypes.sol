@@ -41,7 +41,6 @@ struct ConfigCache {
     bool isRegistered;
     uint256 blockGasLimit;
     bool localNetwork;
-    uint256 chainId;
     string networkName;
     ContractConfigCache[] contractConfigCache;
 }

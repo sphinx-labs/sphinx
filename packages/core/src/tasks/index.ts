@@ -220,10 +220,10 @@ export const chugsplashCommitAbstractSubtask = async (
   configUri: string
   canonicalConfig: CanonicalProjectConfig
 }> => {
-  const { projectName } = parsedProjectConfig.options
+  const { project } = parsedProjectConfig.options
   if (spinner) {
     commitToIpfs
-      ? spinner.start(`Committing ${projectName}...`)
+      ? spinner.start(`Committing ${project}...`)
       : spinner.start('Building the project...')
   }
 
@@ -312,8 +312,8 @@ IPFS_API_KEY_SECRET: ...
 
   if (spinner) {
     commitToIpfs
-      ? spinner.succeed(`${projectName} has been committed to IPFS.`)
-      : spinner.succeed(`Built ${projectName}.`)
+      ? spinner.succeed(`${project} has been committed to IPFS.`)
+      : spinner.succeed(`Built ${project}.`)
   }
 
   return { configUri, canonicalConfig }
@@ -334,8 +334,8 @@ export const chugsplashApproveAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   const spinner = ora({ isSilent: silent, stream })
-  const { projectName, deployer } = parsedProjectConfig.options
-  spinner.start(`Approving ${projectName} on ${networkName}...`)
+  const { project, deployer } = parsedProjectConfig.options
+  spinner.start(`Approving ${project} on ${networkName}...`)
 
   const signerAddress = await signer.getAddress()
 
@@ -343,7 +343,7 @@ export const chugsplashApproveAbstractTask = async (
   const manager = getChugSplashManager(deployer, signer)
 
   if (!(await isProjectRegistered(registry, manager.address))) {
-    throw new Error(`${projectName} has not been registered yet.`)
+    throw new Error(`${project} has not been registered yet.`)
   }
 
   const { configUri, bundles } = await getBundleInfo(
@@ -352,7 +352,7 @@ export const chugsplashApproveAbstractTask = async (
     projectConfigCache
   )
 
-  const deploymentId = getDeploymentId(bundles, configUri, projectName)
+  const deploymentId = getDeploymentId(bundles, configUri, project)
   const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
@@ -372,7 +372,7 @@ Please wait a couple minutes then try again.`
     )
   } else if (deploymentState.status === DeploymentStatus.EMPTY) {
     await approveDeployment(
-      projectName,
+      project,
       bundles,
       configUri,
       manager,
@@ -382,7 +382,7 @@ Please wait a couple minutes then try again.`
 
     await trackApproved(await manager.owner(), networkName, integration)
 
-    spinner.succeed(`${projectName} approved on ${networkName}.`)
+    spinner.succeed(`${project} approved on ${networkName}.`)
 
     if (!skipMonitorStatus) {
       await monitorExecution(
@@ -395,7 +395,7 @@ Please wait a couple minutes then try again.`
       )
       displayDeploymentTable(parsedProjectConfig, silent)
 
-      spinner.succeed(`${projectName} successfully deployed on ${networkName}.`)
+      spinner.succeed(`${project} successfully deployed on ${networkName}.`)
     }
   }
 }
@@ -410,7 +410,7 @@ export const chugsplashFundAbstractTask = async (
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
 
-  const { projectName, deployer } = parsedConfig.options
+  const { project, deployer } = parsedConfig.options
 
   const manager = getChugSplashManager(deployer, signer)
   const registry = getChugSplashRegistry(signer)
@@ -418,16 +418,12 @@ export const chugsplashFundAbstractTask = async (
   const signerBalance = await signer.getBalance()
 
   if (!(await isProjectRegistered(registry, manager.address))) {
-    throw new Error(`${projectName} has not been registered yet.`)
+    throw new Error(`${project} has not been registered yet.`)
   }
 
   const amountToDeposit = await getAmountToDeposit(
     provider,
-    makeBundlesFromConfig(
-      parsedConfig,
-      configArtifacts,
-      configCache[projectName]
-    ),
+    makeBundlesFromConfig(parsedConfig, configArtifacts, configCache[project]),
     0,
     parsedConfig,
     true
@@ -447,7 +443,7 @@ export const chugsplashFundAbstractTask = async (
     `Deposited ${formatEther(
       amountToDeposit,
       4
-    )} ETH for the project: ${projectName}.`
+    )} ETH for the project: ${project}.`
   )
 }
 
@@ -464,7 +460,7 @@ export const chugsplashDeployAbstractTask = async (
   newOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const { projectName, deployer } = parsedProjectConfig.options
+  const { project, deployer } = parsedProjectConfig.options
   const { networkName, blockGasLimit, localNetwork } = projectConfigCache
 
   const registry = getChugSplashRegistry(signer)
@@ -475,7 +471,7 @@ export const chugsplashDeployAbstractTask = async (
   const signerAddress = await signer.getAddress()
   await register(registry, manager, signerAddress, provider, spinner)
 
-  spinner.start(`Checking the status of ${projectName}...`)
+  spinner.start(`Checking the status of ${project}...`)
 
   const { configUri, bundles, canonicalConfig } = await getBundleInfo(
     parsedProjectConfig,
@@ -491,7 +487,7 @@ export const chugsplashDeployAbstractTask = async (
     return
   }
 
-  const deploymentId = getDeploymentId(bundles, configUri, projectName)
+  const deploymentId = getDeploymentId(bundles, configUri, project)
   const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
@@ -499,9 +495,7 @@ export const chugsplashDeployAbstractTask = async (
   let currDeploymentStatus = deploymentState.status
 
   if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
-    throw new Error(
-      `${projectName} was previously cancelled on ${networkName}.`
-    )
+    throw new Error(`${project} was previously cancelled on ${networkName}.`)
   }
 
   for (const [referenceName, contractConfig] of Object.entries(
@@ -512,10 +506,10 @@ export const chugsplashDeployAbstractTask = async (
         projectConfigCache.contractConfigCache[referenceName]
           .existingProjectName
 
-      if (existingProjectName !== projectName) {
+      if (existingProjectName !== project) {
         await manager.transferContractToProject(
           contractConfig.address,
-          projectName,
+          project,
           await getGasPriceOverrides(provider)
         )
       }
@@ -523,11 +517,11 @@ export const chugsplashDeployAbstractTask = async (
   }
 
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
-    spinner.succeed(`${projectName} has not been deployed before.`)
-    spinner.start(`Approving ${projectName}...`)
+    spinner.succeed(`${project} has not been deployed before.`)
+    spinner.start(`Approving ${project}...`)
     await (
       await manager.approve(
-        projectName,
+        project,
         bundles.actionBundle.root,
         bundles.targetBundle.root,
         bundles.actionBundle.actions.length,
@@ -539,14 +533,14 @@ export const chugsplashDeployAbstractTask = async (
       )
     ).wait()
     currDeploymentStatus = DeploymentStatus.APPROVED
-    spinner.succeed(`Approved ${projectName}.`)
+    spinner.succeed(`Approved ${project}.`)
   }
 
   if (
     currDeploymentStatus === DeploymentStatus.APPROVED ||
     currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED
   ) {
-    spinner.start(`Executing ${projectName}...`)
+    spinner.start(`Executing ${project}...`)
 
     const success = await executeDeployment(
       manager,
@@ -558,14 +552,14 @@ export const chugsplashDeployAbstractTask = async (
 
     if (!success) {
       throw new Error(
-        `Failed to execute ${projectName}, likely because one of the user's constructors reverted during the deployment.`
+        `Failed to execute ${project}, likely because one of the user's constructors reverted during the deployment.`
       )
     }
   }
 
   initialDeploymentStatus === DeploymentStatus.COMPLETED
-    ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
-    : spinner.succeed(`Executed ${projectName}.`)
+    ? spinner.succeed(`${project} was already completed on ${networkName}.`)
+    : spinner.succeed(`Executed ${project}.`)
 
   if (newOwner) {
     spinner.start(`Transferring ownership to: ${newOwner}`)

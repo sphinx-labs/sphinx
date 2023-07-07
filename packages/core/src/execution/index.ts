@@ -34,7 +34,7 @@ export const monitorExecution = async (
   spinner: ora.Ora
 ) => {
   spinner.start('Waiting for executor...')
-  const { projectName, deployer } = parsedProjectConfig.options
+  const { project, deployer } = parsedProjectConfig.options
   const ChugSplashManager = getChugSplashManager(deployer, signer)
 
   // Get the deployment state of the deployment ID.
@@ -86,7 +86,7 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
+        `${project} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
       )
     }
 
@@ -98,7 +98,7 @@ export const monitorExecution = async (
   }
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${projectName}.`)
+    spinner.succeed(`Finished executing ${project}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
@@ -107,8 +107,8 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
   } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
-    spinner.fail(`${projectName} was cancelled.`)
-    throw new Error(`${projectName} was cancelled.`)
+    spinner.fail(`${project} was cancelled.`)
+    throw new Error(`${project} was cancelled.`)
   } else {
     spinner.fail(
       `Project was never active. Current status: ${deploymentState.status}`

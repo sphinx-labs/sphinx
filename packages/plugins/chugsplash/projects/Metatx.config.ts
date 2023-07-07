@@ -9,7 +9,7 @@ const config: UserProjectConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 1,
-        _immutableContractReference:
+        _immutableAddress:
           '0x1111111111111111111111111111111111111111',
       },
     },

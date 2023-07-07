@@ -63,7 +63,7 @@ const config: UserProjectConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 1,
-        _immutableContractReference: '{{ VariableValidation }}',
+        _immutableAddress: '{{ VariableValidation }}',
       },
       variables: {
         hello: 'world',

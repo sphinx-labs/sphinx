@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import { Storage } from "./ContainsStorage.sol";
 import { Version } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
 
 contract Stateless {
     uint public immutable immutableUint;
-    Storage public immutable immutableContractReference;
+    address public immutable immutableAddress;
 
-    constructor(uint _immutableUint, Storage _immutableContractReference) {
+    constructor(uint _immutableUint, address _immutableAddress) {
         immutableUint = _immutableUint;
-        immutableContractReference = _immutableContractReference;
+        immutableAddress = _immutableAddress;
     }
 
     function version() external pure returns (Version memory) {

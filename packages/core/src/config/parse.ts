@@ -74,6 +74,8 @@ import {
   ParsedConfigOptions,
   ParsedOrgConfigOptions,
   UserOrgConfigOptions,
+  ParsedProjectConfigOptions,
+  ProjectConfigOptions,
 } from './types'
 import {
   CONTRACT_SIZE_LIMIT,
@@ -171,7 +173,7 @@ export const getParsedOrgConfig = async (
     throw new Error(`TODO`)
   }
 
-  const parsedConfigOptions = getParsedOrgConfigOptions(userConfig.options, cre)
+  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options, cre)
 
   // TODO: the rest of this fn is repeated w/ readParsedOwner, so consider refactoring
 
@@ -1959,7 +1961,7 @@ export const assertValidParsedChugSplashFile = async (
       }
 
       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-        parsedConfig.options.projectName,
+        parsedConfig.options.project,
         referenceName,
         contractConfig,
         canonicalConfigPath,
@@ -2308,7 +2310,7 @@ const assertValidContractVariables = (
   return parsedVariables
 }
 
-const constructParsedConfig = (
+const constructParsedProjectConfig = (
   userProjectConfig: UserProjectConfig,
   projectName: string,
   deployerAddress: string,
@@ -2318,11 +2320,14 @@ const constructParsedConfig = (
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
   cre: ChugSplashRuntimeEnvironment
 ): ParsedProjectConfig => {
+  const projectOptions = {
+    deployer: deployerAddress,
+    project: projectName,
+    ...userProjectConfig.options,
+  }
+
   const parsedConfig: ParsedProjectConfig = {
-    options: {
-      deployer: deployerAddress,
-      projectName,
-    },
+    options: projectOptions,
     contracts: {},
   }
 
@@ -2372,7 +2377,7 @@ const constructParsedConfig = (
   return parsedConfig
 }
 
-export const setDefaultContractOptions = (
+export const setDefaultContractFields = (
   userConfig: UserProjectConfig
 ): UserProjectConfig => {
   for (const contractConfig of Object.values(userConfig.contracts)) {
@@ -2410,7 +2415,8 @@ export const getUnvalidatedParsedProjectConfig = (
   // Validate top level config and contract options
   assertValidUserProjectConfig(userProjectConfig, cre, failureAction)
 
-  const configWithDefaultOptions = setDefaultContractOptions(userProjectConfig)
+  const configWithDefaultContractFields =
+    setDefaultContractFields(userProjectConfig)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
@@ -2420,7 +2426,7 @@ export const getUnvalidatedParsedProjectConfig = (
     cachedConstructorArgs,
     contractReferences,
   } = assertValidConstructorArgs(
-    configWithDefaultOptions,
+    configWithDefaultContractFields,
     projectName,
     projectConfigArtifacts,
     deployerAddress,
@@ -2435,8 +2441,7 @@ export const getUnvalidatedParsedProjectConfig = (
     cre
   )
 
-  // Construct the parsed config
-  const parsedConfig = constructParsedConfig(
+  const parsedProjectConfig = constructParsedProjectConfig(
     validProjectConfig,
     projectName,
     deployerAddress,
@@ -2447,9 +2452,9 @@ export const getUnvalidatedParsedProjectConfig = (
     cre
   )
 
-  assertValidSourceCode(parsedConfig, projectConfigArtifacts, cre)
+  assertValidSourceCode(parsedProjectConfig, projectConfigArtifacts, cre)
 
-  return parsedConfig
+  return parsedProjectConfig
 }
 
 export const assertNoUpgradableContracts = (
@@ -2743,7 +2748,6 @@ export const getProjectConfigCache = async (
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
-  const { chainId } = await provider.getNetwork()
   const networkName = await resolveNetworkName(provider, 'hardhat')
   const isRegistered = await isProjectRegistered(registry, manager.address)
 
@@ -2878,7 +2882,6 @@ export const getProjectConfigCache = async (
     isRegistered,
     blockGasLimit,
     localNetwork,
-    chainId,
     networkName,
     contractConfigCache,
   }
@@ -2916,11 +2919,11 @@ const assertAddressesNotInAnotherProject = (
     return
   }
 
-  const projectName = parsedProjectConfig.options.projectName
+  const { project } = parsedProjectConfig.options
   for (const referenceName of Object.keys(parsedProjectConfig.contracts)) {
     const existingProjectName =
       projectConfigCache.contractConfigCache[referenceName].existingProjectName
-    if (existingProjectName.length > 0 && existingProjectName !== projectName) {
+    if (existingProjectName.length > 0 && existingProjectName !== project) {
       logValidationError(
         'error',
         `The address for '${referenceName}' already belongs to an existing project: '${existingProjectName}'. Please use this project name instead.`,
@@ -3025,14 +3028,15 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-const getParsedOrgConfigOptions = (
+const parseOrgConfigOptions = (
   options: UserOrgConfigOptions,
   cre: ChugSplashRuntimeEnvironment
 ): ParsedOrgConfigOptions => {
   const { owner, networks, orgOwners, orgOwnerThreshold, proposers, managers } =
     options
-  const { localChainId, silent, stream } = cre
+  const { silent, stream } = cre
 
+  // TODO: mv to `assertValidOrgConfigOptions`
   if (owner) {
     logValidationError(
       'error',
@@ -3057,23 +3061,9 @@ const getParsedOrgConfigOptions = (
   // - network doesn't correspond to local chain ID or a live network supported by chugsplash. list
   //   the supported chains
 
-  if (networks.includes('local') && localChainId === undefined) {
-    logValidationError(
-      'error',
-      `TODO: user included a 'local' network, but could not find a local chain ID`,
-      [],
-      silent,
-      stream
-    )
-  }
-
-  assertNoValidationErrors(failureAction)
+  // TODO: assertNoValidationErrors?
 
   const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
-
-  if (networks.includes('local')) {
-    chainIds.push(localChainId)
-  }
 
   return {
     chainIds,

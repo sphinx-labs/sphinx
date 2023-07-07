@@ -21,7 +21,6 @@ import {
 import {
   AuthLeaf,
   AuthLeafBundle,
-  AuthLeafType,
   BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -240,8 +239,9 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [
           'tuple(address member, bool add)[]',
           'tuple(address member, bool add)[]',
+          'uint256',
         ],
-        [leaf.proposers, leaf.managers]
+        [leaf.proposers, leaf.managers, leaf.numLeafs]
       )
     case 'setProjectManager':
       return utils.defaultAbiCoder.encode(

@@ -12,7 +12,7 @@ const config: UserChugSplashConfig = {
           kind: 'immutable',
           constructorArgs: {
             _immutableUint: 1,
-            _immutableContractReference: '{{ Stateless }}',
+            _immutableAddress: '{{ Stateless }}',
           },
         },
       },
