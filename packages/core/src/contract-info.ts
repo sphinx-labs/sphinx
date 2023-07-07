@@ -33,7 +33,7 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress,
   REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
   getLZSenderAddress,
@@ -107,7 +107,7 @@ export const getChugSplashConstants = (
     },
     {
       artifact: ManagedServiceArtifact,
-      expectedAddress: MANAGED_SERVICE_ADDRESS,
+      expectedAddress: getManagedServiceAddress(),
       constructorArgs: [getOwnerAddress()],
     },
     {
