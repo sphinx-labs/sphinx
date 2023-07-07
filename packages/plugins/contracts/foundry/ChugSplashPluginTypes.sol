@@ -37,15 +37,11 @@ struct MinimalContractConfig {
     bytes32 userSaltHash;
 }
 
-struct LocalNetworkInfo {
-    bool isLocalNetwork;
-    OptionalUint256 localChainId;
-}
-
 struct ConfigCache {
     bool isRegistered;
     uint256 blockGasLimit;
-    LocalNetworkInfo localNetworkInfo;
+    bool localNetwork;
+    uint256 chainId;
     string networkName;
     ContractConfigCache[] contractConfigCache;
 }
@@ -93,11 +89,6 @@ struct ConfigContractInfo {
 struct OptionalAddress {
     address value;
     bool exists;
-}
-
-struct OptionalUint256 {
-    uint256 value;
-    bool    exists;
 }
 
 struct OptionalBool {

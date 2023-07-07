@@ -8,9 +8,10 @@ import { ParsedContractConfig } from './config/types'
 
 export type ChugSplashRuntimeEnvironment = {
   canonicalConfigPath: string
+  isLocalNetwork: boolean
+  
   remoteExecution: boolean
   confirmUpgrade: boolean
-  localChainId: number
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined

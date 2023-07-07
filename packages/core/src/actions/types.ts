@@ -198,37 +198,37 @@ export type AuthState = {
 }
 
 interface Setup extends BaseAuthLeaf {
-  leafType: AuthLeafType.SETUP
+  leafType: 'SETUP'
   proposers: Array<SetRoleMember>
   managers: Array<SetRoleMember>
 }
 
 interface SetProjectManager extends BaseAuthLeaf {
-  leafType: AuthLeafType.SET_PROJECT_MANAGER
+  leafType: 'SET_PROJECT_MANAGER'
   projectManager: string
   add: boolean
 }
 
 interface ExportProxy extends BaseAuthLeaf {
-  leafType: AuthLeafType.EXPORT_PROXY
+  leafType: 'EXPORT_PROXY'
   proxy: string
   contractKindHash: string
   newOwner: string
 }
 
 interface AddProposer extends BaseAuthLeaf {
-  leafType: AuthLeafType.ADD_PROPOSER
+  leafType: 'ADD_PROPOSER'
   proposer: string
 }
 
 interface SetOrgOwner extends BaseAuthLeaf {
-  leafType: AuthLeafType.SET_ORG_OWNER
+  leafType: 'SET_ORG_OWNER'
   orgOwner: string
   add: boolean
 }
 
 interface UpdateProject extends BaseAuthLeaf {
-  leafType: AuthLeafType.UPDATE_PROJECT
+  leafType: 'UPDATE_PROJECT'
   projectName: string
   projectOwnersToRemove: string[]
   newThreshold: number
@@ -236,29 +236,29 @@ interface UpdateProject extends BaseAuthLeaf {
 }
 
 interface SetOrgOwnerThreshold extends BaseAuthLeaf {
-  leafType: AuthLeafType.SET_ORG_OWNER_THRESHOLD
+  leafType: 'SET_ORG_OWNER_THRESHOLD'
   newThreshold: number
 }
 
 interface TransferDeployerOwnership extends BaseAuthLeaf {
-  leafType: AuthLeafType.TRANSFER_DEPLOYER_OWNERSHIP
+  leafType: 'TRANSFER_DEPLOYER_OWNERSHIP'
   newOwner: string
 }
 
 interface UpgradeDeployerImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafType.UPGRADE_DEPLOYER_IMPLEMENTATION
+  leafType: 'UPGRADE_DEPLOYER_IMPLEMENTATION'
   impl: string
   data: string
 }
 
 interface UpgradeAuthImplementation extends BaseAuthLeaf {
-  leafType: AuthLeafType.UPGRADE_AUTH_IMPLEMENTATION
+  leafType: 'UPGRADE_AUTH_IMPLEMENTATION'
   impl: string
   data: string
 }
 
 interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
-  leafType: AuthLeafType.UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION
+  leafType: 'UPDATE_DEPLOYER_AND_AUTH_IMPLEMENTATION'
   deployerImpl: string
   deployerData: string
   authImpl: string
@@ -266,7 +266,7 @@ interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
 }
 
 interface CreateProject extends BaseAuthLeaf {
-  leafType: AuthLeafType.CREATE_PROJECT
+  leafType: 'CREATE_PROJECT'
   projectName: string
   threshold: number
   projectOwners: string[]
@@ -274,17 +274,17 @@ interface CreateProject extends BaseAuthLeaf {
 }
 
 interface RemoveProposer extends BaseAuthLeaf {
-  leafType: AuthLeafType.REMOVE_PROPOSER
+  leafType: 'REMOVE_PROPOSER'
   proposerToRemove: string
 }
 
 interface WithdrawETH extends BaseAuthLeaf {
-  leafType: AuthLeafType.WITHDRAW_ETH
+  leafType: 'WITHDRAW_ETH'
   receiver: string
 }
 
 interface ApproveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafType.APPROVE_DEPLOYMENT
+  leafType: 'APPROVE_DEPLOYMENT'
   projectName: string
   actionRoot: string
   targetRoot: string
@@ -295,38 +295,38 @@ interface ApproveDeployment extends BaseAuthLeaf {
 }
 
 interface SetProjectThreshold extends BaseAuthLeaf {
-  leafType: AuthLeafType.SET_PROJECT_THRESHOLD
+  leafType: 'SET_PROJECT_THRESHOLD'
   projectName: string
   newThreshold: number
 }
 
 interface SetProjectOwner extends BaseAuthLeaf {
-  leafType: AuthLeafType.SET_PROJECT_OWNER
+  leafType: 'SET_PROJECT_OWNER'
   projectName: string
   projectOwner: string
   add: boolean
 }
 
 interface RemoveProject extends BaseAuthLeaf {
-  leafType: AuthLeafType.REMOVE_PROJECT
+  leafType: 'REMOVE_PROJECT'
   projectName: string
   addresses: string[]
 }
 
 interface CancelActiveDeployment extends BaseAuthLeaf {
-  leafType: AuthLeafType.CANCEL_ACTIVE_DEPLOYMENT
+  leafType: 'CANCEL_ACTIVE_DEPLOYMENT'
   projectName: string
 }
 
 interface UpdateContractsInProject extends BaseAuthLeaf {
-  leafType: AuthLeafType.UPDATE_CONTRACTS_IN_PROJECT
+  leafType: 'UPDATE_CONTRACTS_IN_PROJECT'
   projectName: string
   contractAddresses: string[]
   addContract: boolean[]
 }
 
 interface Propose extends BaseAuthLeaf {
-  leafType: AuthLeafType.PROPOSE
+  leafType: 'PROPOSE'
   numLeafs: number
 }
 

@@ -63,6 +63,7 @@ const ownerAddress = args[4]
         `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
       )).abi
 
+    // TODO: update this fn w/ chainId field
     const configCache = decodeCachedConfig(
       encodedConfigCache,
       ChugSplashUtilsABI

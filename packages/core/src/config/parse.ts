@@ -2877,7 +2877,8 @@ export const getProjectConfigCache = async (
   return {
     isRegistered,
     blockGasLimit,
-    localNetworkInfo,
+    localNetwork,
+    chainId,
     networkName,
     contractConfigCache,
   }

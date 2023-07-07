@@ -237,6 +237,7 @@ export type ProjectConfigCache = {
   isRegistered: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
+  chainId: number
   networkName: string
   contractConfigCache: ContractConfigCache
 }
