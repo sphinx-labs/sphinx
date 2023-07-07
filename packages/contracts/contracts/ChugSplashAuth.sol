@@ -88,7 +88,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.incrementProtocolDebt(_initialGasLeft);
     }
 
-    event Setup(bytes32 indexed authRoot);
+    event Setup(bytes32 indexed authRoot, uint256 numLeafs);
     event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
     event OrgOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
@@ -135,12 +135,14 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     error ContractDoesNotExistInProject();
     error LeftoverContractsInProject();
     error AuthStateNotEmpty();
+    error AuthStateNotProposable();
     error InvalidAuthRoot();
     error InvalidNumLeafs();
     error FunctionDisabled();
     error RoleMemberCannotBeZeroAddress();
     error RoleMemberCannotBeThisContract();
     error LeftoverProjectOwners();
+    error NumLeafsMismatch();
 
     constructor(Version memory _version) Semver(_version.major, _version.minor, _version.patch) {
         // Disables initializing the implementation contract. Does not impact proxy contracts.
@@ -221,19 +223,22 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _signatures
         );
 
-        AuthState storage authState = authStates[_authRoot];
+        AuthStatus status = authStates[_authRoot].status;
 
-        if (authState.status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
+        if (status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
 
         (
             SetRoleMember[] memory proposers,
-            SetRoleMember[] memory projectManagers
-        ) = abi.decode(_leaf.data, (SetRoleMember[], SetRoleMember[]));
+            SetRoleMember[] memory projectManagers,
+            uint256 numLeafs
+        ) = abi.decode(_leaf.data, (SetRoleMember[], SetRoleMember[], uint256));
+
+        if (numLeafs == 0) revert InvalidNumLeafs();
+        // There is no point calling the setup function if both of these arrays are empty.
+        if (proposers.length == 0 && projectManagers.length == 0) revert EmptyArray();
 
         uint256 numProposers = proposers.length;
         uint256 numProjectManagers = projectManagers.length;
-        if (proposers.length != projectManagers.length) revert ArrayLengthMismatch();
-
         bool add;
         address member;
         for (uint256 i = 0; i < numProposers; i++) {
@@ -262,14 +267,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             }
         }
 
-        // We mark the auth root as completed so that it can't be re-executed.
-        authStates[_authRoot] = AuthState({
-            status: AuthStatus.COMPLETED,
-            leafsExecuted: 1,
-            numLeafs: 1
-        });
+        if (numLeafs == 1) {
+            // Mark the auth root as completed if there is only one leaf.
+            authStates[_authRoot] = AuthState({
+                status: AuthStatus.COMPLETED,
+                leafsExecuted: 1,
+                numLeafs: numLeafs
+            });
+            emit AuthRootCompleted(_authRoot, numLeafs);
+        } else {
+            // Mark the auth root as setup if there are more leafs to execute in this tree. Note
+            // that it's not possible for there to be zero leafs since we would have reverted
+            // earlier in this function.
+            authStates[_authRoot] = AuthState({
+                status: AuthStatus.SETUP,
+                leafsExecuted: 1,
+                numLeafs: numLeafs
+            });
+        }
 
-        emit Setup(_authRoot);
+        emit Setup(_authRoot, numLeafs);
     }
 
     function setProjectManager(
@@ -923,7 +940,9 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     /****************************** PROPOSER FUNCTIONS ******************************/
 
     /**
-     * @notice Allows a proposer to propose a new auth Merkle root.
+     * @notice Allows a proposer to propose a new auth Merkle root. This function may
+     * be called as the first leaf of a new auth Merkle tree, or as the second leaf
+     * after the `setup` function has been called.
      *
      * @param _authRoot The auth Merkle root to propose.
      * @param _leaf The leaf that contains the proposal info.
@@ -939,19 +958,36 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
         uint256 numLeafs = abi.decode(_leaf.data, (uint256));
 
-        // The proposal counts as one of the auth leafs, so there must be at least one other
-        // leaf, or else there will be nothing left to execute for this auth root.
-        if (numLeafs <= 1) revert InvalidNumLeafs();
-
         AuthState storage authState = authStates[_authRoot];
+        AuthStatus status = authState.status;
+        uint256 leafsExecuted = authState.leafsExecuted;
 
-        // We don't allow auth Merkle roots to be proposed more than once. Without this check, anyone can
-        // call this function to re-propose an auth root that has already been proposed.
-        if (authState.status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
+        if (status == AuthStatus.EMPTY) {
+            // The proposal counts as the first leaf, so there must be at least one other leaf, or
+            // else there will be nothing left to execute for this auth root.
+            if (numLeafs <= 1) revert InvalidNumLeafs();
+        } else if (status == AuthStatus.SETUP) {
+            // The first leaf was the setup leaf, and the current proposal counts as the second
+            // leaf, so there must be at least one other leaf or else there will be nothing left to
+            // execute for this auth root.
+            if (numLeafs <= 2) revert InvalidNumLeafs();
+
+            // We sanity check that the number of leafs passed as an input to this function matches
+            // the number of leafs in the auth state, which was set during the setup function. If
+            // these don't match, there's a bug in the off-chain logic. It's not strictly necessary
+            // for us to check this here, since we can just use the numLeafs that was set during the
+            // setup function, but we do it anyway to ensure that there isn't a bug in the off-chain
+            // logic.
+            if (numLeafs != authState.numLeafs) revert NumLeafsMismatch();
+        } else {
+            // We don't allow auth Merkle roots to be proposed more than once. Otherwise, anyone
+            // could call this function to re-propose an auth root that has already been proposed.
+            revert AuthStateNotProposable();
+        }
 
         authStates[_authRoot] = AuthState({
             status: AuthStatus.PROPOSED,
-            leafsExecuted: 1, // The proposal counts as an auth leaf, so we start at 1
+            leafsExecuted: leafsExecuted + 1,
             numLeafs: numLeafs
         });
 

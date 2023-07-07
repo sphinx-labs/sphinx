@@ -219,6 +219,7 @@ struct AuthState {
 
 enum AuthStatus {
     EMPTY,
+    SETUP,
     PROPOSED,
     COMPLETED
 }

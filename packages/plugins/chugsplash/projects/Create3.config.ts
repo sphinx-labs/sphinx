@@ -13,7 +13,7 @@ const config: UserProjectConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 2,
-        _immutableContractReference: ethers.constants.AddressZero,
+        _immutableAddress: ethers.constants.AddressZero,
       },
       salt: 1,
     },

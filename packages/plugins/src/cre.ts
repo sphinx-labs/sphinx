@@ -6,7 +6,6 @@ import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 export const createChugSplashRuntime = (
   remoteExecution: boolean,
   confirmUpgrade: boolean = false,
-  chainId: number,
   canonicalConfigPath: string,
   hre: HardhatRuntimeEnvironment | undefined = undefined,
   silent: boolean,
@@ -16,7 +15,6 @@ export const createChugSplashRuntime = (
     canonicalConfigPath,
     remoteExecution,
     confirmUpgrade,
-    localChainId,
     stream,
     silent,
     importOpenZeppelinStorageLayout,

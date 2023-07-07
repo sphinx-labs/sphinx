@@ -81,10 +81,16 @@ export interface UserChugSplashConfig {
   projects: UserProjectConfigs
 }
 
+export type ProjectConfigOptions = {
+  projectOwners: Array<string>
+  projectThreshold: number
+}
+
 /**
  * Full user-defined config object that can be used to commit a deployment/upgrade.
  */
 export interface UserProjectConfig {
+  options?: ProjectConfigOptions
   contracts: UserContractConfigs
 }
 
@@ -127,14 +133,18 @@ export interface ParsedChugSplashConfig {
   projects: ParsedProjectConfigs
 }
 
+export interface ParsedProjectConfigOptions {
+  deployer: string
+  project: string
+  projectOwners?: Array<string>
+  projectThreshold?: number
+}
+
 /**
  * Full parsed config object.
  */
 export interface ParsedProjectConfig {
-  options: {
-    deployer: string
-    projectName: string
-  }
+  options: ParsedProjectConfigOptions
   contracts: ParsedContractConfigs
 }
 
@@ -237,7 +247,6 @@ export type ProjectConfigCache = {
   isRegistered: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
-  chainId: number
   networkName: string
   contractConfigCache: ContractConfigCache
 }

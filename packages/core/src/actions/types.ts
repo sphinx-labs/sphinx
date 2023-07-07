@@ -151,28 +151,6 @@ export interface RawAuthLeaf {
   data: string
 }
 
-export enum AuthLeafType {
-  approveDeployment,
-  cancelActiveDeployment,
-  createProject,
-  exportProxy,
-  propose,
-  removeProject,
-  setProposer,
-  setOrgOwner,
-  setOrgOwnerThreshold,
-  setProjectManager,
-  setProjectOwner,
-  setProjectThreshold,
-  setup,
-  transferDeployerOwnership,
-  updateContractsInProject,
-  upgradeAuthImplementation,
-  upgradeDeployerAndAuthImpl,
-  upgradeDeployerImplementation,
-  withdrawETH,
-}
-
 export type SetRoleMember = {
   member: string
   add: boolean
@@ -185,6 +163,7 @@ export type ContractInfo = {
 
 export enum AuthStatus {
   EMPTY,
+  SETUP,
   PROPOSED,
   COMPLETED,
 }
@@ -199,6 +178,7 @@ interface Setup extends BaseAuthLeaf {
   leafType: 'setup'
   proposers: Array<SetRoleMember>
   managers: Array<SetRoleMember>
+  numLeafs: number
 }
 
 interface SetProjectManager extends BaseAuthLeaf {

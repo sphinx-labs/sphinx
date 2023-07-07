@@ -8,8 +8,6 @@ import { ParsedContractConfig } from './config/types'
 
 export type ChugSplashRuntimeEnvironment = {
   canonicalConfigPath: string
-  isLocalNetwork: boolean
-  chainId: number
   remoteExecution: boolean
   confirmUpgrade: boolean
   stream: NodeJS.WritableStream

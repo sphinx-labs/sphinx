@@ -681,7 +681,6 @@ contract ChugSplashUtils is
                 isRegistered: isRegistered,
                 blockGasLimit: block.gaslimit,
                 localNetwork: isLocalNetwork(_rpcUrl),
-                chainId: block.chainid,
                 networkName: getChainAlias(_rpcUrl),
                 contractConfigCache: contractConfigCache
             });

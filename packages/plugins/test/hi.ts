@@ -17,7 +17,6 @@ import {
   makeAuthBundle,
   getParsedOrgConfig,
   AuthLeaf,
-  AuthLeafType,
   ParsedConfigOptions,
   ParsedOrgConfigOptions,
   signAuthRootMetaTxn,
@@ -74,12 +73,18 @@ describe('TODO', () => {
   })
 
   it('TODO single owner', async () => {
+    // Define constructor arguments for the contract we're going to deploy
+    const constructorArgs = {
+      _immutableUint: 1,
+      _immutableAddress: '0x' + '11'.repeat(20),
+    }
+
     const orgOwners = [ownerAddress]
     const userConfig: UserChugSplashConfig = {
       options: {
         orgOwners,
         orgOwnerThreshold,
-        networks: ['local'],
+        networks: ['goerli'],
         proposers: [ownerAddress],
         managers: [ownerAddress],
       },
@@ -90,11 +95,26 @@ describe('TODO', () => {
     const authAddress = getAuthAddress(orgOwners, orgOwnerThreshold)
     const deployerAddress = getChugSplashManagerAddress(authAddress)
 
+    const projectName = 'MyProject'
+    userConfig.projects[projectName] = {
+      options: {
+        projectOwners: [ownerAddress],
+        projectThreshold: 1,
+      },
+      contracts: {
+        MyContract: {
+          contract: 'Stateless',
+          kind: 'immutable',
+          constructorArgs,
+        },
+      },
+    }
+
     await ensureChugSplashInitialized(ethers.provider, relayer)
 
     const { parsedConfig } = await getParsedOrgConfig(
       userConfig,
-      [], // We don't pass in any projects since we're not using them in this test
+      projectName,
       deployerAddress,
       ethers.provider,
       cre,
@@ -110,6 +130,12 @@ describe('TODO', () => {
 
     // We set the `registryData` to `[]` since this version of the ChugSplashManager doesn't use it.
     await AuthFactory.deploy(authData, [], 0)
+
+    // Fund the ChugSplashManager.
+    await owner.sendTransaction({
+      to: deployerAddress,
+      value: ethers.utils.parseEther('1'),
+    })
 
     // Check that the ChugSplashAuth and ChugSplashManager contracts were deployed at their expected
     // addresses
@@ -145,9 +171,11 @@ describe('TODO', () => {
       EMPTY_CONFIG_INFO
     )
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+    const numLeafsPerChain = bundledLeafs.length
 
-    expect(bundledLeafs.length).equals(1)
-    const { leaf, proof } = bundledLeafs[0]
+    const { leaf: setupLeaf, proof: setupProof } = bundledLeafs[0]
+    const { leaf: proposalLeaf, proof: proposalProof } = bundledLeafs[1]
+    // const { leaf: approvalLeaf, proof: approvalProof } = bundledLeafs[2]
 
     // Check that the state of the Auth contract is correct before calling the `setup` function.
     expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(false)
@@ -160,20 +188,27 @@ describe('TODO', () => {
 
     const signature = await signAuthRootMetaTxn(owner, root)
 
-    // TODO: is it bad that proof is an empty array?
+    await Auth.setup(root, setupLeaf, [signature], setupProof)
 
-    await Auth.setup(root, leaf, [signature], proof)
-
-    // Check that the owner has been given the appropriate roles.
+    // Check that the setup function executed correctly.
     expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(true)
     expect(await Auth.hasRole(PROJECT_MANAGER_ROLE, ownerAddress)).equals(true)
-    // Check that the AuthState has been marked as completed.
-    const authState: AuthState = await Auth.authStates(root)
-    expect(authState.status).equals(AuthStatus.COMPLETED)
+    let authState: AuthState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.SETUP)
     expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
-    expect(authState.numLeafs).deep.equals(BigNumber.from(1))
+    expect(authState.numLeafs).deep.equals(BigNumber.from(numLeafsPerChain))
+
+    await Auth.propose(root, proposalLeaf, [signature], proposalProof)
+
+    // Check that the proposal executed correctly.
+    authState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.PROPOSED)
+    expect(authState.leafsExecuted).deep.equals(BigNumber.from(2))
+    expect(await Auth.firstProposalOccurred()).equals(true)
   })
 })
+
+// TODO: Propose, approve deployments on two different chains
 
 // TODO: mv
 type ConfigInfo = {
@@ -189,6 +224,7 @@ type ConfigInfo = {
 // TODO(docs): `chainStates` must contain all of the chainIds that are in `prevConfig`.
 // TODO: validate that `chainStates` contains all of the networks that are in `prevConfig`. perhaps
 // do this in the parsing/validation, or in our back-end
+// TODO(docs): if the user removes a network, then we don't add any leafs for that network.
 const makeAuthLeafs = (
   config: ParsedChugSplashConfig,
   prevConfig: ParsedChugSplashConfig,
@@ -283,12 +319,12 @@ const makeAuthLeafs = (
         )
 
       const setupLeaf: AuthLeaf = {
-        leafType: AuthLeafType.setup,
-        proposers: proposersToSet,
-        managers: managersToSet,
         chainId,
         to: deployerAddress,
         index,
+        leafType: 'setup',
+        proposers: proposersToSet,
+        managers: managersToSet,
       }
       index += 1
       leafs.push(setupLeaf)

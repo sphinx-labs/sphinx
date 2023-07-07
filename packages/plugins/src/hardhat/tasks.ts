@@ -288,7 +288,7 @@ task(TASK_TEST)
   )
   .addOptionalParam(
     'projects',
-    `Names of ChugSplash projects to deploy before running the tests.` +
+    `Names of ChugSplash projects to deploy before running the tests. ` +
       `Format must be a comma-separated string, such as: 'Project1, Project2'.`
   )
   .setAction(
