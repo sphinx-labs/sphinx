@@ -244,12 +244,12 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName } = canonicalProjectConfig.options
+  const { project } = canonicalProjectConfig.options
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
     approvalEvent.args.configUri,
-    projectName
+    project
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
@@ -266,7 +266,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  logger.info(`[ChugSplash]: compiled ${projectName} on: ${network}.`)
+  logger.info(`[ChugSplash]: compiled ${project} on: ${network}.`)
 
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
     logger.info(`[ChugSplash]: checking if any of the constructors revert...`)
@@ -338,7 +338,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       canonicalProjectConfig
     )
   ) {
-    logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
+    logger.info(`[ChugSplash]: ${project} has sufficient funds`)
 
     // execute deployment
     try {
@@ -404,7 +404,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       canonicalProjectConfig,
       projectConfigArtifacts,
       rpcProvider,
-      projectName,
+      project,
       network,
       graphQLClient,
       activeDeploymentId,
@@ -413,7 +413,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     await trackExecuted(await manager.owner(), network, undefined)
   } else {
-    logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
+    logger.info(`[ChugSplash]: ${project} has insufficient funds`)
 
     // Continue to the next deployment if there is an insufficient amount of funds in the
     // ChugSplashManager. We will make attempts to execute the deployment on

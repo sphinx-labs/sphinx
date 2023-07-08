@@ -20,12 +20,20 @@ import {
   ParsedConfigOptions,
   ParsedOrgConfigOptions,
   signAuthRootMetaTxn,
+  ContractInfo,
+  getNumDeployContractActions,
+  getBundleInfo,
+  ConfigArtifacts,
+  ConfigCache,
+  BundledAuthLeaf,
+  getDeploymentId,
 } from '@chugsplash/core'
 import {
   AuthFactoryABI,
   AuthABI,
   PROPOSER_ROLE,
   PROJECT_MANAGER_ROLE,
+  ChugSplashManagerABI,
 } from '@chugsplash/contracts'
 import { expect } from 'chai'
 import { BigNumber, providers } from 'ethers'
@@ -96,10 +104,11 @@ describe('TODO', () => {
     const deployerAddress = getChugSplashManagerAddress(authAddress)
 
     const projectName = 'MyProject'
+    const projectThreshold = 1
     userConfig.projects[projectName] = {
       options: {
         projectOwners: [ownerAddress],
-        projectThreshold: 1,
+        projectThreshold,
       },
       contracts: {
         MyContract: {
@@ -112,19 +121,25 @@ describe('TODO', () => {
 
     await ensureChugSplashInitialized(ethers.provider, relayer)
 
-    const { parsedConfig } = await getParsedOrgConfig(
-      userConfig,
-      projectName,
-      deployerAddress,
-      ethers.provider,
-      cre,
-      makeGetConfigArtifacts(hre)
-    )
+    const { parsedConfig, configCache, configArtifacts } =
+      await getParsedOrgConfig(
+        userConfig,
+        projectName,
+        deployerAddress,
+        ethers.provider,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
 
     const Registry = getChugSplashRegistry(relayer)
     const AuthFactory = new ethers.Contract(
       AUTH_FACTORY_ADDRESS,
       AuthFactoryABI,
+      relayer
+    )
+    const Deployer = new ethers.Contract(
+      deployerAddress,
+      ChugSplashManagerABI,
       relayer
     )
 
@@ -165,17 +180,34 @@ describe('TODO', () => {
       deployerAddress,
       chainStates: {},
     }
-    const leafs = makeAuthLeafs(
+    const leafs = await makeAuthLeafs(
       parsedConfig,
+      configArtifacts,
+      configCache,
       EMPTY_PARSED_CONFIG,
       EMPTY_CONFIG_INFO
     )
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
     const numLeafsPerChain = bundledLeafs.length
 
-    const { leaf: setupLeaf, proof: setupProof } = bundledLeafs[0]
-    const { leaf: proposalLeaf, proof: proposalProof } = bundledLeafs[1]
-    // const { leaf: approvalLeaf, proof: approvalProof } = bundledLeafs[2]
+    // TODO: replace 5 in all fn calls
+    const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
+      bundledLeafs,
+      0,
+      5
+    )
+    const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
+      bundledLeafs,
+      1,
+      5
+    )
+    const { leaf: createProjectLeaf, proof: createProjectProof } =
+      findBundledLeaf(bundledLeafs, 2, 5)
+    const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
+      bundledLeafs,
+      3,
+      5
+    )
 
     // Check that the state of the Auth contract is correct before calling the `setup` function.
     expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(false)
@@ -205,6 +237,43 @@ describe('TODO', () => {
     expect(authState.status).equals(AuthStatus.PROPOSED)
     expect(authState.leafsExecuted).deep.equals(BigNumber.from(2))
     expect(await Auth.firstProposalOccurred()).equals(true)
+
+    await Auth.createProject(
+      root,
+      createProjectLeaf,
+      [signature],
+      createProjectProof
+    )
+
+    // Check that the createProject function executed correctly.
+    const projectOwnerRoleHash = ethers.utils.solidityKeccak256(
+      ['string'],
+      [`${projectName}ProjectOwner`]
+    )
+    expect(await Auth.getRoleMemberCount(projectOwnerRoleHash)).deep.equals(
+      BigNumber.from(1)
+    )
+    expect(await Auth.hasRole(projectOwnerRoleHash, ownerAddress)).equals(true)
+    authState = await Auth.authStates(root)
+    expect(await Auth.thresholds(projectName)).deep.equals(
+      BigNumber.from(projectThreshold)
+    )
+    expect(authState.leafsExecuted).deep.equals(BigNumber.from(3))
+
+    // Check that there is no active deployment before approving the deployment.
+    expect(await Deployer.activeDeploymentId()).equals(
+      ethers.constants.HashZero
+    )
+
+    await Auth.approveDeployment(root, approvalLeaf, [signature], approvalProof)
+
+    // Check that the approve function executed correctly and that all of the leafs in the tree have
+    // been executed.
+    expect(await Deployer.activeDeploymentId()).does.not.equal(
+      ethers.constants.HashZero
+    )
+    authState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.COMPLETED)
   })
 })
 
@@ -225,14 +294,16 @@ type ConfigInfo = {
 // TODO: validate that `chainStates` contains all of the networks that are in `prevConfig`. perhaps
 // do this in the parsing/validation, or in our back-end
 // TODO(docs): if the user removes a network, then we don't add any leafs for that network.
-const makeAuthLeafs = (
+const makeAuthLeafs = async (
   config: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache,
   prevConfig: ParsedChugSplashConfig,
   prevConfigInfo: ConfigInfo
-): Array<AuthLeaf> => {
+): Promise<Array<AuthLeaf>> => {
   let leafs: Array<AuthLeaf> = []
 
-  const { options } = config
+  const { options, projects } = config
   const { options: prevOptions } = prevConfig
 
   if (
@@ -241,6 +312,10 @@ const makeAuthLeafs = (
   ) {
     throw new Error(`TODO: should never happen`)
   }
+
+  // TODO: case: a user messes up their setup on a chain, then they change the orgOwners or
+  // orgThreshold in their config when trying to re-setup. what do we do? i think we should throw an
+  // error somewhere. Note that in this case, `!firstProposalOccurred`.
 
   const { deployerAddress, chainStates: prevChainStates } = prevConfigInfo
   const { proposers, managers, chainIds } = options
@@ -275,8 +350,10 @@ const makeAuthLeafs = (
       }
     })
 
-    const newChainLeafs = makeAuthLeafs(
+    const newChainLeafs = await makeAuthLeafs(
       config,
+      configArtifacts,
+      configCache,
       TODOprevConfig,
       TODOprevConfigInfo
     )
@@ -284,7 +361,6 @@ const makeAuthLeafs = (
   }
 
   for (const chainId of chainsToKeep) {
-    let index = 0
     const { firstProposalOccurred } = prevChainStates[chainId]
     // for (const [chainIdStr, state] of Object.entries(prevChainState)) {
     // TODO(docs)
@@ -318,16 +394,93 @@ const makeAuthLeafs = (
           })
         )
 
-      const setupLeaf: AuthLeaf = {
-        chainId,
-        to: deployerAddress,
-        index,
-        leafType: 'setup',
-        proposers: proposersToSet,
-        managers: managersToSet,
+      if (Object.keys(projects).length === 0) {
+        const setupLeaf: AuthLeaf = {
+          chainId,
+          to: deployerAddress,
+          index: 0,
+          proposers: proposersToSet,
+          managers: managersToSet,
+          numLeafs: 1,
+          leafType: 'setup',
+        }
+        leafs.push(setupLeaf)
+      } else {
+        // TODO(docs)
+        let index = 2
+
+        for (const [projectName, projectConfig] of Object.entries(projects)) {
+          const { options: projectOptions, contracts } = projectConfig
+          const { projectOwners, projectThreshold } = projectOptions
+
+          if (!projectOwners || !projectThreshold) {
+            throw new Error(`TODO. Should never happen.`)
+          }
+
+          // TODO: you should only add a contract to this array if it's a user-defined address
+          const contractInfoArray: Array<ContractInfo> = Object.entries(
+            contracts
+          ).map(([referenceName, contractConfig]) => {
+            return { referenceName, addr: contractConfig.address }
+          })
+
+          const createProjectLeaf: AuthLeaf = {
+            chainId,
+            to: deployerAddress,
+            index,
+            projectName,
+            projectThreshold,
+            projectOwners,
+            contractInfoArray,
+            leafType: 'createProject',
+          }
+          index += 1
+          leafs.push(createProjectLeaf)
+
+          const { configUri, bundles } = await getBundleInfo(
+            projectConfig,
+            configArtifacts[projectName],
+            configCache[projectName]
+          )
+          const { actionBundle, targetBundle } = bundles
+
+          const approvalLeaf: AuthLeaf = {
+            chainId,
+            to: deployerAddress,
+            index,
+            projectName,
+            actionRoot: actionBundle.root,
+            targetRoot: targetBundle.root,
+            numActions: actionBundle.actions.length,
+            numTargets: targetBundle.targets.length,
+            numImmutableContracts: getNumDeployContractActions(actionBundle),
+            configUri,
+            leafType: 'approveDeployment',
+          }
+          index += 1
+          leafs.push(approvalLeaf)
+        }
+
+        const setupLeaf: AuthLeaf = {
+          chainId,
+          to: deployerAddress,
+          index: 0,
+          proposers: proposersToSet,
+          managers: managersToSet,
+          numLeafs: index, // TODO(docs)
+          leafType: 'setup',
+        }
+        leafs.push(setupLeaf)
+
+        const proposalLeaf: AuthLeaf = {
+          chainId,
+          to: deployerAddress,
+          index: 1,
+          numLeafs: index, // TODO(docs): same as above
+          leafType: 'propose',
+        }
+        leafs.push(proposalLeaf)
       }
-      index += 1
-      leafs.push(setupLeaf)
     }
   }
 
@@ -345,4 +498,19 @@ const isParsedOrgConfigOptions = (
     options.managers !== undefined &&
     options.chainIds !== undefined
   )
+}
+
+// TODO: mv
+const findBundledLeaf = (
+  bundledLeafs: Array<BundledAuthLeaf>,
+  index: number,
+  chainId: number
+): BundledAuthLeaf => {
+  const leaf = bundledLeafs.find(
+    ({ leaf: l }) => l.index === index && l.chainId === chainId
+  )
+  if (!leaf) {
+    throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
+  }
+  return leaf
 }
