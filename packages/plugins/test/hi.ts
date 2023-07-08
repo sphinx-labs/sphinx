@@ -269,9 +269,13 @@ describe('TODO', () => {
 
     // Check that the approve function executed correctly and that all of the leafs in the tree have
     // been executed.
-    expect(await Deployer.activeDeploymentId()).does.not.equal(
-      ethers.constants.HashZero
+    const { configUri, bundles } = await getBundleInfo(
+      parsedConfig.projects[projectName],
+      configArtifacts[projectName],
+      configCache[projectName]
     )
+    const deploymentId = getDeploymentId(bundles, configUri, projectName)
+    expect(await Deployer.activeDeploymentId()).equals(deploymentId)
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.COMPLETED)
   })
