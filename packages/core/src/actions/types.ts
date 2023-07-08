@@ -233,7 +233,7 @@ interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
 interface CreateProject extends BaseAuthLeaf {
   leafType: 'createProject'
   projectName: string
-  threshold: number
+  projectThreshold: number
   projectOwners: string[]
   contractInfoArray: ContractInfo[]
 }

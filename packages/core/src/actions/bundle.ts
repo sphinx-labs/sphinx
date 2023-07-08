@@ -2,6 +2,7 @@ import { fromHexString, toHexString } from '@eth-optimism/core-utils'
 import { ethers, utils } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
 import {
   ParsedProjectConfig,
@@ -303,7 +304,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         ],
         [
           leaf.projectName,
-          leaf.threshold,
+          leaf.projectThreshold,
           leaf.projectOwners,
           leaf.contractInfoArray,
         ]
@@ -373,22 +374,6 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   }
 }
 
-/**
- * Computes the hash of an auth leaf.
- *
- * @param leaf Auth leaf to compute the hash of.
- * @return Hash of the leaf.
- */
-export const getAuthLeafHash = (leaf: RawAuthLeaf): string => {
-  const { chainId, to, index, data } = leaf
-  return ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
-      ['uint256', 'address', 'uint256', 'bytes'],
-      [chainId, to, index, data]
-    )
-  )
-}
-
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
   const { chainId, to, index } = leaf
@@ -408,23 +393,22 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
     return toRawAuthLeaf(leaf)
   })
 
-  // Now compute the hash for each leaf.
-  const elements = rawLeafs.map((leaf) => {
-    return getAuthLeafHash(leaf)
-  })
+  const rawLeafArray = rawLeafs.map((l) => Object.values(l))
+  const tree = StandardMerkleTree.of(rawLeafArray, [
+    'uint256',
+    'address',
+    'uint256',
+    'bytes',
+  ])
 
-  const tree = makeMerkleTree(elements)
-
-  const root = toHexString(tree.getRoot())
+  const root = tree.root
 
   return {
     root: root !== '0x' ? root : ethers.constants.HashZero,
-    leafs: rawLeafs.map((leaf, idx) => {
+    leafs: rawLeafs.map((leaf) => {
       return {
         leaf,
-        proof: tree.getProof(getAuthLeafHash(leaf), idx).map((element) => {
-          return element.data
-        }),
+        proof: tree.getProof(Object.values(leaf)),
       }
     }),
   }
@@ -454,7 +438,7 @@ export const makeActionBundle = (
 
   const root = toHexString(tree.getRoot())
 
-  return {
+  const a = {
     root: root !== '0x' ? root : ethers.constants.HashZero,
     actions: rawActions.map((action, idx) => {
       return {
@@ -468,6 +452,8 @@ export const makeActionBundle = (
       }
     }),
   }
+
+  return a
 }
 
 export const makeMerkleTree = (elements: string[]): MerkleTree => {

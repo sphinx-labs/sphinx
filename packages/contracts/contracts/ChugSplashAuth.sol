@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "hardhat/console.sol";
-
 import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
@@ -654,16 +652,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         {
             (
                 string memory projectName,
-                uint256 threshold,
+                uint256 projectThreshold,
                 address[] memory projectOwners,
                 ContractInfo[] memory contractInfoArray
             ) = abi.decode(_leaf.data, (string, uint256, address[], ContractInfo[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
-            if (threshold == 0) revert ThresholdCannotBeZero();
+            if (projectThreshold == 0) revert ThresholdCannotBeZero();
             if (thresholds[projectName] > 0) revert ProjectAlreadyExists();
 
-            thresholds[projectName] = threshold;
+            thresholds[projectName] = projectThreshold;
 
             bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
             uint256 numProjectOwners = projectOwners.length;
@@ -751,7 +749,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             string memory projectName,
             bytes32 actionRoot,
             bytes32 targetRoot,
-            uint256 numLeafs,
+            uint256 numActions,
             uint256 numTargets,
             uint256 numImmutableContracts,
             string memory configUri
@@ -772,7 +770,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             projectName,
             actionRoot,
             targetRoot,
-            numLeafs,
+            numActions,
             numTargets,
             numImmutableContracts,
             configUri,
@@ -1059,7 +1057,19 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         if (_threshold == 0) revert ThresholdCannotBeZero();
         if (_signatures.length < _threshold) revert NotEnoughSignatures();
 
-        uint256 leafsExecuted = authStates[_authRoot].leafsExecuted;
+        AuthState memory authState = authStates[_authRoot];
+        uint256 leafsExecuted = authState.leafsExecuted;
+
+        // Validate the fields of the AuthLeaf
+        if (_leaf.to != address(manager)) revert InvalidToAddress();
+        if (_leaf.chainId != block.chainid) revert InvalidChainId();
+        if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
+
+        if (!MerkleProofUpgradeable.verify(_proof, _authRoot, getAuthLeafHash(_leaf)))
+            revert InvalidMerkleProof();
+
+        bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
+        bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
 
         address signer;
         address prevSigner = address(0);
@@ -1067,26 +1077,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             bytes memory signature = _signatures[i];
             if (signature.length != 65) revert InvalidSignatureLength();
 
-            bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
-            bytes32 typedDataHash = ECDSAUpgradeable.toTypedDataHash(DOMAIN_SEPARATOR, structHash);
             signer = ECDSAUpgradeable.recover(typedDataHash, signature);
             if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
             if (signer <= prevSigner) revert DuplicateSigner();
-
-            // Validate the fields of the AuthLeaf
-            if (_leaf.to != address(manager)) revert InvalidToAddress();
-            if (_leaf.chainId != block.chainid) revert InvalidChainId();
-            if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
-
-            if (!MerkleProofUpgradeable.verify(_proof, _authRoot, getAuthLeafHash(_leaf)))
-                revert InvalidMerkleProof();
 
             prevSigner = signer;
         }
     }
 
     function getAuthLeafHash(AuthLeaf memory _leaf) private pure returns (bytes32) {
-        return keccak256(abi.encode(_leaf.chainId, _leaf.to, _leaf.index, _leaf.data));
+        return keccak256(bytes.concat(keccak256(abi.encode(_leaf.chainId, _leaf.to, _leaf.index, _leaf.data))));
     }
 
     function assertValidProposedAuthLeaf(

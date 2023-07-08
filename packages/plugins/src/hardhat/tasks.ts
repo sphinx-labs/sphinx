@@ -581,11 +581,11 @@ const resolveOwner = async (
 ): Promise<Signer> => {
   if (!signerAddress && !useDefaultSigner) {
     throw new Error(
-      'Must specify either --signer <address> or --default-signer'
+      'Must specify either --signer <address> or --use-default-signer'
     )
   } else if (signerAddress && useDefaultSigner) {
     throw new Error(
-      'Cannot specify both --signer <address> and --default-signer'
+      'Cannot specify both --signer <address> and --use-default-signer'
     )
   } else if (signerAddress) {
     return getSignerFromAddress(hre, signerAddress)
