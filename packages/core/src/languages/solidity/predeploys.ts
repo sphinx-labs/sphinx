@@ -128,6 +128,7 @@ export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   executors: string[] = [],
+  relayers: string[] = [],
   logger?: Logger
 ) => {
   if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
@@ -137,7 +138,7 @@ export const ensureChugSplashInitialized = async (
       provider,
       signer,
       executors,
-      [],
+      relayers,
       (
         await provider.getNetwork()
       ).chainId,

@@ -141,11 +141,15 @@ export class ChugSplashExecutor extends BaseServiceV2<
       (el) => new ethers.Wallet(el.privateKey).address
     )
 
+    const relayers = process.env.TESTING_RELAYERS
+      ? process.env.TESTING_RELAYERS.split(',')
+      : []
     // Deploy the ChugSplash contracts.
     await ensureChugSplashInitialized(
       this.state.provider,
       wallet,
       executors,
+      relayers,
       this.logger
     )
 
