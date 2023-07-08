@@ -633,8 +633,8 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /**
      * @notice Creates a new project with the given name and threshold. Must be signed by at least
-       one project manager. Note that this function wil revert if any of the contracts in the new
-       project already belong to an existing project.
+       one project manager. Note that this function wil revert if any of the imported contract
+       addresses in the new project already belong to an existing project.
      */
     function createProject(
         bytes32 _authRoot,
@@ -654,7 +654,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 string memory projectName,
                 uint256 projectThreshold,
                 address[] memory projectOwners,
-                ContractInfo[] memory contractInfoArray
+                ContractInfo[] memory contractsToImport
             ) = abi.decode(_leaf.data, (string, uint256, address[], ContractInfo[]));
 
             if (bytes(projectName).length == 0) revert EmptyProjectName();
@@ -672,12 +672,12 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
                 _grantRole(projectOwnerRole, projectOwner);
             }
 
-            uint256 numContracts = contractInfoArray.length;
+            uint256 numContracts = contractsToImport.length;
             ContractInfo memory contractInfo;
             address contractAddress;
             string memory referenceName;
             for (uint256 i = 0; i < numContracts; i++) {
-                contractInfo = contractInfoArray[i];
+                contractInfo = contractsToImport[i];
                 contractAddress = contractInfo.addr;
                 referenceName = contractInfo.referenceName;
 

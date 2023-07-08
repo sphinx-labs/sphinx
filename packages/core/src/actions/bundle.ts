@@ -306,7 +306,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
           leaf.projectName,
           leaf.projectThreshold,
           leaf.projectOwners,
-          leaf.contractInfoArray,
+          leaf.contractsToImport,
         ]
       )
 

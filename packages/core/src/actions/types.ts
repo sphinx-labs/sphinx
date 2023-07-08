@@ -235,7 +235,7 @@ interface CreateProject extends BaseAuthLeaf {
   projectName: string
   projectThreshold: number
   projectOwners: string[]
-  contractInfoArray: ContractInfo[]
+  contractsToImport: ContractInfo[]
 }
 
 interface SetProposer extends BaseAuthLeaf {

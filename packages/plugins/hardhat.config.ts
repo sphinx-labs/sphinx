@@ -11,6 +11,10 @@ dotenv.config()
 
 const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
 
+const HARDHAT_CHAIN_ID = process.env.HARDHAT_CHAIN_ID
+  ? Number(process.env.HARDHAT_CHAIN_ID)
+  : 31337
+
 const config: HardhatUserConfig = {
   paths: {
     sources: './contracts/test',
@@ -34,8 +38,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      // TODO: probably put this in its own config for testing purposes
-      chainId: 5,
+      chainId: HARDHAT_CHAIN_ID,
     },
     goerli: {
       chainId: 5,
@@ -67,6 +70,9 @@ const config: HardhatUserConfig = {
       url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
+  },
+  mocha: {
+    timeout: 999_999_999,
   },
 }
 

@@ -56,12 +56,14 @@ import {
 
 // TODO: rm @metamask dependency?
 export const signAuthRootMetaTxn = async (
-  signer: ethers.providers.JsonRpcSigner,
+  privateKey: string,
   authRoot: string
 ): Promise<string> => {
   const domain = {
     name: 'ChugSplash',
   }
+
+  const signer = new ethers.Wallet(privateKey)
 
   const types = { AuthRoot: [{ name: 'root', type: 'bytes32' }] }
   const value = { root: authRoot }
