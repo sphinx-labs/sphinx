@@ -39,7 +39,7 @@ export const updateDeployment = async (
   if (contracts.length > 0) {
     await client.request(createContractsMutation, {
       input: {
-        onChainId: deploymentId,
+        deploymentId,
         chainId,
         contracts,
         publicKey: process.env.MANAGED_PUBLIC_KEY,
@@ -49,7 +49,7 @@ export const updateDeployment = async (
 
   await client.request(updateDeploymentMutation, {
     input: {
-      onChainId: deploymentId,
+      deploymentId,
       chainId,
       status,
       publicKey: process.env.MANAGED_PUBLIC_KEY,

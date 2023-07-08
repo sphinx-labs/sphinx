@@ -5,9 +5,11 @@ export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 
 export const WEBSITE_URL = `https://chugsplash.io`
 
+export type SupportedChainId = 1 | 10 | 5 | 420
+
 // Maps a live network name to its chain ID
 export const SUPPORTED_LIVE_NETWORKS: {
-  [networkName: string]: number
+  [networkName: string]: SupportedChainId
 } = {
   // Mainnets
   mainnet: 1,
@@ -48,7 +50,17 @@ export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
   patch: 0,
 }
 
-export const LAYERZERO_ENDPOINT_ADDRESSES = {
+export const LAYERZERO_ENDPOINT_ADDRESSES: {
+  [K in SupportedChainId]: { address: string; lzChainId: number }
+} = {
+  1: {
+    address: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
+    lzChainId: 101,
+  },
+  10: {
+    address: '0x3c2269811836af69497E5F486A85D7316753cf62',
+    lzChainId: 111,
+  },
   5: {
     address: '0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23',
     lzChainId: 10121,
