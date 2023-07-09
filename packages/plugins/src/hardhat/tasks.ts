@@ -19,9 +19,6 @@ import {
   ensureChugSplashInitialized,
   isHardhatFork,
   isLocalNetwork,
-  getParsedOrgConfig,
-  readUserChugSplashConfig,
-  fetchCanonicalOrgConfig,
   proposeAbstractTask,
 } from '@chugsplash/core'
 import ora from 'ora'
@@ -168,6 +165,8 @@ export const chugsplashProposeTask = async (
 ) => {
   const { configPath, project, noCompile } = args
 
+  const spinner = ora()
+  spinner.start(`Proposing ${project}...`)
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
       quiet: true,
@@ -192,7 +191,8 @@ export const chugsplashProposeTask = async (
     project,
     cre,
     'hardhat',
-    makeGetConfigArtifacts(hre)
+    makeGetConfigArtifacts(hre),
+    spinner
   )
 }
 
