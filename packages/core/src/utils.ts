@@ -1205,7 +1205,14 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
   return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
 }
 
-// TODO(docs): `isNewConfig` will be false if the config has been setup on any chain
+/**
+ * @notice Gets the most recent CanonicalOrgConfig from the back-end if it exists. If it doesn't
+ * exist, it returns a new CanonicalOrgConfig with default parameters for the config options.
+ *
+ * @returns {prevOrgConfig, isNewConfig} where `prevOrgConfig` is the most recent CanonicalOrgConfig
+ * and `isNewConfig` is true if the `prevOrgConfig` is a new config, i.e. it has not been used to
+ * setup the org on any chain.
+ */
 export const getPreviousCanonicalOrgConfig = async (
   userConfig: UserChugSplashConfig,
   projectName: string,
@@ -1216,7 +1223,6 @@ export const getPreviousCanonicalOrgConfig = async (
     throw new Error(`Must provide an 'options' section in your config.`)
   }
 
-  // TODO(docs)
   assertValidOrgConfigOptions(userConfig.options, cre, FailureAction.EXIT)
   const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
 
@@ -1241,7 +1247,6 @@ export const getPreviousCanonicalOrgConfig = async (
   }
 }
 
-// TODO(ryan)
 export const fetchCanonicalOrgConfig = async (
   orgId: string,
   apiKey: string

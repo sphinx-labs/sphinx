@@ -115,8 +115,6 @@ export const registerOwner = async (
 
 // TODO: after finishing proposal task, we should probably have a "validate proposal" task that doesn't sign
 // anything and ensures your proposal will actually succeed.
-// TODO: after finishing proposal task, make sure Funder.t.sol passes and that this test is included
-// when testing the monorepo in CI.
 export const proposeAbstractTask = async (
   configPath: string,
   provider: ethers.providers.JsonRpcProvider,
