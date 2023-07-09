@@ -191,7 +191,8 @@ export const chugsplashProposeTask = async (
     project,
     cre,
     'hardhat',
-    makeGetConfigArtifacts(hre)
+    makeGetConfigArtifacts(hre),
+    spinner
   )
 }
 
