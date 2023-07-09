@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 
+import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
 import {
@@ -61,6 +62,7 @@ import {
   ChugSplashActionType,
   ChugSplashBundles,
   DeploymentState,
+  IPFSCommitResponse,
   ProposalRequest,
 } from './actions/types'
 import { Integration } from './constants'
@@ -73,7 +75,6 @@ import 'core-js/features/array/at'
 import {
   BuildInfo,
   CompilerOutput,
-  CompilerOutputContract,
   ContractArtifact,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
@@ -1251,32 +1252,76 @@ export const fetchCanonicalOrgConfig = async (
   orgId: string,
   apiKey: string
 ): Promise<CanonicalOrgConfig | undefined> => {
-  orgId
-  apiKey
-  // TODO: return undefined if the request returns an empty object.
-  return undefined
+  const response = await axios.post(
+    `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
+    {
+      apiKey,
+      orgId,
+    }
+  )
+  const config: CanonicalOrgConfig | undefined = response.data
+  return config
 }
 
-// TODO: mv to types file
-// TODO(ryan)
-export type ProposalResponse = any
-export type IPFSCommitResponse = any
+export const fetchChugSplashManagedBaseUrl = () => {
+  return process.env.CHUGSPLASH_MANAGED_BASE_URL
+    ? process.env.CHUGSPLASH_MANAGED_BASE_URL
+    : 'https://www.chugsplash.io'
+}
 
-// TODO(ryan)
-export const relayProposal = async (
-  proposalRequest: ProposalRequest
-): Promise<ProposalResponse> => {
-  proposalRequest
-  const a: any = undefined
-  return a
+export const relayProposal = async (proposalRequest: ProposalRequest) => {
+  // TODO: return undefined if the request returns an empty object.
+  try {
+    await axios.post(
+      `${fetchChugSplashManagedBaseUrl()}/api/propose`,
+      proposalRequest
+    )
+  } catch (e) {
+    if (e.response.status === 200) {
+      return
+    } else if (e.response.status === 400) {
+      throw new Error(`Malformed Request: ${e.response.data}`)
+    } else if (e.response.status === 401) {
+      throw new Error(
+        `Unauthorized, please check your API key and Org Id are correct`
+      )
+    } else if (e.response.status === 409) {
+      throw new Error(
+        `Unsupported network, please report this to the developers`
+      )
+    } else if (e.response.status === 500) {
+      throw new Error(
+        `Internal server error, please report this to the developers`
+      )
+    }
+  }
 }
 
 export const relayIPFSCommit = async (
+  apiKey: string,
+  orgId: string,
   ipfsCommitRequest: Array<CanonicalProjectConfig>
 ): Promise<IPFSCommitResponse> => {
-  ipfsCommitRequest
-  const a: any = undefined
-  return a
+  const response = await axios.post(
+    `${fetchChugSplashManagedBaseUrl()}/api/pin`,
+    {
+      apiKey,
+      orgId,
+      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el)),
+    }
+  )
+
+  if (response.status === 400) {
+    throw new Error(
+      'Malformed request pinning to IPFS, please report this to the developers'
+    )
+  } else if (response.status === 401) {
+    throw new Error(
+      `Unauthorized, please check your API key and Org Id are correct`
+    )
+  }
+
+  return response.data
 }
 
 // TODO(docs)

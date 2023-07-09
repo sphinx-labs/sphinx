@@ -6,8 +6,8 @@ const config: UserChugSplashConfig = {
   options: {
     orgOwners: [ownerAddress],
     orgThreshold: 1,
-    orgId: '1111',
-    networks: ['goerli', 'optimism-goerli'],
+    orgId: 'cljvzl0om0001cbyqh3jw2tgo',
+    networks: ['goerli'],
     proposers: [ownerAddress],
     managers: [ownerAddress],
   },
