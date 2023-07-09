@@ -325,9 +325,16 @@ export enum RoleType {
   PROPOSER,
 }
 
+type IPFSHash = string
+export type IPFSCommitResponse = IPFSHash[]
+
 export type ProposalRequest = {
   apiKey: string
   orgId: string
+  orgOwners: string[]
+  orgOwnerThreshold: number
+  authAddress: string
+  deployerAddress: string
   chainIds: Array<number>
   orgCanonicalConfig: string // TODO(docs): org canonical config that would be generated if this proposal were to be approved
   projectDeployments: Array<ProjectDeployments>

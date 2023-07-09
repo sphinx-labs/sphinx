@@ -61,13 +61,12 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution } from '../execution'
-import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
+import { ChugSplashRuntimeEnvironment } from '../types'
 import {
   trackApproved,
   trackCancel,
   trackExportProxy,
   trackDeployed,
-  trackProposed,
   trackRegistrationFinalized,
   trackImportProxy,
 } from '../analytics'
@@ -75,18 +74,10 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-import {
-  getAuthAddress,
-  getAuthData,
-  getChugSplashManagerAddress,
-} from '../addresses'
+import { getAuthAddress, getChugSplashManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
 import { readUserChugSplashConfig } from '../config/config'
-import {
-  assertValidOrgConfigOptions,
-  getParsedOrgConfig,
-  parseOrgConfigOptions,
-} from '../config/parse'
+import { getParsedOrgConfig } from '../config/parse'
 
 // Load environment variables from .env
 dotenv.config()
@@ -124,7 +115,8 @@ export const proposeAbstractTask = async (
   projectName: string,
   cre: ChugSplashRuntimeEnvironment,
   integration: Integration,
-  getConfigArtifacts: GetConfigArtifacts
+  getConfigArtifacts: GetConfigArtifacts,
+  spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   await ensureChugSplashInitialized(provider, signer)
 
@@ -316,10 +308,20 @@ export const proposeAbstractTask = async (
     chainStates,
   }
 
+  const authAddress = getAuthAddress(
+    canonicalOrgConfig.options.orgOwners,
+    canonicalOrgConfig.options.orgThreshold
+  )
+  const deployerAddress = getChugSplashManagerAddress(authAddress)
+
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId,
     chainIds,
+    orgOwners: canonicalOrgConfig.options.orgOwners,
+    orgOwnerThreshold: canonicalOrgConfig.options.orgThreshold,
+    authAddress,
+    deployerAddress,
     orgCanonicalConfig: JSON.stringify(canonicalOrgConfig),
     projectDeployments,
     orgTree: {
@@ -329,10 +331,7 @@ export const proposeAbstractTask = async (
     },
   }
 
-  const proposalResponse = await relayProposal(proposalRequest)
-
-  // TODO
-  proposalResponse
+  await relayProposal(proposalRequest)
 
   const { canonicalConfig } = await getBundleInfo(
     parsedConfig.projects[projectName],
@@ -340,12 +339,9 @@ export const proposeAbstractTask = async (
     configCache[projectName]
   )
 
-  const ipfsCommitResponse = await relayIPFSCommit([canonicalConfig])
+  await relayIPFSCommit(apiKey, orgId, [canonicalConfig])
 
-  // TODO
-  ipfsCommitResponse
-
-  console.log('done (TODO rm')
+  spinner.succeed(`Done proposing ${projectName}!`)
 }
 
 export const chugsplashCommitAbstractSubtask = async (
