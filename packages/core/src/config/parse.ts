@@ -274,7 +274,7 @@ export const readUnvalidatedParsedConfig = async (
       deployerAddress
     )
 
-    projects[projectName] = parsedProjectConfig
+    projectConfigs[projectName] = parsedProjectConfig
   }
 
   return { projectConfigs, configArtifacts }
@@ -3057,7 +3057,7 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-const assertValidOrgConfigOptions = (
+export const assertValidOrgConfigOptions = (
   options: UserOrgConfigOptions,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
@@ -3227,7 +3227,7 @@ const assertValidOrgConfigOptions = (
   assertNoValidationErrors(failureAction)
 }
 
-const parseOrgConfigOptions = (
+export const parseOrgConfigOptions = (
   options: UserOrgConfigOptions
 ): ParsedOrgConfigOptions => {
   const { networks, orgId, orgOwners, orgThreshold, proposers, managers } =
@@ -3237,6 +3237,8 @@ const parseOrgConfigOptions = (
 
   // TODO: you should checksum all addresses in this function and when parsing the project config
   // options.
+
+  // TODO: you should sort all addresses in ascending order. same with the project owners.
 
   return {
     chainIds,

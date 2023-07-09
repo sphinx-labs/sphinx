@@ -54,6 +54,7 @@ import {
   ParsedProjectConfig,
   ProjectConfigArtifacts,
   CanonicalOrgConfig,
+  UserChugSplashConfig,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -63,7 +64,11 @@ import {
   ProposalRequest,
 } from './actions/types'
 import { Integration } from './constants'
-import { getChugSplashRegistryAddress } from './addresses'
+import {
+  getAuthAddress,
+  getChugSplashManagerAddress,
+  getChugSplashRegistryAddress,
+} from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
@@ -78,6 +83,11 @@ import {
   getNumDeployContractActions,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
+import {
+  assertValidOrgConfigOptions,
+  parseOrgConfigOptions,
+} from './config/parse'
+import { ChugSplashRuntimeEnvironment, FailureAction } from './types'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
@@ -1195,12 +1205,52 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
   return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
 }
 
-// TODO(ryan)
-export const fetchCanonicalOrgConfig =
-  async (): Promise<CanonicalOrgConfig> => {
-    // Return an empty config for now to avoid a TypeScript error.
-    return getEmptyCanonicalOrgConfig([], ethers.constants.AddressZero, '')
+// TODO(docs): `isNewConfig` will be false if the config has been setup on any chain
+export const getPreviousCanonicalOrgConfig = async (
+  userConfig: UserChugSplashConfig,
+  projectName: string,
+  apiKey: string,
+  cre: ChugSplashRuntimeEnvironment
+): Promise<{ prevOrgConfig: CanonicalOrgConfig; isNewConfig: boolean }> => {
+  if (!userConfig.options) {
+    throw new Error(`Must provide an 'options' section in your config.`)
   }
+
+  // TODO(docs)
+  assertValidOrgConfigOptions(userConfig.options, cre, FailureAction.EXIT)
+  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
+
+  const prevOrgConfig = await fetchCanonicalOrgConfig(
+    parsedConfigOptions.orgId,
+    apiKey
+  )
+
+  if (prevOrgConfig) {
+    return { prevOrgConfig, isNewConfig: false }
+  } else {
+    const { orgOwners, orgThreshold, chainIds, orgId } = parsedConfigOptions
+    const authAddress = getAuthAddress(orgOwners, orgThreshold)
+    const deployer = getChugSplashManagerAddress(authAddress)
+    const emptyConfig = getEmptyCanonicalOrgConfig(
+      chainIds,
+      deployer,
+      orgId,
+      projectName
+    )
+    return { prevOrgConfig: emptyConfig, isNewConfig: true }
+  }
+}
+
+// TODO(ryan)
+export const fetchCanonicalOrgConfig = async (
+  orgId: string,
+  apiKey: string
+): Promise<CanonicalOrgConfig | undefined> => {
+  orgId
+  apiKey
+  // TODO: return undefined if the request returns an empty object.
+  return undefined
+}
 
 // TODO: mv to types file
 // TODO(ryan)
@@ -1225,17 +1275,22 @@ export const relayIPFSCommit = async (
 }
 
 // TODO(docs)
-// TODO: should this function return an empty project config too?
 export const getEmptyCanonicalOrgConfig = (
   chainIds: Array<number>,
   deployer: string,
-  orgId: string
+  orgId: string,
+  projectName: string
 ): CanonicalOrgConfig => {
   const chainStates = {}
 
   chainIds.forEach((chainId) => {
     chainStates[chainId] = {
       firstProposalOccurred: false,
+      projects: {
+        [projectName]: {
+          projectCreated: false,
+        },
+      },
     }
   })
 
@@ -1248,7 +1303,17 @@ export const getEmptyCanonicalOrgConfig = (
       proposers: [],
       managers: [],
     },
-    projects: {},
+    projects: {
+      [projectName]: {
+        options: {
+          deployer,
+          projectOwners: [],
+          projectThreshold: 0,
+          project: projectName,
+        },
+        contracts: {},
+      },
+    },
     chainStates,
   }
 }

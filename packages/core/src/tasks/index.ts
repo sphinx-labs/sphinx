@@ -10,15 +10,13 @@ import { ProxyABI } from '@chugsplash/contracts'
 import {
   ChugSplashInput,
   contractKindHashes,
-  ConfigArtifacts,
   ParsedProjectConfig,
   ProjectConfigArtifacts,
   ProjectConfigCache,
   CanonicalProjectConfig,
   CanonicalOrgConfig,
-  ParsedOrgConfig,
   ParsedProjectConfigs,
-  ConfigCache,
+  GetConfigArtifacts,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -37,8 +35,12 @@ import {
   isHardhatFork,
   relayProposal,
   relayIPFSCommit,
+  getPreviousCanonicalOrgConfig,
 } from '../utils'
-import { getMinimumCompilerInput } from '../languages'
+import {
+  ensureChugSplashInitialized,
+  getMinimumCompilerInput,
+} from '../languages'
 import { Integration } from '../constants'
 import { resolveNetworkName } from '../messages'
 import {
@@ -59,7 +61,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution } from '../execution'
-import { ChugSplashRuntimeEnvironment } from '../types'
+import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import {
   trackApproved,
   trackCancel,
@@ -73,9 +75,18 @@ import {
   isSupportedNetworkOnEtherscan,
   verifyChugSplashConfig,
 } from '../etherscan'
-// import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
-import { getChugSplashManagerAddress } from '../addresses'
+import {
+  getAuthAddress,
+  getAuthData,
+  getChugSplashManagerAddress,
+} from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
+import { readUserChugSplashConfig } from '../config/config'
+import {
+  assertValidOrgConfigOptions,
+  getParsedOrgConfig,
+  parseOrgConfigOptions,
+} from '../config/parse'
 
 // Load environment variables from .env
 dotenv.config()
@@ -107,21 +118,41 @@ export const registerOwner = async (
 // TODO: after finishing proposal task, make sure Funder.t.sol passes and that this test is included
 // when testing the monorepo in CI.
 export const proposeAbstractTask = async (
+  configPath: string,
+  provider: ethers.providers.JsonRpcProvider,
   signer: ethers.providers.JsonRpcSigner,
   projectName: string,
-  parsedConfig: ParsedOrgConfig,
-  configCache: ConfigCache,
-  configArtifacts: ConfigArtifacts,
-  prevOrgConfig: CanonicalOrgConfig,
+  cre: ChugSplashRuntimeEnvironment,
   integration: Integration,
-  isNewConfig: boolean // TODO(docs): this will be false if the config has been setup on any chain
+  getConfigArtifacts: GetConfigArtifacts
 ) => {
+  await ensureChugSplashInitialized(provider, signer)
+
   const apiKey = process.env.CHUGSPLASH_API_KEY
   if (!apiKey) {
     throw new Error(`Must provide a 'CHUGSPLASH_API_KEY' environment variable.`)
   }
 
-  const { orgId, chainIds } = parsedConfig.options
+  const userConfig = await readUserChugSplashConfig(configPath)
+
+  const { prevOrgConfig, isNewConfig } = await getPreviousCanonicalOrgConfig(
+    userConfig,
+    projectName,
+    apiKey,
+    cre
+  )
+
+  const { parsedConfig, configArtifacts, configCache } =
+    await getParsedOrgConfig(
+      userConfig,
+      projectName,
+      prevOrgConfig.deployer,
+      provider,
+      cre,
+      getConfigArtifacts
+    )
+
+  const { chainIds, orgId } = parsedConfig.options
 
   if (!isNewConfig && orgId !== prevOrgConfig.options.orgId) {
     throw new Error(
@@ -131,21 +162,13 @@ export const proposeAbstractTask = async (
     )
   }
 
-  const deployer = parsedConfig.projects[projectName].options.deployer
-  const Deployer = getChugSplashManager(deployer, signer)
-
-  // TODO(ask ryan): has he thought about how to see if a project has been registered on multiple chains?
-  // const Registry = getChugSplashRegistry(signer)
-  // if (!(await isProjectRegistered(Registry, Deployer.address))) {
-  //   throw new Error(`${projectName} has not been registered yet.`)
-  // }
-
   // TODO: tell ryan:
   // - networks -> chainIds
   // - estimatedGasCost -> estimatedGas
 
   const leafs = await getAuthLeafs(
     parsedConfig,
+    projectName,
     configArtifacts,
     configCache,
     prevOrgConfig
@@ -287,7 +310,7 @@ export const proposeAbstractTask = async (
   }
 
   const canonicalOrgConfig: CanonicalOrgConfig = {
-    deployer,
+    deployer: prevOrgConfig.deployer,
     options: parsedConfig.options,
     projects: parsedConfig.projects,
     chainStates,
@@ -322,7 +345,7 @@ export const proposeAbstractTask = async (
   // TODO
   ipfsCommitResponse
 
-  await trackProposed(await Deployer.owner(), integration)
+  console.log('done (TODO rm')
 }
 
 export const chugsplashCommitAbstractSubtask = async (
