@@ -35,17 +35,13 @@ import {
   writeSnapshotId,
   transferProjectOwnership,
   isHardhatFork,
+  relayProposal,
+  relayIPFSCommit,
 } from '../utils'
 import { getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
+import { resolveNetworkName } from '../messages'
 import {
-  alreadyProposedMessage,
-  resolveNetworkName,
-  successfulProposalMessage,
-} from '../messages'
-import {
-  ApproveDeployment,
-  AuthLeaf,
   ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
@@ -53,16 +49,17 @@ import {
   RoleType,
   executeDeployment,
   getAuthLeafSignerInfo,
-  getAuthLeafThreshold,
   getNumDeployContractActions,
   makeAuthBundle,
   getAuthLeafs,
   makeBundlesFromConfig,
   writeDeploymentArtifacts,
+  ProposalRequest,
+  getProjectDeployments,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution } from '../execution'
-import { ChugSplashRuntimeEnvironment, ProposalRoute } from '../types'
+import { ChugSplashRuntimeEnvironment } from '../types'
 import {
   trackApproved,
   trackCancel,
@@ -78,7 +75,7 @@ import {
 } from '../etherscan'
 // import { relaySignedRequest, signMetaTxRequest } from '../metatxs'
 import { getChugSplashManagerAddress } from '../addresses'
-import { getDeployContractCosts } from '../estimate'
+import { signAuthRootMetaTxn } from '../metatxs'
 
 // Load environment variables from .env
 dotenv.config()
@@ -105,30 +102,22 @@ export const registerOwner = async (
   await trackRegistrationFinalized(projectOwner, networkName, integration)
 }
 
-// TODO: see how many of these input params are actually needed
-// TODO(post-proposal task): we should probably have a "validate proposal" task that doesn't sign
+// TODO: after finishing proposal task, we should probably have a "validate proposal" task that doesn't sign
 // anything and ensures your proposal will actually succeed.
-// TODO(ask ryan): case: somebody copies OP's config, and sets themselves as a proposer on a new chain.
-// the propose task won't fail unless our api rejects the request because the attacker doesn't have a
-// legit api key. would our backend do this?
+// TODO: after finishing proposal task, make sure Funder.t.sol passes and that this test is included
+// when testing the monorepo in CI.
 export const proposeAbstractTask = async (
-  provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer,
-  parsedConfig: ParsedOrgConfig,
+  signer: ethers.providers.JsonRpcSigner,
   projectName: string,
+  parsedConfig: ParsedOrgConfig,
   configCache: ConfigCache,
-  prevOrgConfig: CanonicalOrgConfig,
-  configPath: string,
-  ipfsUrl: string,
-  integration: Integration,
   configArtifacts: ConfigArtifacts,
-  route: ProposalRoute,
-  cre: ChugSplashRuntimeEnvironment,
-  isNewConfig: boolean, // TODO(docs): this will be false if the config has been setup on any chain
-  projectConfigCache: ProjectConfigCache
+  prevOrgConfig: CanonicalOrgConfig,
+  integration: Integration,
+  isNewConfig: boolean // TODO(docs): this will be false if the config has been setup on any chain
 ) => {
-  const chugsplashApiKey = process.env.CHUGSPLASH_API_KEY
-  if (!chugsplashApiKey) {
+  const apiKey = process.env.CHUGSPLASH_API_KEY
+  if (!apiKey) {
     throw new Error(`Must provide a 'CHUGSPLASH_API_KEY' environment variable.`)
   }
 
@@ -142,29 +131,14 @@ export const proposeAbstractTask = async (
     )
   }
 
-  // TODO:
-  // - relay schema to back-end
-  // - check schema.md
+  const deployer = parsedConfig.projects[projectName].options.deployer
+  const Deployer = getChugSplashManager(deployer, signer)
 
-  // TODO: left off: which chains do we iterate through? prev? current? both?
-
-  // for each chain:
-  // if first proposal has NOT occurred, then:
-  // - the signer must be in the current proposers array. revert if not.
-  // if first proposal has occurred, then:
-  // - the signer must be in the previous proposers array. revert if not.
-
-  if (firstProposalOccurred) {
-  } else {
-    // TODO
-  }
-
-  // TODO(docs): The previous project config could be undefined because this may be a new project
-  // const prevProjectConfig: ParsedProjectConfig | undefined =
-  //   prevOrgConfig.projects[projectName]
-
-  // // Get the number of project owners that must sign this auth root.
-  // const projectThreshold = prevProjectConfig.options.projectThreshold
+  // TODO(ask ryan): has he thought about how to see if a project has been registered on multiple chains?
+  // const Registry = getChugSplashRegistry(signer)
+  // if (!(await isProjectRegistered(Registry, Deployer.address))) {
+  //   throw new Error(`${projectName} has not been registered yet.`)
+  // }
 
   // TODO: tell ryan:
   // - networks -> chainIds
@@ -176,6 +150,10 @@ export const proposeAbstractTask = async (
     configCache,
     prevOrgConfig
   )
+  const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+
+  const signerAddress = await signer.getAddress()
+  const metaTxnSignature = await signAuthRootMetaTxn(signer, root)
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}
   for (const leaf of leafs) {
@@ -193,15 +171,8 @@ export const proposeAbstractTask = async (
     })
   )
 
-  const orgTree = {
-    root,
-    chainStatus,
-  }
-
   // TODO(docs): in the propose CLI command desc, you should say that the signer will sign a meta txn
   // approving the proposed changes to the config.
-
-  const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
   for (const bundledLeaf of bundledLeafs) {
@@ -209,22 +180,80 @@ export const proposeAbstractTask = async (
     const { chainId, index, to, leafType } = prettyLeaf
     const { data } = leaf
 
-    // TODO: signers: (address: string, signature: string | undefined)[]
+    const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
+    const { projectCreated } =
+      prevOrgConfig.chainStates[chainId].projects[projectName]
 
-    // TODO(docs): we use the previous thresholds here because this reflects the existing state of
-    // the org.
+    if (
+      firstProposalOccurred &&
+      !prevOrgConfig.options.proposers.includes(signerAddress)
+    ) {
+      // TODO(after): see how this error looks
+      throw new Error(
+        `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
+          `Current proposers: ${prevOrgConfig.options.proposers.join(', ')}`
+      )
+    }
+
+    if (
+      !firstProposalOccurred &&
+      !parsedConfig.options.proposers.includes(signerAddress)
+    ) {
+      throw new Error(
+        `Signer must be a proposer in the config file. Signer's address: ${signerAddress}`
+      )
+    }
+
+    let orgOwners: string[]
+    let proposers: string[]
+    let managers: string[]
+    let orgThreshold: number
+    if (firstProposalOccurred) {
+      ;({ orgOwners, proposers, managers, orgThreshold } =
+        prevOrgConfig.options)
+    } else {
+      ;({ orgOwners, proposers, managers, orgThreshold } = parsedConfig.options)
+    }
+
+    let projectOwners: string[] | undefined
+    let projectThreshold: number | undefined
+    if (firstProposalOccurred && projectCreated) {
+      ;({ projectOwners, projectThreshold } =
+        prevOrgConfig.projects[projectName].options)
+    } else {
+      ;({ projectOwners, projectThreshold } =
+        parsedConfig.projects[projectName].options)
+    }
+
+    if (!projectOwners || !projectThreshold) {
+      throw new Error(
+        `Project owners or project threshold is not defined. Should never happen.`
+      )
+    }
+
     const { threshold, roleType } = getAuthLeafSignerInfo(
       orgThreshold,
       projectThreshold,
       leafType
     )
 
-    let signers: Array<{ address: string; signature: string | undefined }> = []
+    let signerAddresses: string[]
     if (roleType === RoleType.ORG_OWNER) {
-      signers = prevOrgOwners.map((address) => {
-        return { address, signature: undefined }
-      })
+      signerAddresses = orgOwners
+    } else if (roleType === RoleType.PROPOSER) {
+      signerAddresses = proposers
+    } else if (roleType === RoleType.MANAGER) {
+      signerAddresses = managers
+    } else if (roleType === RoleType.PROJECT_OWNER) {
+      signerAddresses = projectOwners
+    } else {
+      throw new Error(`Invalid role type: ${roleType}`)
     }
+
+    const signers = signerAddresses.map((addr) => {
+      const signature = addr === signerAddress ? metaTxnSignature : undefined
+      return { address: addr, signature }
+    })
 
     proposalRequestLeafs.push({
       chainId,
@@ -234,105 +263,66 @@ export const proposeAbstractTask = async (
       data,
       siblings: proof,
       threshold,
+      signers,
     })
   }
 
-  const projectDeployments = getStuff
-
-  const TODO = {
-    apiKey: chugsplashApiKey,
-    orgId,
-    chainIds,
-  }
-
-  await relayProposal()
-
-  const { networkName } = projectConfigCache
-
-  const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
-  if (integration === 'hardhat') {
-    spinner.start('Booting up ChugSplash...')
-  }
-
-  const registry = getChugSplashRegistry(signer)
-  const manager = getChugSplashManager(deployer, signer)
-  if (!(await isProjectRegistered(registry, manager.address))) {
-    throw new Error(`${projectName} has not been registered yet.`)
-  }
-
-  if (integration === 'hardhat') {
-    spinner.succeed('ChugSplash is ready to go.')
-  }
-
-  spinner.start(`Checking the status of ${projectName}...`)
-
-  const deploymentState: DeploymentState = await manager.deployments(
-    deploymentId
+  const projectDeployments = await getProjectDeployments(
+    leafs,
+    parsedConfig.projects,
+    configArtifacts,
+    configCache
   )
 
-  if (
-    deploymentState.status === DeploymentStatus.APPROVED ||
-    deploymentState.status === DeploymentStatus.PROXIES_INITIATED
-  ) {
-    throw new Error(
-      `Project was already proposed and is currently being executed on ${networkName}.`
-    )
-  } else {
-    // If we make it to this point, we know that the deployment is either currently proposed or can be
-    // proposed.
-
-    // Get the amount that the user must send to the ChugSplashManager to execute the deployment
-    // including a buffer in case the gas price increases during execution.
-    const amountToDeposit = await getAmountToDeposit(
-      provider,
-      bundles,
-      0,
-      parsedProjectConfig,
-      true
-    )
-
-    if (deploymentState.status === DeploymentStatus.PROPOSED) {
-      throw new Error(
-        await alreadyProposedMessage(
-          provider,
-          amountToDeposit,
-          configPath,
-          integration
-        )
-      )
-    } else {
-      spinner.succeed(`${projectName} can be proposed.`)
-      spinner.start(`Proposing ${projectName}...`)
-
-      const signerAddress = await signer.getAddress()
-      const metatxs = await proposeChugSplashDeployment(
-        manager,
-        deploymentId,
-        bundles,
-        configUri,
-        route,
-        signerAddress,
-        provider,
-        parsedProjectConfig,
-        projectConfigCache,
-        configArtifacts[projectName],
-        spinner,
-        ipfsUrl
-      )
-
-      const message = await successfulProposalMessage(
-        provider,
-        amountToDeposit,
-        configPath,
-        integration
-      )
-      spinner.succeed(message)
-
-      await trackProposed(await manager.owner(), networkName, integration)
-
-      return metatxs
+  const chainStates: CanonicalOrgConfig['chainStates'] = {}
+  for (const chainId of chainIds) {
+    chainStates[chainId] = {
+      firstProposalOccurred: true,
+      projects: {
+        [projectName]: {
+          projectCreated: true,
+        },
+      },
     }
   }
+
+  const canonicalOrgConfig: CanonicalOrgConfig = {
+    deployer,
+    options: parsedConfig.options,
+    projects: parsedConfig.projects,
+    chainStates,
+  }
+
+  const proposalRequest: ProposalRequest = {
+    apiKey,
+    orgId,
+    chainIds,
+    orgCanonicalConfig: JSON.stringify(canonicalOrgConfig),
+    projectDeployments,
+    orgTree: {
+      root,
+      chainStatus,
+      leaves: proposalRequestLeafs,
+    },
+  }
+
+  const proposalResponse = await relayProposal(proposalRequest)
+
+  // TODO
+  proposalResponse
+
+  const { canonicalConfig } = await getBundleInfo(
+    parsedConfig.projects[projectName],
+    configArtifacts[projectName],
+    configCache[projectName]
+  )
+
+  const ipfsCommitResponse = await relayIPFSCommit([canonicalConfig])
+
+  // TODO
+  ipfsCommitResponse
+
+  await trackProposed(await Deployer.owner(), integration)
 }
 
 export const chugsplashCommitAbstractSubtask = async (
@@ -982,7 +972,7 @@ export const chugsplashImportProxyAbstractTask = async (
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
 
-// TODO(propose): update this function
+// TODO(propose): update this function or rm
 // export const proposeChugSplashDeployment = async (
 //   manager: ethers.Contract,
 //   deploymentId: string,

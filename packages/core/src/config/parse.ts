@@ -3235,6 +3235,9 @@ const parseOrgConfigOptions = (
 
   const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
 
+  // TODO: you should checksum all addresses in this function and when parsing the project config
+  // options.
+
   return {
     chainIds,
     orgId,

@@ -8,12 +8,13 @@ import {
   DeploymentState,
   DeploymentStatus,
 } from './types'
-import { getEstDeployContractCost, getGasPriceOverrides } from '../utils'
+import { getGasPriceOverrides } from '../utils'
 import {
   getDeployContractActionBundle,
   getSetStorageActionBundle,
 } from './bundle'
 import { ProjectConfigArtifacts } from '../config/types'
+import { getEstDeployContractCost } from '../estimate'
 
 export const executeDeployment = async (
   manager: ethers.Contract,

@@ -40,6 +40,7 @@ import {
   ChugSplashTargetBundle,
   ContractInfo,
   DeployContractAction,
+  ProjectDeployments,
   RawAuthLeaf,
   RawChugSplashAction,
   RoleType,
@@ -893,12 +894,12 @@ export const findBundledLeaf = (
   return leaf
 }
 
-export const getTODO = async (
+export const getProjectDeployments = async (
   leafs: Array<AuthLeaf>,
   projectConfigs: ParsedProjectConfigs,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache
-): Promise<TODO> => {
+): Promise<Array<ProjectDeployments>> => {
   const projectDeploymentPromises = leafs
     .filter(isApproveDeploymentAuthLeaf)
     .map(async (l) => {
@@ -922,7 +923,7 @@ export const getTODO = async (
       }
     })
 
-  const projectDeployments = await Promise.all(projectDeploymentPromises)
+  return Promise.all(projectDeploymentPromises)
 }
 
 export const isApproveDeploymentAuthLeaf = (

@@ -60,6 +60,7 @@ import {
   ChugSplashActionType,
   ChugSplashBundles,
   DeploymentState,
+  ProposalRequest,
 } from './actions/types'
 import { Integration } from './constants'
 import { getChugSplashRegistryAddress } from './addresses'
@@ -1200,6 +1201,28 @@ export const fetchCanonicalOrgConfig =
     // Return an empty config for now to avoid a TypeScript error.
     return getEmptyCanonicalOrgConfig([], ethers.constants.AddressZero, '')
   }
+
+// TODO: mv to types file
+// TODO(ryan)
+export type ProposalResponse = any
+export type IPFSCommitResponse = any
+
+// TODO(ryan)
+export const relayProposal = async (
+  proposalRequest: ProposalRequest
+): Promise<ProposalResponse> => {
+  proposalRequest
+  const a: any = undefined
+  return a
+}
+
+export const relayIPFSCommit = async (
+  ipfsCommitRequest: Array<CanonicalProjectConfig>
+): Promise<IPFSCommitResponse> => {
+  ipfsCommitRequest
+  const a: any = undefined
+  return a
+}
 
 // TODO(docs)
 // TODO: should this function return an empty project config too?

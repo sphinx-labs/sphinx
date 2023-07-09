@@ -58,7 +58,6 @@ export const trackRegistrationFinalized = async (
 
 export const trackProposed = async (
   user_id: string,
-  networkName: string,
   integration: Integration
 ) => {
   if (disableAnalytics) {
@@ -69,7 +68,6 @@ export const trackProposed = async (
       event_type: 'chugsplash propose',
       user_id,
       event_properties: {
-        network: networkName,
         integration,
       },
     }),

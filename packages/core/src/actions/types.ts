@@ -330,12 +330,7 @@ export type ProposalRequest = {
   orgId: string
   chainIds: Array<number>
   orgCanonicalConfig: string // TODO(docs): org canonical config that would be generated if this proposal were to be approved
-  projectDeployments: Array<{
-    chainId: number
-    deploymentId: string
-    name: string // project name
-    estimatedGas: string // gasUsed, not gas price
-  }>
+  projectDeployments: Array<ProjectDeployments>
   orgTree: {
     root: string
     chainStatus: Array<{
@@ -344,6 +339,13 @@ export type ProposalRequest = {
     }>
     leaves: Array<ProposalRequestLeaf>
   }
+}
+
+export type ProjectDeployments = {
+  chainId: number
+  deploymentId: string
+  name: string // project name
+  estimatedGas: string // gasUsed, not gas price
 }
 
 export type ProposalRequestLeaf = {

@@ -322,6 +322,11 @@ export interface CanonicalOrgConfig {
   chainStates: {
     [chainId: number]: {
       firstProposalOccurred: boolean
+      projects: {
+        [projectName: string]: {
+          projectCreated: boolean
+        }
+      }
     }
   }
 }
