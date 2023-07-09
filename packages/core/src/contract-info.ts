@@ -42,7 +42,7 @@ import {
   AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
 } from './addresses'
-import { LAYERZERO_ENDPOINT_ADDRESSES } from './constants'
+import { LAYERZERO_ADDRESSES } from './constants'
 
 export const getChugSplashConstants = (
   chainId: number
@@ -52,7 +52,7 @@ export const getChugSplashConstants = (
   constructorArgs: any[]
 }> => {
   const lzEndpointAddress =
-    LAYERZERO_ENDPOINT_ADDRESSES[chainId]?.address ??
+    LAYERZERO_ADDRESSES[chainId]?.endpointAddress ??
     getMockEndPointAddress(chainId)
   return [
     {
