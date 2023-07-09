@@ -19,6 +19,24 @@ contract ChugSplashLZSender is LzApp {
         address lzReceiver;
     }
 
+    event SentMessage(
+        address indexed receiver,
+        uint16 dstChainId,
+        bytes payload,
+        uint256 destGas,
+        uint256 nativeFee
+    );
+
+    event SentFunds(
+        address indexed airdropAddress,
+        uint16 dstChainId,
+        uint256 amount,
+        uint256 destGas,
+        uint256 nativeFee
+    );
+
+    event RefundedExtraETH(address indexed receiver, uint256 amount);
+
     /**
      *
      * @param _localEndpoint Address of the LayerZero endpoint contract on this chain.
@@ -39,6 +57,7 @@ contract ChugSplashLZSender is LzApp {
             addressPair = abi.encodePacked(destChain.lzReceiver, address(this));
             // Set the trusted remote address for the destination chain
             trustedRemoteLookup[destChain.chainId] = addressPair;
+            emit SetTrustedRemote(destChain.chainId, addressPair);
         }
 
         _transferOwnership(_owner);
@@ -63,8 +82,8 @@ contract ChugSplashLZSender is LzApp {
             message = messages[i];
 
             // Require the airdrop value be above 0 and not being sent to the zero address
-            require(message.airdropAmount > 0, "Airdrop amount must be greater than 0");
-            require(message.airdropAddress != address(0), "Cannot airdrop to address 0");
+            require(message.airdropAmount > 0, "ChugSplashLZSender: airdrop amount must be greater than 0");
+            require(message.airdropAddress != address(0), "ChugSplashLZSender: cannot airdrop to address 0");
 
             // use adapterParams v2 to specify the amount of gas to send to the lzReceiver on the
             // destination chain, and the amount funds that the `airdropAddress` should receive on
@@ -108,7 +127,17 @@ contract ChugSplashLZSender is LzApp {
                 adapterParam,
                 nativeFee
             );
+
+            emit SentFunds(
+                message.airdropAddress,
+                message.dstChainId,
+                message.airdropAmount,
+                message.destGas,
+                nativeFee
+            );
         }
+
+        _refundExtraETH(total);
     }
 
     /**
@@ -118,8 +147,7 @@ contract ChugSplashLZSender is LzApp {
      * @param messages Array of LayerZeroFundingMessage structs.
      */
     function sendBatchMessages(LayerZeroMessage[] memory messages) public payable {
-        // Calculate the total amount to be sent
-        uint total = 0;
+        uint totalFee = 0;
         bytes[] memory adapterParams = new bytes[](messages.length);
         uint[] memory nativeFees = new uint[](messages.length);
         LayerZeroMessage memory message;
@@ -142,11 +170,11 @@ contract ChugSplashLZSender is LzApp {
             );
             nativeFees[i] = fee;
 
-            total += fee;
+            totalFee += fee;
         }
 
         // Revert if the user didn't send enough funds
-        require(msg.value >= total, "ChugSplashLZSender: insufficient funds");
+        require(msg.value >= totalFee, "ChugSplashLZSender: insufficient funds to send messages");
 
         // Send all the messages
         uint256 nativeFee;
@@ -163,7 +191,27 @@ contract ChugSplashLZSender is LzApp {
                 adapterParam,
                 nativeFee
             );
+
+            address receiver = abi.decode(this.getTrustedRemoteAddress(message.dstChainId), (address));
+            emit SentMessage(
+                receiver,
+                message.dstChainId,
+                message.payload,
+                message.destGas,
+                nativeFee
+            );
         }
+
+        _refundExtraETH(totalFee);
+    }
+
+    function _refundExtraETH(uint256 _totalSent) private {
+        uint256 leftover = msg.value - _totalSent;
+        if (leftover > 0) {
+            (bool success, ) = payable(msg.sender).call{ value: leftover }(new bytes(0));
+            require(success, "ChugSplashLZSender: failed to refund extra ETH");
+        }
+        emit RefundedExtraETH(msg.sender, leftover);
     }
 
     /**

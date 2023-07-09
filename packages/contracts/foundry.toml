@@ -2,6 +2,7 @@
 src = 'contracts'
 out = 'forge-artifacts'
 fs_permissions = [{ access = "read", path = "./"}]
+verbosity = 2
 remappings = [
   '@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/',
   '@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/',

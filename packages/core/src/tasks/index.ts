@@ -162,10 +162,6 @@ export const proposeAbstractTask = async (
     )
   }
 
-  // TODO: tell ryan:
-  // - networks -> chainIds
-  // - estimatedGasCost -> estimatedGas
-
   const leafs = await getAuthLeafs(
     parsedConfig,
     projectName,
