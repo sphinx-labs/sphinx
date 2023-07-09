@@ -12,6 +12,7 @@ import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
   UserChugSplashConfig,
   getChugSplashManagerAddress,
+  getDeployContractCosts,
   writeCanonicalConfig,
 } from '@chugsplash/core/dist'
 
@@ -20,7 +21,6 @@ import { getFoundryConfigOptions } from './options'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 import {
-  getDeployContractCosts,
   getEncodedFailure,
   getPrettyWarnings,
   validationStderrWrite,

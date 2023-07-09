@@ -713,6 +713,7 @@ export const makeTargetBundleFromConfig = (
 // TODO(docs): if the user removes a network, then we don't add any leafs for that network.
 export const getAuthLeafs = async (
   config: ParsedOrgConfig,
+  projectName: string,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache,
   prevConfig: CanonicalOrgConfig
@@ -738,11 +739,13 @@ export const getAuthLeafs = async (
     const emptyPrevConfig = getEmptyCanonicalOrgConfig(
       chainsToAdd,
       deployer,
-      orgId
+      orgId,
+      projectName
     )
 
     const newChainLeafs = await getAuthLeafs(
       config,
+      projectName,
       configArtifacts,
       configCache,
       emptyPrevConfig

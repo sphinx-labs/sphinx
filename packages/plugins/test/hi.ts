@@ -25,6 +25,9 @@ import {
   getDeploymentId,
   SUPPORTED_LIVE_NETWORKS,
   CanonicalOrgConfig,
+  getAuthLeafs,
+  getEmptyCanonicalOrgConfig,
+  findBundledLeaf,
 } from '@chugsplash/core'
 import {
   AuthFactoryABI,
@@ -88,6 +91,7 @@ describe('TODO', () => {
     const orgOwners = [ownerAddress]
     const userConfig: UserChugSplashConfig = {
       options: {
+        orgId: DUMMY_ORG_ID,
         orgOwners,
         orgThreshold,
         networks,
@@ -166,11 +170,18 @@ describe('TODO', () => {
       )
       expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
 
+      const prevOrgConfig = getEmptyCanonicalOrgConfig(
+        [],
+        deployerAddress,
+        DUMMY_ORG_ID,
+        projectName
+      )
       const leafs = await getAuthLeafs(
         parsedConfig,
+        projectName,
         configArtifacts,
         configCache,
-        getEmptyCanonicalOrgConfig([], deployerAddress, DUMMY_ORG_ID)
+        prevOrgConfig
       )
       const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
       const numLeafsPerChain = bundledLeafs.length / networks.length
@@ -205,7 +216,7 @@ describe('TODO', () => {
       expect(initialAuthState.leafsExecuted).deep.equals(BigNumber.from(0))
       expect(initialAuthState.numLeafs).deep.equals(BigNumber.from(0))
 
-      const signature = await signAuthRootMetaTxn(ownerPrivateKey, root)
+      const signature = await signAuthRootMetaTxn(owner, root)
 
       await Auth.setup(root, setupLeaf, [signature], setupProof)
 

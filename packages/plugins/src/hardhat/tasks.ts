@@ -22,6 +22,7 @@ import {
   getParsedOrgConfig,
   readUserChugSplashConfig,
   fetchCanonicalOrgConfig,
+  proposeAbstractTask,
 } from '@chugsplash/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
@@ -159,13 +160,13 @@ task(TASK_CHUGSPLASH_DEPLOY)
 
 export const chugsplashProposeTask = async (
   args: {
-    config: string
+    configPath: string
     project: string
     noCompile: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { config, project, noCompile } = args
+  const { configPath, project, noCompile } = args
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -184,39 +185,20 @@ export const chugsplashProposeTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  // TODO: i think most of this function can go in the abstract task
-
-  await ensureChugSplashInitialized(provider, signer)
-
-  const userConfig = await readUserChugSplashConfig(config)
-
-  const { parsedConfig, configArtifacts, configCache } =
-    await getParsedOrgConfig(
-      userConfig,
-      project,
-      prevOrgConfig.deployer,
-      provider,
-      cre,
-      makeGetConfigArtifacts(hre)
-    )
-
   await proposeAbstractTask(
+    configPath,
     provider,
     signer,
-    prevOrgConfig,
-    configPath,
-    ipfsUrl,
-    'hardhat',
-    configArtifacts,
-    ProposalRoute.RELAY,
+    project,
     cre,
-    configCache[name]
+    'hardhat',
+    makeGetConfigArtifacts(hre)
   )
 }
 
 task(TASK_CHUGSPLASH_PROPOSE)
   .setDescription('Propose changes to a ChugSplash config file')
-  .addParam('config', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the ChugSplash config file')
   .addParam('project', 'The name of the project to propose')
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')
   .setAction(chugsplashProposeTask)
