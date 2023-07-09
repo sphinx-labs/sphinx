@@ -2,6 +2,8 @@ import { UserProjectConfig } from '@chugsplash/core'
 
 const projectName = 'VariableValidation'
 
+// This config intentionally does not have a 'kind' field to test that an error
+// is thrown when it's missing.
 const config: UserProjectConfig = {
   contracts: {
     VariableValidation: {

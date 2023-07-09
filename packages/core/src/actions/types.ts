@@ -102,6 +102,7 @@ export interface ChugSplashActionBundle {
  */
 export type BundledAuthLeaf = {
   leaf: RawAuthLeaf
+  prettyLeaf: AuthLeaf
   proof: string[]
 }
 
@@ -200,8 +201,8 @@ interface SetOrgOwner extends BaseAuthLeaf {
   add: boolean
 }
 
-interface SetOrgOwnerThreshold extends BaseAuthLeaf {
-  leafType: 'setOrgOwnerThreshold'
+interface SetOrgThreshold extends BaseAuthLeaf {
+  leafType: 'setOrgThreshold'
   newThreshold: number
 }
 
@@ -249,7 +250,7 @@ interface WithdrawETH extends BaseAuthLeaf {
   receiver: string
 }
 
-interface ApproveDeployment extends BaseAuthLeaf {
+export interface ApproveDeployment extends BaseAuthLeaf {
   leafType: 'approveDeployment'
   projectName: string
   actionRoot: string
@@ -301,7 +302,7 @@ export type AuthLeaf =
   | SetProjectManager
   | ExportProxy
   | SetOrgOwner
-  | SetOrgOwnerThreshold
+  | SetOrgThreshold
   | TransferDeployerOwnership
   | UpgradeDeployerImplementation
   | UpgradeAuthImplementation
@@ -316,3 +317,45 @@ export type AuthLeaf =
   | CancelActiveDeployment
   | UpdateContractsInProject
   | Propose
+
+export enum RoleType {
+  ORG_OWNER,
+  MANAGER,
+  PROJECT_OWNER,
+  PROPOSER,
+}
+
+export type ProposalRequest = {
+  apiKey: string
+  orgId: string
+  chainIds: Array<number>
+  orgCanonicalConfig: string // TODO(docs): org canonical config that would be generated if this proposal were to be approved
+  projectDeployments: Array<{
+    chainId: number
+    deploymentId: string
+    name: string // project name
+    estimatedGas: string // gasUsed, not gas price
+  }>
+  orgTree: {
+    root: string
+    chainStatus: Array<{
+      numLeaves: number
+      chainId: number
+    }>
+    leaves: Array<ProposalRequestLeaf>
+  }
+}
+
+export type ProposalRequestLeaf = {
+  chainId: number
+  to: string
+  index: number
+  data: string
+  siblings: Array<string>
+  signers: Array<{
+    address: string
+    signature: string | undefined
+  }>
+  threshold: number
+  leafType: string
+}

@@ -98,38 +98,57 @@ export type UserProjectConfigs = {
   [projectName: string]: UserProjectConfig
 }
 
-// TODO(docs): explain the importance of "never"
+/**
+ * @notice The `networks` field is an array of network names, e.g. 'mainnet'.
+ */
+export interface UserOrgConfigOptions extends OrgConfigOptions {
+  networks: Array<string>
+}
+
+/**
+ * @notice The `chainIds` field is an array of chain IDs that correspond to the `networks` field in
+ * the unparsed config.
+ */
+export interface ParsedOrgConfigOptions extends OrgConfigOptions {
+  chainIds: Array<number>
+}
+
+/**
+ * @notice If any new fields are added to this interface, they must also be set in
+ * `OwnerConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
+ * both of these interfaces are mutually exclusive.
+ */
 export interface OrgConfigOptions {
+  orgId: string
   orgOwners: Array<string>
-  orgOwnerThreshold: number
+  orgThreshold: number
   proposers: Array<string>
   managers: Array<string>
   owner?: never
 }
 
-// TODO(docs): networks contains string network names, e.g. "TODO"
-export interface UserOrgConfigOptions extends OrgConfigOptions {
-  networks: Array<string>
-}
-
-export interface ParsedOrgConfigOptions extends OrgConfigOptions {
-  chainIds: Array<number>
-}
-
-// TODO(docs): explain the importance of "never"
+/**
+ * @notice If any new fields are added to this interface, they must also be set in
+ * `OrgConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
+ * both of these interfaces are mutually exclusive.
+ */
 export type OwnerConfigOptions = {
   owner: string
-  orgOwnerThreshold?: never
+  orgId?: never
+  orgThreshold?: never
   orgOwners?: never
   proposers?: never
   managers?: never
   networks?: never
 }
 
-export type ParsedConfigOptions = OwnerConfigOptions | ParsedOrgConfigOptions
+export interface ParsedOwnerConfig {
+  options: OwnerConfigOptions
+  projects: ParsedProjectConfigs
+}
 
-export interface ParsedChugSplashConfig {
-  options: ParsedConfigOptions
+export interface ParsedOrgConfig {
+  options: ParsedOrgConfigOptions
   projects: ParsedProjectConfigs
 }
 
@@ -188,7 +207,7 @@ export type UserConfigVariables = {
 }
 
 /**
- * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
+ * Contract definition in a parsed config. Note that the `contract` field is the
  * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
  * qualified name or the contract name.
  */
@@ -289,3 +308,20 @@ export type MinimalContractConfig = {
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
 ) => Promise<ProjectConfigArtifacts>
+
+export interface CanonicalOrgConfig {
+  deployer: string
+  options: {
+    orgId: string
+    orgOwners: Array<string>
+    orgThreshold: number
+    proposers: Array<string>
+    managers: Array<string>
+  }
+  projects: ParsedProjectConfigs
+  chainStates: {
+    [chainId: number]: {
+      firstProposalOccurred: boolean
+    }
+  }
+}

@@ -47,7 +47,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     IChugSplashManager public manager;
 
-    uint256 public orgOwnerThreshold;
+    uint256 public orgThreshold;
 
     /**
      * @notice Boolean indicating whether or not a proposal has been made. After this occurs, the
@@ -90,7 +90,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
     event OrgOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event OrgOwnerThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event OrgThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerOwnershipTransferred(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
@@ -155,16 +155,16 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      * @param _manager Address of the ChugSplashManager contract.
      * @param _data Arbitrary data. Provides a flexible interface for future versions of this
                     contract. In this version, the data is expected to be the ABI-encoded
-                    list of org owners and the org owner threshold.
+                    list of org owners and the org threshold.
      */
     function initialize(address _manager, bytes memory _data) external initializer {
-        (address[] memory _orgOwners, uint256 _orgOwnerThreshold) = abi.decode(
+        (address[] memory _orgOwners, uint256 _orgThreshold) = abi.decode(
             _data,
             (address[], uint256)
         );
 
-        if (_orgOwnerThreshold == 0) revert ThresholdCannotBeZero();
-        if (_orgOwners.length < _orgOwnerThreshold) revert ThresholdExceedsOwnerCount();
+        if (_orgThreshold == 0) revert ThresholdCannotBeZero();
+        if (_orgOwners.length < _orgThreshold) revert ThresholdExceedsOwnerCount();
 
         for (uint256 i = 0; i < _orgOwners.length; i++) {
             address orgOwner = _orgOwners[i];
@@ -178,7 +178,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         }
 
         manager = IChugSplashManager(_manager);
-        orgOwnerThreshold = _orgOwnerThreshold;
+        orgThreshold = _orgThreshold;
 
         __AccessControlEnumerable_init();
     }
@@ -187,7 +187,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
 
     /**
      * @notice Sets initial proposers. The number of org owner signatures must be at least
-               `orgOwnerThreshold`.
+               `orgThreshold`.
 
                This is the only permissioned function in this contract that doesn't require
                that the auth Merkle root has been proposed in a separate transaction.
@@ -216,7 +216,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         );
@@ -299,7 +299,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -332,7 +332,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -361,7 +361,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -373,7 +373,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             if (hasRole(DEFAULT_ADMIN_ROLE, orgOwner)) revert AddressAlreadyHasRole();
             _grantRole(DEFAULT_ADMIN_ROLE, orgOwner);
         } else {
-            if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) <= orgOwnerThreshold)
+            if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) <= orgThreshold)
                 revert UnreachableThreshold();
             if (!hasRole(DEFAULT_ADMIN_ROLE, orgOwner)) revert AddressDoesNotHaveRole();
             _revokeRole(DEFAULT_ADMIN_ROLE, orgOwner);
@@ -398,7 +398,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -453,7 +453,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProjectRemoved(_authRoot, _leaf.index);
     }
 
-    function setOrgOwnerThreshold(
+    function setOrgThreshold(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
@@ -465,7 +465,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -476,11 +476,11 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
         if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) < newThreshold)
             revert ThresholdExceedsOwnerCount();
 
-        orgOwnerThreshold = newThreshold;
+        orgThreshold = newThreshold;
 
         _updateProposedAuthState(_authRoot);
 
-        emit OrgOwnerThresholdSet(_authRoot, _leaf.index);
+        emit OrgThresholdSet(_authRoot, _leaf.index);
     }
 
     function transferDeployerOwnership(
@@ -495,7 +495,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -526,7 +526,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -558,7 +558,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -590,7 +590,7 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgOwnerThreshold,
+            orgThreshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )

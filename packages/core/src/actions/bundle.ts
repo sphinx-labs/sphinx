@@ -5,7 +5,12 @@ import { astDereferencer } from 'solidity-ast/utils'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
 import {
+  CanonicalOrgConfig,
+  ConfigArtifacts,
+  ConfigCache,
+  ParsedOrgConfig,
   ParsedProjectConfig,
+  ParsedProjectConfigs,
   ProjectConfigArtifacts,
   ProjectConfigCache,
   contractKindHashes,
@@ -18,10 +23,14 @@ import {
   getCreationCodeWithConstructorArgs,
   getImplAddress,
   getDefaultProxyInitCode,
+  getEmptyCanonicalOrgConfig,
+  getDeploymentId,
 } from '../utils'
 import {
+  ApproveDeployment,
   AuthLeaf,
   AuthLeafBundle,
+  BundledAuthLeaf,
   BundledChugSplashAction,
   ChugSplashAction,
   ChugSplashActionBundle,
@@ -29,13 +38,17 @@ import {
   ChugSplashBundles,
   ChugSplashTarget,
   ChugSplashTargetBundle,
+  ContractInfo,
   DeployContractAction,
   RawAuthLeaf,
   RawChugSplashAction,
+  RoleType,
   SetStorageAction,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
+import { getBundleInfo } from '../tasks'
+import { getDeployContractCosts } from '../estimate'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -268,7 +281,7 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.projectName, leaf.contractAddresses]
       )
 
-    case 'setOrgOwnerThreshold':
+    case 'setOrgThreshold':
       return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
 
     case 'transferDeployerOwnership':
@@ -374,6 +387,49 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   }
 }
 
+// TODO(docs): returns the number of signers that are required to approve a leaf and...
+export const getAuthLeafSignerInfo = (
+  orgThreshold: number,
+  projectThreshold: number,
+  leafType: string
+): { threshold: number; roleType: RoleType } => {
+  switch (leafType) {
+    // Org owner
+    case 'setup':
+    case 'setProjectManager':
+    case 'exportProxy':
+    case 'setOrgOwner':
+    case 'removeProject':
+    case 'setOrgThreshold':
+    case 'transferDeployerOwnership':
+    case 'upgradeDeployerImplementation':
+    case 'upgradeAuthImplementation':
+    case 'upgradeDeployerAndAuthImpl':
+      return { threshold: orgThreshold, roleType: RoleType.ORG_OWNER }
+
+    // Manager
+    case 'createProject':
+    case 'setProposer':
+    case 'withdrawETH':
+      return { threshold: 1, roleType: RoleType.MANAGER }
+
+    // Project owner
+    case 'approveDeployment':
+    case 'setProjectThreshold':
+    case 'setProjectOwner':
+    case 'cancelActiveDeployment':
+    case 'updateContractsInProject':
+      return { threshold: projectThreshold, roleType: RoleType.PROJECT_OWNER }
+
+    // Proposer
+    case 'propose':
+      return { threshold: 1, roleType: RoleType.PROPOSER }
+
+    default:
+      throw Error(`Unknown auth leaf type. Should never happen.`)
+  }
+}
+
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
   const { chainId, to, index } = leaf
@@ -389,11 +445,14 @@ export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
  */
 export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
   // Turn the "nice" leaf structs into raw leafs.
-  const rawLeafs = leafs.map((leaf) => {
-    return toRawAuthLeaf(leaf)
+  const leafPairs = leafs.map((leaf) => {
+    return {
+      leaf: toRawAuthLeaf(leaf),
+      prettyLeaf: leaf,
+    }
   })
 
-  const rawLeafArray = rawLeafs.map((l) => Object.values(l))
+  const rawLeafArray = leafPairs.map((pair) => Object.values(pair.leaf))
   const tree = StandardMerkleTree.of(rawLeafArray, [
     'uint256',
     'address',
@@ -405,9 +464,11 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
 
   return {
     root: root !== '0x' ? root : ethers.constants.HashZero,
-    leafs: rawLeafs.map((leaf) => {
+    leafs: leafPairs.map((pair) => {
+      const { leaf, prettyLeaf } = pair
       return {
         leaf,
+        prettyLeaf,
         proof: tree.getProof(Object.values(leaf)),
       }
     }),
@@ -645,4 +706,227 @@ export const makeTargetBundleFromConfig = (
 
   // Generate a bundle from the list of actions.
   return makeTargetBundle(targets)
+}
+
+// TODO(docs,ryan): `chainStates` must contain all of the chainIds that are in `prevConfig`.
+// TODO(docs): if the user removes a network, then we don't add any leafs for that network.
+export const getAuthLeafs = async (
+  config: ParsedOrgConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache,
+  prevConfig: CanonicalOrgConfig
+): Promise<Array<AuthLeaf>> => {
+  let leafs: Array<AuthLeaf> = []
+
+  const { options, projects } = config
+  const { options: prevOptions } = prevConfig
+
+  // TODO(propose): case: a user messes up their setup on a chain, then they change the orgOwners or
+  // orgThreshold in their config when trying to re-setup. what do we do? i think we should throw an
+  // error somewhere. Note that in this case, `!firstProposalOccurred`.
+
+  const { deployer, chainStates: prevChainStates } = prevConfig
+  const { proposers, managers, chainIds, orgId } = options
+  const { proposers: prevProposers, managers: prevManagers } = prevOptions
+  const prevChainIds = Object.keys(prevChainStates).map((c) => parseInt(c, 10))
+
+  const chainsToAdd = chainIds.filter((c) => !prevChainIds.includes(c))
+  const chainsToKeep = chainIds.filter((c) => prevChainIds.includes(c))
+
+  if (chainsToAdd.length > 0) {
+    const emptyPrevConfig = getEmptyCanonicalOrgConfig(
+      chainsToAdd,
+      deployer,
+      orgId
+    )
+
+    const newChainLeafs = await getAuthLeafs(
+      config,
+      configArtifacts,
+      configCache,
+      emptyPrevConfig
+    )
+    leafs = leafs.concat(newChainLeafs)
+  }
+
+  for (const chainId of chainsToKeep) {
+    const { firstProposalOccurred } = prevChainStates[chainId]
+    // TODO(docs)
+
+    if (firstProposalOccurred) {
+      // TODO
+    } else {
+      const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
+      const proposersToRemove = prevProposers.filter(
+        (p) => !proposers.includes(p)
+      )
+      const proposersToSet = proposersToAdd
+        .map((p) => {
+          return { member: p, add: true }
+        })
+        .concat(
+          proposersToRemove.map((p) => {
+            return { member: p, add: false }
+          })
+        )
+
+      const managersToAdd = managers.filter((m) => !prevManagers.includes(m))
+      const managersToRemove = prevManagers.filter((m) => !managers.includes(m))
+      const managersToSet = managersToAdd
+        .map((m) => {
+          return { member: m, add: true }
+        })
+        .concat(
+          managersToRemove.map((m) => {
+            return { member: m, add: false }
+          })
+        )
+
+      if (Object.keys(projects).length === 0) {
+        const setupLeaf: AuthLeaf = {
+          chainId,
+          to: deployer,
+          index: 0,
+          proposers: proposersToSet,
+          managers: managersToSet,
+          numLeafs: 1,
+          leafType: 'setup',
+        }
+        leafs.push(setupLeaf)
+      } else {
+        // TODO(docs)
+        let index = 2
+
+        for (const [projectName, projectConfig] of Object.entries(projects)) {
+          const { options: projectOptions, contracts } = projectConfig
+          const { projectOwners, projectThreshold } = projectOptions
+
+          if (!projectOwners || !projectThreshold) {
+            throw new Error(`TODO. Should never happen.`)
+          }
+
+          // We only import contracts into the project if the user has explictly specified an
+          // address for the contract. Otherwise, the contract will eventually be deployed by
+          // ChugSplash and added to the project automatically.
+          const contractsToImport: Array<ContractInfo> = Object.entries(
+            contracts
+          )
+            .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
+            .map(([referenceName, contractConfig]) => {
+              return { referenceName, addr: contractConfig.address }
+            })
+
+          const createProjectLeaf: AuthLeaf = {
+            chainId,
+            to: deployer,
+            index,
+            projectName,
+            projectThreshold,
+            projectOwners,
+            contractsToImport,
+            leafType: 'createProject',
+          }
+          index += 1
+          leafs.push(createProjectLeaf)
+
+          const { configUri, bundles } = await getBundleInfo(
+            projectConfig,
+            configArtifacts[projectName],
+            configCache[projectName]
+          )
+          const { actionBundle, targetBundle } = bundles
+
+          const approvalLeaf: AuthLeaf = {
+            chainId,
+            to: deployer,
+            index,
+            projectName,
+            actionRoot: actionBundle.root,
+            targetRoot: targetBundle.root,
+            numActions: actionBundle.actions.length,
+            numTargets: targetBundle.targets.length,
+            numImmutableContracts: getNumDeployContractActions(actionBundle),
+            configUri,
+            leafType: 'approveDeployment',
+          }
+          index += 1
+          leafs.push(approvalLeaf)
+        }
+
+        const setupLeaf: AuthLeaf = {
+          chainId,
+          to: deployer,
+          index: 0,
+          proposers: proposersToSet,
+          managers: managersToSet,
+          numLeafs: index, // TODO(docs)
+          leafType: 'setup',
+        }
+        leafs.push(setupLeaf)
+
+        const proposalLeaf: AuthLeaf = {
+          chainId,
+          to: deployer,
+          index: 1,
+          numLeafs: index, // TODO(docs): same as above
+          leafType: 'propose',
+        }
+        leafs.push(proposalLeaf)
+      }
+    }
+  }
+
+  return leafs
+}
+
+export const findBundledLeaf = (
+  bundledLeafs: Array<BundledAuthLeaf>,
+  index: number,
+  chainId: number
+): BundledAuthLeaf => {
+  const leaf = bundledLeafs.find(
+    ({ leaf: l }) => l.index === index && l.chainId === chainId
+  )
+  if (!leaf) {
+    throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
+  }
+  return leaf
+}
+
+export const getTODO = async (
+  leafs: Array<AuthLeaf>,
+  projectConfigs: ParsedProjectConfigs,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache
+): Promise<TODO> => {
+  const projectDeploymentPromises = leafs
+    .filter(isApproveDeploymentAuthLeaf)
+    .map(async (l) => {
+      const { projectName, chainId } = l
+      const { configUri, bundles } = await getBundleInfo(
+        projectConfigs[projectName],
+        configArtifacts[projectName],
+        configCache[projectName]
+      )
+      const deploymentId = getDeploymentId(bundles, configUri, projectName)
+
+      const estGas = getDeployContractCosts(configArtifacts[projectName])
+        .map(({ cost }) => cost.toNumber())
+        .reduce((a, b) => a + b, 0)
+
+      return {
+        chainId,
+        deploymentId,
+        name: projectName,
+        estimatedGas: estGas.toString(),
+      }
+    })
+
+  const projectDeployments = await Promise.all(projectDeploymentPromises)
+}
+
+export const isApproveDeploymentAuthLeaf = (
+  leaf: AuthLeaf
+): leaf is ApproveDeployment => {
+  return leaf.leafType === 'approveDeployment'
 }

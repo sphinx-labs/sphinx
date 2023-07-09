@@ -3,7 +3,7 @@ import { UserProjectConfig } from '@chugsplash/core'
 import {
   invalidConstructorArgsPartOne,
   invalidConstructorArgsPartTwo,
-} from '../../test/constants'
+} from '../../../test/constants'
 
 const projectName = 'ConstructorArgValidation'
 

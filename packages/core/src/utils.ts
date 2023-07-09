@@ -53,6 +53,7 @@ import {
   ParsedConfigVariable,
   ParsedProjectConfig,
   ProjectConfigArtifacts,
+  CanonicalOrgConfig,
 } from './config/types'
 import {
   ChugSplashActionBundle,
@@ -1164,21 +1165,6 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
   )
 }
 
-export const getEstDeployContractCost = (
-  gasEstimates: CompilerOutputContract['evm']['gasEstimates']
-): BigNumber => {
-  const { totalCost, codeDepositCost } = gasEstimates.creation
-
-  if (totalCost === 'infinite') {
-    // The `totalCost` is 'infinite' if the contract has a constructor. This is because the Solidity
-    // compiler can't determine the cost of the deployment since the constructor can contain
-    // arbitrary logic. In this case, we use the `executionCost` along a buffer multiplier of 1.5.
-    return BigNumber.from(codeDepositCost).mul(3).div(2)
-  } else {
-    return BigNumber.from(totalCost)
-  }
-}
-
 /**
  * Returns the address of a proxy's implementation contract that would be deployed by ChugSplash via
  * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
@@ -1203,3 +1189,43 @@ export const getImplAddress = (
 }
 
 export const execAsync = promisify(exec)
+
+export const getDuplicateElements = (arr: Array<string>): Array<string> => {
+  return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
+}
+
+// TODO(ryan)
+export const fetchCanonicalOrgConfig =
+  async (): Promise<CanonicalOrgConfig> => {
+    // Return an empty config for now to avoid a TypeScript error.
+    return getEmptyCanonicalOrgConfig([], ethers.constants.AddressZero, '')
+  }
+
+// TODO(docs)
+// TODO: should this function return an empty project config too?
+export const getEmptyCanonicalOrgConfig = (
+  chainIds: Array<number>,
+  deployer: string,
+  orgId: string
+): CanonicalOrgConfig => {
+  const chainStates = {}
+
+  chainIds.forEach((chainId) => {
+    chainStates[chainId] = {
+      firstProposalOccurred: false,
+    }
+  })
+
+  return {
+    deployer,
+    options: {
+      orgId,
+      orgOwners: [],
+      orgThreshold: 0,
+      proposers: [],
+      managers: [],
+    },
+    projects: {},
+    chainStates,
+  }
+}

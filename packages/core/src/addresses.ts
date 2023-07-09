@@ -300,11 +300,11 @@ export const getChugSplashManagerAddress = (owner: string) => {
 
 export const getAuthData = (
   orgOwners: Array<string>,
-  orgOwnerThreshold: number
+  orgThreshold: number
 ): string => {
   return utils.defaultAbiCoder.encode(
     ['address[]', 'uint256'],
-    [orgOwners, orgOwnerThreshold]
+    [orgOwners, orgThreshold]
   )
 }
 
@@ -318,9 +318,9 @@ export const getAuthSalt = (authData: string): string => {
 
 export const getAuthAddress = (
   orgOwners: Array<string>,
-  orgOwnerThreshold: number
+  orgThreshold: number
 ): string => {
-  const authData = getAuthData(orgOwners, orgOwnerThreshold)
+  const authData = getAuthData(orgOwners, orgThreshold)
   const salt = getAuthSalt(authData)
 
   return utils.getCreate2Address(

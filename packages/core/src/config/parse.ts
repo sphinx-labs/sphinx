@@ -47,9 +47,9 @@ import {
   fetchAndCacheCanonicalConfig,
   getProjectConfigArtifactsRemote,
   isProjectRegistered,
+  getDuplicateElements,
 } from '../utils'
 import {
-  ParsedChugSplashConfig,
   ParsedConfigVariable,
   UserContractConfig,
   UserConfigVariable,
@@ -70,12 +70,12 @@ import {
   ConfigArtifacts,
   UserChugSplashConfig,
   OwnerConfigOptions,
-  OrgConfigOptions,
-  ParsedConfigOptions,
   ParsedOrgConfigOptions,
   UserOrgConfigOptions,
-  ParsedProjectConfigOptions,
   ProjectConfigOptions,
+  ParsedOrgConfig,
+  ParsedProjectConfigs,
+  ParsedOwnerConfig,
 } from './types'
 import {
   CONTRACT_SIZE_LIMIT,
@@ -157,7 +157,7 @@ export const getParsedOrgConfig = async (
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedOrgConfig
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
@@ -170,36 +170,42 @@ export const getParsedOrgConfig = async (
     // We throw an error immediately because the rest of the parsing logic for the organization
     // fields won't work. We don't use `logValidationError` here because TypeScript wouldn't
     // recognize that the `options` field is defined after this if-statement.
-    throw new Error(`TODO`)
+    throw new Error(
+      `The top-level 'options' field is required for organization configs.`
+    )
   }
 
-  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options, cre)
+  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
+
+  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
 
   // TODO: the rest of this fn is repeated w/ readParsedOwner, so consider refactoring
 
-  // TODO: case: the user enters chainId=1337 for their local network. i think we can support this
-  // by adding a field to the CRE for the local network's chainId.
-
-  const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
+  const { projectConfigs, configArtifacts } = await readUnvalidatedParsedConfig(
     userConfig,
     projectArray,
     deployerAddress,
-    parsedConfigOptions,
     cre,
     getConfigArtifacts,
-    failureAction
+    failureAction,
+    true
   )
+
+  const parsedConfig: ParsedOrgConfig = {
+    options: parsedConfigOptions,
+    projects: projectConfigs,
+  }
 
   const configCache = await getConfigCache(
     provider,
-    parsedConfig,
+    projectConfigs,
     configArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(deployerAddress, provider)
   )
 
   await postParsingValidation(
-    parsedConfig,
+    projectConfigs,
     configArtifacts,
     cre,
     configCache,
@@ -209,18 +215,20 @@ export const getParsedOrgConfig = async (
   return { parsedConfig, configArtifacts, configCache }
 }
 
-// TODO: change name to reflect that this is now called by readParsedOrg/OwnerConfig
-// TODO(docs): this is now called by readParsedOrg/OwnerConfig
+/**
+ * @notice This function is called by `getParsedOrgConfig` and `readParsedOwnerConfig`.
+ */
+// TODO: change name to reflect that it's just for getting the parsed project configs
 export const readUnvalidatedParsedConfig = async (
   userConfig: UserChugSplashConfig,
   projects: Array<Project>,
   deployerAddress: string,
-  configOptions: ParsedConfigOptions,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction
+  failureAction: FailureAction,
+  isOrgConfig: boolean
 ): Promise<{
-  parsedConfig: ParsedChugSplashConfig
+  projectConfigs: ParsedProjectConfigs
   configArtifacts: ConfigArtifacts
 }> => {
   const allProjectNames = Object.keys(userConfig.projects)
@@ -242,18 +250,20 @@ export const readUnvalidatedParsedConfig = async (
   const filteredUserConfigProjects = Object.entries(userConfig.projects).filter(
     ([projectName]) => projects.includes(projectName)
   )
-
-  const parsedConfig: ParsedChugSplashConfig = {
-    options: configOptions,
-    projects: {},
-  }
-
+  const projectConfigs: ParsedProjectConfigs = {}
   const configArtifacts: ConfigArtifacts = {}
   for (const [projectName, projectConfig] of filteredUserConfigProjects) {
     const projectConfigArtifacts = await getConfigArtifacts(
       projectConfig.contracts
     )
     configArtifacts[projectName] = projectConfigArtifacts
+
+    assertValidProjectConfigOptions(
+      projectName,
+      isOrgConfig,
+      cre,
+      projectConfig.options
+    )
 
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       projectConfig,
@@ -264,10 +274,10 @@ export const readUnvalidatedParsedConfig = async (
       deployerAddress
     )
 
-    parsedConfig.projects[projectName] = parsedProjectConfig
+    projects[projectName] = parsedProjectConfig
   }
 
-  return { parsedConfig, configArtifacts }
+  return { projectConfigs, configArtifacts }
 }
 
 /**
@@ -289,7 +299,7 @@ export const readParsedOwnerConfig = async (
   ownerAddress: string,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedOwnerConfig
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
@@ -300,38 +310,59 @@ export const readParsedOwnerConfig = async (
 
   const userConfig = await readUserChugSplashConfig(configPath)
 
-  // TODO: logValidationError if userConfig.options is defined
+  if (userConfig.options) {
+    logValidationError(
+      'error',
+      `Organization configs cannot be used with this function.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    logValidationError(
+      'error',
+      `The owner address is invalid: ${ownerAddress}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
   // TODO(deploy): we're going to need to change this to support the fact that there isn't a
   // one-to-one mapping between ownerAddress and deployer
   const deployerAddress = getChugSplashManagerAddress(ownerAddress)
 
-  // TODO: logValidationError for !ethers.utils.isAddress(ownerAddress)
-
   const configOptions: OwnerConfigOptions = {
     owner: ownerAddress,
   }
 
-  const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
+  const { projectConfigs, configArtifacts } = await readUnvalidatedParsedConfig(
     userConfig,
     projectArray,
     deployerAddress,
-    configOptions,
     cre,
     getConfigArtifacts,
-    failureAction
+    failureAction,
+    false
   )
+
+  const parsedConfig: ParsedOwnerConfig = {
+    options: configOptions,
+    projects: projectConfigs,
+  }
 
   const configCache = await getConfigCache(
     provider,
-    parsedConfig,
+    projectConfigs,
     configArtifacts,
     getChugSplashRegistryReadOnly(provider),
     getChugSplashManagerReadOnly(deployerAddress, provider)
   )
 
   await postParsingValidation(
-    parsedConfig,
+    projectConfigs,
     configArtifacts,
     cre,
     configCache,
@@ -2547,14 +2578,14 @@ export const projectPostParsingValidation = async (
 }
 
 export const postParsingValidation = async (
-  parsedConfig: ParsedChugSplashConfig,
+  projectConfigs: ParsedProjectConfigs,
   configArtifacts: ConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   configCache: ConfigCache,
   failureAction: FailureAction
 ) => {
   for (const [projectName, parsedProjectConfig] of Object.entries(
-    parsedConfig.projects
+    projectConfigs
   )) {
     await projectPostParsingValidation(
       parsedProjectConfig,
@@ -2889,15 +2920,13 @@ export const getProjectConfigCache = async (
 
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig,
+  projectConfigs: ParsedProjectConfigs,
   configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
   manager: ethers.Contract
 ): Promise<ConfigCache> => {
   const configCache: ConfigCache = {}
-  for (const [projectName, projectConfig] of Object.entries(
-    parsedConfig.projects
-  )) {
+  for (const [projectName, projectConfig] of Object.entries(projectConfigs)) {
     configCache[projectName] = await getProjectConfigCache(
       provider,
       projectConfig,
@@ -3028,48 +3057,279 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-const parseOrgConfigOptions = (
+const assertValidOrgConfigOptions = (
   options: UserOrgConfigOptions,
-  cre: ChugSplashRuntimeEnvironment
-): ParsedOrgConfigOptions => {
-  const { owner, networks, orgOwners, orgOwnerThreshold, proposers, managers } =
-    options
-  const { silent, stream } = cre
+  cre: ChugSplashRuntimeEnvironment,
+  failureAction: FailureAction
+): void => {
+  const {
+    owner,
+    networks,
+    orgId,
+    orgOwners,
+    orgThreshold,
+    proposers,
+    managers,
+  } = options
 
-  // TODO: mv to `assertValidOrgConfigOptions`
   if (owner) {
     logValidationError(
       'error',
-      `TODO(docs): use 'owners' instead of 'owner'`,
+      `Detected the 'owner' field in the organization config. Please use the 'owners' field instead:\n` +
+        `  owners: [${owner}]`,
       [],
-      silent,
-      stream
+      cre.silent,
+      cre.stream
     )
   }
 
-  // TODO: logValidationError if:
-  // - orgOwnerThreshold === 0
-  // - orgOwnerThreshold > owners.length
-  // - any of the owners are not valid addresses
-  // - any of the owner addresses are duplicates
-  // that's it for org owner + orgThreshold validation
-  // repeat the above for every other address field + threshold combo
+  if (orgId === '') {
+    logValidationError(
+      'error',
+      `The 'orgId' cannot be an empty string.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
-  // Validate the networks
-  // - networks.length === 0
-  // - networks contains any duplicates
-  // - network doesn't correspond to local chain ID or a live network supported by chugsplash. list
-  //   the supported chains
+  if (orgThreshold === 0) {
+    logValidationError(
+      'error',
+      `The 'orgThreshold' must be greater than 0.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
-  // TODO: assertNoValidationErrors?
+  if (orgThreshold > orgOwners.length) {
+    logValidationError(
+      'error',
+      `The 'orgThreshold' must be less than or equal to the number of org owners.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const duplicatedOrgOwners = getDuplicateElements(orgOwners)
+  const duplicatedProposers = getDuplicateElements(proposers)
+  const duplicatedManagers = getDuplicateElements(managers)
+  const duplicatedNetworks = getDuplicateElements(networks)
+  if (duplicatedOrgOwners.length > 0) {
+    logValidationError(
+      'error',
+      `The following org owners are duplicated:`,
+      duplicatedOrgOwners,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedProposers.length > 0) {
+    logValidationError(
+      'error',
+      `The following proposers are duplicated:`,
+      duplicatedProposers,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedManagers.length > 0) {
+    logValidationError(
+      'error',
+      `The following managers are duplicated:`,
+      duplicatedManagers,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedNetworks.length > 0) {
+    logValidationError(
+      'error',
+      `The following networks are duplicated:`,
+      duplicatedNetworks,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const invalidOrgOwnerAddresses = orgOwners.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidProposerAddresses = proposers.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidManagerAddresses = managers.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidNetworks = networks.filter(
+    (network) => !SUPPORTED_LIVE_NETWORKS[network]
+  )
+  if (invalidOrgOwnerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following org owners are not valid addresses:`,
+      invalidOrgOwnerAddresses,
+      cre.silent,
+
+      cre.stream
+    )
+  }
+  if (invalidProposerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following proposers are not valid addresses:`,
+      invalidProposerAddresses,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (invalidManagerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following managers are not valid addresses:`,
+      invalidManagerAddresses,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (invalidNetworks.length > 0) {
+    logValidationError(
+      'error',
+      `The following networks are not supported:`,
+      invalidNetworks,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (proposers.length === 0 && managers.length === 0) {
+    logValidationError(
+      'error',
+      `There must be at least one proposer or manager.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (networks.length === 0) {
+    logValidationError(
+      'error',
+      `There must be at least one network in your ChugSplash config.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  assertNoValidationErrors(failureAction)
+}
+
+const parseOrgConfigOptions = (
+  options: UserOrgConfigOptions
+): ParsedOrgConfigOptions => {
+  const { networks, orgId, orgOwners, orgThreshold, proposers, managers } =
+    options
 
   const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
 
   return {
     chainIds,
+    orgId,
     orgOwners,
-    orgOwnerThreshold,
+    orgThreshold,
     proposers,
     managers,
+  }
+}
+
+const assertValidProjectConfigOptions = (
+  projectName: string,
+  isOrgConfig: boolean,
+  cre: ChugSplashRuntimeEnvironment,
+  projectOptions?: ProjectConfigOptions
+): void => {
+  if (!isOrgConfig) {
+    if (projectOptions) {
+      logValidationError(
+        'error',
+        `The 'options' field defined under the project ${projectName}, but this config does not belong to an organization.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+    return
+  }
+
+  // If we make it to this point, we know that this is an org config.
+  if (!projectOptions) {
+    logValidationError(
+      'error',
+      `The 'options' field is missing under the project ${projectName}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+    return
+  }
+
+  const { projectOwners, projectThreshold } = projectOptions
+
+  if (projectName === '') {
+    logValidationError(
+      'error',
+      `The project name cannot be an empty string.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (projectThreshold === 0) {
+    logValidationError(
+      'error',
+      `The 'projectThreshold' for ${projectName} must be greater than 0.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (projectThreshold > projectOwners.length) {
+    logValidationError(
+      'error',
+      `The 'projectThreshold' for ${projectName} must be less than or equal to the number of project owners.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const duplicatedProjectOwners = getDuplicateElements(projectOwners)
+  if (duplicatedProjectOwners.length > 0) {
+    logValidationError(
+      'error',
+      `The following project owners for ${projectName} are duplicated:`,
+      duplicatedProjectOwners,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const invalidProjectOwnerAddresses = projectOwners.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  if (invalidProjectOwnerAddresses.length > 0) {
+    logValidationError(
+      'error',
+
+      `The following project owners for ${projectName} are not valid addresses:`,
+      invalidProjectOwnerAddresses,
+      cre.silent,
+      cre.stream
+    )
   }
 }

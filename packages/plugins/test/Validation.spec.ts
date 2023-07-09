@@ -9,11 +9,14 @@ import { FailureAction, readParsedOwnerConfig } from '@chugsplash/core'
 
 import { createChugSplashRuntime } from '../../src/cre'
 import { makeGetConfigArtifacts } from '../../src/hardhat/artifacts'
-import { projectName as validationName } from '../../chugsplash/projects/Validation.config'
-import { projectName as constructorArgName } from '../../chugsplash/projects/ConstructorArgValidation.config'
-import { projectName as noProxyName } from '../../chugsplash/projects/NoProxyContractReference.config'
+import { projectName as validationName } from '../../chugsplash/projects/validation/Validation.config'
+import { projectName as constructorArgName } from '../../chugsplash/projects/validation/ConstructorArgValidation.config'
+import { projectName as noProxyName } from '../../chugsplash/projects/ImmutableValidation.config'
+// TODO: mv ^ this to validation/
 
-const configPath = './chugsplash/main.config.ts'
+// TODO: mv this file out of main
+
+const configPath = './chugsplash/validation.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
@@ -53,20 +56,6 @@ describe('Validate', () => {
       await readParsedOwnerConfig(
         configPath,
         constructorArgName,
-        provider,
-        cre,
-        makeGetConfigArtifacts(hre),
-        signerAddress,
-        FailureAction.THROW
-      )
-    } catch (e) {
-      /* empty */
-    }
-
-    try {
-      await readParsedOwnerConfig(
-        configPath,
-        noProxyName,
         provider,
         cre,
         makeGetConfigArtifacts(hre),

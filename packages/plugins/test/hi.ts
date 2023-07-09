@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import hre from 'hardhat'
 import '../dist' // This loads in the ChugSplash's HRE type extensions, e.g. `canonicalConfigPath`
 import '@nomiclabs/hardhat-ethers'
@@ -7,13 +5,11 @@ import {
   AUTH_FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
-  ParsedChugSplashConfig,
   UserChugSplashConfig,
   ensureChugSplashInitialized,
   getAuthAddress,
   getAuthData,
   getChugSplashManagerAddress,
-  getChugSplashRegistry,
   makeAuthBundle,
   getParsedOrgConfig,
   AuthLeaf,
@@ -28,6 +24,7 @@ import {
   BundledAuthLeaf,
   getDeploymentId,
   SUPPORTED_LIVE_NETWORKS,
+  CanonicalOrgConfig,
 } from '@chugsplash/core'
 import {
   AuthFactoryABI,
@@ -42,21 +39,13 @@ import { BigNumber, ethers } from 'ethers'
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-// TODO: mv
-const EMPTY_PARSED_CONFIG: ParsedChugSplashConfig = {
-  options: {
-    orgOwners: [],
-    orgOwnerThreshold: 0,
-    chainIds: [],
-    proposers: [],
-    managers: [],
-  },
-  projects: {},
-}
+// TODO: rename file
 
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
 const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
+
+const DUMMY_ORG_ID = '1111'
 
 const cre = createChugSplashRuntime(
   false,
@@ -66,7 +55,7 @@ const cre = createChugSplashRuntime(
   false
 )
 
-const orgOwnerThreshold = 1
+const orgThreshold = 1
 
 // First account on Hardhat node
 const ownerPrivateKey =
@@ -88,19 +77,19 @@ describe('TODO', () => {
       _immutableAddress: '0x' + '11'.repeat(20),
     }
 
-    const networks = ['goerli']
+    const networks = ['goerli', 'optimism-goerli']
     const providers = {
       goerli: new ethers.providers.JsonRpcProvider('http://localhost:8545'),
-      // 'optimism-goerli': new ethers.providers.JsonRpcProvider(
-        // 'http://localhost:8546'
-      // ),
+      'optimism-goerli': new ethers.providers.JsonRpcProvider(
+        'http://localhost:8546'
+      ),
     }
 
     const orgOwners = [ownerAddress]
     const userConfig: UserChugSplashConfig = {
       options: {
         orgOwners,
-        orgOwnerThreshold,
+        orgThreshold,
         networks,
         proposers: [ownerAddress],
         managers: [ownerAddress],
@@ -108,8 +97,8 @@ describe('TODO', () => {
       projects: {},
     }
 
-    const authData = getAuthData(orgOwners, orgOwnerThreshold)
-    const authAddress = getAuthAddress(orgOwners, orgOwnerThreshold)
+    const authData = getAuthData(orgOwners, orgThreshold)
+    const authAddress = getAuthAddress(orgOwners, orgThreshold)
     const deployerAddress = getChugSplashManagerAddress(authAddress)
 
     const projectName = 'MyProject'
@@ -135,9 +124,7 @@ describe('TODO', () => {
       // The relayer is the signer that executes the transactions on the Auth contract
       const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-      const a = Date.now()
       await ensureChugSplashInitialized(provider, relayer)
-      console.log('ensureChugSplashInitialized', Date.now() - a)
 
       const { parsedConfig, configCache, configArtifacts } =
         await getParsedOrgConfig(
@@ -149,7 +136,6 @@ describe('TODO', () => {
           makeGetConfigArtifacts(hre)
         )
 
-      const Registry = getChugSplashRegistry(relayer)
       const AuthFactory = new ethers.Contract(
         AUTH_FACTORY_ADDRESS,
         AuthFactoryABI,
@@ -171,38 +157,20 @@ describe('TODO', () => {
         value: ethers.utils.parseEther('1'),
       })
 
-      // Check that the ChugSplashAuth and ChugSplashManager contracts were deployed at their expected
-      // addresses
-      // TODO: you can should probably remove these since we're doing integration tests. wait until later
-      // to do this though
-      assert(
-        await AuthFactory.isDeployed(authAddress),
-        'Auth address is not deployed'
-      )
-      assert(
-        await Registry.isDeployed(deployerAddress),
-        'ChugSplashManager address is not deployed'
-      )
-
       // Check that the Auth contract has been initialized correctly.
-      expect(await Auth.orgOwnerThreshold()).deep.equals(
-        BigNumber.from(orgOwnerThreshold)
+      expect(await Auth.orgThreshold()).deep.equals(
+        BigNumber.from(orgThreshold)
       )
       expect(await Auth.getRoleMemberCount(ORG_OWNER_ROLE_HASH)).deep.equals(
         BigNumber.from(1)
       )
       expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
 
-      const EMPTY_CONFIG_INFO: ConfigInfo = {
-        deployerAddress,
-        chainStates: {},
-      }
-      const leafs = await makeAuthLeafs(
+      const leafs = await getAuthLeafs(
         parsedConfig,
         configArtifacts,
         configCache,
-        EMPTY_PARSED_CONFIG,
-        EMPTY_CONFIG_INFO
+        getEmptyCanonicalOrgConfig([], deployerAddress, DUMMY_ORG_ID)
       )
       const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
       const numLeafsPerChain = bundledLeafs.length / networks.length
@@ -309,245 +277,3 @@ describe('TODO', () => {
     }
   })
 })
-
-// TODO: Propose, approve deployments on two different chains
-
-// TODO: mv
-type ConfigInfo = {
-  deployerAddress: string
-  chainStates: {
-    [chainId: number]: {
-      firstProposalOccurred: boolean
-    }
-  }
-}
-
-// TODO: mv
-// TODO(docs): `chainStates` must contain all of the chainIds that are in `prevConfig`.
-// TODO: validate that `chainStates` contains all of the networks that are in `prevConfig`. perhaps
-// do this in the parsing/validation, or in our back-end
-// TODO(docs): if the user removes a network, then we don't add any leafs for that network.
-const makeAuthLeafs = async (
-  config: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache,
-  prevConfig: ParsedChugSplashConfig,
-  prevConfigInfo: ConfigInfo
-): Promise<Array<AuthLeaf>> => {
-  let leafs: Array<AuthLeaf> = []
-
-  const { options, projects } = config
-  const { options: prevOptions } = prevConfig
-
-  if (
-    !isParsedOrgConfigOptions(options) ||
-    !isParsedOrgConfigOptions(prevOptions)
-  ) {
-    throw new Error(`TODO: should never happen`)
-  }
-
-  // TODO: case: a user messes up their setup on a chain, then they change the orgOwners or
-  // orgThreshold in their config when trying to re-setup. what do we do? i think we should throw an
-  // error somewhere. Note that in this case, `!firstProposalOccurred`.
-
-  const { deployerAddress, chainStates: prevChainStates } = prevConfigInfo
-  const { proposers, managers, chainIds } = options
-  const {
-    proposers: prevProposers,
-    managers: prevManagers,
-    chainIds: prevChainIds,
-  } = prevOptions
-
-  const chainsToAdd = chainIds.filter((c) => !prevChainIds.includes(c))
-  const chainsToKeep = chainIds.filter((c) => prevChainIds.includes(c))
-
-  if (chainsToAdd.length > 0) {
-    const TODOprevConfig: ParsedChugSplashConfig = {
-      options: {
-        chainIds: chainsToAdd, // TODO(docs)
-        orgOwners: [],
-        orgOwnerThreshold: 0,
-        proposers: [],
-        managers: [],
-      },
-      projects: {},
-    }
-
-    const TODOprevConfigInfo: ConfigInfo = {
-      deployerAddress,
-      chainStates: {},
-    }
-    chainIds.forEach((chainId) => {
-      TODOprevConfigInfo.chainStates[chainId] = {
-        firstProposalOccurred: false,
-      }
-    })
-
-    const newChainLeafs = await makeAuthLeafs(
-      config,
-      configArtifacts,
-      configCache,
-      TODOprevConfig,
-      TODOprevConfigInfo
-    )
-    leafs = leafs.concat(newChainLeafs)
-  }
-
-  for (const chainId of chainsToKeep) {
-    const { firstProposalOccurred } = prevChainStates[chainId]
-    // for (const [chainIdStr, state] of Object.entries(prevChainState)) {
-    // TODO(docs)
-
-    if (firstProposalOccurred) {
-      // TODO
-    } else {
-      const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
-      const proposersToRemove = prevProposers.filter(
-        (p) => !proposers.includes(p)
-      )
-      const proposersToSet = proposersToAdd
-        .map((p) => {
-          return { member: p, add: true }
-        })
-        .concat(
-          proposersToRemove.map((p) => {
-            return { member: p, add: false }
-          })
-        )
-
-      const managersToAdd = managers.filter((m) => !prevManagers.includes(m))
-      const managersToRemove = prevManagers.filter((m) => !managers.includes(m))
-      const managersToSet = managersToAdd
-        .map((m) => {
-          return { member: m, add: true }
-        })
-        .concat(
-          managersToRemove.map((m) => {
-            return { member: m, add: false }
-          })
-        )
-
-      if (Object.keys(projects).length === 0) {
-        const setupLeaf: AuthLeaf = {
-          chainId,
-          to: deployerAddress,
-          index: 0,
-          proposers: proposersToSet,
-          managers: managersToSet,
-          numLeafs: 1,
-          leafType: 'setup',
-        }
-        leafs.push(setupLeaf)
-      } else {
-        // TODO(docs)
-        let index = 2
-
-        for (const [projectName, projectConfig] of Object.entries(projects)) {
-          const { options: projectOptions, contracts } = projectConfig
-          const { projectOwners, projectThreshold } = projectOptions
-
-          if (!projectOwners || !projectThreshold) {
-            throw new Error(`TODO. Should never happen.`)
-          }
-
-          // We only import contracts into the project if the user has explictly specified an
-          // address for the contract. Otherwise, the contract will eventually be deployed by
-          // ChugSplash and added to the project automatically.
-          const contractsToImport: Array<ContractInfo> = Object.entries(
-            contracts
-          )
-            .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
-            .map(([referenceName, contractConfig]) => {
-              return { referenceName, addr: contractConfig.address }
-            })
-
-          const createProjectLeaf: AuthLeaf = {
-            chainId,
-            to: deployerAddress,
-            index,
-            projectName,
-            projectThreshold,
-            projectOwners,
-            contractsToImport,
-            leafType: 'createProject',
-          }
-          index += 1
-          leafs.push(createProjectLeaf)
-
-          const { configUri, bundles } = await getBundleInfo(
-            projectConfig,
-            configArtifacts[projectName],
-            configCache[projectName]
-          )
-          const { actionBundle, targetBundle } = bundles
-
-          const approvalLeaf: AuthLeaf = {
-            chainId,
-            to: deployerAddress,
-            index,
-            projectName,
-            actionRoot: actionBundle.root,
-            targetRoot: targetBundle.root,
-            numActions: actionBundle.actions.length,
-            numTargets: targetBundle.targets.length,
-            numImmutableContracts: getNumDeployContractActions(actionBundle),
-            configUri,
-            leafType: 'approveDeployment',
-          }
-          index += 1
-          leafs.push(approvalLeaf)
-        }
-
-        const setupLeaf: AuthLeaf = {
-          chainId,
-          to: deployerAddress,
-          index: 0,
-          proposers: proposersToSet,
-          managers: managersToSet,
-          numLeafs: index, // TODO(docs)
-          leafType: 'setup',
-        }
-        leafs.push(setupLeaf)
-
-        const proposalLeaf: AuthLeaf = {
-          chainId,
-          to: deployerAddress,
-          index: 1,
-          numLeafs: index, // TODO(docs): same as above
-          leafType: 'propose',
-        }
-        leafs.push(proposalLeaf)
-      }
-    }
-  }
-
-  return leafs
-}
-
-// TODO: mv
-const isParsedOrgConfigOptions = (
-  options: ParsedConfigOptions
-): options is ParsedOrgConfigOptions => {
-  return (
-    options.orgOwners !== undefined &&
-    options.orgOwnerThreshold !== undefined &&
-    options.proposers !== undefined &&
-    options.managers !== undefined &&
-    options.chainIds !== undefined
-  )
-}
-
-// TODO: mv
-const findBundledLeaf = (
-  bundledLeafs: Array<BundledAuthLeaf>,
-  index: number,
-  chainId: number
-): BundledAuthLeaf => {
-  const leaf = bundledLeafs.find(
-    ({ leaf: l }) => l.index === index && l.chainId === chainId
-  )
-  if (!leaf) {
-    throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
-  }
-  return leaf
-}

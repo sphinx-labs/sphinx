@@ -1,14 +1,7 @@
 // These variables are used to capture any errors or warnings that occur during the ChugSplash
 
-import { ProjectConfigArtifacts } from '@chugsplash/core/dist/config/types'
-import { getEstDeployContractCost } from '@chugsplash/core/dist/utils'
-import { BigNumber } from 'ethers/lib/ethers'
+import { getDeployContractCosts } from '@chugsplash/core/dist/estimate'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
-
-export type DeployContractCost = {
-  referenceName: string
-  cost: BigNumber
-}
 
 // config validation process.
 let validationWarnings: string = ''
@@ -70,23 +63,3 @@ export const getPrettyWarnings = (): string => {
     : validationWarnings
 }
 
-export const getDeployContractCosts = (
-  projectConfigArtifacts: ProjectConfigArtifacts
-): DeployContractCost[] => {
-  const deployContractCosts: DeployContractCost[] = []
-  for (const [referenceName, { artifact, buildInfo }] of Object.entries(
-    projectConfigArtifacts
-  )) {
-    const { sourceName, contractName } = artifact
-
-    const deployContractCost = getEstDeployContractCost(
-      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
-    )
-
-    deployContractCosts.push({
-      referenceName,
-      cost: deployContractCost,
-    })
-  }
-  return deployContractCosts
-}

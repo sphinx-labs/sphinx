@@ -7,6 +7,7 @@ import {
 } from '@metamask/eth-sig-util'
 // import axios from 'axios'
 
+// TODO: rm unnecessary stuff in this file
 // const EIP712Domain = [
 //   { name: 'name', type: 'string' },
 //   { name: 'version', type: 'string' },
@@ -54,16 +55,13 @@ import {
 //   }
 // }
 
-// TODO: rm @metamask dependency?
 export const signAuthRootMetaTxn = async (
-  privateKey: string,
+  signer: ethers.Wallet | ethers.providers.JsonRpcSigner,
   authRoot: string
 ): Promise<string> => {
   const domain = {
     name: 'ChugSplash',
   }
-
-  const signer = new ethers.Wallet(privateKey)
 
   const types = { AuthRoot: [{ name: 'root', type: 'bytes32' }] }
   const value = { root: authRoot }

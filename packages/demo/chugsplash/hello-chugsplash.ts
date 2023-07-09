@@ -10,8 +10,8 @@ const config: UserChugSplashConfig = {
           variables: {
             number: 1,
             stored: true,
-            // storageName: 'First',
-            // otherStorage: '0x1111111111111111111111111111111111111111',
+            storageName: 'First',
+            otherStorage: '0x1111111111111111111111111111111111111111',
           },
         },
       },

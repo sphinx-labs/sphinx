@@ -19,6 +19,9 @@ import {
   ensureChugSplashInitialized,
   isHardhatFork,
   isLocalNetwork,
+  getParsedOrgConfig,
+  readUserChugSplashConfig,
+  fetchCanonicalOrgConfig,
 } from '@chugsplash/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
@@ -44,7 +47,6 @@ export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
-export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
 export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
 
@@ -155,74 +157,68 @@ task(TASK_CHUGSPLASH_DEPLOY)
   // )
   .setAction(chugsplashDeployTask)
 
-// TODO(propose)
-export const chugsplashProposeTask = async () =>
-  //   args: {
-  //     configPath: string
-  //     project: string
-  //     ipfsUrl: string
-  //     silent: boolean
-  //     noCompile: boolean
-  //     confirm: boolean
-  //   },
-  //   hre: HardhatRuntimeEnvironment
-  {
-    //   const { configPath, project, ipfsUrl, silent, noCompile, confirm } = args
-    //   const cre = await createChugSplashRuntime(
-    //     true,
-    //     confirm,
-    //     hre.config.paths.canonicalConfigs,
-    //     hre,
-    //     silent
-    //   )
-    //   if (!noCompile) {
-    //     await hre.run(TASK_COMPILE, {
-    //       quiet: true,
-    //     })
-    //   }
-    //   const provider = hre.ethers.provider
-    //   const signer = hre.ethers.provider.getSigner()
-    //   await ensureChugSplashInitialized(provider, signer)
-    //   const { parsedConfig, configArtifacts, configCache } =
-    //     await readParsedOwnerConfig(
-    //       configPath,
-    //       project,
-    //       provider,
-    //       cre,
-    //       makeGetConfigArtifacts(hre)
-    //     )
-    //   const projectNames =
-    //     project === 'all' ? Object.keys(parsedConfig.projects) : project
-    //   for (const name of projectNames) {
-    //     await chugsplashProposeAbstractTask(
-    //       provider,
-    //       signer,
-    //       parsedConfig.projects[name],
-    //       configPath,
-    //       ipfsUrl,
-    //       'hardhat',
-    //       configArtifacts,
-    //       ProposalRoute.RELAY,
-    //       cre,
-    //       configCache[name]
-    //     )
-    //   }
+export const chugsplashProposeTask = async (
+  args: {
+    config: string
+    project: string
+    noCompile: boolean
+  },
+  hre: HardhatRuntimeEnvironment
+) => {
+  const { config, project, noCompile } = args
+
+  if (!noCompile) {
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
   }
 
+  const cre = createChugSplashRuntime(
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
+
+  const provider = hre.ethers.provider
+  const signer = provider.getSigner()
+
+  // TODO: i think most of this function can go in the abstract task
+
+  await ensureChugSplashInitialized(provider, signer)
+
+  const userConfig = await readUserChugSplashConfig(config)
+
+  const { parsedConfig, configArtifacts, configCache } =
+    await getParsedOrgConfig(
+      userConfig,
+      project,
+      prevOrgConfig.deployer,
+      provider,
+      cre,
+      makeGetConfigArtifacts(hre)
+    )
+
+  await proposeAbstractTask(
+    provider,
+    signer,
+    prevOrgConfig,
+    configPath,
+    ipfsUrl,
+    'hardhat',
+    configArtifacts,
+    ProposalRoute.RELAY,
+    cre,
+    configCache[name]
+  )
+}
+
 task(TASK_CHUGSPLASH_PROPOSE)
-  .setDescription('Proposes a new ChugSplash project')
-  .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .addParam('project', 'The name of the project to deploy')
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addOptionalParam(
-    'ipfsUrl',
-    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
-  )
-  .addFlag('noCompile', "Don't compile when running this task")
-  .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
+  .setDescription('Propose changes to a ChugSplash config file')
+  .addParam('config', 'Path to the ChugSplash config file')
+  .addParam('project', 'The name of the project to propose')
+  .addFlag('noCompile', 'Skip compiling your contracts before proposing')
   .setAction(chugsplashProposeTask)
 
 task(TASK_NODE)
@@ -462,7 +458,7 @@ export const exportProxyTask = async (
     project,
     referenceName,
     'hardhat',
-    parsedConfig,
+    parsedConfig.projects,
     cre
   )
 }

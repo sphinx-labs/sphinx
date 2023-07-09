@@ -1,6 +1,3 @@
-// TODO: rm
-Error.stackTraceLimit = 1000
-
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
