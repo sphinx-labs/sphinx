@@ -1344,6 +1344,10 @@ export const getEmptyCanonicalOrgConfig = (
   orgId: string,
   projectName: string
 ): CanonicalOrgConfig => {
+  if (chainIds.length === 0) {
+    throw new Error(`Must provide at least one chain ID.`)
+  }
+
   const chainStates = {}
 
   chainIds.forEach((chainId) => {

@@ -12,22 +12,14 @@ import {
   getChugSplashManagerAddress,
   makeAuthBundle,
   getParsedOrgConfig,
-  AuthLeaf,
-  ParsedConfigOptions,
-  ParsedOrgConfigOptions,
   signAuthRootMetaTxn,
-  ContractInfo,
-  getNumDeployContractActions,
   getProjectBundleInfo,
-  ConfigArtifacts,
-  ConfigCache,
-  BundledAuthLeaf,
   getDeploymentId,
   SUPPORTED_LIVE_NETWORKS,
-  CanonicalOrgConfig,
-  getAuthLeafs,
   getEmptyCanonicalOrgConfig,
   findBundledLeaf,
+  getAuthLeafsForChain,
+  AuthLeaf,
 } from '@chugsplash/core'
 import {
   AuthFactoryABI,
@@ -121,11 +113,9 @@ describe('TODO', () => {
       },
     }
 
+    const leafs: Array<AuthLeaf> = []
     for (const network of networks) {
       const provider = providers[network]
-
-      const owner = new ethers.Wallet(ownerPrivateKey, provider)
-      // The relayer is the signer that executes the transactions on the Auth contract
       const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
       await ensureChugSplashInitialized(provider, relayer)
@@ -139,6 +129,33 @@ describe('TODO', () => {
           cre,
           makeGetConfigArtifacts(hre)
         )
+
+      const chainId = SUPPORTED_LIVE_NETWORKS[network]
+      const prevOrgConfig = getEmptyCanonicalOrgConfig(
+        [chainId],
+        deployerAddress,
+        DUMMY_ORG_ID,
+        projectName
+      )
+      const leafsForChain = await getAuthLeafsForChain(
+        chainId,
+        parsedConfig,
+        projectName,
+        configArtifacts,
+        configCache,
+        prevOrgConfig
+      )
+      leafs.push(...leafsForChain)
+    }
+
+    const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+
+    for (const network of networks) {
+      const provider = providers[network]
+
+      const owner = new ethers.Wallet(ownerPrivateKey, provider)
+      // The relayer is the signer that executes the transactions on the Auth contract
+      const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
       const AuthFactory = new ethers.Contract(
         AUTH_FACTORY_ADDRESS,
@@ -170,23 +187,9 @@ describe('TODO', () => {
       )
       expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
 
-      const prevOrgConfig = getEmptyCanonicalOrgConfig(
-        [],
-        deployerAddress,
-        DUMMY_ORG_ID,
-        projectName
-      )
-      const leafs = await getAuthLeafs(
-        parsedConfig,
-        projectName,
-        configArtifacts,
-        configCache,
-        prevOrgConfig
-      )
-      const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+      const chainId = SUPPORTED_LIVE_NETWORKS[network]
       const numLeafsPerChain = bundledLeafs.length / networks.length
 
-      const chainId = SUPPORTED_LIVE_NETWORKS[network]
       const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
         bundledLeafs,
         0,
@@ -276,6 +279,15 @@ describe('TODO', () => {
 
       // Check that the approve function executed correctly and that all of the leafs in the tree have
       // been executed.
+      const { parsedConfig, configCache, configArtifacts } =
+        await getParsedOrgConfig(
+          userConfig,
+          projectName,
+          deployerAddress,
+          provider,
+          cre,
+          makeGetConfigArtifacts(hre)
+        )
       const { configUri, bundles } = await getProjectBundleInfo(
         parsedConfig.projects[projectName],
         configArtifacts[projectName],
