@@ -190,14 +190,15 @@ export const chugsplashProposeTask = async (
     signer,
     project,
     cre,
-    'hardhat',
     makeGetConfigArtifacts(hre),
     spinner
   )
 }
 
 task(TASK_CHUGSPLASH_PROPOSE)
-  .setDescription('Propose changes to a ChugSplash config file')
+  .setDescription(
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to ChugSplash's back-end.`
+  )
   .addParam('configPath', 'Path to the ChugSplash config file')
   .addParam('project', 'The name of the project to propose')
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')

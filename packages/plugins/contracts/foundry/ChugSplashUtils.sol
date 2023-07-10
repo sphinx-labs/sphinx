@@ -90,6 +90,7 @@ contract ChugSplashUtils is
 
     function ensureChugSplashInitialized(string memory _rpcUrl, address _systemOwner) public {
         IChugSplashRegistry registry = getChugSplashRegistry();
+        ChugSplashAuthFactory authFactory = ChugSplashAuthFactory(authFactoryAddress);
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {
@@ -119,6 +120,10 @@ contract ChugSplashUtils is
 
             // Set the default manager version
             registry.setCurrentManagerImplementation(managerImplementationAddress);
+
+            authFactory.addVersion(authImplV1Address);
+
+            authFactory.setCurrentAuthImplementation(authImplV1Address);
 
             // Add transparent proxy type
             registry.addContractKind(keccak256("oz-transparent"), ozTransparentAdapterAddr);

@@ -14,27 +14,26 @@ import { inferSolcVersion } from '../foundry/utils'
 dotenv.config()
 
 const configPathOption = 'config-path'
-const networkOption = 'network'
+const projectOption = 'project'
 
 yargs(hideBin(process.argv))
   .scriptName('chugsplash')
   .command(
     'propose',
-    'Propose a deployment. Requires a private key and IPFS credentials to be set in your .env file.',
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to ChugSplash's back-end.`,
     (y) =>
       y
         .usage(
-          `Usage: npx chugsplash propose --${configPathOption} <path> --${networkOption} <networkName> [--silent]`
+          `Usage: npx chugsplash propose --${configPathOption} <path> --${projectOption} <projectName> [--silent]`
         )
         .option(configPathOption, {
           alias: 'c',
-          describe: 'Path to the ChugSplash config file to propose.',
+          describe: 'Path to the ChugSplash config file',
           type: 'string',
         })
-        .option('network', {
-          alias: 'n',
-          describe:
-            'Network name. Must also be defined under "rpc_endpoints" in foundry.toml.',
+        .option('project', {
+          alias: 'p',
+          describe: 'The name of the project to propose',
           type: 'string',
         })
         .option('silent', {
@@ -44,7 +43,7 @@ yargs(hideBin(process.argv))
         })
         .hide('version'),
     async (argv) => {
-      const { configPath, network } = argv
+      const { configPath, project } = argv
       const silent = argv.silent ?? false
       if (!configPath) {
         console.error(
@@ -52,22 +51,12 @@ yargs(hideBin(process.argv))
         )
         process.exit(1)
       }
-      if (!network) {
-        console.error(`Must specify a network via --${networkOption}.`)
+      if (!project) {
+        console.error(`Must specify a project name via --${projectOption}.`)
         process.exit(1)
       }
       if (!process.env.PRIVATE_KEY) {
         console.error(`Must specify a "PRIVATE_KEY" in your .env file.`)
-        process.exit(1)
-      }
-      if (!process.env.IPFS_PROJECT_ID) {
-        console.error(`Must specify an "IPFS_PROJECT_ID" in your .env file.`)
-        process.exit(1)
-      }
-      if (!process.env.IPFS_API_KEY_SECRET) {
-        console.error(
-          `Must specify an "IPFS_API_KEY_SECRET" in your .env file.`
-        )
         process.exit(1)
       }
 
@@ -78,11 +67,11 @@ yargs(hideBin(process.argv))
         'contracts/foundry/Propose.sol'
       )
 
-      process.env['CHUGSPLASH_INTERNAL_NETWORK'] = network
+      process.env['CHUGSPLASH_INTERNAL_PROJECT_NAME'] = project
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
       process.env['CHUGSPLASH_INTERNAL_SILENT'] = silent.toString()
 
-      const spinner = ora()
+      const spinner = ora({ isSilent: silent })
       spinner.start('Proposing...')
       try {
         // Although it's not strictly necessary to propose via a Forge script, we do it anyways
@@ -90,9 +79,7 @@ yargs(hideBin(process.argv))
         // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
         // TypeScript configs. This can't be done by calling the TypeScript propose function
         // directly because calling `npx chugsplash` uses Node, not TS Node.
-        await execAsync(
-          `forge script ${proposeContractPath} --rpc-url ${network}`
-        )
+        await execAsync(`forge script ${proposeContractPath}`)
       } catch ({ stderr }) {
         spinner.fail('Proposal failed.')
         // Strip \n from the end of the error message, if it exists

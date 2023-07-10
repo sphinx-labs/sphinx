@@ -4,7 +4,8 @@ pragma solidity >=0.7.4 <0.9.0;
 import { ChugSplashTasks } from "./ChugSplashTasks.sol";
 
 contract Propose is ChugSplashTasks {
-    string private network = vm.envString("CHUGSPLASH_INTERNAL_NETWORK");
+    // TODO: update
+    string private network = vm.envString("CHUGSPLASH_INTERNAL_");
     string private configPath = vm.envString("CHUGSPLASH_INTERNAL_CONFIG_PATH");
     bool private isSilent = vm.envBool("CHUGSPLASH_INTERNAL_SILENT");
 

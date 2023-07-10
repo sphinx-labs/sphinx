@@ -1324,7 +1324,11 @@ export const relayIPFSCommit = async (
   return response.data
 }
 
-// TODO(docs)
+/**
+ * @notice Returns a new CanonicalOrgConfig with default parameters for the config options.
+ * This is useful when the user is attempting to propose a completely new org config, since
+ * there is no previous org config to use as a starting point yet.
+ */
 export const getEmptyCanonicalOrgConfig = (
   chainIds: Array<number>,
   deployer: string,

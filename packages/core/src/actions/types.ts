@@ -328,6 +328,10 @@ export enum RoleType {
 type IPFSHash = string
 export type IPFSCommitResponse = IPFSHash[]
 
+/**
+ * @param orgCanonicalConfig The stringified CanonicalOrgConfig that would be generated if this
+ * proposal were to be approved and completely executed.
+ */
 export type ProposalRequest = {
   apiKey: string
   orgId: string
@@ -336,7 +340,7 @@ export type ProposalRequest = {
   authAddress: string
   deployerAddress: string
   chainIds: Array<number>
-  orgCanonicalConfig: string // TODO(docs): org canonical config that would be generated if this proposal were to be approved
+  orgCanonicalConfig: string
   projectDeployments: Array<ProjectDeployments>
   orgTree: {
     root: string

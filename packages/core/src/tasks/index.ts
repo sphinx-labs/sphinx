@@ -1,7 +1,7 @@
 import process from 'process'
 
 import * as dotenv from 'dotenv'
-import { ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
@@ -104,24 +104,24 @@ export const registerOwner = async (
   await trackRegistrationFinalized(projectOwner, networkName, integration)
 }
 
-// TODO: after finishing proposal task, we should probably have a "validate proposal" task that doesn't sign
-// anything and ensures your proposal will actually succeed.
 export const proposeAbstractTask = async (
   configPath: string,
-  provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.providers.JsonRpcSigner,
+  providers: {
+    [chainId: number]: ethers.providers.JsonRpcProvider
+  },
+  wallet: ethers.Wallet,
   projectName: string,
   cre: ChugSplashRuntimeEnvironment,
-  integration: Integration,
   getConfigArtifacts: GetConfigArtifacts,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
-  await ensureChugSplashInitialized(provider, signer)
-
   const apiKey = process.env.CHUGSPLASH_API_KEY
   if (!apiKey) {
     throw new Error(`Must provide a 'CHUGSPLASH_API_KEY' environment variable.`)
   }
+
+  // TODO: you should throw an error if the user doesn't have the rpc url for a given
+  // chainId/network specified in their config
 
   const userConfig = await readUserChugSplashConfig(configPath)
 
@@ -131,6 +131,8 @@ export const proposeAbstractTask = async (
     apiKey,
     cre
   )
+
+  await ensureChugSplashInitialized(provider, wallet)
 
   const { parsedConfig, configArtifacts, configCache } =
     await getParsedOrgConfig(
@@ -161,8 +163,8 @@ export const proposeAbstractTask = async (
   )
   const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-  const signerAddress = await signer.getAddress()
-  const metaTxnSignature = await signAuthRootMetaTxn(signer, root)
+  const signerAddress = await wallet.getAddress()
+  const metaTxnSignature = await signAuthRootMetaTxn(wallet, root)
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}
   for (const leaf of leafs) {
@@ -180,9 +182,6 @@ export const proposeAbstractTask = async (
     })
   )
 
-  // TODO(docs): in the propose CLI command desc, you should say that the signer will sign a meta txn
-  // approving the proposed changes to the config.
-
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
   for (const bundledLeaf of bundledLeafs) {
     const { leaf, prettyLeaf, proof } = bundledLeaf
@@ -197,10 +196,11 @@ export const proposeAbstractTask = async (
       firstProposalOccurred &&
       !prevOrgConfig.options.proposers.includes(signerAddress)
     ) {
-      // TODO(after): see how this error looks
       throw new Error(
         `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
-          `Current proposers: ${prevOrgConfig.options.proposers.join(', ')}`
+          `Current proposers: ${prevOrgConfig.options.proposers.map(
+            (proposer) => `\n- ${proposer}`
+          )}`
       )
     }
 
@@ -325,7 +325,8 @@ export const proposeAbstractTask = async (
     },
   }
 
-  await relayProposal(proposalRequest)
+  // TODO: uncomment both
+  // await relayProposal(proposalRequest)
 
   const { canonicalConfig } = await getBundleInfo(
     parsedConfig.projects[projectName],
@@ -333,7 +334,7 @@ export const proposeAbstractTask = async (
     configCache[projectName]
   )
 
-  await relayIPFSCommit(apiKey, orgId, [canonicalConfig])
+  // await relayIPFSCommit(apiKey, orgId, [canonicalConfig])
 
   spinner.succeed(`Done proposing ${projectName}!`)
 }
@@ -985,122 +986,6 @@ export const chugsplashImportProxyAbstractTask = async (
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
 
-// TODO(propose): update this function or rm
-// export const proposeChugSplashDeployment = async (
-//   manager: ethers.Contract,
-//   deploymentId: string,
-//   bundles: ChugSplashBundles,
-//   configUri: string,
-//   route: ProposalRoute,
-//   signerAddress: string,
-//   provider: ethers.providers.JsonRpcProvider,
-//   parsedProjectConfig: ParsedProjectConfig,
-//   projectConfigCache: ProjectConfigCache,
-//   projectConfigArtifacts: ProjectConfigArtifacts,
-//   spinner: ora.Ora = ora({ isSilent: true }),
-//   ipfsUrl?: string
-// ) => {
-//   spinner.start(`Checking if the caller is a proposer...`)
-//   const { projectName } = parsedProjectConfig.options
-
-//   // Throw an error if the caller isn't the project owner or a proposer.
-//   if (!(await manager.isProposer(signerAddress))) {
-//     throw new Error(
-//       `Caller is not a proposer for this project. Caller's address: ${signerAddress}`
-//     )
-//   }
-
-//   spinner.succeed(`Caller is a proposer.`)
-
-//   spinner.start(`Proposing for organization ${projectName}...`)
-
-//   if (
-//     route === ProposalRoute.RELAY ||
-//     route === ProposalRoute.REMOTE_EXECUTION
-//   ) {
-//     await chugsplashCommitAbstractSubtask(
-//       parsedProjectConfig,
-//       true,
-//       projectConfigArtifacts,
-//       ipfsUrl,
-//       spinner
-//     )
-
-//     // Verify that the deployment has been committed to IPFS with the correct bundle hash.
-//     await verifyDeployment(
-//       configUri,
-//       deploymentId,
-//       projectConfigArtifacts,
-//       projectConfigCache,
-//       ipfsUrl
-//     )
-//   }
-
-//   // Propose the deployment.
-//   if (route === ProposalRoute.RELAY) {
-//     if (!process.env.PRIVATE_KEY) {
-//       throw new Error(
-//         'Must provide a PRIVATE_KEY environment variable to sign gasless proposal transactions'
-//       )
-//     }
-
-//     if (!process.env.CHUGSPLASH_API_KEY) {
-//       throw new Error(
-//         'Must provide a CHUGSPLASH_API_KEY environment variable to use gasless proposals'
-//       )
-//     }
-
-//     const { signature, request } = await signMetaTxRequest(
-//       provider,
-//       process.env.PRIVATE_KEY,
-//       {
-//         from: signerAddress,
-//         to: manager.address,
-//         data: manager.interface.encodeFunctionData('gaslesslyPropose', [
-//           bundles.actionBundle.root,
-//           bundles.targetBundle.root,
-//           bundles.actionBundle.actions.length,
-//           bundles.targetBundle.targets.length,
-//           getNumDeployContractActions(bundles.actionBundle),
-//           configUri,
-//           true,
-//         ]),
-//       }
-//     )
-
-//     // Send the signed meta transaction to the ChugSplashManager via relay
-//     if (process.env.LOCAL_TEST_METATX_PROPOSE !== 'true') {
-//       const estimatedCost = await estimateExecutionGas(provider, bundles, 0)
-//       await relaySignedRequest(
-//         signature,
-//         request,
-//         parsedProjectConfig.options.deployer,
-//         deploymentId,
-//         provider.network.chainId,
-//         estimatedCost
-//       )
-//     }
-
-//     // Returning these values allows us to test meta transactions locally
-//     return { signature, request, deploymentId }
-//   } else {
-//     await (
-//       await manager.propose(
-//         bundles.actionBundle.root,
-//         bundles.targetBundle.root,
-//         bundles.actionBundle.actions.length,
-//         bundles.targetBundle.targets.length,
-//         getNumDeployContractActions(bundles.actionBundle),
-//         configUri,
-//         route === ProposalRoute.REMOTE_EXECUTION,
-//         await getGasPriceOverrides(provider)
-//       )
-//     ).wait()
-//   }
-
-//   spinner.succeed(`Proposed for organization ${projectName}.`)
-// }
-
 export const getBundleInfo = async (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts,
@@ -1131,7 +1016,7 @@ export const approveDeployment = async (
   configUri: string,
   manager: ethers.Contract,
   signerAddress: string,
-  provider: providers.Provider
+  provider: ethers.providers.Provider
 ) => {
   const projectOwnerAddress = await manager.owner()
   if (signerAddress !== projectOwnerAddress) {

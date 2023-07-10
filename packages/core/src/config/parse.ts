@@ -179,9 +179,7 @@ export const getParsedOrgConfig = async (
 
   const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
 
-  // TODO: the rest of this fn is repeated w/ readParsedOwner, so consider refactoring
-
-  const { projectConfigs, configArtifacts } = await readUnvalidatedParsedConfig(
+  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
     userConfig,
     projectArray,
     deployerAddress,
@@ -218,8 +216,7 @@ export const getParsedOrgConfig = async (
 /**
  * @notice This function is called by `getParsedOrgConfig` and `readParsedOwnerConfig`.
  */
-// TODO: change name to reflect that it's just for getting the parsed project configs
-export const readUnvalidatedParsedConfig = async (
+export const getUnvalidatedParsedConfig = async (
   userConfig: UserChugSplashConfig,
   projects: Array<Project>,
   deployerAddress: string,
@@ -330,15 +327,13 @@ export const readParsedOwnerConfig = async (
     )
   }
 
-  // TODO(deploy): we're going to need to change this to support the fact that there isn't a
-  // one-to-one mapping between ownerAddress and deployer
   const deployerAddress = getChugSplashManagerAddress(ownerAddress)
 
   const configOptions: OwnerConfigOptions = {
     owner: ownerAddress,
   }
 
-  const { projectConfigs, configArtifacts } = await readUnvalidatedParsedConfig(
+  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
     userConfig,
     projectArray,
     deployerAddress,
@@ -2351,9 +2346,17 @@ const constructParsedProjectConfig = (
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
   cre: ChugSplashRuntimeEnvironment
 ): ParsedProjectConfig => {
+  // Converts project owner addresses to checksummed addresses and sorts them in ascending order.
+  const projectOwners = userProjectConfig.options
+    ? userProjectConfig.options.projectOwners
+        .map((address) => ethers.utils.getAddress(address))
+        .sort()
+    : undefined
+
   const projectOptions = {
     deployer: deployerAddress,
     project: projectName,
+    projectOwners,
     ...userProjectConfig.options,
   }
 
@@ -3230,15 +3233,20 @@ export const assertValidOrgConfigOptions = (
 export const parseOrgConfigOptions = (
   options: UserOrgConfigOptions
 ): ParsedOrgConfigOptions => {
-  const { networks, orgId, orgOwners, orgThreshold, proposers, managers } =
-    options
+  const { networks, orgId, orgThreshold } = options
 
   const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
 
-  // TODO: you should checksum all addresses in this function and when parsing the project config
-  // options.
-
-  // TODO: you should sort all addresses in ascending order. same with the project owners.
+  // Converts addresses to checksummed addresses and sorts them in ascending order.
+  const orgOwners = options.orgOwners
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
+  const proposers = options.proposers
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
+  const managers = options.managers
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
 
   return {
     chainIds,

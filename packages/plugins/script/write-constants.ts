@@ -15,6 +15,8 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   getChugSplashConstants,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
 } from '@chugsplash/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
@@ -90,6 +92,14 @@ const writeConstants = async () => {
     defaultAdapterAddr: {
       type: 'address',
       value: DEFAULT_ADAPTER_ADDRESS,
+    },
+    authFactoryAddress: {
+      type: 'address',
+      value: AUTH_FACTORY_ADDRESS,
+    },
+    authImplV1Address: {
+      type: 'address',
+      value: AUTH_IMPL_V1_ADDRESS,
     },
   }
 
