@@ -13,10 +13,12 @@ import {
 } from '@chugsplash/core/dist/utils'
 import {
   GetConfigArtifacts,
+  GetProviderForChainId,
   ProjectConfigArtifacts,
   UserContractConfigs,
 } from '@chugsplash/core/dist/config/types'
 import { parse } from 'semver'
+import { providers } from 'ethers/lib/ethers'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -86,6 +88,31 @@ export const getContractArtifact = async (
   For example: 'path/to/file/SomeFile.sol:MyContract'
 `
     )
+  }
+}
+
+// TODO(docs)
+export const makeGetProviderFromChainId = async (rpcEndpoints: {
+  [chainAlias: string]: string
+}): Promise<GetProviderForChainId> => {
+  const urls = Object.values(rpcEndpoints)
+  const networks = await Promise.all(
+    urls.map(async (url) => {
+      const provider = new providers.JsonRpcProvider(url)
+      const { chainId } = await provider.getNetwork()
+      return { chainId, url }
+    })
+  )
+
+  return (chainId: number): providers.JsonRpcProvider => {
+    const network = networks.find((n) => n.chainId === chainId)
+    if (network === undefined) {
+      throw new Error(
+        `Could not find a network with chain ID ${chainId} in your foundry.toml.`
+      )
+    }
+
+    return new providers.JsonRpcProvider(network.url)
   }
 }
 

@@ -22,6 +22,8 @@ contract ChugSplashConstants {
   address public constant ozUUPSOwnableAdapterAddr = 0x80F33f57348e892fcbf7Df0Bc1e6B7Dac3fA2a23;
   address public constant ozUUPSAccessControlAdapterAddr = 0x3E95A9D41413f3CF06DeFC51Eed59f3f488f3251;
   address public constant defaultAdapterAddr = 0xbee0057e5B4c89B80013ECA818E5A8dBF0A131D3;
+  address public constant authFactoryAddress = 0x13404ADDdE97C2828399e65cbC7B5D398Ebf448f;
+  address public constant authImplV1Address = 0x3A207ac7C138667b57C8Fc1dAE9dE38c69A186eE;
 
   function getChugSplashContractInfo() public pure returns (ChugSplashContractInfo[] memory) {
     ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](15);

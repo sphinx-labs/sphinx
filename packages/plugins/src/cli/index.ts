@@ -28,12 +28,12 @@ yargs(hideBin(process.argv))
         )
         .option(configPathOption, {
           alias: 'c',
-          describe: 'Path to the ChugSplash config file',
+          describe: 'Path to the ChugSplash config file.',
           type: 'string',
         })
         .option('project', {
           alias: 'p',
-          describe: 'The name of the project to propose',
+          describe: 'The name of the project to propose.',
           type: 'string',
         })
         .option('silent', {
@@ -53,10 +53,6 @@ yargs(hideBin(process.argv))
       }
       if (!project) {
         console.error(`Must specify a project name via --${projectOption}.`)
-        process.exit(1)
-      }
-      if (!process.env.PRIVATE_KEY) {
-        console.error(`Must specify a "PRIVATE_KEY" in your .env file.`)
         process.exit(1)
       }
 

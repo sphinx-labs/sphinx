@@ -16,12 +16,13 @@ import {
   CanonicalProjectConfig,
   ProjectConfigArtifacts,
   getChugSplashManagerAddress,
+  proposeAbstractTask,
 } from '@chugsplash/core'
 import { Contract, ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getFoundryConfigOptions } from './options'
-import { makeGetConfigArtifacts } from './utils'
+import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './utils'
 import { createChugSplashRuntime } from '../cre'
 import {
   getEncodedFailure,
@@ -34,78 +35,55 @@ const command = args[0]
 
 ;(async () => {
   switch (command) {
-    // TODO: the signer private key should be defined in the .env as `PROPOSER_PRIVATE_KEY`. change
-    // this for hh and foundry
-    // case 'propose': {
-    //   // TODO: update propose here and in solidity
-    //   process.stderr.write = validationStderrWrite
+    case 'propose': {
+      process.stderr.write = validationStderrWrite
 
-    //   try {
-    //     const configPath = args[1]
-    //     const rpcUrl = args[2]
-    //     const privateKey = args[3]
-    //     const projectName = args[4]
+      try {
+        const configPath = args[1]
+        const projectName = args[2]
 
-    //     const {
-    //       artifactFolder,
-    //       buildInfoFolder,
-    //       canonicalConfigFolder,
-    //       cachePath,
-    //     } = await getFoundryConfigOptions()
+        const {
+          artifactFolder,
+          buildInfoFolder,
+          canonicalConfigFolder,
+          cachePath,
+          rpcEndpoints,
+        } = await getFoundryConfigOptions()
 
-    //     const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-    //     const cre = await createChugSplashRuntime(
-    //       true,
-    //       true,
-    //       canonicalConfigFolder,
-    //       undefined,
-    //       true,
-    //       process.stderr
-    //     )
+        const cre = createChugSplashRuntime(
+          true,
+          true,
+          canonicalConfigFolder,
+          undefined,
+          true,
+          process.stderr
+        )
 
-    //     const { parsedConfig, configArtifacts, configCache } =
-    //       await readParsedOwnerConfig(
-    //         configPath,
-    //         projectName,
-    //         provider,
-    //         cre,
-    //         makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-    //         FailureAction.THROW
-    //       )
-    //     const wallet = new ethers.Wallet(privateKey, provider)
+        await proposeAbstractTask(
+          configPath,
+          projectName,
+          cre,
+          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+          await makeGetProviderFromChainId(rpcEndpoints)
+        )
 
-    //     const projectConfig = parsedConfig.projects[projectName]
+        const encodedWarnings = defaultAbiCoder.encode(
+          ['string'],
+          [getPrettyWarnings()]
+        )
 
-    //     await chugsplashProposeAbstractTask(
-    //       provider,
-    //       wallet,
-    //       projectConfig,
-    //       configPath,
-    //       '',
-    //       'foundry',
-    //       configArtifacts,
-    //       ProposalRoute.RELAY,
-    //       cre,
-    //       configCache[projectName]
-    //     )
+        const encodedSuccess = hexConcat([
+          encodedWarnings,
+          defaultAbiCoder.encode(['bool'], [true]), // true = success
+        ])
 
-    //     const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
-    //       ['string', 'string'],
-    //       [projectName, getPrettyWarnings()]
-    //     )
-
-    //     const encodedSuccess = hexConcat([
-    //       encodedProjectNameAndWarnings,
-    //       defaultAbiCoder.encode(['bool'], [true]), // true = success
-    //     ])
-
-    //     process.stdout.write(encodedSuccess)
-    //   } catch (err) {
-    //     const encodedFailure = getEncodedFailure(err)
-    //     process.stdout.write(encodedFailure)
-    //   }
-    //   break
-    // }
+        process.stdout.write(encodedSuccess)
+      } catch (err) {
+        const encodedFailure = getEncodedFailure(err)
+        process.stdout.write(encodedFailure)
+      }
+      break
+    }
     case 'getPreviousConfigUri': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]

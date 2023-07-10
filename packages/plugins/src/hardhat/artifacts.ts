@@ -17,6 +17,7 @@ import {
   GetConfigArtifacts,
   validateBuildInfo,
   ProjectConfigArtifacts,
+  GetProviderForChainId,
 } from '@chugsplash/core'
 import {
   Manifest,
@@ -108,7 +109,9 @@ export const makeGetConfigArtifacts = (
 }
 
 // TODO(docs): here and for the foundry version
-export const makeGetProviderFromChainId = (hre: HardhatRuntimeEnvironment) => {
+export const makeGetProviderFromChainId = (
+  hre: HardhatRuntimeEnvironment
+): GetProviderForChainId => {
   return (chainId: number): providers.JsonRpcProvider => {
     const networkConfig = Object.values(hre.config.networks).find(
       (network) => network.chainId === chainId

@@ -39,6 +39,7 @@ import {
     BundledChugSplashTarget,
     Version
 } from "@chugsplash/contracts/contracts/ChugSplashDataTypes.sol";
+import { ChugSplashAuthFactory } from "@chugsplash/contracts/contracts/ChugSplashAuthFactory.sol";
 import {
     MinimalConfig,
     Configs,

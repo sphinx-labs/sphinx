@@ -36,9 +36,8 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         console.log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
-    function propose(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
-        initializeChugSplash(_rpcUrl);
-        string[] memory cmds = new string[](8);
+    function propose(string memory _configPath, string memory _projectName) internal noVmBroadcast {
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript ChugSplash config files.
         cmds[1] = "ts-node";
@@ -47,8 +46,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         cmds[3] = mainFfiScriptPath;
         cmds[4] = "propose";
         cmds[5] = _configPath;
-        cmds[6] = _rpcUrl;
-        cmds[7] = vm.envString("PRIVATE_KEY");
+        cmds[6] = _projectName;
 
         bytes memory result = vm.ffi(cmds);
 
@@ -59,9 +57,9 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         bytes memory data = utils.slice(result, 0, result.length - 32);
 
         if (success) {
-            (string memory projectName, string memory warnings) = abi.decode(
+            (string memory warnings) = abi.decode(
                 data,
-                (string, string)
+                (string)
             );
 
             if (bytes(warnings).length > 0) {
@@ -70,7 +68,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
 
             if (!silent) {
                 console.log(
-                    StdStyle.green(string.concat("Successfully proposed ", projectName, "."))
+                    StdStyle.green(string.concat("Successfully proposed ", _projectName, "."))
                 );
             }
         } else {
