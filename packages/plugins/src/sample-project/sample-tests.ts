@@ -1,5 +1,5 @@
 export const sampleTestFileTypeScript = `import '@chugsplash/plugins'
-import { chugsplash } from 'hardhat'
+import { chugsplash, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
@@ -9,7 +9,11 @@ describe('HelloChugSplash', () => {
     // You must reset your ChugSplash deployments to their initial state here
     await chugsplash.reset()
 
-    MyFirstContract = await chugsplash.getContract('Hello ChugSplash', 'MyFirstContract')
+    MyFirstContract = await chugsplash.getContract(
+      'Hello ChugSplash',
+      'MyFirstContract',
+      ethers.provider.getSigner()
+    )
   })
 
   it('initializes correctly', async () => {
@@ -25,7 +29,7 @@ describe('HelloChugSplash', () => {
 
 export const sampleTestFileJavaScript = `require('@chugsplash/plugins')
 
-const { chugsplash } = require('hardhat')
+const { chugsplash, ethers } = require('hardhat')
 const { expect } = require('chai')
 
 describe('HelloChugSplash', () => {
@@ -34,7 +38,11 @@ describe('HelloChugSplash', () => {
     // You must reset your ChugSplash deployments to their initial state here
     await chugsplash.reset()
 
-    MyFirstContract = await chugsplash.getContract('Hello ChugSplash', 'MyFirstContract')
+    MyFirstContract = await chugsplash.getContract(
+      'Hello ChugSplash',
+      'MyFirstContract',
+      ethers.provider.getSigner()
+    )
   })
 
   it('initializes correctly', async () => {

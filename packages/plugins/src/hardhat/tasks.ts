@@ -1,38 +1,37 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-import { ethers } from 'ethers'
 import { subtask, task, types } from 'hardhat/config'
 import {
   TASK_NODE,
   TASK_TEST,
-  TASK_RUN,
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import {
-  getChugSplashRegistry,
   chugsplashFetchSubtask,
-  chugsplashProposeAbstractTask,
-  chugsplashDeployAbstractTask,
+  deployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,
   chugsplashCancelAbstractTask,
   chugsplashExportProxyAbstractTask,
   chugsplashImportProxyAbstractTask,
-  readValidatedChugSplashConfig,
+  readParsedOwnerConfig,
   ensureChugSplashInitialized,
-  ProposalRoute,
   isHardhatFork,
   isLocalNetwork,
+  proposeAbstractTask,
 } from '@chugsplash/core'
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { Signer } from 'ethers/lib/ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import { deployAllChugSplashConfigs } from './deployments'
-import { makeGetConfigArtifacts } from './artifacts'
+import {
+  deployAllChugSplashProjects,
+  getSignerFromAddress,
+} from './deployments'
+import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './artifacts'
 import { createChugSplashRuntime } from '../cre'
 
 // Load environment variables from .env
@@ -40,15 +39,12 @@ dotenv.config()
 
 // internal tasks
 export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
-export const TASK_CHUGSPLASH_LIST_ALL_PROJECTS = 'chugsplash-list-projects'
-export const TASK_CHUGSPLASH_LIST_DEPLOYMENTS = 'chugsplash-list-deployments'
 
 // public tasks
 export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
 export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
 export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
 export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
-export const TASK_CHUGSPLASH_ADD_PROPOSER = 'chugsplash-add-proposers'
 export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
 export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
 
@@ -60,15 +56,32 @@ subtask(TASK_CHUGSPLASH_FETCH)
 export const chugsplashDeployTask = async (
   args: {
     configPath: string
+    project: string
     newOwner: string
     silent: boolean
     noCompile: boolean
-    confirm: boolean
+    confirmUpgrade?: boolean
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, newOwner, silent, noCompile, confirm } = args
+  const {
+    configPath,
+    project,
+    newOwner,
+    silent,
+    noCompile,
+    confirmUpgrade,
+    signer,
+    useDefaultSigner,
+  } = args
   const spinner = ora({ isSilent: silent })
+
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
+
+  const provider = hre.ethers.provider
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -80,15 +93,13 @@ export const chugsplashDeployTask = async (
 
   const cre = await createChugSplashRuntime(
     false,
-    confirm,
+    confirmUpgrade,
     hre.config.paths.canonicalConfigs,
     hre,
     silent
   )
 
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-  await ensureChugSplashInitialized(provider, signer)
+  await ensureChugSplashInitialized(provider, provider.getSigner())
 
   spinner.succeed('ChugSplash is ready!')
 
@@ -96,23 +107,25 @@ export const chugsplashDeployTask = async (
   const deploymentFolder = hre.config.paths.deployments
 
   const { parsedConfig, configCache, configArtifacts } =
-    await readValidatedChugSplashConfig(
+    await readParsedOwnerConfig(
       configPath,
+      project,
       provider,
       cre,
-      makeGetConfigArtifacts(hre)
+      makeGetConfigArtifacts(hre),
+      ownerAddress
     )
 
-  await chugsplashDeployAbstractTask(
+  await deployAbstractTask(
     provider,
-    signer,
+    owner,
     canonicalConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
-    parsedConfig,
-    configCache,
-    configArtifacts,
+    parsedConfig.projects[project],
+    configCache[project],
+    configArtifacts[project],
     newOwner,
     spinner
   )
@@ -121,36 +134,41 @@ export const chugsplashDeployTask = async (
 task(TASK_CHUGSPLASH_DEPLOY)
   .setDescription('Deploys a ChugSplash config file')
   .addParam('configPath', 'Path to the ChugSplash config file to deploy')
+  .addParam('project', 'The name of the project to deploy')
+  .addOptionalParam(
+    'signer',
+    'Address of the signer that deploys the ChugSplash config.'
+  )
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
+  )
   .addOptionalParam(
     'newOwner',
-    "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the caller's address."
+    "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the signer's address."
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag('noCompile', "Don't compile when running this task")
-  .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
+  // .addFlag(
+  //   'confirmUpgrade',
+  //   'Automatically confirm contract upgrade. Only applicable if upgrading on a live network.'
+  // )
   .setAction(chugsplashDeployTask)
 
 export const chugsplashProposeTask = async (
   args: {
     configPath: string
-    ipfsUrl: string
-    silent: boolean
+    project: string
+    dryRun: boolean
     noCompile: boolean
-    confirm: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, ipfsUrl, silent, noCompile, confirm } = args
-  const cre = await createChugSplashRuntime(
-    true,
-    confirm,
-    hre.config.paths.canonicalConfigs,
-    hre,
-    silent
-  )
+  const { configPath, project, noCompile, dryRun } = args
+
+  const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
+  const spinner = ora()
+  spinner.start(`${dryRunOrProposal} in progress...`)
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -158,208 +176,39 @@ export const chugsplashProposeTask = async (
     })
   }
 
-  const provider = hre.ethers.provider
-  const signer = hre.ethers.provider.getSigner()
-  await ensureChugSplashInitialized(provider, signer)
+  const cre = createChugSplashRuntime(
+    true,
+    true,
+    hre.config.paths.canonicalConfigs,
+    hre,
+    false
+  )
 
-  const { parsedConfig, configArtifacts, configCache } =
-    await readValidatedChugSplashConfig(
-      configPath,
-      provider,
-      cre,
-      makeGetConfigArtifacts(hre)
-    )
-
-  await chugsplashProposeAbstractTask(
-    provider,
-    signer,
-    parsedConfig,
+  await proposeAbstractTask(
     configPath,
-    ipfsUrl,
-    'hardhat',
-    configArtifacts,
-    ProposalRoute.RELAY,
+    project,
+    dryRun,
     cre,
-    configCache
+    makeGetConfigArtifacts(hre),
+    makeGetProviderFromChainId(hre),
+    spinner
   )
 }
 
 task(TASK_CHUGSPLASH_PROPOSE)
-  .setDescription('Proposes a new ChugSplash project')
-  .addParam('configPath', 'Path to the ChugSplash config file to propose')
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addOptionalParam(
-    'ipfsUrl',
-    'Optional IPFS gateway URL for publishing ChugSplash projects to IPFS.'
+  .setDescription(
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to ChugSplash's back-end.`
   )
-  .addFlag('noCompile', "Don't compile when running this task")
+  .addParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('project', 'The name of the project to propose')
   .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
+    'dryRun',
+    'Dry run the proposal without signing or relaying it to the back-end.'
   )
+  .addFlag('noCompile', 'Skip compiling your contracts before proposing')
   .setAction(chugsplashProposeTask)
 
-subtask(TASK_CHUGSPLASH_LIST_ALL_PROJECTS)
-  .setDescription('Lists all existing ChugSplash projects')
-  .setAction(async (_, hre) => {
-    const signer = hre.ethers.provider.getSigner()
-
-    await ensureChugSplashInitialized(hre.ethers.provider, signer)
-
-    const ChugSplashRegistry = getChugSplashRegistry(
-      hre.ethers.provider.getSigner()
-    )
-
-    const events = await ChugSplashRegistry.queryFilter(
-      ChugSplashRegistry.filters.ChugSplashProjectClaimed()
-    )
-
-    console.table(
-      events.map((event) => {
-        if (event.args === undefined) {
-          throw new Error(
-            `ChugSplashProjectClaimed event does not have arguments.`
-          )
-        }
-
-        return {
-          name: event.args.organizationID,
-          manager: event.args.manager,
-        }
-      })
-    )
-  })
-
-subtask(TASK_CHUGSPLASH_LIST_DEPLOYMENTS)
-  .setDescription('Lists all deployments for a given project')
-  .addParam('organizationID', 'Organization ID')
-  .addFlag('includeExecuted', 'include deployments that have been executed')
-  .setAction(
-    async (
-      args: {
-        organizationID: string
-        includeExecuted: boolean
-      },
-      hre
-    ) => {
-      const signer = hre.ethers.provider.getSigner()
-
-      await ensureChugSplashInitialized(hre.ethers.provider, signer)
-
-      const ChugSplashRegistry = getChugSplashRegistry(signer)
-
-      const ChugSplashManager = new ethers.Contract(
-        await ChugSplashRegistry.projects(args.organizationID),
-        ChugSplashManagerABI,
-        signer
-      )
-
-      // Get events for all deployments that have been proposed. This array includes
-      // events that have been approved and executed, which will be filtered out.
-      const proposedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashDeploymentProposed()
-      )
-
-      // Exit early if there are no proposals for the project.
-      if (proposedEvents.length === 0) {
-        console.log('There are no deployments for this project.')
-        return
-      }
-
-      // Filter out the approved deployment event if there is a currently active deployment
-      const activeDeploymentId = await ChugSplashManager.activeDeploymentId()
-
-      let approvedEvent: any
-      if (activeDeploymentId !== ethers.constants.HashZero) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const proposedEvent = proposedEvents[i]
-          if (proposedEvent.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          }
-
-          const deploymentId = proposedEvent.args.deploymentId
-          if (deploymentId === activeDeploymentId) {
-            // Remove the active deployment event in-place and return it.
-            approvedEvent = proposedEvents.splice(i, 1)
-
-            // It's fine to break out of the loop here since there is only one
-            // active deployment at a time.
-            break
-          }
-        }
-      }
-
-      const executedEvents = await ChugSplashManager.queryFilter(
-        ChugSplashManager.filters.ChugSplashDeploymentCompleted()
-      )
-
-      for (const executed of executedEvents) {
-        for (let i = 0; i < proposedEvents.length; i++) {
-          const proposed = proposedEvents[i]
-          if (proposed.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          } else if (executed.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentCompleted event does not have arguments.`
-            )
-          }
-          // Remove the event if the deployment IDs match
-          if (proposed.args.deploymentId === executed.args.deploymentId) {
-            proposedEvents.splice(i, 1)
-          }
-        }
-      }
-
-      if (proposedEvents.length === 0) {
-        // Accounts for the case where there is only one deployment, and it is approved.
-        console.log('There are currently no proposed deployments.')
-      } else {
-        // Display the proposed deployments
-        console.log(`Proposals:`)
-        proposedEvents.forEach((event) => {
-          if (event.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentProposed does not have arguments.`
-            )
-          }
-          console.log(
-            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        })
-      }
-
-      // Display the approved deployment if it exists
-      if (activeDeploymentId !== ethers.constants.HashZero) {
-        console.log('Approved:')
-        console.log(
-          `Deployment ID: ${activeDeploymentId}\t\tConfig URI: ${approvedEvent[0].args.configUri}`
-        )
-      }
-
-      // Display the executed deployments if the user has specified to do so
-      if (args.includeExecuted) {
-        console.log('\n')
-        console.log('Executed:')
-        executedEvents.forEach((event) => {
-          if (event.args === undefined) {
-            throw new Error(
-              `ChugSplashDeploymentCompleted event does not have arguments.`
-            )
-          }
-          console.log(
-            `Deployment ID: ${event.args.deploymentId}\t\tConfig URI: ${event.args.configUri}`
-          )
-        })
-      }
-    }
-  )
-
 task(TASK_NODE)
-  .addFlag('deployAll', 'Deploy all ChugSplash config files on startup')
   .addFlag(
     'disableChugsplash',
     "Completely disable all of ChugSplash's activity."
@@ -369,44 +218,31 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        deployAll: boolean
         disableChugsplash: boolean
         hide: boolean
         noCompile: boolean
-        confirm: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { deployAll, disableChugsplash, hide: silent, noCompile } = args
+      const { disableChugsplash, hide: silent, noCompile } = args
+
+      if (!noCompile) {
+        await hre.run(TASK_COMPILE, {
+          quiet: true,
+        })
+      }
 
       if (!disableChugsplash) {
         const spinner = ora({ isSilent: silent })
         spinner.start('Booting up ChugSplash...')
 
-        const signer = hre.ethers.provider.getSigner()
-
-        await ensureChugSplashInitialized(hre.ethers.provider, signer)
+        await ensureChugSplashInitialized(
+          hre.ethers.provider,
+          hre.ethers.provider.getSigner()
+        )
 
         spinner.succeed('ChugSplash has been initialized.')
-
-        if (deployAll) {
-          if (!noCompile) {
-            await hre.run(TASK_COMPILE, {
-              quiet: true,
-            })
-          }
-          await deployAllChugSplashConfigs(hre, silent)
-          const networkName = await resolveNetworkName(
-            hre.ethers.provider,
-            'hardhat'
-          )
-          await writeSnapshotId(
-            hre.ethers.provider,
-            networkName,
-            hre.config.paths.deployments
-          )
-        }
       }
       await runSuper(args)
     }
@@ -418,16 +254,29 @@ task(TASK_TEST)
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
   .addFlag(
-    'skipDeploy',
-    'Skip deploying any ChugSplash config files before running the test(s)'
+    'disableChugsplash',
+    "Completely disable all of ChugSplash's activity."
+  )
+  .addOptionalParam(
+    'signer',
+    'Address of the signer that deploys the ChugSplash config.'
+  )
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
   )
   .addOptionalParam(
     'configPath',
     'Optional path to the single ChugSplash config file to test.'
   )
   .addOptionalParam(
-    'configPaths',
-    'Optional paths to ChugSplash config files to test. Format must be a comma-separated string.'
+    'project',
+    'Name of a ChugSplash project to deploy before running the tests.'
+  )
+  .addOptionalParam(
+    'projects',
+    `Names of ChugSplash projects to deploy before running the tests. ` +
+      `Format must be a comma-separated string, such as: 'Project1, Project2'.`
   )
   .setAction(
     async (
@@ -436,101 +285,93 @@ task(TASK_TEST)
         noCompile: boolean
         confirm: boolean
         configPath: string
-        configPaths: string
-        skipDeploy: string
+        project: string
+        projects: string
+        disableChugsplash?: boolean
+        signer?: string
+        useDefaultSigner?: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { silent, noCompile, configPath, configPaths, skipDeploy } = args
+      const {
+        silent,
+        noCompile,
+        configPath,
+        project,
+        projects,
+        disableChugsplash,
+        signer,
+        useDefaultSigner,
+      } = args
 
-      const signer = hre.ethers.provider.getSigner()
-      const networkName = await resolveNetworkName(
-        hre.ethers.provider,
-        'hardhat'
-      )
-      if (
-        (await isLocalNetwork(hre.ethers.provider)) ||
-        (await isHardhatFork(hre.ethers.provider))
-      ) {
-        try {
-          const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployments),
-            networkName,
-            '.snapshotId'
-          )
-          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-          const snapshotReverted = await hre.network.provider.send(
-            'evm_revert',
-            [snapshotId]
-          )
-          if (!snapshotReverted) {
-            throw new Error('Snapshot failed to be reverted.')
-          }
-        } catch {
-          await ensureChugSplashInitialized(hre.ethers.provider, signer)
-          if (!noCompile) {
-            await hre.run(TASK_COMPILE, {
-              quiet: true,
-            })
-          }
-          if (!skipDeploy) {
-            let configPathArray: string[] | undefined
-            if (configPath && configPaths) {
-              throw new Error(
-                `Cannot specify both '--config-path' and '--config-paths'.`
-              )
-            } else if (configPath) {
-              configPathArray = [configPath]
-            } else if (configPaths) {
-              // Remove all whitespace and split by commas
-              configPathArray = configPaths.replace(/\s+/g, '').split(',')
+      if (!disableChugsplash) {
+        const networkName = await resolveNetworkName(
+          hre.ethers.provider,
+          'hardhat'
+        )
+        if (
+          (await isLocalNetwork(hre.ethers.provider)) ||
+          (await isHardhatFork(hre.ethers.provider))
+        ) {
+          try {
+            const snapshotIdPath = path.join(
+              path.basename(hre.config.paths.deployments),
+              networkName,
+              '.snapshotId'
+            )
+            const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+            const snapshotReverted = await hre.network.provider.send(
+              'evm_revert',
+              [snapshotId]
+            )
+            if (!snapshotReverted) {
+              throw new Error('Snapshot failed to be reverted.')
+            }
+          } catch {
+            await ensureChugSplashInitialized(
+              hre.ethers.provider,
+              hre.ethers.provider.getSigner()
+            )
+            if (!noCompile) {
+              await hre.run(TASK_COMPILE, {
+                quiet: true,
+              })
             }
 
-            await deployAllChugSplashConfigs(hre, silent, configPathArray)
+            if (configPath) {
+              let projectNames: string[]
+              if (project) {
+                projectNames = [project]
+              } else if (projects) {
+                projectNames = projects.replace(/\s+/g, '').split(',')
+              } else {
+                throw new Error(
+                  'Must specify a ChugSplash project name using --project or --projects'
+                )
+              }
+
+              const owner = await resolveOwner(hre, signer, useDefaultSigner)
+
+              await deployAllChugSplashProjects(
+                hre,
+                silent,
+                configPath,
+                owner,
+                projectNames
+              )
+            } else {
+              if (project || projects) {
+                throw new Error('Must specify a chugsplash config path')
+              }
+            }
           }
+          await writeSnapshotId(
+            hre.ethers.provider,
+            networkName,
+            hre.config.paths.deployments
+          )
         }
-        await writeSnapshotId(
-          hre.ethers.provider,
-          networkName,
-          hre.config.paths.deployments
-        )
-      }
-      await runSuper(args)
-    }
-  )
-
-task(TASK_RUN)
-  .addFlag(
-    'deployAll',
-    'Deploy all ChugSplash configs before executing your script.'
-  )
-  .addFlag(
-    'confirm',
-    'Automatically confirm contract upgrades. Only applicable if upgrading on a live network.'
-  )
-  .setAction(
-    async (
-      args: {
-        deployAll: boolean
-        noCompile: boolean
-        confirm: boolean
-      },
-      hre: HardhatRuntimeEnvironment,
-      runSuper
-    ) => {
-      const { deployAll, noCompile } = args
-
-      if (deployAll) {
-        const signer = hre.ethers.provider.getSigner()
-
-        await ensureChugSplashInitialized(hre.ethers.provider, signer)
-        if (!noCompile) {
-          await hre.run(TASK_COMPILE, {
-            quiet: true,
-          })
-        }
-        await deployAllChugSplashConfigs(hre, true)
       }
       await runSuper(args)
     }
@@ -539,10 +380,11 @@ task(TASK_RUN)
 export const chugsplashCancelTask = async (
   args: {
     configPath: string
+    project: string
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath } = args
+  const { project } = args
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -555,29 +397,34 @@ export const chugsplashCancelTask = async (
     false
   )
 
-  await chugsplashCancelAbstractTask(
-    provider,
-    signer,
-    configPath,
-    'hardhat',
-    cre
-  )
+  await chugsplashCancelAbstractTask(provider, signer, project, 'hardhat', cre)
 }
 
 task(TASK_CHUGSPLASH_CANCEL)
   .setDescription('Cancel an active ChugSplash project.')
   .addParam('configPath', 'Path to the ChugSplash config file to cancel')
+  .addParam('project', 'Name of the ChugSplash project to cancel')
   .setAction(chugsplashCancelTask)
 
 export const exportProxyTask = async (
   args: {
+    project: string
     configPath: string
     referenceName: string
     silent: boolean
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, referenceName, silent } = args
+  const {
+    configPath,
+    project,
+    referenceName,
+    silent,
+    signer,
+    useDefaultSigner,
+  } = args
   const cre = await createChugSplashRuntime(
     false,
     true,
@@ -587,22 +434,26 @@ export const exportProxyTask = async (
   )
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
 
-  const { parsedConfig } = await readValidatedChugSplashConfig(
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
+
+  const { parsedConfig } = await readParsedOwnerConfig(
     configPath,
+    project,
     provider,
     cre,
-    makeGetConfigArtifacts(hre)
+    makeGetConfigArtifacts(hre),
+    ownerAddress
   )
 
   await chugsplashExportProxyAbstractTask(
     provider,
-    signer,
-    configPath,
+    owner,
+    project,
     referenceName,
     'hardhat',
-    parsedConfig,
+    parsedConfig.projects,
     cre
   )
 }
@@ -615,6 +466,12 @@ task(TASK_CHUGSPLASH_EXPORT_PROXY)
     'configPath',
     'Path to the ChugSplash config file for the project that owns the target contract'
   )
+  .addOptionalParam('signer', 'Address of the signer to use.')
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config file.'
+  )
+  .addParam('project', 'The name of the project this proxy is a part of')
   .addParam(
     'referenceName',
     'Reference name of the contract that should be transferred to you'
@@ -624,16 +481,19 @@ task(TASK_CHUGSPLASH_EXPORT_PROXY)
 
 export const importProxyTask = async (
   args: {
-    configPath: string
     proxy: string
     silent: boolean
+    signer?: string
+    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, proxy, silent } = args
+  const { proxy, silent, signer, useDefaultSigner } = args
+
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
 
   const provider = hre.ethers.provider
-  const signer = provider.getSigner()
 
   const cre = await createChugSplashRuntime(
     false,
@@ -645,10 +505,10 @@ export const importProxyTask = async (
 
   await chugsplashImportProxyAbstractTask(
     provider,
-    signer,
-    configPath,
+    owner,
     proxy,
     'hardhat',
+    ownerAddress,
     cre
   )
 }
@@ -658,6 +518,11 @@ task(TASK_CHUGSPLASH_IMPORT_PROXY)
   .addParam(
     'configPath',
     'Path to the ChugSplash config file for the project that you would like to own the target contract'
+  )
+  .addOptionalParam('signer', 'Address of the signer to use.')
+  .addFlag(
+    'useDefaultSigner',
+    'Use the first signer in the Hardhat config file.'
   )
   .addParam(
     'proxy',
@@ -699,3 +564,23 @@ task(TASK_CHUGSPLASH_INIT)
   .setDescription('Sets up a ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's logs")
   .setAction(chugsplashInitTask)
+
+const resolveOwner = async (
+  hre: HardhatRuntimeEnvironment,
+  signerAddress?: string,
+  useDefaultSigner?: boolean
+): Promise<Signer> => {
+  if (!signerAddress && !useDefaultSigner) {
+    throw new Error(
+      'Must specify either --signer <address> or --use-default-signer'
+    )
+  } else if (signerAddress && useDefaultSigner) {
+    throw new Error(
+      'Cannot specify both --signer <address> and --use-default-signer'
+    )
+  } else if (signerAddress) {
+    return getSignerFromAddress(hre, signerAddress)
+  } else {
+    return hre.ethers.provider.getSigner()
+  }
+}

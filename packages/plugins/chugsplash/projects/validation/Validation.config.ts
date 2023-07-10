@@ -1,17 +1,11 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { UserProjectConfig } from '@chugsplash/core'
 
-const projectName = 'Variable Validation'
+const projectName = 'VariableValidation'
 
-const config: UserChugSplashConfig = {
-  // Configuration options for the project:
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
+    // Ignore the fact that there's a TypeScript warning on this field. This config intentionally
+    // does not have a 'kind' field to test that an error is thrown when it's missing.
     VariableValidation: {
       contract: 'VariableValidation',
       constructorArgs: {},
@@ -71,21 +65,13 @@ const config: UserChugSplashConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 1,
-        _immutableContractReference: '{{ VariableValidation }}',
+        _immutableAddress: '{{ VariableValidation }}',
       },
       variables: {
         hello: 'world',
       },
     },
-    Reverter1: {
-      contract: 'Reverter',
-      kind: 'immutable',
-    },
-    Reverter2: {
-      contract: 'Reverter',
-      kind: 'immutable',
-    },
   },
 }
 
-export default config
+export { config, projectName }

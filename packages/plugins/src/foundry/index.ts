@@ -1,27 +1,25 @@
 import * as fs from 'fs'
 
 import {
-  chugsplashProposeAbstractTask,
-  readValidatedChugSplashConfig,
-  readUserChugSplashConfig,
-  ProposalRoute,
   getChugSplashRegistryReadOnly,
   getPreviousConfigUri,
   postDeploymentActions,
-  CanonicalChugSplashConfig,
   getChugSplashManagerReadOnly,
   DeploymentState,
-  ConfigArtifacts,
   initializeChugSplash,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
+  CanonicalProjectConfig,
+  ProjectConfigArtifacts,
+  getChugSplashManagerAddress,
+  proposeAbstractTask,
 } from '@chugsplash/core'
-import { Contract, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getFoundryConfigOptions } from './options'
-import { makeGetConfigArtifacts } from './utils'
+import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './utils'
 import { createChugSplashRuntime } from '../cre'
 import {
   getEncodedFailure,
@@ -39,56 +37,44 @@ const command = args[0]
 
       try {
         const configPath = args[1]
-        const rpcUrl = args[2]
-        const privateKey = args[3]
+        const projectName = args[2]
+        const dryRun = args[3] === 'true'
 
         const {
           artifactFolder,
           buildInfoFolder,
           canonicalConfigFolder,
           cachePath,
+          rpcEndpoints,
         } = await getFoundryConfigOptions()
 
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-        const cre = await createChugSplashRuntime(
+        const cre = createChugSplashRuntime(
           true,
           true,
           canonicalConfigFolder,
           undefined,
-          true,
+          false,
           process.stderr
         )
 
-        const { parsedConfig, configArtifacts, configCache } =
-          await readValidatedChugSplashConfig(
-            configPath,
-            provider,
-            cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-            FailureAction.THROW
-          )
-        const wallet = new ethers.Wallet(privateKey, provider)
-
-        await chugsplashProposeAbstractTask(
-          provider,
-          wallet,
-          parsedConfig,
+        await proposeAbstractTask(
           configPath,
-          '',
-          'foundry',
-          configArtifacts,
-          ProposalRoute.RELAY,
+          projectName,
+          dryRun,
           cre,
-          configCache
+          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+          await makeGetProviderFromChainId(rpcEndpoints),
+          undefined,
+          FailureAction.THROW
         )
 
-        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
-          ['string', 'string'],
-          [parsedConfig.options.projectName, getPrettyWarnings()]
+        const encodedWarnings = defaultAbiCoder.encode(
+          ['string'],
+          [getPrettyWarnings()]
         )
 
         const encodedSuccess = hexConcat([
-          encodedProjectNameAndWarnings,
+          encodedWarnings,
           defaultAbiCoder.encode(['bool'], [true]), // true = success
         ])
 
@@ -147,7 +133,6 @@ const command = args[0]
           wallet,
           [],
           [],
-          [],
           (
             await provider.getNetwork()
           ).chainId
@@ -164,19 +149,15 @@ const command = args[0]
       const { canonicalConfigFolder, deploymentFolder, cachePath } =
         await getFoundryConfigOptions()
 
-      const configPath = args[1]
-      const networkName = args[2]
-      const rpcUrl = args[3]
+      const networkName = args[1]
+      const rpcUrl = args[2]
+      const ownerAddress = args[3]
 
       const provider: ethers.providers.JsonRpcProvider =
         new ethers.providers.JsonRpcProvider(rpcUrl)
 
-      const config = await readUserChugSplashConfig(configPath)
-
-      const manager: Contract = await getChugSplashManagerReadOnly(
-        provider,
-        config.options.organizationID
-      )
+      const deployer = getChugSplashManagerAddress(ownerAddress)
+      const manager = getChugSplashManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.
       const deploymentCompletedEvent = (
@@ -193,11 +174,11 @@ const command = args[0]
       )
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
-      const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
+      const canonicalConfig: CanonicalProjectConfig = JSON.parse(
         fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
       )
 
-      const configArtifacts: ConfigArtifacts = JSON.parse(
+      const configArtifacts: ProjectConfigArtifacts = JSON.parse(
         fs
           .readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`)
           .toString()

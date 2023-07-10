@@ -13,9 +13,10 @@ import {
   DefaultGasPriceCalculatorArtifact,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
-  ForwarderArtifact,
-  FunderArtifact,
+  LZSenderArtifact,
   LZReceiverArtifact,
+  AuthFactoryArtifact,
+  AuthArtifact,
 } from '@chugsplash/contracts'
 
 import { ContractArtifact } from './languages/solidity/types'
@@ -32,15 +33,16 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress,
   REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
-  FORWARDER_ADDRESS,
-  getFunderAddress,
+  getLZSenderAddress,
   getLZReceiverAddress,
   getMockEndPointAddress,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
 } from './addresses'
-import { LAYERZERO_ENDPOINT_ADDRESSES } from './constants'
+import { LAYERZERO_ADDRESSES } from './constants'
 
 export const getChugSplashConstants = (
   chainId: number
@@ -50,7 +52,7 @@ export const getChugSplashConstants = (
   constructorArgs: any[]
 }> => {
   const lzEndpointAddress =
-    LAYERZERO_ENDPOINT_ADDRESSES[chainId]?.address ??
+    LAYERZERO_ADDRESSES[chainId]?.endpointAddress ??
     getMockEndPointAddress(chainId)
   return [
     {
@@ -105,7 +107,7 @@ export const getChugSplashConstants = (
     },
     {
       artifact: ManagedServiceArtifact,
-      expectedAddress: MANAGED_SERVICE_ADDRESS,
+      expectedAddress: getManagedServiceAddress(),
       constructorArgs: [getOwnerAddress()],
     },
     {
@@ -122,19 +124,24 @@ export const getChugSplashConstants = (
       constructorArgs: [getChugSplashRegistryAddress()],
     },
     {
-      artifact: ForwarderArtifact,
-      expectedAddress: FORWARDER_ADDRESS,
-      constructorArgs: [],
-    },
-    {
-      artifact: FunderArtifact,
-      expectedAddress: getFunderAddress(lzEndpointAddress),
-      constructorArgs: [lzEndpointAddress],
+      artifact: LZSenderArtifact,
+      expectedAddress: getLZSenderAddress(lzEndpointAddress),
+      constructorArgs: [lzEndpointAddress, [], getOwnerAddress()],
     },
     {
       artifact: LZReceiverArtifact,
       expectedAddress: getLZReceiverAddress(lzEndpointAddress),
-      constructorArgs: [lzEndpointAddress],
+      constructorArgs: [lzEndpointAddress, getOwnerAddress()],
+    },
+    {
+      artifact: AuthArtifact,
+      expectedAddress: AUTH_IMPL_V1_ADDRESS,
+      constructorArgs: [[1, 0, 0]],
+    },
+    {
+      artifact: AuthFactoryArtifact,
+      expectedAddress: AUTH_FACTORY_ADDRESS,
+      constructorArgs: [getChugSplashRegistryAddress(), getOwnerAddress()],
     },
   ]
 }

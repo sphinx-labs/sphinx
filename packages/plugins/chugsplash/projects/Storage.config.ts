@@ -1,26 +1,15 @@
-import { UserChugSplashConfig } from '@chugsplash/core'
-import { ethers } from 'ethers'
+import { UserProjectConfig } from '@chugsplash/core'
 
 import {
   variables,
   complexConstructorArgs,
   immutableConstructorArgsOne,
   immutableConstructorArgsTwo,
-} from '../test/constants'
+} from '../../test/constants'
 
-const projectName = 'My First Project'
-export const orgId = ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes(projectName)
-)
+const projectName = 'Storage'
 
-const config: UserChugSplashConfig = {
-  // Configuration options for the project:
-  options: {
-    organizationID: ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(projectName)
-    ),
-    projectName,
-  },
+const config: UserProjectConfig = {
   contracts: {
     MyStorage: {
       contract: 'contracts/test/ContainsStorage.sol:Storage',
@@ -58,10 +47,10 @@ const config: UserChugSplashConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 1,
-        _immutableContractReference: '{{ MyStorage }}',
+        _immutableAddress: '{{ MyStorage }}',
       },
     },
   },
 }
 
-export default config
+export { config, projectName }

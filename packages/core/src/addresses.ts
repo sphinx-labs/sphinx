@@ -20,10 +20,12 @@ import {
   DefaultGasPriceCalculatorArtifact,
   ChugSplashManagerProxyArtifact,
   ProxyArtifact,
-  ForwarderArtifact,
   LZEndpointMockArtifact,
-  FunderArtifact,
+  LZSenderArtifact,
   LZReceiverArtifact,
+  AuthFactoryArtifact,
+  AuthProxyArtifact,
+  AuthArtifact,
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
@@ -54,17 +56,18 @@ export const getChugSplashRegistryAddress = () =>
     )
   )
 
-export const MANAGED_SERVICE_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
-    ['bytes', 'bytes'],
-    [
-      ManagedServiceArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
-    ]
+export const getManagedServiceAddress = () =>
+  utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        ManagedServiceArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
+      ]
+    )
   )
-)
 
 export const REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
   utils.getCreate2Address(
@@ -172,12 +175,6 @@ export const OZ_TRANSPARENT_ADAPTER_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const FORWARDER_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(['bytes'], [ForwarderArtifact.bytecode])
-)
-
 export const getMockEndPointAddress = (chainId: number) =>
   utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -188,15 +185,18 @@ export const getMockEndPointAddress = (chainId: number) =>
     )
   )
 
-export const getFunderAddress = (endpointAddress: string) => {
+export const getLZSenderAddress = (endpointAddress: string) => {
   return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
-      ['bytes', 'address'],
+      ['bytes', 'bytes'],
       [
-        FunderArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+        LZSenderArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'tuple(uint16,address)[]', 'address'],
+          [endpointAddress, [], getOwnerAddress()]
+        ),
       ]
     )
   )
@@ -207,26 +207,58 @@ export const getLZReceiverAddress = (endpointAddress: string) => {
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
-      ['bytes', 'address'],
+      ['bytes', 'bytes'],
       [
         LZReceiverArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [endpointAddress]),
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [endpointAddress, getOwnerAddress()]
+        ),
       ]
     )
   )
 }
 
+export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      AuthFactoryArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getChugSplashRegistryAddress(), getOwnerAddress()]
+      ),
+    ]
+  )
+)
+
+export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      AuthArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['uint256', 'uint256', 'uint256'],
+        [1, 0, 0]
+      ),
+    ]
+  )
+)
+
 export const getManagerConstructorValues = () => [
   getChugSplashRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress(),
   EXECUTION_LOCK_TIME,
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
   Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
-  FORWARDER_ADDRESS,
 ]
 
 const [managerConstructorFragment] = ChugSplashManagerABI.filter(
@@ -249,11 +281,61 @@ export const getChugSplashManagerV1Address = () =>
     )
   )
 
-export const getChugSplashManagerAddress = (organizationID: string) => {
+export const getChugSplashManagerAddress = (owner: string) => {
+  // We set the saltNonce to 0 since we can safely assume that each owner
+  // will only have one manager contract for now.
+  const salt = utils.keccak256(
+    utils.defaultAbiCoder.encode(
+      ['address', 'uint256', 'bytes'],
+      [owner, 0, []]
+    )
+  )
+
   return utils.getCreate2Address(
     getChugSplashRegistryAddress(),
-    organizationID,
+    salt,
     getManagerProxyInitCodeHash()
+  )
+}
+
+export const getAuthData = (
+  orgOwners: Array<string>,
+  orgThreshold: number
+): string => {
+  return utils.defaultAbiCoder.encode(
+    ['address[]', 'uint256'],
+    [orgOwners, orgThreshold]
+  )
+}
+
+export const getAuthSalt = (authData: string): string => {
+  // We set the saltNonce to 0 since we can safely assume that each owner
+  // will only have one manager contract for now.
+  return utils.keccak256(
+    utils.defaultAbiCoder.encode(['bytes', 'uint256'], [authData, 0])
+  )
+}
+
+export const getAuthAddress = (
+  orgOwners: Array<string>,
+  orgThreshold: number
+): string => {
+  const authData = getAuthData(orgOwners, orgThreshold)
+  const salt = getAuthSalt(authData)
+
+  return utils.getCreate2Address(
+    AUTH_FACTORY_ADDRESS,
+    salt,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        AuthProxyArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
+        ),
+      ]
+    )
   )
 }
 

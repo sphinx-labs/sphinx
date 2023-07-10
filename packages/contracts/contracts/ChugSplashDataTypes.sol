@@ -4,6 +4,7 @@ pragma solidity >=0.7.4 <0.9.0;
 /**
  * @notice Struct representing the state of a deployment.
  *
+ * @custom:field projectName The name of the project.
  * @custom:field status The status of the deployment.
  * @custom:field actions An array of booleans representing whether or not an action has been
    executed.
@@ -19,6 +20,7 @@ pragma solidity >=0.7.4 <0.9.0;
  * @custom:field configUri URI pointing to the config file for the deployment.
  */
 struct DeploymentState {
+    string projectName;
     DeploymentStatus status;
     bool[] actions;
     uint256 targets;
@@ -52,39 +54,49 @@ struct RawChugSplashAction {
 /**
  * @notice Struct representing a target.
  *
- * @custom:field projectName The name of the project associated with the target.
- * @custom:field referenceName The reference name associated with the target.
  * @custom:field addr The address of the proxy associated with this target.
  * @custom:field implementation The address that will be the proxy's implementation at the end of
    the deployment.
  * @custom:field contractKindHash The hash of the contract kind associated with this contract.
  */
 struct ChugSplashTarget {
-    string projectName;
-    string referenceName;
     address payable addr;
     address implementation;
     bytes32 contractKindHash;
 }
 
 /**
- * @notice Struct representing a cross-chain funding message.
+ * @notice Struct representing a LayerZero cross-chain message that includes sending
+ *         funds to an address on the destination chain.
  *
- * @custom:field The destination chain id.
- * @custom:field The endpoint outbound proof type.
- * @custom:field The contract receiving the message.
- * @custom:field The address receiving the airdrop.
- * @custom:field The amount to airdrop.
- * @custom:field Whether to pay with ZRO (layer zero token), will cause revert if true.
- * @custom:field The message payload.
+ * @custom:field dstChainId The destination chain id.
+ * @custom:field outboundProofType The endpoint outbound proof type.
+ * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
+ *               function.
+ * @custom:field airdropAddress The address receiving the airdrop on the destination chain.
+ * @custom:field airdropAmount The amount to airdrop on the destination chain.
  */
-struct FunderAction {
+struct LayerZeroFundingMessage {
     uint16 dstChainId;
     uint16 outboundProofType;
-    address receiverAddress;
+    uint256 destGas;
     address airdropAddress;
     uint airdropAmount;
-    bool payInZRO;
+}
+
+/**
+ * @notice Struct representing a LayerZero cross-chain message.
+ *
+ * @custom:field dstChainId The destination chain id.
+ * @custom:field outboundProofType The endpoint outbound proof type.
+ * @custom:field destGas The amount of gas to send to the destination chain for the `lzReceive`
+ *               function.
+ * @custom:field payload The message payload to send to the receiver on the destination chain.
+ */
+struct LayerZeroMessage {
+    uint16 dstChainId;
+    uint16 outboundProofType;
+    uint256 destGas;
     bytes payload;
 }
 
@@ -104,7 +116,6 @@ enum ChugSplashActionType {
    with the `CANCELLED` status being an exception.
  *
  * @custom:value EMPTY The deployment does not exist.
- * @custom:value PROPOSED The deployment has been proposed.
  * @custom:value APPROVED The deployment has been approved by the owner.
  * @custom:value PROXIES_INITIATED The proxies in the deployment have been initiated.
  * @custom:value COMPLETED The deployment has been completed.
@@ -113,18 +124,11 @@ enum ChugSplashActionType {
  */
 enum DeploymentStatus {
     EMPTY,
-    PROPOSED,
     APPROVED,
     PROXIES_INITIATED,
     COMPLETED,
     CANCELLED,
     FAILED
-}
-
-struct CrossChainMessageInfo {
-    address payable originEndpoint;
-    uint32 destDomainID;
-    uint256 relayerFee;
 }
 
 /**
@@ -174,4 +178,53 @@ struct BundledChugSplashTarget {
 struct ActionProof {
     uint256 actionIndex;
     bytes32[] siblings;
+}
+
+struct ContractInfo {
+    string referenceName;
+    address addr;
+}
+
+/**
+ * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
+   authenticated action taken by a permissioned account such as an organization owner or proposer.
+ *
+ * @custom:field chainId The chain ID for the leaf to be executed on.
+ * @custom:field to The address that is the subject of the data in this leaf. This should always be
+                 a ChugSplashManager.
+ * @custom:field index The index of the leaf. Each index must be unique on a chain, and start from
+                 zero. Leafs must be executed in ascending order according to their index. This
+                 makes it possible to ensure that leafs in an Auth tree will be executed in a
+                 certain order, e.g. creating a proposal then approving it.
+ */
+struct AuthLeaf {
+    uint256 chainId;
+    address to;
+    uint256 index;
+    bytes data;
+}
+
+/**
+ * @notice Struct representing the state of an auth Merkle tree.
+ *
+ * @custom:field status The status of the auth Merkle tree.
+ * @custom:field leafsExecuted The number of auth leafs that have been executed.
+ * @custom:field numLeafs The total number of leafs in the auth Merkle tree on a chain.
+ */
+struct AuthState {
+    AuthStatus status;
+    uint256 leafsExecuted;
+    uint256 numLeafs;
+}
+
+enum AuthStatus {
+    EMPTY,
+    SETUP,
+    PROPOSED,
+    COMPLETED
+}
+
+struct SetRoleMember {
+    address member;
+    bool add;
 }

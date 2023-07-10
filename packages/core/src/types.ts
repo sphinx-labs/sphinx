@@ -9,7 +9,7 @@ import { ParsedContractConfig } from './config/types'
 export type ChugSplashRuntimeEnvironment = {
   canonicalConfigPath: string
   remoteExecution: boolean
-  autoConfirm: boolean
+  confirmUpgrade: boolean
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined
@@ -19,10 +19,14 @@ export type ChugSplashRuntimeEnvironment = {
   ) => Promise<StorageLayout>
 }
 
+/**
+ * @param EXIT Exit the process without throwing an error. This cannot be caught in a try/catch.
+ * Should be used in the Hardhat plugin.
+ * @param THROW Throw an error. Can be caught in a try/catch. This should be used in the Foundry plugin.
+ */
 export enum FailureAction {
   EXIT, // Exit the process without throwing an error. This cannot be caught in a try/catch.
-  THROW, // Throw an error. This will exit the process if not caught in a try/catch.
-  CONTINUE, // Continue execution.
+  THROW, // Throw an error. Can be caught in a try/catch.
 }
 
 export type ExecutorKey = {

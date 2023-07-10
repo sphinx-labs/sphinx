@@ -10,6 +10,16 @@ export const getOwnerAddress = () => {
 }
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
 
+export const PROPOSER_ROLE = ethers.utils.solidityKeccak256(
+  ['string'],
+  ['ProposerRole']
+)
+export const PROJECT_MANAGER_ROLE = ethers.utils.solidityKeccak256(
+  ['string'],
+  ['ProjectManagerRole']
+)
+export const DEFAULT_ADMIN_ROLE = ethers.constants.HashZero
+
 export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(
   ethers.utils.keccak256(ethers.utils.toUtf8Bytes('chugsplash.proxy.admin'))
 )
@@ -30,6 +40,9 @@ export const OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH = ethers.utils.keccak256(
 )
 export const IMMUTABLE_TYPE_HASH = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes('immutable')
+)
+export const IMPLEMENTATION_TYPE_HASH = ethers.utils.keccak256(
+  ethers.utils.toUtf8Bytes('implementation')
 )
 export const DEFAULT_PROXY_TYPE_HASH = ethers.constants.HashZero
 

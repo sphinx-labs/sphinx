@@ -30,6 +30,7 @@ export const getFoundryConfigOptions = async (): Promise<{
   cachePath: string
   storageLayout: boolean
   gasEstimates: boolean
+  rpcEndpoints: { [chainAlias: string]: string }
 }> => {
   const execAsync = promisify(exec)
 
@@ -40,6 +41,7 @@ export const getFoundryConfigOptions = async (): Promise<{
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
 
   const cachePath = forgeConfig.cache_path
+  const rpcEndpoints = forgeConfig.rpc_endpoints
 
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
   // artifacts will contain the necessary info as long as the config includes the expected options
@@ -51,5 +53,6 @@ export const getFoundryConfigOptions = async (): Promise<{
     storageLayout,
     gasEstimates,
     cachePath,
+    rpcEndpoints,
   }
 }

@@ -42,29 +42,47 @@ import {
   getChugSplashRegistryReadOnly,
   getChugSplashManagerReadOnly,
   isLocalNetwork,
-  getConfigArtifactsRemote,
   isOpenZeppelinContractKind,
   readBuildInfo,
   fetchAndCacheCanonicalConfig,
+  getProjectConfigArtifactsRemote,
+  isProjectRegistered,
+  getDuplicateElements,
 } from '../utils'
 import {
-  UserChugSplashConfig,
-  ParsedChugSplashConfig,
   ParsedConfigVariable,
   UserContractConfig,
   UserConfigVariable,
   UserConfigVariables,
   ParsedConfigVariables,
   ParsedContractConfig,
-  ConfigArtifacts,
-  GetConfigArtifacts,
-  ConfigCache,
   ContractConfigCache,
   ContractKindEnum,
   DeploymentRevert,
   ImportCache,
+  ParsedProjectConfig,
+  ProjectConfigArtifacts,
+  UserProjectConfig,
+  Project,
+  GetConfigArtifacts,
+  ConfigCache,
+  ProjectConfigCache,
+  ConfigArtifacts,
+  UserChugSplashConfig,
+  OwnerConfigOptions,
+  ParsedOrgConfigOptions,
+  UserOrgConfigOptions,
+  ProjectConfigOptions,
+  ParsedOrgConfig,
+  ParsedProjectConfigs,
+  ParsedOwnerConfig,
 } from './types'
-import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
+import {
+  CONTRACT_SIZE_LIMIT,
+  Keyword,
+  SUPPORTED_LIVE_NETWORKS,
+  keywords,
+} from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -112,65 +130,234 @@ const logValidationError = (
   chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
-export const readUnvalidatedParsedConfig = async (
-  configPath: string,
-  cre: ChugSplashRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction
-): Promise<{
-  parsedConfig: ParsedChugSplashConfig
-  configArtifacts: ConfigArtifacts
-}> => {
-  const userConfig = await readUserChugSplashConfig(configPath)
-  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-  // Just in case, we reset the global validation errors flag before parsing
-  validationErrors = false
-
-  const parsedConfig = getUnvalidatedParsedConfig(
-    userConfig,
-    configArtifacts,
-    cre,
-    failureAction
-  )
-
-  return { parsedConfig, configArtifacts }
-}
-
 /**
- * Reads a ChugSplash config file and completes full parsing and validation on it.
+ * Reads a ChugSplash config file, then parses and validates the selected projects inside of it.
+ * This is meant to be used for configs that contain organizations. Configs that contain only a
+ * single owner for the purpose of deploying locally should call `getParsedOrgConfig` instead of
+ * this function.
  *
  * @param configPath Path to the ChugSplash config file.
+ * @param projects The project name(s) to parse. This function will only validate these projects.
+ * The returned parsed config will not include any other projects in the config file.
+ * @param deployerAddress Address of the ChugSplashManager. Note that this may not be calculable
+ * based on the config file because the organization owners may have changed after the
+ * ChugSplashManager was deployed, which would alter its Create2 address. However, if the
+ * organization owners haven't changed, then this address can be calculated locally.
+ * @param authAddress Address of the ChugSplashAuth contract. Note that the same caveat applies
+ * here as for the `deployerAddress` parameter.
+ *
  * @returns The parsed ChugSplash config file.
  */
-export const readValidatedChugSplashConfig = async (
-  configPath: string,
+export const getParsedOrgConfig = async (
+  userConfig: UserChugSplashConfig,
+  projects: Array<Project> | Project,
+  deployerAddress: string,
   provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedOrgConfig
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
-  const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
-    configPath,
+  // Just in case, we reset the global validation errors flag before parsing
+  validationErrors = false
+
+  const projectArray = Array.isArray(projects) ? projects : [projects]
+
+  if (!userConfig.options) {
+    // We throw an error immediately because the rest of the parsing logic for the organization
+    // fields won't work. We don't use `logValidationError` here because TypeScript wouldn't
+    // recognize that the `options` field is defined after this if-statement.
+    throw new Error(
+      `The top-level 'options' field is required for organization configs.`
+    )
+  }
+
+  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
+
+  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
+
+  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
+    userConfig,
+    projectArray,
+    deployerAddress,
     cre,
     getConfigArtifacts,
-    failureAction
+    failureAction,
+    true
   )
+
+  const parsedConfig: ParsedOrgConfig = {
+    options: parsedConfigOptions,
+    projects: projectConfigs,
+  }
 
   const configCache = await getConfigCache(
     provider,
-    parsedConfig,
+    projectConfigs,
     configArtifacts,
     getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
+    getChugSplashManagerReadOnly(deployerAddress, provider)
   )
 
   await postParsingValidation(
-    parsedConfig,
+    projectConfigs,
+    configArtifacts,
+    cre,
+    configCache,
+    failureAction
+  )
+
+  return { parsedConfig, configArtifacts, configCache }
+}
+
+/**
+ * @notice This function is called by `getParsedOrgConfig` and `readParsedOwnerConfig`.
+ */
+export const getUnvalidatedParsedConfig = async (
+  userConfig: UserChugSplashConfig,
+  projects: Array<Project>,
+  deployerAddress: string,
+  cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
+  failureAction: FailureAction,
+  isOrgConfig: boolean
+): Promise<{
+  projectConfigs: ParsedProjectConfigs
+  configArtifacts: ConfigArtifacts
+}> => {
+  const allProjectNames = Object.keys(userConfig.projects)
+  for (const project of projects) {
+    if (!allProjectNames.includes(project)) {
+      logValidationError(
+        'error',
+        `No project exists in the ChugSplash config with the name: ${project}`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  }
+
+  // We exit early here because everything after this won't work without valid project names
+  assertNoValidationErrors(failureAction)
+
+  const filteredUserConfigProjects = Object.entries(userConfig.projects).filter(
+    ([projectName]) => projects.includes(projectName)
+  )
+  const projectConfigs: ParsedProjectConfigs = {}
+  const configArtifacts: ConfigArtifacts = {}
+  for (const [projectName, projectConfig] of filteredUserConfigProjects) {
+    const projectConfigArtifacts = await getConfigArtifacts(
+      projectConfig.contracts
+    )
+    configArtifacts[projectName] = projectConfigArtifacts
+
+    assertValidProjectConfigOptions(
+      projectName,
+      isOrgConfig,
+      cre,
+      projectConfig.options
+    )
+
+    const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
+      projectConfig,
+      projectName,
+      projectConfigArtifacts,
+      cre,
+      failureAction,
+      deployerAddress
+    )
+
+    projectConfigs[projectName] = parsedProjectConfig
+  }
+
+  return { projectConfigs, configArtifacts }
+}
+
+/**
+ * Reads a ChugSplash config file, then parses and validates the selected projects inside of it.
+ * This is meant to be used for configs that are only using ChugSplash to deploy locally. Configs
+ * that contain organizations should call `getParsedOrgConfig` instead.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @param projects The project name(s) to parse. This function will only validate these projects.
+ * The returned parsed config will not include any other projects in the config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readParsedOwnerConfig = async (
+  configPath: string,
+  projects: Array<Project> | Project,
+  provider: providers.JsonRpcProvider,
+  cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
+  ownerAddress: string,
+  failureAction: FailureAction = FailureAction.EXIT
+): Promise<{
+  parsedConfig: ParsedOwnerConfig
+  configArtifacts: ConfigArtifacts
+  configCache: ConfigCache
+}> => {
+  // Just in case, we reset the global validation errors flag before parsing
+  validationErrors = false
+
+  const projectArray = Array.isArray(projects) ? projects : [projects]
+
+  const userConfig = await readUserChugSplashConfig(configPath)
+
+  if (userConfig.options) {
+    logValidationError(
+      'error',
+      `Organization configs cannot be used with this function.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (!ethers.utils.isAddress(ownerAddress)) {
+    logValidationError(
+      'error',
+      `The owner address is invalid: ${ownerAddress}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const deployerAddress = getChugSplashManagerAddress(ownerAddress)
+
+  const configOptions: OwnerConfigOptions = {
+    owner: ownerAddress,
+  }
+
+  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
+    userConfig,
+    projectArray,
+    deployerAddress,
+    cre,
+    getConfigArtifacts,
+    failureAction,
+    false
+  )
+
+  const parsedConfig: ParsedOwnerConfig = {
+    options: configOptions,
+    projects: projectConfigs,
+  }
+
+  const configCache = await getConfigCache(
+    provider,
+    projectConfigs,
+    configArtifacts,
+    getChugSplashRegistryReadOnly(provider),
+    getChugSplashManagerReadOnly(deployerAddress, provider)
+  )
+
+  await postParsingValidation(
+    projectConfigs,
     configArtifacts,
     cre,
     configCache,
@@ -192,22 +379,12 @@ export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidUserConfigFields = (
-  config: UserChugSplashConfig,
+export const assertValidUserProjectConfig = (
+  config: UserProjectConfig,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ) => {
   const validReferenceNames = Object.keys(config.contracts)
-
-  if (!ethers.utils.isHexString(config.options.organizationID, 32)) {
-    logValidationError(
-      'error',
-      `Organization ID must be a 32-byte hex string. Instead, got: ${config.options.organizationID}`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
 
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
@@ -1687,17 +1864,15 @@ export const assertValidContractReferences = (
 }
 
 export const assertValidParsedChugSplashFile = async (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  parsedConfig: ParsedProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   contractConfigCache: ContractConfigCache,
   failureAction: FailureAction
 ): Promise<void> => {
   const { canonicalConfigPath } = cre
 
-  const chugSplashManagerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
+  const chugSplashManagerAddress = parsedConfig.options.deployer
 
   // Check that all user-defined contract addresses have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
@@ -1812,6 +1987,7 @@ export const assertValidParsedChugSplashFile = async (
       }
 
       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
+        parsedConfig.options.project,
         referenceName,
         contractConfig,
         canonicalConfigPath,
@@ -1838,8 +2014,8 @@ export const assertValidParsedChugSplashFile = async (
 }
 
 export const assertValidSourceCode = (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  parsedConfig: ParsedProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   for (const [referenceName, contractConfig] of Object.entries(
@@ -2002,7 +2178,7 @@ const containsFunctionCall = (node: Expression): boolean => {
 }
 
 const logUnsafeOptions = (
-  userConfig: UserChugSplashConfig,
+  userConfig: UserProjectConfig,
   silent: boolean,
   stream: NodeJS.WritableStream
 ) => {
@@ -2051,25 +2227,24 @@ const logUnsafeOptions = (
 }
 
 export const assertValidConstructorArgs = (
-  userConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  projectConfig: UserProjectConfig,
+  projectName: string,
+  configArtifacts: ProjectConfigArtifacts,
+  deployerAddress: string,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ): {
-  userConfig: UserChugSplashConfig
+  projectConfig: UserProjectConfig
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
 } => {
-  const { projectName, organizationID } = userConfig.options
-  const managerAddress = getChugSplashManagerAddress(organizationID)
-
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedConstructorArgs = {}
   const contractReferences: { [referenceName: string]: string } = {}
 
   // Determine the addresses for all contracts.
   for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
+    projectConfig.contracts
   )) {
     const { address, salt } = userContractConfig
 
@@ -2077,19 +2252,19 @@ export const assertValidConstructorArgs = (
     // Create3 address given to contracts deployed within the ChugSplash system.
     contractReferences[referenceName] =
       address ??
-      getTargetAddress(managerAddress, projectName, referenceName, salt)
+      getTargetAddress(deployerAddress, projectName, referenceName, salt)
   }
 
   // Resolve all contract references.
-  userConfig = JSON.parse(
-    Handlebars.compile(JSON.stringify(userConfig))({
+  projectConfig = JSON.parse(
+    Handlebars.compile(JSON.stringify(projectConfig))({
       ...contractReferences,
     })
   )
 
   // Parse and validate all the constructor arguments.
   for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
+    projectConfig.contracts
   )) {
     const { artifact } = configArtifacts[referenceName]
 
@@ -2108,20 +2283,20 @@ export const assertValidConstructorArgs = (
 
   // We return the cached values so we can use them in later steps without rereading the files
   return {
-    userConfig,
+    projectConfig,
     cachedConstructorArgs,
     contractReferences,
   }
 }
 
 const assertValidContractVariables = (
-  userConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  userProjectConfig: UserProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
   const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
+    userProjectConfig.contracts
   )) {
     if (userContractConfig.kind === 'immutable') {
       if (
@@ -2161,28 +2336,44 @@ const assertValidContractVariables = (
   return parsedVariables
 }
 
-const constructParsedConfig = (
-  userConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+const constructParsedProjectConfig = (
+  userProjectConfig: UserProjectConfig,
+  projectName: string,
+  deployerAddress: string,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
   cre: ChugSplashRuntimeEnvironment
-): ParsedChugSplashConfig => {
-  const parsedConfig: ParsedChugSplashConfig = {
-    options: userConfig.options,
+): ParsedProjectConfig => {
+  // Converts project owner addresses to checksummed addresses and sorts them in ascending order.
+  const projectOwners = userProjectConfig.options
+    ? userProjectConfig.options.projectOwners
+        .map((address) => ethers.utils.getAddress(address))
+        .sort()
+    : undefined
+
+  const projectOptions = {
+    deployer: deployerAddress,
+    project: projectName,
+    projectOwners,
+    ...userProjectConfig.options,
+  }
+
+  const parsedConfig: ParsedProjectConfig = {
+    options: projectOptions,
     contracts: {},
   }
 
-  const { projectName } = userConfig.options
   for (const [referenceName, userContractConfig] of Object.entries(
-    userConfig.contracts
+    userProjectConfig.contracts
   )) {
     const constructorArgs = cachedConstructorArgs[referenceName]
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `ConfigArtifacts` when it eventually compiles the canonical
     // config.
-    const { sourceName, contractName } = configArtifacts[referenceName].artifact
+    const { sourceName, contractName } =
+      projectConfigArtifacts[referenceName].artifact
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
 
     if (!userContractConfig.kind) {
@@ -2220,9 +2411,9 @@ const constructParsedConfig = (
   return parsedConfig
 }
 
-export const setDefaultContractOptions = (
-  userConfig: UserChugSplashConfig
-): UserChugSplashConfig => {
+export const setDefaultContractFields = (
+  userConfig: UserProjectConfig
+): UserProjectConfig => {
   for (const contractConfig of Object.values(userConfig.contracts)) {
     if (contractConfig.unsafeAllow) {
       contractConfig.unsafeAllow.flexibleConstructor =
@@ -2244,58 +2435,64 @@ export const setDefaultContractOptions = (
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const getUnvalidatedParsedConfig = (
-  userConfig: UserChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+export const getUnvalidatedParsedProjectConfig = (
+  userProjectConfig: UserProjectConfig,
+  projectName: string,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
-  failureAction: FailureAction
-): ParsedChugSplashConfig => {
+  failureAction: FailureAction,
+  deployerAddress: string
+): ParsedProjectConfig => {
   // If the user disabled some safety checks, log warnings related to that
-  logUnsafeOptions(userConfig, cre.silent, cre.stream)
+  logUnsafeOptions(userProjectConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserConfigFields(userConfig, cre, failureAction)
+  assertValidUserProjectConfig(userProjectConfig, cre, failureAction)
 
-  const configWithDefaultOptions = setDefaultContractOptions(userConfig)
+  const configWithDefaultContractFields =
+    setDefaultContractFields(userProjectConfig)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the parsed constructor args so we don't have to re-read them later
   const {
-    userConfig: validUserConfig,
+    projectConfig: validProjectConfig,
     cachedConstructorArgs,
     contractReferences,
   } = assertValidConstructorArgs(
-    configWithDefaultOptions,
-    configArtifacts,
+    configWithDefaultContractFields,
+    projectName,
+    projectConfigArtifacts,
+    deployerAddress,
     cre,
     failureAction
   )
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
-    validUserConfig,
-    configArtifacts,
+    validProjectConfig,
+    projectConfigArtifacts,
     cre
   )
 
-  // Construct the parsed config
-  const parsedConfig = constructParsedConfig(
-    validUserConfig,
-    configArtifacts,
+  const parsedProjectConfig = constructParsedProjectConfig(
+    validProjectConfig,
+    projectName,
+    deployerAddress,
+    projectConfigArtifacts,
     contractReferences,
     parsedVariables,
     cachedConstructorArgs,
     cre
   )
 
-  assertValidSourceCode(parsedConfig, configArtifacts, cre)
+  assertValidSourceCode(parsedProjectConfig, projectConfigArtifacts, cre)
 
-  return parsedConfig
+  return parsedProjectConfig
 }
 
 export const assertNoUpgradableContracts = (
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   for (const contractConfig of Object.values(parsedConfig.contracts)) {
@@ -2314,23 +2511,30 @@ export const assertNoUpgradableContracts = (
   }
 }
 
-export const postParsingValidation = async (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+export const projectPostParsingValidation = async (
+  parsedProjectConfig: ParsedProjectConfig,
+  projectConfigArtifacts: ProjectConfigArtifacts,
+  projectName: string,
   cre: ChugSplashRuntimeEnvironment,
-  configCache: ConfigCache,
+  projectConfigCache: ProjectConfigCache,
   failureAction: FailureAction
 ) => {
-  const { projectName } = parsedConfig.options
-  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
+  const { blockGasLimit, localNetwork, contractConfigCache } =
+    projectConfigCache
 
-  assertNoUpgradableContracts(parsedConfig, cre)
+  assertAddressesNotInAnotherProject(
+    parsedProjectConfig,
+    projectConfigCache,
+    cre
+  )
+
+  assertNoUpgradableContracts(parsedProjectConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
 
   assertAvailableCreate3Addresses(
-    parsedConfig,
-    configArtifacts,
+    parsedProjectConfig,
+    projectConfigArtifacts,
     cre,
     contractConfigCache
   )
@@ -2338,16 +2542,20 @@ export const postParsingValidation = async (
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
   if (!localNetwork) {
-    assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
+    assertContractsBelowSizeLimit(
+      parsedProjectConfig,
+      projectConfigArtifacts,
+      cre
+    )
   }
 
-  assertValidDeploymentSize(parsedConfig, cre, configCache)
+  assertValidDeploymentSize(parsedProjectConfig, cre, projectConfigCache)
 
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
   await assertValidParsedChugSplashFile(
-    parsedConfig,
-    configArtifacts,
+    parsedProjectConfig,
+    projectConfigArtifacts,
     cre,
     contractConfigCache,
     failureAction
@@ -2355,14 +2563,14 @@ export const postParsingValidation = async (
 
   assertNoValidationErrors(failureAction)
 
-  const containsUpgrade = Object.entries(parsedConfig.contracts).some(
+  const containsUpgrade = Object.entries(parsedProjectConfig.contracts).some(
     ([referenceName, contractConfig]) =>
       contractConfig.kind !== 'immutable' &&
       contractConfigCache[referenceName].isTargetDeployed
   )
 
   // Confirm upgrade with user
-  if (!cre.autoConfirm && containsUpgrade) {
+  if (!cre.confirmUpgrade && containsUpgrade) {
     const userConfirmed = await yesno({
       question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
     })
@@ -2372,15 +2580,36 @@ export const postParsingValidation = async (
   }
 }
 
+export const postParsingValidation = async (
+  projectConfigs: ParsedProjectConfigs,
+  configArtifacts: ConfigArtifacts,
+  cre: ChugSplashRuntimeEnvironment,
+  configCache: ConfigCache,
+  failureAction: FailureAction
+) => {
+  for (const [projectName, parsedProjectConfig] of Object.entries(
+    projectConfigs
+  )) {
+    await projectPostParsingValidation(
+      parsedProjectConfig,
+      configArtifacts[projectName],
+      projectName,
+      cre,
+      configCache[projectName],
+      failureAction
+    )
+  }
+}
+
 /**
  * Asserts that the ChugSplash config can be initiated in a single transaction.
  */
 export const assertValidDeploymentSize = (
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   cre: ChugSplashRuntimeEnvironment,
-  configCache: ConfigCache
+  projectConfigCache: ProjectConfigCache
 ): void => {
-  const { blockGasLimit } = configCache
+  const { blockGasLimit } = projectConfigCache
 
   const numTargets = Object.values(parsedConfig.contracts).filter(
     (contract) => contract.kind !== 'immutable'
@@ -2422,8 +2651,8 @@ export const assertValidBlockGasLimit = (
  * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
  */
 export const assertContractsBelowSizeLimit = (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  parsedConfig: ParsedProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment
 ) => {
   const tooLarge: string[] = []
@@ -2485,8 +2714,8 @@ export const assertImmutableDeploymentsDoNotRevert = (
 }
 
 const assertAvailableCreate3Addresses = (
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  parsedConfig: ParsedProjectConfig,
+  configArtifacts: ProjectConfigArtifacts,
   cre: ChugSplashRuntimeEnvironment,
   contractConfigCache: ContractConfigCache
 ): void => {
@@ -2542,24 +2771,25 @@ const assertAvailableCreate3Addresses = (
   }
 }
 
-export const getConfigCache = async (
+export const getProjectConfigCache = async (
   provider: providers.JsonRpcProvider,
-  parsedConfig: ParsedChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  projectConfig: ParsedProjectConfig,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   registry: ethers.Contract,
   manager: ethers.Contract
-): Promise<ConfigCache> => {
-  const { contracts } = parsedConfig
+): Promise<ProjectConfigCache> => {
+  const { contracts } = projectConfig
 
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
+  const isRegistered = await isProjectRegistered(registry, manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
     contracts
   )) {
-    const { abi, bytecode } = configArtifacts[referenceName].artifact
+    const { abi, bytecode } = projectConfigArtifacts[referenceName].artifact
 
     const { address, constructorArgs } = parsedContractConfig
     const kind = toContractKindEnum(parsedContractConfig.kind)
@@ -2568,6 +2798,10 @@ export const getConfigCache = async (
       constructorArgs,
       abi
     )
+
+    const existingProjectName = isRegistered
+      ? await manager.contractToProject(address)
+      : ''
 
     const isTargetDeployed = (await provider.getCode(address)) !== '0x'
 
@@ -2665,6 +2899,7 @@ export const getConfigCache = async (
     }
 
     contractConfigCache[referenceName] = {
+      existingProjectName,
       isTargetDeployed,
       deployedCreationCodeWithArgsHash,
       deploymentRevert: deploymentRevert ?? {
@@ -2678,10 +2913,57 @@ export const getConfigCache = async (
   }
 
   return {
+    isRegistered,
     blockGasLimit,
     localNetwork,
     networkName,
     contractConfigCache,
+  }
+}
+
+export const getConfigCache = async (
+  provider: providers.JsonRpcProvider,
+  projectConfigs: ParsedProjectConfigs,
+  configArtifacts: ConfigArtifacts,
+  registry: ethers.Contract,
+  manager: ethers.Contract
+): Promise<ConfigCache> => {
+  const configCache: ConfigCache = {}
+  for (const [projectName, projectConfig] of Object.entries(projectConfigs)) {
+    configCache[projectName] = await getProjectConfigCache(
+      provider,
+      projectConfig,
+      configArtifacts[projectName],
+      registry,
+      manager
+    )
+  }
+
+  return configCache
+}
+
+const assertAddressesNotInAnotherProject = (
+  parsedProjectConfig: ParsedProjectConfig,
+  projectConfigCache: ProjectConfigCache,
+  cre: ChugSplashRuntimeEnvironment
+): void => {
+  if (!projectConfigCache.isRegistered) {
+    return
+  }
+
+  const { project } = parsedProjectConfig.options
+  for (const referenceName of Object.keys(parsedProjectConfig.contracts)) {
+    const existingProjectName =
+      projectConfigCache.contractConfigCache[referenceName].existingProjectName
+    if (existingProjectName.length > 0 && existingProjectName !== project) {
+      logValidationError(
+        'error',
+        `The address for '${referenceName}' already belongs to an existing project: '${existingProjectName}'. Please use this project name instead.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
   }
 }
 
@@ -2711,6 +2993,7 @@ const assertNoValidationErrors = (failureAction: FailureAction): void => {
  * storage layout located at 'previousBuildInfo'.
  */
 export const getPreviousStorageLayoutOZFormat = async (
+  projectName: string,
   referenceName: string,
   parsedContractConfig: ParsedContractConfig,
   canonicalConfigFolderPath: string,
@@ -2751,10 +3034,11 @@ export const getPreviousStorageLayoutOZFormat = async (
       parsedContractConfig
     ).layout
   } else if (previousCanonicalConfig !== undefined) {
-    const prevConfigArtifacts = await getConfigArtifactsRemote(
+    const prevConfigArtifacts = await getProjectConfigArtifactsRemote(
       previousCanonicalConfig
     )
-    const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
+    const { buildInfo, artifact } =
+      prevConfigArtifacts[projectName][referenceName]
     const { sourceName, contractName } = artifact
     return getOpenZeppelinUpgradableContract(
       `${sourceName}:${contractName}`,
@@ -2772,6 +3056,295 @@ export const getPreviousStorageLayoutOZFormat = async (
     throw new Error(
       `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
         `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
+    )
+  }
+}
+
+export const assertValidOrgConfigOptions = (
+  options: UserOrgConfigOptions,
+  cre: ChugSplashRuntimeEnvironment,
+  failureAction: FailureAction
+): void => {
+  const {
+    owner,
+    networks,
+    orgId,
+    orgOwners,
+    orgThreshold,
+    proposers,
+    managers,
+  } = options
+
+  if (owner) {
+    logValidationError(
+      'error',
+      `Detected the 'owner' field in the organization config. Please use the 'owners' field instead:\n` +
+        `  owners: [${owner}]`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (orgId === '') {
+    logValidationError(
+      'error',
+      `The 'orgId' cannot be an empty string.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (orgThreshold === 0) {
+    logValidationError(
+      'error',
+      `The 'orgThreshold' must be greater than 0.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (orgThreshold > orgOwners.length) {
+    logValidationError(
+      'error',
+      `The 'orgThreshold' must be less than or equal to the number of org owners.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const duplicatedOrgOwners = getDuplicateElements(orgOwners)
+  const duplicatedProposers = getDuplicateElements(proposers)
+  const duplicatedManagers = getDuplicateElements(managers)
+  const duplicatedNetworks = getDuplicateElements(networks)
+  if (duplicatedOrgOwners.length > 0) {
+    logValidationError(
+      'error',
+      `The following org owners are duplicated:`,
+      duplicatedOrgOwners,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedProposers.length > 0) {
+    logValidationError(
+      'error',
+      `The following proposers are duplicated:`,
+      duplicatedProposers,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedManagers.length > 0) {
+    logValidationError(
+      'error',
+      `The following managers are duplicated:`,
+      duplicatedManagers,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (duplicatedNetworks.length > 0) {
+    logValidationError(
+      'error',
+      `The following networks are duplicated:`,
+      duplicatedNetworks,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const invalidOrgOwnerAddresses = orgOwners.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidProposerAddresses = proposers.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidManagerAddresses = managers.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  const invalidNetworks = networks.filter(
+    (network) => !SUPPORTED_LIVE_NETWORKS[network]
+  )
+  if (invalidOrgOwnerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following org owners are not valid addresses:`,
+      invalidOrgOwnerAddresses,
+      cre.silent,
+
+      cre.stream
+    )
+  }
+  if (invalidProposerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following proposers are not valid addresses:`,
+      invalidProposerAddresses,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (invalidManagerAddresses.length > 0) {
+    logValidationError(
+      'error',
+      `The following managers are not valid addresses:`,
+      invalidManagerAddresses,
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (invalidNetworks.length > 0) {
+    logValidationError(
+      'error',
+      `The following networks in your ChugSplash config are not supported: ${invalidNetworks.join(
+        ', '
+      )}.\nSupported networks are:`,
+      Object.keys(SUPPORTED_LIVE_NETWORKS).map((n) => `- ${n}`),
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (proposers.length === 0 && managers.length === 0) {
+    logValidationError(
+      'error',
+      `There must be at least one proposer or manager.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (networks.length === 0) {
+    logValidationError(
+      'error',
+      `There must be at least one network in your ChugSplash config.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  assertNoValidationErrors(failureAction)
+}
+
+export const parseOrgConfigOptions = (
+  options: UserOrgConfigOptions
+): ParsedOrgConfigOptions => {
+  const { networks, orgId, orgThreshold } = options
+
+  const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
+
+  // Converts addresses to checksummed addresses and sorts them in ascending order.
+  const orgOwners = options.orgOwners
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
+  const proposers = options.proposers
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
+  const managers = options.managers
+    .map((address) => ethers.utils.getAddress(address))
+    .sort()
+
+  return {
+    chainIds,
+    orgId,
+    orgOwners,
+    orgThreshold,
+    proposers,
+    managers,
+  }
+}
+
+const assertValidProjectConfigOptions = (
+  projectName: string,
+  isOrgConfig: boolean,
+  cre: ChugSplashRuntimeEnvironment,
+  projectOptions?: ProjectConfigOptions
+): void => {
+  if (!isOrgConfig) {
+    if (projectOptions) {
+      logValidationError(
+        'error',
+        `The 'options' field defined under the project ${projectName}, but this config does not belong to an organization.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+    return
+  }
+
+  // If we make it to this point, we know that this is an org config.
+  if (!projectOptions) {
+    logValidationError(
+      'error',
+      `The 'options' field is missing under the project ${projectName}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+    return
+  }
+
+  const { projectOwners, projectThreshold } = projectOptions
+
+  if (projectName === '') {
+    logValidationError(
+      'error',
+      `The project name cannot be an empty string.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (projectThreshold === 0) {
+    logValidationError(
+      'error',
+      `The 'projectThreshold' for ${projectName} must be greater than 0.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (projectThreshold > projectOwners.length) {
+    logValidationError(
+      'error',
+      `The 'projectThreshold' for ${projectName} must be less than or equal to the number of project owners.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const duplicatedProjectOwners = getDuplicateElements(projectOwners)
+  if (duplicatedProjectOwners.length > 0) {
+    logValidationError(
+      'error',
+      `The following project owners for ${projectName} are duplicated:`,
+      duplicatedProjectOwners,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  const invalidProjectOwnerAddresses = projectOwners.filter(
+    (address) => !ethers.utils.isAddress(address)
+  )
+  if (invalidProjectOwnerAddresses.length > 0) {
+    logValidationError(
+      'error',
+
+      `The following project owners for ${projectName} are not valid addresses:`,
+      invalidProjectOwnerAddresses,
+      cre.silent,
+      cre.stream
     )
   }
 }

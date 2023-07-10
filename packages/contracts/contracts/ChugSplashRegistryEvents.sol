@@ -3,17 +3,16 @@ pragma solidity ^0.8.0;
 
 contract ChugSplashRegistryEvents {
     /**
-     * @notice Emitted whenever registration is finalized for a given organization ID.
+     * @notice Emitted whenever a ChugSplashManagerProxy is registered.
      *
-     * @param organizationID Organization ID that was registered.
-     * @param managerImpl    Address of the initial ChugSplashManager implementation for this
-     *                       project.
-     * @param owner          Address of the initial owner of the project.
-     * @param caller         Address that finalized registration.
+     * @param salt           Salt used to generate the ChugSplashManagerProxy address.
+     * @param managerImpl    Address of the ChugSplashManager implementation.
+     * @param owner          Address of the initial owner of the ChugSplashManager.
+     * @param caller         Address that registered the ChugSplashManager.
      * @param retdata        Return data from the ChugSplashManager initializer.
      */
-    event ChugSplashRegistrationFinalized(
-        bytes32 indexed organizationID,
+    event ChugSplashManagerRegistered(
+        bytes32 indexed salt,
         address indexed managerImpl,
         address owner,
         address caller,
@@ -73,4 +72,6 @@ contract ChugSplashRegistryEvents {
         uint256 indexed patch,
         address manager
     );
+
+    event CurrentManagerImplementationSet(address indexed _manager);
 }

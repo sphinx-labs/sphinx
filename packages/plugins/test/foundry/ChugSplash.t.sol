@@ -11,10 +11,14 @@ import { Stateless } from "../../contracts/test/Stateless.sol";
 import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
 import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
 import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
-import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import {
+    IChugSplashManager
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "@chugsplash/contracts/contracts/interfaces/IProxyUpdater.sol";
-import { IGasPriceCalculator } from "@chugsplash/contracts/contracts/interfaces/IGasPriceCalculator.sol";
+import {
+    IGasPriceCalculator
+} from "@chugsplash/contracts/contracts/interfaces/IGasPriceCalculator.sol";
 import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.sol";
 
 /* ChugSplash Foundry Library Tests
@@ -34,29 +38,32 @@ contract ChugSplashTest is ChugSplash, Test {
     OtherImmutables myOtherImmutables;
     SimpleStorage mySimpleStorage;
     SimpleStorage mySimpleStorage2;
-    Stateless     myStateless;
-    Stateless      myStatelessWithSalt;
+    Stateless myStateless;
+    Stateless myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
     IChugSplashRegistry registry;
     ChugSplash chugsplash;
 
-    string deployConfig = "./chugsplash/Storage.config.ts";
-    string create3Config = "./chugsplash/Create3.config.ts";
+    string deployConfig = "./chugsplash/main.config.ts";
 
-    struct SimpleStruct { bytes32 a; uint128 b; uint128 c; }
+    struct SimpleStruct {
+        bytes32 a;
+        uint128 b;
+        uint128 c;
+    }
 
     function setUp() public {
         silence();
 
-        deploy(deployConfig, vm.rpcUrl("anvil"));
-        deploy(create3Config, vm.rpcUrl("anvil"));
+        deploy(deployConfig, "Storage", vm.rpcUrl("anvil"));
+        deploy(deployConfig, "Create3", vm.rpcUrl("anvil"));
 
-        myStorage = Storage(getAddress(deployConfig, "MyStorage"));
-        myOtherImmutables = OtherImmutables(getAddress(deployConfig, "MyOtherImmutables"));
-        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "MySimpleStorage"));
-        myStateless = Stateless(getAddress(deployConfig, "Stateless"));
-        myStatelessWithSalt = Stateless(getAddress(create3Config, "Stateless", keccak256('1')));
-        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "ComplexConstructorArgs"));
+        myStorage = Storage(getAddress(deployConfig, "Storage", "MyStorage"));
+        myOtherImmutables = OtherImmutables(getAddress(deployConfig, "Storage", "MyOtherImmutables"));
+        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "Storage", "MySimpleStorage"));
+        myStateless = Stateless(getAddress(deployConfig, "Storage", "Stateless"));
+        myStatelessWithSalt = Stateless(getAddress(deployConfig, "Create3", "Stateless", keccak256('1')));
+        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "Storage", "ComplexConstructorArgs"));
 
         registry = utils.getChugSplashRegistry();
     }
@@ -66,18 +73,18 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testDeployStatelessImmutableWithSalt() public {
-        assertEq(myStatelessWithSalt.hello(), 'Hello, world!');
+        assertEq(myStatelessWithSalt.hello(), "Hello, world!");
         assertEq(myStatelessWithSalt.immutableUint(), 2);
     }
 
     function testDeployStatelessImmutableContract() public {
-        assertEq(myStateless.hello(), 'Hello, world!');
+        assertEq(myStateless.hello(), "Hello, world!");
         assertEq(myStateless.immutableUint(), 1);
     }
 
     function testDoesResolveReferenceToNonProxiedContract() public {
         assertEq(address(mySimpleStorage.myStateless()), address(myStateless));
-        assertEq(mySimpleStorage.hello(), 'Hello, world!');
+        assertEq(mySimpleStorage.hello(), "Hello, world!");
     }
 
     function testSetImmutableInt() public {
@@ -101,11 +108,17 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetImmutableBytes32() public {
-        assertEq(myStorage.immutableBytes32(), 0x1111111111111111111111111111111111111111111111111111111111111111);
+        assertEq(
+            myStorage.immutableBytes32(),
+            0x1111111111111111111111111111111111111111111111111111111111111111
+        );
     }
 
     function testSetImmutableUserDefinedType() public {
-        assertEq(Types.UserDefinedType.unwrap(myOtherImmutables.immutableUserDefinedType()), type(uint256).max);
+        assertEq(
+            Types.UserDefinedType.unwrap(myOtherImmutables.immutableUserDefinedType()),
+            type(uint256).max
+        );
     }
 
     function testSetImmutableBigNumberUint() public {
@@ -117,11 +130,17 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetImmutableAddress() public {
-        assertEq(myOtherImmutables.immutableAddress(), address(0x1111111111111111111111111111111111111111));
+        assertEq(
+            myOtherImmutables.immutableAddress(),
+            address(0x1111111111111111111111111111111111111111)
+        );
     }
 
     function testSetImmutableContract() public {
-        assertEq(address(myOtherImmutables.immutableContract()), address(0x1111111111111111111111111111111111111111));
+        assertEq(
+            address(myOtherImmutables.immutableContract()),
+            address(0x1111111111111111111111111111111111111111)
+        );
     }
 
     function testSetContractReference() public {
@@ -161,11 +180,14 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetString() public {
-        assertEq(myStorage.stringTest(), 'testString');
+        assertEq(myStorage.stringTest(), "testString");
     }
 
     function testLongString() public {
-        assertEq(myStorage.longStringTest(), 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz');
+        assertEq(
+            myStorage.longStringTest(),
+            "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+        );
     }
 
     function testSetBytes() public {
@@ -173,15 +195,21 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetUserDefinedType() public {
-        assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()), 1000000000000000000);
+        assertEq(
+            Types.UserDefinedType.unwrap(myStorage.userDefinedTypeTest()),
+            1000000000000000000
+        );
     }
 
     function testSetUserDefinedBytes() public {
-        assertEq(Types.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()), 0x1111111111111111111111111111111111111111111111111111111111111111);
+        assertEq(
+            Types.UserDefinedBytes32.unwrap(myStorage.userDefinedBytesTest()),
+            0x1111111111111111111111111111111111111111111111111111111111111111
+        );
     }
 
     function testSetUserDefinedInt() public {
-        assertEq(Types.UserDefinedInt.unwrap(myStorage.userDefinedInt()),  type(int256).min);
+        assertEq(Types.UserDefinedInt.unwrap(myStorage.userDefinedInt()), type(int256).min);
     }
 
     function testSetUserDefinedInt8() public {
@@ -201,25 +229,31 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetStringToUserDefinedTypeMapping() public {
-        (Types.UserDefinedType a) = myStorage.stringToUserDefinedMapping('testKey');
+        Types.UserDefinedType a = myStorage.stringToUserDefinedMapping("testKey");
         assertEq(Types.UserDefinedType.unwrap(a), 1000000000000000000);
     }
 
     function testSetUserDefinedTypeToStringMapping() public {
-        assertEq(myStorage.userDefinedToStringMapping(Types.UserDefinedType.wrap(1000000000000000000)), 'testVal');
+        assertEq(
+            myStorage.userDefinedToStringMapping(Types.UserDefinedType.wrap(1000000000000000000)),
+            "testVal"
+        );
     }
 
     function testSetComplexStruct() public {
         (int32 a, Types.UserDefinedType c) = myStorage.complexStruct();
         assertEq(a, 4);
         assertEq(Types.UserDefinedType.unwrap(c), 1000000000000000000);
-        assertEq(myStorage.getComplexStructMappingVal(5), 'testVal');
+        assertEq(myStorage.getComplexStructMappingVal(5), "testVal");
     }
 
     function testSetUserDefinedFixedArray() public {
         uint64[2] memory uintFixedArray = [1000000000000000000, 1000000000000000000];
         for (uint i = 0; i < uintFixedArray.length; i++) {
-            assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)), uintFixedArray[i]);
+            assertEq(
+                Types.UserDefinedType.unwrap(myStorage.userDefinedFixedArray(i)),
+                uintFixedArray[i]
+            );
         }
     }
 
@@ -231,20 +265,33 @@ contract ChugSplashTest is ChugSplash, Test {
 
         for (uint i = 0; i < nestedArray.length; i++) {
             for (uint j = 0; j < nestedArray[i].length; j++) {
-                assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)), nestedArray[i][j]);
+                assertEq(
+                    Types.UserDefinedType.unwrap(myStorage.userDefinedFixedNestedArray(i, j)),
+                    nestedArray[i][j]
+                );
             }
         }
     }
 
     function testSetUserDefinedDynamicArray() public {
-        uint64[3] memory uintDynamicArray = [1000000000000000000, 1000000000000000000, 1000000000000000000];
+        uint64[3] memory uintDynamicArray = [
+            1000000000000000000,
+            1000000000000000000,
+            1000000000000000000
+        ];
         for (uint i = 0; i < uintDynamicArray.length; i++) {
-            assertEq(Types.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)), uintDynamicArray[i]);
+            assertEq(
+                Types.UserDefinedType.unwrap(myStorage.userDefinedDynamicArray(i)),
+                uintDynamicArray[i]
+            );
         }
     }
 
     function testSetLongBytes() public {
-        assertEq(myStorage.longBytesTest(), hex"123456789101112131415161718192021222324252627282930313233343536373839404142434445464");
+        assertEq(
+            myStorage.longBytesTest(),
+            hex"123456789101112131415161718192021222324252627282930313233343536373839404142434445464"
+        );
     }
 
     function testSetContract() public {
@@ -267,30 +314,34 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetStringToStringMapping() public {
-        assertEq(myStorage.stringToStringMapping('testKey'), 'testVal');
+        assertEq(myStorage.stringToStringMapping("testKey"), "testVal");
     }
 
     function testSetStringToUintMapping() public {
-        assertEq(myStorage.stringToUint256Mapping('testKey'), 12341234);
+        assertEq(myStorage.stringToUint256Mapping("testKey"), 12341234);
     }
 
     function testSetStringToBoolMapping() public {
-        assertEq(myStorage.stringToBoolMapping('testKey'), true);
+        assertEq(myStorage.stringToBoolMapping("testKey"), true);
     }
 
     function testSetStringToAddressMapping() public {
-        assertEq(myStorage.stringToAddressMapping('testKey'), 0x1111111111111111111111111111111111111111);
+        assertEq(
+            myStorage.stringToAddressMapping("testKey"),
+            0x1111111111111111111111111111111111111111
+        );
     }
 
     function testSetStringToStructMapping() public {
-        (bytes32 a, uint128 b, uint128 c) = myStorage.stringToStructMapping('testKey');
+        (bytes32 a, uint128 b, uint128 c) = myStorage.stringToStructMapping("testKey");
         assertEq(a, hex"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         assertEq(b, 12345);
         assertEq(c, 54321);
     }
 
     function testSetLongStringMappingtoLongString() public {
-        string memory key = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz';
+        string
+            memory key = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
         assertEq(myStorage.longStringToLongStringMapping(key), key);
     }
 
@@ -325,15 +376,15 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetUint64FixedSizeMultiNestedArray() public {
-        uint8[2][2][2] memory multiNestedArray = [
-            [[1, 2], [3, 4]],
-            [[5, 6], [7, 8]]
-        ];
+        uint8[2][2][2] memory multiNestedArray = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
 
         for (uint i = 0; i < multiNestedArray.length; i++) {
             for (uint j = 0; j < multiNestedArray[i].length; j++) {
                 for (uint k = 0; k < multiNestedArray[i][j].length; k++) {
-                    assertEq(myStorage.uint64FixedMultiNestedArray(i, j, k), multiNestedArray[i][j][k]);
+                    assertEq(
+                        myStorage.uint64FixedMultiNestedArray(i, j, k),
+                        multiNestedArray[i][j][k]
+                    );
                 }
             }
         }
@@ -348,9 +399,21 @@ contract ChugSplashTest is ChugSplash, Test {
 
     function testSetDynamicSimpleStructArray() public {
         SimpleStruct[3] memory structArray = [
-            SimpleStruct(hex'abababababababababababababababababababababababababababababababab', 12345, 54321),
-            SimpleStruct(hex'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd', 100_000_000, 999_999_999),
-            SimpleStruct(hex'efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef', 56789, 98765)
+            SimpleStruct(
+                hex"abababababababababababababababababababababababababababababababab",
+                12345,
+                54321
+            ),
+            SimpleStruct(
+                hex"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+                100_000_000,
+                999_999_999
+            ),
+            SimpleStruct(
+                hex"efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+                56789,
+                98765
+            )
         ];
 
         for (uint i = 0; i < structArray.length; i++) {
@@ -362,52 +425,57 @@ contract ChugSplashTest is ChugSplash, Test {
     }
 
     function testSetUint256MappingToString() public {
-        assertEq(myStorage.uint256ToStringMapping(12341234), 'testVal');
+        assertEq(myStorage.uint256ToStringMapping(12341234), "testVal");
     }
 
     function testSetUint8MappingToString() public {
-        assertEq(myStorage.uint8ToStringMapping(255), 'testVal');
+        assertEq(myStorage.uint8ToStringMapping(255), "testVal");
     }
 
     function testSetUint128MappingToString() public {
-        assertEq(myStorage.uint128ToStringMapping(1234), 'testVal');
+        assertEq(myStorage.uint128ToStringMapping(1234), "testVal");
     }
 
     function testSetStringToBigNumberUintMapping() public {
-        assertEq(myStorage.stringToBigNumberUintMapping('testKey'), 1234);
+        assertEq(myStorage.stringToBigNumberUintMapping("testKey"), 1234);
     }
 
     function testSetInt256MappingToString() public {
-        assertEq(myStorage.int256ToStringMapping(-1), 'testVal');
+        assertEq(myStorage.int256ToStringMapping(-1), "testVal");
     }
 
-
     function testSetInt8MappingToString() public {
-        assertEq(myStorage.int8ToStringMapping(-10), 'testVal');
+        assertEq(myStorage.int8ToStringMapping(-10), "testVal");
     }
 
     function testSetInt128MappingToString() public {
-        assertEq(myStorage.int128ToStringMapping(-1234), 'testVal');
+        assertEq(myStorage.int128ToStringMapping(-1234), "testVal");
     }
 
     function testSetAddressMappingToString() public {
-        assertEq(myStorage.addressToStringMapping(0x1111111111111111111111111111111111111111), 'testVal');
+        assertEq(
+            myStorage.addressToStringMapping(0x1111111111111111111111111111111111111111),
+            "testVal"
+        );
     }
 
     function testSetBytesMappingToString() public {
-        assertEq(myStorage.bytesToStringMapping(hex"abcd1234"), 'testVal');
+        assertEq(myStorage.bytesToStringMapping(hex"abcd1234"), "testVal");
     }
 
     function testSetNestedStringMapping() public {
-        assertEq(myStorage.nestedMapping('testKey', 'nestedKey'), 'nestedVal');
+        assertEq(myStorage.nestedMapping("testKey", "nestedKey"), "nestedVal");
     }
 
     function testSetMultiNestedMapping() public {
-        assertEq(myStorage.multiNestedMapping(1, 'testKey', 0x1111111111111111111111111111111111111111), 2);
+        assertEq(
+            myStorage.multiNestedMapping(1, "testKey", 0x1111111111111111111111111111111111111111),
+            2
+        );
     }
 
     function testSetMutableStringConstructorArg() public {
-        assertEq(myComplexConstructorArgs.str(), 'testString');
+        assertEq(myComplexConstructorArgs.str(), "testString");
     }
 
     function testSetMutableDyanmicBytesConstructorArg() public {
@@ -439,31 +507,28 @@ contract ChugSplashTest is ChugSplash, Test {
         ];
         for (uint i = 0; i < uint64FixedNestedArray.length; i++) {
             for (uint j = 0; j < uint64FixedNestedArray[i].length; j++) {
-                assertEq(myComplexConstructorArgs.uint64FixedNestedArray(i, j), uint64FixedNestedArray[i][j]);
+                assertEq(
+                    myComplexConstructorArgs.uint64FixedNestedArray(i, j),
+                    uint64FixedNestedArray[i][j]
+                );
             }
         }
     }
 
     function testSetMutableUint64DynamicMultinestedArrayConstructorArg() public {
         uint8[3][2][3] memory uint64DynamicMultiNestedArray = [
-            [
-                [1, 2, 3],
-                [4, 5, 6]
-            ],
-            [
-                [7, 8, 9],
-                [10, 11, 12]
-            ],
-            [
-                [13, 14, 15],
-                [16, 17, 18]
-            ]
+            [[1, 2, 3], [4, 5, 6]],
+            [[7, 8, 9], [10, 11, 12]],
+            [[13, 14, 15], [16, 17, 18]]
         ];
 
         for (uint i = 0; i < uint64DynamicMultiNestedArray.length; i++) {
             for (uint j = 0; j < uint64DynamicMultiNestedArray[i].length; j++) {
                 for (uint k = 0; k < uint64DynamicMultiNestedArray[i][j].length; k++) {
-                    assertEq(myComplexConstructorArgs.uint64DynamicMultiNestedArray(i, j, k), uint64DynamicMultiNestedArray[i][j][k]);
+                    assertEq(
+                        myComplexConstructorArgs.uint64DynamicMultiNestedArray(i, j, k),
+                        uint64DynamicMultiNestedArray[i][j][k]
+                    );
                 }
             }
         }

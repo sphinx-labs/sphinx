@@ -1,32 +1,36 @@
-// Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
-import '../dist'
-
-import { expect } from 'chai'
 import hre from 'hardhat'
-import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
+import { expect } from 'chai'
+import {
+  FailureAction,
+  ensureChugSplashInitialized,
+  readParsedOwnerConfig,
+} from '@chugsplash/core'
+import '@nomiclabs/hardhat-ethers'
 
+import '../dist'
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
+import { projectName as validationName } from '../chugsplash/projects/validation/Validation.config'
+import { projectName as constructorArgName } from '../chugsplash/projects/validation/ConstructorArgValidation.config'
+import { projectName as reverterProjectName } from '../chugsplash/projects/validation/Reverter.config'
 
-const variableValidateConfigPath = './chugsplash/Validation.config.ts'
-const constructorArgConfigPath =
-  './chugsplash/ConstructorArgValidation.config.ts'
-const noProxyContractReferenceConfigPath =
-  './chugsplash/NoProxyContractReference.config.ts'
+const configPath = './chugsplash/main-validation.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
 
   before(async () => {
     const provider = hre.ethers.provider
+    const signer = provider.getSigner()
+    const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
     }
 
-    const cre = await createChugSplashRuntime(
+    await ensureChugSplashInitialized(provider, signer)
+
+    const cre = createChugSplashRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -36,11 +40,13 @@ describe('Validate', () => {
     )
 
     try {
-      await readValidatedChugSplashConfig(
-        variableValidateConfigPath,
+      await readParsedOwnerConfig(
+        configPath,
+        validationName,
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -48,11 +54,13 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
-        constructorArgConfigPath,
+      await readParsedOwnerConfig(
+        configPath,
+        constructorArgName,
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -60,11 +68,13 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
-        noProxyContractReferenceConfigPath,
+      await readParsedOwnerConfig(
+        configPath,
+        reverterProjectName,
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {

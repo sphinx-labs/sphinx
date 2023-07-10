@@ -116,17 +116,6 @@ To test your deployment:
 npx hardhat test test/HelloChugSplash.spec.ts
 ```
 
-## Update your Organization Id
-Before deploying on a live network, you'll want to update the organization id in your ChugSplash config file. The organization id must be unique to you. If you are using ChugSplash managed, then we will provide one for you and
-you should just copy paste it into your config. If you are not using ChugSplash managed, then you will have to
-generate a unique organization id yourself. It must be a 32 byte hex string. You can easily generate one using ethers
-like so:
-```
-organizationID: ethers.utils.keccak256(
-  ethers.utils.toUtf8Bytes('random-string')
-),
-```
-
 ## Setup ChugSplash using JavaScript
 
 If you have a JavaScript Hardhat project, follow these instructions. Otherwise, go to [the TypeScript instructions](#setup-chugsplash-using-typescript) instead.
