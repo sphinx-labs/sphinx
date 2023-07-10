@@ -3,37 +3,44 @@ pragma solidity >=0.7.4 <0.9.0;
 
 import { console } from "forge-std/console.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
-import { ChugSplash } from './ChugSplash.sol';
+import { ChugSplash } from "./ChugSplash.sol";
 import {
     Configs,
     MinimalConfig,
     MinimalContractConfig,
     ContractKindEnum
 } from "./ChugSplashPluginTypes.sol";
-import { IChugSplashRegistry } from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
-import { IChugSplashManager } from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
+import {
+    IChugSplashRegistry
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashRegistry.sol";
+import {
+    IChugSplashManager
+} from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
 import { ChugSplashConstants } from "./ChugSplashConstants.sol";
 
 contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
-    function generateArtifacts(string memory _configPath, string memory _rpcUrl) internal {
+    function generateArtifacts(address _owner, string memory _rpcUrl) internal {
         string memory networkName = utils.getChainAlias(_rpcUrl);
 
-        string[] memory cmds = new string[](10);
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
         cmds[3] = "generateArtifacts";
-        cmds[4] = _configPath;
-        cmds[5] = networkName;
-        cmds[6] = _rpcUrl;
+        cmds[4] = networkName;
+        cmds[5] = _rpcUrl;
+        cmds[6] = vm.toString(_owner);
 
         vm.ffi(cmds);
 
         console.log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
-    function propose(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
-        initializeChugSplash(_rpcUrl);
+    function propose(
+        string memory _configPath,
+        string memory _projectName,
+        bool _dryRun
+    ) internal noVmBroadcast {
         string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript ChugSplash config files.
@@ -43,8 +50,8 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         cmds[3] = mainFfiScriptPath;
         cmds[4] = "propose";
         cmds[5] = _configPath;
-        cmds[6] = _rpcUrl;
-        cmds[7] = vm.envString("PRIVATE_KEY");
+        cmds[6] = _projectName;
+        cmds[7] = vm.toString(_dryRun);
 
         bytes memory result = vm.ffi(cmds);
 
@@ -55,17 +62,16 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         bytes memory data = utils.slice(result, 0, result.length - 32);
 
         if (success) {
-            (string memory projectName, string memory warnings) = abi.decode(
-                data,
-                (string, string)
-            );
+            string memory warnings = abi.decode(data, (string));
 
             if (bytes(warnings).length > 0) {
                 console.log(StdStyle.yellow(warnings));
             }
 
             if (!silent) {
-                console.log(StdStyle.green(string.concat("Successfully proposed ", projectName, ".")));
+                console.log(
+                    StdStyle.green(string.concat("Successfully proposed ", _projectName, "."))
+                );
             }
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
@@ -79,16 +85,16 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(
         string memory _configPath,
+        string memory _projectName,
         address _proxy,
         string memory _rpcUrl
     ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = IChugSplashManager(
-            registry.projects(configs.minimalConfig.organizationID)
-        );
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
 
@@ -101,7 +107,6 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         // check if we can fetch the owner address from the expected slot
         // and that the caller is in fact the owner
         address ownerAddress = utils.getEIP1967ProxyAdminAddress(_proxy);
-        console.log(ownerAddress);
 
         address deployer = utils.msgSender();
         require(ownerAddress == deployer, "ChugSplash: You are not the owner of this proxy.");
@@ -129,18 +134,18 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
         string memory _configPath,
+        string memory _projectName,
         string memory _referenceName,
         address _newOwner,
         string memory _rpcUrl
     ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
+
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = IChugSplashManager(
-            registry.projects(minimalConfig.organizationID)
-        );
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         require(address(manager) != address(0), "ChugSplash: No project found for organization ID");
 
@@ -176,12 +181,17 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         manager.exportProxy(payable(targetContractConfig.addr), contractKindHash, _newOwner);
     }
 
-    function cancel(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
+    function cancel(
+        string memory _configPath,
+        string memory _projectName,
+        string memory _rpcUrl
+    ) internal noVmBroadcast {
         initializeChugSplash(_rpcUrl);
-        Configs memory configs = ffiGetConfigs(_configPath);
+        address signer = utils.msgSender();
 
-        IChugSplashRegistry registry = utils.getChugSplashRegistry();
-        IChugSplashManager manager = utils.getChugSplashManager(registry, configs.minimalConfig.organizationID);
+        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+
+        IChugSplashManager manager = IChugSplashManager(payable(configs.minimalConfig.deployer));
 
         manager.cancelActiveChugSplashDeployment();
     }

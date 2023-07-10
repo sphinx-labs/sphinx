@@ -7,7 +7,8 @@ import {
     DeploymentState,
     RawChugSplashAction,
     ChugSplashTarget,
-    Version
+    Version,
+    ContractInfo
 } from "../ChugSplashDataTypes.sol";
 
 /**
@@ -15,18 +16,18 @@ import {
  * @notice Interface that must be inherited by the ChugSplashManager contract.
  */
 interface IChugSplashManager {
+    function contractToProject(address) external returns (string memory);
+
+    function numContracts(string memory) external returns (uint256);
+
     /**
      * @notice Initializes this contract. Must only be callable one time, which should occur
        immediately after contract creation. This is necessary because this contract is meant to
-       exist as an implementation behind proxies. Note that the implementation must be initialized
-       with all zero-bytes to prevent anyone from owning it.
-     *
-     * @param _data Arbitrary initialization data. This ensures that a consistent interface can be
-                    used to initialize future versions of the ChugSplashManager.
+       exist as an implementation behind proxies.
      *
      * @return Arbitrary bytes.
      */
-    function initialize(bytes memory _data) external returns (bytes memory);
+    function initialize(address _owner, bytes memory _data) external returns (bytes memory);
 
     /**
      * @notice Indicates whether or not a deployment is currently being executed.
@@ -42,13 +43,6 @@ interface IChugSplashManager {
      */
     function registry() external view returns (IChugSplashRegistry);
 
-    /**
-     * @notice Organization ID for this contract.
-     *
-     * @return 32-byte organization ID.
-     */
-    function organizationID() external view returns (bytes32);
-
     function cancelActiveChugSplashDeployment() external;
 
     function exportProxy(
@@ -57,9 +51,8 @@ interface IChugSplashManager {
         address _newOwner
     ) external;
 
-    function isProposer(address _addr) external view returns (bool);
-
-    function propose(
+    function approve(
+        string memory _projectName,
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -69,7 +62,7 @@ interface IChugSplashManager {
         bool _remoteExecution
     ) external;
 
-    function approve(bytes32 _deploymentId) external;
+    function withdrawOwnerETH(address _to) external;
 
     function activeDeploymentId() external view returns (bytes32);
 
@@ -90,4 +83,8 @@ interface IChugSplashManager {
         ChugSplashTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) external;
+
+    function incrementProtocolDebt(uint256 _initialGasLeft) external;
+
+    function transferContractToProject(address _addr, string memory _projectName) external;
 }

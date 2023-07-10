@@ -4,8 +4,10 @@ import { extendConfig, extendEnvironment } from 'hardhat/config'
 import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
 import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
+import { UserSalt } from '@chugsplash/core'
 
 import { getContract, resetChugSplashDeployments } from './deployments'
+
 // To extend one of Hardhat's types, you need to import the module where it has been defined, and
 // redeclare it.
 import 'hardhat/types/config'
@@ -30,6 +32,7 @@ declare module 'hardhat/types/runtime' {
       getContract: (
         projectName: string,
         referenceName: string,
+        owner: ethers.Signer,
         salt?: string
       ) => Promise<ethers.Contract>
     }
@@ -54,12 +57,14 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
       getContract: async (
         projectName: string,
         referenceName: string,
-        salt?: string
+        owner: ethers.Signer,
+        salt?: UserSalt
       ): Promise<ethers.Contract> => {
         const contract = await getContract(
           hre,
           projectName,
           referenceName,
+          owner,
           salt
         )
         return contract

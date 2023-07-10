@@ -3,10 +3,11 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   IMMUTABLE_TYPE_HASH,
+  IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber } from 'ethers'
+import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -33,8 +34,11 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   immutable: IMMUTABLE_TYPE_HASH,
+  implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
+
+export type Project = string | 'all'
 
 export type ContractKind = UserContractKind | 'proxy'
 
@@ -72,26 +76,99 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
+export interface UserChugSplashConfig {
+  options?: UserOrgConfigOptions
+  projects: UserProjectConfigs
+}
+
+export type ProjectConfigOptions = {
+  projectOwners: Array<string>
+  projectThreshold: number
+}
+
 /**
  * Full user-defined config object that can be used to commit a deployment/upgrade.
  */
-export interface UserChugSplashConfig {
-  options: {
-    organizationID: string
-    projectName: string
-  }
+export interface UserProjectConfig {
+  options?: ProjectConfigOptions
   contracts: UserContractConfigs
+}
+
+export type UserProjectConfigs = {
+  [projectName: string]: UserProjectConfig
+}
+
+/**
+ * @notice The `networks` field is an array of network names, e.g. 'mainnet'.
+ */
+export interface UserOrgConfigOptions extends OrgConfigOptions {
+  networks: Array<string>
+}
+
+/**
+ * @notice The `chainIds` field is an array of chain IDs that correspond to the `networks` field in
+ * the unparsed config.
+ */
+export interface ParsedOrgConfigOptions extends OrgConfigOptions {
+  chainIds: Array<number>
+}
+
+/**
+ * @notice If any new fields are added to this interface, they must also be set in
+ * `OwnerConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
+ * both of these interfaces are mutually exclusive.
+ */
+export interface OrgConfigOptions {
+  orgId: string
+  orgOwners: Array<string>
+  orgThreshold: number
+  proposers: Array<string>
+  managers: Array<string>
+  owner?: never
+}
+
+/**
+ * @notice If any new fields are added to this interface, they must also be set in
+ * `OrgConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
+ * both of these interfaces are mutually exclusive.
+ */
+export type OwnerConfigOptions = {
+  owner: string
+  orgId?: never
+  orgThreshold?: never
+  orgOwners?: never
+  proposers?: never
+  managers?: never
+  networks?: never
+}
+
+export interface ParsedOwnerConfig {
+  options: OwnerConfigOptions
+  projects: ParsedProjectConfigs
+}
+
+export interface ParsedOrgConfig {
+  options: ParsedOrgConfigOptions
+  projects: ParsedProjectConfigs
+}
+
+export interface ParsedProjectConfigOptions {
+  deployer: string
+  project: string
+  projectOwners?: Array<string>
+  projectThreshold?: number
 }
 
 /**
  * Full parsed config object.
  */
-export interface ParsedChugSplashConfig {
-  options: {
-    organizationID: string
-    projectName: string
-  }
+export interface ParsedProjectConfig {
+  options: ParsedProjectConfigOptions
   contracts: ParsedContractConfigs
+}
+
+export type ParsedProjectConfigs = {
+  [projectName: string]: ParsedProjectConfig
 }
 
 export type UnsafeAllow = {
@@ -130,7 +207,7 @@ export type UserConfigVariables = {
 }
 
 /**
- * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
+ * Contract definition in a parsed config. Note that the `contract` field is the
  * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
  * qualified name or the contract name.
  */
@@ -159,7 +236,7 @@ export type ParsedConfigVariables = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
+export interface CanonicalProjectConfig extends ParsedProjectConfig {
   inputs: Array<ChugSplashInput>
 }
 
@@ -171,6 +248,10 @@ export type ChugSplashInput = {
 }
 
 export type ConfigArtifacts = {
+  [projectName: string]: ProjectConfigArtifacts
+}
+
+export type ProjectConfigArtifacts = {
   [referenceName: string]: {
     buildInfo: BuildInfo
     artifact: ContractArtifact
@@ -178,6 +259,11 @@ export type ConfigArtifacts = {
 }
 
 export type ConfigCache = {
+  [projectName: string]: ProjectConfigCache
+}
+
+export type ProjectConfigCache = {
+  isRegistered: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
   networkName: string
@@ -186,6 +272,7 @@ export type ConfigCache = {
 
 export type ContractConfigCache = {
   [referenceName: string]: {
+    existingProjectName: string
     isTargetDeployed: boolean
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
@@ -205,7 +292,8 @@ export type ImportCache = {
 }
 
 export type MinimalConfig = {
-  organizationID: string
+  deployer: string
+  owner: string
   projectName: string
   contracts: Array<MinimalContractConfig>
 }
@@ -219,4 +307,30 @@ export type MinimalContractConfig = {
 
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
-) => Promise<ConfigArtifacts>
+) => Promise<ProjectConfigArtifacts>
+
+export type GetProviderForChainId = (
+  chainId: number
+) => providers.JsonRpcProvider
+
+export interface CanonicalOrgConfig {
+  deployer: string
+  options: {
+    orgId: string
+    orgOwners: Array<string>
+    orgThreshold: number
+    proposers: Array<string>
+    managers: Array<string>
+  }
+  projects: ParsedProjectConfigs
+  chainStates: {
+    [chainId: number]: {
+      firstProposalOccurred: boolean
+      projects: {
+        [projectName: string]: {
+          projectCreated: boolean
+        }
+      }
+    }
+  }
+}

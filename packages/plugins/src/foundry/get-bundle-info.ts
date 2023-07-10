@@ -2,21 +2,25 @@ import path, { resolve } from 'path'
 import fs from 'fs'
 
 import {
-  getUnvalidatedParsedConfig,
-  postParsingValidation,
+  getUnvalidatedParsedProjectConfig,
+  projectPostParsingValidation,
 } from '@chugsplash/core/dist/config/parse'
 import { FailureAction } from '@chugsplash/core/dist/types'
-import { getBundleInfo } from '@chugsplash/core/dist/tasks'
+import { getProjectBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
-import { writeCanonicalConfig } from '@chugsplash/core/dist'
+import {
+  UserChugSplashConfig,
+  getChugSplashManagerAddress,
+  getDeployContractCosts,
+  writeCanonicalConfig,
+} from '@chugsplash/core/dist'
 
 import { createChugSplashRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 import {
-  getDeployContractCosts,
   getEncodedFailure,
   getPrettyWarnings,
   validationStderrWrite,
@@ -25,8 +29,10 @@ import {
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
-const userConfig = JSON.parse(userConfigStr)
+const userConfig: UserChugSplashConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
+const projectName = args[3]
+const ownerAddress = args[4]
 
 ;(async () => {
   process.stderr.write = validationStderrWrite
@@ -77,26 +83,32 @@ const broadcasting = args[2] === 'true'
       cachePath
     )
 
-    const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-    const parsedConfig = getUnvalidatedParsedConfig(
-      userConfig,
-      configArtifacts,
-      cre,
-      FailureAction.THROW
+    const projectConfigArtifacts = await getConfigArtifacts(
+      userConfig.projects[projectName].contracts
     )
 
-    await postParsingValidation(
-      parsedConfig,
-      configArtifacts,
+    const deployerAddress = getChugSplashManagerAddress(ownerAddress)
+    const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
+      userConfig.projects[projectName],
+      projectName,
+      projectConfigArtifacts,
+      cre,
+      FailureAction.THROW,
+      deployerAddress
+    )
+
+    await projectPostParsingValidation(
+      parsedProjectConfig,
+      projectConfigArtifacts,
+      projectName,
       cre,
       configCache,
       FailureAction.THROW
     )
 
-    const { configUri, bundles, canonicalConfig } = await getBundleInfo(
-      parsedConfig,
-      configArtifacts,
+    const { configUri, bundles, canonicalConfig } = await getProjectBundleInfo(
+      parsedProjectConfig,
+      projectConfigArtifacts,
       configCache
     )
 
@@ -114,7 +126,7 @@ const broadcasting = args[2] === 'true'
       // config URI as its name.
       fs.writeFileSync(
         path.join(artifactCachePath, `${ipfsHash}.json`),
-        JSON.stringify(configArtifacts, null, 2)
+        JSON.stringify(projectConfigArtifacts, null, 2)
       )
     }
 
@@ -137,7 +149,7 @@ const broadcasting = args[2] === 'true'
       [bundles.targetBundle]
     )
 
-    const deployContractCosts = getDeployContractCosts(configArtifacts)
+    const deployContractCosts = getDeployContractCosts(projectConfigArtifacts)
     const encodedConfigUriAndWarnings = defaultAbiCoder.encode(
       ['string', deployContractCostsType, 'string'],
       [configUri, deployContractCosts, getPrettyWarnings()]
