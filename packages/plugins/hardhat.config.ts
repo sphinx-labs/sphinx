@@ -35,7 +35,7 @@ const config: HardhatUserConfig = {
   networks: {
     goerli: {
       chainId: 5,
-      url: `http://localhost:42005`,
+      url: `http://localhost:8545`,
       // url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
@@ -46,7 +46,8 @@ const config: HardhatUserConfig = {
     },
     'optimism-goerli': {
       chainId: 420,
-      url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: `http://localhost:8546`,
+      // url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     optimism: {

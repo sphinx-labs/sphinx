@@ -36,8 +36,8 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         console.log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
     }
 
-    function propose(string memory _configPath, string memory _projectName) internal noVmBroadcast {
-        string[] memory cmds = new string[](7);
+    function propose(string memory _configPath, string memory _projectName, bool _dryRun) internal noVmBroadcast {
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript ChugSplash config files.
         cmds[1] = "ts-node";
@@ -47,6 +47,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         cmds[4] = "propose";
         cmds[5] = _configPath;
         cmds[6] = _projectName;
+        cmds[7] = vm.toString(_dryRun);
 
         bytes memory result = vm.ffi(cmds);
 

@@ -36,15 +36,21 @@ yargs(hideBin(process.argv))
           describe: 'The name of the project to propose.',
           type: 'string',
         })
+        .option('dryRun', {
+          describe:
+            'Dry run the proposal without signing or relaying it to the back-end.',
+          boolean: true,
+        })
         .option('silent', {
+          alias: 's',
           describe: `Hide ChugSplash's output.`,
           boolean: true,
-          alias: 's',
         })
         .hide('version'),
     async (argv) => {
       const { configPath, project } = argv
       const silent = argv.silent ?? false
+      const dryRun = argv.dryRun ?? false
       if (!configPath) {
         console.error(
           `Must specify a path to a ChugSplash config file via --${configPathOption}.`
@@ -65,10 +71,13 @@ yargs(hideBin(process.argv))
 
       process.env['CHUGSPLASH_INTERNAL_PROJECT_NAME'] = project
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
+      process.env['CHUGSPLASH_INTERNAL_DRY_RUN'] = dryRun.toString()
       process.env['CHUGSPLASH_INTERNAL_SILENT'] = silent.toString()
 
       const spinner = ora({ isSilent: silent })
-      spinner.start('Proposing...')
+      const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
+      spinner.start(`${dryRunOrProposal} in progress...`)
+
       try {
         // Although it's not strictly necessary to propose via a Forge script, we do it anyways
         // because it's a convenient way to ensure that the latest versions of the contracts are
@@ -77,7 +86,7 @@ yargs(hideBin(process.argv))
         // directly because calling `npx chugsplash` uses Node, not TS Node.
         await execAsync(`forge script ${proposeContractPath}`)
       } catch ({ stderr }) {
-        spinner.fail('Proposal failed.')
+        spinner.fail(`${dryRunOrProposal} failed.`)
         // Strip \n from the end of the error message, if it exists
         const prettyError = stderr.endsWith('\n')
           ? stderr.substring(0, stderr.length - 1)
@@ -86,7 +95,7 @@ yargs(hideBin(process.argv))
         console.error(prettyError)
         process.exit(1)
       }
-      spinner.succeed('Successfully proposed!')
+      spinner.succeed(`${dryRunOrProposal} succeeded!`)
     }
   )
   .command(

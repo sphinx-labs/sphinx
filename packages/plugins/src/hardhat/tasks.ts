@@ -159,14 +159,17 @@ export const chugsplashProposeTask = async (
   args: {
     configPath: string
     project: string
+    dryRun: boolean
     noCompile: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, project, noCompile } = args
+  const { configPath, project, noCompile, dryRun } = args
 
+  const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
   const spinner = ora()
-  spinner.start(`Proposing ${project}...`)
+  spinner.start(`${dryRunOrProposal} in progress...`)
+
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
       quiet: true,
@@ -184,6 +187,7 @@ export const chugsplashProposeTask = async (
   await proposeAbstractTask(
     configPath,
     project,
+    dryRun,
     cre,
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
@@ -197,6 +201,10 @@ task(TASK_CHUGSPLASH_PROPOSE)
   )
   .addParam('configPath', 'Path to the ChugSplash config file')
   .addParam('project', 'The name of the project to propose')
+  .addFlag(
+    'dryRun',
+    'Dry run the proposal without signing or relaying it to the back-end.'
+  )
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')
   .setAction(chugsplashProposeTask)
 

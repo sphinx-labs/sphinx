@@ -111,6 +111,7 @@ export const registerOwner = async (
 export const proposeAbstractTask = async (
   configPath: string,
   projectName: string,
+  dryRun: boolean,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
@@ -257,7 +258,10 @@ export const proposeAbstractTask = async (
 
   const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-  const metaTxnSignature = await signAuthRootMetaTxn(wallet, root)
+  // Skip signing the meta transaction if we're doing a dry run.
+  const metaTxnSignature = dryRun
+    ? undefined
+    : await signAuthRootMetaTxn(wallet, root)
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
   for (const bundledLeaf of bundledLeafs) {
@@ -374,13 +378,14 @@ export const proposeAbstractTask = async (
     },
   }
 
-  await relayProposal(proposalRequest)
+  // Only relay the proposal to the back-end if we're not doing a dry run.
+  if (!dryRun) {
+    await relayProposal(proposalRequest)
+    const canonicalProjectConfigArray = Object.values(canonicalProjectConfigs)
+    await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
+  }
 
-  const canonicalProjectConfigArray = Object.values(canonicalProjectConfigs)
-
-  await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
-
-  spinner.succeed(`Proposed ${projectName}!`)
+  spinner.succeed(`${dryRun ? 'Dry run' : 'Proposal'} succeeded!`)
 }
 
 export const chugsplashCommitAbstractSubtask = async (

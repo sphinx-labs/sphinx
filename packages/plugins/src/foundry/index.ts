@@ -41,6 +41,7 @@ const command = args[0]
       try {
         const configPath = args[1]
         const projectName = args[2]
+        const dryRun = args[3] === 'true'
 
         const {
           artifactFolder,
@@ -62,6 +63,7 @@ const command = args[0]
         await proposeAbstractTask(
           configPath,
           projectName,
+          dryRun,
           cre,
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
           await makeGetProviderFromChainId(rpcEndpoints),

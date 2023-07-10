@@ -1263,15 +1263,16 @@ export const fetchCanonicalOrgConfig = async (
   orgId: string,
   apiKey: string
 ): Promise<CanonicalOrgConfig | undefined> => {
-  const response = await axios.post(
-    `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
-    {
-      apiKey,
-      orgId,
-    }
-  )
-  const config: CanonicalOrgConfig | undefined = response.data
-  return config
+  return undefined
+  // const response = await axios.post(
+  //   `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
+  //   {
+  //     apiKey,
+  //     orgId,
+  //   }
+  // )
+  // const config: CanonicalOrgConfig | undefined = response.data
+  // return config
 }
 
 export const fetchChugSplashManagedBaseUrl = () => {
@@ -1280,32 +1281,35 @@ export const fetchChugSplashManagedBaseUrl = () => {
     : 'https://www.chugsplash.io'
 }
 
+// TODO: axios
+
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
+  return  undefined
   // TODO: return undefined if the request returns an empty object.
-  try {
-    await axios.post(
-      `${fetchChugSplashManagedBaseUrl()}/api/propose`,
-      proposalRequest
-    )
-  } catch (e) {
-    if (e.response.status === 200) {
-      return
-    } else if (e.response.status === 400) {
-      throw new Error(`Malformed Request: ${e.response.data}`)
-    } else if (e.response.status === 401) {
-      throw new Error(
-        `Unauthorized, please check your API key and Org Id are correct`
-      )
-    } else if (e.response.status === 409) {
-      throw new Error(
-        `Unsupported network, please report this to the developers`
-      )
-    } else if (e.response.status === 500) {
-      throw new Error(
-        `Internal server error, please report this to the developers`
-      )
-    }
-  }
+  // try {
+  //   await axios.post(
+  //     `${fetchChugSplashManagedBaseUrl()}/api/propose`,
+  //     proposalRequest
+  //   )
+  // } catch (e) {
+  //   if (e.response.status === 200) {
+  //     return
+  //   } else if (e.response.status === 400) {
+  //     throw new Error(`Malformed Request: ${e.response.data}`)
+  //   } else if (e.response.status === 401) {
+  //     throw new Error(
+  //       `Unauthorized, please check your API key and Org Id are correct`
+  //     )
+  //   } else if (e.response.status === 409) {
+  //     throw new Error(
+  //       `Unsupported network, please report this to the developers`
+  //     )
+  //   } else if (e.response.status === 500) {
+  //     throw new Error(
+  //       `Internal server error, please report this to the developers`
+  //     )
+  //   }
+  // }
 }
 
 export const relayIPFSCommit = async (
@@ -1313,26 +1317,28 @@ export const relayIPFSCommit = async (
   orgId: string,
   ipfsCommitRequest: Array<CanonicalProjectConfig>
 ): Promise<IPFSCommitResponse> => {
-  const response = await axios.post(
-    `${fetchChugSplashManagedBaseUrl()}/api/pin`,
-    {
-      apiKey,
-      orgId,
-      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el)),
-    }
-  )
+  const a: any = undefined
+  return a
+  // const response = await axios.post(
+  //   `${fetchChugSplashManagedBaseUrl()}/api/pin`,
+  //   {
+  //     apiKey,
+  //     orgId,
+  //     ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el)),
+  //   }
+  // )
 
-  if (response.status === 400) {
-    throw new Error(
-      'Malformed request pinning to IPFS, please report this to the developers'
-    )
-  } else if (response.status === 401) {
-    throw new Error(
-      `Unauthorized, please check your API key and Org Id are correct`
-    )
-  }
+  // if (response.status === 400) {
+  //   throw new Error(
+  //     'Malformed request pinning to IPFS, please report this to the developers'
+  //   )
+  // } else if (response.status === 401) {
+  //   throw new Error(
+  //     `Unauthorized, please check your API key and Org Id are correct`
+  //   )
+  // }
 
-  return response.data
+  // return response.data
 }
 
 /**
