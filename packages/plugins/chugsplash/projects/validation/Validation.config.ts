@@ -71,14 +71,6 @@ const config: UserProjectConfig = {
         hello: 'world',
       },
     },
-    Reverter1: {
-      contract: 'Reverter',
-      kind: 'immutable',
-    },
-    Reverter2: {
-      contract: 'Reverter',
-      kind: 'immutable',
-    },
   },
 }
 

@@ -105,7 +105,6 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         // check if we can fetch the owner address from the expected slot
         // and that the caller is in fact the owner
         address ownerAddress = utils.getEIP1967ProxyAdminAddress(_proxy);
-        console.log(ownerAddress);
 
         address deployer = utils.msgSender();
         require(ownerAddress == deployer, "ChugSplash: You are not the owner of this proxy.");

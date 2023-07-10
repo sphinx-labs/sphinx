@@ -34,8 +34,6 @@ import { BigNumber, ethers } from 'ethers'
 import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-// TODO: rename file
-
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
 const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
@@ -59,13 +57,13 @@ const ownerPrivateKey =
 const relayerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 
-describe('TODO', () => {
+describe('Org config', () => {
   let ownerAddress: string
   before(async () => {
     ownerAddress = new ethers.Wallet(ownerPrivateKey).address
   })
 
-  it('TODO single owner', async () => {
+  it('Single owner can setup an org and approve a project deployment on two chains in one txn', async () => {
     // Define constructor arguments for the contract we're going to deploy
     const constructorArgs = {
       _immutableUint: 1,
@@ -140,7 +138,6 @@ describe('TODO', () => {
       const leafsForChain = await getAuthLeafsForChain(
         chainId,
         parsedConfig,
-        projectName,
         configArtifacts,
         configCache,
         prevOrgConfig

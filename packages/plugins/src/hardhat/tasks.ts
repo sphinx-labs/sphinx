@@ -245,6 +245,10 @@ task(TASK_TEST)
     `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
   )
   .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addFlag(
+    'disableChugsplash',
+    "Completely disable all of ChugSplash's activity."
+  )
   .addOptionalParam(
     'signer',
     'Address of the signer that deploys the ChugSplash config.'
@@ -275,6 +279,7 @@ task(TASK_TEST)
         configPath: string
         project: string
         projects: string
+        disableChugsplash?: boolean
         signer?: string
         useDefaultSigner?: boolean
       },
@@ -287,75 +292,78 @@ task(TASK_TEST)
         configPath,
         project,
         projects,
+        disableChugsplash,
         signer,
         useDefaultSigner,
       } = args
 
-      const networkName = await resolveNetworkName(
-        hre.ethers.provider,
-        'hardhat'
-      )
-      if (
-        (await isLocalNetwork(hre.ethers.provider)) ||
-        (await isHardhatFork(hre.ethers.provider))
-      ) {
-        try {
-          const snapshotIdPath = path.join(
-            path.basename(hre.config.paths.deployments),
-            networkName,
-            '.snapshotId'
-          )
-          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-          const snapshotReverted = await hre.network.provider.send(
-            'evm_revert',
-            [snapshotId]
-          )
-          if (!snapshotReverted) {
-            throw new Error('Snapshot failed to be reverted.')
-          }
-        } catch {
-          await ensureChugSplashInitialized(
-            hre.ethers.provider,
-            hre.ethers.provider.getSigner()
-          )
-          if (!noCompile) {
-            await hre.run(TASK_COMPILE, {
-              quiet: true,
-            })
-          }
-
-          if (configPath) {
-            let projectNames: string[]
-            if (project) {
-              projectNames = [project]
-            } else if (projects) {
-              projectNames = projects.replace(/\s+/g, '').split(',')
-            } else {
-              throw new Error(
-                'Must specify a ChugSplash project name using --project or --projects'
-              )
-            }
-
-            const owner = await resolveOwner(hre, signer, useDefaultSigner)
-
-            await deployAllChugSplashProjects(
-              hre,
-              silent,
-              configPath,
-              owner,
-              projectNames
-            )
-          } else {
-            if (project || projects) {
-              throw new Error('Must specify a chugsplash config path')
-            }
-          }
-        }
-        await writeSnapshotId(
+      if (!disableChugsplash) {
+        const networkName = await resolveNetworkName(
           hre.ethers.provider,
-          networkName,
-          hre.config.paths.deployments
+          'hardhat'
         )
+        if (
+          (await isLocalNetwork(hre.ethers.provider)) ||
+          (await isHardhatFork(hre.ethers.provider))
+        ) {
+          try {
+            const snapshotIdPath = path.join(
+              path.basename(hre.config.paths.deployments),
+              networkName,
+              '.snapshotId'
+            )
+            const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+            const snapshotReverted = await hre.network.provider.send(
+              'evm_revert',
+              [snapshotId]
+            )
+            if (!snapshotReverted) {
+              throw new Error('Snapshot failed to be reverted.')
+            }
+          } catch {
+            await ensureChugSplashInitialized(
+              hre.ethers.provider,
+              hre.ethers.provider.getSigner()
+            )
+            if (!noCompile) {
+              await hre.run(TASK_COMPILE, {
+                quiet: true,
+              })
+            }
+
+            if (configPath) {
+              let projectNames: string[]
+              if (project) {
+                projectNames = [project]
+              } else if (projects) {
+                projectNames = projects.replace(/\s+/g, '').split(',')
+              } else {
+                throw new Error(
+                  'Must specify a ChugSplash project name using --project or --projects'
+                )
+              }
+
+              const owner = await resolveOwner(hre, signer, useDefaultSigner)
+
+              await deployAllChugSplashProjects(
+                hre,
+                silent,
+                configPath,
+                owner,
+                projectNames
+              )
+            } else {
+              if (project || projects) {
+                throw new Error('Must specify a chugsplash config path')
+              }
+            }
+          }
+          await writeSnapshotId(
+            hre.ethers.provider,
+            networkName,
+            hre.config.paths.deployments
+          )
+        }
       }
       await runSuper(args)
     }

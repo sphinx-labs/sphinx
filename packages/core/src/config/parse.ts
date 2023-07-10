@@ -3200,8 +3200,10 @@ export const assertValidOrgConfigOptions = (
   if (invalidNetworks.length > 0) {
     logValidationError(
       'error',
-      `The following networks are not supported:`,
-      invalidNetworks,
+      `The following networks in your ChugSplash config are not supported: ${invalidNetworks.join(
+        ', '
+      )}.\nSupported networks are:`,
+      Object.keys(SUPPORTED_LIVE_NETWORKS).map((n) => `- ${n}`),
       cre.silent,
       cre.stream
     )

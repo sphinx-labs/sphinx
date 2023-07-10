@@ -124,8 +124,11 @@ export const initializeAndVerifyChugSplash = async (
   }
 }
 
-// TODO(docs): this will only send transactions from the signer if the provider is a local,
-// non-forked network!
+/**
+ * @notice Ensures that the ChugSplash contracts are deployed and initialized. This will only send
+ * transactions from the signer if the provider is a local, non-forked network. The signer will
+ * never be used to send transactions on a live network.
+ */
 export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,

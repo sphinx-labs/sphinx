@@ -1207,29 +1207,31 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 }
 
 /**
- * @notice Gets the most recent CanonicalOrgConfig from the back-end if it exists. If it doesn't
- * exist, it returns a new CanonicalOrgConfig with default parameters for the config options.
+ * @notice Gets various fields related to the ChugSplash org config. from the back-end if it exists.
+ * If it doesn't exist, it returns a new CanonicalOrgConfig with default parameters for the config
+ * options.
  *
- * @returns {prevOrgConfig, isNewConfig} where `prevOrgConfig` is the most recent CanonicalOrgConfig
- * and `isNewConfig` is true if the `prevOrgConfig` is a new config, i.e. it has not been used to
- * setup the org on any chain.
+ * @returns {chainIds, prevOrgConfig, isNewConfig} where the `chainIds` array contains the chain IDs
+ * in the current org config. The `prevOrgConfig` variable is the most recent CanonicalOrgConfig,
+ * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevOrgConfig` is a new
+ * config, i.e. it has not been used to setup the org on any chain.
  */
-// TODO(docs): returns chainIds
 export const getOrgConfigInfo = async (
   userConfig: UserChugSplashConfig,
   projectName: string,
   apiKey: string,
-  cre: ChugSplashRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment,
+  failureAction: FailureAction
 ): Promise<{
+  chainIds: Array<number>
   prevOrgConfig: CanonicalOrgConfig
   isNewConfig: boolean
-  chainIds: Array<number>
 }> => {
   if (!userConfig.options) {
     throw new Error(`Must provide an 'options' section in your config.`)
   }
 
-  assertValidOrgConfigOptions(userConfig.options, cre, FailureAction.EXIT)
+  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
   const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
 
   const prevOrgConfig = await fetchCanonicalOrgConfig(

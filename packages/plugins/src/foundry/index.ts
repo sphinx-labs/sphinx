@@ -55,7 +55,7 @@ const command = args[0]
           true,
           canonicalConfigFolder,
           undefined,
-          true,
+          false,
           process.stderr
         )
 
@@ -64,7 +64,9 @@ const command = args[0]
           projectName,
           cre,
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-          await makeGetProviderFromChainId(rpcEndpoints)
+          await makeGetProviderFromChainId(rpcEndpoints),
+          undefined,
+          FailureAction.THROW
         )
 
         const encodedWarnings = defaultAbiCoder.encode(

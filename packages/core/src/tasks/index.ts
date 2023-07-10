@@ -65,7 +65,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution } from '../execution'
-import { ChugSplashRuntimeEnvironment } from '../types'
+import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import {
   trackApproved,
   trackCancel,
@@ -114,7 +114,8 @@ export const proposeAbstractTask = async (
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
-  spinner: ora.Ora = ora({ isSilent: true })
+  spinner: ora.Ora = ora({ isSilent: true }),
+  failureAction: FailureAction = FailureAction.EXIT
 ) => {
   const apiKey = process.env.CHUGSPLASH_API_KEY
   if (!apiKey) {
@@ -130,32 +131,30 @@ export const proposeAbstractTask = async (
   const wallet = new ethers.Wallet(privateKey)
   const signerAddress = await wallet.getAddress()
 
-  // TODO: you should throw an error if the user doesn't have the rpc url for a given
-  // chainId/network specified in their config
-
   const userConfig = await readUserChugSplashConfig(configPath)
 
-  // TODO(docs): explain why `postParsingValidation` in `getParsedOrgConfig` needs to occur for each
-  // provider. (it's because `postParsingValidation` relies on the config cache, which relies on the
-  // provider). mention that `postParsingValidation` doesn't change the fields of the parsed config, so
-  // it's fine to get the parsed config on any chain.
-
-  // TODO(docs): explain why we retrieve the chainIds here (probably in the function selector of
-  // `getOrgConfigInfo`)
   const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
     userConfig,
     projectName,
     apiKey,
-    cre
+    cre,
+    failureAction
   )
 
-  // TODO(docs): the returned parsed config will be the same on each chain. explain why.
+  // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
+  // there aren't any network-specific errors that are caused by the config. These errors would most
+  // likely occur in the `postParsingValidation` function that's a few calls inside of
+  // `getParsedOrgConfig`. Note that the parsed config will be the same on each chain ID because the
+  // network-specific validation does not change any fields in the parsed config. Likewise, the
+  // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
+  // `ConfigCache` object.
   let parsedConfig: ParsedOrgConfig | undefined
   const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployments> = []
   const canonicalProjectConfigs: {
     [ipfsHash: string]: CanonicalProjectConfig
   } = {}
+  // We loop through any logic that depends on the provider object.
   for (const chainId of chainIds) {
     const provider = getProviderForChainId(chainId)
 
@@ -167,7 +166,8 @@ export const proposeAbstractTask = async (
       prevOrgConfig.deployer,
       provider,
       cre,
-      getConfigArtifacts
+      getConfigArtifacts,
+      failureAction
     )
 
     parsedConfig = parsedOrgConfigValues.parsedConfig
@@ -200,7 +200,6 @@ export const proposeAbstractTask = async (
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
       parsedConfig,
-      projectName,
       configArtifacts,
       configCache,
       prevOrgConfig
@@ -224,16 +223,13 @@ export const proposeAbstractTask = async (
     canonicalProjectConfigs[configUri] = canonicalConfig
   }
 
-  // TODO(docs): removes typescript error
+  // This removes a TypeScript error that occurs because TypeScript doesn't know that the
+  // `parsedConfig` variable is defined.
   if (!parsedConfig) {
     throw new Error('No parsed config found. Should never happen')
   }
 
   const { orgId } = parsedConfig.options
-
-  // TODO(docs): anything that uses the `ConfigCache` should be put here. this is because the
-  // config cache relies on the provider. the `ConfigArtifacts` and parsed config don't rely on
-  // the provider, so they can be used anywhere.
 
   if (!isNewConfig && orgId !== prevOrgConfig.options.orgId) {
     throw new Error(

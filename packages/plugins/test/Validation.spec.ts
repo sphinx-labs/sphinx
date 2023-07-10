@@ -1,20 +1,18 @@
-// Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
-import '../../dist'
-
-import { expect } from 'chai'
 import hre from 'hardhat'
-import { FailureAction, readParsedOwnerConfig } from '@chugsplash/core'
+import { expect } from 'chai'
+import {
+  FailureAction,
+  ensureChugSplashInitialized,
+  readParsedOwnerConfig,
+} from '@chugsplash/core'
+import '@nomiclabs/hardhat-ethers'
 
-import { createChugSplashRuntime } from '../../src/cre'
-import { makeGetConfigArtifacts } from '../../src/hardhat/artifacts'
-import { projectName as validationName } from '../../chugsplash/projects/validation/Validation.config'
-import { projectName as constructorArgName } from '../../chugsplash/projects/validation/ConstructorArgValidation.config'
-import { projectName as noProxyName } from '../../chugsplash/projects/ImmutableValidation.config'
-// TODO: mv ^ this to validation/
-
-// TODO: mv this file out of main
+import '../dist'
+import { createChugSplashRuntime } from '../src/cre'
+import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
+import { projectName as validationName } from '../chugsplash/projects/validation/Validation.config'
+import { projectName as constructorArgName } from '../chugsplash/projects/validation/ConstructorArgValidation.config'
+import { projectName as reverterProjectName } from '../chugsplash/projects/validation/Reverter.config'
 
 const configPath = './chugsplash/validation.config.ts'
 
@@ -23,13 +21,16 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
-    const signerAddress = await hre.ethers.provider.getSigner().getAddress()
+    const signer = provider.getSigner()
+    const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
     }
 
-    const cre = await createChugSplashRuntime(
+    await ensureChugSplashInitialized(provider, signer)
+
+    const cre = createChugSplashRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -56,6 +57,20 @@ describe('Validate', () => {
       await readParsedOwnerConfig(
         configPath,
         constructorArgName,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre),
+        signerAddress,
+        FailureAction.THROW
+      )
+    } catch (e) {
+      /* empty */
+    }
+
+    try {
+      await readParsedOwnerConfig(
+        configPath,
+        reverterProjectName,
         provider,
         cre,
         makeGetConfigArtifacts(hre),

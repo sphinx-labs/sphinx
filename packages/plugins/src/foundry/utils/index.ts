@@ -91,7 +91,14 @@ export const getContractArtifact = async (
   }
 }
 
-// TODO(docs)
+/**
+ * Creates a callback for `getProviderFromChainId`, which is a function that returns a provider
+ * object for a given chain ID. We use a callback to create a standard interface for the
+ * `getProviderFromChainId` function, which has a different implementation in Hardhat and Foundry.
+ *
+ * @param rpcEndpoints A map of chain aliases to RPC urls.
+ * @returns The provider object that corresponds to the chain ID.
+ */
 export const makeGetProviderFromChainId = async (rpcEndpoints: {
   [chainAlias: string]: string
 }): Promise<GetProviderForChainId> => {
@@ -108,7 +115,7 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
     const network = networks.find((n) => n.chainId === chainId)
     if (network === undefined) {
       throw new Error(
-        `Could not find a network with chain ID ${chainId} in your foundry.toml.`
+        `Could not find an RPC endpoint in your foundry.toml that corresponds to chain ID ${chainId}.`
       )
     }
 

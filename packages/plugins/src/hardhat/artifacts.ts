@@ -108,7 +108,14 @@ export const makeGetConfigArtifacts = (
   }
 }
 
-// TODO(docs): here and for the foundry version
+/**
+ * Creates a callback for `getProviderFromChainId`, which is a function that returns a provider
+ * object for a given chain ID. We use a callback to create a standard interface for the
+ * `getProviderFromChainId` function, which has a different implementation in Hardhat and Foundry.
+ *
+ * @param hre Hardhat runtime environment.
+ * @returns The provider object that corresponds to the chain ID.
+ */
 export const makeGetProviderFromChainId = (
   hre: HardhatRuntimeEnvironment
 ): GetProviderForChainId => {
@@ -123,7 +130,10 @@ export const makeGetProviderFromChainId = (
     }
 
     if (!isHttpNetworkConfig(networkConfig)) {
-      throw new Error(`TODO(docs)`)
+      throw new Error(
+        `The network in your Hardhat config with chain ID ${networkConfig.chainId} does not appear to be a live network.\n` +
+          `Only live networks are supported in ChugSplash org configs.`
+      )
     }
 
     return new providers.JsonRpcProvider(networkConfig.url)

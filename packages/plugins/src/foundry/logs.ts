@@ -62,4 +62,3 @@ export const getPrettyWarnings = (): string => {
     ? validationWarnings.substring(0, validationWarnings.length - 1)
     : validationWarnings
 }
-
