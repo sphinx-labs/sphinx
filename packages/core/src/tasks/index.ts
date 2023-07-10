@@ -378,11 +378,11 @@ export const proposeAbstractTask = async (
     },
   }
 
-  // await relayProposal(proposalRequest)
+  await relayProposal(proposalRequest)
 
   const canonicalProjectConfigArray = Object.values(canonicalProjectConfigs)
 
-  // await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
+  await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
 
   spinner.succeed(`Proposed ${projectName}!`)
 }
