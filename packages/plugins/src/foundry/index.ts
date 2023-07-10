@@ -36,76 +36,76 @@ const command = args[0]
   switch (command) {
     // TODO: the signer private key should be defined in the .env as `PROPOSER_PRIVATE_KEY`. change
     // this for hh and foundry
-    case 'propose': {
-      // TODO: update propose here and in solidity
-      process.stderr.write = validationStderrWrite
+    // case 'propose': {
+    //   // TODO: update propose here and in solidity
+    //   process.stderr.write = validationStderrWrite
 
-      try {
-        const configPath = args[1]
-        const rpcUrl = args[2]
-        const privateKey = args[3]
-        const projectName = args[4]
+    //   try {
+    //     const configPath = args[1]
+    //     const rpcUrl = args[2]
+    //     const privateKey = args[3]
+    //     const projectName = args[4]
 
-        const {
-          artifactFolder,
-          buildInfoFolder,
-          canonicalConfigFolder,
-          cachePath,
-        } = await getFoundryConfigOptions()
+    //     const {
+    //       artifactFolder,
+    //       buildInfoFolder,
+    //       canonicalConfigFolder,
+    //       cachePath,
+    //     } = await getFoundryConfigOptions()
 
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-        const cre = await createChugSplashRuntime(
-          true,
-          true,
-          canonicalConfigFolder,
-          undefined,
-          true,
-          process.stderr
-        )
+    //     const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
+    //     const cre = await createChugSplashRuntime(
+    //       true,
+    //       true,
+    //       canonicalConfigFolder,
+    //       undefined,
+    //       true,
+    //       process.stderr
+    //     )
 
-        const { parsedConfig, configArtifacts, configCache } =
-          await readParsedOwnerConfig(
-            configPath,
-            projectName,
-            provider,
-            cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-            FailureAction.THROW
-          )
-        const wallet = new ethers.Wallet(privateKey, provider)
+    //     const { parsedConfig, configArtifacts, configCache } =
+    //       await readParsedOwnerConfig(
+    //         configPath,
+    //         projectName,
+    //         provider,
+    //         cre,
+    //         makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+    //         FailureAction.THROW
+    //       )
+    //     const wallet = new ethers.Wallet(privateKey, provider)
 
-        const projectConfig = parsedConfig.projects[projectName]
+    //     const projectConfig = parsedConfig.projects[projectName]
 
-        await chugsplashProposeAbstractTask(
-          provider,
-          wallet,
-          projectConfig,
-          configPath,
-          '',
-          'foundry',
-          configArtifacts,
-          ProposalRoute.RELAY,
-          cre,
-          configCache[projectName]
-        )
+    //     await chugsplashProposeAbstractTask(
+    //       provider,
+    //       wallet,
+    //       projectConfig,
+    //       configPath,
+    //       '',
+    //       'foundry',
+    //       configArtifacts,
+    //       ProposalRoute.RELAY,
+    //       cre,
+    //       configCache[projectName]
+    //     )
 
-        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
-          ['string', 'string'],
-          [projectName, getPrettyWarnings()]
-        )
+    //     const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
+    //       ['string', 'string'],
+    //       [projectName, getPrettyWarnings()]
+    //     )
 
-        const encodedSuccess = hexConcat([
-          encodedProjectNameAndWarnings,
-          defaultAbiCoder.encode(['bool'], [true]), // true = success
-        ])
+    //     const encodedSuccess = hexConcat([
+    //       encodedProjectNameAndWarnings,
+    //       defaultAbiCoder.encode(['bool'], [true]), // true = success
+    //     ])
 
-        process.stdout.write(encodedSuccess)
-      } catch (err) {
-        const encodedFailure = getEncodedFailure(err)
-        process.stdout.write(encodedFailure)
-      }
-      break
-    }
+    //     process.stdout.write(encodedSuccess)
+    //   } catch (err) {
+    //     const encodedFailure = getEncodedFailure(err)
+    //     process.stdout.write(encodedFailure)
+    //   }
+    //   break
+    // }
     case 'getPreviousConfigUri': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]

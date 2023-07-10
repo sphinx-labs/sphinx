@@ -1,6 +1,13 @@
 import path from 'path'
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  HardhatNetworkConfig,
+  HardhatRuntimeEnvironment,
+  HttpNetworkConfig,
+  HttpNetworkUserConfig,
+  NetworkConfig,
+  NetworkUserConfig,
+} from 'hardhat/types'
 import {
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
@@ -18,6 +25,7 @@ import {
   withValidationDefaults,
 } from '@openzeppelin/upgrades-core'
 import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
+import { providers } from 'ethers/lib/ethers'
 
 /**
  * Retrieves contract build info by name.
@@ -97,6 +105,33 @@ export const makeGetConfigArtifacts = (
     }
     return projectConfigArtifacts
   }
+}
+
+// TODO(docs): here and for the foundry version
+export const makeGetProviderFromChainId = (hre: HardhatRuntimeEnvironment) => {
+  return (chainId: number): providers.JsonRpcProvider => {
+    const networkConfig = Object.values(hre.config.networks).find(
+      (network) => network.chainId === chainId
+    )
+    if (networkConfig === undefined) {
+      throw new Error(
+        `Unable to find the network for chain ID ${chainId} in your Hardhat config.`
+      )
+    }
+
+    if (!isHttpNetworkConfig(networkConfig)) {
+      throw new Error(`TODO(docs)`)
+    }
+
+    return new providers.JsonRpcProvider(networkConfig.url)
+  }
+}
+
+// From: https://github.com/NomicFoundation/hardhat/blob/f92e3233acc3180686e99b3c1b31a0e469f2ff1a/packages/hardhat-core/src/internal/core/config/config-resolution.ts#L112-L116
+const isHttpNetworkConfig = (
+  config: NetworkConfig
+): config is HttpNetworkConfig => {
+  return 'url' in config
 }
 
 /**

@@ -17,6 +17,8 @@ import {
   CanonicalOrgConfig,
   ParsedProjectConfigs,
   GetConfigArtifacts,
+  ParsedOrgConfig,
+  GetProviderForChainId,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -33,9 +35,9 @@ import {
   writeSnapshotId,
   transferProjectOwnership,
   isHardhatFork,
+  getOrgConfigInfo,
   relayProposal,
   relayIPFSCommit,
-  getPreviousCanonicalOrgConfig,
 } from '../utils'
 import {
   ensureChugSplashInitialized,
@@ -53,11 +55,13 @@ import {
   getAuthLeafSignerInfo,
   getNumDeployContractActions,
   makeAuthBundle,
-  getAuthLeafs,
   makeBundlesFromConfig,
   writeDeploymentArtifacts,
   ProposalRequest,
-  getProjectDeployments,
+  AuthLeaf,
+  ProjectDeployments,
+  getProjectDeploymentsForChain,
+  getAuthLeafsForChain,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { monitorExecution } from '../execution'
@@ -106,13 +110,10 @@ export const registerOwner = async (
 
 export const proposeAbstractTask = async (
   configPath: string,
-  providers: {
-    [chainId: number]: ethers.providers.JsonRpcProvider
-  },
-  wallet: ethers.Wallet,
   projectName: string,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
+  getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true })
 ) => {
   const apiKey = process.env.CHUGSPLASH_API_KEY
@@ -120,22 +121,47 @@ export const proposeAbstractTask = async (
     throw new Error(`Must provide a 'CHUGSPLASH_API_KEY' environment variable.`)
   }
 
+  const privateKey = process.env.PROPOSER_PRIVATE_KEY
+  if (!privateKey) {
+    throw new Error(
+      `Must provide a 'PROPOSER_PRIVATE_KEY' environment variable.`
+    )
+  }
+  const wallet = new ethers.Wallet(privateKey)
+  const signerAddress = await wallet.getAddress()
+
   // TODO: you should throw an error if the user doesn't have the rpc url for a given
   // chainId/network specified in their config
 
   const userConfig = await readUserChugSplashConfig(configPath)
 
-  const { prevOrgConfig, isNewConfig } = await getPreviousCanonicalOrgConfig(
+  // TODO(docs): explain why `postParsingValidation` in `getParsedOrgConfig` needs to occur for each
+  // provider. (it's because `postParsingValidation` relies on the config cache, which relies on the
+  // provider). mention that `postParsingValidation` doesn't change the fields of the parsed config, so
+  // it's fine to get the parsed config on any chain.
+
+  // TODO(docs): explain why we retrieve the chainIds here (probably in the function selector of
+  // `getOrgConfigInfo`)
+  const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
     userConfig,
     projectName,
     apiKey,
     cre
   )
 
-  await ensureChugSplashInitialized(provider, wallet)
+  // TODO(docs): the returned parsed config will be the same on each chain. explain why.
+  let parsedConfig: ParsedOrgConfig | undefined
+  const leafs: Array<AuthLeaf> = []
+  const projectDeployments: Array<ProjectDeployments> = []
+  const canonicalProjectConfigs: {
+    [ipfsHash: string]: CanonicalProjectConfig
+  } = {}
+  for (const chainId of chainIds) {
+    const provider = getProviderForChainId(chainId)
 
-  const { parsedConfig, configArtifacts, configCache } =
-    await getParsedOrgConfig(
+    await ensureChugSplashInitialized(provider, wallet.connect(provider))
+
+    const parsedOrgConfigValues = await getParsedOrgConfig(
       userConfig,
       projectName,
       prevOrgConfig.deployer,
@@ -144,53 +170,11 @@ export const proposeAbstractTask = async (
       getConfigArtifacts
     )
 
-  const { chainIds, orgId } = parsedConfig.options
-
-  if (!isNewConfig && orgId !== prevOrgConfig.options.orgId) {
-    throw new Error(
-      `Organization ID cannot be changed.\n` +
-        `Previous: ${prevOrgConfig.options.orgId}\n` +
-        `New: ${orgId}`
-    )
-  }
-
-  const leafs = await getAuthLeafs(
-    parsedConfig,
-    projectName,
-    configArtifacts,
-    configCache,
-    prevOrgConfig
-  )
-  const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
-
-  const signerAddress = await wallet.getAddress()
-  const metaTxnSignature = await signAuthRootMetaTxn(wallet, root)
-
-  const chainIdToNumLeafs: { [chainId: number]: number } = {}
-  for (const leaf of leafs) {
-    const { chainId } = leaf
-    if (!chainIdToNumLeafs[chainId]) {
-      chainIdToNumLeafs[chainId] = 0
-    }
-    chainIdToNumLeafs[chainId] += 1
-  }
-
-  const chainStatus = Object.entries(chainIdToNumLeafs).map(
-    ([chainId, numLeaves]) => ({
-      chainId: parseInt(chainId, 10),
-      numLeaves,
-    })
-  )
-
-  const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
-  for (const bundledLeaf of bundledLeafs) {
-    const { leaf, prettyLeaf, proof } = bundledLeaf
-    const { chainId, index, to, leafType } = prettyLeaf
-    const { data } = leaf
+    parsedConfig = parsedOrgConfigValues.parsedConfig
+    const configArtifacts = parsedOrgConfigValues.configArtifacts
+    const configCache = parsedOrgConfigValues.configCache
 
     const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
-    const { projectCreated } =
-      prevOrgConfig.chainStates[chainId].projects[projectName]
 
     if (
       firstProposalOccurred &&
@@ -212,6 +196,82 @@ export const proposeAbstractTask = async (
         `Signer must be a proposer in the config file. Signer's address: ${signerAddress}`
       )
     }
+
+    const leafsForChain = await getAuthLeafsForChain(
+      chainId,
+      parsedConfig,
+      projectName,
+      configArtifacts,
+      configCache,
+      prevOrgConfig
+    )
+    leafs.push(...leafsForChain)
+
+    const projectDeploymentsForChain = await getProjectDeploymentsForChain(
+      leafs,
+      chainId,
+      parsedConfig.projects,
+      configArtifacts,
+      configCache
+    )
+    projectDeployments.push(...projectDeploymentsForChain)
+
+    const { canonicalConfig, configUri } = await getProjectBundleInfo(
+      parsedConfig.projects[projectName],
+      configArtifacts[projectName],
+      configCache[projectName]
+    )
+    canonicalProjectConfigs[configUri] = canonicalConfig
+  }
+
+  // TODO(docs): removes typescript error
+  if (!parsedConfig) {
+    throw new Error('No parsed config found. Should never happen')
+  }
+
+  const { orgId } = parsedConfig.options
+
+  // TODO(docs): anything that uses the `ConfigCache` should be put here. this is because the
+  // config cache relies on the provider. the `ConfigArtifacts` and parsed config don't rely on
+  // the provider, so they can be used anywhere.
+
+  if (!isNewConfig && orgId !== prevOrgConfig.options.orgId) {
+    throw new Error(
+      `Organization ID cannot be changed.\n` +
+        `Previous: ${prevOrgConfig.options.orgId}\n` +
+        `New: ${orgId}`
+    )
+  }
+
+  const chainIdToNumLeafs: { [chainId: number]: number } = {}
+  for (const leaf of leafs) {
+    const { chainId } = leaf
+    if (!chainIdToNumLeafs[chainId]) {
+      chainIdToNumLeafs[chainId] = 0
+    }
+    chainIdToNumLeafs[chainId] += 1
+  }
+
+  const chainStatus = Object.entries(chainIdToNumLeafs).map(
+    ([chainId, numLeaves]) => ({
+      chainId: parseInt(chainId, 10),
+      numLeaves,
+    })
+  )
+
+  const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+
+  const metaTxnSignature = await signAuthRootMetaTxn(wallet, root)
+
+  const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
+  for (const bundledLeaf of bundledLeafs) {
+    const { leaf, prettyLeaf, proof } = bundledLeaf
+    const { chainId, index, to, leafType } = prettyLeaf
+    const { data } = leaf
+
+    const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
+    const { projectCreated } =
+      prevOrgConfig.chainStates[chainId].projects[projectName]
 
     let orgOwners: string[]
     let proposers: string[]
@@ -276,13 +336,6 @@ export const proposeAbstractTask = async (
     })
   }
 
-  const projectDeployments = await getProjectDeployments(
-    leafs,
-    parsedConfig.projects,
-    configArtifacts,
-    configCache
-  )
-
   const chainStates: CanonicalOrgConfig['chainStates'] = {}
   for (const chainId of chainIds) {
     chainStates[chainId] = {
@@ -325,18 +378,13 @@ export const proposeAbstractTask = async (
     },
   }
 
-  // TODO: uncomment both
-  // await relayProposal(proposalRequest)
+  await relayProposal(proposalRequest)
 
-  const { canonicalConfig } = await getBundleInfo(
-    parsedConfig.projects[projectName],
-    configArtifacts[projectName],
-    configCache[projectName]
-  )
+  const canonicalProjectConfigArray = Object.values(canonicalProjectConfigs)
 
-  // await relayIPFSCommit(apiKey, orgId, [canonicalConfig])
+  await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
 
-  spinner.succeed(`Done proposing ${projectName}!`)
+  spinner.succeed(`Proposed ${projectName}!`)
 }
 
 export const chugsplashCommitAbstractSubtask = async (
@@ -475,7 +523,7 @@ export const chugsplashApproveAbstractTask = async (
     throw new Error(`${project} has not been registered yet.`)
   }
 
-  const { configUri, bundles } = await getBundleInfo(
+  const { configUri, bundles } = await getProjectBundleInfo(
     parsedProjectConfig,
     projectConfigArtifacts,
     projectConfigCache
@@ -602,7 +650,7 @@ export const chugsplashDeployAbstractTask = async (
 
   spinner.start(`Checking the status of ${project}...`)
 
-  const { configUri, bundles, canonicalConfig } = await getBundleInfo(
+  const { configUri, bundles, canonicalConfig } = await getProjectBundleInfo(
     parsedProjectConfig,
     projectConfigArtifacts,
     projectConfigCache
@@ -986,7 +1034,7 @@ export const chugsplashImportProxyAbstractTask = async (
   spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
 }
 
-export const getBundleInfo = async (
+export const getProjectBundleInfo = async (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache

@@ -7,7 +7,7 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@chugsplash/contracts'
-import { BigNumber } from 'ethers'
+import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -308,6 +308,10 @@ export type MinimalContractConfig = {
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
 ) => Promise<ProjectConfigArtifacts>
+
+export type GetProviderForChainId = (
+  chainId: number
+) => providers.JsonRpcProvider
 
 export interface CanonicalOrgConfig {
   deployer: string

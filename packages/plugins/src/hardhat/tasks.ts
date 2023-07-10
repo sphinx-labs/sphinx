@@ -31,7 +31,7 @@ import {
   deployAllChugSplashProjects,
   getSignerFromAddress,
 } from './deployments'
-import { makeGetConfigArtifacts } from './artifacts'
+import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './artifacts'
 import { createChugSplashRuntime } from '../cre'
 
 // Load environment variables from .env
@@ -181,16 +181,12 @@ export const chugsplashProposeTask = async (
     false
   )
 
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
   await proposeAbstractTask(
     configPath,
-    provider,
-    signer,
     project,
     cre,
     makeGetConfigArtifacts(hre),
+    makeGetProviderFromChainId(hre),
     spinner
   )
 }

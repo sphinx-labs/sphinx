@@ -18,7 +18,7 @@ import {
   signAuthRootMetaTxn,
   ContractInfo,
   getNumDeployContractActions,
-  getBundleInfo,
+  getProjectBundleInfo,
   ConfigArtifacts,
   ConfigCache,
   BundledAuthLeaf,
@@ -276,7 +276,7 @@ describe('TODO', () => {
 
       // Check that the approve function executed correctly and that all of the leafs in the tree have
       // been executed.
-      const { configUri, bundles } = await getBundleInfo(
+      const { configUri, bundles } = await getProjectBundleInfo(
         parsedConfig.projects[projectName],
         configArtifacts[projectName],
         configCache[projectName]

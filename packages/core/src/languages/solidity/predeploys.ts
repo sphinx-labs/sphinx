@@ -124,6 +124,8 @@ export const initializeAndVerifyChugSplash = async (
   }
 }
 
+// TODO(docs): this will only send transactions from the signer if the provider is a local,
+// non-forked network!
 export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
@@ -145,8 +147,9 @@ export const ensureChugSplashInitialized = async (
       logger
     )
   } else {
+    const { name } = await provider.getNetwork()
     throw new Error(
-      `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
+      `ChugSplash is not supported on ${name} yet. Reach out on Discord if you'd like us to support it!`
     )
   }
 }

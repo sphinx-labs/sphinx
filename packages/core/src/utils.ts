@@ -1214,12 +1214,17 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
  * and `isNewConfig` is true if the `prevOrgConfig` is a new config, i.e. it has not been used to
  * setup the org on any chain.
  */
-export const getPreviousCanonicalOrgConfig = async (
+// TODO(docs): returns chainIds
+export const getOrgConfigInfo = async (
   userConfig: UserChugSplashConfig,
   projectName: string,
   apiKey: string,
   cre: ChugSplashRuntimeEnvironment
-): Promise<{ prevOrgConfig: CanonicalOrgConfig; isNewConfig: boolean }> => {
+): Promise<{
+  prevOrgConfig: CanonicalOrgConfig
+  isNewConfig: boolean
+  chainIds: Array<number>
+}> => {
   if (!userConfig.options) {
     throw new Error(`Must provide an 'options' section in your config.`)
   }
@@ -1233,18 +1238,22 @@ export const getPreviousCanonicalOrgConfig = async (
   )
 
   if (prevOrgConfig) {
-    return { prevOrgConfig, isNewConfig: false }
+    return {
+      prevOrgConfig,
+      isNewConfig: false,
+      chainIds: parsedConfigOptions.chainIds,
+    }
   } else {
     const { orgOwners, orgThreshold, chainIds, orgId } = parsedConfigOptions
-    const authAddress = getAuthAddress(orgOwners, orgThreshold)
-    const deployer = getChugSplashManagerAddress(authAddress)
+    const auth = getAuthAddress(orgOwners, orgThreshold)
+    const deployer = getChugSplashManagerAddress(auth)
     const emptyConfig = getEmptyCanonicalOrgConfig(
       chainIds,
       deployer,
       orgId,
       projectName
     )
-    return { prevOrgConfig: emptyConfig, isNewConfig: true }
+    return { prevOrgConfig: emptyConfig, isNewConfig: true, chainIds }
   }
 }
 

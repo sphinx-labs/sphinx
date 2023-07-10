@@ -6,7 +6,7 @@ import {
   projectPostParsingValidation,
 } from '@chugsplash/core/dist/config/parse'
 import { FailureAction } from '@chugsplash/core/dist/types'
-import { getBundleInfo } from '@chugsplash/core/dist/tasks'
+import { getProjectBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
@@ -106,7 +106,7 @@ const ownerAddress = args[4]
       FailureAction.THROW
     )
 
-    const { configUri, bundles, canonicalConfig } = await getBundleInfo(
+    const { configUri, bundles, canonicalConfig } = await getProjectBundleInfo(
       parsedProjectConfig,
       projectConfigArtifacts,
       configCache
