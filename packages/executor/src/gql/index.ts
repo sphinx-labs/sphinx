@@ -4,7 +4,7 @@ const updateDeploymentMutation = gql`
   mutation UpdateProjectDeployment($input: UpdateProjectDeploymentInput!) {
     UpdateProjectDeployment(input: $input) {
       id
-      onChainId
+      deploymentId
     }
   }
 `

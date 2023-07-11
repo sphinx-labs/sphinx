@@ -1,7 +1,7 @@
 import { fork } from 'child_process'
 
 import * as dotenv from 'dotenv'
-dotenv.config()
+dotenv.config({ path: `.env.${process.env.NODE_ENV}` })
 import {
   BaseServiceV2,
   Logger,
