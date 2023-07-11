@@ -40,6 +40,7 @@ import {
   ContractInfo,
   DeployContractAction,
   ProjectDeployments,
+  ProposalRequest,
   RawAuthLeaf,
   RawChugSplashAction,
   RoleType,
@@ -915,19 +916,62 @@ export const getProjectDeploymentsForChain = async (
       )
       const deploymentId = getDeploymentId(bundles, configUri, projectName)
 
-      const estGas = getDeployContractCosts(configArtifacts[projectName])
-        .map(({ cost }) => cost.toNumber())
-        .reduce((a, b) => a + b, 0)
-
       return {
         chainId,
         deploymentId,
         name: projectName,
-        estimatedGas: estGas.toString(),
       }
     })
 
   return Promise.all(projectDeploymentPromises)
+}
+
+/**
+ * @notice Gets the estimated amount of gas required to execute an org tree.
+ */
+export const getGasEstimates = async (
+  leafs: Array<AuthLeaf>,
+  configArtifacts: ConfigArtifacts
+): Promise<ProposalRequest['gasEstimates']> => {
+  // Get a list of all the unique chain IDs
+  const chainIds = new Set(leafs.map((l) => l.chainId))
+
+  const gasEstimates: ProposalRequest['gasEstimates'] = []
+  for (const chainId of chainIds) {
+    // Filter the leafs to only include leafs on this chain
+    const leafsOnChain = leafs.filter((l) => l.chainId === chainId)
+
+    const estGasPerLeafPromises = leafsOnChain.map(async (leaf) => {
+      let estLeafGas = ethers.BigNumber.from(0)
+
+      if (isApproveDeploymentAuthLeaf(leaf)) {
+        // Estimate the gas required to deploy the contracts in the project. This doesn't include
+        // the gas required to execute the "ApproveDeployment" leaf, since the contracts aren't
+        // executed in that transaction.
+        const estDeployContractGas = getDeployContractCosts(
+          configArtifacts[leaf.projectName]
+        )
+          .map(({ cost }) => cost.toNumber())
+          .reduce((a, b) => a + b, 0)
+        estLeafGas = estLeafGas.add(estDeployContractGas)
+      }
+
+      // Add a constant amount of gas to account for the cost of executing the leaf. For context, it
+      // costs ~350k gas to execute a Setup leaf that adds a single proposer and manager, using a
+      // single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
+      return estLeafGas.add(450_000)
+    })
+
+    const resolved = await Promise.all(estGasPerLeafPromises)
+
+    const estGasOnChain = resolved
+      .map((cost) => cost.toNumber())
+      .reduce((a, b) => a + b, 0)
+
+    gasEstimates.push({ chainId, estimatedGas: estGasOnChain.toString() })
+  }
+
+  return gasEstimates
 }
 
 export const isApproveDeploymentAuthLeaf = (

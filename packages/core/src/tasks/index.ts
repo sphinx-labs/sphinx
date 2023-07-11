@@ -19,6 +19,7 @@ import {
   GetConfigArtifacts,
   ParsedOrgConfig,
   GetProviderForChainId,
+  ConfigArtifacts,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -61,6 +62,7 @@ import {
   ProjectDeployments,
   getProjectDeploymentsForChain,
   getAuthLeafsForChain,
+  getGasEstimates,
 } from '../actions'
 import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -123,6 +125,7 @@ export const proposeAbstractTask = async (
   // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
   // `ConfigCache` object.
   let parsedConfig: ParsedOrgConfig | undefined
+  let configArtifacts: ConfigArtifacts | undefined
   const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployments> = []
   const canonicalProjectConfigs: {
@@ -145,7 +148,7 @@ export const proposeAbstractTask = async (
     )
 
     parsedConfig = parsedOrgConfigValues.parsedConfig
-    const configArtifacts = parsedOrgConfigValues.configArtifacts
+    configArtifacts = parsedOrgConfigValues.configArtifacts
     const configCache = parsedOrgConfigValues.configCache
 
     const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
@@ -199,8 +202,10 @@ export const proposeAbstractTask = async (
 
   // This removes a TypeScript error that occurs because TypeScript doesn't know that the
   // `parsedConfig` variable is defined.
-  if (!parsedConfig) {
-    throw new Error('No parsed config found. Should never happen')
+  if (!parsedConfig || !configArtifacts) {
+    throw new Error(
+      'Could not find either parsed config or config artifacts. Should never happen'
+    )
   }
 
   const { orgId } = parsedConfig.options
@@ -334,6 +339,8 @@ export const proposeAbstractTask = async (
   )
   const deployerAddress = getChugSplashManagerAddress(authAddress)
 
+  const gasEstimates = await getGasEstimates(leafs, configArtifacts)
+
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId,
@@ -344,6 +351,7 @@ export const proposeAbstractTask = async (
     deployerAddress,
     orgCanonicalConfig: JSON.stringify(canonicalOrgConfig),
     projectDeployments,
+    gasEstimates,
     orgTree: {
       root,
       chainStatus,

@@ -679,6 +679,14 @@ contract ChugSplashManager is
         registry.announce("OwnerWithdrewETH");
     }
 
+    /**
+     * @notice Increases the debt owed to the protocol. This is meant to be called by the user's
+       ChugSplashAuth contract, which owns the ChugSplashManager. The function call occurs after a
+       meta transaction has been submitted to the user's ChugSplashAuth contract by a relayer. Note
+       that it's possible for this function to increment the protocol debt by more than the amount
+       of ETH stored in this contract. We don't revert in this situation to ensure that an
+       organization's transactions always get submitted in a timely manner.
+     */
     function incrementProtocolDebt(uint256 _initialGasLeft) external onlyOwner {
         uint256 gasPrice = gasPriceCalculator.getGasPrice();
 
@@ -688,7 +696,6 @@ contract ChugSplashManager is
         uint256 estGasUsed = 50_000 + calldataGasUsed + _initialGasLeft - gasleft();
 
         uint256 cost = gasPrice * estGasUsed;
-        if (cost + totalDebt() > address(this).balance) revert InsufficientFunds();
 
         totalProtocolDebt += cost;
 
