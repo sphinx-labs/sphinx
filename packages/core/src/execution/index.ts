@@ -11,7 +11,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { getChugSplashManager, getDeploymentEvents } from '../utils'
-import { ParsedChugSplashConfig } from '../config/types'
+import { ParsedProjectConfig } from '../config/types'
 
 export const getNumDeployedContracts = (
   bundle: ChugSplashActionBundle,
@@ -28,21 +28,22 @@ export const getNumDeployedContracts = (
 export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedProjectConfig: ParsedProjectConfig,
   bundles: ChugSplashBundles,
   deploymentId: string,
-  spinner: ora.Ora
+  silent: boolean
 ) => {
+  const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const { projectName, organizationID } = parsedConfig.options
-  const ChugSplashManager = getChugSplashManager(signer, organizationID)
+  const { project, deployer } = parsedProjectConfig.options
+  const ChugSplashManager = getChugSplashManager(deployer, signer)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await ChugSplashManager.deployments(
     deploymentId
   )
 
-  while (deploymentState.selectedExecutor !== ethers.constants.AddressZero) {
+  while (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
     // Wait for one second.
     await sleep(1000)
 
@@ -78,7 +79,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      parsedConfig,
+      parsedProjectConfig,
       false
     )
     if (amountToDeposit.gt(0)) {
@@ -86,7 +87,7 @@ export const monitorExecution = async (
       // more funds.
       spinner.fail(`Project has insufficient funds to complete the deployment.`)
       throw new Error(
-        `${projectName} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
+        `${project} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
       )
     }
 
@@ -98,7 +99,7 @@ export const monitorExecution = async (
   }
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${projectName}.`)
+    spinner.succeed(`Finished executing ${project}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
       ChugSplashManager,
@@ -107,8 +108,8 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
   } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
-    spinner.fail(`${projectName} was cancelled.`)
-    throw new Error(`${projectName} was cancelled.`)
+    spinner.fail(`${project} was cancelled.`)
+    throw new Error(`${project} was cancelled.`)
   } else {
     spinner.fail(
       `Project was never active. Current status: ${deploymentState.status}`

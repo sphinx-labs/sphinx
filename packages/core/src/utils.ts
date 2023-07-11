@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 
+import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
 import {
@@ -44,24 +45,29 @@ import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
-  CanonicalChugSplashConfig,
+  CanonicalProjectConfig,
   UserContractKind,
   userContractKinds,
-  ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
   ParsedConfigVariables,
-  ConfigArtifacts,
   ParsedConfigVariable,
+  ParsedProjectConfig,
+  ProjectConfigArtifacts,
+  CanonicalOrgConfig,
+  UserChugSplashConfig,
 } from './config/types'
 import {
   ChugSplashActionBundle,
   ChugSplashActionType,
   ChugSplashBundles,
   DeploymentState,
+  IPFSCommitResponse,
+  ProposalRequest,
 } from './actions/types'
-import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
+import { Integration } from './constants'
 import {
+  getAuthAddress,
   getChugSplashManagerAddress,
   getChugSplashRegistryAddress,
 } from './addresses'
@@ -69,7 +75,6 @@ import 'core-js/features/array/at'
 import {
   BuildInfo,
   CompilerOutput,
-  CompilerOutputContract,
   ContractArtifact,
 } from './languages/solidity/types'
 import { chugsplashFetchSubtask } from './config/fetch'
@@ -79,10 +84,16 @@ import {
   getNumDeployContractActions,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
+import {
+  assertValidOrgConfigOptions,
+  parseOrgConfigOptions,
+} from './config/parse'
+import { ChugSplashRuntimeEnvironment, FailureAction } from './types'
 
 export const getDeploymentId = (
   bundles: ChugSplashBundles,
-  configUri: string
+  configUri: string,
+  projectName: string
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
@@ -94,8 +105,17 @@ export const getDeploymentId = (
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
       [
+        'string',
+        'bytes32',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'uint256',
+        'string',
+      ],
+      [
+        projectName,
         actionRoot,
         targetRoot,
         numActions,
@@ -158,7 +178,7 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
 
 export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig
+  parsedConfig: ParsedProjectConfig
 ): Promise<boolean | string> => {
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -171,48 +191,36 @@ export const checkIsUpgrade = async (
 }
 
 /**
- * Finalizes the registration of an organization ID.
+ * Finalizes the registration of an organization.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param organizationID ID of the organization.
- * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
- * @returns True if the organization ID was already registered for the first time in this call, and
- * false if the project was already registered by the caller.
+ * @param ownerAddress Owner of the ChugSplashManager contract deployed by this call.
  */
-export const finalizeRegistration = async (
+export const registerOwner = async (
   registry: ethers.Contract,
   manager: ethers.Contract,
-  organizationID: string,
-  newOwnerAddress: string,
-  allowManagedProposals: boolean,
+  ownerAddress: string,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
-  spinner.start(`Claiming the project...`)
+  spinner.start(`Registering the project...`)
 
-  if (!(await isProjectClaimed(registry, manager.address))) {
-    // Encode the initialization arguments for the ChugSplashManager contract.
-    // Note: Future versions of ChugSplash may require different arguments encoded in this way.
-    const initializerData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes32', 'bool'],
-      [newOwnerAddress, organizationID, allowManagedProposals]
-    )
-
+  if (!(await isProjectRegistered(registry, manager.address))) {
     await (
-      await registry.finalizeRegistration(
-        organizationID,
-        newOwnerAddress,
-        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
-        initializerData,
+      await registry.register(
+        ownerAddress,
+        0, // We set the saltNonce to 0 for now.
+        [], // We don't pass any extra initializer data to this version of the ChugSplashManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
+    spinner.succeed(`Project registered.`)
   } else {
     const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== newOwnerAddress) {
+    if (existingOwnerAddress !== ownerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      spinner.succeed(`Project was already claimed by the caller.`)
+      spinner.succeed(`Project was already registered by the caller.`)
     }
   }
 }
@@ -236,25 +244,17 @@ export const getChugSplashRegistryReadOnly = (
 }
 
 export const getChugSplashManager = (
-  signer: Signer,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    signer
-  )
+  deployer: string,
+  signer: Signer
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, signer)
 }
 
 export const getChugSplashManagerReadOnly = (
-  provider: providers.Provider,
-  organizationID: string
-) => {
-  return new Contract(
-    getChugSplashManagerAddress(organizationID),
-    ChugSplashManagerABI,
-    provider
-  )
+  deployer: string,
+  provider: providers.Provider
+): Contract => {
+  return new Contract(deployer, ChugSplashManagerABI, provider)
 }
 
 export const chugsplashLog = (
@@ -282,7 +282,7 @@ export const chugsplashLog = (
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   silent: boolean
 ) => {
   if (!silent) {
@@ -351,7 +351,7 @@ export const formatEther = (
 export const readCanonicalConfig = async (
   canonicalConfigFolderPath: string,
   configUri: string
-): Promise<CanonicalChugSplashConfig | undefined> => {
+): Promise<CanonicalProjectConfig | undefined> => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Check that the file containing the canonical config exists.
@@ -369,7 +369,7 @@ export const readCanonicalConfig = async (
 export const writeCanonicalConfig = (
   canonicalConfigFolderPath: string,
   configUri: string,
-  canonicalConfig: CanonicalChugSplashConfig
+  canonicalConfig: CanonicalProjectConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
@@ -448,11 +448,11 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-export const isProjectClaimed = async (
+export const isProjectRegistered = async (
   registry: ethers.Contract,
   managerAddress: string
-) => {
-  return registry.managerProxies(managerAddress)
+): Promise<boolean> => {
+  return registry.isDeployed(managerAddress)
 }
 
 export const isInternalDefaultProxy = async (
@@ -895,7 +895,7 @@ export const getPreviousConfigUri = async (
 export const fetchAndCacheCanonicalConfig = async (
   configUri: string,
   canonicalConfigFolderPath: string
-): Promise<CanonicalChugSplashConfig> => {
+): Promise<CanonicalProjectConfig> => {
   const localCanonicalConfig = await readCanonicalConfig(
     canonicalConfigFolderPath,
     configUri
@@ -903,12 +903,11 @@ export const fetchAndCacheCanonicalConfig = async (
   if (localCanonicalConfig) {
     return localCanonicalConfig
   } else {
-    const remoteCanonicalConfig =
-      await callWithTimeout<CanonicalChugSplashConfig>(
-        chugsplashFetchSubtask({ configUri }),
-        30000,
-        'Failed to fetch config file from IPFS'
-      )
+    const remoteCanonicalConfig = await callWithTimeout<CanonicalProjectConfig>(
+      chugsplashFetchSubtask({ configUri }),
+      30000,
+      'Failed to fetch config file from IPFS'
+    )
 
     // Cache the canonical config by saving it to the local filesystem.
     writeCanonicalConfig(
@@ -920,9 +919,9 @@ export const fetchAndCacheCanonicalConfig = async (
   }
 }
 
-export const getConfigArtifactsRemote = async (
-  canonicalConfig: CanonicalChugSplashConfig
-): Promise<ConfigArtifacts> => {
+export const getProjectConfigArtifactsRemote = async (
+  canonicalConfig: CanonicalProjectConfig
+): Promise<ProjectConfigArtifacts> => {
   const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
   for (const chugsplashInput of canonicalConfig.inputs) {
@@ -962,7 +961,7 @@ export const getConfigArtifactsRemote = async (
     })
   }
 
-  const artifacts: ConfigArtifacts = {}
+  const artifacts: ProjectConfigArtifacts = {}
   // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
@@ -1178,21 +1177,6 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
   )
 }
 
-export const getEstDeployContractCost = (
-  gasEstimates: CompilerOutputContract['evm']['gasEstimates']
-): BigNumber => {
-  const { totalCost, codeDepositCost } = gasEstimates.creation
-
-  if (totalCost === 'infinite') {
-    // The `totalCost` is 'infinite' if the contract has a constructor. This is because the Solidity
-    // compiler can't determine the cost of the deployment since the constructor can contain
-    // arbitrary logic. In this case, we use the `executionCost` along a buffer multiplier of 1.5.
-    return BigNumber.from(codeDepositCost).mul(3).div(2)
-  } else {
-    return BigNumber.from(totalCost)
-  }
-}
-
 /**
  * Returns the address of a proxy's implementation contract that would be deployed by ChugSplash via
  * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
@@ -1217,3 +1201,188 @@ export const getImplAddress = (
 }
 
 export const execAsync = promisify(exec)
+
+export const getDuplicateElements = (arr: Array<string>): Array<string> => {
+  return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
+}
+
+/**
+ * @notice Gets various fields related to the ChugSplash org config. from the back-end if it exists.
+ * If it doesn't exist, it returns a new CanonicalOrgConfig with default parameters for the config
+ * options.
+ *
+ * @returns {chainIds, prevOrgConfig, isNewConfig} where the `chainIds` array contains the chain IDs
+ * in the current org config. The `prevOrgConfig` variable is the most recent CanonicalOrgConfig,
+ * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevOrgConfig` is a new
+ * config, i.e. it has not been used to setup the org on any chain.
+ */
+export const getOrgConfigInfo = async (
+  userConfig: UserChugSplashConfig,
+  projectName: string,
+  apiKey: string,
+  cre: ChugSplashRuntimeEnvironment,
+  failureAction: FailureAction
+): Promise<{
+  chainIds: Array<number>
+  prevOrgConfig: CanonicalOrgConfig
+  isNewConfig: boolean
+}> => {
+  if (!userConfig.options) {
+    throw new Error(`Must provide an 'options' section in your config.`)
+  }
+
+  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
+  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
+
+  const prevOrgConfig = await fetchCanonicalOrgConfig(
+    parsedConfigOptions.orgId,
+    apiKey
+  )
+
+  if (prevOrgConfig) {
+    return {
+      prevOrgConfig,
+      isNewConfig: false,
+      chainIds: parsedConfigOptions.chainIds,
+    }
+  } else {
+    const { orgOwners, orgThreshold, chainIds, orgId } = parsedConfigOptions
+    const auth = getAuthAddress(orgOwners, orgThreshold)
+    const deployer = getChugSplashManagerAddress(auth)
+    const emptyConfig = getEmptyCanonicalOrgConfig(
+      chainIds,
+      deployer,
+      orgId,
+      projectName
+    )
+    return { prevOrgConfig: emptyConfig, isNewConfig: true, chainIds }
+  }
+}
+
+export const fetchCanonicalOrgConfig = async (
+  orgId: string,
+  apiKey: string
+): Promise<CanonicalOrgConfig | undefined> => {
+  const response = await axios.post(
+    `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
+    {
+      apiKey,
+      orgId,
+    }
+  )
+  const config: CanonicalOrgConfig | undefined = response.data
+  return config
+}
+
+export const fetchChugSplashManagedBaseUrl = () => {
+  return process.env.CHUGSPLASH_MANAGED_BASE_URL
+    ? process.env.CHUGSPLASH_MANAGED_BASE_URL
+    : 'https://www.chugsplash.io'
+}
+
+export const relayProposal = async (proposalRequest: ProposalRequest) => {
+  // TODO: return undefined if the request returns an empty object.
+  try {
+    await axios.post(
+      `${fetchChugSplashManagedBaseUrl()}/api/propose`,
+      proposalRequest
+    )
+  } catch (e) {
+    if (e.response.status === 200) {
+      return
+    } else if (e.response.status === 400) {
+      throw new Error(`Malformed Request: ${e.response.data}`)
+    } else if (e.response.status === 401) {
+      throw new Error(
+        `Unauthorized, please check your API key and Org Id are correct`
+      )
+    } else if (e.response.status === 409) {
+      throw new Error(
+        `Unsupported network, please report this to the developers`
+      )
+    } else if (e.response.status === 500) {
+      throw new Error(
+        `Internal server error, please report this to the developers`
+      )
+    }
+  }
+}
+
+export const relayIPFSCommit = async (
+  apiKey: string,
+  orgId: string,
+  ipfsCommitRequest: Array<CanonicalProjectConfig>
+): Promise<IPFSCommitResponse> => {
+  const response = await axios.post(
+    `${fetchChugSplashManagedBaseUrl()}/api/pin`,
+    {
+      apiKey,
+      orgId,
+      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el)),
+    }
+  )
+
+  if (response.status === 400) {
+    throw new Error(
+      'Malformed request pinning to IPFS, please report this to the developers'
+    )
+  } else if (response.status === 401) {
+    throw new Error(
+      `Unauthorized, please check your API key and Org Id are correct`
+    )
+  }
+
+  return response.data
+}
+
+/**
+ * @notice Returns a new CanonicalOrgConfig with default parameters for the config options.
+ * This is useful when the user is attempting to propose a completely new org config, since
+ * there is no previous org config to use as a starting point yet.
+ */
+export const getEmptyCanonicalOrgConfig = (
+  chainIds: Array<number>,
+  deployer: string,
+  orgId: string,
+  projectName: string
+): CanonicalOrgConfig => {
+  if (chainIds.length === 0) {
+    throw new Error(`Must provide at least one chain ID.`)
+  }
+
+  const chainStates = {}
+
+  chainIds.forEach((chainId) => {
+    chainStates[chainId] = {
+      firstProposalOccurred: false,
+      projects: {
+        [projectName]: {
+          projectCreated: false,
+        },
+      },
+    }
+  })
+
+  return {
+    deployer,
+    options: {
+      orgId,
+      orgOwners: [],
+      orgThreshold: 0,
+      proposers: [],
+      managers: [],
+    },
+    projects: {
+      [projectName]: {
+        options: {
+          deployer,
+          projectOwners: [],
+          projectThreshold: 0,
+          project: projectName,
+        },
+        contracts: {},
+      },
+    },
+    chainStates,
+  }
+}

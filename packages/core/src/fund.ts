@@ -10,7 +10,7 @@ import {
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
-import { ParsedChugSplashConfig, contractKindHashes } from './config/types'
+import { ParsedProjectConfig, contractKindHashes } from './config/types'
 
 /**
  * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This
@@ -19,9 +19,9 @@ import { ParsedChugSplashConfig, contractKindHashes } from './config/types'
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  organizationID: string
+  deployer: string
 ): Promise<ethers.BigNumber> => {
-  const managerReadOnly = getChugSplashManagerReadOnly(provider, organizationID)
+  const managerReadOnly = getChugSplashManagerReadOnly(deployer, provider)
 
   const managerBalance = await provider.getBalance(managerReadOnly.address)
   const totalDebt = await managerReadOnly.totalDebt()
@@ -30,12 +30,9 @@ export const availableFundsForExecution = async (
 
 export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
-  organizationID: string
+  deployer: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(
-    provider,
-    organizationID
-  )
+  const ChugSplashManager = getChugSplashManagerReadOnly(deployer, provider)
 
   if (
     (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
@@ -122,11 +119,11 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  parsedConfig: ParsedChugSplashConfig
+  parsedProjectConfig: ParsedProjectConfig
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.organizationID
+    parsedProjectConfig.options.deployer
   )
 
   const currExecutionCost = await estimateExecutionCost(
@@ -142,7 +139,7 @@ export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: ChugSplashBundles,
   actionsExecuted: number,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedProjectConfig,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
@@ -153,7 +150,7 @@ export const getAmountToDeposit = async (
 
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.organizationID
+    parsedConfig.options.deployer
   )
 
   const amountToDeposit = includeBuffer

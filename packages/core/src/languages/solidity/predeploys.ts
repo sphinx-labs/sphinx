@@ -12,6 +12,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
+  AuthFactoryABI,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -26,10 +27,12 @@ import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   getChugSplashManagerV1Address,
   getChugSplashRegistryAddress,
-  MANAGED_SERVICE_ADDRESS,
+  getManagedServiceAddress,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
 } from '../../addresses'
 import {
   isSupportedNetworkOnEtherscan,
@@ -37,8 +40,7 @@ import {
 } from '../../etherscan'
 import { ChugSplashSystemConfig } from './types'
 import {
-  CALLER_ROLE,
-  MANAGED_PROPOSER_ROLE,
+  PROTOCOL_PAYMENT_RECIPIENT_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
@@ -54,14 +56,13 @@ const fetchChugSplashSystemConfig = (configPath: string) => {
   )).default
   if (
     typeof exported === 'object' &&
-    exported.callers.length > 0 &&
     exported.executors.length > 0 &&
-    exported.proposers.length > 0
+    exported.relayers.length > 0
   ) {
     return exported
   } else {
     throw new Error(
-      'Config file must export a valid config object with a list of executors, callers, and proposers.'
+      'Config file must export a valid config object with a list of executors and relayers.'
     )
   }
 }
@@ -81,8 +82,7 @@ export const initializeAndVerifyChugSplash = async (
     provider,
     await provider.getSigner(),
     config.executors,
-    config.proposers,
-    config.callers,
+    config.relayers,
     (
       await provider.getNetwork()
     ).chainId,
@@ -124,10 +124,16 @@ export const initializeAndVerifyChugSplash = async (
   }
 }
 
+/**
+ * @notice Ensures that the ChugSplash contracts are deployed and initialized. This will only send
+ * transactions from the signer if the provider is a local, non-forked network. The signer will
+ * never be used to send transactions on a live network.
+ */
 export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   executors: string[] = [],
+  relayers: string[] = [],
   logger?: Logger
 ) => {
   if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
@@ -137,16 +143,16 @@ export const ensureChugSplashInitialized = async (
       provider,
       signer,
       executors,
-      [],
-      [],
+      relayers,
       (
         await provider.getNetwork()
       ).chainId,
       logger
     )
   } else {
+    const { name } = await provider.getNetwork()
     throw new Error(
-      `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
+      `ChugSplash is not supported on ${name} yet. Reach out on Discord if you'd like us to support it!`
     )
   }
 }
@@ -155,8 +161,7 @@ export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: ethers.Signer,
   executors: string[],
-  proposers: string[],
-  callers: string[],
+  relayers: string[],
   chainId: number,
   logger?: Logger
 ): Promise<void> => {
@@ -237,7 +242,7 @@ export const initializeChugSplash = async (
   }
 
   const ManagedService = new ethers.Contract(
-    MANAGED_SERVICE_ADDRESS,
+    getManagedServiceAddress(),
     ManagedServiceArtifact.abi,
     signer
   )
@@ -258,29 +263,18 @@ export const initializeChugSplash = async (
   }
   logger?.info('[ChugSplash]: finished assigning executor roles')
 
-  logger?.info('[ChugSplash]: assigning proposer roles...')
-  for (const proposer of proposers) {
+  logger?.info('[ChugSplash]: assigning caller roles...')
+  for (const relayer of relayers) {
     if (
-      (await ManagedService.hasRole(MANAGED_PROPOSER_ROLE, proposer)) === false
+      (await ManagedService.hasRole(
+        PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+        relayer
+      )) === false
     ) {
       await (
         await ManagedService.connect(signer).grantRole(
-          MANAGED_PROPOSER_ROLE,
-          proposer,
-          await getGasPriceOverrides(provider)
-        )
-      ).wait()
-    }
-  }
-  logger?.info('[ChugSplash]: finished assigning proposer roles')
-
-  logger?.info('[ChugSplash]: assigning caller roles...')
-  for (const caller of callers) {
-    if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
-      await (
-        await ManagedService.connect(signer).grantRole(
-          CALLER_ROLE,
-          caller,
+          PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+          relayer,
           await getGasPriceOverrides(provider)
         )
       ).wait()
@@ -312,6 +306,52 @@ export const initializeChugSplash = async (
   }
 
   logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
+
+  logger?.info('[ChugSplash]: setting the default ChugSplashManager version')
+
+  if (
+    (await ChugSplashRegistry.currentManagerImplementation()) !==
+    chugSplashManagerV1Address
+  ) {
+    await (
+      await ChugSplashRegistry.connect(signer).setCurrentManagerImplementation(
+        chugSplashManagerV1Address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  logger?.info('[ChugSplash]: set the default ChugSplashManager version')
+
+  logger?.info('[ChugSplash]: setting the default ChugSplashAuth version')
+
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    signer
+  )
+
+  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
+    await (
+      await AuthFactory.addVersion(
+        AUTH_IMPL_V1_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  if (
+    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
+  ) {
+    await (
+      await AuthFactory.setCurrentAuthImplementation(
+        AUTH_IMPL_V1_ADDRESS,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  }
+
+  logger?.info('[ChugSplash]: set the default ChugSplashAuth version')
 
   logger?.info(
     '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'

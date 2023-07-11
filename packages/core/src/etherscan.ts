@@ -26,8 +26,7 @@ import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
-import { getChugSplashManagerAddress } from './addresses'
-import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
+import { CanonicalProjectConfig, ProjectConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getChugSplashConstants } from './contract-info'
@@ -41,15 +40,13 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifyChugSplashConfig = async (
-  canonicalConfig: CanonicalChugSplashConfig,
-  configArtifacts: ConfigArtifacts,
+  canonicalProjectConfig: CanonicalProjectConfig,
+  projectConfigArtifacts: ProjectConfigArtifacts,
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
 ) => {
-  const managerAddress = getChugSplashManagerAddress(
-    canonicalConfig.options.organizationID
-  )
+  const managerAddress = canonicalProjectConfig.options.deployer
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
@@ -60,12 +57,12 @@ export const verifyChugSplashConfig = async (
   )
 
   for (const [referenceName, contractConfig] of Object.entries(
-    canonicalConfig.contracts
+    canonicalProjectConfig.contracts
   )) {
-    const { artifact, buildInfo } = configArtifacts[referenceName]
+    const { artifact, buildInfo } = projectConfigArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
-      canonicalConfig.contracts[referenceName].constructorArgs,
+      canonicalProjectConfig.contracts[referenceName].constructorArgs,
       abi
     )
 
@@ -76,8 +73,9 @@ export const verifyChugSplashConfig = async (
       abi
     )
 
-    const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
-      Object.keys(compilerInput.input.sources).includes(sourceName)
+    const chugsplashInput = canonicalProjectConfig.inputs.find(
+      (compilerInput) =>
+        Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
     if (!chugsplashInput) {

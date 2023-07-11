@@ -15,20 +15,27 @@ import { getChugSplashManagerAddress } from '../addresses'
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
 export const getMinimalConfig = (
-  userConfig: UserChugSplashConfig
+  userConfig: UserChugSplashConfig,
+  projectName: string,
+  owner: string
 ): MinimalConfig => {
-  const { organizationID, projectName } = userConfig.options
-  const managerAddress = getChugSplashManagerAddress(organizationID)
+  const deployer = getChugSplashManagerAddress(owner)
+
+  if (!Object.keys(userConfig.projects).includes(projectName)) {
+    // We always exit early here because everything after this wont work without a valid project name
+    throw Error(`No project exists with the name: ${projectName}`)
+  }
+
+  const projectConfig = userConfig.projects[projectName]
 
   const minimalContractConfigs: Array<MinimalContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    userConfig.contracts
+    projectConfig.contracts
   )) {
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ??
-      getTargetAddress(managerAddress, projectName, referenceName, salt)
+      address ?? getTargetAddress(deployer, projectName, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
@@ -38,7 +45,8 @@ export const getMinimalConfig = (
     })
   }
   return {
-    organizationID,
+    deployer,
+    owner,
     projectName,
     contracts: minimalContractConfigs,
   }

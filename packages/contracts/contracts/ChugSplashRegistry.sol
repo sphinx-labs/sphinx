@@ -13,7 +13,8 @@ import { Version } from "./ChugSplashDataTypes.sol";
 /**
  * @title ChugSplashRegistry
  * @notice The ChugSplashRegistry is the root contract for the ChugSplash deployment system. This
- *         contract allows callers to register new projects. Also, every event emitted in the
+ *         contract allows callers to register new ChugSplashManagers. Also, every event emitted in
+           the
  *         ChugSplash system is announced through this contract. This makes it easy for clients to
  *         find and index events that occur throughout the deployment process. Lastly, the owner of
  *         this contract is able to add support for new contract kinds (e.g. OpenZeppelin's
@@ -28,15 +29,15 @@ contract ChugSplashRegistry is
     IChugSplashRegistry
 {
     /**
-     * @notice Mapping of organization IDs to ChugSplashManagerProxy addresses.
+     * @notice Mapping of salt values to ChugSplashManagerProxy addresses.
      */
-    mapping(bytes32 => address payable) public projects;
+    mapping(bytes32 => address payable) public managers;
 
     /**
      * @notice Mapping of ChugSplashManagerProxy addresses to a boolean indicating whether or not
      *         it was deployed by this contract.
      */
-    mapping(address => bool) public managerProxies;
+    mapping(address => bool) public isDeployed;
 
     /**
      * @notice Mapping of contract kind hashes to adapter contract addresses.
@@ -55,6 +56,8 @@ contract ChugSplashRegistry is
      */
     mapping(uint => mapping(uint => mapping(uint => address))) public versions;
 
+    address public currentManagerImplementation;
+
     /**
      * @param _owner Address of the owner of the registry.
      */
@@ -63,30 +66,28 @@ contract ChugSplashRegistry is
     }
 
     /**
-     * @notice Finalizes the registration of an organization ID by deploying a new
-       ChugSplashManagerProxy contract and setting the provided owner as the initial owner of the
-       new project.
+     * @notice Registers a new ChugSplashManagerProxy. The address of each new proxy is calculated
+        via CREATE2, using the `_owner` and `_saltNonce` as the salt.
      *
-     * @param _organizationID Organization ID being registered.
-     * @param _owner        Initial owner for the new project.
-     * @param _version   Version of the ChugSplashManager implementation.
-     * @param _data      Any data to pass to the ChugSplashManager initializer.
+     * @param _owner Address of the owner of the ChugSplashManagerProxy.
+     * @param _saltNonce Nonce that generates the salt that determines the address of the new
+            ChugSplashManagerProxy. This allows a single owner address to own multiple different
+            proxy contracts.
      */
-    function finalizeRegistration(
-        bytes32 _organizationID,
+    function register(
         address _owner,
-        Version memory _version,
+        uint256 _saltNonce,
         bytes memory _data
-    ) external {
+    ) external returns (address) {
         require(
-            address(projects[_organizationID]) == address(0),
-            "ChugSplashRegistry: org ID already registered"
+            currentManagerImplementation != address(0),
+            "ChugSplashRegistry: no manager implementation"
         );
 
-        address managerImpl = versions[_version.major][_version.minor][_version.patch];
-        require(managerImplementations[managerImpl], "ChugSplashRegistry: invalid manager version");
+        bytes32 salt = keccak256(abi.encode(_owner, _saltNonce, _data));
+        require(address(managers[salt]) == address(0), "ChugSplashRegistry: already registered");
 
-        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: _organizationID }(
+        ChugSplashManagerProxy managerProxy = new ChugSplashManagerProxy{ salt: salt }(
             this,
             address(this)
         );
@@ -96,24 +97,26 @@ contract ChugSplashRegistry is
             "ChugSplashRegistry: failed to deploy manager proxy"
         );
 
-        projects[_organizationID] = payable(address(managerProxy));
-        managerProxies[address(managerProxy)] = true;
+        managers[salt] = payable(address(managerProxy));
+        isDeployed[address(managerProxy)] = true;
 
         bytes memory retdata = managerProxy.upgradeToAndCall(
-            managerImpl,
-            abi.encodeCall(IChugSplashManager.initialize, _data)
+            currentManagerImplementation,
+            abi.encodeCall(IChugSplashManager.initialize, (_owner, _data))
         );
 
-        // Change manager proxy admin to the Org owner
+        // Change manager proxy admin to the owner
         managerProxy.changeAdmin(_owner);
 
-        emit ChugSplashRegistrationFinalized(
-            _organizationID,
-            managerImpl,
+        emit ChugSplashManagerRegistered(
+            salt,
+            currentManagerImplementation,
             _owner,
             msg.sender,
             retdata
         );
+
+        return (address(managerProxy));
     }
 
     /**
@@ -124,7 +127,7 @@ contract ChugSplashRegistry is
      */
     function announce(string memory _event) external {
         require(
-            managerProxies[msg.sender],
+            isDeployed[msg.sender],
             "ChugSplashRegistry: events can only be announced by managers"
         );
 
@@ -140,7 +143,7 @@ contract ChugSplashRegistry is
      */
     function announceWithData(string memory _event, bytes memory _data) external {
         require(
-            managerProxies[msg.sender],
+            isDeployed[msg.sender],
             "ChugSplashRegistry: events can only be announced by managers"
         );
 
@@ -189,5 +192,15 @@ contract ChugSplashRegistry is
         versions[major][minor][patch] = _manager;
 
         emit VersionAdded(major, minor, patch, _manager);
+    }
+
+    function setCurrentManagerImplementation(address _manager) external onlyOwner {
+        require(
+            managerImplementations[_manager],
+            "ChugSplashRegistry: invalid manager implementation"
+        );
+        currentManagerImplementation = _manager;
+
+        emit CurrentManagerImplementationSet(_manager);
     }
 }

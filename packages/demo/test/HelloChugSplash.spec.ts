@@ -1,5 +1,6 @@
+import '@nomiclabs/hardhat-ethers'
 import '@chugsplash/plugins'
-import { chugsplash } from 'hardhat'
+import { chugsplash, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
@@ -11,7 +12,8 @@ describe('HelloChugSplash', () => {
 
     MyFirstContract = await chugsplash.getContract(
       'Hello ChugSplash',
-      'MyFirstContract'
+      'MyFirstContract',
+      ethers.provider.getSigner()
     )
   })
 

@@ -141,11 +141,15 @@ export class ChugSplashExecutor extends BaseServiceV2<
       (el) => new ethers.Wallet(el.privateKey).address
     )
 
+    const relayers = process.env.TESTING_RELAYERS
+      ? process.env.TESTING_RELAYERS.split(',')
+      : []
     // Deploy the ChugSplash contracts.
     await ensureChugSplashInitialized(
       this.state.provider,
       wallet,
       executors,
+      relayers,
       this.logger
     )
 
@@ -166,7 +170,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnounced('ChugSplashDeploymentApproved'),
+      registry.filters.EventAnnouncedWithData('ChugSplashDeploymentApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )

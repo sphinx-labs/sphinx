@@ -2,7 +2,7 @@ import { argv } from 'process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { getBundleInfo, readValidatedChugSplashConfig } from '@chugsplash/core'
+import { getProjectBundleInfo, readParsedOwnerConfig } from '@chugsplash/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -35,14 +35,14 @@ const displayBundleInfo = async () => {
   )
 
   const { parsedConfig, configCache, configArtifacts } =
-    await readValidatedChugSplashConfig(
+    await readParsedOwnerConfig(
       configPath,
       provider,
       cre,
       makeGetConfigArtifacts(hre)
     )
 
-  const { configUri, bundles } = await getBundleInfo(
+  const { configUri, bundles } = await getProjectBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
