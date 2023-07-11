@@ -331,6 +331,8 @@ export type IPFSCommitResponse = IPFSHash[]
 /**
  * @param orgCanonicalConfig The stringified CanonicalOrgConfig that would be generated if this
  * proposal were to be approved and completely executed.
+ * @param gasEstimates The estimated amount of gas required to the entire org tree on each chain,
+ * including a buffer.
  */
 export type ProposalRequest = {
   apiKey: string
@@ -342,6 +344,7 @@ export type ProposalRequest = {
   chainIds: Array<number>
   orgCanonicalConfig: string
   projectDeployments: Array<ProjectDeployments>
+  gasEstimates: Array<{ chainId: number; estimatedGas: string }>
   orgTree: {
     root: string
     chainStatus: Array<{
@@ -356,7 +359,6 @@ export type ProjectDeployments = {
   chainId: number
   deploymentId: string
   name: string // project name
-  estimatedGas: string // gasUsed, not gas price
 }
 
 export type ProposalRequestLeaf = {
