@@ -58,7 +58,6 @@ contract ChugSplashLZReceiver is NonblockingLzApp {
         // This contract is only meant to be called by the LayerZero endpoint, so we revert
         // if the caller is different.
         require(msg.sender == address(lzEndpoint), "LzApp: invalid endpoint caller");
-
         emit ReceivedCrossChainMessage(_srcChainId, _srcAddress, _nonce, keccak256(_payload));
 
         if (_payload.length > 0) {

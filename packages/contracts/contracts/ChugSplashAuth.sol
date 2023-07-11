@@ -67,26 +67,6 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
      */
     mapping(bytes32 => AuthState) public authStates;
 
-    modifier isValidProposedAuthLeaf(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes32[] memory _proof,
-        uint256 _threshold,
-        bytes32 _verifyingRole,
-        bytes[] memory _signatures
-    ) {
-        AuthState memory authState = authStates[_authRoot];
-        if (authState.status != AuthStatus.PROPOSED) revert AuthStateNotProposed();
-
-        verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
-        _;
-    }
-
-    modifier incrementProtocolDebt(uint256 _initialGasLeft) {
-        _;
-        manager.incrementProtocolDebt(_initialGasLeft);
-    }
-
     event Setup(bytes32 indexed authRoot, uint256 numLeafs);
     event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
@@ -107,6 +87,26 @@ contract ChugSplashAuth is AccessControlEnumerableUpgradeable, Semver {
     event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthRootProposed(bytes32 indexed authRoot, uint256 numLeafs);
     event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
+
+    modifier isValidProposedAuthLeaf(
+        bytes32 _authRoot,
+        AuthLeaf memory _leaf,
+        bytes32[] memory _proof,
+        uint256 _threshold,
+        bytes32 _verifyingRole,
+        bytes[] memory _signatures
+    ) {
+        AuthState memory authState = authStates[_authRoot];
+        if (authState.status != AuthStatus.PROPOSED) revert AuthStateNotProposed();
+
+        verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
+        _;
+    }
+
+    modifier incrementProtocolDebt(uint256 _initialGasLeft) {
+        _;
+        manager.incrementProtocolDebt(_initialGasLeft);
+    }
 
     error AuthStateNotProposed();
     error ThresholdCannotBeZero();

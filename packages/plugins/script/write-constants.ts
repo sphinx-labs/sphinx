@@ -103,7 +103,7 @@ const writeConstants = async () => {
     },
   }
 
-  const contractInfo = getChugSplashConstants(31337)
+  const contractInfo = getChugSplashConstants(31337, false)
     .filter(
       (el) =>
         el.artifact.contractName !== 'ChugSplashLZSender' &&

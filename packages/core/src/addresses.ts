@@ -180,12 +180,18 @@ export const getMockEndPointAddress = (chainId: number) =>
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
-      ['bytes', 'uint16'],
-      [LZEndpointMockArtifact.bytecode, chainId]
+      ['bytes', 'bytes'],
+      [
+        LZEndpointMockArtifact.bytecode,
+        utils.defaultAbiCoder.encode(['uint16'], [chainId]),
+      ]
     )
   )
 
-export const getLZSenderAddress = (endpointAddress: string) => {
+export const getLZSenderAddress = (
+  endpointAddress: string,
+  destinationChains: [number, string][]
+) => {
   return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
@@ -195,7 +201,7 @@ export const getLZSenderAddress = (endpointAddress: string) => {
         LZSenderArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'tuple(uint16,address)[]', 'address'],
-          [endpointAddress, [], getOwnerAddress()]
+          [endpointAddress, destinationChains, getOwnerAddress()]
         ),
       ]
     )

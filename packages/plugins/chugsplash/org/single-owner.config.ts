@@ -1,13 +1,13 @@
 import { UserChugSplashConfig } from '@chugsplash/core'
 
-const ownerAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+const ownerAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
 
 const config: UserChugSplashConfig = {
   options: {
     orgOwners: [ownerAddress],
     orgThreshold: 1,
     orgId: 'cljvzl0om0001cbyqh3jw2tgo',
-    networks: ['goerli', 'optimism-goerli'],
+    networks: ['goerli'],
     proposers: [ownerAddress],
     managers: [ownerAddress],
   },
