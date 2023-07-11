@@ -561,7 +561,7 @@ export const chugsplashInitTask = async (
 }
 
 task(TASK_CHUGSPLASH_INIT)
-  .setDescription('Sets up a ChugSplash project.')
+  .setDescription('Sets up a sample ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's logs")
   .setAction(chugsplashInitTask)
 

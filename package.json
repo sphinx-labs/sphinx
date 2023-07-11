@@ -22,9 +22,9 @@
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@chugsplash/{contracts,plugins}/@eth-optimism/contracts",
       "@chugsplash/contracts/@layerzerolabs/solidity-examples",
-      "@chugsplash/plugins/@chugsplash/contracts",
-      "@chugsplash/plugins/forge-std",
-      "@chugsplash/plugins/ds-test",
+      "@chugsplash/{plugins,demo}/@chugsplash/contracts",
+      "@chugsplash/{plugins,demo}/forge-std",
+      "@chugsplash/{plugins,demo}/ds-test",
       "@chugsplash/plugins/solidity-stringutils",
       "@chugsplash/plugins/@prb/math"
     ]

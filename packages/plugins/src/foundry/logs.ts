@@ -24,8 +24,10 @@ export const getEncodedFailure = (err: Error): string => {
   const prettyWarnings = getPrettyWarnings()
 
   let prettyError: string
-  if (err.name === 'ValidationError') {
-    // We return the error messages and warnings.
+  if (err.name === 'ValidationError' && err.message === '') {
+    // We throw a ValidationError with an empty message inside `logValidationError` if there's one or
+    // more parsing errors. In this situation, we return the parsing error messages that have been
+    // collected in the `validationErrors` variable.
 
     // Removes unnecessary '\n' characters from the end of 'errors'
     prettyError = validationErrors.endsWith('\n\n')

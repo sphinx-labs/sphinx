@@ -3,17 +3,11 @@ export const getSampleContractFile = (solcVersion: string) => {
 pragma solidity ^${solcVersion};
 
 contract HelloChugSplash {
-  uint8 public number;
-  bool public stored;
-  address public otherStorage;
-  string public storageName;
+    uint8 public number;
 
-  constructor(uint8 _number, bool _stored, address _otherStorage, string memory _storageName) {
-    number = _number;
-    stored = _stored;
-    otherStorage = _otherStorage;
-    storageName = _storageName;
-  }
+    constructor(uint8 _number) {
+        number = _number;
+    }
 }
 `
 }
@@ -25,15 +19,19 @@ export const getSampleFoundryDeployFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import "@chugsplash/plugins/ChugSplash.sol";
+import { ChugSplash } from "@chugsplash/plugins/ChugSplash.sol";
 
 contract ChugSplashDeploy is ChugSplash {
-  function run() public {
-    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-    vm.startBroadcast(deployerPrivateKey);
-    deploy('${configPath}', vm.rpcUrl("anvil"));
-    vm.stopBroadcast();
-  }
+
+    string configPath = "${configPath}";
+    string projectName = "MyFirstProject";
+
+    function run() public {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+        deploy(configPath, projectName, vm.rpcUrl("anvil"));
+        vm.stopBroadcast();
+    }
 }
 `
 }
@@ -45,33 +43,25 @@ export const getSampleFoundryTestFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import "@chugsplash/plugins/ChugSplash.sol";
-import { HelloChugSplash } from "../src/HelloChugSplash.sol";
-import "forge-std/Test.sol";
+import { ChugSplash } from "@chugsplash/plugins/ChugSplash.sol";
+import { Test } from "forge-std/Test.sol";
+import { HelloChugSplash } from "../contracts/HelloChugSplash.sol";
 
 contract HelloChugSplashTest is ChugSplash, Test {
-  HelloChugSplash helloChugSplash;
-  function setUp() public {
-    silence();
-    deploy('${configPath}', vm.rpcUrl("anvil"));
-    helloChugSplash = HelloChugSplash(getAddress('${configPath}', "MyFirstContract"));
-  }
+    HelloChugSplash helloChugSplash;
 
-  function testSetNumber() public {
-    assertEq(helloChugSplash.number(), 1);
-  }
+    string configPath = "${configPath}";
+    string projectName = "MyFirstProject";
+    string contractName = "MyContract";
 
-  function testBool() public {
-    assertEq(helloChugSplash.stored(), true);
-  }
+    function setUp() public {
+        deploy(configPath, projectName, vm.rpcUrl("anvil"));
+        helloChugSplash = HelloChugSplash(getAddress(configPath, projectName, contractName));
+    }
 
-  function testAddress() public {
-    assertEq(helloChugSplash.storageName(), 'First');
-  }
-
-  function testString() public {
-    assertEq(helloChugSplash.otherStorage(), address(0x1111111111111111111111111111111111111111));
-  }
+    function testSetNumber() public {
+        assertEq(helloChugSplash.number(), 1);
+    }
 }
 `
 }
