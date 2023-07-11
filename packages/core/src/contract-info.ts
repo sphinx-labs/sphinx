@@ -45,15 +45,20 @@ import {
 import { LAYERZERO_ADDRESSES } from './constants'
 
 export const getChugSplashConstants = (
-  chainId: number
+  chainId: number,
+  localLZEndpoint: boolean
 ): Array<{
   artifact: ContractArtifact
   expectedAddress: string
   constructorArgs: any[]
 }> => {
   const lzEndpointAddress =
-    LAYERZERO_ADDRESSES[chainId]?.endpointAddress ??
-    getMockEndPointAddress(chainId)
+    localLZEndpoint || chainId === 31337
+      ? getMockEndPointAddress(chainId)
+      : LAYERZERO_ADDRESSES[chainId]?.endpointAddress
+  const destinationChains = [
+    [chainId, getLZReceiverAddress(lzEndpointAddress)] as [number, string],
+  ]
   return [
     {
       artifact: ChugSplashRegistryArtifact,
@@ -125,8 +130,12 @@ export const getChugSplashConstants = (
     },
     {
       artifact: LZSenderArtifact,
-      expectedAddress: getLZSenderAddress(lzEndpointAddress),
-      constructorArgs: [lzEndpointAddress, [], getOwnerAddress()],
+      expectedAddress: getLZSenderAddress(lzEndpointAddress, destinationChains),
+      constructorArgs: [
+        lzEndpointAddress,
+        destinationChains,
+        getOwnerAddress(),
+      ],
     },
     {
       artifact: LZReceiverArtifact,

@@ -135,7 +135,8 @@ const command = args[0]
           [],
           (
             await provider.getNetwork()
-          ).chainId
+          ).chainId,
+          false
         )
       } catch (e) {
         if (!e.reason.includes('could not detect network')) {

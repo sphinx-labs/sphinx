@@ -134,7 +134,7 @@ export const verifyChugSplash = async (
     artifact,
     expectedAddress,
     constructorArgs,
-  } of getChugSplashConstants((await provider.getNetwork()).chainId)) {
+  } of getChugSplashConstants((await provider.getNetwork()).chainId, false)) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(

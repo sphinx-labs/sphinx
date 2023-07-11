@@ -13,6 +13,8 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   AuthFactoryABI,
+  LZEndpointMockABI,
+  LZEndpointMockArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -33,6 +35,9 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
+  getMockEndPointAddress,
+  getLZReceiverAddress,
+  getLZSenderAddress,
 } from '../../addresses'
 import {
   isSupportedNetworkOnEtherscan,
@@ -86,6 +91,7 @@ export const initializeAndVerifyChugSplash = async (
     (
       await provider.getNetwork()
     ).chainId,
+    false,
     logger
   )
 
@@ -147,6 +153,7 @@ export const ensureChugSplashInitialized = async (
       (
         await provider.getNetwork()
       ).chainId,
+      false,
       logger
     )
   } else {
@@ -163,6 +170,7 @@ export const initializeChugSplash = async (
   executors: string[],
   relayers: string[],
   chainId: number,
+  localLZEndpoint: boolean,
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
@@ -172,7 +180,7 @@ export const initializeChugSplash = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of getChugSplashConstants(chainId)) {
+  } of getChugSplashConstants(chainId, localLZEndpoint)) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[ChugSplash]: deploying ${contractName}...`)
@@ -192,7 +200,7 @@ export const initializeChugSplash = async (
       `address mismatch for ${contractName}`
     )
 
-    logger?.info(`[ChugSplash]: deployed ${contractName}`)
+    logger?.info(`[ChugSplash]: deployed ${contractName}, ${contract.address}`)
   }
 
   logger?.info(`[ChugSplash]: finished deploying ChugSplash contracts`)
@@ -469,6 +477,50 @@ export const initializeChugSplash = async (
     logger?.info(
       '[ChugSplash]: the internal default proxy type was already added to the ChugSplashRegistry'
     )
+  }
+
+  if (localLZEndpoint) {
+    logger?.info(`[ChugSplash]: deploying MockLZEndpoint...`)
+
+    const contract = await doDeterministicDeploy(provider, {
+      signer: deployer,
+      contract: {
+        abi: LZEndpointMockABI,
+        bytecode: LZEndpointMockArtifact.bytecode,
+      },
+      args: [5],
+      salt: ethers.constants.HashZero,
+    })
+
+    assert(
+      contract.address === getMockEndPointAddress(5),
+      `address mismatch for MockLZEndpoint`
+    )
+
+    logger?.info(`[ChugSplash]: deployed MockLZEndpoint, ${contract.address}`)
+
+    const lzMockEndpoint = new ethers.Contract(
+      contract.address,
+      LZEndpointMockABI,
+      signer
+    )
+    const destinationChains = [
+      [chainId, getLZReceiverAddress(contract.address)] as [number, string],
+    ]
+    await (
+      await lzMockEndpoint.setDestLzEndpoint(
+        getLZReceiverAddress(contract.address),
+        contract.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+    await (
+      await lzMockEndpoint.setDestLzEndpoint(
+        getLZSenderAddress(contract.address, destinationChains),
+        contract.address,
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
   }
 }
 
