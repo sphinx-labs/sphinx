@@ -19,15 +19,8 @@ contract ChugSplashLZSender is LzApp {
         address lzReceiver;
     }
 
-    event SentMessage(uint16 dstChainId, bytes payload, uint256 destGas, uint256 nativeFee);
-
-    event SentFunds(
-        address indexed airdropAddress,
-        uint16 dstChainId,
-        uint256 amount,
-        uint256 destGas,
-        uint256 nativeFee
-    );
+    event SentMessages(LayerZeroMessage[] messages, uint256 nativeFee);
+    event SentFunds(LayerZeroFundingMessage[] messages, uint256 nativeFee);
 
     event RefundedExtraETH(address indexed receiver, uint256 amount);
 
@@ -113,17 +106,11 @@ contract ChugSplashLZSender is LzApp {
                 adapterParam,
                 fee
             );
-
-            emit SentFunds(
-                message.airdropAddress,
-                message.dstChainId,
-                message.airdropAmount,
-                message.destGas,
-                fee
-            );
         }
 
         _refundExtraETH(totalFee);
+
+        emit SentFunds(messages, totalFee);
     }
 
     /**
@@ -163,11 +150,11 @@ contract ChugSplashLZSender is LzApp {
                 adapterParam,
                 fee
             );
-
-            emit SentMessage(message.dstChainId, message.payload, message.destGas, fee);
         }
 
         _refundExtraETH(totalFee);
+
+        emit SentMessages(messages, totalFee);
     }
 
     function _refundExtraETH(uint256 _totalSent) private {

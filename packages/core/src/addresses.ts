@@ -29,7 +29,11 @@ import {
 } from '@chugsplash/contracts'
 import { constants, utils } from 'ethers'
 
-import { CURRENT_CHUGSPLASH_MANAGER_VERSION } from './constants'
+import {
+  CURRENT_CHUGSPLASH_MANAGER_VERSION,
+  LAYERZERO_ADDRESSES,
+  SUPPORTED_LIVE_NETWORKS,
+} from './constants'
 
 const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -189,9 +193,22 @@ export const getMockEndPointAddress = (chainId: number) =>
   )
 
 export const getLZSenderAddress = (
-  endpointAddress: string,
-  destinationChains: [number, string][]
+  localLZEndpoint: boolean,
+  lzEndpointAddress: string
 ) => {
+  const destinationChains = Object.values(SUPPORTED_LIVE_NETWORKS).map(
+    (id) =>
+      [
+        id,
+        // Calculate the receiver address using either the mock or real endpoint depending on the situation
+        getLZReceiverAddress(
+          localLZEndpoint
+            ? getMockEndPointAddress(id)
+            : LAYERZERO_ADDRESSES[id].endpointAddress
+        ),
+      ] as [number, string]
+  )
+
   return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
@@ -201,7 +218,7 @@ export const getLZSenderAddress = (
         LZSenderArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'tuple(uint16,address)[]', 'address'],
-          [endpointAddress, destinationChains, getOwnerAddress()]
+          [lzEndpointAddress, destinationChains, getOwnerAddress()]
         ),
       ]
     )

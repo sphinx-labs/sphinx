@@ -103,11 +103,13 @@ const writeConstants = async () => {
     },
   }
 
-  const contractInfo = getChugSplashConstants(31337, false)
+  const contractInfo = getChugSplashConstants(31337, true)
     .filter(
       (el) =>
+        // We don't need the lz senders, receivers, or mocks in Foundry
         el.artifact.contractName !== 'ChugSplashLZSender' &&
-        el.artifact.contractName !== 'ChugSplashLZReceiver'
+        el.artifact.contractName !== 'ChugSplashLZReceiver' &&
+        el.artifact.contractName !== 'LZEndpointMock'
     )
     .map(({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact

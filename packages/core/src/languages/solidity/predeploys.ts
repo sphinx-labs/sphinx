@@ -14,7 +14,6 @@ import {
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   AuthFactoryABI,
   LZEndpointMockABI,
-  LZEndpointMockArtifact,
 } from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -37,7 +36,6 @@ import {
   AUTH_IMPL_V1_ADDRESS,
   getMockEndPointAddress,
   getLZReceiverAddress,
-  getLZSenderAddress,
 } from '../../addresses'
 import {
   isSupportedNetworkOnEtherscan,
@@ -47,6 +45,7 @@ import { ChugSplashSystemConfig } from './types'
 import {
   PROTOCOL_PAYMENT_RECIPIENT_ROLE,
   REMOTE_EXECUTOR_ROLE,
+  SUPPORTED_LIVE_NETWORKS,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
@@ -479,48 +478,25 @@ export const initializeChugSplash = async (
     )
   }
 
+  // If deploying locally, then we need to setup the destinations on all of the mock lz endpoints
   if (localLZEndpoint) {
-    logger?.info(`[ChugSplash]: deploying MockLZEndpoint...`)
-
-    const contract = await doDeterministicDeploy(provider, {
-      signer: deployer,
-      contract: {
-        abi: LZEndpointMockABI,
-        bytecode: LZEndpointMockArtifact.bytecode,
-      },
-      args: [5],
-      salt: ethers.constants.HashZero,
-    })
-
-    assert(
-      contract.address === getMockEndPointAddress(5),
-      `address mismatch for MockLZEndpoint`
-    )
-
-    logger?.info(`[ChugSplash]: deployed MockLZEndpoint, ${contract.address}`)
-
-    const lzMockEndpoint = new ethers.Contract(
-      contract.address,
+    const srcEndpointAddress = getMockEndPointAddress(await signer.getChainId())
+    const srcEndpoint = new ethers.Contract(
+      srcEndpointAddress,
       LZEndpointMockABI,
       signer
     )
-    const destinationChains = [
-      [chainId, getLZReceiverAddress(contract.address)] as [number, string],
-    ]
-    await (
-      await lzMockEndpoint.setDestLzEndpoint(
-        getLZReceiverAddress(contract.address),
-        contract.address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-    await (
-      await lzMockEndpoint.setDestLzEndpoint(
-        getLZSenderAddress(contract.address, destinationChains),
-        contract.address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
+
+    for (const id of Object.values(SUPPORTED_LIVE_NETWORKS)) {
+      const endpointAddress = getMockEndPointAddress(id)
+      await (
+        await srcEndpoint.setDestLzEndpoint(
+          getLZReceiverAddress(endpointAddress),
+          endpointAddress,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    }
   }
 }
 

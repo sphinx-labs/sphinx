@@ -1318,7 +1318,7 @@ export const relayIPFSCommit = async (
     {
       apiKey,
       orgId,
-      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el)),
+      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
     }
   )
 
