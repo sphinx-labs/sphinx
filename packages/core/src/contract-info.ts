@@ -58,9 +58,10 @@ export const getChugSplashConstants = (
   constructorArgs: any[]
 }> => {
   // Get the endpoint address based on if this deployment is on a local node or not
-  const lzEndpointAddress = localLZEndpoint
-    ? getMockEndPointAddress(chainId)
-    : LAYERZERO_ADDRESSES[chainId as SupportedChainId].endpointAddress
+  const lzEndpointAddress =
+    localLZEndpoint || 31337
+      ? getMockEndPointAddress(chainId)
+      : LAYERZERO_ADDRESSES[chainId as SupportedChainId].endpointAddress
 
   // Get the set of destination chains based off the supported networks
   const destinationChains = Object.values(SUPPORTED_LIVE_NETWORKS).map(
