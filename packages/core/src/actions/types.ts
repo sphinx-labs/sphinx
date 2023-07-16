@@ -341,6 +341,7 @@ export type ProposalRequest = {
   orgOwnerThreshold: number
   authAddress: string
   deployerAddress: string
+  deploymentName: string
   chainIds: Array<number>
   orgCanonicalConfig: string
   projectDeployments: Array<ProjectDeployments>
