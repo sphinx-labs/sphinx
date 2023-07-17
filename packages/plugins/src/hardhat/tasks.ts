@@ -160,11 +160,24 @@ export const chugsplashProposeTask = async (
     configPath: string
     project: string
     dryRun: boolean
+    testnets: boolean
+    mainnets: boolean
     noCompile: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, project, noCompile, dryRun } = args
+  const { configPath, project, noCompile, dryRun, testnets, mainnets } = args
+
+  let isTestnet: boolean
+  if (testnets && mainnets) {
+    throw new Error('Cannot specify both --testnets and --mainnets')
+  } else if (testnets) {
+    isTestnet = true
+  } else if (mainnets) {
+    isTestnet = false
+  } else {
+    throw new Error('Must specify either --testnets or --mainnets')
+  }
 
   const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
   const spinner = ora()
@@ -186,6 +199,7 @@ export const chugsplashProposeTask = async (
 
   await proposeAbstractTask(
     configPath,
+    isTestnet,
     project,
     dryRun,
     cre,
@@ -201,6 +215,14 @@ task(TASK_CHUGSPLASH_PROPOSE)
   )
   .addParam('configPath', 'Path to the ChugSplash config file')
   .addParam('project', 'The name of the project to propose')
+  .addFlag(
+    'testnets',
+    'Propose on the testnets specified in the ChugSplash config'
+  )
+  .addFlag(
+    'mainnets',
+    `Propose on the mainnets specified in the ChugSplash config`
+  )
   .addFlag(
     'dryRun',
     'Dry run the proposal without signing or relaying it to the back-end.'

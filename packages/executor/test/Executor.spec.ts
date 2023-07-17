@@ -13,7 +13,7 @@ import {
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_NETWORKS,
   getEmptyCanonicalOrgConfig,
   findBundledLeaf,
   getAuthLeafsForChain,
@@ -62,6 +62,8 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
 // configs. We're not actually running the test on Goerli though; the RPC URL is localhost.
 const network = 'goerli'
 
+const isTestnet = true
+
 describe('Remote executor', () => {
   let Proxy: Contract
   let Immutable: Contract
@@ -78,7 +80,8 @@ describe('Remote executor', () => {
         orgId: DUMMY_ORG_ID,
         orgOwners,
         orgThreshold,
-        networks: [network],
+        testnets: [network],
+        mainnets: [],
         proposers: [owner.address],
         managers: [owner.address],
       },
@@ -128,12 +131,13 @@ describe('Remote executor', () => {
         userConfig,
         projectName,
         deployerAddress,
+        isTestnet,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
       )
 
-    const chainId = SUPPORTED_LIVE_NETWORKS[network]
+    const chainId = SUPPORTED_NETWORKS[network]
     const prevOrgConfig = getEmptyCanonicalOrgConfig(
       [chainId],
       deployerAddress,

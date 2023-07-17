@@ -85,6 +85,7 @@ dotenv.config()
 
 export const proposeAbstractTask = async (
   configPath: string,
+  isTestnet: boolean,
   projectName: string,
   dryRun: boolean,
   cre: ChugSplashRuntimeEnvironment,
@@ -112,6 +113,7 @@ export const proposeAbstractTask = async (
   const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
     userConfig,
     projectName,
+    isTestnet,
     apiKey,
     cre,
     failureAction
@@ -141,6 +143,7 @@ export const proposeAbstractTask = async (
       userConfig,
       projectName,
       prevOrgConfig.deployer,
+      isTestnet,
       provider,
       cre,
       getConfigArtifacts,
@@ -344,6 +347,7 @@ export const proposeAbstractTask = async (
   const proposalRequest: ProposalRequest = {
     apiKey,
     orgId,
+    isTestnet,
     chainIds,
     deploymentName: projectName,
     orgOwners: canonicalOrgConfig.options.orgOwners,

@@ -39,9 +39,10 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
     function propose(
         string memory _configPath,
         string memory _projectName,
-        bool _dryRun
+        bool _dryRun,
+        bool _isTestnet
     ) internal noVmBroadcast {
-        string[] memory cmds = new string[](8);
+        string[] memory cmds = new string[](9);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript ChugSplash config files.
         cmds[1] = "ts-node";
@@ -52,6 +53,7 @@ contract ChugSplashTasks is ChugSplash, ChugSplashConstants {
         cmds[5] = _configPath;
         cmds[6] = _projectName;
         cmds[7] = vm.toString(_dryRun);
+        cmds[8] = vm.toString(_isTestnet);
 
         bytes memory result = vm.ffi(cmds);
 

@@ -36,6 +36,15 @@ yargs(hideBin(process.argv))
           describe: 'The name of the project to propose.',
           type: 'string',
         })
+        .option('testnets', {
+          describe:
+            'Propose on the testnets specified in the ChugSplash config',
+          boolean: true,
+        })
+        .option('mainnets', {
+          describe: `Propose on the mainnets specified in the ChugSplash config`,
+          boolean: true,
+        })
         .option('dryRun', {
           describe:
             'Dry run the proposal without signing or relaying it to the back-end.',
@@ -51,6 +60,20 @@ yargs(hideBin(process.argv))
       const { configPath, project } = argv
       const silent = argv.silent ?? false
       const dryRun = argv.dryRun ?? false
+      const testnets = argv.testnets ?? false
+      const mainnets = argv.mainnets ?? false
+
+      let isTestnet: boolean
+      if (testnets && mainnets) {
+        throw new Error('Cannot specify both --testnets and --mainnets')
+      } else if (testnets) {
+        isTestnet = true
+      } else if (mainnets) {
+        isTestnet = false
+      } else {
+        throw new Error('Must specify either --testnets or --mainnets')
+      }
+
       if (!configPath) {
         console.error(
           `Must specify a path to a ChugSplash config file via --${configPathOption}.`
@@ -73,6 +96,7 @@ yargs(hideBin(process.argv))
       process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
       process.env['CHUGSPLASH_INTERNAL_DRY_RUN'] = dryRun.toString()
       process.env['CHUGSPLASH_INTERNAL_SILENT'] = silent.toString()
+      process.env['CHUGSPLASH_INTERNAL_IS_TESTNET'] = isTestnet.toString()
 
       const spinner = ora({ isSilent: silent })
       const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'

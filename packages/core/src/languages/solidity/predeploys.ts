@@ -45,7 +45,7 @@ import { ChugSplashSystemConfig } from './types'
 import {
   PROTOCOL_PAYMENT_RECIPIENT_ROLE,
   REMOTE_EXECUTOR_ROLE,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_NETWORKS,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
@@ -487,7 +487,7 @@ export const initializeChugSplash = async (
       signer
     )
 
-    for (const id of Object.values(SUPPORTED_LIVE_NETWORKS)) {
+    for (const id of Object.values(SUPPORTED_NETWORKS)) {
       const endpointAddress = getMockEndPointAddress(id)
       await (
         await srcEndpoint.setDestLzEndpoint(

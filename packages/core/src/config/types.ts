@@ -99,10 +99,11 @@ export type UserProjectConfigs = {
 }
 
 /**
- * @notice The `networks` field is an array of network names, e.g. 'mainnet'.
+ * @notice The `mainnets` field is an array of network names, e.g. ['mainnet', 'optimism'].
  */
 export interface UserOrgConfigOptions extends OrgConfigOptions {
-  networks: Array<string>
+  mainnets: Array<string>
+  testnets: Array<string>
 }
 
 /**

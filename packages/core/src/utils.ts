@@ -1219,6 +1219,7 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 export const getOrgConfigInfo = async (
   userConfig: UserChugSplashConfig,
   projectName: string,
+  isTestnet: boolean,
   apiKey: string,
   cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
@@ -1232,10 +1233,14 @@ export const getOrgConfigInfo = async (
   }
 
   assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
+  const parsedConfigOptions = parseOrgConfigOptions(
+    userConfig.options,
+    isTestnet
+  )
 
   const prevOrgConfig = await fetchCanonicalOrgConfig(
     parsedConfigOptions.orgId,
+    isTestnet,
     apiKey
   )
 
@@ -1275,12 +1280,14 @@ export const getOrgConfigInfo = async (
 
 export const fetchCanonicalOrgConfig = async (
   orgId: string,
+  isTestnet: boolean,
   apiKey: string
 ): Promise<CanonicalOrgConfig | undefined> => {
   const response = await axios.post(
     `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
     {
       apiKey,
+      isTestnet,
       orgId,
     }
   )

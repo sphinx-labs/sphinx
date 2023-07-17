@@ -32,7 +32,7 @@ import { constants, utils } from 'ethers'
 import {
   CURRENT_CHUGSPLASH_MANAGER_VERSION,
   LAYERZERO_ADDRESSES,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_NETWORKS,
 } from './constants'
 
 const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
@@ -196,7 +196,7 @@ export const getLZSenderAddress = (
   localLZEndpoint: boolean,
   lzEndpointAddress: string
 ) => {
-  const destinationChains = Object.values(SUPPORTED_LIVE_NETWORKS).map(
+  const destinationChains = Object.values(SUPPORTED_NETWORKS).map(
     (id) =>
       [
         id,
