@@ -345,6 +345,7 @@ export const proposeAbstractTask = async (
     apiKey,
     orgId,
     chainIds,
+    deploymentName: projectName,
     orgOwners: canonicalOrgConfig.options.orgOwners,
     orgOwnerThreshold: canonicalOrgConfig.options.orgThreshold,
     authAddress,

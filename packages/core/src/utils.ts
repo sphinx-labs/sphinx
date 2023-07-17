@@ -1240,6 +1240,20 @@ export const getOrgConfigInfo = async (
   )
 
   if (prevOrgConfig) {
+    // Fill in the chain status for any new networks
+    for (const chainId of parsedConfigOptions.chainIds) {
+      if (!prevOrgConfig.chainStates[chainId]) {
+        prevOrgConfig.chainStates[chainId] = {
+          firstProposalOccurred: false,
+          projects: {
+            [projectName]: {
+              projectCreated: false,
+            },
+          },
+        }
+      }
+    }
+
     return {
       prevOrgConfig,
       isNewConfig: false,
