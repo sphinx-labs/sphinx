@@ -1,8 +1,8 @@
 import {
   getOwnerAddress,
   ManagedServiceArtifact,
-  ChugSplashRegistryArtifact,
-  ChugSplashManagerArtifact,
+  SphinxRegistryArtifact,
+  SphinxManagerArtifact,
   DefaultAdapterArtifact,
   OZUUPSOwnableAdapterArtifact,
   OZUUPSAccessControlAdapterArtifact,
@@ -11,23 +11,23 @@ import {
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
   DefaultGasPriceCalculatorArtifact,
-  ChugSplashManagerProxyArtifact,
+  SphinxManagerProxyArtifact,
   ProxyArtifact,
   LZSenderArtifact,
   LZReceiverArtifact,
   AuthFactoryArtifact,
   AuthArtifact,
   LZEndpointMockArtifact,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 
 import { ContractArtifact } from './languages/solidity/types'
 import {
   getManagerConstructorValues,
   OZ_UUPS_UPDATER_ADDRESS,
   DEFAULT_UPDATER_ADDRESS,
-  getChugSplashRegistryAddress,
+  getSphinxRegistryAddress,
   getRegistryConstructorValues,
-  getChugSplashManagerV1Address,
+  getSphinxManagerV1Address,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
@@ -35,7 +35,7 @@ import {
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress,
-  REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
+  REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
   getLZSenderAddress,
   getLZReceiverAddress,
@@ -47,7 +47,7 @@ import {
 import { SUPPORTED_NETWORKS } from './constants'
 import { LAYERZERO_ADDRESSES, SupportedChainId } from './networks'
 
-export const getChugSplashConstants = (
+export const getSphinxConstants = (
   chainId: number,
   localLZEndpoint: boolean
 ): Array<{
@@ -118,13 +118,13 @@ export const getChugSplashConstants = (
 
   return [
     {
-      artifact: ChugSplashRegistryArtifact,
-      expectedAddress: getChugSplashRegistryAddress(),
+      artifact: SphinxRegistryArtifact,
+      expectedAddress: getSphinxRegistryAddress(),
       constructorArgs: getRegistryConstructorValues(),
     },
     {
-      artifact: ChugSplashManagerArtifact,
-      expectedAddress: getChugSplashManagerV1Address(),
+      artifact: SphinxManagerArtifact,
+      expectedAddress: getSphinxManagerV1Address(),
       constructorArgs: getManagerConstructorValues(),
     },
     {
@@ -173,17 +173,14 @@ export const getChugSplashConstants = (
       constructorArgs: [getOwnerAddress()],
     },
     {
-      artifact: ChugSplashManagerProxyArtifact,
-      expectedAddress: REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS,
-      constructorArgs: [
-        getChugSplashRegistryAddress(),
-        getChugSplashRegistryAddress(),
-      ],
+      artifact: SphinxManagerProxyArtifact,
+      expectedAddress: REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
+      constructorArgs: [getSphinxRegistryAddress(), getSphinxRegistryAddress()],
     },
     {
       artifact: ProxyArtifact,
       expectedAddress: REFERENCE_PROXY_ADDRESS,
-      constructorArgs: [getChugSplashRegistryAddress()],
+      constructorArgs: [getSphinxRegistryAddress()],
     },
     {
       artifact: AuthArtifact,
@@ -193,7 +190,7 @@ export const getChugSplashConstants = (
     {
       artifact: AuthFactoryArtifact,
       expectedAddress: AUTH_FACTORY_ADDRESS,
-      constructorArgs: [getChugSplashRegistryAddress(), getOwnerAddress()],
+      constructorArgs: [getSphinxRegistryAddress(), getOwnerAddress()],
     },
     sender,
     ...receivers,

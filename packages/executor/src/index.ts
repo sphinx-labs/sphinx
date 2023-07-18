@@ -9,22 +9,22 @@ import {
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
-import { ChugSplashRegistryABI } from '@chugsplash/contracts'
+import { SphinxRegistryABI } from '@sphinx/contracts'
 import {
-  getChugSplashRegistryAddress,
+  getSphinxRegistryAddress,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
-  ensureChugSplashInitialized,
-} from '@chugsplash/core'
+  ensureSphinxInitialized,
+} from '@sphinx/core'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
-export class ChugSplashExecutor extends BaseServiceV2<
+export class SphinxExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState & {
@@ -33,7 +33,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
 > {
   constructor(options?: Partial<ExecutorOptions & StandardOptions>) {
     super({
-      name: 'chugsplash-executor',
+      name: 'sphinx-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
@@ -64,7 +64,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           default: 'error',
         },
         managedApiUrl: {
-          desc: 'ChugSplash Managed GraphQL API',
+          desc: 'Sphinx Managed GraphQL API',
           validator: validators.str,
           default: '',
         },
@@ -92,8 +92,8 @@ export class ChugSplashExecutor extends BaseServiceV2<
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
-      getChugSplashRegistryAddress(),
-      ChugSplashRegistryABI,
+      getSphinxRegistryAddress(),
+      SphinxRegistryABI,
       this.state.provider
     )
     this.state.lastBlockNumber = 0
@@ -124,7 +124,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
   async init() {
     await this.setup(this.options)
 
-    this.logger.info('[ChugSplash]: setting up chugsplash...')
+    this.logger.info('[Sphinx]: setting up sphinx...')
 
     const wallet = new ethers.Wallet(
       this.state.keys[0].privateKey,
@@ -144,8 +144,8 @@ export class ChugSplashExecutor extends BaseServiceV2<
     const relayers = process.env.TESTING_RELAYERS
       ? process.env.TESTING_RELAYERS.split(',')
       : []
-    // Deploy the ChugSplash contracts.
-    await ensureChugSplashInitialized(
+    // Deploy the Sphinx contracts.
+    await ensureSphinxInitialized(
       this.state.provider,
       wallet,
       executors,
@@ -153,7 +153,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
       this.logger
     )
 
-    this.logger.info('[ChugSplash]: finished setting up chugsplash')
+    this.logger.info('[Sphinx]: finished setting up sphinx')
   }
 
   async main() {
@@ -170,7 +170,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnouncedWithData('ChugSplashDeploymentApproved'),
+      registry.filters.EventAnnouncedWithData('SphinxDeploymentApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )
@@ -204,12 +204,12 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     // If none found, return
     if (this.state.eventsQueue.length === 0) {
-      this.logger.info('[ChugSplash]: no projects found')
+      this.logger.info('[Sphinx]: no projects found')
       return
     }
 
     this.logger.info(
-      `[ChugSplash]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
+      `[Sphinx]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
     )
 
     // Create a copy of the events queue, which we will iterate over. It's necessary to create a
@@ -219,7 +219,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
 
     // execute all approved deployments
     for (const executorEvent of eventsCopy) {
-      this.logger.info('[ChugSplash]: detected a project...')
+      this.logger.info('[Sphinx]: detected a project...')
 
       // If still waiting on retry, then continue
       if (executorEvent.nextTry > currentTime) {
@@ -231,7 +231,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
         (el) => el.locked === false
       )
       if (key === undefined) {
-        this.logger.info('[ChugSplash]: All keys in use')
+        this.logger.info('[Sphinx]: All keys in use')
         continue
       } else {
         // lock the selected key
@@ -283,7 +283,7 @@ export class ChugSplashExecutor extends BaseServiceV2<
           case 'retry':
             if (message.payload.retry === -1) {
               this.logger.info(
-                '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
+                '[Sphinx]: execution failed, discarding event due to reaching retry limit'
               )
             } else {
               this.state.eventsQueue.push(message.payload)
@@ -296,6 +296,6 @@ export class ChugSplashExecutor extends BaseServiceV2<
 }
 
 if (require.main === module) {
-  const service = new ChugSplashExecutor()
+  const service = new SphinxExecutor()
   service.run()
 }

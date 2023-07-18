@@ -24,7 +24,7 @@ export const trackExecuted = async (
   }
   await timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash executed',
+      event_type: 'sphinx executed',
       user_id,
       event_properties: {
         network: networkName,
@@ -45,7 +45,7 @@ export const trackRegistrationFinalized = async (
   }
   await timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash registration finalized',
+      event_type: 'sphinx registration finalized',
       user_id,
       event_properties: {
         network: networkName,
@@ -65,7 +65,7 @@ export const trackProposed = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash propose',
+      event_type: 'sphinx propose',
       user_id,
       event_properties: {
         integration,
@@ -85,7 +85,7 @@ export const trackApproved = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash approve',
+      event_type: 'sphinx approve',
       user_id,
       event_properties: {
         network: networkName,
@@ -106,7 +106,7 @@ export const trackDeployed = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash deploy',
+      event_type: 'sphinx deploy',
       user_id,
       event_properties: {
         network: networkName,
@@ -127,7 +127,7 @@ export const trackCancel = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash cancel',
+      event_type: 'sphinx cancel',
       user_id,
       event_properties: {
         network: networkName,
@@ -148,7 +148,7 @@ export const trackListProjects = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash list projects',
+      event_type: 'sphinx list projects',
       user_id,
       event_properties: {
         network: networkName,
@@ -169,7 +169,7 @@ export const trackExportProxy = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash export proxy',
+      event_type: 'sphinx export proxy',
       user_id,
       event_properties: {
         network: networkName,
@@ -190,7 +190,7 @@ export const trackImportProxy = async (
   }
   timeout(
     await amplitudeClient.logEvent({
-      event_type: 'chugsplash import proxy',
+      event_type: 'sphinx import proxy',
       user_id,
       event_properties: {
         network: networkName,

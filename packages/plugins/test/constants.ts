@@ -8,7 +8,7 @@ export const fetchBuildInfo = () => {
   const fileNames = fs.readdirSync(directoryPath)
   if (fileNames.length !== 1) {
     throw new Error(
-      `Did not find exactly one ChugSplash contracts build info file. Run:\n` +
+      `Did not find exactly one Sphinx contracts build info file. Run:\n` +
         `npx hardhat clean`
     )
   }

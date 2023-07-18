@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "chugsplash",
+  "name": "sphinx",
   "version": "0.0.0",
   "author": "Kelvin Fichter",
   "license": "MIT",
@@ -13,20 +13,20 @@
       "packages/demo"
     ],
     "nohoist": [
-      "@chugsplash/contracts/@connext/interfaces",
-      "@chugsplash/{contracts,plugins}/solmate",
-      "@chugsplash/{contracts,plugins}/forge-std",
-      "@chugsplash/{contracts,plugins}/ds-test",
-      "@chugsplash/{contracts,plugins}/@openzeppelin/contracts",
-      "@chugsplash/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
-      "@chugsplash/{contracts,plugins}/@eth-optimism/contracts-bedrock",
-      "@chugsplash/{contracts,plugins}/@eth-optimism/contracts",
-      "@chugsplash/contracts/@layerzerolabs/solidity-examples",
-      "@chugsplash/plugins/@chugsplash/contracts",
-      "@chugsplash/plugins/forge-std",
-      "@chugsplash/plugins/ds-test",
-      "@chugsplash/plugins/solidity-stringutils",
-      "@chugsplash/plugins/@prb/math"
+      "@sphinx/contracts/@connext/interfaces",
+      "@sphinx/{contracts,plugins}/solmate",
+      "@sphinx/{contracts,plugins}/forge-std",
+      "@sphinx/{contracts,plugins}/ds-test",
+      "@sphinx/{contracts,plugins}/@openzeppelin/contracts",
+      "@sphinx/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
+      "@sphinx/{contracts,plugins}/@eth-optimism/contracts-bedrock",
+      "@sphinx/{contracts,plugins}/@eth-optimism/contracts",
+      "@sphinx/contracts/@layerzerolabs/solidity-examples",
+      "@sphinx/plugins/@sphinx/contracts",
+      "@sphinx/plugins/forge-std",
+      "@sphinx/plugins/ds-test",
+      "@sphinx/plugins/solidity-stringutils",
+      "@sphinx/plugins/@prb/math"
     ]
   },
   "scripts": {

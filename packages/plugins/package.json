@@ -1,23 +1,23 @@
 {
-  "name": "@chugsplash/plugins",
+  "name": "@sphinx/plugins",
   "version": "0.16.5",
-  "description": "ChugSplash plugins",
+  "description": "Sphinx plugins",
   "main": "dist/index",
   "types": "dist/index",
   "bin": {
-    "chugsplash": "./dist/cli/index.js"
+    "sphinx": "./dist/cli/index.js"
   },
   "files": [
     "dist/*",
     "contracts/foundry/*",
-    "out/artifacts/ChugSplashUtils.sol/ChugSplashUtils.json"
+    "out/artifacts/SphinxUtils.sol/SphinxUtils.json"
   ],
   "scripts": {
     "start": "ts-node ./src/index.ts",
     "build": "yarn build:ts && yarn build:contracts",
     "build:ts": "tsc -p ./tsconfig.json",
     "build:contracts": "npx hardhat clean && yarn generate && npx hardhat compile && forge build",
-    "generate": "npx ts-node script/write-constants.ts > contracts/foundry/ChugSplashConstants.sol",
+    "generate": "npx ts-node script/write-constants.ts > contracts/foundry/SphinxConstants.sol",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test": "yarn test:forge && yarn test:hardhat",
     "test:forge": "forge test",
@@ -33,16 +33,16 @@
     "pre-commit": "lint-staged",
     "yalc:publish": "yarn build && yalc publish"
   },
-  "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/plugins#readme",
+  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/plugins#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smartcontracts/chugsplash.git"
+    "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "dependencies": {
-    "@chugsplash/contracts": "^0.8.2",
-    "@chugsplash/core": "^0.11.0",
+    "@sphinx/contracts": "^0.8.2",
+    "@sphinx/core": "^0.11.0",
     "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",

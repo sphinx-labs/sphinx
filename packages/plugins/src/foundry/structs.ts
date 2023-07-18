@@ -1,11 +1,11 @@
-import { ProjectConfigCache } from '@chugsplash/core/dist/config/types'
+import { ProjectConfigCache } from '@sphinx/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
-  ChugSplashUtilsABI: any
+  SphinxUtilsABI: any
 ): ProjectConfigCache => {
-  const configCacheType = ChugSplashUtilsABI.find(
+  const configCacheType = SphinxUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
 

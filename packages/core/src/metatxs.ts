@@ -5,7 +5,7 @@ export const signAuthRootMetaTxn = async (
   authRoot: string
 ): Promise<string> => {
   const domain = {
-    name: 'ChugSplash',
+    name: 'Sphinx',
   }
 
   const types = { AuthRoot: [{ name: 'root', type: 'bytes32' }] }

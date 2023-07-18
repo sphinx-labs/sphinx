@@ -1,20 +1,20 @@
-# ChugSplash Contributing Guide
+# Sphinx Contributing Guide
 
-Hello, and thank you for your interest in contributing to ChugSplash!
-ChugSplash is a big project and we need all the help we can get.
+Hello, and thank you for your interest in contributing to Sphinx!
+Sphinx is a big project and we need all the help we can get.
 We've tried to make the contributing process as easy as possible.
 Please read through this guide for more information about setting up your development environment and making your first contribution.
 
 ## Writing good issues
 
-ChugSplash tracks non-trivial work in GitHub issues.
+Sphinx tracks non-trivial work in GitHub issues.
 If you're planning to make a large PR, please make sure that there's a corresponding issue that tracks the work you're doing.
 With careful issue tracking, we can make sure that people aren't doing unnecessary work.
 Note that this isn't necessary for smaller PRs like typo fixes or minor bug fixes.
 
 When writing an issue meant to track a work item, please attempt to include as much detail as possible.
 Another contributor should be able to tackle the problem based only on the information included in the issue.
-Detailed issues are critical to keeping the ChugSplash project moving.
+Detailed issues are critical to keeping the Sphinx project moving.
 
 ## Setting up your development environment
 
@@ -29,11 +29,11 @@ You'll need to have the following pieces of software installed before you can st
 
 ### Cloning and installing
 
-Once you've installed the necessary prerequisites, you'll need to clone the ChugSplash monorepo and install its dependencies:
+Once you've installed the necessary prerequisites, you'll need to clone the Sphinx monorepo and install its dependencies:
 
 ```sh
-git clone https://github.com/chugsplash/chugsplash.git
-cd chugsplash
+git clone https://github.com/sphinx/sphinx.git
+cd sphinx
 yarn install
 ```
 
@@ -47,13 +47,13 @@ nvm use
 
 ### Et voilà
 
-You've set up everything necessary to start working on ChugSplash.
+You've set up everything necessary to start working on Sphinx.
 Hopefully that wasn't too bad.
 
 ## Common development stuff
 
 ### Environment Variables
-You'll want to define some environment variables when working with ChugSplash locally. Environment variables are required for the plugins, executor, and demo packages. You'll find `.env.example` files in each of those directories which describe the necessary variables.
+You'll want to define some environment variables when working with Sphinx locally. Environment variables are required for the plugins, executor, and demo packages. You'll find `.env.example` files in each of those directories which describe the necessary variables.
 
 ### Building
 

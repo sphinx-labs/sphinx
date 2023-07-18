@@ -5,10 +5,10 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
-import { ProxyABI } from '@chugsplash/contracts'
+import { ProxyABI } from '@sphinx/contracts'
 
 import {
-  ChugSplashInput,
+  SphinxInput,
   contractKindHashes,
   ParsedProjectConfig,
   ProjectConfigArtifacts,
@@ -24,8 +24,8 @@ import {
 import {
   getDeploymentId,
   displayDeploymentTable,
-  getChugSplashManager,
-  getChugSplashRegistry,
+  getSphinxManager,
+  getSphinxRegistry,
   getDeploymentEvents,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
@@ -39,14 +39,11 @@ import {
   relayIPFSCommit,
   registerOwner,
 } from '../utils'
-import {
-  ensureChugSplashInitialized,
-  getMinimumCompilerInput,
-} from '../languages'
+import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
 import { resolveNetworkName } from '../messages'
 import {
-  ChugSplashBundles,
+  SphinxBundles,
   DeploymentState,
   DeploymentStatus,
   ProposalRequestLeaf,
@@ -64,20 +61,17 @@ import {
   getAuthLeafsForChain,
   getGasEstimates,
 } from '../actions'
-import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
+import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
   trackCancel,
   trackExportProxy,
   trackDeployed,
   trackImportProxy,
 } from '../analytics'
-import {
-  isSupportedNetworkOnEtherscan,
-  verifyChugSplashConfig,
-} from '../etherscan'
-import { getAuthAddress, getChugSplashManagerAddress } from '../addresses'
+import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
+import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
-import { readUserChugSplashConfig } from '../config/config'
+import { readUserSphinxConfig } from '../config/config'
 import { getParsedOrgConfig } from '../config/parse'
 
 // Load environment variables from .env
@@ -88,15 +82,15 @@ export const proposeAbstractTask = async (
   isTestnet: boolean,
   projectName: string,
   dryRun: boolean,
-  cre: ChugSplashRuntimeEnvironment,
+  cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT
 ) => {
-  const apiKey = process.env.CHUGSPLASH_API_KEY
+  const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
-    throw new Error(`Must provide a 'CHUGSPLASH_API_KEY' environment variable.`)
+    throw new Error(`Must provide a 'SPHINX_API_KEY' environment variable.`)
   }
 
   const privateKey = process.env.PROPOSER_PRIVATE_KEY
@@ -108,7 +102,7 @@ export const proposeAbstractTask = async (
   const wallet = new ethers.Wallet(privateKey)
   const signerAddress = await wallet.getAddress()
 
-  const userConfig = await readUserChugSplashConfig(configPath)
+  const userConfig = await readUserSphinxConfig(configPath)
 
   const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
     userConfig,
@@ -137,7 +131,7 @@ export const proposeAbstractTask = async (
   for (const chainId of chainIds) {
     const provider = getProviderForChainId(chainId)
 
-    await ensureChugSplashInitialized(provider, wallet.connect(provider))
+    await ensureSphinxInitialized(provider, wallet.connect(provider))
 
     const parsedOrgConfigValues = await getParsedOrgConfig(
       userConfig,
@@ -340,7 +334,7 @@ export const proposeAbstractTask = async (
     canonicalOrgConfig.options.orgOwners,
     canonicalOrgConfig.options.orgThreshold
   )
-  const deployerAddress = getChugSplashManagerAddress(authAddress)
+  const deployerAddress = getSphinxManagerAddress(authAddress)
 
   const gasEstimates = await getGasEstimates(leafs, configArtifacts)
 
@@ -374,7 +368,7 @@ export const proposeAbstractTask = async (
   spinner.succeed(`${dryRun ? 'Dry run' : 'Proposal'} succeeded!`)
 }
 
-export const chugsplashCommitAbstractSubtask = async (
+export const sphinxCommitAbstractSubtask = async (
   parsedProjectConfig: ParsedProjectConfig,
   commitToIpfs: boolean,
   projectConfigArtifacts: ProjectConfigArtifacts,
@@ -391,13 +385,13 @@ export const chugsplashCommitAbstractSubtask = async (
       : spinner.start('Building the project...')
   }
 
-  const chugsplashInputs: Array<ChugSplashInput> = []
+  const sphinxInputs: Array<SphinxInput> = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedProjectConfig.contracts
   )) {
     const { buildInfo } = projectConfigArtifacts[referenceName]
 
-    const prevChugSplashInput = chugsplashInputs.find(
+    const prevSphinxInput = sphinxInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
     )
 
@@ -411,8 +405,8 @@ export const chugsplashCommitAbstractSubtask = async (
       contractName
     )
 
-    if (prevChugSplashInput === undefined) {
-      const chugsplashInput: ChugSplashInput = {
+    if (prevSphinxInput === undefined) {
+      const sphinxInput: SphinxInput = {
         solcVersion: buildInfo.solcVersion,
         solcLongVersion: buildInfo.solcLongVersion,
         id: buildInfo.id,
@@ -422,10 +416,10 @@ export const chugsplashCommitAbstractSubtask = async (
           sources,
         },
       }
-      chugsplashInputs.push(chugsplashInput)
+      sphinxInputs.push(sphinxInput)
     } else {
-      prevChugSplashInput.input.sources = {
-        ...prevChugSplashInput.input.sources,
+      prevSphinxInput.input.sources = {
+        ...prevSphinxInput.input.sources,
         ...sources,
       }
     }
@@ -433,7 +427,7 @@ export const chugsplashCommitAbstractSubtask = async (
 
   const canonicalConfig: CanonicalProjectConfig = {
     ...parsedProjectConfig,
-    inputs: chugsplashInputs,
+    inputs: sphinxInputs,
   }
 
   const ipfsData = JSON.stringify(canonicalConfig, null, 2)
@@ -489,7 +483,7 @@ export const deployAbstractTask = async (
   canonicalConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
-  cre: ChugSplashRuntimeEnvironment,
+  cre: SphinxRuntimeEnvironment,
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigCache: ProjectConfigCache,
   projectConfigArtifacts: ProjectConfigArtifacts,
@@ -499,8 +493,8 @@ export const deployAbstractTask = async (
   const { project, deployer } = parsedProjectConfig.options
   const { networkName, blockGasLimit, localNetwork } = projectConfigCache
 
-  const registry = getChugSplashRegistry(signer)
-  const manager = getChugSplashManager(deployer, signer)
+  const registry = getSphinxRegistry(signer)
+  const manager = getSphinxManager(deployer, signer)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the user-defined new owner, if it exists.
@@ -676,7 +670,7 @@ export const postDeploymentActions = async (
 
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {
-      await verifyChugSplashConfig(
+      await verifySphinxConfig(
         canonicalProjectConfig,
         projectConfigArtifacts,
         provider,
@@ -703,27 +697,27 @@ export const postDeploymentActions = async (
 
     displayDeploymentTable(canonicalProjectConfig, silent)
     spinner?.info(
-      "Thank you for using ChugSplash! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
+      "Thank you for using Sphinx! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
   }
 }
 
-export const chugsplashCancelAbstractTask = async (
+export const sphinxCancelAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   owner: ethers.Signer,
   projectName: string,
   integration: Integration,
-  cre: ChugSplashRuntimeEnvironment
+  cre: SphinxRuntimeEnvironment
 ) => {
   const networkName = await resolveNetworkName(provider, integration)
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getChugSplashManagerAddress(ownerAddress)
+  const deployer = getSphinxManagerAddress(ownerAddress)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
-  const registry = getChugSplashRegistry(owner)
-  const manager = getChugSplashManager(deployer, owner)
+  const registry = getSphinxRegistry(owner)
+  const manager = getSphinxManager(deployer, owner)
 
   if (!(await isProjectRegistered(registry, manager.address))) {
     throw new Error(`Project has not been registered yet.`)
@@ -745,7 +739,7 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
   }
 
   await (
-    await manager.cancelActiveChugSplashDeployment(
+    await manager.cancelActiveSphinxDeployment(
       await getGasPriceOverrides(provider)
     )
   ).wait()
@@ -755,23 +749,23 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
   await trackCancel(await manager.owner(), networkName, integration)
 }
 
-export const chugsplashExportProxyAbstractTask = async (
+export const sphinxExportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   owner: ethers.Signer,
   projectName: string,
   referenceName: string,
   integration: Integration,
   projectConfigs: ParsedProjectConfigs,
-  cre: ChugSplashRuntimeEnvironment
+  cre: SphinxRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getChugSplashManagerAddress(ownerAddress)
+  const deployer = getSphinxManagerAddress(ownerAddress)
 
-  const registry = getChugSplashRegistry(owner)
-  const manager = getChugSplashManager(deployer, owner)
+  const registry = getSphinxRegistry(owner)
+  const manager = getSphinxManager(deployer, owner)
 
   // Throw an error if the project has not been registered
   if ((await isProjectRegistered(registry, manager.address)) === false) {
@@ -812,20 +806,20 @@ export const chugsplashExportProxyAbstractTask = async (
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
 }
 
-export const chugsplashImportProxyAbstractTask = async (
+export const sphinxImportProxyAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   proxy: string,
   integration: Integration,
   owner: string,
-  cre: ChugSplashRuntimeEnvironment
+  cre: SphinxRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const deployer = getChugSplashManagerAddress(owner)
-  const registry = getChugSplashRegistry(signer)
-  const manager = getChugSplashManager(deployer, signer)
+  const deployer = getSphinxManagerAddress(owner)
+  const registry = getSphinxRegistry(signer)
+  const manager = getSphinxManager(deployer, signer)
 
   // Throw an error if the project has not been registered
   if ((await isProjectRegistered(registry, manager.address)) === false) {
@@ -851,19 +845,19 @@ export const chugsplashImportProxyAbstractTask = async (
   //     (await isTransparentProxy(provider, proxy)) === false &&
   //     (await isUUPSProxy(provider, proxy)) === false
   //   ) {
-  //     throw new Error(`ChugSplash does not support your proxy type.
-  // Currently ChugSplash only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
+  //     throw new Error(`Sphinx does not support your proxy type.
+  // Currently Sphinx only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do.
   // If you believe this is a mistake, please reach out to the developers or open an issue on GitHub.`)
   //   }
 
   const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxy)
 
-  // If proxy owner is already ChugSplash, then throw an error
+  // If proxy owner is already Sphinx, then throw an error
   if (
     ethers.utils.getAddress(manager.address) ===
     ethers.utils.getAddress(ownerAddress)
   ) {
-    throw new Error('Proxy is already owned by ChugSplash')
+    throw new Error('Proxy is already owned by Sphinx')
   }
 
   // If the signer doesn't own the proxy, then throw an error
@@ -877,9 +871,9 @@ export const chugsplashImportProxyAbstractTask = async (
   }
 
   spinner.succeed('Proxy compatibility verified')
-  spinner.start('Transferring proxy ownership to ChugSplash...')
+  spinner.start('Transferring proxy ownership to Sphinx...')
 
-  // Transfer ownership of the proxy to the ChugSplashManager.
+  // Transfer ownership of the proxy to the SphinxManager.
   const Proxy = new ethers.Contract(proxy, ProxyABI, signer)
   await (
     await Proxy.changeAdmin(
@@ -890,7 +884,7 @@ export const chugsplashImportProxyAbstractTask = async (
 
   await trackImportProxy(await manager.owner(), networkName, integration)
 
-  spinner.succeed('Proxy ownership successfully transferred to ChugSplash')
+  spinner.succeed('Proxy ownership successfully transferred to Sphinx')
 }
 
 export const getProjectBundleInfo = async (
@@ -900,9 +894,9 @@ export const getProjectBundleInfo = async (
 ): Promise<{
   configUri: string
   canonicalConfig: CanonicalProjectConfig
-  bundles: ChugSplashBundles
+  bundles: SphinxBundles
 }> => {
-  const { configUri, canonicalConfig } = await chugsplashCommitAbstractSubtask(
+  const { configUri, canonicalConfig } = await sphinxCommitAbstractSubtask(
     parsedProjectConfig,
     false,
     projectConfigArtifacts
@@ -919,7 +913,7 @@ export const getProjectBundleInfo = async (
 
 export const approveDeployment = async (
   projectName: string,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   configUri: string,
   manager: ethers.Contract,
   signerAddress: string,

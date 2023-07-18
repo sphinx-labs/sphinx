@@ -19,10 +19,10 @@ import {
 import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
-  ChugSplashRegistryABI,
-  ChugSplashManagerABI,
+  SphinxRegistryABI,
+  SphinxManagerABI,
   ProxyABI,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import chalk from 'chalk'
@@ -55,12 +55,12 @@ import {
   ParsedProjectConfig,
   ProjectConfigArtifacts,
   CanonicalOrgConfig,
-  UserChugSplashConfig,
+  UserSphinxConfig,
 } from './config/types'
 import {
-  ChugSplashActionBundle,
-  ChugSplashActionType,
-  ChugSplashBundles,
+  SphinxActionBundle,
+  SphinxActionType,
+  SphinxBundles,
   DeploymentState,
   IPFSCommitResponse,
   ProposalRequest,
@@ -68,8 +68,8 @@ import {
 import { Integration } from './constants'
 import {
   getAuthAddress,
-  getChugSplashManagerAddress,
-  getChugSplashRegistryAddress,
+  getSphinxManagerAddress,
+  getSphinxRegistryAddress,
 } from './addresses'
 import 'core-js/features/array/at'
 import {
@@ -77,7 +77,7 @@ import {
   CompilerOutput,
   ContractArtifact,
 } from './languages/solidity/types'
-import { chugsplashFetchSubtask } from './config/fetch'
+import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
   getDeployContractActions,
@@ -88,10 +88,10 @@ import {
   assertValidOrgConfigOptions,
   parseOrgConfigOptions,
 } from './config/parse'
-import { ChugSplashRuntimeEnvironment, FailureAction } from './types'
+import { SphinxRuntimeEnvironment, FailureAction } from './types'
 
 export const getDeploymentId = (
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   configUri: string,
   projectName: string
 ): string => {
@@ -194,7 +194,7 @@ export const checkIsUpgrade = async (
  * Finalizes the registration of an organization.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param ownerAddress Owner of the ChugSplashManager contract deployed by this call.
+ * @param ownerAddress Owner of the SphinxManager contract deployed by this call.
  */
 export const registerOwner = async (
   registry: ethers.Contract,
@@ -210,7 +210,7 @@ export const registerOwner = async (
       await registry.register(
         ownerAddress,
         0, // We set the saltNonce to 0 for now.
-        [], // We don't pass any extra initializer data to this version of the ChugSplashManager.
+        [], // We don't pass any extra initializer data to this version of the SphinxManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -225,39 +225,31 @@ export const registerOwner = async (
   }
 }
 
-export const getChugSplashRegistry = (signer: Signer): Contract => {
-  return new Contract(
-    getChugSplashRegistryAddress(),
-    ChugSplashRegistryABI,
-    signer
-  )
+export const getSphinxRegistry = (signer: Signer): Contract => {
+  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, signer)
 }
 
-export const getChugSplashRegistryReadOnly = (
+export const getSphinxRegistryReadOnly = (
   provider: providers.Provider
 ): Contract => {
-  return new Contract(
-    getChugSplashRegistryAddress(),
-    ChugSplashRegistryABI,
-    provider
-  )
+  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
 }
 
-export const getChugSplashManager = (
+export const getSphinxManager = (
   deployer: string,
   signer: Signer
 ): Contract => {
-  return new Contract(deployer, ChugSplashManagerABI, signer)
+  return new Contract(deployer, SphinxManagerABI, signer)
 }
 
-export const getChugSplashManagerReadOnly = (
+export const getSphinxManagerReadOnly = (
   deployer: string,
   provider: providers.Provider
 ): Contract => {
-  return new Contract(deployer, ChugSplashManagerABI, provider)
+  return new Contract(deployer, SphinxManagerABI, provider)
 }
 
-export const chugsplashLog = (
+export const sphinxLog = (
   logLevel: 'warning' | 'error' = 'warning',
   title: string,
   lines: string[],
@@ -301,21 +293,21 @@ export const displayDeploymentTable = (
 
 export const claimExecutorPayment = async (
   executor: Wallet,
-  ChugSplashManager: Contract
+  SphinxManager: Contract
 ) => {
-  // The amount to withdraw is the minimum of the executor's debt and the ChugSplashManager's
+  // The amount to withdraw is the minimum of the executor's debt and the SphinxManager's
   // balance.
   const debt = BigNumber.from(
-    await ChugSplashManager.executorDebt(executor.address)
+    await SphinxManager.executorDebt(executor.address)
   )
   const balance = BigNumber.from(
-    await executor.provider.getBalance(ChugSplashManager.address)
+    await executor.provider.getBalance(SphinxManager.address)
   )
   const withdrawAmount = debt.lt(balance) ? debt : balance
 
   if (withdrawAmount.gt(0)) {
     await (
-      await ChugSplashManager.claimExecutorPayment(
+      await SphinxManager.claimExecutorPayment(
         withdrawAmount,
         await getGasPriceOverrides(executor.provider)
       )
@@ -327,10 +319,10 @@ export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
   return new Contract(proxyAddress, ProxyABI, signer)
 }
 
-export const getCurrentChugSplashActionType = (
-  bundle: ChugSplashActionBundle,
+export const getCurrentSphinxActionType = (
+  bundle: SphinxActionBundle,
   actionsExecuted: ethers.BigNumber
-): ChugSplashActionType => {
+): SphinxActionType => {
   return bundle.actions[actionsExecuted.toNumber()].action.actionType
 }
 
@@ -459,14 +451,14 @@ export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  const ChugSplashRegistry = new Contract(
-    getChugSplashRegistryAddress(),
-    ChugSplashRegistryABI,
+  const SphinxRegistry = new Contract(
+    getSphinxRegistryAddress(),
+    SphinxRegistryABI,
     provider
   )
 
-  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
-    ChugSplashRegistry.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await SphinxRegistry.queryFilter(
+    SphinxRegistry.filters.EventAnnouncedWithData(
       'DefaultProxyDeployed',
       null,
       proxyAddress
@@ -515,7 +507,7 @@ export const isTransparentProxy = async (
 
 /**
  * Checks if the passed in proxy contract points to an implementation address which implements the minimum requirements to be
- * a ChugSplash compatible UUPS proxy.
+ * a Sphinx compatible UUPS proxy.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param proxyAddress Address of the proxy contract. Since this is a UUPS proxy, we check the interface of the implementation function.
@@ -869,7 +861,7 @@ export const getPreviousConfigUri = async (
 
   const manager = new Contract(
     latestRegistryEvent.args.manager,
-    ChugSplashManagerABI,
+    SphinxManagerABI,
     provider
   )
 
@@ -904,7 +896,7 @@ export const fetchAndCacheCanonicalConfig = async (
     return localCanonicalConfig
   } else {
     const remoteCanonicalConfig = await callWithTimeout<CanonicalProjectConfig>(
-      chugsplashFetchSubtask({ configUri }),
+      sphinxFetchSubtask({ configUri }),
       30000,
       'Failed to fetch config file from IPFS'
     )
@@ -924,15 +916,15 @@ export const getProjectConfigArtifactsRemote = async (
 ): Promise<ProjectConfigArtifacts> => {
   const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
-  for (const chugsplashInput of canonicalConfig.inputs) {
-    const solcBuild: SolcBuild = await getSolcBuild(chugsplashInput.solcVersion)
+  for (const sphinxInput of canonicalConfig.inputs) {
+    const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
     let compilerOutput: CompilerOutput
     if (solcBuild.isSolcJs) {
       const compiler = new Compiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(chugsplashInput.input)
+      compilerOutput = await compiler.compile(sphinxInput.input)
     } else {
       const compiler = new NativeCompiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(chugsplashInput.input)
+      compilerOutput = await compiler.compile(sphinxInput.input)
     }
 
     if (compilerOutput.errors) {
@@ -946,23 +938,23 @@ export const getProjectConfigArtifactsRemote = async (
 
       if (formattedErrorMessages.length > 0) {
         throw new Error(
-          `Failed to compile. Please report this error to ChugSplash.\n` +
+          `Failed to compile. Please report this error to Sphinx.\n` +
             `${formattedErrorMessages}`
         )
       }
     }
 
     solcArray.push({
-      input: chugsplashInput.input,
+      input: sphinxInput.input,
       output: compilerOutput,
-      id: chugsplashInput.id,
-      solcLongVersion: chugsplashInput.solcLongVersion,
-      solcVersion: chugsplashInput.solcVersion,
+      id: sphinxInput.id,
+      solcLongVersion: sphinxInput.solcLongVersion,
+      solcVersion: sphinxInput.solcVersion,
     })
   }
 
   const artifacts: ProjectConfigArtifacts = {}
-  // Generate an artifact for each contract in the ChugSplash config.
+  // Generate an artifact for each contract in the Sphinx config.
   for (const [referenceName, contractConfig] of Object.entries(
     canonicalConfig.contracts
   )) {
@@ -991,13 +983,13 @@ export const getProjectConfigArtifactsRemote = async (
 }
 
 export const getDeploymentEvents = async (
-  ChugSplashManager: ethers.Contract,
+  SphinxManager: ethers.Contract,
   deploymentId: string
 ): Promise<ethers.Event[]> => {
   // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
-    await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
+    await SphinxManager.queryFilter(
+      SphinxManager.filters.SphinxDeploymentApproved(deploymentId)
     )
   ).at(-1)
 
@@ -1008,8 +1000,8 @@ export const getDeploymentEvents = async (
   }
 
   const completedEvent = (
-    await ChugSplashManager.queryFilter(
-      ChugSplashManager.filters.ChugSplashDeploymentCompleted(deploymentId)
+    await SphinxManager.queryFilter(
+      SphinxManager.filters.SphinxDeploymentCompleted(deploymentId)
     )
   ).at(-1)
 
@@ -1019,8 +1011,8 @@ export const getDeploymentEvents = async (
     )
   }
 
-  const contractDeployedEvents = await ChugSplashManager.queryFilter(
-    ChugSplashManager.filters.ContractDeployed(null, null, deploymentId),
+  const contractDeployedEvents = await SphinxManager.queryFilter(
+    SphinxManager.filters.ContractDeployed(null, null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
@@ -1095,7 +1087,7 @@ export const getImpersonatedSigner = async (
 export const deploymentDoesRevert = async (
   provider: ethers.providers.JsonRpcProvider,
   managerAddress: string,
-  actionBundle: ChugSplashActionBundle,
+  actionBundle: SphinxActionBundle,
   actionsExecuted: number
 ): Promise<boolean> => {
   // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
@@ -1138,7 +1130,7 @@ export const getDeployedCreationCodeWithArgsHash = async (
   }
 }
 
-// Transfer ownership of the ChugSplashManager if a new project owner has been specified.
+// Transfer ownership of the SphinxManager if a new project owner has been specified.
 export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
@@ -1178,7 +1170,7 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
 }
 
 /**
- * Returns the address of a proxy's implementation contract that would be deployed by ChugSplash via
+ * Returns the address of a proxy's implementation contract that would be deployed by Sphinx via
  * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
  * includes constructor arguments. This essentially mimics the behavior of Create2 in the sense that
  * the implementation's address has a one-to-one mapping with its init code. This makes it easy to
@@ -1207,7 +1199,7 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 }
 
 /**
- * @notice Gets various fields related to the ChugSplash org config. from the back-end if it exists.
+ * @notice Gets various fields related to the Sphinx org config. from the back-end if it exists.
  * If it doesn't exist, it returns a new CanonicalOrgConfig with default parameters for the config
  * options.
  *
@@ -1217,11 +1209,11 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
  * config, i.e. it has not been used to setup the org on any chain.
  */
 export const getOrgConfigInfo = async (
-  userConfig: UserChugSplashConfig,
+  userConfig: UserSphinxConfig,
   projectName: string,
   isTestnet: boolean,
   apiKey: string,
-  cre: ChugSplashRuntimeEnvironment,
+  cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): Promise<{
   chainIds: Array<number>
@@ -1267,7 +1259,7 @@ export const getOrgConfigInfo = async (
   } else {
     const { orgOwners, orgThreshold, chainIds, orgId } = parsedConfigOptions
     const auth = getAuthAddress(orgOwners, orgThreshold)
-    const deployer = getChugSplashManagerAddress(auth)
+    const deployer = getSphinxManagerAddress(auth)
     const emptyConfig = getEmptyCanonicalOrgConfig(
       chainIds,
       deployer,
@@ -1284,7 +1276,7 @@ export const fetchCanonicalOrgConfig = async (
   apiKey: string
 ): Promise<CanonicalOrgConfig | undefined> => {
   const response = await axios.post(
-    `${fetchChugSplashManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
+    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
     {
       apiKey,
       isTestnet,
@@ -1295,17 +1287,17 @@ export const fetchCanonicalOrgConfig = async (
   return config
 }
 
-export const fetchChugSplashManagedBaseUrl = () => {
-  return process.env.CHUGSPLASH_MANAGED_BASE_URL
-    ? process.env.CHUGSPLASH_MANAGED_BASE_URL
-    : 'https://www.chugsplash.io'
+export const fetchSphinxManagedBaseUrl = () => {
+  return process.env.SPHINX_MANAGED_BASE_URL
+    ? process.env.SPHINX_MANAGED_BASE_URL
+    : 'https://www.sphinx.dev'
 }
 
 export const relayProposal = async (proposalRequest: ProposalRequest) => {
   // TODO: return undefined if the request returns an empty object.
   try {
     await axios.post(
-      `${fetchChugSplashManagedBaseUrl()}/api/propose`,
+      `${fetchSphinxManagedBaseUrl()}/api/propose`,
       proposalRequest
     )
   } catch (e) {
@@ -1334,14 +1326,11 @@ export const relayIPFSCommit = async (
   orgId: string,
   ipfsCommitRequest: Array<CanonicalProjectConfig>
 ): Promise<IPFSCommitResponse> => {
-  const response = await axios.post(
-    `${fetchChugSplashManagedBaseUrl()}/api/pin`,
-    {
-      apiKey,
-      orgId,
-      ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
-    }
-  )
+  const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
+    apiKey,
+    orgId,
+    ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
+  })
 
   if (response.status === 400) {
     throw new Error(

@@ -4,19 +4,19 @@ import fs from 'fs'
 import {
   getUnvalidatedParsedProjectConfig,
   projectPostParsingValidation,
-} from '@chugsplash/core/dist/config/parse'
-import { FailureAction } from '@chugsplash/core/dist/types'
-import { getProjectBundleInfo } from '@chugsplash/core/dist/tasks'
+} from '@sphinx/core/dist/config/parse'
+import { FailureAction } from '@sphinx/core/dist/types'
+import { getProjectBundleInfo } from '@sphinx/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
-  UserChugSplashConfig,
-  getChugSplashManagerAddress,
+  UserSphinxConfig,
+  getSphinxManagerAddress,
   getDeployContractCosts,
   writeCanonicalConfig,
-} from '@chugsplash/core/dist'
+} from '@sphinx/core/dist'
 
-import { createChugSplashRuntime } from '../cre'
+import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
@@ -29,7 +29,7 @@ import {
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
-const userConfig: UserChugSplashConfig = JSON.parse(userConfigStr)
+const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
 const projectName = args[3]
 const ownerAddress = args[4]
@@ -54,21 +54,18 @@ const ownerAddress = args[4]
     }
 
     const rootImportPath =
-      process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
     const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-    const ChugSplashUtilsABI =
+    const SphinxUtilsABI =
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require(resolve(
-        `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
+        `${utilsArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
       )).abi
 
-    const configCache = decodeCachedConfig(
-      encodedConfigCache,
-      ChugSplashUtilsABI
-    )
+    const configCache = decodeCachedConfig(encodedConfigCache, SphinxUtilsABI)
 
-    const cre = await createChugSplashRuntime(
+    const cre = await createSphinxRuntime(
       false,
       true,
       canonicalConfigFolder,
@@ -87,7 +84,7 @@ const ownerAddress = args[4]
       userConfig.projects[projectName].contracts
     )
 
-    const deployerAddress = getChugSplashManagerAddress(ownerAddress)
+    const deployerAddress = getSphinxManagerAddress(ownerAddress)
     const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
       userConfig.projects[projectName],
       projectName,
@@ -130,13 +127,13 @@ const ownerAddress = args[4]
       )
     }
 
-    const actionBundleType = ChugSplashUtilsABI.find(
+    const actionBundleType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'actionBundle'
     ).outputs[0]
-    const targetBundleType = ChugSplashUtilsABI.find(
+    const targetBundleType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'targetBundle'
     ).outputs[0]
-    const deployContractCostsType = ChugSplashUtilsABI.find(
+    const deployContractCostsType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'deployContractCosts'
     ).outputs[0]
 

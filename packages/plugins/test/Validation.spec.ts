@@ -2,19 +2,19 @@ import hre from 'hardhat'
 import { expect } from 'chai'
 import {
   FailureAction,
-  ensureChugSplashInitialized,
+  ensureSphinxInitialized,
   readParsedOwnerConfig,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import '@nomiclabs/hardhat-ethers'
 
 import '../dist'
-import { createChugSplashRuntime } from '../src/cre'
+import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-import { projectName as validationName } from '../chugsplash/projects/validation/Validation.config'
-import { projectName as constructorArgName } from '../chugsplash/projects/validation/ConstructorArgValidation.config'
-import { projectName as reverterProjectName } from '../chugsplash/projects/validation/Reverter.config'
+import { projectName as validationName } from '../sphinx/projects/validation/Validation.config'
+import { projectName as constructorArgName } from '../sphinx/projects/validation/ConstructorArgValidation.config'
+import { projectName as reverterProjectName } from '../sphinx/projects/validation/Reverter.config'
 
-const configPath = './chugsplash/main-validation.config.ts'
+const configPath = './sphinx/main-validation.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
@@ -28,9 +28,9 @@ describe('Validate', () => {
       return true
     }
 
-    await ensureChugSplashInitialized(provider, signer)
+    await ensureSphinxInitialized(provider, signer)
 
-    const cre = createChugSplashRuntime(
+    const cre = createSphinxRuntime(
       false,
       true,
       hre.config.paths.canonicalConfigs,
@@ -324,7 +324,7 @@ describe('Validate', () => {
 
   it('did catch missing variables', async () => {
     expect(validationOutput).to.have.string(
-      'were not defined in the ChugSplash config file'
+      'were not defined in the Sphinx config file'
     )
     expect(validationOutput).to.have.string('notSetUint')
     expect(validationOutput).to.have.string('notSetString')
@@ -332,7 +332,7 @@ describe('Validate', () => {
 
   it('did catch extra variables', async () => {
     expect(validationOutput).to.have.string(
-      'defined in the ChugSplash config file that do not exist in the contract'
+      'defined in the Sphinx config file that do not exist in the contract'
     )
     expect(validationOutput).to.have.string('extraVar')
     expect(validationOutput).to.have.string('anotherExtraVar')
@@ -364,7 +364,7 @@ describe('Validate', () => {
 
   it('did catch invalid definition of function type', async () => {
     expect(validationOutput).to.have.string(
-      `Detected value for functionType which is a function. Function variables should be ommitted from your ChugSplash config.`
+      `Detected value for functionType which is a function. Function variables should be ommitted from your Sphinx config.`
     )
   })
 

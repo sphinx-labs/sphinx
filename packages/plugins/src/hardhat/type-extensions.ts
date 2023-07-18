@@ -4,9 +4,9 @@ import { extendConfig, extendEnvironment } from 'hardhat/config'
 import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
 import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
-import { UserSalt } from '@chugsplash/core'
+import { UserSalt } from '@sphinx/core'
 
-import { getContract, resetChugSplashDeployments } from './deployments'
+import { getContract, resetSphinxDeployments } from './deployments'
 
 // To extend one of Hardhat's types, you need to import the module where it has been defined, and
 // redeclare it.
@@ -17,7 +17,7 @@ declare module 'hardhat/types/config' {
   // Extend the HardhatConfig type, which represents the configuration after it has been resolved.
   // This is the type used during the execution of tasks, tests and scripts.
   export interface ProjectPathsConfig {
-    chugsplash: string
+    sphinx: string
     deployments: string
     canonicalConfigs: string
   }
@@ -27,7 +27,7 @@ declare module 'hardhat/types/runtime' {
   // Extend the HardhatRuntimeEnvironment type. These new fields will be available in tasks,
   // scripts, and tests.
   export interface HardhatRuntimeEnvironment {
-    chugsplash: {
+    sphinx: {
       reset: () => Promise<void>
       getContract: (
         projectName: string,
@@ -40,7 +40,7 @@ declare module 'hardhat/types/runtime' {
 }
 
 extendConfig((config: HardhatConfig) => {
-  config.paths.chugsplash = path.join(config.paths.root, 'chugsplash')
+  config.paths.sphinx = path.join(config.paths.root, 'sphinx')
   config.paths.deployments = path.join(config.paths.root, 'deployments')
   config.paths.canonicalConfigs = path.join(
     config.paths.root,
@@ -49,10 +49,10 @@ extendConfig((config: HardhatConfig) => {
 })
 
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
-  hre.chugsplash = lazyObject(() => {
+  hre.sphinx = lazyObject(() => {
     return {
       reset: async (): Promise<void> => {
-        await resetChugSplashDeployments(hre)
+        await resetSphinxDeployments(hre)
       },
       getContract: async (
         projectName: string,

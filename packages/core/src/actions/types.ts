@@ -3,13 +3,13 @@ import { BigNumber } from 'ethers'
 /**
  * Possible action types.
  */
-export enum ChugSplashActionType {
+export enum SphinxActionType {
   SET_STORAGE,
   DEPLOY_CONTRACT,
 }
 
 /**
- * The status of a given ChugSplash action.
+ * The status of a given Sphinx action.
  */
 export enum DeploymentStatus {
   EMPTY,
@@ -23,15 +23,15 @@ export enum DeploymentStatus {
 /**
  * Raw action data (encoded for use on-chain).
  */
-export interface RawChugSplashAction {
-  actionType: ChugSplashActionType
+export interface RawSphinxAction {
+  actionType: SphinxActionType
   referenceName: string
   data: string
   addr: string
   contractKindHash: string
 }
 
-export interface ChugSplashTarget {
+export interface SphinxTarget {
   addr: string
   implementation: string
   contractKindHash: string
@@ -60,21 +60,21 @@ export interface DeployContractAction {
   code: string
 }
 
-export interface ChugSplashBundles {
-  actionBundle: ChugSplashActionBundle
-  targetBundle: ChugSplashTargetBundle
+export interface SphinxBundles {
+  actionBundle: SphinxActionBundle
+  targetBundle: SphinxTargetBundle
 }
 
 /**
- * ChugSplash action.
+ * Sphinx action.
  */
-export type ChugSplashAction = SetStorageAction | DeployContractAction
+export type SphinxAction = SetStorageAction | DeployContractAction
 
 /**
- * ChugSplash action that is part of a bundle.
+ * Sphinx action that is part of a bundle.
  */
-export type BundledChugSplashAction = {
-  action: RawChugSplashAction
+export type BundledSphinxAction = {
+  action: RawSphinxAction
   proof: {
     actionIndex: number
     siblings: string[]
@@ -82,19 +82,19 @@ export type BundledChugSplashAction = {
 }
 
 /**
- * Bundle of ChugSplash targets.
+ * Bundle of Sphinx targets.
  */
-export interface BundledChugSplashTarget {
-  target: ChugSplashTarget
+export interface BundledSphinxTarget {
+  target: SphinxTarget
   siblings: string[]
 }
 
 /**
- * Bundle of ChugSplash actions.
+ * Bundle of Sphinx actions.
  */
-export interface ChugSplashActionBundle {
+export interface SphinxActionBundle {
   root: string
-  actions: BundledChugSplashAction[]
+  actions: BundledSphinxAction[]
 }
 
 /**
@@ -115,15 +115,15 @@ export interface AuthLeafBundle {
 }
 
 /**
- * Bundle of ChugSplash targets.
+ * Bundle of Sphinx targets.
  */
-export interface ChugSplashTargetBundle {
+export interface SphinxTargetBundle {
   root: string
-  targets: BundledChugSplashTarget[]
+  targets: BundledSphinxTarget[]
 }
 
 /**
- * The state of a ChugSplash bundle.
+ * The state of a Sphinx bundle.
  */
 export type DeploymentState = {
   status: DeploymentStatus

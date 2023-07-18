@@ -5,7 +5,7 @@ import { SupportedMainnetChainId, SupportedTestnetChainId } from './networks'
 
 export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 
-export const WEBSITE_URL = `https://chugsplash.io`
+export const WEBSITE_URL = `https://sphinx.dev`
 
 // Maps a live network name to its chain ID. Does not include testnets.
 export const SUPPORTED_MAINNETS: {
@@ -52,7 +52,7 @@ export const PROTOCOL_PAYMENT_RECIPIENT_ROLE = utils.keccak256(
   utils.toUtf8Bytes('PROTOCOL_PAYMENT_RECIPIENT_ROLE')
 )
 
-export const CURRENT_CHUGSPLASH_MANAGER_VERSION = {
+export const CURRENT_SPHINX_MANAGER_VERSION = {
   major: 1,
   minor: 0,
   patch: 0,
