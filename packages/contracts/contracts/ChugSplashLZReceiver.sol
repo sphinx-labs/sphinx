@@ -22,14 +22,15 @@ contract ChugSplashLZReceiver is NonblockingLzApp {
     /**
      * @notice Emitted when a cross chain message is received.
      *
-     * @param srcChainId  Source chain id
+     * @param srcLzChainId  LayerZero Chain ID of the source chain. Note that this is *not*
+     *                      the same as the EVM chain ID.
      * @param srcAddress  Remote address pair
      * @param nonce       Message nonce
      * @param payloadHash Hash of the message payload. Checking for the entire payload can be
      *                    expensive.
      */
     event ReceivedCrossChainMessage(
-        uint16 srcChainId,
+        uint16 srcLzChainId,
         bytes srcAddress,
         uint64 nonce,
         bytes32 payloadHash
@@ -50,7 +51,7 @@ contract ChugSplashLZReceiver is NonblockingLzApp {
               trusted remote address pair, which we don't use.
      */
     function lzReceive(
-        uint16 _srcChainId,
+        uint16 _srcLzChainId,
         bytes calldata _srcAddress,
         uint64 _nonce,
         bytes calldata _payload
@@ -58,7 +59,7 @@ contract ChugSplashLZReceiver is NonblockingLzApp {
         // This contract is only meant to be called by the LayerZero endpoint, so we revert
         // if the caller is different.
         require(msg.sender == address(lzEndpoint), "LzApp: invalid endpoint caller");
-        emit ReceivedCrossChainMessage(_srcChainId, _srcAddress, _nonce, keccak256(_payload));
+        emit ReceivedCrossChainMessage(_srcLzChainId, _srcAddress, _nonce, keccak256(_payload));
 
         if (_payload.length > 0) {
             (address to, bytes memory data) = abi.decode(_payload, (address, bytes));

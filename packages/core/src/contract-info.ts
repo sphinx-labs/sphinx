@@ -42,12 +42,10 @@ import {
   getMockEndPointAddress,
   AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
+  getDestinationChains,
 } from './addresses'
-import {
-  LAYERZERO_ADDRESSES,
-  SupportedMainnetChainId,
-  SUPPORTED_NETWORKS,
-} from './constants'
+import { SUPPORTED_NETWORKS } from './constants'
+import { LAYERZERO_ADDRESSES, SupportedChainId } from './networks'
 
 export const getChugSplashConstants = (
   chainId: number,
@@ -57,25 +55,23 @@ export const getChugSplashConstants = (
   expectedAddress: string
   constructorArgs: any[]
 }> => {
+  const lzSourceChainAddressInfo =
+    chainId !== 31337
+      ? LAYERZERO_ADDRESSES[chainId as SupportedChainId]
+      : {
+          endpointAddress: getMockEndPointAddress(chainId),
+          relayerV2Address: '',
+          lzChainId: chainId,
+        }
+
   // Get the endpoint address based on if this deployment is on a local node or not
   const lzEndpointAddress =
     localLZEndpoint || 31337
-      ? getMockEndPointAddress(chainId)
-      : LAYERZERO_ADDRESSES[chainId as SupportedMainnetChainId].endpointAddress
+      ? getMockEndPointAddress(lzSourceChainAddressInfo.lzChainId)
+      : lzSourceChainAddressInfo.endpointAddress
 
   // Get the set of destination chains based off the supported networks
-  const destinationChains = Object.values(SUPPORTED_NETWORKS).map(
-    (id) =>
-      [
-        id,
-        // Calculate the receiver address using either the mock or real endpoint depending on the situation
-        getLZReceiverAddress(
-          localLZEndpoint
-            ? getMockEndPointAddress(id)
-            : LAYERZERO_ADDRESSES[id].endpointAddress
-        ),
-      ] as [number, string]
-  )
+  const destinationChains = getDestinationChains(localLZEndpoint)
 
   // Get the sender using the expected endpoint address for this chain
   const sender = {
@@ -89,7 +85,9 @@ export const getChugSplashConstants = (
   // So if we're deploying locally, then we need to deploy a receiver for each chainId we want to send too
   const receivers = localLZEndpoint
     ? Object.values(SUPPORTED_NETWORKS).map((id) => {
-        const mockAddress = getMockEndPointAddress(id)
+        const mockAddress = getMockEndPointAddress(
+          LAYERZERO_ADDRESSES[id].lzChainId
+        )
         return {
           artifact: LZReceiverArtifact,
           expectedAddress: getLZReceiverAddress(mockAddress),
@@ -110,8 +108,10 @@ export const getChugSplashConstants = (
     ? Object.values(SUPPORTED_NETWORKS).map((id) => {
         return {
           artifact: LZEndpointMockArtifact,
-          expectedAddress: getMockEndPointAddress(id),
-          constructorArgs: [id],
+          expectedAddress: getMockEndPointAddress(
+            LAYERZERO_ADDRESSES[id].lzChainId
+          ),
+          constructorArgs: [LAYERZERO_ADDRESSES[id].lzChainId],
         }
       })
     : []

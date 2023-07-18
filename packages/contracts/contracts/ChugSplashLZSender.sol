@@ -9,13 +9,14 @@ import { LayerZeroFundingMessage, LayerZeroMessage } from "./ChugSplashDataTypes
 
 contract ChugSplashLZSender is LzApp {
     /**
-     * @custom:field chainId Chain ID of the destination chain.
+     * @custom:field lzChainId LayerZero Chain ID of the destination chain. Note that this is *not*
+     *               the same as the EVM chain ID.
      * @custom:field lzReceiver Address of the ChugSplashLZReceiver contract on the destination
        chain. This is set as the only trusted remote contract, which ensures that users don't
        accidentally send messages or funds to untrusted contracts.
      */
     struct DestinationChainInfo {
-        uint16 chainId;
+        uint16 lzChainId;
         address lzReceiver;
     }
 
@@ -43,8 +44,8 @@ contract ChugSplashLZSender is LzApp {
             destChain = _destChains[i];
             addressPair = abi.encodePacked(destChain.lzReceiver, address(this));
             // Set the trusted remote address for the destination chain
-            trustedRemoteLookup[destChain.chainId] = addressPair;
-            emit SetTrustedRemote(destChain.chainId, addressPair);
+            trustedRemoteLookup[destChain.lzChainId] = addressPair;
+            emit SetTrustedRemote(destChain.lzChainId, addressPair);
         }
 
         _transferOwnership(_owner);

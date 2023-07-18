@@ -31,9 +31,9 @@ import { constants, utils } from 'ethers'
 
 import {
   CURRENT_CHUGSPLASH_MANAGER_VERSION,
-  LAYERZERO_ADDRESSES,
   SUPPORTED_NETWORKS,
 } from './constants'
+import { LAYERZERO_ADDRESSES } from './networks'
 
 const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -192,24 +192,30 @@ export const getMockEndPointAddress = (chainId: number) =>
     )
   )
 
+export const getDestinationChains = (localLZEndpoint: boolean) => {
+  // Get the set of destination chains based off the supported networks
+  const destinationChains = Object.values(SUPPORTED_NETWORKS).map((id) => {
+    const lzDestChainAddressInfo = LAYERZERO_ADDRESSES[id]
+
+    return [
+      lzDestChainAddressInfo.lzChainId,
+      // Calculate the receiver address using either the mock or real endpoint depending on the situation
+      getLZReceiverAddress(
+        localLZEndpoint
+          ? getMockEndPointAddress(lzDestChainAddressInfo.lzChainId)
+          : lzDestChainAddressInfo.endpointAddress
+      ),
+    ] as [number, string]
+  })
+
+  return destinationChains
+}
+
 export const getLZSenderAddress = (
   localLZEndpoint: boolean,
   lzEndpointAddress: string
-) => {
-  const destinationChains = Object.values(SUPPORTED_NETWORKS).map(
-    (id) =>
-      [
-        id,
-        // Calculate the receiver address using either the mock or real endpoint depending on the situation
-        getLZReceiverAddress(
-          localLZEndpoint
-            ? getMockEndPointAddress(id)
-            : LAYERZERO_ADDRESSES[id].endpointAddress
-        ),
-      ] as [number, string]
-  )
-
-  return utils.getCreate2Address(
+) =>
+  utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
@@ -218,12 +224,15 @@ export const getLZSenderAddress = (
         LZSenderArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'tuple(uint16,address)[]', 'address'],
-          [lzEndpointAddress, destinationChains, getOwnerAddress()]
+          [
+            lzEndpointAddress,
+            getDestinationChains(localLZEndpoint),
+            getOwnerAddress(),
+          ]
         ),
       ]
     )
   )
-}
 
 export const getLZReceiverAddress = (endpointAddress: string) => {
   return utils.getCreate2Address(
