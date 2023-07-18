@@ -32,7 +32,7 @@ You'll need to have the following pieces of software installed before you can st
 Once you've installed the necessary prerequisites, you'll need to clone the Sphinx monorepo and install its dependencies:
 
 ```sh
-git clone https://github.com/sphinx/sphinx.git
+git clone https://github.com/sphinx-labs/sphinx.git
 cd sphinx
 yarn install
 ```

@@ -9,7 +9,7 @@ This section explains how to define special variables in your Sphinx config file
 
 ## Contract References
 
-You can use a [contract's reference name](https://github.com/sphinx/sphinx/blob/develop/docs/sphinx-file.md#contract-definitions) to refer to a contract's instance or its address in your Sphinx config file.
+You can use a [contract's reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md#contract-definitions) to refer to a contract's instance or its address in your Sphinx config file.
 
 ```ts
 myToken: "{{ MyToken }}" // The MyToken contract or its address

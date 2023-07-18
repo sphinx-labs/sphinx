@@ -28,7 +28,7 @@ import { ICreate3 } from "@sphinx/contracts/contracts/interfaces/ICreate3.sol";
  * and deployment process is working correctly.
  *
  * However, these tests are not designed to fully test the Sphinx contracts. You can find the main Sphinx contract tests here:
- * https://github.com/sphinx/sphinx/tree/develop/packages/contracts/test
+ * https://github.com/sphinx-labs/sphinx/tree/develop/packages/contracts/test
  */
 
 contract SphinxTest is Sphinx, Test {

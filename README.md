@@ -12,7 +12,7 @@ If you want to use Sphinx in production, ask a question, or request a feature th
 
 ### Sphinx Core Protocol
 The Core Protocol includes smart contracts as well as Hardhat and Foundry plugins. All of the code is MIT licensed and is located inside this repository.
-- Define deployments [declaratively](https://github.com/sphinx/sphinx/blob/develop/docs/sphinx-file.md#layout-of-a-sphinx-file) in a single file, inspired by [Terraform](https://www.terraform.io/).
+- Define deployments [declaratively](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md#layout-of-a-sphinx-file) in a single file, inspired by [Terraform](https://www.terraform.io/).
 - Deployments are fully atomic, deterministic, and idempotent. Deployments cannot be halted for any reason and are finalized in a single transaction.
 - Deploys contracts at consistent addresses across networks using `CREATE2`
 - Keep track of contract dependencies using simple template syntax (i.e. `{{ MyContract }}`).
@@ -29,20 +29,20 @@ The Sphinx Managed Service is an optional product built on top of the Sphinx Cor
 ## Getting Started
 
 ### Foundry
-[Get started with Sphinx for Foundry](https://github.com/sphinx/sphinx/blob/develop/docs/foundry/getting-started.md)
+[Get started with Sphinx for Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/foundry/getting-started.md)
 
 ### Hardhat
-[Get started with Sphinx for Hardhat](https://github.com/sphinx/sphinx/blob/develop/docs/hardhat/getting-started.md)
+[Get started with Sphinx for Hardhat](https://github.com/sphinx-labs/sphinx/blob/develop/docs/hardhat/getting-started.md)
 
 ## Documentation
 
-- [Sphinx File](https://github.com/sphinx/sphinx/blob/develop/docs/sphinx-file.md): Detailed explanation of the file where you define your deployments and upgrades.
-- [Variables Reference](https://github.com/sphinx/sphinx/blob/develop/docs/variables.md): Reference describing how to assign values to every variable type in a Sphinx config file.
-- [Using Sphinx on Live Networks](https://github.com/sphinx/sphinx/blob/develop/docs/live-network.md): Instructions for using Sphinx to deploy or upgrade a project on a live network.
-- Integrating with CI for [Hardhat](https://github.com/sphinx/sphinx/blob/develop/docs/hardhat/ci-integration.md) and [Foundry](https://github.com/sphinx/sphinx/blob/develop/docs/hardhat/ci-integration.md): Walkthrough of how to setup Sphinx deployments in your CI process using GitHub actions.
-- [Special Variable Definitions](https://github.com/sphinx/sphinx/blob/develop/docs/special-var-defs.md): Explains how to define contract references in your Sphinx config file.
-- [Immutable Variables](https://github.com/sphinx/sphinx/blob/develop/docs/immutable-variables.md): How to define immutable variables with Sphinx.
-- [How Sphinx Works](https://github.com/sphinx/sphinx/blob/develop/docs/how-sphinx-works.md). A deep dive into the Sphinx Core Protocol.
+- [Sphinx File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md): Detailed explanation of the file where you define your deployments and upgrades.
+- [Variables Reference](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md): Reference describing how to assign values to every variable type in a Sphinx config file.
+- [Using Sphinx on Live Networks](https://github.com/sphinx-labs/sphinx/blob/develop/docs/live-network.md): Instructions for using Sphinx to deploy or upgrade a project on a live network.
+- Integrating with CI for [Hardhat](https://github.com/sphinx-labs/sphinx/blob/develop/docs/hardhat/ci-integration.md) and [Foundry](https://github.com/sphinx-labs/sphinx/blob/develop/docs/hardhat/ci-integration.md): Walkthrough of how to setup Sphinx deployments in your CI process using GitHub actions.
+- [Special Variable Definitions](https://github.com/sphinx-labs/sphinx/blob/develop/docs/special-var-defs.md): Explains how to define contract references in your Sphinx config file.
+- [Immutable Variables](https://github.com/sphinx-labs/sphinx/blob/develop/docs/immutable-variables.md): How to define immutable variables with Sphinx.
+- [How Sphinx Works](https://github.com/sphinx-labs/sphinx/blob/develop/docs/how-sphinx-works.md). A deep dive into the Sphinx Core Protocol.
 
 ## Supported Networks
 * Ethereum Goerli
@@ -60,7 +60,7 @@ Sphinx is an experimental product and currently only supports test networks. If 
 
 ## Contributing
 
-Contributors welcome, please read through [CONTRIBUTING.md](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md) for an overview of the contributing process for this repository and to get your development environment up and running. Then check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute) to find something to work on! If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
+Contributors welcome, please read through [CONTRIBUTING.md](https://github.com/sphinx-labs/sphinx/blob/develop/CONTRIBUTING.md) for an overview of the contributing process for this repository and to get your development environment up and running. Then check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute) to find something to work on! If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
 
 ## License
 

@@ -71,6 +71,6 @@ Each contract definition has the following fields:
 
 Inside each contract definition, the `variables` property contains the contract's state variables and their values. For example, the `MyToken` contract has a `symbol` variable with a value of `'MYT'`.
 
-For an API reference that explains how to assign values to every variable type in a Sphinx config file, click [here](https://github.com/sphinx/sphinx/blob/develop/docs/variables.md).
+For an API reference that explains how to assign values to every variable type in a Sphinx config file, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/variables.md).
 
 > Note: You do not need a constructor or initializer function in your contracts. This is because Sphinx converts the variable definitions into `SSTORE` actions, which are executed in each proxy. This allows us to guarantee that the deployment or upgrade is deterministic (i.e. it can't halt for any reason), unlike standard deployment scripts. Removing the need for constructors and initializers also ensures that the proxies can't accidentally remain in an uninitialized state, which is often the cause of on-chain security vulnerabilities.
