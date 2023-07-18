@@ -5,18 +5,26 @@ export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 
 export const WEBSITE_URL = `https://chugsplash.io`
 
-export type SupportedChainId = 1 | 10 | 5 | 420
+export type SupportedMainnetChainId = 1 | 10
+export type SupportedTestnetChainId = 5 | 420
+export type SupportedChainId = SupportedMainnetChainId | SupportedTestnetChainId
 
-// Maps a live network name to its chain ID
-export const SUPPORTED_LIVE_NETWORKS: {
-  [networkName: string]: SupportedChainId
+// Maps a live network name to its chain ID. Does not include testnets.
+export const SUPPORTED_MAINNETS: {
+  [networkName: string]: SupportedMainnetChainId
 } = {
-  // Mainnets
   mainnet: 1,
   optimism: 10,
-  // Testnets
+}
+export const SUPPORTED_TESTNETS: {
+  [networkName: string]: SupportedTestnetChainId
+} = {
   goerli: 5,
   'optimism-goerli': 420,
+}
+export const SUPPORTED_NETWORKS = {
+  ...SUPPORTED_MAINNETS,
+  ...SUPPORTED_TESTNETS,
 }
 
 // Etherscan constants

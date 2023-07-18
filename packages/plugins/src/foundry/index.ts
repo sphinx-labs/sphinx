@@ -39,6 +39,7 @@ const command = args[0]
         const configPath = args[1]
         const projectName = args[2]
         const dryRun = args[3] === 'true'
+        const isTestnet = args[4] === 'true'
 
         const {
           artifactFolder,
@@ -59,6 +60,7 @@ const command = args[0]
 
         await proposeAbstractTask(
           configPath,
+          isTestnet,
           projectName,
           dryRun,
           cre,

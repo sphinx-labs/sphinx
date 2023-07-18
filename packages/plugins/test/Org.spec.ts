@@ -15,7 +15,7 @@ import {
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_NETWORKS,
   getEmptyCanonicalOrgConfig,
   findBundledLeaf,
   getAuthLeafsForChain,
@@ -70,7 +70,8 @@ describe('Org config', () => {
       _immutableAddress: '0x' + '11'.repeat(20),
     }
 
-    const networks = ['goerli', 'optimism-goerli']
+    const isTestnet = true
+    const testnets = ['goerli', 'optimism-goerli']
     const providers = {
       goerli: new ethers.providers.JsonRpcProvider('http://localhost:8545'),
       'optimism-goerli': new ethers.providers.JsonRpcProvider(
@@ -84,7 +85,8 @@ describe('Org config', () => {
         orgId: DUMMY_ORG_ID,
         orgOwners,
         orgThreshold,
-        networks,
+        testnets,
+        mainnets: [],
         proposers: [ownerAddress],
         managers: [ownerAddress],
       },
@@ -112,7 +114,7 @@ describe('Org config', () => {
     }
 
     const leafs: Array<AuthLeaf> = []
-    for (const network of networks) {
+    for (const network of testnets) {
       const provider = providers[network]
       const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
@@ -123,12 +125,13 @@ describe('Org config', () => {
           userConfig,
           projectName,
           deployerAddress,
+          isTestnet,
           provider,
           cre,
           makeGetConfigArtifacts(hre)
         )
 
-      const chainId = SUPPORTED_LIVE_NETWORKS[network]
+      const chainId = SUPPORTED_NETWORKS[network]
       const prevOrgConfig = getEmptyCanonicalOrgConfig(
         [chainId],
         deployerAddress,
@@ -147,7 +150,7 @@ describe('Org config', () => {
 
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-    for (const network of networks) {
+    for (const network of testnets) {
       const provider = providers[network]
 
       const owner = new ethers.Wallet(ownerPrivateKey, provider)
@@ -184,8 +187,8 @@ describe('Org config', () => {
       )
       expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
 
-      const chainId = SUPPORTED_LIVE_NETWORKS[network]
-      const numLeafsPerChain = bundledLeafs.length / networks.length
+      const chainId = SUPPORTED_NETWORKS[network]
+      const numLeafsPerChain = bundledLeafs.length / testnets.length
 
       const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
         bundledLeafs,
@@ -281,6 +284,7 @@ describe('Org config', () => {
           userConfig,
           projectName,
           deployerAddress,
+          isTestnet,
           provider,
           cre,
           makeGetConfigArtifacts(hre)

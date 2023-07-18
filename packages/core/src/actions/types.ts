@@ -337,6 +337,7 @@ export type IPFSCommitResponse = IPFSHash[]
 export type ProposalRequest = {
   apiKey: string
   orgId: string
+  isTestnet: boolean
   orgOwners: string[]
   orgOwnerThreshold: number
   authAddress: string

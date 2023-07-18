@@ -45,8 +45,8 @@ import {
 } from './addresses'
 import {
   LAYERZERO_ADDRESSES,
-  SupportedChainId,
-  SUPPORTED_LIVE_NETWORKS,
+  SupportedMainnetChainId,
+  SUPPORTED_NETWORKS,
 } from './constants'
 
 export const getChugSplashConstants = (
@@ -61,10 +61,10 @@ export const getChugSplashConstants = (
   const lzEndpointAddress =
     localLZEndpoint || 31337
       ? getMockEndPointAddress(chainId)
-      : LAYERZERO_ADDRESSES[chainId as SupportedChainId].endpointAddress
+      : LAYERZERO_ADDRESSES[chainId as SupportedMainnetChainId].endpointAddress
 
   // Get the set of destination chains based off the supported networks
-  const destinationChains = Object.values(SUPPORTED_LIVE_NETWORKS).map(
+  const destinationChains = Object.values(SUPPORTED_NETWORKS).map(
     (id) =>
       [
         id,
@@ -88,7 +88,7 @@ export const getChugSplashConstants = (
   // When running locally, we simulate multichain messaging by sending messages to multiple destination contracts
   // So if we're deploying locally, then we need to deploy a receiver for each chainId we want to send too
   const receivers = localLZEndpoint
-    ? Object.values(SUPPORTED_LIVE_NETWORKS).map((id) => {
+    ? Object.values(SUPPORTED_NETWORKS).map((id) => {
         const mockAddress = getMockEndPointAddress(id)
         return {
           artifact: LZReceiverArtifact,
@@ -107,7 +107,7 @@ export const getChugSplashConstants = (
   // B/c we simulate multichain messaging by sending messages to multiple destination contracts, we need to deploy
   // a mock endpoint contract for each chain id when running locally
   const mockEndpoints = localLZEndpoint
-    ? Object.values(SUPPORTED_LIVE_NETWORKS).map((id) => {
+    ? Object.values(SUPPORTED_NETWORKS).map((id) => {
         return {
           artifact: LZEndpointMockArtifact,
           expectedAddress: getMockEndPointAddress(id),

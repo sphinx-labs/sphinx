@@ -80,7 +80,8 @@ import {
 import {
   CONTRACT_SIZE_LIMIT,
   Keyword,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_MAINNETS,
+  SUPPORTED_TESTNETS,
   keywords,
 } from '../constants'
 import {
@@ -152,6 +153,7 @@ export const getParsedOrgConfig = async (
   userConfig: UserChugSplashConfig,
   projects: Array<Project> | Project,
   deployerAddress: string,
+  isTestnet: boolean,
   provider: providers.JsonRpcProvider,
   cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
@@ -177,7 +179,10 @@ export const getParsedOrgConfig = async (
 
   assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
 
-  const parsedConfigOptions = parseOrgConfigOptions(userConfig.options)
+  const parsedConfigOptions = parseOrgConfigOptions(
+    userConfig.options,
+    isTestnet
+  )
 
   const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
     userConfig,
@@ -3067,7 +3072,8 @@ export const assertValidOrgConfigOptions = (
 ): void => {
   const {
     owner,
-    networks,
+    mainnets,
+    testnets,
     orgId,
     orgOwners,
     orgThreshold,
@@ -3119,7 +3125,8 @@ export const assertValidOrgConfigOptions = (
   const duplicatedOrgOwners = getDuplicateElements(orgOwners)
   const duplicatedProposers = getDuplicateElements(proposers)
   const duplicatedManagers = getDuplicateElements(managers)
-  const duplicatedNetworks = getDuplicateElements(networks)
+  const duplicatedNetworks = getDuplicateElements(mainnets)
+  const duplicatedTestnets = getDuplicateElements(testnets)
   if (duplicatedOrgOwners.length > 0) {
     logValidationError(
       'error',
@@ -3156,6 +3163,15 @@ export const assertValidOrgConfigOptions = (
       cre.stream
     )
   }
+  if (duplicatedTestnets.length > 0) {
+    logValidationError(
+      'error',
+      `The following testnets are duplicated:`,
+      duplicatedTestnets,
+      cre.silent,
+      cre.stream
+    )
+  }
 
   const invalidOrgOwnerAddresses = orgOwners.filter(
     (address) => !ethers.utils.isAddress(address)
@@ -3166,8 +3182,11 @@ export const assertValidOrgConfigOptions = (
   const invalidManagerAddresses = managers.filter(
     (address) => !ethers.utils.isAddress(address)
   )
-  const invalidNetworks = networks.filter(
-    (network) => !SUPPORTED_LIVE_NETWORKS[network]
+  const invalidMainnets = mainnets.filter(
+    (network) => !SUPPORTED_MAINNETS[network]
+  )
+  const invalidTestnets = testnets.filter(
+    (testnet) => !SUPPORTED_TESTNETS[testnet]
   )
   if (invalidOrgOwnerAddresses.length > 0) {
     logValidationError(
@@ -3175,7 +3194,6 @@ export const assertValidOrgConfigOptions = (
       `The following org owners are not valid addresses:`,
       invalidOrgOwnerAddresses,
       cre.silent,
-
       cre.stream
     )
   }
@@ -3197,13 +3215,24 @@ export const assertValidOrgConfigOptions = (
       cre.stream
     )
   }
-  if (invalidNetworks.length > 0) {
+  if (invalidMainnets.length > 0) {
     logValidationError(
       'error',
-      `The following networks in your ChugSplash config are not supported: ${invalidNetworks.join(
+      `The following networks in your ChugSplash config are not supported: ${invalidMainnets.join(
         ', '
       )}.\nSupported networks are:`,
-      Object.keys(SUPPORTED_LIVE_NETWORKS).map((n) => `- ${n}`),
+      Object.keys(SUPPORTED_MAINNETS).map((n) => `- ${n}`),
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (invalidTestnets.length > 0) {
+    logValidationError(
+      'error',
+      `The following testnets in your ChugSplash config are not supported: ${invalidTestnets.join(
+        ', '
+      )}.\nSupported testnets are:`,
+      Object.keys(SUPPORTED_TESTNETS).map((n) => `- ${n}`),
       cre.silent,
       cre.stream
     )
@@ -3219,10 +3248,10 @@ export const assertValidOrgConfigOptions = (
     )
   }
 
-  if (networks.length === 0) {
+  if (mainnets.length === 0 && testnets.length === 0) {
     logValidationError(
       'error',
-      `There must be at least one network in your ChugSplash config.`,
+      `There must be at least one network or testnet in your ChugSplash config.`,
       [],
       cre.silent,
       cre.stream
@@ -3233,11 +3262,14 @@ export const assertValidOrgConfigOptions = (
 }
 
 export const parseOrgConfigOptions = (
-  options: UserOrgConfigOptions
+  options: UserOrgConfigOptions,
+  isTestnet: boolean
 ): ParsedOrgConfigOptions => {
-  const { networks, orgId, orgThreshold } = options
+  const { mainnets, testnets, orgId, orgThreshold } = options
 
-  const chainIds = networks.map((network) => SUPPORTED_LIVE_NETWORKS[network])
+  const chainIds = isTestnet
+    ? testnets.map((network) => SUPPORTED_TESTNETS[network])
+    : mainnets.map((network) => SUPPORTED_MAINNETS[network])
 
   // Converts addresses to checksummed addresses and sorts them in ascending order.
   const orgOwners = options.orgOwners
