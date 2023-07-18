@@ -1,5 +1,5 @@
 ---
-'@chugsplash/plugins': patch
+'@sphinx/plugins': patch
 ---
 
 Use cache to avoid reading all build info files

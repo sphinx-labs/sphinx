@@ -3,25 +3,24 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 
 import {
-  ChugSplashActionBundle,
-  ChugSplashActionType,
-  ChugSplashBundles,
+  SphinxActionBundle,
+  SphinxActionType,
+  SphinxBundles,
   DeploymentState,
   DeploymentStatus,
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
-import { getChugSplashManager, getDeploymentEvents } from '../utils'
+import { getSphinxManager, getDeploymentEvents } from '../utils'
 import { ParsedProjectConfig } from '../config/types'
 
 export const getNumDeployedContracts = (
-  bundle: ChugSplashActionBundle,
+  bundle: SphinxActionBundle,
   actionsExecuted: ethers.BigNumber
 ): number => {
   return bundle.actions
     .slice(0, actionsExecuted.toNumber())
     .filter(
-      (action) =>
-        action.action.actionType === ChugSplashActionType.DEPLOY_CONTRACT
+      (action) => action.action.actionType === SphinxActionType.DEPLOY_CONTRACT
     ).length
 }
 
@@ -29,17 +28,17 @@ export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   parsedProjectConfig: ParsedProjectConfig,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   deploymentId: string,
   silent: boolean
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
   const { project, deployer } = parsedProjectConfig.options
-  const ChugSplashManager = getChugSplashManager(deployer, signer)
+  const SphinxManager = getSphinxManager(deployer, signer)
 
   // Get the deployment state of the deployment ID.
-  let deploymentState: DeploymentState = await ChugSplashManager.deployments(
+  let deploymentState: DeploymentState = await SphinxManager.deployments(
     deploymentId
   )
 
@@ -48,7 +47,7 @@ export const monitorExecution = async (
     await sleep(1000)
 
     // Get the current deployment state.
-    deploymentState = await ChugSplashManager.deployments(deploymentId)
+    deploymentState = await SphinxManager.deployments(deploymentId)
   }
 
   spinner.succeed('Executor has claimed the project.')
@@ -59,7 +58,7 @@ export const monitorExecution = async (
     await sleep(1000)
 
     // Get the current deployment state.
-    deploymentState = await ChugSplashManager.deployments(deploymentId)
+    deploymentState = await SphinxManager.deployments(deploymentId)
   }
 
   spinner.succeed('Execution initiated.')
@@ -74,7 +73,7 @@ export const monitorExecution = async (
       )
     }
 
-    // Check if there are enough funds in the ChugSplashManager to finish the deployment.
+    // Check if there are enough funds in the SphinxManager to finish the deployment.
     const amountToDeposit = await getAmountToDeposit(
       provider,
       bundles,
@@ -95,14 +94,14 @@ export const monitorExecution = async (
     await sleep(1000)
 
     // Get the current deployment state.
-    deploymentState = await ChugSplashManager.deployments(deploymentId)
+    deploymentState = await SphinxManager.deployments(deploymentId)
   }
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
     spinner.succeed(`Finished executing ${project}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
-      ChugSplashManager,
+      SphinxManager,
       deploymentId
     )
     spinner.succeed('Retrieved deployment info.')

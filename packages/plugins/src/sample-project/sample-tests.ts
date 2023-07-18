@@ -1,16 +1,16 @@
-export const sampleTestFileTypeScript = `import '@chugsplash/plugins'
-import { chugsplash, ethers } from 'hardhat'
+export const sampleTestFileTypeScript = `import '@sphinx/plugins'
+import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-describe('HelloChugSplash', () => {
+describe('HelloSphinx', () => {
   let MyFirstContract: Contract
   beforeEach(async () => {
-    // You must reset your ChugSplash deployments to their initial state here
-    await chugsplash.reset()
+    // You must reset your Sphinx deployments to their initial state here
+    await sphinx.reset()
 
-    MyFirstContract = await chugsplash.getContract(
-      'Hello ChugSplash',
+    MyFirstContract = await sphinx.getContract(
+      'Hello Sphinx',
       'MyFirstContract',
       ethers.provider.getSigner()
     )
@@ -27,19 +27,19 @@ describe('HelloChugSplash', () => {
 })
 `
 
-export const sampleTestFileJavaScript = `require('@chugsplash/plugins')
+export const sampleTestFileJavaScript = `require('@sphinx/plugins')
 
-const { chugsplash, ethers } = require('hardhat')
+const { sphinx, ethers } = require('hardhat')
 const { expect } = require('chai')
 
-describe('HelloChugSplash', () => {
+describe('HelloSphinx', () => {
   let MyFirstContract
   beforeEach(async () => {
-    // You must reset your ChugSplash deployments to their initial state here
-    await chugsplash.reset()
+    // You must reset your Sphinx deployments to their initial state here
+    await sphinx.reset()
 
-    MyFirstContract = await chugsplash.getContract(
-      'Hello ChugSplash',
+    MyFirstContract = await sphinx.getContract(
+      'Hello Sphinx',
       'MyFirstContract',
       ethers.provider.getSigner()
     )

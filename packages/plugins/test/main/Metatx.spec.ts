@@ -5,23 +5,23 @@
 // import { Contract } from 'ethers'
 // import {
 //   registerOwner,
-//   chugsplashProposeAbstractTask,
+//   sphinxProposeAbstractTask,
 //   register,
 //   FORWARDER_ADDRESS,
-//   getChugSplashManager,
-//   getChugSplashRegistry,
+//   getSphinxManager,
+//   getSphinxRegistry,
 //   ProposalRoute,
 //   readParsedOwnerConfig,
-// } from '@chugsplash/core'
-// import { ForwarderArtifact } from '@chugsplash/contracts'
+// } from '@sphinx/core'
+// import { ForwarderArtifact } from '@sphinx/contracts'
 // import { expect } from 'chai'
 // import ora from 'ora'
 
-// import { createChugSplashRuntime } from '../../plugins/src/cre'
+// import { createSphinxRuntime } from '../../plugins/src/cre'
 // import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-// const configPath = './chugsplash/chugsplash.config.ts'
-// import { projectName } from '../chugsplash/projects/Metatx.config'
+// const configPath = './sphinx/sphinx.config.ts'
+// import { projectName } from '../sphinx/projects/Metatx.config'
 
 // describe('Meta txs', () => {
 //   process.env['LOCAL_TEST_METATX_PROPOSE'] = 'true'
@@ -33,7 +33,7 @@
 //     const signer = hre.ethers.provider.getSigner()
 //     const signerAddress = await signer.getAddress()
 
-//     const cre = await createChugSplashRuntime(
+//     const cre = await createSphinxRuntime(
 //       true,
 //       true,
 //       hre.config.paths.canonicalConfigs,
@@ -62,9 +62,9 @@
 
 //     // // Claim the project with the signer as the owner. Once we've completed the deployment, we'll
 //     // // transfer ownership to the user-defined new owner, if it exists.
-//     // const registry = await getChugSplashRegistry(signer)
+//     // const registry = await getSphinxRegistry(signer)
 //     // const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
-//     // manager = getChugSplashManager(signer, parsedConfig.options.organizationID)
+//     // manager = getSphinxManager(signer, parsedConfig.options.organizationID)
 
 //     // await register(
 //     //   registry,
@@ -76,7 +76,7 @@
 //     //   spinner
 //     // )
 
-//     const metatxs = await chugsplashProposeAbstractTask(
+//     const metatxs = await sphinxProposeAbstractTask(
 //       provider,
 //       signer,
 //       parsedConfig.projects[projectName],

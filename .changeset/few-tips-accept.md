@@ -1,5 +1,5 @@
 ---
-'@chugsplash/plugins': patch
+'@sphinx/plugins': patch
 ---
 
 Fix compilation issue when optimizer disabled

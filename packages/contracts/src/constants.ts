@@ -3,9 +3,8 @@ import { ethers } from 'ethers'
 export const OWNER_MULTISIG_ADDRESS =
   '0x226F14C3e19788934Ff37C653Cf5e24caD198341'
 export const getOwnerAddress = () => {
-  return process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY
-    ? new ethers.Wallet(process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY)
-        .address
+  return process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY
+    ? new ethers.Wallet(process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY).address
     : OWNER_MULTISIG_ADDRESS
 }
 export const EXECUTOR = '0x42761facf5e6091fca0e38f450adfb1e22bd8c3c'
@@ -20,8 +19,8 @@ export const PROJECT_MANAGER_ROLE = ethers.utils.solidityKeccak256(
 )
 export const DEFAULT_ADMIN_ROLE = ethers.constants.HashZero
 
-export const CHUGSPLASH_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(
-  ethers.utils.keccak256(ethers.utils.toUtf8Bytes('chugsplash.proxy.admin'))
+export const SPHINX_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(
+  ethers.utils.keccak256(ethers.utils.toUtf8Bytes('sphinx.proxy.admin'))
 )
   .sub(1)
   .toHexString()

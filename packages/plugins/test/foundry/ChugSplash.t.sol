@@ -2,36 +2,36 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../../contracts/foundry/ChugSplash.sol";
-import { ChugSplashUtils } from "../../contracts/foundry/ChugSplashUtils.sol";
+import "../../contracts/foundry/Sphinx.sol";
+import { SphinxUtils } from "../../contracts/foundry/SphinxUtils.sol";
 import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
 import { OtherImmutables, Storage, Types } from "../../contracts/test/ContainsStorage.sol";
 import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
-import { ChugSplashRegistry } from "@chugsplash/contracts/contracts/ChugSplashRegistry.sol";
-import { ChugSplashManager } from "@chugsplash/contracts/contracts/ChugSplashManager.sol";
-import { ChugSplashManagerProxy } from "@chugsplash/contracts/contracts/ChugSplashManagerProxy.sol";
+import { SphinxRegistry } from "@sphinx/contracts/contracts/SphinxRegistry.sol";
+import { SphinxManager } from "@sphinx/contracts/contracts/SphinxManager.sol";
+import { SphinxManagerProxy } from "@sphinx/contracts/contracts/SphinxManagerProxy.sol";
 import {
-    IChugSplashManager
-} from "@chugsplash/contracts/contracts/interfaces/IChugSplashManager.sol";
-import { IProxyAdapter } from "@chugsplash/contracts/contracts/interfaces/IProxyAdapter.sol";
-import { IProxyUpdater } from "@chugsplash/contracts/contracts/interfaces/IProxyUpdater.sol";
+    ISphinxManager
+} from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
+import { IProxyAdapter } from "@sphinx/contracts/contracts/interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "@sphinx/contracts/contracts/interfaces/IProxyUpdater.sol";
 import {
     IGasPriceCalculator
-} from "@chugsplash/contracts/contracts/interfaces/IGasPriceCalculator.sol";
-import { ICreate3 } from "@chugsplash/contracts/contracts/interfaces/ICreate3.sol";
+} from "@sphinx/contracts/contracts/interfaces/IGasPriceCalculator.sol";
+import { ICreate3 } from "@sphinx/contracts/contracts/interfaces/ICreate3.sol";
 
-/* ChugSplash Foundry Library Tests
+/* Sphinx Foundry Library Tests
  *
- * These integration tests are intended to verify that the ChugSplash Foundry Library is properly interfacing with
- * the core ChugSplash library and contracts. We also include sanity check tests here that verify the variable encoding
+ * These integration tests are intended to verify that the Sphinx Foundry Library is properly interfacing with
+ * the core Sphinx library and contracts. We also include sanity check tests here that verify the variable encoding
  * and deployment process is working correctly.
  *
- * However, these tests are not designed to fully test the ChugSplash contracts. You can find the main ChugSplash contract tests here:
- * https://github.com/chugsplash/chugsplash/tree/develop/packages/contracts/test
+ * However, these tests are not designed to fully test the Sphinx contracts. You can find the main Sphinx contract tests here:
+ * https://github.com/sphinx/sphinx/tree/develop/packages/contracts/test
  */
 
-contract ChugSplashTest is ChugSplash, Test {
+contract SphinxTest is Sphinx, Test {
     type UserDefinedType is uint256;
 
     Storage myStorage;
@@ -41,10 +41,10 @@ contract ChugSplashTest is ChugSplash, Test {
     Stateless myStateless;
     Stateless myStatelessWithSalt;
     ComplexConstructorArgs myComplexConstructorArgs;
-    IChugSplashRegistry registry;
-    ChugSplash chugsplash;
+    ISphinxRegistry registry;
+    Sphinx sphinx;
 
-    string deployConfig = "./chugsplash/main.config.ts";
+    string deployConfig = "./sphinx/main.config.ts";
 
     struct SimpleStruct {
         bytes32 a;
@@ -65,7 +65,7 @@ contract ChugSplashTest is ChugSplash, Test {
         myStatelessWithSalt = Stateless(getAddress(deployConfig, "Create3", "Stateless", keccak256('1')));
         myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "Storage", "ComplexConstructorArgs"));
 
-        registry = utils.getChugSplashRegistry();
+        registry = utils.getSphinxRegistry();
     }
 
     function testHasDifferentAddressWithSalt() public {

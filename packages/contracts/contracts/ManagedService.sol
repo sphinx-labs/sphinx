@@ -5,7 +5,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 
 /**
  * @title ManagedService
- * @notice Contract controlled by the ChugSplash managed service. This contract allows the managed
+ * @notice Contract controlled by the Sphinx managed service. This contract allows the managed
    service to remotely execute deployments and collect the protocol's fee.
 Users can opt in to this functionality if they choose to do so.
  */
@@ -33,7 +33,7 @@ contract ManagedService is AccessControl {
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
-       multisig owned by the ChugSplash team.
+       multisig owned by the Sphinx team.
      */
     constructor(address _owner) {
         _grantRole(bytes32(0), _owner);

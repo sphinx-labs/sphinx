@@ -7,7 +7,7 @@ import { Proxy } from "@eth-optimism/contracts-bedrock/contracts/universal/Proxy
 
 /**
  * @title DefaultAdapter
- * @notice Adapter for the default EIP-1967 proxy used by ChugSplash.
+ * @notice Adapter for the default EIP-1967 proxy used by Sphinx.
  */
 contract DefaultAdapter is IProxyAdapter {
     /**

@@ -1,15 +1,15 @@
 import {
-  ChugSplashRegistryABI,
+  SphinxRegistryABI,
   getOwnerAddress,
   ManagedServiceArtifact,
   EXECUTION_LOCK_TIME,
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  ChugSplashManagerABI,
+  SphinxManagerABI,
   OWNER_BOND_AMOUNT,
-  ChugSplashRegistryArtifact,
-  ChugSplashManagerArtifact,
+  SphinxRegistryArtifact,
+  SphinxManagerArtifact,
   DefaultAdapterArtifact,
   OZUUPSOwnableAdapterArtifact,
   OZUUPSAccessControlAdapterArtifact,
@@ -18,7 +18,7 @@ import {
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
   DefaultGasPriceCalculatorArtifact,
-  ChugSplashManagerProxyArtifact,
+  SphinxManagerProxyArtifact,
   ProxyArtifact,
   LZEndpointMockArtifact,
   LZSenderArtifact,
@@ -26,16 +26,13 @@ import {
   AuthFactoryArtifact,
   AuthProxyArtifact,
   AuthArtifact,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 import { constants, utils } from 'ethers'
 
-import {
-  CURRENT_CHUGSPLASH_MANAGER_VERSION,
-  SUPPORTED_NETWORKS,
-} from './constants'
+import { CURRENT_SPHINX_MANAGER_VERSION, SUPPORTED_NETWORKS } from './constants'
 import { LAYERZERO_ADDRESSES } from './networks'
 
-const [registryConstructorFragment] = ChugSplashRegistryABI.filter(
+const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
@@ -44,14 +41,14 @@ const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
 
 export const getRegistryConstructorValues = () => [getOwnerAddress()]
 
-export const getChugSplashRegistryAddress = () =>
+export const getSphinxRegistryAddress = () =>
   utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ChugSplashRegistryArtifact.bytecode,
+        SphinxRegistryArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           registryConstructorArgTypes,
           getRegistryConstructorValues()
@@ -73,21 +70,20 @@ export const getManagedServiceAddress = () =>
     )
   )
 
-export const REFERENCE_CHUGSPLASH_MANAGER_PROXY_ADDRESS =
-  utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        ChugSplashManagerProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
-        ),
-      ]
-    )
+export const REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      SphinxManagerProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [getSphinxRegistryAddress(), getSphinxRegistryAddress()]
+      ),
+    ]
   )
+)
 
 export const REFERENCE_PROXY_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -96,10 +92,7 @@ export const REFERENCE_PROXY_ADDRESS = utils.getCreate2Address(
     ['bytes', 'bytes'],
     [
       ProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
-        ['address'],
-        [getChugSplashRegistryAddress()]
-      ),
+      utils.defaultAbiCoder.encode(['address'], [getSphinxRegistryAddress()]),
     ]
   )
 )
@@ -260,7 +253,7 @@ export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
       AuthFactoryArtifact.bytecode,
       utils.defaultAbiCoder.encode(
         ['address', 'address'],
-        [getChugSplashRegistryAddress(), getOwnerAddress()]
+        [getSphinxRegistryAddress(), getOwnerAddress()]
       ),
     ]
   )
@@ -282,7 +275,7 @@ export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
 )
 
 export const getManagerConstructorValues = () => [
-  getChugSplashRegistryAddress(),
+  getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
   DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress(),
@@ -290,21 +283,21 @@ export const getManagerConstructorValues = () => [
   OWNER_BOND_AMOUNT.toString(),
   EXECUTOR_PAYMENT_PERCENTAGE,
   PROTOCOL_PAYMENT_PERCENTAGE,
-  Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
+  Object.values(CURRENT_SPHINX_MANAGER_VERSION),
 ]
 
-const [managerConstructorFragment] = ChugSplashManagerABI.filter(
+const [managerConstructorFragment] = SphinxManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 
-export const getChugSplashManagerV1Address = () =>
+export const getSphinxManagerV1Address = () =>
   utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
-        ChugSplashManagerArtifact.bytecode,
+        SphinxManagerArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           managerConstructorFragment.inputs,
           getManagerConstructorValues()
@@ -313,7 +306,7 @@ export const getChugSplashManagerV1Address = () =>
     )
   )
 
-export const getChugSplashManagerAddress = (owner: string) => {
+export const getSphinxManagerAddress = (owner: string) => {
   // We set the saltNonce to 0 since we can safely assume that each owner
   // will only have one manager contract for now.
   const salt = utils.keccak256(
@@ -324,7 +317,7 @@ export const getChugSplashManagerAddress = (owner: string) => {
   )
 
   return utils.getCreate2Address(
-    getChugSplashRegistryAddress(),
+    getSphinxRegistryAddress(),
     salt,
     getManagerProxyInitCodeHash()
   )
@@ -375,10 +368,10 @@ export const getManagerProxyInitCodeHash = (): string => {
   return utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      ChugSplashManagerProxyArtifact.bytecode,
+      SphinxManagerProxyArtifact.bytecode,
       utils.defaultAbiCoder.encode(
         ['address', 'address'],
-        [getChugSplashRegistryAddress(), getChugSplashRegistryAddress()]
+        [getSphinxRegistryAddress(), getSphinxRegistryAddress()]
       ),
     ]
   )

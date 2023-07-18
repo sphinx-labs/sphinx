@@ -2,8 +2,8 @@ import { ethers } from 'ethers'
 import {
   ProxyABI,
   ProxyArtifact,
-  buildInfo as chugsplashBuildInfo,
-} from '@chugsplash/contracts'
+  buildInfo as sphinxBuildInfo,
+} from '@sphinx/contracts'
 
 import {
   ParsedProjectConfig,
@@ -70,7 +70,7 @@ export const writeDeploymentArtifacts = async (
     if (deploymentEvent.args.contractKindHash === contractKindHashes['proxy']) {
       // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
-        chugsplashBuildInfo.output.contracts[
+        sphinxBuildInfo.output.contracts[
           '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
         ]['Proxy']
       const { devdoc, userdoc } =
@@ -83,7 +83,7 @@ export const writeDeploymentArtifacts = async (
         address: deploymentEvent.args.contractAddress,
         abi: ProxyABI,
         transactionHash: deploymentEvent.transactionHash,
-        solcInputHash: chugsplashBuildInfo.id,
+        solcInputHash: sphinxBuildInfo.id,
         receipt: {
           ...receipt,
           gasUsed: receipt.gasUsed.toString(),

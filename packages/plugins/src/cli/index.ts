@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { execAsync } from '@chugsplash/core/dist/utils'
+import { execAsync } from '@sphinx/core/dist/utils'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { inferSolcVersion } from '../foundry/utils'
@@ -17,18 +17,18 @@ const configPathOption = 'config-path'
 const projectOption = 'project'
 
 yargs(hideBin(process.argv))
-  .scriptName('chugsplash')
+  .scriptName('sphinx')
   .command(
     'propose',
-    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to ChugSplash's back-end.`,
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`,
     (y) =>
       y
         .usage(
-          `Usage: npx chugsplash propose --${configPathOption} <path> --${projectOption} <projectName> [--silent]`
+          `Usage: npx sphinx propose --${configPathOption} <path> --${projectOption} <projectName> [--silent]`
         )
         .option(configPathOption, {
           alias: 'c',
-          describe: 'Path to the ChugSplash config file.',
+          describe: 'Path to the Sphinx config file.',
           type: 'string',
         })
         .option('project', {
@@ -37,12 +37,11 @@ yargs(hideBin(process.argv))
           type: 'string',
         })
         .option('testnets', {
-          describe:
-            'Propose on the testnets specified in the ChugSplash config',
+          describe: 'Propose on the testnets specified in the Sphinx config',
           boolean: true,
         })
         .option('mainnets', {
-          describe: `Propose on the mainnets specified in the ChugSplash config`,
+          describe: `Propose on the mainnets specified in the Sphinx config`,
           boolean: true,
         })
         .option('dryRun', {
@@ -52,7 +51,7 @@ yargs(hideBin(process.argv))
         })
         .option('silent', {
           alias: 's',
-          describe: `Hide ChugSplash's output.`,
+          describe: `Hide Sphinx's output.`,
           boolean: true,
         })
         .hide('version'),
@@ -76,7 +75,7 @@ yargs(hideBin(process.argv))
 
       if (!configPath) {
         console.error(
-          `Must specify a path to a ChugSplash config file via --${configPathOption}.`
+          `Must specify a path to a Sphinx config file via --${configPathOption}.`
         )
         process.exit(1)
       }
@@ -86,17 +85,17 @@ yargs(hideBin(process.argv))
       }
 
       const rootFfiPath =
-        process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+        process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
       const proposeContractPath = join(
         rootFfiPath,
         'contracts/foundry/Propose.sol'
       )
 
-      process.env['CHUGSPLASH_INTERNAL_PROJECT_NAME'] = project
-      process.env['CHUGSPLASH_INTERNAL_CONFIG_PATH'] = configPath
-      process.env['CHUGSPLASH_INTERNAL_DRY_RUN'] = dryRun.toString()
-      process.env['CHUGSPLASH_INTERNAL_SILENT'] = silent.toString()
-      process.env['CHUGSPLASH_INTERNAL_IS_TESTNET'] = isTestnet.toString()
+      process.env['SPHINX_INTERNAL_PROJECT_NAME'] = project
+      process.env['SPHINX_INTERNAL_CONFIG_PATH'] = configPath
+      process.env['SPHINX_INTERNAL_DRY_RUN'] = dryRun.toString()
+      process.env['SPHINX_INTERNAL_SILENT'] = silent.toString()
+      process.env['SPHINX_INTERNAL_IS_TESTNET'] = isTestnet.toString()
 
       const spinner = ora({ isSilent: silent })
       const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
@@ -107,7 +106,7 @@ yargs(hideBin(process.argv))
         // because it's a convenient way to ensure that the latest versions of the contracts are
         // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
         // TypeScript configs. This can't be done by calling the TypeScript propose function
-        // directly because calling `npx chugsplash` uses Node, not TS Node.
+        // directly because calling `npx sphinx` uses Node, not TS Node.
         await execAsync(`forge script ${proposeContractPath}`)
       } catch ({ stderr }) {
         spinner.fail(`${dryRunOrProposal} failed.`)
@@ -127,13 +126,13 @@ yargs(hideBin(process.argv))
     'Initialize a sample project',
     (y) =>
       y
-        .usage('Usage: npx chugsplash init --js|--ts')
+        .usage('Usage: npx sphinx init --js|--ts')
         .option('js', {
-          describe: 'Create a JavaScript ChugSplash config file',
+          describe: 'Create a JavaScript Sphinx config file',
           boolean: true,
         })
         .option('ts', {
-          describe: 'Create a TypeScript ChugSplash config file',
+          describe: 'Create a TypeScript Sphinx config file',
           boolean: true,
         })
         .hide('version'),
@@ -160,7 +159,7 @@ yargs(hideBin(process.argv))
       const solcVersion = solc ?? (await inferSolcVersion())
 
       writeSampleProjectFiles(
-        'chugsplash',
+        'sphinx',
         src,
         test,
         isTypeScriptProject,
@@ -168,12 +167,12 @@ yargs(hideBin(process.argv))
         'foundry',
         script
       )
-      spinner.succeed('Initialized ChugSplash project.')
+      spinner.succeed('Initialized Sphinx project.')
     }
   )
   .showHelpOnFail(true)
   .demandCommand(
     1,
-    'To get help for a specific task run: npx chugsplash [task] --help'
+    'To get help for a specific task run: npx sphinx [task] --help'
   )
   .parse()

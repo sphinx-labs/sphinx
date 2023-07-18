@@ -30,19 +30,19 @@ import {
   AuthLeaf,
   AuthLeafBundle,
   BundledAuthLeaf,
-  BundledChugSplashAction,
-  ChugSplashAction,
-  ChugSplashActionBundle,
-  ChugSplashActionType,
-  ChugSplashBundles,
-  ChugSplashTarget,
-  ChugSplashTargetBundle,
+  BundledSphinxAction,
+  SphinxAction,
+  SphinxActionBundle,
+  SphinxActionType,
+  SphinxBundles,
+  SphinxTarget,
+  SphinxTargetBundle,
   ContractInfo,
   DeployContractAction,
   ProjectDeployments,
   ProposalRequest,
   RawAuthLeaf,
-  RawChugSplashAction,
+  RawSphinxAction,
   RoleType,
   SetStorageAction,
 } from './types'
@@ -54,11 +54,11 @@ import { getDeployContractCosts } from '../estimate'
 /**
  * Checks whether a given action is a SetStorage action.
  *
- * @param action ChugSplash action to check.
+ * @param action Sphinx action to check.
  * @return `true` if the action is a SetStorage action, `false` otherwise.
  */
 export const isSetStorageAction = (
-  action: ChugSplashAction
+  action: SphinxAction
 ): action is SetStorageAction => {
   return (
     (action as SetStorageAction).key !== undefined &&
@@ -70,41 +70,41 @@ export const isSetStorageAction = (
 /**
  * Checks whether a given action is a DeployContract action.
  *
- * @param action ChugSplash action to check.
+ * @param action Sphinx action to check.
  * @returns `true` if the action is a DeployContract action, `false` otherwise.
  */
 export const isDeployContractAction = (
-  action: ChugSplashAction
+  action: SphinxAction
 ): action is DeployContractAction => {
   return (action as DeployContractAction).code !== undefined
 }
 
 export const getDeployContractActions = (
-  actionBundle: ChugSplashActionBundle
+  actionBundle: SphinxActionBundle
 ): Array<DeployContractAction> => {
   return actionBundle.actions
-    .map((action) => fromRawChugSplashAction(action.action))
+    .map((action) => fromRawSphinxAction(action.action))
     .filter(isDeployContractAction)
 }
 
 export const getDeployContractActionBundle = (
-  actionBundle: ChugSplashActionBundle
-): Array<BundledChugSplashAction> => {
+  actionBundle: SphinxActionBundle
+): Array<BundledSphinxAction> => {
   return actionBundle.actions.filter((action) =>
-    isDeployContractAction(fromRawChugSplashAction(action.action))
+    isDeployContractAction(fromRawSphinxAction(action.action))
   )
 }
 
 export const getSetStorageActionBundle = (
-  actionBundle: ChugSplashActionBundle
-): Array<BundledChugSplashAction> => {
+  actionBundle: SphinxActionBundle
+): Array<BundledSphinxAction> => {
   return actionBundle.actions.filter((action) =>
-    isSetStorageAction(fromRawChugSplashAction(action.action))
+    isSetStorageAction(fromRawSphinxAction(action.action))
   )
 }
 
 export const getNumDeployContractActions = (
-  actionBundle: ChugSplashActionBundle
+  actionBundle: SphinxActionBundle
 ): number => {
   return getDeployContractActionBundle(actionBundle).length
 }
@@ -113,15 +113,13 @@ export const getNumDeployContractActions = (
  * Converts the "nice" action structs into a "raw" action struct (better for Solidity but
  * worse for users here).
  *
- * @param action ChugSplash action to convert.
- * @return Converted "raw" ChugSplash action.
+ * @param action Sphinx action to convert.
+ * @return Converted "raw" Sphinx action.
  */
-export const toRawChugSplashAction = (
-  action: ChugSplashAction
-): RawChugSplashAction => {
+export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   if (isSetStorageAction(action)) {
     return {
-      actionType: ChugSplashActionType.SET_STORAGE,
+      actionType: SphinxActionType.SET_STORAGE,
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
@@ -132,7 +130,7 @@ export const toRawChugSplashAction = (
     }
   } else if (isDeployContractAction(action)) {
     return {
-      actionType: ChugSplashActionType.DEPLOY_CONTRACT,
+      actionType: SphinxActionType.DEPLOY_CONTRACT,
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
@@ -147,15 +145,15 @@ export const toRawChugSplashAction = (
 }
 
 /**
- * Converts a raw ChugSplash action into a "nice" action struct.
+ * Converts a raw Sphinx action into a "nice" action struct.
  *
- * @param rawAction Raw ChugSplash action to convert.
- * @returns Converted "nice" ChugSplash action.
+ * @param rawAction Raw Sphinx action to convert.
+ * @returns Converted "nice" Sphinx action.
  */
-export const fromRawChugSplashAction = (
-  rawAction: RawChugSplashAction
-): ChugSplashAction => {
-  if (rawAction.actionType === ChugSplashActionType.SET_STORAGE) {
+export const fromRawSphinxAction = (
+  rawAction: RawSphinxAction
+): SphinxAction => {
+  if (rawAction.actionType === SphinxActionType.SET_STORAGE) {
     const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
       ['bytes32', 'uint8', 'bytes'],
       rawAction.data
@@ -168,7 +166,7 @@ export const fromRawChugSplashAction = (
       offset,
       value,
     }
-  } else if (rawAction.actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
+  } else if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
     const [salt, code] = ethers.utils.defaultAbiCoder.decode(
       ['bytes32', 'bytes'],
       rawAction.data
@@ -191,7 +189,7 @@ export const fromRawChugSplashAction = (
  * @param action Action to compute the hash of.
  * @return Hash of the action.
  */
-export const getActionHash = (action: RawChugSplashAction): string => {
+export const getActionHash = (action: RawSphinxAction): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ['string', 'address', 'uint8', 'bytes32', 'bytes'],
@@ -212,7 +210,7 @@ export const getActionHash = (action: RawChugSplashAction): string => {
  * @param target Target to compute the hash of.
  * @return Hash of the action.
  */
-export const getTargetHash = (target: ChugSplashTarget): string => {
+export const getTargetHash = (target: SphinxTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ['address', 'address', 'bytes32'],
@@ -222,8 +220,8 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
 }
 
 export const makeTargetBundle = (
-  targets: ChugSplashTarget[]
-): ChugSplashTargetBundle => {
+  targets: SphinxTarget[]
+): SphinxTargetBundle => {
   // Compute the hash for each action.
   const elements = targets.map((target) => {
     return getTargetHash(target)
@@ -442,7 +440,7 @@ export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
 
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
- * ChugSplashAuth contract.
+ * SphinxAuth contract.
  *
  * @param leafs Series of auth leafs.
  * @return Bundled leafs.
@@ -481,17 +479,17 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
 
 /**
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
- * provided to the ChugSplashManager contract.
+ * provided to the SphinxManager contract.
  *
  * @param actions Series of DeployContract and SetStorage actions to bundle.
  * @return Bundled actions.
  */
 export const makeActionBundle = (
-  actions: ChugSplashAction[]
-): ChugSplashActionBundle => {
+  actions: SphinxAction[]
+): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
-    return toRawChugSplashAction(action)
+    return toRawSphinxAction(action)
   })
 
   // Now compute the hash for each action.
@@ -547,7 +545,7 @@ export const makeBundlesFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache
-): ChugSplashBundles => {
+): SphinxBundles => {
   const actionBundle = makeActionBundleFromConfig(
     parsedProjectConfig,
     projectArtifacts,
@@ -561,7 +559,7 @@ export const makeBundlesFromConfig = (
 }
 
 /**
- * Generates a ChugSplash action bundle from a config file.
+ * Generates a Sphinx action bundle from a config file.
  *
  * @param config Config file to convert into a bundle.
  * @param env Environment variables to inject into the config file.
@@ -571,9 +569,9 @@ export const makeActionBundleFromConfig = (
   parsedConfig: ParsedProjectConfig,
   projectArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache
-): ChugSplashActionBundle => {
+): SphinxActionBundle => {
   const managerAddress = parsedConfig.options.deployer
-  const actions: ChugSplashAction[] = []
+  const actions: SphinxAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
@@ -674,7 +672,7 @@ export const makeActionBundleFromConfig = (
 }
 
 /**
- * Generates a ChugSplash target bundle from a config file. Note that non-proxied contract types are
+ * Generates a Sphinx target bundle from a config file. Note that non-proxied contract types are
  * not included in the target bundle.
  *
  * @param config Config file to convert into a bundle.
@@ -684,10 +682,10 @@ export const makeActionBundleFromConfig = (
 export const makeTargetBundleFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts
-): ChugSplashTargetBundle => {
+): SphinxTargetBundle => {
   const { deployer } = parsedProjectConfig.options
 
-  const targets: ChugSplashTarget[] = []
+  const targets: SphinxTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedProjectConfig.contracts
   )) {
@@ -812,7 +810,7 @@ export const getAuthLeafsForChain = async (
 
         // We only import contracts into the project if the user has explictly specified an
         // address for the contract. Otherwise, the contract will eventually be deployed by
-        // ChugSplash and automatically added to the project on-chain.
+        // Sphinx and automatically added to the project on-chain.
         const contractsToImport: Array<ContractInfo> = Object.entries(contracts)
           .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
           .map(([referenceName, contractConfig]) => {

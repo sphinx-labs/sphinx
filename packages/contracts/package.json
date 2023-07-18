@@ -1,7 +1,7 @@
 {
-  "name": "@chugsplash/contracts",
+  "name": "@sphinx/contracts",
   "version": "0.8.2",
-  "description": "ChugSplash contracts",
+  "description": "Sphinx contracts",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -28,12 +28,12 @@
     "lint:contracts:fix": "yarn prettier --write '{contracts,test}/**/*.sol' && yarn solhint --fix '{contracts,test}/**/*.sol'",
     "pre-commit": "lint-staged"
   },
-  "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/contracts#readme",
+  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/contracts#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smartcontracts/chugsplash.git"
+    "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "devDependencies": {
     "@connext/interfaces": "^2.0.5",

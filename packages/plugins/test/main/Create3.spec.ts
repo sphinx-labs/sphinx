@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { chugsplash, ethers } from 'hardhat'
+import { sphinx, ethers } from 'hardhat'
 import { Contract } from 'ethers'
 import '@nomiclabs/hardhat-ethers'
 
@@ -8,8 +8,8 @@ describe('Create3', () => {
   let StatelessWithSalt: Contract
   before(async () => {
     const owner = ethers.provider.getSigner()
-    Stateless = await chugsplash.getContract('Storage', 'Stateless', owner)
-    StatelessWithSalt = await chugsplash.getContract(
+    Stateless = await sphinx.getContract('Storage', 'Stateless', owner)
+    StatelessWithSalt = await sphinx.getContract(
       'Create3',
       'Stateless',
       owner,

@@ -1,6 +1,6 @@
 ---
-'@chugsplash/plugins': minor
-'@chugsplash/core': minor
+'@sphinx/plugins': minor
+'@sphinx/core': minor
 ---
 
-Separate testnets and mainnets in the ChugSplash config
+Separate testnets and mainnets in the Sphinx config

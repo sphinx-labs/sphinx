@@ -2,7 +2,7 @@ export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-contract HelloChugSplash {
+contract HelloSphinx {
   uint8 public number;
   bool public stored;
   address public otherStorage;
@@ -25,9 +25,9 @@ export const getSampleFoundryDeployFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import "@chugsplash/plugins/ChugSplash.sol";
+import "@sphinx/plugins/Sphinx.sol";
 
-contract ChugSplashDeploy is ChugSplash {
+contract SphinxDeploy is Sphinx {
   function run() public {
     uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
     vm.startBroadcast(deployerPrivateKey);
@@ -45,32 +45,32 @@ export const getSampleFoundryTestFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import "@chugsplash/plugins/ChugSplash.sol";
-import { HelloChugSplash } from "../src/HelloChugSplash.sol";
+import "@sphinx/plugins/Sphinx.sol";
+import { HelloSphinx } from "../src/HelloSphinx.sol";
 import "forge-std/Test.sol";
 
-contract HelloChugSplashTest is ChugSplash, Test {
-  HelloChugSplash helloChugSplash;
+contract HelloSphinxTest is Sphinx, Test {
+  HelloSphinx helloSphinx;
   function setUp() public {
     silence();
     deploy('${configPath}', vm.rpcUrl("anvil"));
-    helloChugSplash = HelloChugSplash(getAddress('${configPath}', "MyFirstContract"));
+    helloSphinx = HelloSphinx(getAddress('${configPath}', "MyFirstContract"));
   }
 
   function testSetNumber() public {
-    assertEq(helloChugSplash.number(), 1);
+    assertEq(helloSphinx.number(), 1);
   }
 
   function testBool() public {
-    assertEq(helloChugSplash.stored(), true);
+    assertEq(helloSphinx.stored(), true);
   }
 
   function testAddress() public {
-    assertEq(helloChugSplash.storageName(), 'First');
+    assertEq(helloSphinx.storageName(), 'First');
   }
 
   function testString() public {
-    assertEq(helloChugSplash.otherStorage(), address(0x1111111111111111111111111111111111111111));
+    assertEq(helloSphinx.otherStorage(), address(0x1111111111111111111111111111111111111111));
   }
 }
 `

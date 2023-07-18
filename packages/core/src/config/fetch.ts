@@ -1,11 +1,11 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { ChugSplashBundles } from '../actions/types'
+import { SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
-  getChugSplashManagerReadOnly,
-  getChugSplashRegistryReadOnly,
+  getSphinxManagerReadOnly,
+  getSphinxRegistryReadOnly,
   getDeploymentId,
   getProjectConfigArtifactsRemote,
 } from '../utils'
@@ -17,7 +17,7 @@ import {
 import { makeBundlesFromConfig } from '../actions/bundle'
 import { getProjectConfigCache } from './parse'
 
-export const chugsplashFetchSubtask = async (args: {
+export const sphinxFetchSubtask = async (args: {
   configUri: string
   ipfsUrl?: string
 }): Promise<CanonicalProjectConfig> => {
@@ -70,7 +70,7 @@ export const verifyDeployment = async (
   ipfsUrl?: string
 ) => {
   const config = await callWithTimeout<CanonicalProjectConfig>(
-    chugsplashFetchSubtask({ configUri, ipfsUrl }),
+    sphinxFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
@@ -89,22 +89,22 @@ export const verifyDeployment = async (
 }
 
 /**
- * Compiles a remote ChugSplashBundle from a uri.
+ * Compiles a remote SphinxBundle from a uri.
  *
- * @param configUri URI of the ChugSplashBundle to compile.
+ * @param configUri URI of the SphinxBundle to compile.
  * @param provider JSON RPC provider.
- * @returns Compiled ChugSplashBundle.
+ * @returns Compiled SphinxBundle.
  */
 export const compileRemoteBundles = async (
   provider: providers.JsonRpcProvider,
   configUri: string
 ): Promise<{
-  bundles: ChugSplashBundles
+  bundles: SphinxBundles
   canonicalProjectConfig: CanonicalProjectConfig
   projectConfigArtifacts: ProjectConfigArtifacts
 }> => {
   const canonicalProjectConfig = await callWithTimeout<CanonicalProjectConfig>(
-    chugsplashFetchSubtask({ configUri }),
+    sphinxFetchSubtask({ configUri }),
     30000,
     'Failed to fetch config file from IPFS'
   )
@@ -117,11 +117,8 @@ export const compileRemoteBundles = async (
     provider,
     canonicalProjectConfig,
     projectConfigArtifacts,
-    getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(
-      canonicalProjectConfig.options.deployer,
-      provider
-    )
+    getSphinxRegistryReadOnly(provider),
+    getSphinxManagerReadOnly(canonicalProjectConfig.options.deployer, provider)
   )
 
   const bundles = makeBundlesFromConfig(

@@ -21,7 +21,7 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { buildInfo as chugsplashBuildInfo } from '@chugsplash/contracts'
+import { buildInfo as sphinxBuildInfo } from '@sphinx/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
@@ -29,7 +29,7 @@ import { customChains } from './constants'
 import { CanonicalProjectConfig, ProjectConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { getChugSplashConstants } from './contract-info'
+import { getSphinxConstants } from './contract-info'
 
 export interface EtherscanResponseBody {
   status: string
@@ -39,7 +39,7 @@ export interface EtherscanResponseBody {
 
 export const RESPONSE_OK = '1'
 
-export const verifyChugSplashConfig = async (
+export const verifySphinxConfig = async (
   canonicalProjectConfig: CanonicalProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts,
   provider: ethers.providers.Provider,
@@ -73,16 +73,15 @@ export const verifyChugSplashConfig = async (
       abi
     )
 
-    const chugsplashInput = canonicalProjectConfig.inputs.find(
-      (compilerInput) =>
-        Object.keys(compilerInput.input.sources).includes(sourceName)
+    const sphinxInput = canonicalProjectConfig.inputs.find((compilerInput) =>
+      Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
-    if (!chugsplashInput) {
+    if (!sphinxInput) {
       // Should not happen. We'll continue to the next contract.
       continue
     }
-    const { input, solcVersion } = chugsplashInput
+    const { input, solcVersion } = sphinxInput
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
@@ -117,7 +116,7 @@ export const verifyChugSplashConfig = async (
   }
 }
 
-export const verifyChugSplash = async (
+export const verifySphinx = async (
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
@@ -134,12 +133,12 @@ export const verifyChugSplash = async (
     artifact,
     expectedAddress,
     constructorArgs,
-  } of getChugSplashConstants((await provider.getNetwork()).chainId, false)) {
+  } of getSphinxConstants((await provider.getNetwork()).chainId, false)) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
-      chugsplashBuildInfo.input,
-      chugsplashBuildInfo.output.contracts,
+      sphinxBuildInfo.input,
+      sphinxBuildInfo.output.contracts,
       sourceName,
       contractName
     )
@@ -154,7 +153,7 @@ export const verifyChugSplash = async (
       abi,
       apiKey,
       minimumCompilerInput,
-      chugsplashBuildInfo.solcVersion,
+      sphinxBuildInfo.solcVersion,
       constructorArgs
     )
   }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-contract HelloChugSplash {
+contract HelloSphinx {
     uint8 public number;
     bool public stored;
     address public otherStorage;

@@ -22,7 +22,7 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
 }
 
 /**
- * Returns the Create3 address of a target contract deployed by ChugSplash. There is a one-to-one mapping
+ * Returns the Create3 address of a target contract deployed by Sphinx. There is a one-to-one mapping
  * between a Create3 address and the input parameters to this function. Note that the contract may
  * not yet be deployed at this address since it's calculated via Create3.
  */

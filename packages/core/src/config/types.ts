@@ -6,7 +6,7 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
@@ -52,7 +52,7 @@ export enum ContractKindEnum {
 }
 
 /**
- * Allowable types for ChugSplash config variables defined by the user.
+ * Allowable types for Sphinx config variables defined by the user.
  */
 export type UserConfigVariable =
   | boolean
@@ -65,7 +65,7 @@ export type UserConfigVariable =
     }
 
 /**
- * Parsed ChugSplash config variable.
+ * Parsed Sphinx config variable.
  */
 export type ParsedConfigVariable =
   | boolean
@@ -76,7 +76,7 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export interface UserChugSplashConfig {
+export interface UserSphinxConfig {
   options?: UserOrgConfigOptions
   projects: UserProjectConfigs
 }
@@ -183,7 +183,7 @@ export type UnsafeAllow = {
 }
 
 /**
- * User-defined contract definition in a ChugSplash config.
+ * User-defined contract definition in a Sphinx config.
  */
 export type UserContractConfig = {
   contract: string
@@ -238,10 +238,10 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalProjectConfig extends ParsedProjectConfig {
-  inputs: Array<ChugSplashInput>
+  inputs: Array<SphinxInput>
 }
 
-export type ChugSplashInput = {
+export type SphinxInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput

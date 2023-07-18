@@ -1,17 +1,17 @@
 import '@nomiclabs/hardhat-ethers'
-import '@chugsplash/plugins'
-import { chugsplash, ethers } from 'hardhat'
+import '@sphinx/plugins'
+import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-describe('HelloChugSplash', () => {
+describe('HelloSphinx', () => {
   let MyFirstContract: Contract
   beforeEach(async () => {
-    // You must reset your ChugSplash deployments to their initial state here
-    await chugsplash.reset()
+    // You must reset your Sphinx deployments to their initial state here
+    await sphinx.reset()
 
-    MyFirstContract = await chugsplash.getContract(
-      'Hello ChugSplash',
+    MyFirstContract = await sphinx.getContract(
+      'Hello Sphinx',
       'MyFirstContract',
       ethers.provider.getSigner()
     )

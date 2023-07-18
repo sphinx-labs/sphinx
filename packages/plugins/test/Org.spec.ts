@@ -1,15 +1,15 @@
 import hre from 'hardhat'
-import '../dist' // This loads in the ChugSplash's HRE type extensions, e.g. `canonicalConfigPath`
+import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `canonicalConfigPath`
 import '@nomiclabs/hardhat-ethers'
 import {
   AUTH_FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
-  UserChugSplashConfig,
-  ensureChugSplashInitialized,
+  UserSphinxConfig,
+  ensureSphinxInitialized,
   getAuthAddress,
   getAuthData,
-  getChugSplashManagerAddress,
+  getSphinxManagerAddress,
   makeAuthBundle,
   getParsedOrgConfig,
   signAuthRootMetaTxn,
@@ -20,18 +20,18 @@ import {
   findBundledLeaf,
   getAuthLeafsForChain,
   AuthLeaf,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import {
   AuthFactoryABI,
   AuthABI,
   PROPOSER_ROLE,
   PROJECT_MANAGER_ROLE,
-  ChugSplashManagerABI,
-} from '@chugsplash/contracts'
+  SphinxManagerABI,
+} from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
-import { createChugSplashRuntime } from '../src/cre'
+import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
@@ -40,7 +40,7 @@ const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
 
 const DUMMY_ORG_ID = '1111'
 
-const cre = createChugSplashRuntime(
+const cre = createSphinxRuntime(
   false,
   false,
   hre.config.paths.canonicalConfigs,
@@ -80,7 +80,7 @@ describe('Org config', () => {
     }
 
     const orgOwners = [ownerAddress]
-    const userConfig: UserChugSplashConfig = {
+    const userConfig: UserSphinxConfig = {
       options: {
         orgId: DUMMY_ORG_ID,
         orgOwners,
@@ -95,7 +95,7 @@ describe('Org config', () => {
 
     const authData = getAuthData(orgOwners, orgThreshold)
     const authAddress = getAuthAddress(orgOwners, orgThreshold)
-    const deployerAddress = getChugSplashManagerAddress(authAddress)
+    const deployerAddress = getSphinxManagerAddress(authAddress)
 
     const projectName = 'MyProject'
     const projectThreshold = 1
@@ -118,7 +118,7 @@ describe('Org config', () => {
       const provider = providers[network]
       const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-      await ensureChugSplashInitialized(provider, relayer)
+      await ensureSphinxInitialized(provider, relayer)
 
       const { parsedConfig, configCache, configArtifacts } =
         await getParsedOrgConfig(
@@ -164,15 +164,15 @@ describe('Org config', () => {
       )
       const Deployer = new ethers.Contract(
         deployerAddress,
-        ChugSplashManagerABI,
+        SphinxManagerABI,
         relayer
       )
       const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
-      // We set the `registryData` to `[]` since this version of the ChugSplashManager doesn't use it.
+      // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
       await AuthFactory.deploy(authData, [], 0)
 
-      // Fund the ChugSplashManager.
+      // Fund the SphinxManager.
       await owner.sendTransaction({
         to: deployerAddress,
         value: ethers.utils.parseEther('1'),

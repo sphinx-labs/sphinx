@@ -1,4 +1,4 @@
-// These variables are used to capture any errors or warnings that occur during the ChugSplash
+// These variables are used to capture any errors or warnings that occur during the Sphinx
 
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 

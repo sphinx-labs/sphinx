@@ -2,31 +2,31 @@ import { argv } from 'process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { getProjectBundleInfo, readParsedOwnerConfig } from '@chugsplash/core'
+import { getProjectBundleInfo, readParsedOwnerConfig } from '@sphinx/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-import { createChugSplashRuntime } from '../src/cre'
+import { createSphinxRuntime } from '../src/cre'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
-  throw new Error(`Pass in a path to a ChugSplash config file.`)
+  throw new Error(`Pass in a path to a Sphinx config file.`)
 }
 
 /**
- * Display a ChugSplash bundle. The purpose of this script is to easily generate bundles in a format
- * that can be used alongside the `vm.readJson` cheatcode in order to test the ChugSplash contracts
+ * Display a Sphinx bundle. The purpose of this script is to easily generate bundles in a format
+ * that can be used alongside the `vm.readJson` cheatcode in order to test the Sphinx contracts
  * with Forge. This script is NOT meant to be called via FFI in the Foundry plugin.
  *
  * This script can be called by running:
- * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/chugsplash/file>
+ * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/sphinx/file>
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
 
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     true,
     hre.config.paths.canonicalConfigs,

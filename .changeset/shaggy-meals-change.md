@@ -1,6 +1,6 @@
 ---
-'@chugsplash/contracts': patch
-'@chugsplash/core': patch
+'@sphinx/contracts': patch
+'@sphinx/core': patch
 ---
 
 Add crosschain funding contract
