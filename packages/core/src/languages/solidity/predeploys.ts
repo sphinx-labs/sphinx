@@ -50,6 +50,7 @@ import {
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
 import { getChugSplashConstants } from '../../contract-info'
+import { LAYERZERO_ADDRESSES, SupportedChainId } from '../../networks'
 
 const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -480,7 +481,13 @@ export const initializeChugSplash = async (
 
   // If deploying locally, then we need to setup the destinations on all of the mock lz endpoints
   if (localLZEndpoint) {
-    const srcEndpointAddress = getMockEndPointAddress(await signer.getChainId())
+    const srcEndpointAddress =
+      chainId !== 31337
+        ? getMockEndPointAddress(
+            LAYERZERO_ADDRESSES[chainId as SupportedChainId].lzChainId
+          )
+        : getMockEndPointAddress(chainId)
+
     const srcEndpoint = new ethers.Contract(
       srcEndpointAddress,
       LZEndpointMockABI,
@@ -488,7 +495,9 @@ export const initializeChugSplash = async (
     )
 
     for (const id of Object.values(SUPPORTED_NETWORKS)) {
-      const endpointAddress = getMockEndPointAddress(id)
+      const endpointAddress = getMockEndPointAddress(
+        LAYERZERO_ADDRESSES[id].lzChainId
+      )
       await (
         await srcEndpoint.setDestLzEndpoint(
           getLZReceiverAddress(endpointAddress),

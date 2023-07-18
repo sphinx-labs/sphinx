@@ -22,16 +22,17 @@ contract ChugSplashLZSenderTest is Test {
     address signer = address(4);
     uint airdropAmountOne = 0.08 ether;
     uint airdropAmountTwo = 0.16 ether;
-    uint16 srcChainId = uint16(block.chainid);
-    uint16 dstChainIdOne = 1;
-    uint16 destChainIdTwo = 2;
+    // In production, these are LayerZero chain IDs, not EVM chain IDs.
+    uint16 dstLzChainIdOne = 1;
+    uint16 destLzChainIdTwo = 2;
+    uint16 srcLzChainId = uint16(3);
 
     function setUp() public {
         vm.deal(signer, 1 ether);
 
-        srcEndpoint = new LZEndpointMock(srcChainId);
-        dstEndpointOne = new LZEndpointMock(dstChainIdOne);
-        dstEndpointTwo = new LZEndpointMock(destChainIdTwo);
+        srcEndpoint = new LZEndpointMock(srcLzChainId);
+        dstEndpointOne = new LZEndpointMock(dstLzChainIdOne);
+        dstEndpointTwo = new LZEndpointMock(destLzChainIdTwo);
         receiverOne = new ChugSplashLZReceiver(address(dstEndpointOne), msg.sender);
         receiverTwo = new ChugSplashLZReceiver(address(dstEndpointTwo), msg.sender);
     }
@@ -43,11 +44,11 @@ contract ChugSplashLZSenderTest is Test {
         ChugSplashLZSender.DestinationChainInfo[]
             memory dstChainInfo = new ChugSplashLZSender.DestinationChainInfo[](2);
         dstChainInfo[0] = ChugSplashLZSender.DestinationChainInfo(
-            dstChainIdOne,
+            dstLzChainIdOne,
             address(receiverOne)
         );
         dstChainInfo[1] = ChugSplashLZSender.DestinationChainInfo(
-            destChainIdTwo,
+            destLzChainIdTwo,
             address(receiverTwo)
         );
 
@@ -61,14 +62,14 @@ contract ChugSplashLZSenderTest is Test {
         uint16 outboundProofType = 1;
         LayerZeroFundingMessage[] memory actions = new LayerZeroFundingMessage[](2);
         actions[0] = LayerZeroFundingMessage(
-            dstChainIdOne,
+            dstLzChainIdOne,
             outboundProofType,
             200000,
             airdropReceiverOne,
             airdropAmountOne
         );
         actions[1] = LayerZeroFundingMessage(
-            destChainIdTwo,
+            destLzChainIdTwo,
             outboundProofType,
             200000,
             airdropReceiverTwo,
