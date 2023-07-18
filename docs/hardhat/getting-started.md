@@ -173,5 +173,5 @@ npx hardhat test test/HelloSphinx.test.js
 ## Learn More
 
 Once you've set up a Sphinx project, the next step is to learn about the [Sphinx
-file](https://github.com/sphinx/sphinx/blob/develop/docs/sphinx-file.md), which is where
+file](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md), which is where
 you define deployments.

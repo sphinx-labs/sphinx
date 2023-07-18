@@ -142,5 +142,5 @@ forge script script/HelloSphinx.s.sol --rpc-url anvil --broadcast
 ## Learn More
 
 Once you've set up your project, the next step is to learn about the [Sphinx
-config file](https://github.com/sphinx/sphinx/blob/develop/docs/sphinx-file.md), which is where
+config file](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md), which is where
 you define deployments using Sphinx.

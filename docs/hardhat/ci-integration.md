@@ -2,7 +2,7 @@
 
 This is a basic guide on how to integrate Sphinx into your CI process using GitHub actions to trigger a deployment
 on goerli whenever you push a change to the main branch of your repo. If you are using a different CI platform, this guide
-will still be approximately accurate, but the exact configuration of the CI provider may be different. This guide is tailored to Hardhat users, if you are using Foundry then you should check out the [Foundry version of this guide](https://github.com/sphinx/sphinx/blob/develop/docs/foundry/ci-integration.md).
+will still be approximately accurate, but the exact configuration of the CI provider may be different. This guide is tailored to Hardhat users, if you are using Foundry then you should check out the [Foundry version of this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/foundry/ci-integration.md).
 
 ## Create a Github Actions Folder
 `mkdir -p .github/workflows`
