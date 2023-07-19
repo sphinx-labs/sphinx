@@ -15,6 +15,7 @@ import {
   getDeployContractCosts,
   writeCanonicalConfig,
 } from '@sphinx/core/dist'
+import { providers } from 'ethers/lib/ethers'
 
 import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
@@ -33,6 +34,9 @@ const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
 const projectName = args[3]
 const ownerAddress = args[4]
+const rpcUrl = args[5]
+
+const provider = new providers.JsonRpcProvider(rpcUrl)
 
 ;(async () => {
   process.stderr.write = validationStderrWrite
@@ -95,6 +99,7 @@ const ownerAddress = args[4]
     )
 
     await projectPostParsingValidation(
+      provider,
       parsedProjectConfig,
       projectConfigArtifacts,
       projectName,
