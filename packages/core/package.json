@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@amplitude/node": "^1.10.2",
-    "@sphinx/contracts": "link:../contracts",
+    "@sphinx/contracts": "^0.8.0",
     "@eth-optimism/common-ts": "^0.7.1",
     "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
     "@eth-optimism/core-utils": "^0.9.1",
