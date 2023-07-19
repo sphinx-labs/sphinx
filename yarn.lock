@@ -597,15 +597,14 @@
     qs "^6.10.5"
 
 "@eth-optimism/contracts-bedrock@^0.0.0-20230522161230":
-  version "0.0.0-20230711223728"
-  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.0.0-20230711223728.tgz#2f54ef6c21c5c910a6ed03129b198ec7851a2de1"
-  integrity sha512-Ya4ANWdGXxem15c/iN8lCjoP+sHhf+dbY2P2XS9ZQSupP6x2thEiyL9zDoMKiXiza64FQRZRygvohuSJ6Mgupw==
+  version "0.0.0-develop-20230719050957"
+  resolved "https://registry.yarnpkg.com/@eth-optimism/contracts-bedrock/-/contracts-bedrock-0.0.0-develop-20230719050957.tgz#5f5217b45caf1237ac5795bd9dcf5d048c88b797"
+  integrity sha512-EZhvyGZ74Pim56IbdaVwHvfJRWG7EgnbdyPPM1PAedD1Tef5sV6RBlApB7yk779qbnc4zwhCeLKMxOIyxfzOpw==
   dependencies:
     "@openzeppelin/contracts" "4.7.3"
     "@openzeppelin/contracts-upgradeable" "4.7.3"
     "@rari-capital/solmate" "github:transmissions11/solmate#8f9b23f8838670afda0fd8983f2c41e8037ae6bc"
     clones-with-immutable-args "github:Saw-mon-and-Natalie/clones-with-immutable-args#105efee1b9127ed7f6fedf139e1fc796ce8791f2"
-    ethers "^5.7.0"
 
 "@eth-optimism/contracts@^0.5.40":
   version "0.5.40"

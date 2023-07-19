@@ -22,16 +22,16 @@
       "@sphinx/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@sphinx/{contracts,plugins}/@eth-optimism/contracts",
       "@sphinx/contracts/@layerzerolabs/solidity-examples",
-      "@sphinx/plugins/@sphinx/contracts",
-      "@sphinx/plugins/forge-std",
-      "@sphinx/plugins/ds-test",
+      "@sphinx/{plugins,demo}/@sphinx/contracts",
+      "@sphinx/{plugins,demo}/forge-std",
+      "@sphinx/{plugins,demo}/ds-test",
       "@sphinx/plugins/solidity-stringutils",
       "@sphinx/plugins/@prb/math"
     ]
   },
   "scripts": {
     "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test:coverage",
+    "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
     "lint:fix": "yarn workspaces run lint:fix"

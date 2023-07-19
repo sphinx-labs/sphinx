@@ -566,7 +566,7 @@ export const sphinxInitTask = async (
 }
 
 task(TASK_SPHINX_INIT)
-  .setDescription('Sets up a Sphinx project.')
+  .setDescription('Sets up a sample Sphinx project.')
   .addFlag('silent', "Hide Sphinx's logs")
   .setAction(sphinxInitTask)
 

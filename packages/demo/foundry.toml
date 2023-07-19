@@ -1,0 +1,17 @@
+[profile.default]
+src = 'contracts'
+ffi = true
+build_info = true
+extra_output = ['storageLayout', 'evm.gasEstimates']
+fs_permissions = [{ access = "read", path = "/"}]
+allow_paths = ["../.."]
+
+remappings=[
+  '@sphinx/plugins=../../node_modules/@sphinx/plugins/contracts/foundry',
+  '@sphinx/contracts=node_modules/@sphinx/contracts/',
+  'forge-std/=node_modules/forge-std/src/',
+  'ds-test/=node_modules/ds-test/src/'
+]
+
+[rpc_endpoints]
+anvil = "http://127.0.0.1:8545"

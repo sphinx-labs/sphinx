@@ -1,57 +1,55 @@
 export const sampleTestFileTypeScript = `import '@sphinx/plugins'
 import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { Signer, Contract } from 'ethers'
 
 describe('HelloSphinx', () => {
+  const projectName: string = 'MyFirstProject'
+  const contractName: string = 'MyContract'
+  const signer: Signer = ethers.provider.getSigner()
+
   let MyFirstContract: Contract
   beforeEach(async () => {
     // You must reset your Sphinx deployments to their initial state here
     await sphinx.reset()
 
     MyFirstContract = await sphinx.getContract(
-      'Hello Sphinx',
-      'MyFirstContract',
-      ethers.provider.getSigner()
+      projectName,
+      contractName,
+      signer
     )
   })
 
   it('initializes correctly', async () => {
     expect(await MyFirstContract.number()).equals(1)
-    expect(await MyFirstContract.stored()).equals(true)
-    expect(await MyFirstContract.storageName()).equals('First')
-    expect(await MyFirstContract.otherStorage()).equals(
-      '0x1111111111111111111111111111111111111111'
-    )
   })
 })
 `
 
 export const sampleTestFileJavaScript = `require('@sphinx/plugins')
-
 const { sphinx, ethers } = require('hardhat')
 const { expect } = require('chai')
+const { Signer, Contract } = require('ethers')
 
 describe('HelloSphinx', () => {
+  const projectName = 'MyFirstProject'
+  const contractName = 'MyContract'
+  const signer = ethers.provider.getSigner()
+
   let MyFirstContract
   beforeEach(async () => {
     // You must reset your Sphinx deployments to their initial state here
     await sphinx.reset()
 
     MyFirstContract = await sphinx.getContract(
-      'Hello Sphinx',
-      'MyFirstContract',
-      ethers.provider.getSigner()
+      projectName,
+      contractName,
+      signer
     )
   })
 
   it('initializes correctly', async () => {
     expect(await MyFirstContract.number()).equals(1)
-    expect(await MyFirstContract.stored()).equals(true)
-    expect(await MyFirstContract.storageName()).equals('First')
-    expect(await MyFirstContract.otherStorage()).equals(
-      '0x1111111111111111111111111111111111111111'
-    )
   })
 })
 `
