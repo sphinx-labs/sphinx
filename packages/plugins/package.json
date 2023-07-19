@@ -23,7 +23,7 @@
     "test:forge": "forge test",
     "test:hardhat": "sh ./test/run-hh-tests.sh",
     "test:coverage": "export DEV_FILE_PATH='./' && export DISABLE_ANALYTICS=true && apt install lsof && yarn test",
-    "test:kill": "kill $(lsof -t -i:8545) && kill $(lsof -t -i:8546)",
+    "test:kill": "kill $(lsof -t -i:8545) && kill $(lsof -t -i:8546) && kill $(lsof -t -i:8547) && kill $(lsof -t -i:8548)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix && yarn lint:contracts:fix",
     "lint:check": "yarn lint:ts:check",

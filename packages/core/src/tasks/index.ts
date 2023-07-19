@@ -173,6 +173,7 @@ export const proposeAbstractTask = async (
 
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
+      projectName,
       parsedConfig,
       configArtifacts,
       configCache,

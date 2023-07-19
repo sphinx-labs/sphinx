@@ -22,6 +22,7 @@ import {
   SphinxRegistryABI,
   SphinxManagerABI,
   ProxyABI,
+  AuthABI,
 } from '@sphinx/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -56,8 +57,11 @@ import {
   ProjectConfigArtifacts,
   CanonicalOrgConfig,
   UserSphinxConfig,
+  ParsedOrgConfig,
+  GetConfigArtifacts,
 } from './config/types'
 import {
+  AuthLeaf,
   SphinxActionBundle,
   SphinxActionType,
   SphinxBundles,
@@ -65,7 +69,7 @@ import {
   IPFSCommitResponse,
   ProposalRequest,
 } from './actions/types'
-import { Integration } from './constants'
+import { Integration, SUPPORTED_NETWORKS } from './constants'
 import {
   getAuthAddress,
   getSphinxManagerAddress,
@@ -80,12 +84,14 @@ import {
 import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
+  getAuthLeafsForChain,
   getDeployContractActions,
   getNumDeployContractActions,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
 import {
   assertValidOrgConfigOptions,
+  getParsedOrgConfig,
   parseOrgConfigOptions,
 } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
@@ -1395,4 +1401,127 @@ export const getEmptyCanonicalOrgConfig = (
     },
     chainStates,
   }
+}
+
+/**
+ * Converts a parsed org config into a canonical org config. Assumes that the `SphinxAuth`
+ * contract has been created on each chain.
+ *
+ * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
+ * for each chain ID in the parsed config.
+ */
+export const toCanonicalOrgConfig = async (
+  parsedConfig: ParsedOrgConfig,
+  deployerAddress: string,
+  authAddress: string,
+  rpcProviders: Record<string, ethers.providers.JsonRpcProvider>
+): Promise<CanonicalOrgConfig> => {
+  const chainStates = {}
+
+  for (const chainId of parsedConfig.options.chainIds) {
+    const network = findNetwork(chainId)
+
+    if (!network) {
+      throw new Error(`Unsupported chain ID: ${chainId}`)
+    }
+    const provider = rpcProviders[network]
+    if (!parsedConfig.options.chainIds.includes(chainId)) {
+      throw new Error(
+        `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
+      )
+    }
+
+    const Auth = new ethers.Contract(authAddress, AuthABI, provider)
+    const firstProposalOccurred = await Auth.firstProposalOccurred()
+
+    const projects = {}
+    for (const projectName of Object.keys(parsedConfig.projects)) {
+      const projectCreated = await isProjectCreated(Auth, projectName)
+      projects[projectName] = {
+        projectCreated,
+      }
+    }
+
+    chainStates[chainId] = {
+      firstProposalOccurred,
+      projects,
+    }
+  }
+
+  return {
+    deployer: deployerAddress,
+    options: parsedConfig.options,
+    projects: parsedConfig.projects,
+    chainStates,
+  }
+}
+
+export const getAuthLeafs = async (
+  userConfig: UserSphinxConfig,
+  prevOrgConfig: CanonicalOrgConfig,
+  rpcProviders: {
+    [network: string]: ethers.providers.JsonRpcProvider
+  },
+  projectName: string,
+  deployerAddress: string,
+  networks: Array<string>,
+  isTestnet: boolean,
+  cre: SphinxRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts
+): Promise<Array<AuthLeaf>> => {
+  const orgId = userConfig.options?.orgId
+
+  // This removes a TypeScript error that occurs because TypeScript doesn't know that the
+  // `orgId` variable is defined.
+  if (!orgId) {
+    throw new Error(`Could not find orgId. Should never happen.`)
+  }
+
+  const leafs: Array<AuthLeaf> = []
+  for (const network of networks) {
+    const provider = rpcProviders[network]
+
+    const { parsedConfig, configCache, configArtifacts } =
+      await getParsedOrgConfig(
+        userConfig,
+        projectName,
+        deployerAddress,
+        isTestnet,
+        provider,
+        cre,
+        getConfigArtifacts
+      )
+
+    const chainId = SUPPORTED_NETWORKS[network]
+    const leafsForChain = await getAuthLeafsForChain(
+      chainId,
+      projectName,
+      parsedConfig,
+      configArtifacts,
+      configCache,
+      prevOrgConfig
+    )
+    leafs.push(...leafsForChain)
+  }
+  return leafs
+}
+
+export const isProjectCreated = async (
+  Auth: Contract,
+  projectName: string
+): Promise<boolean> => {
+  const projectThreshold = await Auth.thresholds(projectName)
+  return projectThreshold.gt(0)
+}
+
+export const findNetwork = (chainId: number): string => {
+  const network = Object.keys(SUPPORTED_NETWORKS).find(
+    (n) => SUPPORTED_NETWORKS[n] === chainId
+  )
+
+  if (!network) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+
+  return network
 }

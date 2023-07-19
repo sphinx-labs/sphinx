@@ -1,7 +1,97 @@
 import fs from 'fs'
 import path from 'path'
 
+// eslint-disable-next-line import/order
+import hre from 'hardhat'
+
+import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `canonicalConfigPath`
+import '@nomiclabs/hardhat-ethers'
+
 import { BigNumber, ethers } from 'ethers'
+import {
+  UserSphinxConfig,
+  getAuthAddress,
+  getAuthData,
+  getSphinxManagerAddress,
+} from '@sphinx/core'
+
+import { createSphinxRuntime } from '../src/cre'
+
+// This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
+// contract inherits.
+export const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
+
+export const DUMMY_ORG_ID = '1111'
+
+export const cre = createSphinxRuntime(
+  false,
+  false,
+  hre.config.paths.canonicalConfigs,
+  hre,
+  false
+)
+
+export const orgThreshold = 1
+
+// First account on Hardhat node
+export const ownerPrivateKey =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+// Second account on Hardhat node
+export const relayerPrivateKey =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+
+export const isTestnet = true
+export const testnets = ['goerli', 'optimism-goerli']
+export const rpcProviders = {
+  goerli: new ethers.providers.JsonRpcProvider('http://localhost:8545'),
+  'optimism-goerli': new ethers.providers.JsonRpcProvider(
+    'http://localhost:8546'
+  ),
+  'gnosis-chiado': new ethers.providers.JsonRpcProvider(
+    'http://localhost:8547'
+  ),
+  'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
+    'http://localhost:8548'
+  ),
+}
+export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
+
+export const orgOwners = [ownerAddress]
+export const userConfig: UserSphinxConfig = {
+  options: {
+    orgId: DUMMY_ORG_ID,
+    orgOwners,
+    orgThreshold,
+    testnets,
+    mainnets: [],
+    proposers: [ownerAddress],
+    managers: [ownerAddress],
+  },
+  projects: {},
+}
+
+export const authData = getAuthData(orgOwners, orgThreshold)
+export const authAddress = getAuthAddress(orgOwners, orgThreshold)
+export const deployerAddress = getSphinxManagerAddress(authAddress)
+
+export const projectName = 'MyProject'
+export const projectThreshold = 1
+userConfig.projects[projectName] = {
+  options: {
+    projectOwners: [ownerAddress],
+    projectThreshold,
+  },
+  contracts: {
+    MyContract: {
+      contract: 'Stateless',
+      kind: 'immutable',
+      constructorArgs: {
+        _immutableUint: 1,
+        _immutableAddress: '0x' + '11'.repeat(20),
+      },
+    },
+  },
+}
 
 export const fetchBuildInfo = () => {
   const directoryPath = path.join(__dirname, '../artifacts/build-info')
