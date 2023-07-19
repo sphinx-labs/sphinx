@@ -107,8 +107,11 @@ export interface UserOrgConfigOptions extends OrgConfigOptions {
 }
 
 /**
- * @notice The `chainIds` field is an array of chain IDs that correspond to the `networks` field in
- * the unparsed config.
+ * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
+ * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
+ * determined by the value of the boolean variable `isTestnet`, which is passed into the
+ * `getParsedOrgConfig` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
+ * `mainnets`.
  */
 export interface ParsedOrgConfigOptions extends OrgConfigOptions {
   chainIds: Array<number>

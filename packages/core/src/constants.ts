@@ -21,6 +21,7 @@ export const SUPPORTED_TESTNETS: {
   goerli: 5,
   'optimism-goerli': 420,
   'arbitrum-goerli': 421613,
+  'gnosis-chiado': 10200,
 }
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,

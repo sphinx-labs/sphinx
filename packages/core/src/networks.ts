@@ -5,7 +5,7 @@
  */
 
 export type SupportedMainnetChainId = 1 | 10 | 42161
-export type SupportedTestnetChainId = 5 | 420 | 421613
+export type SupportedTestnetChainId = 5 | 420 | 10200 | 421613
 export type SupportedChainId = SupportedMainnetChainId | SupportedTestnetChainId
 
 export const LAYERZERO_CHAIN_ID_TO_STANDARD_ID = {
@@ -42,6 +42,11 @@ export const LAYERZERO_ADDRESSES: {
     endpointAddress: '0xae92d5aD7583AD66E49A0c67BAd18F6ba52dDDc1',
     relayerV2Address: '0x7F417F2192B89Cf93b8c4Ee01d558883A0AD7B47',
     lzChainId: 10132,
+  },
+  10200: {
+    endpointAddress: '0xae92d5aD7583AD66E49A0c67BAd18F6ba52dDDc1',
+    relayerV2Address: '0xb23b28012ee92E8dE39DEb57Af31722223034747',
+    lzChainId: 10145,
   },
   421613: {
     endpointAddress: '0x6aB5Ae6822647046626e83ee6dB8187151E1d5ab',

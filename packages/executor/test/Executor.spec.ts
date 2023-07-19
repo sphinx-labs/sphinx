@@ -142,6 +142,7 @@ describe('Remote executor', () => {
     )
     const leafs = await getAuthLeafsForChain(
       chainId,
+      projectName,
       parsedConfig,
       configArtifacts,
       configCache,
