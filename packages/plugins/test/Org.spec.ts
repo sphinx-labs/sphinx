@@ -6,25 +6,29 @@ import {
   AuthState,
   AuthStatus,
   ensureSphinxInitialized,
-  makeAuthBundle,
   getParsedOrgConfig,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
   SUPPORTED_NETWORKS,
-  findBundledLeaf,
   executeDeployment,
   DeploymentState,
   DeploymentStatus,
   CanonicalOrgConfig,
   toCanonicalOrgConfig,
-  getAuthLeafs,
+  GetCanonicalOrgConfig,
+  proposeAbstractTask,
+  findProposalRequestLeaf,
+  fromProposalRequestLeafToRawAuthLeaf,
 } from '@sphinx/core'
 import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
-import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
+import {
+  makeGetConfigArtifacts,
+  makeGetProviderFromChainId,
+} from '../src/hardhat/artifacts'
 import {
   setupThenApproveDeploymentWithSingleOwner,
   setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute,
@@ -35,15 +39,14 @@ import {
   authData,
   cre,
   deployerAddress,
-  isTestnet,
   orgOwners,
   orgThreshold,
   ownerPrivateKey,
-  projectName,
+  sampleProjectName,
   rpcProviders,
   relayerPrivateKey,
   testnets,
-  userConfig,
+  sampleUserConfig,
 } from './constants'
 
 describe('Org config', () => {
@@ -113,38 +116,49 @@ describe('Org config', () => {
   )
 
   describe('After project has been executed', () => {
-    let prevOrgConfig: CanonicalOrgConfig
+    let getCanonicalOrgConfig: GetCanonicalOrgConfig
     beforeEach(async () => {
       await setupThenApproveDeploymentWithSingleOwner()
 
       // Get the previous parsed config, which we will convert into a CanonicalOrgConfig. We can use
       // a randomly selected provider here because the parsed config doesn't change across networks.
       const { parsedConfig: prevParsedConfig } = await getParsedOrgConfig(
-        userConfig,
-        projectName,
+        sampleUserConfig,
+        sampleProjectName,
         deployerAddress,
-        isTestnet,
+        true,
         Object.values(rpcProviders)[0], // Use a random provider
         cre,
         makeGetConfigArtifacts(hre)
       )
 
-      // Convert the previous parsed config into a CanonicalOrgConfig.
-      prevOrgConfig = await toCanonicalOrgConfig(
-        prevParsedConfig,
-        deployerAddress,
-        authAddress,
-        rpcProviders
-      )
+      getCanonicalOrgConfig = async (
+        orgId: string,
+        isTestnet: boolean,
+        apiKey: string
+      ): Promise<CanonicalOrgConfig | undefined> => {
+        // We write these variables here to avoid a TypeScript error.
+        orgId
+        isTestnet
+        apiKey
+
+        // Convert the previous parsed config into a CanonicalOrgConfig.
+        return toCanonicalOrgConfig(
+          prevParsedConfig,
+          deployerAddress,
+          authAddress,
+          rpcProviders
+        )
+      }
     })
 
     it('Add contract to project config -> Propose -> Approve deployment -> Execute deployment', async () => {
       // Make a copy of the user config to avoid mutating the original object, which would impact
       // other tests.
-      const newUserConfig = structuredClone(userConfig)
+      const newUserConfig = structuredClone(sampleUserConfig)
 
       // Add a new contract to the project config.
-      newUserConfig.projects[projectName].contracts['MyContract2'] = {
+      newUserConfig.projects[sampleProjectName].contracts['MyContract2'] = {
         contract: 'Stateless',
         kind: 'immutable',
         constructorArgs: {
@@ -153,19 +167,19 @@ describe('Org config', () => {
         },
       }
 
-      const leafs = await getAuthLeafs(
+      const proposalRequest = await proposeAbstractTask(
         newUserConfig,
-        prevOrgConfig,
-        rpcProviders,
-        projectName,
-        deployerAddress,
-        testnets,
-        isTestnet,
+        true,
+        sampleProjectName,
+        true, // Enable dry run to avoid sending an API request to the back-end
         cre,
-        makeGetConfigArtifacts(hre)
+        makeGetConfigArtifacts(hre),
+        makeGetProviderFromChainId(hre),
+        undefined, // Use the default spinner
+        undefined, // Use the default FailureAction
+        getCanonicalOrgConfig
       )
-
-      const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+      const { root, leaves } = proposalRequest.orgTree
 
       // There will be a proposal leaf and an approval leaf for each chain.
       const expectedNumLeafsPerChain = 2
@@ -187,22 +201,19 @@ describe('Org config', () => {
         const chainId = SUPPORTED_NETWORKS[network]
         const signature = await signAuthRootMetaTxn(owner, root)
 
-        const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
-          bundledLeafs,
-          0,
-          chainId
-        )
-        const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
-          bundledLeafs,
-          1,
-          chainId
-        )
+        const proposalLeaf = findProposalRequestLeaf(leaves, 0, chainId)
+        const approvalLeaf = findProposalRequestLeaf(leaves, 1, chainId)
 
         // Check that the state of the Auth bundle is correct before calling the `propose` function.
         let authState: AuthState = await Auth.authStates(root)
         expect(authState.status).equals(AuthStatus.EMPTY)
 
-        await Auth.propose(root, proposalLeaf, [signature], proposalProof)
+        await Auth.propose(
+          root,
+          fromProposalRequestLeafToRawAuthLeaf(proposalLeaf),
+          [signature],
+          proposalLeaf.siblings
+        )
 
         // Check that the proposal executed correctly.
         authState = await Auth.authStates(root)
@@ -219,9 +230,9 @@ describe('Org config', () => {
 
         await Auth.approveDeployment(
           root,
-          approvalLeaf,
+          fromProposalRequestLeafToRawAuthLeaf(approvalLeaf),
           [signature],
-          approvalProof
+          approvalLeaf.siblings
         )
 
         // Check that the approve function executed correctly and that all of the leafs in the tree have
@@ -229,19 +240,23 @@ describe('Org config', () => {
         const { parsedConfig, configCache, configArtifacts } =
           await getParsedOrgConfig(
             newUserConfig,
-            projectName,
+            sampleProjectName,
             deployerAddress,
-            isTestnet,
+            true,
             provider,
             cre,
             makeGetConfigArtifacts(hre)
           )
         const { configUri, bundles } = await getProjectBundleInfo(
-          parsedConfig.projects[projectName],
-          configArtifacts[projectName],
-          configCache[projectName]
+          parsedConfig.projects[sampleProjectName],
+          configArtifacts[sampleProjectName],
+          configCache[sampleProjectName]
         )
-        const deploymentId = getDeploymentId(bundles, configUri, projectName)
+        const deploymentId = getDeploymentId(
+          bundles,
+          configUri,
+          sampleProjectName
+        )
         expect(await Deployer.activeDeploymentId()).equals(deploymentId)
         authState = await Auth.authStates(root)
         expect(authState.status).equals(AuthStatus.COMPLETED)
@@ -253,7 +268,7 @@ describe('Org config', () => {
           Deployer,
           bundles,
           blockGasLimit,
-          configArtifacts[projectName],
+          configArtifacts[sampleProjectName],
           provider
         )
 
@@ -269,7 +284,7 @@ describe('Org config', () => {
     it('Deploy existing project on new chains', async () => {
       // Make a copy of the user config to avoid mutating the original object, which would impact
       // other tests.
-      const newUserConfig = structuredClone(userConfig)
+      const newUserConfig = structuredClone(sampleUserConfig)
 
       const { options } = newUserConfig
 
@@ -281,22 +296,12 @@ describe('Org config', () => {
       options.testnets.push('gnosis-chiado')
       options.testnets.push('arbitrum-goerli')
 
-      const leafs = await getAuthLeafs(
-        newUserConfig,
-        prevOrgConfig,
-        rpcProviders,
-        projectName,
-        deployerAddress,
-        options.testnets,
-        isTestnet,
-        cre,
-        makeGetConfigArtifacts(hre)
-      )
-
       await setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute(
-        leafs,
+        newUserConfig,
+        sampleProjectName,
         ['gnosis-chiado', 'arbitrum-goerli'],
-        4
+        4,
+        getCanonicalOrgConfig
       )
     })
   })

@@ -4,20 +4,21 @@ import '@nomiclabs/hardhat-ethers'
 import {
   AuthState,
   AuthStatus,
-  makeAuthBundle,
   getParsedOrgConfig,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
   SUPPORTED_NETWORKS,
-  getEmptyCanonicalOrgConfig,
-  findBundledLeaf,
-  getAuthLeafs,
-  AuthLeaf,
+  findProposalRequestLeaf,
   getSphinxManager,
   executeDeployment,
   DeploymentState,
   DeploymentStatus,
+  UserSphinxConfig,
+  proposeAbstractTask,
+  CanonicalOrgConfig,
+  GetCanonicalOrgConfig,
+  fromProposalRequestLeafToRawAuthLeaf,
 } from '@sphinx/core'
 import {
   AuthABI,
@@ -28,57 +29,73 @@ import {
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
-import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 import {
-  DUMMY_ORG_ID,
+  makeGetConfigArtifacts,
+  makeGetProviderFromChainId,
+} from '../src/hardhat/artifacts'
+import {
   authAddress,
   cre,
   deployerAddress,
-  isTestnet,
   ownerAddress,
   ownerPrivateKey,
-  projectName,
-  projectThreshold,
+  sampleProjectName,
+  sampleProjectThreshold,
   rpcProviders,
   relayerPrivateKey,
   testnets,
-  userConfig,
+  sampleUserConfig,
 } from './constants'
 
 export const setupThenApproveDeploymentWithSingleOwner = async () => {
-  const prevOrgConfig = getEmptyCanonicalOrgConfig(
-    testnets.map((network) => SUPPORTED_NETWORKS[network]),
-    deployerAddress,
-    DUMMY_ORG_ID,
-    projectName
-  )
-  const leafs = await getAuthLeafs(
-    userConfig,
-    prevOrgConfig,
-    rpcProviders,
-    projectName,
-    deployerAddress,
-    testnets,
-    isTestnet,
-    cre,
-    makeGetConfigArtifacts(hre)
-  )
-
   const expectedNumLeafsPerChain = 4
   await setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute(
-    leafs,
+    sampleUserConfig,
+    sampleProjectName,
     testnets,
-    expectedNumLeafsPerChain
+    expectedNumLeafsPerChain,
+    emptyCanonicalOrgConfigCallback
   )
+}
+
+/**
+ * @notice This is a callback function that is passed into the `proposeAbstractTask` function.
+ * It must adhere to the `GetCanonicalOrgConfig` function type.
+ */
+export const emptyCanonicalOrgConfigCallback = async (
+  orgId: string,
+  isTestnet: boolean,
+  apiKey: string
+): Promise<CanonicalOrgConfig | undefined> => {
+  // We write these variables here to avoid a TypeScript error.
+  orgId
+  isTestnet
+  apiKey
+
+  return undefined
 }
 
 export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
   async (
-    leafs: Array<AuthLeaf>,
+    userConfig: UserSphinxConfig,
+    projectName: string,
     networks: Array<string>,
-    expectedNumLeafsPerChain: number
+    expectedNumLeafsPerChain: number,
+    getCanonicalOrgConfig: GetCanonicalOrgConfig
   ) => {
-    const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+    const proposalRequest = await proposeAbstractTask(
+      userConfig,
+      true,
+      projectName,
+      true, // Enable dry run to avoid sending an API request to the back-end
+      cre,
+      makeGetConfigArtifacts(hre),
+      makeGetProviderFromChainId(hre),
+      undefined, // Use the default spinner
+      undefined, // Use the default FailureAction
+      getCanonicalOrgConfig
+    )
+    const { root, leaves } = proposalRequest.orgTree
 
     for (const network of networks) {
       const provider = rpcProviders[network]
@@ -97,23 +114,10 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
       const chainId = SUPPORTED_NETWORKS[network]
       const signature = await signAuthRootMetaTxn(owner, root)
 
-      const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
-        bundledLeafs,
-        0,
-        chainId
-      )
-      const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
-        bundledLeafs,
-        1,
-        chainId
-      )
-      const { leaf: createProjectLeaf, proof: createProjectProof } =
-        findBundledLeaf(bundledLeafs, 2, chainId)
-      const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
-        bundledLeafs,
-        3,
-        chainId
-      )
+      const setupLeaf = findProposalRequestLeaf(leaves, 0, chainId)
+      const proposalLeaf = findProposalRequestLeaf(leaves, 1, chainId)
+      const createProjectLeaf = findProposalRequestLeaf(leaves, 2, chainId)
+      const approveDeploymentLeaf = findProposalRequestLeaf(leaves, 3, chainId)
 
       // Check that the state of the Auth contract is correct before calling the `setup` function.
       expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(false)
@@ -126,7 +130,12 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
       expect(initialAuthState.leafsExecuted).deep.equals(BigNumber.from(0))
       expect(initialAuthState.numLeafs).deep.equals(BigNumber.from(0))
 
-      await Auth.setup(root, setupLeaf, [signature], setupProof)
+      await Auth.setup(
+        root,
+        fromProposalRequestLeafToRawAuthLeaf(setupLeaf),
+        [signature],
+        setupLeaf.siblings
+      )
 
       // Check that the setup function executed correctly.
       expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(true)
@@ -140,7 +149,12 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
         BigNumber.from(expectedNumLeafsPerChain)
       )
 
-      await Auth.propose(root, proposalLeaf, [signature], proposalProof)
+      await Auth.propose(
+        root,
+        fromProposalRequestLeafToRawAuthLeaf(proposalLeaf),
+        [signature],
+        proposalLeaf.siblings
+      )
 
       // Check that the proposal executed correctly.
       authState = await Auth.authStates(root)
@@ -150,9 +164,9 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
 
       await Auth.createProject(
         root,
-        createProjectLeaf,
+        fromProposalRequestLeafToRawAuthLeaf(createProjectLeaf),
         [signature],
-        createProjectProof
+        createProjectLeaf.siblings
       )
 
       // Check that the createProject function executed correctly.
@@ -168,7 +182,7 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
       )
       authState = await Auth.authStates(root)
       expect(await Auth.thresholds(projectName)).deep.equals(
-        BigNumber.from(projectThreshold)
+        BigNumber.from(sampleProjectThreshold)
       )
       expect(authState.leafsExecuted).deep.equals(BigNumber.from(3))
 
@@ -179,9 +193,9 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
 
       await Auth.approveDeployment(
         root,
-        approvalLeaf,
+        fromProposalRequestLeafToRawAuthLeaf(approveDeploymentLeaf),
         [signature],
-        approvalProof
+        approveDeploymentLeaf.siblings
       )
 
       // Check that the approve function executed correctly and that all of the leafs in the tree have
@@ -191,7 +205,7 @@ export const setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute =
           userConfig,
           projectName,
           deployerAddress,
-          isTestnet,
+          true,
           provider,
           cre,
           makeGetConfigArtifacts(hre)

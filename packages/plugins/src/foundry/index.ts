@@ -14,6 +14,7 @@ import {
   ProjectConfigArtifacts,
   getSphinxManagerAddress,
   proposeAbstractTask,
+  readUserSphinxConfig,
 } from '@sphinx/core'
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -59,7 +60,7 @@ const command = args[0]
         )
 
         await proposeAbstractTask(
-          configPath,
+          await readUserSphinxConfig(configPath),
           isTestnet,
           projectName,
           dryRun,

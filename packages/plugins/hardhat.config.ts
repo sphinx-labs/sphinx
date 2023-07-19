@@ -63,6 +63,11 @@ const config: HardhatUserConfig = {
       url: 'http://localhost:42613',
       accounts,
     },
+    'gnosis-chiado': {
+      chainId: 10200,
+      url: 'http://localhost:42102',
+      accounts,
+    },
   },
   mocha: {
     timeout: 999_999_999,

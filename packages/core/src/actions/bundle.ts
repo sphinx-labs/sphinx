@@ -46,6 +46,7 @@ import {
   RawSphinxAction,
   RoleType,
   SetStorageAction,
+  ProposalRequestLeaf,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
@@ -436,6 +437,13 @@ export const getAuthLeafSignerInfo = (
 export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
   const data = getEncodedAuthLeafData(leaf)
   const { chainId, to, index } = leaf
+  return { chainId, to, index, data }
+}
+
+export const fromProposalRequestLeafToRawAuthLeaf = (
+  leaf: ProposalRequestLeaf
+): RawAuthLeaf => {
+  const { chainId, to, index, data } = leaf
   return { chainId, to, index, data }
 }
 
@@ -926,7 +934,7 @@ export const getAuthLeafsForChain = async (
 }
 
 /**
- * @notice Gets the leaf for a given chain-specific index and chain ID.
+ * @notice Gets the bundled leaf for a given chain-specific index and chain ID.
  *
  * @param bundledLeafs List of bundled leafs.
  * @param index Index of the leaf on the specified chain.
@@ -939,6 +947,27 @@ export const findBundledLeaf = (
 ): BundledAuthLeaf => {
   const leaf = bundledLeafs.find(
     ({ leaf: l }) => l.index === index && l.chainId === chainId
+  )
+  if (!leaf) {
+    throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
+  }
+  return leaf
+}
+
+/**
+ * @notice Gets the proposal request leaf for a given chain-specific index and chain ID.
+ *
+ * @param proposalRequestLeafs List of ProposalRequest leafs.
+ * @param index Index of the leaf on the specified chain.
+ * @param chainId Chain ID of the leaf.
+ */
+export const findProposalRequestLeaf = (
+  proposalRequestLeafs: Array<ProposalRequestLeaf>,
+  index: number,
+  chainId: number
+): ProposalRequestLeaf => {
+  const leaf = proposalRequestLeafs.find(
+    (l) => l.index === index && l.chainId === chainId
   )
   if (!leaf) {
     throw new Error(`Leaf not found for index ${index} and chainId ${chainId}`)
