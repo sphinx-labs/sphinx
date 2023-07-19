@@ -4,22 +4,22 @@ import * as path from 'path'
 
 import { Signer, ethers } from 'ethers'
 import {
-  isEmptyChugSplashConfig,
+  isEmptySphinxConfig,
   isContractDeployed,
   deployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  readUserChugSplashConfig,
+  readUserSphinxConfig,
   readParsedOwnerConfig,
-  getChugSplashManagerAddress,
+  getSphinxManagerAddress,
   getTargetAddress,
   UserSalt,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import ora from 'ora'
 
 import { makeGetConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../cre'
+import { createSphinxRuntime } from '../cre'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -62,12 +62,12 @@ export const getSignerFromAddress = async (
 }
 
 /**
- * Deploys a list of ChugSplash config files.
+ * Deploys a list of Sphinx config files.
  *
  * @param hre Hardhat Runtime Environment.
  * @param contractName Name of the contract in the config file.
  */
-export const deployAllChugSplashProjects = async (
+export const deployAllSphinxProjects = async (
   hre: HardhatRuntimeEnvironment,
   silent: boolean,
   configPath: string,
@@ -82,7 +82,7 @@ export const deployAllChugSplashProjects = async (
   const deploymentFolder = hre.config.paths.deployments
   const getConfigArtifacts = makeGetConfigArtifacts(hre)
 
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     true,
     canonicalConfigPath,
@@ -126,15 +126,15 @@ export const getContract = async (
   userSalt?: UserSalt
 ): Promise<ethers.Contract> => {
   const filteredConfigNames: string[] = fetchFilesRecursively(
-    hre.config.paths.chugsplash
+    hre.config.paths.sphinx
   ).filter((configFileName) => {
-    return !isEmptyChugSplashConfig(configFileName)
+    return !isEmptySphinxConfig(configFileName)
   })
 
   const resolvedConfigs = await Promise.all(
     filteredConfigNames.map(async (configFileName) => {
       return {
-        config: await readUserChugSplashConfig(configFileName),
+        config: await readUserSphinxConfig(configFileName),
         filePath: configFileName,
       }
     })
@@ -167,7 +167,7 @@ export const getContract = async (
   }
 
   const userConfig = userConfigs[0]
-  const deployer = getChugSplashManagerAddress(await owner.getAddress())
+  const deployer = getSphinxManagerAddress(await owner.getAddress())
   const project = userConfig.config.projects[projectName]
   const contractConfig = project.contracts[referenceName]
 
@@ -193,7 +193,7 @@ export const getContract = async (
   return Proxy
 }
 
-export const resetChugSplashDeployments = async (
+export const resetSphinxDeployments = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const networkFolderName = await resolveNetworkName(

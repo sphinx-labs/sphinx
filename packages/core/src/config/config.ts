@@ -1,25 +1,21 @@
 import { resolve } from 'path'
 
-import {
-  MinimalConfig,
-  MinimalContractConfig,
-  UserChugSplashConfig,
-} from './types'
+import { MinimalConfig, MinimalContractConfig, UserSphinxConfig } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-import { getChugSplashManagerAddress } from '../addresses'
+import { getSphinxManagerAddress } from '../addresses'
 
 /**
- * Returns a minimal version of the ChugSplash config. This is used as a substitute for the full
- * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
+ * Returns a minimal version of the Sphinx config. This is used as a substitute for the full
+ * config in Solidity for the Sphinx Foundry plugin. We use it because of Solidity's limited
  * support for types. We limit the number of fields in the minimal config to minimize the amount of
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
 export const getMinimalConfig = (
-  userConfig: UserChugSplashConfig,
+  userConfig: UserSphinxConfig,
   projectName: string,
   owner: string
 ): MinimalConfig => {
-  const deployer = getChugSplashManagerAddress(owner)
+  const deployer = getSphinxManagerAddress(owner)
 
   if (!Object.keys(userConfig.projects).includes(projectName)) {
     // We always exit early here because everything after this wont work without a valid project name
@@ -52,9 +48,9 @@ export const getMinimalConfig = (
   }
 }
 
-export const readUserChugSplashConfig = async (
+export const readUserSphinxConfig = async (
   configPath: string
-): Promise<UserChugSplashConfig> => {
+): Promise<UserSphinxConfig> => {
   let rawConfig
   try {
     // Remove the config from the cache. Without removing it, it'd be possible for this function to
@@ -73,7 +69,7 @@ export const readUserChugSplashConfig = async (
     }
   }
 
-  let config: UserChugSplashConfig
+  let config: UserSphinxConfig
   if (typeof rawConfig === 'function') {
     config = await rawConfig()
   } else if (typeof rawConfig === 'object') {

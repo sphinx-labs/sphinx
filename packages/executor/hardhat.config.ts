@@ -2,7 +2,7 @@ import { HardhatUserConfig } from 'hardhat/types'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import '@chugsplash/plugins'
+import '@sphinx/plugins'
 
 const config: HardhatUserConfig = {
   mocha: {
@@ -27,10 +27,10 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      // This must be the chain ID of a live network that ChugSplash supports. This allows us to
+      // This must be the chain ID of a live network that Sphinx supports. This allows us to
       // test the remote executor against an org config, which can only contain supported live
-      // networks.For a list of supported networks, see the `SUPPORTED_LIVE_NETWORKS` object in the
-      // `@chugsplash/core` package.
+      // networks. For a list of supported networks, see the `SUPPORTED_NETWORKS` object in the
+      // `@sphinx/core` package.
       chainId: 5,
     },
   },

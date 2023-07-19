@@ -6,7 +6,7 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
@@ -52,7 +52,7 @@ export enum ContractKindEnum {
 }
 
 /**
- * Allowable types for ChugSplash config variables defined by the user.
+ * Allowable types for Sphinx config variables defined by the user.
  */
 export type UserConfigVariable =
   | boolean
@@ -65,7 +65,7 @@ export type UserConfigVariable =
     }
 
 /**
- * Parsed ChugSplash config variable.
+ * Parsed Sphinx config variable.
  */
 export type ParsedConfigVariable =
   | boolean
@@ -76,7 +76,7 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export interface UserChugSplashConfig {
+export interface UserSphinxConfig {
   options?: UserOrgConfigOptions
   projects: UserProjectConfigs
 }
@@ -99,15 +99,19 @@ export type UserProjectConfigs = {
 }
 
 /**
- * @notice The `networks` field is an array of network names, e.g. 'mainnet'.
+ * @notice The `mainnets` field is an array of network names, e.g. ['mainnet', 'optimism'].
  */
 export interface UserOrgConfigOptions extends OrgConfigOptions {
-  networks: Array<string>
+  mainnets: Array<string>
+  testnets: Array<string>
 }
 
 /**
- * @notice The `chainIds` field is an array of chain IDs that correspond to the `networks` field in
- * the unparsed config.
+ * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
+ * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
+ * determined by the value of the boolean variable `isTestnet`, which is passed into the
+ * `getParsedOrgConfig` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
+ * `mainnets`.
  */
 export interface ParsedOrgConfigOptions extends OrgConfigOptions {
   chainIds: Array<number>
@@ -182,7 +186,7 @@ export type UnsafeAllow = {
 }
 
 /**
- * User-defined contract definition in a ChugSplash config.
+ * User-defined contract definition in a Sphinx config.
  */
 export type UserContractConfig = {
   contract: string
@@ -237,10 +241,10 @@ export type ParsedConfigVariables = {
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
 export interface CanonicalProjectConfig extends ParsedProjectConfig {
-  inputs: Array<ChugSplashInput>
+  inputs: Array<SphinxInput>
 }
 
-export type ChugSplashInput = {
+export type SphinxInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput

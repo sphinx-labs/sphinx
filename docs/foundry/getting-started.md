@@ -1,14 +1,14 @@
 # Getting Started
 
-In this guide, you'll learn how to test and deploy a contract using ChugSplash.
+In this guide, you'll learn how to test and deploy a contract using Sphinx.
 
 ## Table of Contents
 
 1. [Setup a Foundry project](#1-setup-a-foundry-project)
-2. [Install ChugSplash](#2-install-chugsplash)
+2. [Install Sphinx](#2-install-sphinx)
 3. [Configure your `foundry.toml` file](#3-configure-your-foundrytoml-file)
 4. [Update remappings](#4-update-remappings)
-5. [Initialize ChugSplash](#5-initialize-chugsplash)
+5. [Initialize Sphinx](#5-initialize-sphinx)
 6. [Run the tests](#6-run-the-tests)
 7. [Deploy on Anvil](#7-deploy-on-anvil)
 
@@ -28,7 +28,7 @@ First, run:
 foundryup
 ```
 
-If you have an existing foundry project, navigate to it then [skip to step #2](#2-install-chugsplash).
+If you have an existing foundry project, navigate to it then [skip to step #2](#2-install-sphinx).
 
 If you're starting a new project, run:
 
@@ -46,25 +46,25 @@ Finally, make sure forge-std is updated to the latest version:
 forge update lib/forge-std
 ```
 
-## 2. Install ChugSplash
+## 2. Install Sphinx
 
 In your project root, run:
 
 ```
-npm install @chugsplash/plugins
+npm install @sphinx/plugins
 ```
 
 or
 
 ```
-yarn add @chugsplash/plugins
+yarn add @sphinx/plugins
 ```
 
 You may also want to add `node_modules` to your .gitignore file.
 
 ## 3. Configure your `foundry.toml` file
 
-Edit your `foundry.toml` file to include all of the following options. If you leave any of these out, ChugSplash will not work properly.
+Edit your `foundry.toml` file to include all of the following options. If you leave any of these out, Sphinx will not work properly.
 
 ```
 [profile.default]
@@ -90,27 +90,27 @@ Inside the newly created file, remappings.txt, copy paste the following:
 ```
 ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
-@chugsplash/plugins=node_modules/@chugsplash/plugins/contracts/foundry
-@chugsplash/contracts=node_modules/@chugsplash/contracts/
+@sphinx/plugins=node_modules/@sphinx/plugins/contracts/foundry
+@sphinx/contracts=node_modules/@sphinx/contracts/
 ```
 
-## 5. Initialize ChugSplash
-In your project root, run the following command to generate a Typescript ChugSplash project:
+## 5. Initialize Sphinx
+In your project root, run the following command to generate a Typescript Sphinx project:
 ```
-npx chugsplash init --ts
+npx sphinx init --ts
 ```
-Or generate a Javascript ChugSplash project:
+Or generate a Javascript Sphinx project:
 ```
-npx chugsplash init --js
+npx sphinx init --js
 ```
 
 You'll see we've created a few new files:
-- `src/HelloChugSplash.sol`: A sample contract to be deployed
-- `chugsplash/HelloChugSplash.config.ts`: A ChugSplash config file, which contains the deployment info for the project
-- `script/HelloChugSplash.s.sol`: A script for deploying the sample project
-- `test/HelloChugSplash.t.sol`: A script for running local tests of the project using ChugSplash
+- `src/HelloSphinx.sol`: A sample contract to be deployed
+- `sphinx/HelloSphinx.config.ts`: A Sphinx config file, which contains the deployment info for the project
+- `script/HelloSphinx.s.sol`: A script for deploying the sample project
+- `test/HelloSphinx.t.sol`: A script for running local tests of the project using Sphinx
 
-The ChugSplash config for the sample project just deploys a single immutable contract HelloChugSplash. We'll explain the details of the ChugSplash config file in the next guide.
+The Sphinx config for the sample project just deploys a single immutable contract HelloSphinx. We'll explain the details of the Sphinx config file in the next guide.
 
 ## 6. Run the tests
 In your project root, run the tests with the following command:
@@ -136,11 +136,11 @@ anvil
 
 In a new window, run the deployment script:
 ```
-forge script script/HelloChugSplash.s.sol --rpc-url anvil --broadcast
+forge script script/HelloSphinx.s.sol --rpc-url anvil --broadcast
 ```
 
 ## Learn More
 
-Once you've set up your project, the next step is to learn about the [ChugSplash
-config file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where
-you define deployments using ChugSplash.
+Once you've set up your project, the next step is to learn about the [Sphinx
+config file](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md), which is where
+you define deployments using Sphinx.

@@ -1,6 +1,6 @@
-import { ChugSplashSystemConfig } from '../src'
+import { SphinxSystemConfig } from '../src'
 
-const config: ChugSplashSystemConfig = {
+const config: SphinxSystemConfig = {
   executors: [
     '0x42761FAcF5e6091fcA0e38F450adfB1E22bD8c3C',
     '0x4F2107d09B095B92f80ecd5b66C4004B87DC2652',

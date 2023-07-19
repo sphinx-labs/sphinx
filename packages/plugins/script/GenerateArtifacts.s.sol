@@ -1,11 +1,11 @@
 // // SPDX-License-Identifier: MIT
 // pragma solidity ^0.8.15;
 
-// import { ChugSplashTasks } from "../contracts/foundry/ChugSplashTasks.sol";
+// import { SphinxTasks } from "../contracts/foundry/SphinxTasks.sol";
 
-// contract ChugSplashScript is ChugSplashTasks {
+// contract SphinxScript is SphinxTasks {
 
 //     function run() public {
-//         generateArtifacts('./chugsplash/foundry/claim.t.js', vm.rpcUrl("anvil"));
+//         generateArtifacts('./sphinx/foundry/claim.t.js', vm.rpcUrl("anvil"));
 //     }
 // }

@@ -1,11 +1,11 @@
-import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
+import { OWNER_BOND_AMOUNT } from '@sphinx/contracts'
 import { ethers } from 'ethers'
 
-import { getChugSplashManagerReadOnly, isContractDeployed } from './utils'
+import { getSphinxManagerReadOnly, isContractDeployed } from './utils'
 import {
-  ChugSplashBundles,
+  SphinxBundles,
   DeployContractAction,
-  fromRawChugSplashAction,
+  fromRawSphinxAction,
   isDeployContractAction,
   isSetStorageAction,
 } from './actions'
@@ -13,15 +13,15 @@ import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
 import { ParsedProjectConfig, contractKindHashes } from './config/types'
 
 /**
- * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This
- * equals the ChugSplashManager's balance minus the total debt owed to executors minus the owner's
+ * Gets the amount ETH in the SphinxManager that can be used to execute a deployment. This
+ * equals the SphinxManager's balance minus the total debt owed to executors minus the owner's
  * bond amount.
  */
 export const availableFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: string
 ): Promise<ethers.BigNumber> => {
-  const managerReadOnly = getChugSplashManagerReadOnly(deployer, provider)
+  const managerReadOnly = getSphinxManagerReadOnly(deployer, provider)
 
   const managerBalance = await provider.getBalance(managerReadOnly.address)
   const totalDebt = await managerReadOnly.totalDebt()
@@ -32,26 +32,26 @@ export const getOwnerWithdrawableAmount = async (
   provider: ethers.providers.JsonRpcProvider,
   deployer: string
 ): Promise<ethers.BigNumber> => {
-  const ChugSplashManager = getChugSplashManagerReadOnly(deployer, provider)
+  const SphinxManager = getSphinxManagerReadOnly(deployer, provider)
 
   if (
-    (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
+    (await SphinxManager.activeDeploymentId()) !== ethers.constants.HashZero
   ) {
     return ethers.BigNumber.from(0)
   }
 
-  const managerBalance = await provider.getBalance(ChugSplashManager.address)
-  const totalDebt = await ChugSplashManager.totalDebt()
+  const managerBalance = await provider.getBalance(SphinxManager.address)
+  const totalDebt = await SphinxManager.totalDebt()
   return managerBalance.sub(totalDebt)
 }
 
 export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   actionsExecuted: number
 ): Promise<ethers.BigNumber> => {
   const actions = bundles.actionBundle.actions
-    .map((action) => fromRawChugSplashAction(action.action))
+    .map((action) => fromRawSphinxAction(action.action))
     .slice(actionsExecuted)
 
   const estimatedGas = ethers.BigNumber.from(150_000).mul(
@@ -94,7 +94,7 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   actionsExecuted: number
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
@@ -117,7 +117,7 @@ export const estimateExecutionCost = async (
 
 export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   actionsExecuted: number,
   parsedProjectConfig: ParsedProjectConfig
 ): Promise<boolean> => {
@@ -137,7 +137,7 @@ export const hasSufficientFundsForExecution = async (
 
 export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: ChugSplashBundles,
+  bundles: SphinxBundles,
   actionsExecuted: number,
   parsedConfig: ParsedProjectConfig,
   includeBuffer: boolean

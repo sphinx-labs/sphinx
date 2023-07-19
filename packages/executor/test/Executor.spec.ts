@@ -1,39 +1,35 @@
 import hre from 'hardhat'
-import '@chugsplash/plugins'
+import '@sphinx/plugins'
 import '@nomiclabs/hardhat-ethers'
 import {
   AUTH_FACTORY_ADDRESS,
-  UserChugSplashConfig,
-  ensureChugSplashInitialized,
+  UserSphinxConfig,
+  ensureSphinxInitialized,
   getAuthAddress,
   getAuthData,
-  getChugSplashManagerAddress,
+  getSphinxManagerAddress,
   makeAuthBundle,
   getParsedOrgConfig,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
-  SUPPORTED_LIVE_NETWORKS,
+  SUPPORTED_NETWORKS,
   getEmptyCanonicalOrgConfig,
   findBundledLeaf,
   getAuthLeafsForChain,
   getTargetAddress,
   monitorExecution,
-  chugsplashCommitAbstractSubtask,
-} from '@chugsplash/core'
-import {
-  AuthFactoryABI,
-  AuthABI,
-  ChugSplashManagerABI,
-} from '@chugsplash/contracts'
-import { createChugSplashRuntime } from '@chugsplash/plugins/src/cre'
-import { makeGetConfigArtifacts } from '@chugsplash/plugins/src/hardhat/artifacts'
+  sphinxCommitAbstractSubtask,
+} from '@sphinx/core'
+import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { createSphinxRuntime } from '@sphinx/plugins/src/cre'
+import { makeGetConfigArtifacts } from '@sphinx/plugins/src/hardhat/artifacts'
 import { expect } from 'chai'
 import { Contract, ethers } from 'ethers'
 
 const DUMMY_ORG_ID = '1111'
 
-const cre = createChugSplashRuntime(
+const cre = createSphinxRuntime(
   true,
   true,
   hre.config.paths.canonicalConfigs,
@@ -45,8 +41,8 @@ const orgThreshold = 1
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
-// executes the transactions on the ChugSplashAuth contract, but does not execute the project
-// deployment on the ChugSplashManager.
+// executes the transactions on the SphinxAuth contract, but does not execute the project
+// deployment on the SphinxManager.
 const ownerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 const relayerPrivateKey =
@@ -62,6 +58,8 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
 // configs. We're not actually running the test on Goerli though; the RPC URL is localhost.
 const network = 'goerli'
 
+const isTestnet = true
+
 describe('Remote executor', () => {
   let Proxy: Contract
   let Immutable: Contract
@@ -73,12 +71,13 @@ describe('Remote executor', () => {
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
     const orgOwners = [owner.address]
-    const userConfig: UserChugSplashConfig = {
+    const userConfig: UserSphinxConfig = {
       options: {
         orgId: DUMMY_ORG_ID,
         orgOwners,
         orgThreshold,
-        networks: [network],
+        testnets: [network],
+        mainnets: [],
         proposers: [owner.address],
         managers: [owner.address],
       },
@@ -87,7 +86,7 @@ describe('Remote executor', () => {
 
     const authData = getAuthData(orgOwners, orgThreshold)
     const authAddress = getAuthAddress(orgOwners, orgThreshold)
-    const deployerAddress = getChugSplashManagerAddress(authAddress)
+    const deployerAddress = getSphinxManagerAddress(authAddress)
 
     const projectName = 'RemoteExecutorTest'
     const proxyReferenceName = 'Proxy'
@@ -121,19 +120,20 @@ describe('Remote executor', () => {
       },
     }
 
-    await ensureChugSplashInitialized(provider, relayer)
+    await ensureSphinxInitialized(provider, relayer)
 
     const { parsedConfig, configCache, configArtifacts } =
       await getParsedOrgConfig(
         userConfig,
         projectName,
         deployerAddress,
+        isTestnet,
         provider,
         cre,
         makeGetConfigArtifacts(hre)
       )
 
-    const chainId = SUPPORTED_LIVE_NETWORKS[network]
+    const chainId = SUPPORTED_NETWORKS[network]
     const prevOrgConfig = getEmptyCanonicalOrgConfig(
       [chainId],
       deployerAddress,
@@ -142,6 +142,7 @@ describe('Remote executor', () => {
     )
     const leafs = await getAuthLeafsForChain(
       chainId,
+      projectName,
       parsedConfig,
       configArtifacts,
       configCache,
@@ -157,15 +158,15 @@ describe('Remote executor', () => {
     )
     const Deployer = new ethers.Contract(
       deployerAddress,
-      ChugSplashManagerABI,
+      SphinxManagerABI,
       relayer
     )
     const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
-    // We set the `registryData` to `[]` since this version of the ChugSplashManager doesn't use it.
+    // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
     await AuthFactory.deploy(authData, [], 0)
 
-    // Fund the ChugSplashManager.
+    // Fund the SphinxManager.
     await owner.sendTransaction({
       to: deployerAddress,
       value: ethers.utils.parseEther('1'),
@@ -190,7 +191,7 @@ describe('Remote executor', () => {
     )
 
     // Commit the project to IPFS.
-    await chugsplashCommitAbstractSubtask(
+    await sphinxCommitAbstractSubtask(
       parsedConfig.projects[projectName],
       true,
       configArtifacts[projectName]

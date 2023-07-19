@@ -1,18 +1,18 @@
-# Setting up a ChugSplash project
+# Setting up a Sphinx project
 
-This guide will show you how to setup a project with the ChugSplash Hardhat plugin.
+This guide will show you how to setup a project with the Sphinx Hardhat plugin.
 
-If your repository has an existing Hardhat project, you can skip to [here](#install-chugsplash).
+If your repository has an existing Hardhat project, you can skip to [here](#install-sphinx).
 
 ## Table of Contents
 
 - [Initialize Node.js](#initialize-nodejs)
 - [Install Hardhat](#install-hardhat)
 - [Initialize Hardhat](#initialize-hardhat)
-- [Install ChugSplash](#install-chugsplash)
-- Setup ChugSplash:
-  - [In a JavaScript Project](#setup-chugsplash-using-javascript)
-  - [In a TypeScript Project](#setup-chugsplash-using-typescript)
+- [Install Sphinx](#install-sphinx)
+- Setup Sphinx:
+  - [In a JavaScript Project](#setup-sphinx-using-javascript)
+  - [In a TypeScript Project](#setup-sphinx-using-typescript)
 - [Learn More](#learn-more)
 
 ## Initialize Node.js
@@ -49,27 +49,27 @@ npm install --save-dev hardhat
 npx hardhat
 ```
 
-## Install ChugSplash
+## Install Sphinx
 
 With Yarn:
 ```
-yarn add --dev @chugsplash/plugins
+yarn add --dev @sphinx/plugins
 ```
 With npm:
 ```
-npm install --save-dev @chugsplash/plugins
+npm install --save-dev @sphinx/plugins
 ```
 
-## Setup ChugSplash using TypeScript
+## Setup Sphinx using TypeScript
 
-If you have a TypeScript Hardhat project, follow these instructions. Otherwise, go to [the JavaScript instructions](#setup-chugsplash-using-javascript) instead.
+If you have a TypeScript Hardhat project, follow these instructions. Otherwise, go to [the JavaScript instructions](#setup-sphinx-using-javascript) instead.
 
-To setup ChugSplash, you **must** update `hardhat.config.ts` to include the following:
+To setup Sphinx, you **must** update `hardhat.config.ts` to include the following:
 
 ```ts
 ... // Other plugin imports go here
 
-import '@chugsplash/plugins'
+import '@sphinx/plugins'
 
 const config: HardhatUserConfig = {
   ... // Other Hardhat settings go here
@@ -94,38 +94,38 @@ const config: HardhatUserConfig = {
 export default config
 ```
 
-Next, create a sample ChugSplash project:
+Next, create a sample Sphinx project:
 ```
-npx hardhat chugsplash-init
+npx hardhat sphinx-init
 ```
 
-This command created a `chugsplash/` folder, which is will contain your deployments.
+This command created a `sphinx/` folder, which is will contain your deployments.
 
 It also created a few files:
-* `chugsplash/HelloChugSplash.config.ts`: The ChugSplash config file where your first deployment is defined.
-* `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
-* `test/HelloChugSplash.spec.ts`: The test file for your deployment.
+* `sphinx/HelloSphinx.config.ts`: The Sphinx config file where your first deployment is defined.
+* `contracts/HelloSphinx.sol`: The smart contract that will be deployed.
+* `test/HelloSphinx.spec.ts`: The test file for your deployment.
 
-To deploy `HelloChugSplash.sol` locally:
+To deploy `HelloSphinx.sol` locally:
 ```
-npx hardhat chugsplash-deploy --config-path chugsplash/HelloChugSplash.config.ts
+npx hardhat sphinx-deploy --config-path sphinx/HelloSphinx.config.ts
 ```
 
 To test your deployment:
 ```
-npx hardhat test test/HelloChugSplash.spec.ts
+npx hardhat test test/HelloSphinx.spec.ts
 ```
 
-## Setup ChugSplash using JavaScript
+## Setup Sphinx using JavaScript
 
-If you have a JavaScript Hardhat project, follow these instructions. Otherwise, go to [the TypeScript instructions](#setup-chugsplash-using-typescript) instead.
+If you have a JavaScript Hardhat project, follow these instructions. Otherwise, go to [the TypeScript instructions](#setup-sphinx-using-typescript) instead.
 
-To setup ChugSplash, you **must** update `hardhat.config.js` to include the following:
+To setup Sphinx, you **must** update `hardhat.config.js` to include the following:
 
 ```js
 ... // Other plugin imports go here
 
-require('@chugsplash/plugins')
+require('@sphinx/plugins')
 
 module.exports = {
   ... // Other Hardhat settings go here
@@ -148,30 +148,30 @@ module.exports = {
 }
 ```
 
-Next, create a sample ChugSplash project:
+Next, create a sample Sphinx project:
 ```
-npx hardhat chugsplash-init
+npx hardhat sphinx-init
 ```
 
-This command created a `chugsplash/` folder, which is will contain your deployments.
+This command created a `sphinx/` folder, which is will contain your deployments.
 
 It also created a few files:
-* `chugsplash/HelloChugSplash.config.js`: The ChugSplash config file where your first deployment is defined.
-* `contracts/HelloChugSplash.sol`: The smart contract that will be deployed.
-* `test/HelloChugSplash.test.js`: The test file for your deployment.
+* `sphinx/HelloSphinx.config.js`: The Sphinx config file where your first deployment is defined.
+* `contracts/HelloSphinx.sol`: The smart contract that will be deployed.
+* `test/HelloSphinx.test.js`: The test file for your deployment.
 
-To deploy `HelloChugSplash.sol` locally:
+To deploy `HelloSphinx.sol` locally:
 ```
-npx hardhat chugsplash-deploy --config-path chugsplash/HelloChugSplash.config.js
+npx hardhat sphinx-deploy --config-path sphinx/HelloSphinx.config.js
 ```
 
 To test your deployment:
 ```
-npx hardhat test test/HelloChugSplash.test.js
+npx hardhat test test/HelloSphinx.test.js
 ```
 
 ## Learn More
 
-Once you've set up a ChugSplash project, the next step is to learn about the [ChugSplash
-file](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md), which is where
+Once you've set up a Sphinx project, the next step is to learn about the [Sphinx
+file](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-file.md), which is where
 you define deployments.

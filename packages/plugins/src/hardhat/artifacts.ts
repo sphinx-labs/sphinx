@@ -15,7 +15,7 @@ import {
   validateBuildInfo,
   ProjectConfigArtifacts,
   GetProviderForChainId,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import {
   Manifest,
   getStorageLayoutForAddress,
@@ -129,7 +129,7 @@ export const makeGetProviderFromChainId = (
     if (!isHttpNetworkConfig(networkConfig)) {
       throw new Error(
         `The network in your Hardhat config with chain ID ${networkConfig.chainId} does not appear to be a live network.\n` +
-          `Only live networks are supported in ChugSplash org configs.`
+          `Only live networks are supported in Sphinx org configs.`
       )
     }
 
@@ -146,7 +146,7 @@ const isHttpNetworkConfig = (
 
 /**
  * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
- * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
+ * into Sphinx from the OpenZeppelin Hardhat Upgrades plugin.
  */
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,

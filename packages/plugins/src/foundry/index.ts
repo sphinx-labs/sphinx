@@ -1,26 +1,26 @@
 import * as fs from 'fs'
 
 import {
-  getChugSplashRegistryReadOnly,
+  getSphinxRegistryReadOnly,
   getPreviousConfigUri,
   postDeploymentActions,
-  getChugSplashManagerReadOnly,
+  getSphinxManagerReadOnly,
   DeploymentState,
-  initializeChugSplash,
+  initializeSphinx,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
   CanonicalProjectConfig,
   ProjectConfigArtifacts,
-  getChugSplashManagerAddress,
+  getSphinxManagerAddress,
   proposeAbstractTask,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getFoundryConfigOptions } from './options'
 import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './utils'
-import { createChugSplashRuntime } from '../cre'
+import { createSphinxRuntime } from '../cre'
 import {
   getEncodedFailure,
   getPrettyWarnings,
@@ -39,6 +39,7 @@ const command = args[0]
         const configPath = args[1]
         const projectName = args[2]
         const dryRun = args[3] === 'true'
+        const isTestnet = args[4] === 'true'
 
         const {
           artifactFolder,
@@ -48,7 +49,7 @@ const command = args[0]
           rpcEndpoints,
         } = await getFoundryConfigOptions()
 
-        const cre = createChugSplashRuntime(
+        const cre = createSphinxRuntime(
           true,
           true,
           canonicalConfigFolder,
@@ -59,6 +60,7 @@ const command = args[0]
 
         await proposeAbstractTask(
           configPath,
+          isTestnet,
           projectName,
           dryRun,
           cre,
@@ -89,7 +91,7 @@ const command = args[0]
       const rpcUrl = args[1]
       const proxyAddress = args[2]
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-      const registry = await getChugSplashRegistryReadOnly(provider)
+      const registry = await getSphinxRegistryReadOnly(provider)
 
       const configUri = await getPreviousConfigUri(
         provider,
@@ -128,7 +130,7 @@ const command = args[0]
       )
 
       try {
-        await initializeChugSplash(
+        await initializeSphinx(
           provider,
           wallet,
           [],
@@ -157,15 +159,15 @@ const command = args[0]
       const provider: ethers.providers.JsonRpcProvider =
         new ethers.providers.JsonRpcProvider(rpcUrl)
 
-      const deployer = getChugSplashManagerAddress(ownerAddress)
-      const manager = getChugSplashManagerReadOnly(deployer, provider)
+      const deployer = getSphinxManagerAddress(ownerAddress)
+      const manager = getSphinxManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.
       const deploymentCompletedEvent = (
         await manager.queryFilter(
           // This might be problematic if you're deploying multiple projects with the same manager.
           // We really should include the project name on these events so we can filter by it.
-          manager.filters.ChugSplashDeploymentCompleted()
+          manager.filters.SphinxDeploymentCompleted()
         )
       ).at(-1)
       const deploymentId = deploymentCompletedEvent?.args?.deploymentId

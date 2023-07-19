@@ -140,7 +140,7 @@ export interface CompilerOutputBytecode {
   }
 }
 
-export type ChugSplashSystemConfig = {
+export type SphinxSystemConfig = {
   executors: string[]
   relayers: string[]
 }

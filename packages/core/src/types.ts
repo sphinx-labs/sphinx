@@ -6,7 +6,7 @@ import { Contract, Event, providers } from 'ethers'
 
 import { ParsedContractConfig } from './config/types'
 
-export type ChugSplashRuntimeEnvironment = {
+export type SphinxRuntimeEnvironment = {
   canonicalConfigPath: string
   remoteExecution: boolean
   confirmUpgrade: boolean
@@ -60,7 +60,7 @@ export type ExecutorState = {
   keys: ExecutorKey[]
 }
 
-export declare class ChugSplashExecutorType extends BaseServiceV2<
+export declare class SphinxExecutorType extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { ChugSplash } from "../contracts/foundry/ChugSplash.sol";
+import { Sphinx } from "../contracts/foundry/Sphinx.sol";
 
-contract ChugSplashScript is ChugSplash {
+contract SphinxScript is Sphinx {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
-        deploy("chugsplash/main.config.ts", 'Storage', vm.rpcUrl("anvil"));
+        deploy("sphinx/main.config.ts", 'Storage', vm.rpcUrl("anvil"));
         vm.stopBroadcast();
     }
 }

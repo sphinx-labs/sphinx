@@ -8,52 +8,49 @@ import {
   TASK_COMPILE,
 } from 'hardhat/builtin-tasks/task-names'
 import {
-  chugsplashFetchSubtask,
+  sphinxFetchSubtask,
   deployAbstractTask,
   resolveNetworkName,
   writeSnapshotId,
-  chugsplashCancelAbstractTask,
-  chugsplashExportProxyAbstractTask,
-  chugsplashImportProxyAbstractTask,
+  sphinxCancelAbstractTask,
+  sphinxExportProxyAbstractTask,
+  sphinxImportProxyAbstractTask,
   readParsedOwnerConfig,
-  ensureChugSplashInitialized,
+  ensureSphinxInitialized,
   isHardhatFork,
   isLocalNetwork,
   proposeAbstractTask,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { Signer } from 'ethers/lib/ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import {
-  deployAllChugSplashProjects,
-  getSignerFromAddress,
-} from './deployments'
+import { deployAllSphinxProjects, getSignerFromAddress } from './deployments'
 import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './artifacts'
-import { createChugSplashRuntime } from '../cre'
+import { createSphinxRuntime } from '../cre'
 
 // Load environment variables from .env
 dotenv.config()
 
 // internal tasks
-export const TASK_CHUGSPLASH_FETCH = 'chugsplash-fetch'
+export const TASK_SPHINX_FETCH = 'sphinx-fetch'
 
 // public tasks
-export const TASK_CHUGSPLASH_INIT = 'chugsplash-init'
-export const TASK_CHUGSPLASH_DEPLOY = 'chugsplash-deploy'
-export const TASK_CHUGSPLASH_PROPOSE = 'chugsplash-propose'
-export const TASK_CHUGSPLASH_CANCEL = 'chugsplash-cancel'
-export const TASK_CHUGSPLASH_IMPORT_PROXY = 'chugsplash-import-proxy'
-export const TASK_CHUGSPLASH_EXPORT_PROXY = 'chugsplash-export-proxy'
+export const TASK_SPHINX_INIT = 'sphinx-init'
+export const TASK_SPHINX_DEPLOY = 'sphinx-deploy'
+export const TASK_SPHINX_PROPOSE = 'sphinx-propose'
+export const TASK_SPHINX_CANCEL = 'sphinx-cancel'
+export const TASK_SPHINX_IMPORT_PROXY = 'sphinx-import-proxy'
+export const TASK_SPHINX_EXPORT_PROXY = 'sphinx-export-proxy'
 
-subtask(TASK_CHUGSPLASH_FETCH)
+subtask(TASK_SPHINX_FETCH)
   .addParam('configUri', undefined, undefined, types.string)
   .addOptionalParam('ipfsUrl', 'IPFS gateway URL')
-  .setAction(chugsplashFetchSubtask)
+  .setAction(sphinxFetchSubtask)
 
-export const chugsplashDeployTask = async (
+export const sphinxDeployTask = async (
   args: {
     configPath: string
     project: string
@@ -89,9 +86,9 @@ export const chugsplashDeployTask = async (
     })
   }
 
-  spinner.start('Booting up ChugSplash...')
+  spinner.start('Booting up Sphinx...')
 
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     confirmUpgrade,
     hre.config.paths.canonicalConfigs,
@@ -99,9 +96,9 @@ export const chugsplashDeployTask = async (
     silent
   )
 
-  await ensureChugSplashInitialized(provider, provider.getSigner())
+  await ensureSphinxInitialized(provider, provider.getSigner())
 
-  spinner.succeed('ChugSplash is ready!')
+  spinner.succeed('Sphinx is ready!')
 
   const canonicalConfigPath = hre.config.paths.canonicalConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -131,40 +128,53 @@ export const chugsplashDeployTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_DEPLOY)
-  .setDescription('Deploys a ChugSplash config file')
-  .addParam('configPath', 'Path to the ChugSplash config file to deploy')
+task(TASK_SPHINX_DEPLOY)
+  .setDescription('Deploys a Sphinx config file')
+  .addParam('configPath', 'Path to the Sphinx config file to deploy')
   .addParam('project', 'The name of the project to deploy')
   .addOptionalParam(
     'signer',
-    'Address of the signer that deploys the ChugSplash config.'
+    'Address of the signer that deploys the Sphinx config.'
   )
   .addFlag(
     'useDefaultSigner',
-    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
+    'Use the first signer in the Hardhat config to deploy the Sphinx config.'
   )
   .addOptionalParam(
     'newOwner',
     "Address to receive ownership of the project after the deployment is finished. If unspecified, defaults to the signer's address."
   )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addFlag('silent', "Hide all of Sphinx's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   // .addFlag(
   //   'confirmUpgrade',
   //   'Automatically confirm contract upgrade. Only applicable if upgrading on a live network.'
   // )
-  .setAction(chugsplashDeployTask)
+  .setAction(sphinxDeployTask)
 
-export const chugsplashProposeTask = async (
+export const sphinxProposeTask = async (
   args: {
     configPath: string
     project: string
     dryRun: boolean
+    testnets: boolean
+    mainnets: boolean
     noCompile: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, project, noCompile, dryRun } = args
+  const { configPath, project, noCompile, dryRun, testnets, mainnets } = args
+
+  let isTestnet: boolean
+  if (testnets && mainnets) {
+    throw new Error('Cannot specify both --testnets and --mainnets')
+  } else if (testnets) {
+    isTestnet = true
+  } else if (mainnets) {
+    isTestnet = false
+  } else {
+    throw new Error('Must specify either --testnets or --mainnets')
+  }
 
   const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
   const spinner = ora()
@@ -176,7 +186,7 @@ export const chugsplashProposeTask = async (
     })
   }
 
-  const cre = createChugSplashRuntime(
+  const cre = createSphinxRuntime(
     true,
     true,
     hre.config.paths.canonicalConfigs,
@@ -186,6 +196,7 @@ export const chugsplashProposeTask = async (
 
   await proposeAbstractTask(
     configPath,
+    isTestnet,
     project,
     dryRun,
     cre,
@@ -195,37 +206,36 @@ export const chugsplashProposeTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_PROPOSE)
+task(TASK_SPHINX_PROPOSE)
   .setDescription(
-    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to ChugSplash's back-end.`
+    `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`
   )
-  .addParam('configPath', 'Path to the ChugSplash config file')
+  .addParam('configPath', 'Path to the Sphinx config file')
   .addParam('project', 'The name of the project to propose')
+  .addFlag('testnets', 'Propose on the testnets specified in the Sphinx config')
+  .addFlag('mainnets', `Propose on the mainnets specified in the Sphinx config`)
   .addFlag(
     'dryRun',
     'Dry run the proposal without signing or relaying it to the back-end.'
   )
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')
-  .setAction(chugsplashProposeTask)
+  .setAction(sphinxProposeTask)
 
 task(TASK_NODE)
-  .addFlag(
-    'disableChugsplash',
-    "Completely disable all of ChugSplash's activity."
-  )
-  .addFlag('hide', "Hide all of ChugSplash's logs")
+  .addFlag('disableSphinx', "Completely disable all of Sphinx's activity.")
+  .addFlag('hide', "Hide all of Sphinx's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
     async (
       args: {
-        disableChugsplash: boolean
+        disableSphinx: boolean
         hide: boolean
         noCompile: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { disableChugsplash, hide: silent, noCompile } = args
+      const { disableSphinx, hide: silent, noCompile } = args
 
       if (!noCompile) {
         await hre.run(TASK_COMPILE, {
@@ -233,16 +243,16 @@ task(TASK_NODE)
         })
       }
 
-      if (!disableChugsplash) {
+      if (!disableSphinx) {
         const spinner = ora({ isSilent: silent })
-        spinner.start('Booting up ChugSplash...')
+        spinner.start('Booting up Sphinx...')
 
-        await ensureChugSplashInitialized(
+        await ensureSphinxInitialized(
           hre.ethers.provider,
           hre.ethers.provider.getSigner()
         )
 
-        spinner.succeed('ChugSplash has been initialized.')
+        spinner.succeed('Sphinx has been initialized.')
       }
       await runSuper(args)
     }
@@ -250,32 +260,29 @@ task(TASK_NODE)
 
 task(TASK_TEST)
   .setDescription(
-    `Runs mocha tests. By default, deploys all ChugSplash configs in 'chugsplash/' before running the tests.`
+    `Runs mocha tests. By default, deploys all Sphinx configs in 'sphinx/' before running the tests.`
   )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
-  .addFlag(
-    'disableChugsplash',
-    "Completely disable all of ChugSplash's activity."
-  )
+  .addFlag('silent', "Hide all of Sphinx's logs")
+  .addFlag('disableSphinx', "Completely disable all of Sphinx's activity.")
   .addOptionalParam(
     'signer',
-    'Address of the signer that deploys the ChugSplash config.'
+    'Address of the signer that deploys the Sphinx config.'
   )
   .addFlag(
     'useDefaultSigner',
-    'Use the first signer in the Hardhat config to deploy the ChugSplash config.'
+    'Use the first signer in the Hardhat config to deploy the Sphinx config.'
   )
   .addOptionalParam(
     'configPath',
-    'Optional path to the single ChugSplash config file to test.'
+    'Optional path to the single Sphinx config file to test.'
   )
   .addOptionalParam(
     'project',
-    'Name of a ChugSplash project to deploy before running the tests.'
+    'Name of a Sphinx project to deploy before running the tests.'
   )
   .addOptionalParam(
     'projects',
-    `Names of ChugSplash projects to deploy before running the tests. ` +
+    `Names of Sphinx projects to deploy before running the tests. ` +
       `Format must be a comma-separated string, such as: 'Project1, Project2'.`
   )
   .setAction(
@@ -287,7 +294,7 @@ task(TASK_TEST)
         configPath: string
         project: string
         projects: string
-        disableChugsplash?: boolean
+        disableSphinx?: boolean
         signer?: string
         useDefaultSigner?: boolean
       },
@@ -300,12 +307,12 @@ task(TASK_TEST)
         configPath,
         project,
         projects,
-        disableChugsplash,
+        disableSphinx,
         signer,
         useDefaultSigner,
       } = args
 
-      if (!disableChugsplash) {
+      if (!disableSphinx) {
         const networkName = await resolveNetworkName(
           hre.ethers.provider,
           'hardhat'
@@ -329,7 +336,7 @@ task(TASK_TEST)
               throw new Error('Snapshot failed to be reverted.')
             }
           } catch {
-            await ensureChugSplashInitialized(
+            await ensureSphinxInitialized(
               hre.ethers.provider,
               hre.ethers.provider.getSigner()
             )
@@ -347,13 +354,13 @@ task(TASK_TEST)
                 projectNames = projects.replace(/\s+/g, '').split(',')
               } else {
                 throw new Error(
-                  'Must specify a ChugSplash project name using --project or --projects'
+                  'Must specify a Sphinx project name using --project or --projects'
                 )
               }
 
               const owner = await resolveOwner(hre, signer, useDefaultSigner)
 
-              await deployAllChugSplashProjects(
+              await deployAllSphinxProjects(
                 hre,
                 silent,
                 configPath,
@@ -362,7 +369,7 @@ task(TASK_TEST)
               )
             } else {
               if (project || projects) {
-                throw new Error('Must specify a chugsplash config path')
+                throw new Error('Must specify a sphinx config path')
               }
             }
           }
@@ -377,7 +384,7 @@ task(TASK_TEST)
     }
   )
 
-export const chugsplashCancelTask = async (
+export const sphinxCancelTask = async (
   args: {
     configPath: string
     project: string
@@ -389,7 +396,7 @@ export const chugsplashCancelTask = async (
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -397,14 +404,14 @@ export const chugsplashCancelTask = async (
     false
   )
 
-  await chugsplashCancelAbstractTask(provider, signer, project, 'hardhat', cre)
+  await sphinxCancelAbstractTask(provider, signer, project, 'hardhat', cre)
 }
 
-task(TASK_CHUGSPLASH_CANCEL)
-  .setDescription('Cancel an active ChugSplash project.')
-  .addParam('configPath', 'Path to the ChugSplash config file to cancel')
-  .addParam('project', 'Name of the ChugSplash project to cancel')
-  .setAction(chugsplashCancelTask)
+task(TASK_SPHINX_CANCEL)
+  .setDescription('Cancel an active Sphinx project.')
+  .addParam('configPath', 'Path to the Sphinx config file to cancel')
+  .addParam('project', 'Name of the Sphinx project to cancel')
+  .setAction(sphinxCancelTask)
 
 export const exportProxyTask = async (
   args: {
@@ -425,7 +432,7 @@ export const exportProxyTask = async (
     signer,
     useDefaultSigner,
   } = args
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -447,7 +454,7 @@ export const exportProxyTask = async (
     ownerAddress
   )
 
-  await chugsplashExportProxyAbstractTask(
+  await sphinxExportProxyAbstractTask(
     provider,
     owner,
     project,
@@ -458,13 +465,11 @@ export const exportProxyTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_EXPORT_PROXY)
-  .setDescription(
-    'Transfers ownership of a proxy from ChugSplash to the caller'
-  )
+task(TASK_SPHINX_EXPORT_PROXY)
+  .setDescription('Transfers ownership of a proxy from Sphinx to the caller')
   .addParam(
     'configPath',
-    'Path to the ChugSplash config file for the project that owns the target contract'
+    'Path to the Sphinx config file for the project that owns the target contract'
   )
   .addOptionalParam('signer', 'Address of the signer to use.')
   .addFlag(
@@ -476,7 +481,7 @@ task(TASK_CHUGSPLASH_EXPORT_PROXY)
     'referenceName',
     'Reference name of the contract that should be transferred to you'
   )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addFlag('silent', "Hide all of Sphinx's logs")
   .setAction(exportProxyTask)
 
 export const importProxyTask = async (
@@ -495,7 +500,7 @@ export const importProxyTask = async (
 
   const provider = hre.ethers.provider
 
-  const cre = await createChugSplashRuntime(
+  const cre = await createSphinxRuntime(
     false,
     true,
     hre.config.paths.canonicalConfigs,
@@ -503,7 +508,7 @@ export const importProxyTask = async (
     silent
   )
 
-  await chugsplashImportProxyAbstractTask(
+  await sphinxImportProxyAbstractTask(
     provider,
     owner,
     proxy,
@@ -513,11 +518,11 @@ export const importProxyTask = async (
   )
 }
 
-task(TASK_CHUGSPLASH_IMPORT_PROXY)
-  .setDescription('Transfers ownership of a proxy to ChugSplash')
+task(TASK_SPHINX_IMPORT_PROXY)
+  .setDescription('Transfers ownership of a proxy to Sphinx')
   .addParam(
     'configPath',
-    'Path to the ChugSplash config file for the project that you would like to own the target contract'
+    'Path to the Sphinx config file for the project that you would like to own the target contract'
   )
   .addOptionalParam('signer', 'Address of the signer to use.')
   .addFlag(
@@ -526,12 +531,12 @@ task(TASK_CHUGSPLASH_IMPORT_PROXY)
   )
   .addParam(
     'proxy',
-    'Address of the contract that should have its ownership transferred to ChugSplash.'
+    'Address of the contract that should have its ownership transferred to Sphinx.'
   )
-  .addFlag('silent', "Hide all of ChugSplash's logs")
+  .addFlag('silent', "Hide all of Sphinx's logs")
   .setAction(importProxyTask)
 
-export const chugsplashInitTask = async (
+export const sphinxInitTask = async (
   args: {
     silent: boolean
   },
@@ -539,7 +544,7 @@ export const chugsplashInitTask = async (
 ) => {
   const { silent } = args
   const spinner = ora({ isSilent: silent })
-  spinner.start('Initializing ChugSplash project...')
+  spinner.start('Initializing Sphinx project...')
 
   // Get the Solidity compiler version from the Hardhat config.
   const [{ version: solcVersion }] = hre.config.solidity.compilers
@@ -549,7 +554,7 @@ export const chugsplashInitTask = async (
     path.extname(hre.config.paths.configFile) === '.ts'
 
   writeSampleProjectFiles(
-    hre.config.paths.chugsplash,
+    hre.config.paths.sphinx,
     hre.config.paths.sources,
     hre.config.paths.tests,
     isTypeScriptProject,
@@ -557,13 +562,13 @@ export const chugsplashInitTask = async (
     'hardhat'
   )
 
-  spinner.succeed('Initialized ChugSplash project.')
+  spinner.succeed('Initialized Sphinx project.')
 }
 
-task(TASK_CHUGSPLASH_INIT)
+task(TASK_SPHINX_INIT)
   .setDescription('Sets up a sample ChugSplash project.')
   .addFlag('silent', "Hide ChugSplash's logs")
-  .setAction(chugsplashInitTask)
+  .setAction(sphinxInitTask)
 
 const resolveOwner = async (
   hre: HardhatRuntimeEnvironment,

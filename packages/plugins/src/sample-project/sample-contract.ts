@@ -2,7 +2,7 @@ export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-contract HelloChugSplash {
+contract HelloSphinx {
     uint8 public number;
 
     constructor(uint8 _number) {
@@ -19,9 +19,9 @@ export const getSampleFoundryDeployFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import { ChugSplash } from "@chugsplash/plugins/ChugSplash.sol";
+import { Sphinx } from "@sphinx/plugins/Sphinx.sol";
 
-contract ChugSplashDeploy is ChugSplash {
+contract SphinxDeploy is Sphinx {
 
     string configPath = "${configPath}";
     string projectName = "MyFirstProject";
@@ -43,12 +43,12 @@ export const getSampleFoundryTestFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import { ChugSplash } from "@chugsplash/plugins/ChugSplash.sol";
+import { Sphinx } from "@sphinx/plugins/Sphinx.sol";
 import { Test } from "forge-std/Test.sol";
-import { HelloChugSplash } from "../contracts/HelloChugSplash.sol";
+import { HelloSphinx } from "../contracts/HelloSphinx.sol";
 
-contract HelloChugSplashTest is ChugSplash, Test {
-    HelloChugSplash helloChugSplash;
+contract HelloSphinxTest is Sphinx, Test {
+    HelloSphinx helloSphinx;
 
     string configPath = "${configPath}";
     string projectName = "MyFirstProject";
@@ -56,11 +56,11 @@ contract HelloChugSplashTest is ChugSplash, Test {
 
     function setUp() public {
         deploy(configPath, projectName, vm.rpcUrl("anvil"));
-        helloChugSplash = HelloChugSplash(getAddress(configPath, projectName, contractName));
+        helloSphinx = HelloSphinx(getAddress(configPath, projectName, contractName));
     }
 
     function testSetNumber() public {
-        assertEq(helloChugSplash.number(), 1);
+        assertEq(helloSphinx.number(), 1);
     }
 }
 `

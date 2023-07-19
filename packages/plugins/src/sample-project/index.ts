@@ -5,11 +5,11 @@ export * from './sample-config-files'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Integration } from '@chugsplash/core'
+import { Integration } from '@sphinx/core'
 
 import {
-  sampleChugSplashFileJavaScript,
-  sampleChugSplashFileTypeScript,
+  sampleSphinxFileJavaScript,
+  sampleSphinxFileTypeScript,
 } from './sample-config-files'
 import {
   getSampleContractFile,
@@ -21,16 +21,16 @@ import {
   sampleTestFileTypeScript,
 } from './sample-tests'
 
-export const sampleContractFileName = 'HelloChugSplash.sol'
-export const sampleConfigFileNameTypeScript = 'HelloChugSplash.config.ts'
-export const sampleConfigNameJavaScript = 'HelloChugSplash.config.js'
+export const sampleContractFileName = 'HelloSphinx.sol'
+export const sampleConfigFileNameTypeScript = 'HelloSphinx.config.ts'
+export const sampleConfigNameJavaScript = 'HelloSphinx.config.js'
 
-export const foundryTestFileName = 'HelloChugSplash.t.sol'
-export const foundryScriptFileName = 'HelloChugSplash.s.sol'
+export const foundryTestFileName = 'HelloSphinx.t.sol'
+export const foundryScriptFileName = 'HelloSphinx.s.sol'
 
 // Hardhat test file names
-export const hhTestFileNameTypeScript = 'HelloChugSplash.spec.ts'
-export const hhTestFileNameJavaScript = 'HelloChugSplash.test.js'
+export const hhTestFileNameTypeScript = 'HelloSphinx.spec.ts'
+export const hhTestFileNameJavaScript = 'HelloSphinx.test.js'
 
 export const writeSampleProjectFiles = (
   configDirPath: string,
@@ -41,7 +41,7 @@ export const writeSampleProjectFiles = (
   integration: Integration,
   scriptDirPath?: string
 ) => {
-  // Create the ChugSplash config folder if it doesn't exist
+  // Create the Sphinx config folder if it doesn't exist
   if (!fs.existsSync(configDirPath)) {
     fs.mkdirSync(configDirPath)
   }
@@ -56,19 +56,19 @@ export const writeSampleProjectFiles = (
     fs.mkdirSync(testDirPath)
   }
 
-  // Check if the sample ChugSplash config file already exists.
+  // Check if the sample Sphinx config file already exists.
   const configFileName = isTypeScriptProject
     ? sampleConfigFileNameTypeScript
     : sampleConfigNameJavaScript
 
   const configPath = path.join(configDirPath, configFileName)
   if (!fs.existsSync(configPath)) {
-    // Create the sample ChugSplash config file.
+    // Create the sample Sphinx config file.
     fs.writeFileSync(
       configPath,
       isTypeScriptProject
-        ? sampleChugSplashFileTypeScript
-        : sampleChugSplashFileJavaScript
+        ? sampleSphinxFileTypeScript
+        : sampleSphinxFileJavaScript
     )
   }
 

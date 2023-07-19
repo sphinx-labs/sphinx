@@ -24,25 +24,26 @@ import {
   getImplAddress,
   getDefaultProxyInitCode,
   getDeploymentId,
+  getEmptyCanonicalOrgConfig,
 } from '../utils'
 import {
   ApproveDeployment,
   AuthLeaf,
   AuthLeafBundle,
   BundledAuthLeaf,
-  BundledChugSplashAction,
-  ChugSplashAction,
-  ChugSplashActionBundle,
-  ChugSplashActionType,
-  ChugSplashBundles,
-  ChugSplashTarget,
-  ChugSplashTargetBundle,
+  BundledSphinxAction,
+  SphinxAction,
+  SphinxActionBundle,
+  SphinxActionType,
+  SphinxBundles,
+  SphinxTarget,
+  SphinxTargetBundle,
   ContractInfo,
   DeployContractAction,
   ProjectDeployments,
   ProposalRequest,
   RawAuthLeaf,
-  RawChugSplashAction,
+  RawSphinxAction,
   RoleType,
   SetStorageAction,
 } from './types'
@@ -54,11 +55,11 @@ import { getDeployContractCosts } from '../estimate'
 /**
  * Checks whether a given action is a SetStorage action.
  *
- * @param action ChugSplash action to check.
+ * @param action Sphinx action to check.
  * @return `true` if the action is a SetStorage action, `false` otherwise.
  */
 export const isSetStorageAction = (
-  action: ChugSplashAction
+  action: SphinxAction
 ): action is SetStorageAction => {
   return (
     (action as SetStorageAction).key !== undefined &&
@@ -70,41 +71,41 @@ export const isSetStorageAction = (
 /**
  * Checks whether a given action is a DeployContract action.
  *
- * @param action ChugSplash action to check.
+ * @param action Sphinx action to check.
  * @returns `true` if the action is a DeployContract action, `false` otherwise.
  */
 export const isDeployContractAction = (
-  action: ChugSplashAction
+  action: SphinxAction
 ): action is DeployContractAction => {
   return (action as DeployContractAction).code !== undefined
 }
 
 export const getDeployContractActions = (
-  actionBundle: ChugSplashActionBundle
+  actionBundle: SphinxActionBundle
 ): Array<DeployContractAction> => {
   return actionBundle.actions
-    .map((action) => fromRawChugSplashAction(action.action))
+    .map((action) => fromRawSphinxAction(action.action))
     .filter(isDeployContractAction)
 }
 
 export const getDeployContractActionBundle = (
-  actionBundle: ChugSplashActionBundle
-): Array<BundledChugSplashAction> => {
+  actionBundle: SphinxActionBundle
+): Array<BundledSphinxAction> => {
   return actionBundle.actions.filter((action) =>
-    isDeployContractAction(fromRawChugSplashAction(action.action))
+    isDeployContractAction(fromRawSphinxAction(action.action))
   )
 }
 
 export const getSetStorageActionBundle = (
-  actionBundle: ChugSplashActionBundle
-): Array<BundledChugSplashAction> => {
+  actionBundle: SphinxActionBundle
+): Array<BundledSphinxAction> => {
   return actionBundle.actions.filter((action) =>
-    isSetStorageAction(fromRawChugSplashAction(action.action))
+    isSetStorageAction(fromRawSphinxAction(action.action))
   )
 }
 
 export const getNumDeployContractActions = (
-  actionBundle: ChugSplashActionBundle
+  actionBundle: SphinxActionBundle
 ): number => {
   return getDeployContractActionBundle(actionBundle).length
 }
@@ -113,15 +114,13 @@ export const getNumDeployContractActions = (
  * Converts the "nice" action structs into a "raw" action struct (better for Solidity but
  * worse for users here).
  *
- * @param action ChugSplash action to convert.
- * @return Converted "raw" ChugSplash action.
+ * @param action Sphinx action to convert.
+ * @return Converted "raw" Sphinx action.
  */
-export const toRawChugSplashAction = (
-  action: ChugSplashAction
-): RawChugSplashAction => {
+export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
   if (isSetStorageAction(action)) {
     return {
-      actionType: ChugSplashActionType.SET_STORAGE,
+      actionType: SphinxActionType.SET_STORAGE,
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
@@ -132,7 +131,7 @@ export const toRawChugSplashAction = (
     }
   } else if (isDeployContractAction(action)) {
     return {
-      actionType: ChugSplashActionType.DEPLOY_CONTRACT,
+      actionType: SphinxActionType.DEPLOY_CONTRACT,
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
@@ -147,15 +146,15 @@ export const toRawChugSplashAction = (
 }
 
 /**
- * Converts a raw ChugSplash action into a "nice" action struct.
+ * Converts a raw Sphinx action into a "nice" action struct.
  *
- * @param rawAction Raw ChugSplash action to convert.
- * @returns Converted "nice" ChugSplash action.
+ * @param rawAction Raw Sphinx action to convert.
+ * @returns Converted "nice" Sphinx action.
  */
-export const fromRawChugSplashAction = (
-  rawAction: RawChugSplashAction
-): ChugSplashAction => {
-  if (rawAction.actionType === ChugSplashActionType.SET_STORAGE) {
+export const fromRawSphinxAction = (
+  rawAction: RawSphinxAction
+): SphinxAction => {
+  if (rawAction.actionType === SphinxActionType.SET_STORAGE) {
     const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
       ['bytes32', 'uint8', 'bytes'],
       rawAction.data
@@ -168,7 +167,7 @@ export const fromRawChugSplashAction = (
       offset,
       value,
     }
-  } else if (rawAction.actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
+  } else if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
     const [salt, code] = ethers.utils.defaultAbiCoder.decode(
       ['bytes32', 'bytes'],
       rawAction.data
@@ -191,7 +190,7 @@ export const fromRawChugSplashAction = (
  * @param action Action to compute the hash of.
  * @return Hash of the action.
  */
-export const getActionHash = (action: RawChugSplashAction): string => {
+export const getActionHash = (action: RawSphinxAction): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ['string', 'address', 'uint8', 'bytes32', 'bytes'],
@@ -212,7 +211,7 @@ export const getActionHash = (action: RawChugSplashAction): string => {
  * @param target Target to compute the hash of.
  * @return Hash of the action.
  */
-export const getTargetHash = (target: ChugSplashTarget): string => {
+export const getTargetHash = (target: SphinxTarget): string => {
   return ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ['address', 'address', 'bytes32'],
@@ -222,8 +221,8 @@ export const getTargetHash = (target: ChugSplashTarget): string => {
 }
 
 export const makeTargetBundle = (
-  targets: ChugSplashTarget[]
-): ChugSplashTargetBundle => {
+  targets: SphinxTarget[]
+): SphinxTargetBundle => {
   // Compute the hash for each action.
   const elements = targets.map((target) => {
     return getTargetHash(target)
@@ -442,7 +441,7 @@ export const toRawAuthLeaf = (leaf: AuthLeaf): RawAuthLeaf => {
 
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
- * ChugSplashAuth contract.
+ * SphinxAuth contract.
  *
  * @param leafs Series of auth leafs.
  * @return Bundled leafs.
@@ -481,17 +480,17 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
 
 /**
  * Generates an action bundle from a set of actions. Effectively encodes the inputs that will be
- * provided to the ChugSplashManager contract.
+ * provided to the SphinxManager contract.
  *
  * @param actions Series of DeployContract and SetStorage actions to bundle.
  * @return Bundled actions.
  */
 export const makeActionBundle = (
-  actions: ChugSplashAction[]
-): ChugSplashActionBundle => {
+  actions: SphinxAction[]
+): SphinxActionBundle => {
   // Turn the "nice" action structs into raw actions.
   const rawActions = actions.map((action) => {
-    return toRawChugSplashAction(action)
+    return toRawSphinxAction(action)
   })
 
   // Now compute the hash for each action.
@@ -547,7 +546,7 @@ export const makeBundlesFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache
-): ChugSplashBundles => {
+): SphinxBundles => {
   const actionBundle = makeActionBundleFromConfig(
     parsedProjectConfig,
     projectArtifacts,
@@ -561,7 +560,7 @@ export const makeBundlesFromConfig = (
 }
 
 /**
- * Generates a ChugSplash action bundle from a config file.
+ * Generates a Sphinx action bundle from a config file.
  *
  * @param config Config file to convert into a bundle.
  * @param env Environment variables to inject into the config file.
@@ -571,9 +570,9 @@ export const makeActionBundleFromConfig = (
   parsedConfig: ParsedProjectConfig,
   projectArtifacts: ProjectConfigArtifacts,
   projectConfigCache: ProjectConfigCache
-): ChugSplashActionBundle => {
+): SphinxActionBundle => {
   const managerAddress = parsedConfig.options.deployer
-  const actions: ChugSplashAction[] = []
+  const actions: SphinxAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
@@ -674,7 +673,7 @@ export const makeActionBundleFromConfig = (
 }
 
 /**
- * Generates a ChugSplash target bundle from a config file. Note that non-proxied contract types are
+ * Generates a Sphinx target bundle from a config file. Note that non-proxied contract types are
  * not included in the target bundle.
  *
  * @param config Config file to convert into a bundle.
@@ -684,10 +683,10 @@ export const makeActionBundleFromConfig = (
 export const makeTargetBundleFromConfig = (
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts
-): ChugSplashTargetBundle => {
+): SphinxTargetBundle => {
   const { deployer } = parsedProjectConfig.options
 
-  const targets: ChugSplashTarget[] = []
+  const targets: SphinxTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedProjectConfig.contracts
   )) {
@@ -713,25 +712,57 @@ export const makeTargetBundleFromConfig = (
 }
 
 /**
- * @notice Generates a list of AuthLeafs for a chain by comparing the current config with the
- * previous config. If the current config is new, then the previous config must be an empty config,
- * which can be generated by calling `getEmptyCanonicalOrgConfig`. Note that this function will
- * throw an error if the provided `chainId` is not in the config.
+ * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
+ * previous org config. If the current parsed config is completely new, then the previous org config
+ * must be an empty config, which can be generated by calling `getEmptyCanonicalOrgConfig`. If a
+ * chain ID exists in the parsed config but does not exist in the previous org config, then this
+ * function will generate the leafs required to approve the project's deployment on the new chain.
+ * Note that this function will throw an error if the provided `chainId` is not in the parsed
+ * config.
+ *
+ * @param projectName Name of the project to generate leafs for. If the project hasn't changed, then
+ * no project-specific leafs will be generated.
  */
 export const getAuthLeafsForChain = async (
   chainId: number,
-  config: ParsedOrgConfig,
+  projectName: string,
+  parsedConfig: ParsedOrgConfig,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache,
-  prevConfig: CanonicalOrgConfig
+  prevOrgConfig: CanonicalOrgConfig
 ): Promise<Array<AuthLeaf>> => {
-  const leafs: Array<AuthLeaf> = []
-
-  const { options, projects } = config
-  const { options: prevOptions } = prevConfig
-
-  const { deployer, chainStates: prevChainStates } = prevConfig
+  const { options, projects } = parsedConfig
   const { proposers, managers, chainIds } = options
+  const projectConfig = projects[projectName]
+  const { options: projectOptions, contracts } = projectConfig
+  const { projectOwners, projectThreshold } = projectOptions
+
+  // This check is necessary for TypeScript to know that `projectOwners` and
+  // `projectThreshold` are defined. This is because these fields are optional, since the
+  // type is shared with non-org configs, which don't have these fields.
+  if (!projectOwners || !projectThreshold) {
+    throw new Error(
+      `Project owners or project threshold are not defined. Should never happen.`
+    )
+  }
+
+  // Get the previous config to use in the rest of this function. If the previous org config
+  // contains this chain ID, then we use the previous org config. Otherwise, we generate an empty
+  // config, which makes it easy to generate leafs for a new chain.
+  const prevConfigForChain = prevOrgConfig.chainStates[chainId]
+    ? prevOrgConfig
+    : getEmptyCanonicalOrgConfig(
+        [chainId],
+        prevOrgConfig.deployer,
+        prevOrgConfig.options.orgId,
+        projectName
+      )
+
+  const {
+    deployer,
+    chainStates: prevChainStates,
+    options: prevOptions,
+  } = prevConfigForChain
   const { proposers: prevProposers, managers: prevManagers } = prevOptions
 
   if (!chainIds.includes(chainId)) {
@@ -740,44 +771,41 @@ export const getAuthLeafsForChain = async (
     )
   }
 
-  const { firstProposalOccurred } = prevChainStates[chainId]
-  if (firstProposalOccurred) {
-    // Not supported yet.
-  } else {
-    // We get a list of proposers to add and remove by comparing the current and previous
-    // proposers. We do the same for managers. Note that it's possible that we'll need to remove
-    // proposers/managers despite the first that a proposal has not yet occurred. This is because
-    // the user may have already attempted to setup the org on the chain with an incorrect set of
-    // proposers/managers.
-    const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
-    const proposersToRemove = prevProposers.filter(
-      (p) => !proposers.includes(p)
+  // We get a list of proposers to add and remove by comparing the current and previous proposers.
+  // We do the same for managers. It's possible that we'll need to remove proposers/managers even if
+  // the first proposal has not occurred yet. This is because the user may have already attempted to
+  // setup the org with an incorrect set of proposers/managers.
+  const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
+  const proposersToRemove = prevProposers.filter((p) => !proposers.includes(p))
+  const managersToAdd = managers.filter((m) => !prevManagers.includes(m))
+  const managersToRemove = prevManagers.filter((m) => !managers.includes(m))
+
+  // Transform the list of proposers/managers to add/remove into a list of tuples that will be used
+  // in the Setup leaf, if it's needed.
+  const proposersToSet = proposersToAdd
+    .map((p) => {
+      return { member: p, add: true }
+    })
+    .concat(
+      proposersToRemove.map((p) => {
+        return { member: p, add: false }
+      })
     )
-    const proposersToSet = proposersToAdd
-      .map((p) => {
-        return { member: p, add: true }
+  const managersToSet = managersToAdd
+    .map((m) => {
+      return { member: m, add: true }
+    })
+    .concat(
+      managersToRemove.map((m) => {
+        return { member: m, add: false }
       })
-      .concat(
-        proposersToRemove.map((p) => {
-          return { member: p, add: false }
-        })
-      )
+    )
 
-    const managersToAdd = managers.filter((m) => !prevManagers.includes(m))
-    const managersToRemove = prevManagers.filter((m) => !managers.includes(m))
-    const managersToSet = managersToAdd
-      .map((m) => {
-        return { member: m, add: true }
-      })
-      .concat(
-        managersToRemove.map((m) => {
-          return { member: m, add: false }
-        })
-      )
-
-    if (Object.keys(projects).length === 0) {
-      // Since there are no projects, we only need to add a single leaf for the setup function.
-      const setupLeaf: AuthLeaf = {
+  const { firstProposalOccurred } = prevChainStates[chainId]
+  if (!firstProposalOccurred && Object.keys(projects).length === 0) {
+    // Return a single Setup leaf.
+    return [
+      {
         chainId,
         to: deployer,
         index: 0,
@@ -785,90 +813,104 @@ export const getAuthLeafsForChain = async (
         managers: managersToSet,
         numLeafs: 1,
         leafType: 'setup',
-      }
-      leafs.push(setupLeaf)
-    } else {
-      // We proceed by adding leafs for each project. Note that these projects are new on this
-      // chain since a proposal has not yet occurred.
+      },
+    ]
+  }
 
-      // We set the index to 2 here because the first two leafs are reserved for the setup and
-      // proposal functions. We add those two leafs last because they both have a `numLeafs`
-      // field, which must contain the total number of leafs on this chain. Adding these leafs
-      // last makes it easy to compute this value, since it'll be equal to the index.
-      let index = 2
+  const leafs: Array<AuthLeaf> = []
 
-      for (const [projectName, projectConfig] of Object.entries(projects)) {
-        const { options: projectOptions, contracts } = projectConfig
-        const { projectOwners, projectThreshold } = projectOptions
+  // We proceed by adding the leafs on this chain. We add the proposal and setup leaf at the end of
+  // this function because they both have a `numLeafs` field, which equals the total number of leafs
+  // on this chain. We use this `index` variable as a running count of the number of leafs, then use
+  // it as the value for `numLeafs` when we create the proposal and setup leaf. If the first
+  // proposal has occurred, we set the initial value of this index to 1 because we're reserving the
+  // first index for the proposal leaf. If the first proposal has not occurred, the index is 2
+  // because the first two indexes are reserved for the setup and proposal leafs.
+  let index = firstProposalOccurred ? 1 : 2
 
-        // This check is necessary for TypeScript to know that `projectOwners` and
-        // `projectThreshold` are defined. This is because these fields are optional, since the
-        // type is shared with non-org configs, which don't have these fields.
-        if (!projectOwners || !projectThreshold) {
-          throw new Error(
-            `Project owners or project threshold are not defined. Should never happen.`
-          )
-        }
+  // Create the project if it didn't previously exist.
+  const { projectCreated } = prevChainStates[chainId].projects[projectName]
+  if (!projectCreated) {
+    // We only import contracts into the project if the user has explictly specified an
+    // address for the contract. Otherwise, the contract will eventually be deployed by
+    // Sphinx and automatically added to the project on-chain.
+    const contractsToImport: Array<ContractInfo> = Object.entries(contracts)
+      .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
+      .map(([referenceName, contractConfig]) => {
+        return { referenceName, addr: contractConfig.address }
+      })
 
-        // We only import contracts into the project if the user has explictly specified an
-        // address for the contract. Otherwise, the contract will eventually be deployed by
-        // ChugSplash and automatically added to the project on-chain.
-        const contractsToImport: Array<ContractInfo> = Object.entries(contracts)
-          .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
-          .map(([referenceName, contractConfig]) => {
-            return { referenceName, addr: contractConfig.address }
-          })
+    const createProjectLeaf: AuthLeaf = {
+      chainId,
+      to: deployer,
+      index,
+      projectName,
+      projectThreshold,
+      projectOwners,
+      contractsToImport,
+      leafType: 'createProject',
+    }
+    index += 1
+    leafs.push(createProjectLeaf)
+  }
 
-        const createProjectLeaf: AuthLeaf = {
-          chainId,
-          to: deployer,
-          index,
-          projectName,
-          projectThreshold,
-          projectOwners,
-          contractsToImport,
-          leafType: 'createProject',
-        }
-        index += 1
-        leafs.push(createProjectLeaf)
+  const { configUri, bundles } = await getProjectBundleInfo(
+    projectConfig,
+    configArtifacts[projectName],
+    configCache[projectName]
+  )
+  const { actionBundle, targetBundle } = bundles
 
-        const { configUri, bundles } = await getProjectBundleInfo(
-          projectConfig,
-          configArtifacts[projectName],
-          configCache[projectName]
-        )
-        const { actionBundle, targetBundle } = bundles
+  // Only add the ApproveDeployment leaf if there are deployment actions.
+  if (
+    bundles.actionBundle.actions.length > 0 ||
+    bundles.targetBundle.targets.length > 0
+  ) {
+    const approvalLeaf: AuthLeaf = {
+      chainId,
+      to: deployer,
+      index,
+      projectName,
+      actionRoot: actionBundle.root,
+      targetRoot: targetBundle.root,
+      numActions: actionBundle.actions.length,
+      numTargets: targetBundle.targets.length,
+      numImmutableContracts: getNumDeployContractActions(actionBundle),
+      configUri,
+      leafType: 'approveDeployment',
+    }
+    index += 1
+    leafs.push(approvalLeaf)
+  }
 
-        const approvalLeaf: AuthLeaf = {
-          chainId,
-          to: deployer,
-          index,
-          projectName,
-          actionRoot: actionBundle.root,
-          targetRoot: targetBundle.root,
-          numActions: actionBundle.actions.length,
-          numTargets: targetBundle.targets.length,
-          numImmutableContracts: getNumDeployContractActions(actionBundle),
-          configUri,
-          leafType: 'approveDeployment',
-        }
-        index += 1
-        leafs.push(approvalLeaf)
-      }
+  // We only add a proposal leaf if the `leafs` array is non-empty. If the array is empty, then
+  // there's nothing to propose.
+  const addProposalLeaf = leafs.length > 0
 
-      // Add the setup and proposal leafs last. Note that there is one setup and proposal leaf per
-      // chain.
-      const setupLeaf: AuthLeaf = {
-        chainId,
-        to: deployer,
-        index: 0,
-        proposers: proposersToSet,
-        managers: managersToSet,
-        numLeafs: index,
-        leafType: 'setup',
-      }
-      leafs.push(setupLeaf)
+  if (firstProposalOccurred && addProposalLeaf) {
+    const proposalLeaf: AuthLeaf = {
+      chainId,
+      to: deployer,
+      index: 0,
+      numLeafs: index,
+      leafType: 'propose',
+    }
+    leafs.push(proposalLeaf)
+  } else if (!firstProposalOccurred) {
+    // We always add a Setup leaf if the first proposal hasn't occurred yet.
+    const setupLeaf: AuthLeaf = {
+      chainId,
+      to: deployer,
+      index: 0,
+      proposers: proposersToSet,
+      managers: managersToSet,
+      numLeafs: index,
+      leafType: 'setup',
+    }
+    leafs.push(setupLeaf)
 
+    // Add a proposal leaf if there are any leafs to propose.
+    if (addProposalLeaf) {
       const proposalLeaf: AuthLeaf = {
         chainId,
         to: deployer,
@@ -883,6 +925,13 @@ export const getAuthLeafsForChain = async (
   return leafs
 }
 
+/**
+ * @notice Gets the leaf for a given chain-specific index and chain ID.
+ *
+ * @param bundledLeafs List of bundled leafs.
+ * @param index Index of the leaf on the specified chain.
+ * @param chainId Chain ID of the leaf.
+ */
 export const findBundledLeaf = (
   bundledLeafs: Array<BundledAuthLeaf>,
   index: number,

@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv'
 import '@nomiclabs/hardhat-ethers'
 import '@openzeppelin/hardhat-upgrades'
 
-import { initializeAndVerifyChugSplash } from './src/languages/solidity/predeploys'
+import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
 
 // Load environment variables from .env
 dotenv.config()
@@ -71,8 +71,8 @@ const config: HardhatUserConfig = {
 }
 
 task('deploy-system')
-  .setDescription('Deploys the ChugSplash contracts to the specified network')
-  .addParam('systemConfig', 'Path to a ChugSplash system config file')
+  .setDescription('Deploys the Sphinx contracts to the specified network')
+  .addParam('systemConfig', 'Path to a Sphinx system config file')
   .setAction(
     async (
       args: {
@@ -80,10 +80,7 @@ task('deploy-system')
       },
       hre: HardhatRuntimeEnvironment
     ) => {
-      await initializeAndVerifyChugSplash(
-        args.systemConfig,
-        hre.ethers.provider
-      )
+      await initializeAndVerifySphinx(args.systemConfig, hre.ethers.provider)
     }
   )
 

@@ -5,18 +5,18 @@ import { promisify } from 'util'
 import {
   BuildInfo,
   ContractArtifact,
-} from '@chugsplash/core/dist/languages/solidity/types'
+} from '@sphinx/core/dist/languages/solidity/types'
 import {
   parseFoundryArtifact,
   validateBuildInfo,
   execAsync,
-} from '@chugsplash/core/dist/utils'
+} from '@sphinx/core/dist/utils'
 import {
   GetConfigArtifacts,
   GetProviderForChainId,
   ProjectConfigArtifacts,
   UserContractConfigs,
-} from '@chugsplash/core/dist/config/types'
+} from '@sphinx/core/dist/config/types'
 import { parse } from 'semver'
 import { providers } from 'ethers/lib/ethers'
 
@@ -146,7 +146,7 @@ export const makeGetConfigArtifacts = (
       fs.mkdirSync(cachePath)
     }
 
-    const buildInfoCacheFilePath = join(cachePath, 'chugsplash-cache.json')
+    const buildInfoCacheFilePath = join(cachePath, 'sphinx-cache.json')
     let buildInfoCache: {
       // We track all contract names and the associated source files that contain them
       // This allows us to detect ambiguous contract names and prompt the user to use fully qualified names

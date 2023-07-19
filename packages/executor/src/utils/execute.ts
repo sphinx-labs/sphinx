@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { ChugSplashManagerABI } from '@chugsplash/contracts'
+import { SphinxManagerABI } from '@sphinx/contracts'
 import {
   DeploymentState,
   claimExecutorPayment,
@@ -12,13 +12,13 @@ import {
   hasSufficientFundsForExecution,
   trackExecuted,
   getDeploymentId,
-  ChugSplashBundles,
+  SphinxBundles,
   isSupportedNetworkOnEtherscan,
-  verifyChugSplashConfig,
+  verifySphinxConfig,
   deploymentDoesRevert,
   CanonicalProjectConfig,
   ProjectConfigArtifacts,
-} from '@chugsplash/core'
+} from '@sphinx/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
@@ -70,9 +70,9 @@ const tryVerification = async (
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
-          `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
+          `[Sphinx]: attempting to verify source code on etherscan for project: ${projectName}`
         )
-        await verifyChugSplashConfig(
+        await verifySphinxConfig(
           canonicalConfig,
           configArtifacts,
           rpcProvider,
@@ -80,20 +80,20 @@ const tryVerification = async (
           apiKey
         )
         logger.info(
-          `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
+          `[Sphinx]: finished attempting etherscan verification for project: ${projectName}`
         )
       } else {
         logger.info(
-          `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
+          `[Sphinx]: skipped verifying sphinx contracts. reason: no api key found`
         )
       }
     } else {
       logger.info(
-        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${network}`
+        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${network}`
       )
     }
   } catch (e) {
-    logger.error('[ChugSplash]: error: verification error', e)
+    logger.error('[Sphinx]: error: verification error', e)
     if (attempts < 6) {
       // Try again in 30 seconds
       setTimeout(async () => {
@@ -112,7 +112,7 @@ const tryVerification = async (
     }
   }
 
-  // Update status in the ChugSplash managed database
+  // Update status in the Sphinx managed database
   if (graphQLClient) {
     const contracts: {
       referenceName: string
@@ -138,7 +138,7 @@ const tryVerification = async (
         contracts
       )
     } catch (error) {
-      logger.error('[ChugSplash]: error: deployment update error', error)
+      logger.error('[Sphinx]: error: deployment update error', error)
     }
   }
 }
@@ -199,11 +199,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   const managedAddress = executorEvent.event.args[1]
   // fetch manager for relevant project
-  const manager = new ethers.Contract(
-    managedAddress,
-    ChugSplashManagerABI,
-    wallet
-  )
+  const manager = new ethers.Contract(managedAddress, SphinxManagerABI, wallet)
 
   // get active deployment ID for this project
   const activeDeploymentId = await manager.activeDeploymentId()
@@ -213,24 +209,24 @@ export const handleExecution = async (data: ExecutorMessage) => {
   )
 
   if (!deploymentState.remoteExecution) {
-    logger.info('[ChugSplash]: skipping local deployment')
+    logger.info('[Sphinx]: skipping local deployment')
     process.send({ action: 'discard', payload: executorEvent })
     return
   } else if (activeDeploymentId === ethers.constants.HashZero) {
-    logger.info('[ChugSplash]: no active deployment in project')
+    logger.info('[Sphinx]: no active deployment in project')
     process.send({ action: 'discard', payload: executorEvent })
     return
   }
 
   // Retrieve the corresponding approval event to get the config URI.
   const [approvalEvent] = await manager.queryFilter(
-    manager.filters.ChugSplashDeploymentApproved(activeDeploymentId)
+    manager.filters.SphinxDeploymentApproved(activeDeploymentId)
   )
 
-  logger.info('[ChugSplash]: retrieving the deployment...')
+  logger.info('[Sphinx]: retrieving the deployment...')
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
-  let bundles: ChugSplashBundles
+  let bundles: SphinxBundles
   let canonicalProjectConfig: CanonicalProjectConfig
   let projectConfigArtifacts: ProjectConfigArtifacts
 
@@ -260,16 +256,16 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     // log error and return
     logger.error(
-      '[ChugSplash]: error: compiled deployment id does not match proposal event deployment id',
+      '[Sphinx]: error: compiled deployment id does not match proposal event deployment id',
       canonicalProjectConfig.options
     )
     return
   }
 
-  logger.info(`[ChugSplash]: compiled ${project} on: ${network}.`)
+  logger.info(`[Sphinx]: compiled ${project} on: ${network}.`)
 
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
-    logger.info(`[ChugSplash]: checking if any of the constructors revert...`)
+    logger.info(`[Sphinx]: checking if any of the constructors revert...`)
 
     if (
       await deploymentDoesRevert(
@@ -290,11 +286,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
     } catch (err) {
       if (
         err.message.includes(
-          'ChugSplashManager: deployment is currently claimed by an executor'
+          'SphinxManager: deployment is currently claimed by an executor'
         )
       ) {
         logger.info(
-          '[ChugSplash]: a different executor claimed the deployment right before this executor'
+          '[Sphinx]: a different executor claimed the deployment right before this executor'
         )
 
         // Do not retry the deployment since it will be handled by another executor
@@ -303,7 +299,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         // A different error occurred. This most likely means the owner cancelled the deployment
         // before it could be claimed. We'll log the error message.
         logger.error(
-          '[ChugSplash]: error: claiming deployment error',
+          '[Sphinx]: error: claiming deployment error',
           err,
           canonicalProjectConfig.options
         )
@@ -318,7 +314,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
   } else if (deploymentState.selectedExecutor !== wallet.address) {
     logger.info(
-      '[ChugSplash]: a different executor has already claimed the deployment'
+      '[Sphinx]: a different executor has already claimed the deployment'
     )
     return
   }
@@ -326,9 +322,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // If we make it to the point, we know that this executor is selected to claim the deployment and
   // that the deployment should execute without an error (i.e. a constructor reverting).
 
-  logger.info(`[ChugSplash]: constructors probably won't revert.`)
+  logger.info(`[Sphinx]: constructors probably won't revert.`)
 
-  logger.info(`[ChugSplash]: checking that the project is funded...`)
+  logger.info(`[Sphinx]: checking that the project is funded...`)
 
   if (
     await hasSufficientFundsForExecution(
@@ -338,7 +334,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       canonicalProjectConfig
     )
   ) {
-    logger.info(`[ChugSplash]: ${project} has sufficient funds`)
+    logger.info(`[Sphinx]: ${project} has sufficient funds`)
 
     // execute deployment
     try {
@@ -364,7 +360,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       )
       if (errorDeploymentState.selectedExecutor !== wallet.address) {
         logger.info(
-          '[ChugSplash]: execution failed due to deployment being claimed by another executor'
+          '[Sphinx]: execution failed due to deployment being claimed by another executor'
         )
         process.send({ action: 'discard', payload: executorEvent })
         return
@@ -372,7 +368,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
       // log error
       logger.error(
-        '[ChugSplash]: error: execution error',
+        '[Sphinx]: error: execution error',
         e,
         canonicalProjectConfig.options
       )
@@ -383,7 +379,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       return
     }
 
-    // Update status in the ChugSplash managed database
+    // Update status in the Sphinx managed database
     if (graphQLClient) {
       try {
         await updateDeployment(
@@ -394,7 +390,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
           []
         )
       } catch (error) {
-        logger.error('[ChugSplash]: error: deployment update error', error)
+        logger.error('[Sphinx]: error: deployment update error', error)
       }
     }
 
@@ -413,26 +409,26 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
     await trackExecuted(await manager.owner(), network, undefined)
   } else {
-    logger.info(`[ChugSplash]: ${project} has insufficient funds`)
+    logger.info(`[Sphinx]: ${project} has insufficient funds`)
 
     // Continue to the next deployment if there is an insufficient amount of funds in the
-    // ChugSplashManager. We will make attempts to execute the deployment on
+    // SphinxManager. We will make attempts to execute the deployment on
     // subsequent iterations of the BaseService for up to 30 minutes.
     const retryEvent = generateRetryEvent(executorEvent, 100, 30000)
     process.send({ action: 'retry', payload: retryEvent })
     return
   }
 
-  logger.info(`[ChugSplash]: claiming executor's payment...`)
+  logger.info(`[Sphinx]: claiming executor's payment...`)
 
   // Withdraw any debt owed to the executor. Note that even if a deployment is cancelled by the
   // project owner during execution, the executor will still be able to claim funds here.
   await claimExecutorPayment(wallet, manager)
 
-  logger.info(`[ChugSplash]: claimed executor's payment`)
+  logger.info(`[Sphinx]: claimed executor's payment`)
 
   // If we make it to this point, we know that the executor has executed the deployment (or that it
   // has been cancelled by the owner), and that the executor has claimed its payment.
-  logger.info('[ChugSplash]: execution successful')
+  logger.info('[Sphinx]: execution successful')
   process.send({ action: 'success', payload: executorEvent })
 }

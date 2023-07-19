@@ -3,8 +3,8 @@ import { resolve } from 'path'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   getMinimalConfig,
-  readUserChugSplashConfig,
-} from '@chugsplash/core/dist/config/config'
+  readUserSphinxConfig,
+} from '@sphinx/core/dist/config/config'
 
 import { getEncodedFailure, validationStderrWrite } from './logs'
 
@@ -22,7 +22,7 @@ const ownerAddress = args[2]
       throw Error('No project name provided')
     }
 
-    const userConfig = await readUserChugSplashConfig(configPath)
+    const userConfig = await readUserSphinxConfig(configPath)
 
     const minimalConfig = getMinimalConfig(
       userConfig,
@@ -31,15 +31,15 @@ const ownerAddress = args[2]
     )
 
     const rootImportPath =
-      process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
+      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
     const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-    const ChugSplashUtilsABI =
+    const SphinxUtilsABI =
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require(resolve(
-        `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
+        `${utilsArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
       )).abi
-    const minimalConfigType = ChugSplashUtilsABI.find(
+    const minimalConfigType = SphinxUtilsABI.find(
       (fragment) => fragment.name === 'minimalConfig'
     ).outputs[0]
 

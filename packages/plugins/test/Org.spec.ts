@@ -1,175 +1,73 @@
 import hre from 'hardhat'
-import '../dist' // This loads in the ChugSplash's HRE type extensions, e.g. `canonicalConfigPath`
+import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `canonicalConfigPath`
 import '@nomiclabs/hardhat-ethers'
 import {
   AUTH_FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
-  UserChugSplashConfig,
-  ensureChugSplashInitialized,
-  getAuthAddress,
-  getAuthData,
-  getChugSplashManagerAddress,
+  ensureSphinxInitialized,
   makeAuthBundle,
   getParsedOrgConfig,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
-  SUPPORTED_LIVE_NETWORKS,
-  getEmptyCanonicalOrgConfig,
+  SUPPORTED_NETWORKS,
   findBundledLeaf,
-  getAuthLeafsForChain,
-  AuthLeaf,
-} from '@chugsplash/core'
-import {
-  AuthFactoryABI,
-  AuthABI,
-  PROPOSER_ROLE,
-  PROJECT_MANAGER_ROLE,
-  ChugSplashManagerABI,
-} from '@chugsplash/contracts'
+  executeDeployment,
+  DeploymentState,
+  DeploymentStatus,
+  CanonicalOrgConfig,
+  toCanonicalOrgConfig,
+  getAuthLeafs,
+} from '@sphinx/core'
+import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
-import { createChugSplashRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-
-// This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
-// contract inherits.
-const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
-
-const DUMMY_ORG_ID = '1111'
-
-const cre = createChugSplashRuntime(
-  false,
-  false,
-  hre.config.paths.canonicalConfigs,
-  hre,
-  false
-)
-
-const orgThreshold = 1
-
-// First account on Hardhat node
-const ownerPrivateKey =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-// Second account on Hardhat node
-const relayerPrivateKey =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+import {
+  setupThenApproveDeploymentWithSingleOwner,
+  setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute,
+} from './helpers'
+import {
+  ORG_OWNER_ROLE_HASH,
+  authAddress,
+  authData,
+  cre,
+  deployerAddress,
+  isTestnet,
+  orgOwners,
+  orgThreshold,
+  ownerPrivateKey,
+  projectName,
+  rpcProviders,
+  relayerPrivateKey,
+  testnets,
+  userConfig,
+} from './constants'
 
 describe('Org config', () => {
-  let ownerAddress: string
   before(async () => {
-    ownerAddress = new ethers.Wallet(ownerPrivateKey).address
-  })
-
-  it('Single owner can setup an org and approve a project deployment on two chains in one txn', async () => {
-    // Define constructor arguments for the contract we're going to deploy
-    const constructorArgs = {
-      _immutableUint: 1,
-      _immutableAddress: '0x' + '11'.repeat(20),
-    }
-
-    const networks = ['goerli', 'optimism-goerli']
-    const providers = {
-      goerli: new ethers.providers.JsonRpcProvider('http://localhost:8545'),
-      'optimism-goerli': new ethers.providers.JsonRpcProvider(
-        'http://localhost:8546'
-      ),
-    }
-
-    const orgOwners = [ownerAddress]
-    const userConfig: UserChugSplashConfig = {
-      options: {
-        orgId: DUMMY_ORG_ID,
-        orgOwners,
-        orgThreshold,
-        networks,
-        proposers: [ownerAddress],
-        managers: [ownerAddress],
-      },
-      projects: {},
-    }
-
-    const authData = getAuthData(orgOwners, orgThreshold)
-    const authAddress = getAuthAddress(orgOwners, orgThreshold)
-    const deployerAddress = getChugSplashManagerAddress(authAddress)
-
-    const projectName = 'MyProject'
-    const projectThreshold = 1
-    userConfig.projects[projectName] = {
-      options: {
-        projectOwners: [ownerAddress],
-        projectThreshold,
-      },
-      contracts: {
-        MyContract: {
-          contract: 'Stateless',
-          kind: 'immutable',
-          constructorArgs,
-        },
-      },
-    }
-
-    const leafs: Array<AuthLeaf> = []
-    for (const network of networks) {
-      const provider = providers[network]
-      const relayer = new ethers.Wallet(relayerPrivateKey, provider)
-
-      await ensureChugSplashInitialized(provider, relayer)
-
-      const { parsedConfig, configCache, configArtifacts } =
-        await getParsedOrgConfig(
-          userConfig,
-          projectName,
-          deployerAddress,
-          provider,
-          cre,
-          makeGetConfigArtifacts(hre)
-        )
-
-      const chainId = SUPPORTED_LIVE_NETWORKS[network]
-      const prevOrgConfig = getEmptyCanonicalOrgConfig(
-        [chainId],
-        deployerAddress,
-        DUMMY_ORG_ID,
-        projectName
-      )
-      const leafsForChain = await getAuthLeafsForChain(
-        chainId,
-        parsedConfig,
-        configArtifacts,
-        configCache,
-        prevOrgConfig
-      )
-      leafs.push(...leafsForChain)
-    }
-
-    const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
-
-    for (const network of networks) {
-      const provider = providers[network]
-
+    for (const provider of Object.values(rpcProviders)) {
+      const relayerAndExecutor = new ethers.Wallet(relayerPrivateKey, provider)
       const owner = new ethers.Wallet(ownerPrivateKey, provider)
-      // The relayer is the signer that executes the transactions on the Auth contract
-      const relayer = new ethers.Wallet(relayerPrivateKey, provider)
+      // Initialize the Sphinx contracts including an executor so that it's possible to execute
+      // the project deployments.
+      await ensureSphinxInitialized(provider, relayerAndExecutor, [
+        relayerAndExecutor.address,
+      ])
 
       const AuthFactory = new ethers.Contract(
         AUTH_FACTORY_ADDRESS,
         AuthFactoryABI,
-        relayer
+        relayerAndExecutor
       )
-      const Deployer = new ethers.Contract(
-        deployerAddress,
-        ChugSplashManagerABI,
-        relayer
-      )
-      const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
+      const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
 
-      // We set the `registryData` to `[]` since this version of the ChugSplashManager doesn't use it.
+      // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
       await AuthFactory.deploy(authData, [], 0)
 
-      // Fund the ChugSplashManager.
+      // Fund the SphinxManager.
       await owner.sendTransaction({
         to: deployerAddress,
         value: ethers.utils.parseEther('1'),
@@ -183,117 +81,223 @@ describe('Org config', () => {
         BigNumber.from(1)
       )
       expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
-
-      const chainId = SUPPORTED_LIVE_NETWORKS[network]
-      const numLeafsPerChain = bundledLeafs.length / networks.length
-
-      const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
-        bundledLeafs,
-        0,
-        chainId
-      )
-      const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
-        bundledLeafs,
-        1,
-        chainId
-      )
-      const { leaf: createProjectLeaf, proof: createProjectProof } =
-        findBundledLeaf(bundledLeafs, 2, chainId)
-      const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
-        bundledLeafs,
-        3,
-        chainId
-      )
-
-      // Check that the state of the Auth contract is correct before calling the `setup` function.
-      expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(false)
-      expect(await Auth.hasRole(PROJECT_MANAGER_ROLE, ownerAddress)).equals(
-        false
-      )
-      // Check that the corresponding AuthState is empty.
-      const initialAuthState: AuthState = await Auth.authStates(root)
-      expect(initialAuthState.status).equals(AuthStatus.EMPTY)
-      expect(initialAuthState.leafsExecuted).deep.equals(BigNumber.from(0))
-      expect(initialAuthState.numLeafs).deep.equals(BigNumber.from(0))
-
-      const signature = await signAuthRootMetaTxn(owner, root)
-
-      await Auth.setup(root, setupLeaf, [signature], setupProof)
-
-      // Check that the setup function executed correctly.
-      expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(true)
-      expect(await Auth.hasRole(PROJECT_MANAGER_ROLE, ownerAddress)).equals(
-        true
-      )
-      let authState: AuthState = await Auth.authStates(root)
-      expect(authState.status).equals(AuthStatus.SETUP)
-      expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
-      expect(authState.numLeafs).deep.equals(BigNumber.from(numLeafsPerChain))
-
-      await Auth.propose(root, proposalLeaf, [signature], proposalProof)
-
-      // Check that the proposal executed correctly.
-      authState = await Auth.authStates(root)
-      expect(authState.status).equals(AuthStatus.PROPOSED)
-      expect(authState.leafsExecuted).deep.equals(BigNumber.from(2))
-      expect(await Auth.firstProposalOccurred()).equals(true)
-
-      await Auth.createProject(
-        root,
-        createProjectLeaf,
-        [signature],
-        createProjectProof
-      )
-
-      // Check that the createProject function executed correctly.
-      const projectOwnerRoleHash = ethers.utils.solidityKeccak256(
-        ['string'],
-        [`${projectName}ProjectOwner`]
-      )
-      expect(await Auth.getRoleMemberCount(projectOwnerRoleHash)).deep.equals(
-        BigNumber.from(1)
-      )
-      expect(await Auth.hasRole(projectOwnerRoleHash, ownerAddress)).equals(
-        true
-      )
-      authState = await Auth.authStates(root)
-      expect(await Auth.thresholds(projectName)).deep.equals(
-        BigNumber.from(projectThreshold)
-      )
-      expect(authState.leafsExecuted).deep.equals(BigNumber.from(3))
-
-      // Check that there is no active deployment before approving the deployment.
-      expect(await Deployer.activeDeploymentId()).equals(
-        ethers.constants.HashZero
-      )
-
-      await Auth.approveDeployment(
-        root,
-        approvalLeaf,
-        [signature],
-        approvalProof
-      )
-
-      // Check that the approve function executed correctly and that all of the leafs in the tree have
-      // been executed.
-      const { parsedConfig, configCache, configArtifacts } =
-        await getParsedOrgConfig(
-          userConfig,
-          projectName,
-          deployerAddress,
-          provider,
-          cre,
-          makeGetConfigArtifacts(hre)
-        )
-      const { configUri, bundles } = await getProjectBundleInfo(
-        parsedConfig.projects[projectName],
-        configArtifacts[projectName],
-        configCache[projectName]
-      )
-      const deploymentId = getDeploymentId(bundles, configUri, projectName)
-      expect(await Deployer.activeDeploymentId()).equals(deploymentId)
-      authState = await Auth.authStates(root)
-      expect(authState.status).equals(AuthStatus.COMPLETED)
     }
+  })
+
+  const snapshotIds: {
+    [network: string]: string
+  } = {}
+  beforeEach(async () => {
+    // Revert to a snapshot of the blockchain before each test. The snapshot is taken after the
+    // `before` hook above is run.
+    for (const network of testnets) {
+      const provider = rpcProviders[network]
+
+      const snapshotId = snapshotIds[network]
+      // Attempt to revert to the previous snapshot.
+      try {
+        await provider.send('evm_revert', [snapshotId])
+      } catch (e) {
+        // An error will be thrown when this `beforeEach` hook is run for the first time. This is
+        // because there is no `snapshotId` yet. We can ignore this error.
+      }
+
+      const newSnapshotId = await provider.send('evm_snapshot', [])
+      snapshotIds[network] = newSnapshotId
+    }
+  })
+
+  it(
+    'Setup -> Propose -> Create project -> Approve deployment',
+    setupThenApproveDeploymentWithSingleOwner
+  )
+
+  describe('After project has been executed', () => {
+    let prevOrgConfig: CanonicalOrgConfig
+    beforeEach(async () => {
+      await setupThenApproveDeploymentWithSingleOwner()
+
+      // Get the previous parsed config, which we will convert into a CanonicalOrgConfig. We can use
+      // a randomly selected provider here because the parsed config doesn't change across networks.
+      const { parsedConfig: prevParsedConfig } = await getParsedOrgConfig(
+        userConfig,
+        projectName,
+        deployerAddress,
+        isTestnet,
+        Object.values(rpcProviders)[0], // Use a random provider
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
+
+      // Convert the previous parsed config into a CanonicalOrgConfig.
+      prevOrgConfig = await toCanonicalOrgConfig(
+        prevParsedConfig,
+        deployerAddress,
+        authAddress,
+        rpcProviders
+      )
+    })
+
+    it('Add contract to project config -> Propose -> Approve deployment -> Execute deployment', async () => {
+      // Make a copy of the user config to avoid mutating the original object, which would impact
+      // other tests.
+      const newUserConfig = structuredClone(userConfig)
+
+      // Add a new contract to the project config.
+      newUserConfig.projects[projectName].contracts['MyContract2'] = {
+        contract: 'Stateless',
+        kind: 'immutable',
+        constructorArgs: {
+          _immutableUint: 2,
+          _immutableAddress: '0x' + '22'.repeat(20),
+        },
+      }
+
+      const leafs = await getAuthLeafs(
+        newUserConfig,
+        prevOrgConfig,
+        rpcProviders,
+        projectName,
+        deployerAddress,
+        testnets,
+        isTestnet,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
+
+      const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
+
+      // There will be a proposal leaf and an approval leaf for each chain.
+      const expectedNumLeafsPerChain = 2
+
+      for (const network of testnets) {
+        const provider = rpcProviders[network]
+
+        const owner = new ethers.Wallet(ownerPrivateKey, provider)
+        // The relayer is the signer that executes the transactions on the Auth contract
+        const relayer = new ethers.Wallet(relayerPrivateKey, provider)
+
+        const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
+        const Deployer = new ethers.Contract(
+          deployerAddress,
+          SphinxManagerABI,
+          relayer
+        )
+
+        const chainId = SUPPORTED_NETWORKS[network]
+        const signature = await signAuthRootMetaTxn(owner, root)
+
+        const { leaf: proposalLeaf, proof: proposalProof } = findBundledLeaf(
+          bundledLeafs,
+          0,
+          chainId
+        )
+        const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
+          bundledLeafs,
+          1,
+          chainId
+        )
+
+        // Check that the state of the Auth bundle is correct before calling the `propose` function.
+        let authState: AuthState = await Auth.authStates(root)
+        expect(authState.status).equals(AuthStatus.EMPTY)
+
+        await Auth.propose(root, proposalLeaf, [signature], proposalProof)
+
+        // Check that the proposal executed correctly.
+        authState = await Auth.authStates(root)
+        expect(authState.status).equals(AuthStatus.PROPOSED)
+        expect(authState.numLeafs).deep.equals(
+          BigNumber.from(expectedNumLeafsPerChain)
+        )
+        expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
+
+        // Check that there is no active deployment before approving the deployment.
+        expect(await Deployer.activeDeploymentId()).equals(
+          ethers.constants.HashZero
+        )
+
+        await Auth.approveDeployment(
+          root,
+          approvalLeaf,
+          [signature],
+          approvalProof
+        )
+
+        // Check that the approve function executed correctly and that all of the leafs in the tree have
+        // been executed.
+        const { parsedConfig, configCache, configArtifacts } =
+          await getParsedOrgConfig(
+            newUserConfig,
+            projectName,
+            deployerAddress,
+            isTestnet,
+            provider,
+            cre,
+            makeGetConfigArtifacts(hre)
+          )
+        const { configUri, bundles } = await getProjectBundleInfo(
+          parsedConfig.projects[projectName],
+          configArtifacts[projectName],
+          configCache[projectName]
+        )
+        const deploymentId = getDeploymentId(bundles, configUri, projectName)
+        expect(await Deployer.activeDeploymentId()).equals(deploymentId)
+        authState = await Auth.authStates(root)
+        expect(authState.status).equals(AuthStatus.COMPLETED)
+
+        // Execute the deployment.
+        const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+        await Deployer.claimDeployment()
+        const success = await executeDeployment(
+          Deployer,
+          bundles,
+          blockGasLimit,
+          configArtifacts[projectName],
+          provider
+        )
+
+        // Check that the deployment executed correctly.
+        expect(success).equals(true)
+        const deployment: DeploymentState = await Deployer.deployments(
+          deploymentId
+        )
+        expect(deployment.status).equals(DeploymentStatus.COMPLETED)
+      }
+    })
+
+    it('Deploy existing project on new chains', async () => {
+      // Make a copy of the user config to avoid mutating the original object, which would impact
+      // other tests.
+      const newUserConfig = structuredClone(userConfig)
+
+      const { options } = newUserConfig
+
+      // This removes a TypeScript error that occurs because TypeScript doesn't know that the
+      // `options` variable is defined.
+      if (!options) {
+        throw new Error(`Options is not defined. Should never happen.`)
+      }
+      options.testnets.push('gnosis-chiado')
+      options.testnets.push('arbitrum-goerli')
+
+      const leafs = await getAuthLeafs(
+        newUserConfig,
+        prevOrgConfig,
+        rpcProviders,
+        projectName,
+        deployerAddress,
+        options.testnets,
+        isTestnet,
+        cre,
+        makeGetConfigArtifacts(hre)
+      )
+
+      await setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute(
+        leafs,
+        ['gnosis-chiado', 'arbitrum-goerli'],
+        4
+      )
+    })
   })
 })
