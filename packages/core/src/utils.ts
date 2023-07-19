@@ -59,6 +59,7 @@ import {
   UserSphinxConfig,
   ParsedOrgConfig,
   GetConfigArtifacts,
+  GetCanonicalOrgConfig,
 } from './config/types'
 import {
   AuthLeaf,
@@ -1215,6 +1216,7 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
  * config, i.e. it has not been used to setup the org on any chain.
  */
 export const getOrgConfigInfo = async (
+  getCanonicalOrgConfig: GetCanonicalOrgConfig,
   userConfig: UserSphinxConfig,
   projectName: string,
   isTestnet: boolean,
@@ -1236,27 +1238,13 @@ export const getOrgConfigInfo = async (
     isTestnet
   )
 
-  const prevOrgConfig = await fetchCanonicalOrgConfig(
+  const prevOrgConfig = await getCanonicalOrgConfig(
     parsedConfigOptions.orgId,
     isTestnet,
     apiKey
   )
 
   if (prevOrgConfig) {
-    // Fill in the chain status for any new networks
-    for (const chainId of parsedConfigOptions.chainIds) {
-      if (!prevOrgConfig.chainStates[chainId]) {
-        prevOrgConfig.chainStates[chainId] = {
-          firstProposalOccurred: false,
-          projects: {
-            [projectName]: {
-              projectCreated: false,
-            },
-          },
-        }
-      }
-    }
-
     return {
       prevOrgConfig,
       isNewConfig: false,

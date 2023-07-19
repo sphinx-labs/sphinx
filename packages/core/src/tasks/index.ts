@@ -20,6 +20,8 @@ import {
   ParsedOrgConfig,
   GetProviderForChainId,
   ConfigArtifacts,
+  UserSphinxConfig,
+  GetCanonicalOrgConfig,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -38,6 +40,7 @@ import {
   relayProposal,
   relayIPFSCommit,
   registerOwner,
+  fetchCanonicalOrgConfig,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -71,14 +74,18 @@ import {
 import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
 import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
-import { readUserSphinxConfig } from '../config/config'
 import { getParsedOrgConfig } from '../config/parse'
 
 // Load environment variables from .env
 dotenv.config()
 
+/**
+ * @param getCanonicalOrgConfig A function that returns the canonical org config. By default,
+ * this function will fetch the canonical org config from the back-end. However, it can be
+ * overridden to return a different canonical org config. This is useful for testing.
+ */
 export const proposeAbstractTask = async (
-  configPath: string,
+  userConfig: UserSphinxConfig,
   isTestnet: boolean,
   projectName: string,
   dryRun: boolean,
@@ -86,8 +93,9 @@ export const proposeAbstractTask = async (
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
-  failureAction: FailureAction = FailureAction.EXIT
-) => {
+  failureAction: FailureAction = FailureAction.EXIT,
+  getCanonicalOrgConfig: GetCanonicalOrgConfig = fetchCanonicalOrgConfig
+): Promise<ProposalRequest> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     throw new Error(`Must provide a 'SPHINX_API_KEY' environment variable.`)
@@ -102,9 +110,8 @@ export const proposeAbstractTask = async (
   const wallet = new ethers.Wallet(privateKey)
   const signerAddress = await wallet.getAddress()
 
-  const userConfig = await readUserSphinxConfig(configPath)
-
   const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
+    getCanonicalOrgConfig,
     userConfig,
     projectName,
     isTestnet,
@@ -147,29 +154,6 @@ export const proposeAbstractTask = async (
     parsedConfig = parsedOrgConfigValues.parsedConfig
     configArtifacts = parsedOrgConfigValues.configArtifacts
     const configCache = parsedOrgConfigValues.configCache
-
-    const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
-
-    if (
-      firstProposalOccurred &&
-      !prevOrgConfig.options.proposers.includes(signerAddress)
-    ) {
-      throw new Error(
-        `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
-          `Current proposers: ${prevOrgConfig.options.proposers.map(
-            (proposer) => `\n- ${proposer}`
-          )}`
-      )
-    }
-
-    if (
-      !firstProposalOccurred &&
-      !parsedConfig.options.proposers.includes(signerAddress)
-    ) {
-      throw new Error(
-        `Signer must be a proposer in the config file. Signer's address: ${signerAddress}`
-      )
-    }
 
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
@@ -245,9 +229,38 @@ export const proposeAbstractTask = async (
     const { chainId, index, to, leafType } = prettyLeaf
     const { data } = leaf
 
-    const { firstProposalOccurred } = prevOrgConfig.chainStates[chainId]
-    const { projectCreated } =
-      prevOrgConfig.chainStates[chainId].projects[projectName]
+    let firstProposalOccurred: boolean
+    let projectCreated: boolean
+    const chainStates = prevOrgConfig.chainStates[chainId]
+    if (!chainStates) {
+      firstProposalOccurred = false
+      projectCreated = false
+    } else {
+      firstProposalOccurred = chainStates.firstProposalOccurred
+      const project = chainStates.projects[projectName]
+      projectCreated = project && project.projectCreated
+    }
+
+    if (
+      firstProposalOccurred &&
+      !prevOrgConfig.options.proposers.includes(signerAddress)
+    ) {
+      throw new Error(
+        `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
+          `Current proposers: ${prevOrgConfig.options.proposers.map(
+            (proposer) => `\n- ${proposer}`
+          )}`
+      )
+    }
+
+    if (
+      !firstProposalOccurred &&
+      !parsedConfig.options.proposers.includes(signerAddress)
+    ) {
+      throw new Error(
+        `Signer must be a proposer in the config file. Signer's address: ${signerAddress}`
+      )
+    }
 
     let orgOwners: string[]
     let proposers: string[]
@@ -312,9 +325,9 @@ export const proposeAbstractTask = async (
     })
   }
 
-  const chainStates: CanonicalOrgConfig['chainStates'] = {}
+  const newChainStates: CanonicalOrgConfig['chainStates'] = {}
   for (const chainId of chainIds) {
-    chainStates[chainId] = {
+    newChainStates[chainId] = {
       firstProposalOccurred: true,
       projects: {
         [projectName]: {
@@ -324,16 +337,16 @@ export const proposeAbstractTask = async (
     }
   }
 
-  const canonicalOrgConfig: CanonicalOrgConfig = {
+  const newCanonicalOrgConfig: CanonicalOrgConfig = {
     deployer: prevOrgConfig.deployer,
     options: parsedConfig.options,
     projects: parsedConfig.projects,
-    chainStates,
+    chainStates: newChainStates,
   }
 
   const authAddress = getAuthAddress(
-    canonicalOrgConfig.options.orgOwners,
-    canonicalOrgConfig.options.orgThreshold
+    newCanonicalOrgConfig.options.orgOwners,
+    newCanonicalOrgConfig.options.orgThreshold
   )
   const deployerAddress = getSphinxManagerAddress(authAddress)
 
@@ -345,11 +358,11 @@ export const proposeAbstractTask = async (
     isTestnet,
     chainIds,
     deploymentName: projectName,
-    orgOwners: canonicalOrgConfig.options.orgOwners,
-    orgOwnerThreshold: canonicalOrgConfig.options.orgThreshold,
+    orgOwners: newCanonicalOrgConfig.options.orgOwners,
+    orgOwnerThreshold: newCanonicalOrgConfig.options.orgThreshold,
     authAddress,
     deployerAddress,
-    orgCanonicalConfig: JSON.stringify(canonicalOrgConfig),
+    orgCanonicalConfig: JSON.stringify(newCanonicalOrgConfig),
     projectDeployments,
     gasEstimates,
     orgTree: {
@@ -367,6 +380,8 @@ export const proposeAbstractTask = async (
   }
 
   spinner.succeed(`${dryRun ? 'Dry run' : 'Proposal'} succeeded!`)
+
+  return proposalRequest
 }
 
 export const sphinxCommitAbstractSubtask = async (

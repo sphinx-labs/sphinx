@@ -317,6 +317,12 @@ export type GetProviderForChainId = (
   chainId: number
 ) => providers.JsonRpcProvider
 
+export type GetCanonicalOrgConfig = (
+  orgId: string,
+  isTestnet: boolean,
+  apiKey: string
+) => Promise<CanonicalOrgConfig | undefined>
+
 export interface CanonicalOrgConfig {
   deployer: string
   options: {

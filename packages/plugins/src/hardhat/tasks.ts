@@ -20,6 +20,7 @@ import {
   isHardhatFork,
   isLocalNetwork,
   proposeAbstractTask,
+  readUserSphinxConfig,
 } from '@sphinx/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
@@ -195,7 +196,7 @@ export const sphinxProposeTask = async (
   )
 
   await proposeAbstractTask(
-    configPath,
+    await readUserSphinxConfig(configPath),
     isTestnet,
     project,
     dryRun,

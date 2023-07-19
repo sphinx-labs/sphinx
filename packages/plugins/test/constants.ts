@@ -40,24 +40,23 @@ export const ownerPrivateKey =
 export const relayerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
 
-export const isTestnet = true
 export const testnets = ['goerli', 'optimism-goerli']
 export const rpcProviders = {
-  goerli: new ethers.providers.JsonRpcProvider('http://localhost:8545'),
+  goerli: new ethers.providers.JsonRpcProvider('http://localhost:42005'),
   'optimism-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:8546'
+    'http://localhost:42420'
   ),
   'gnosis-chiado': new ethers.providers.JsonRpcProvider(
-    'http://localhost:8547'
+    'http://localhost:42102'
   ),
   'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:8548'
+    'http://localhost:42613'
   ),
 }
 export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
 
 export const orgOwners = [ownerAddress]
-export const userConfig: UserSphinxConfig = {
+export const sampleUserConfig: UserSphinxConfig = {
   options: {
     orgId: DUMMY_ORG_ID,
     orgOwners,
@@ -74,12 +73,12 @@ export const authData = getAuthData(orgOwners, orgThreshold)
 export const authAddress = getAuthAddress(orgOwners, orgThreshold)
 export const deployerAddress = getSphinxManagerAddress(authAddress)
 
-export const projectName = 'MyProject'
-export const projectThreshold = 1
-userConfig.projects[projectName] = {
+export const sampleProjectName = 'MyProject'
+export const sampleProjectThreshold = 1
+sampleUserConfig.projects[sampleProjectName] = {
   options: {
     projectOwners: [ownerAddress],
-    projectThreshold,
+    projectThreshold: sampleProjectThreshold,
   },
   contracts: {
     MyContract: {
