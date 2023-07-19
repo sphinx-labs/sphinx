@@ -192,6 +192,7 @@ contract SphinxUtils is
        causes an error to be thrown by Forge.
      */
     function ffiGetEncodedBundleInfo(
+        string memory _rpcUrl,
         ConfigCache memory _configCache,
         string memory _projectName,
         string memory _userConfigStr,
@@ -199,7 +200,7 @@ contract SphinxUtils is
         address _owner
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](8);
+        string[] memory cmds = new string[](9);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
@@ -208,6 +209,7 @@ contract SphinxUtils is
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
         cmds[6] = _projectName;
         cmds[7] = vm.toString(_owner);
+        cmds[8] = _rpcUrl;
 
         bytes memory result = vm.ffi(cmds);
         return result;

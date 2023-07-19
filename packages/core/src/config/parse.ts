@@ -205,6 +205,7 @@ export const getParsedOrgConfig = async (
   )
 
   await postParsingValidation(
+    provider,
     projectConfigs,
     configArtifacts,
     cre,
@@ -359,6 +360,7 @@ export const readParsedOwnerConfig = async (
   )
 
   await postParsingValidation(
+    provider,
     projectConfigs,
     configArtifacts,
     cre,
@@ -2514,6 +2516,7 @@ export const assertNoUpgradableContracts = (
 }
 
 export const projectPostParsingValidation = async (
+  provider: providers.JsonRpcProvider,
   parsedProjectConfig: ParsedProjectConfig,
   projectConfigArtifacts: ProjectConfigArtifacts,
   projectName: string,
@@ -2534,7 +2537,8 @@ export const projectPostParsingValidation = async (
 
   assertValidBlockGasLimit(blockGasLimit)
 
-  assertAvailableCreate3Addresses(
+  await assertAvailableCreate3Addresses(
+    provider,
     parsedProjectConfig,
     projectConfigArtifacts,
     cre,
@@ -2583,6 +2587,7 @@ export const projectPostParsingValidation = async (
 }
 
 export const postParsingValidation = async (
+  provider: providers.JsonRpcProvider,
   projectConfigs: ParsedProjectConfigs,
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
@@ -2593,6 +2598,7 @@ export const postParsingValidation = async (
     projectConfigs
   )) {
     await projectPostParsingValidation(
+      provider,
       parsedProjectConfig,
       configArtifacts[projectName],
       projectName,
@@ -2715,15 +2721,13 @@ export const assertImmutableDeploymentsDoNotRevert = (
   }
 }
 
-const assertAvailableCreate3Addresses = (
+const assertAvailableCreate3Addresses = async (
+  provider: providers.JsonRpcProvider,
   parsedConfig: ParsedProjectConfig,
   configArtifacts: ProjectConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   contractConfigCache: ContractConfigCache
-): void => {
-  // List of reference names that correspond to the unavailable Create3 addresses
-  const unavailable: string[] = []
-
+): Promise<void> => {
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
@@ -2745,31 +2749,18 @@ const assertAvailableCreate3Addresses = (
             BigNumber.from(currHash)
           )
         : false
-      if (match) {
+      if (!match) {
+        const { chainId } = await provider.getNetwork()
         logValidationError(
           'warning',
-          `Skipping deployment of ${referenceName} since it has already been deployed and has not changed. Add a new 'salt' value to re-deploy it at a new address.`,
+          `Skipping deployment of ${referenceName} on ${chainId} because a contract with this reference name has\n` +
+            `already been deployed. Add a new 'salt' value to re-deploy it at a new address.`,
           [],
           cre.silent,
           cre.stream
         )
-      } else {
-        unavailable.push(referenceName)
       }
     }
-  }
-
-  if (unavailable.length > 0) {
-    logValidationError(
-      'error',
-      `A contract has already been deployed at the Create3 address for the following contracts.\n` +
-        `Please add a new 'salt' field for each of these contracts in the config.`,
-      unavailable.map((referenceName) => {
-        return `  - ${referenceName}`
-      }),
-      cre.silent,
-      cre.stream
-    )
   }
 }
 

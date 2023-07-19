@@ -136,6 +136,7 @@ contract Sphinx is Script {
         ConfigCache memory configCache = abi.decode(retdata, (ConfigCache));
 
         BundleInfo memory bundleInfo = getBundleInfo(
+            _rpcUrl,
             configCache,
             _projectName,
             configs.userConfigStr,
@@ -256,6 +257,7 @@ contract Sphinx is Script {
     }
 
     function getBundleInfo(
+        string memory _rpcUrl,
         ConfigCache memory _configCache,
         string memory _projectName,
         string memory _userConfigStr,
@@ -264,6 +266,7 @@ contract Sphinx is Script {
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.ffiGetEncodedBundleInfo.selector,
+                _rpcUrl,
                 _configCache,
                 _projectName,
                 _userConfigStr,
