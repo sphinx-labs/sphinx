@@ -1,11 +1,11 @@
-export const sampleChugSplashFileTypeScript = `import { UserChugSplashConfig } from '@chugsplash/core'
+export const sampleSphinxFileTypeScript = `import { UserSphinxConfig } from '@sphinx/core'
 
-const config: UserChugSplashConfig = {
+const config: UserSphinxConfig = {
   projects: {
     MyFirstProject: {
       contracts: {
         MyContract: {
-          contract: 'HelloChugSplash',
+          contract: 'HelloSphinx',
           kind: 'immutable',
           constructorArgs: {
             _number: 1,
@@ -19,13 +19,13 @@ const config: UserChugSplashConfig = {
 export default config
 `
 
-export const sampleChugSplashFileJavaScript = `
+export const sampleSphinxFileJavaScript = `
 module.exports = {
   projects: {
     MyFirstProject: {
       contracts: {
         MyContract: {
-          contract: 'HelloChugSplash',
+          contract: 'HelloSphinx',
           kind: 'immutable',
           constructorArgs: {
             _number: 1,

@@ -1,17 +1,17 @@
 import * as fs from 'fs'
 import path from 'path'
 
-import { execAsync } from '@chugsplash/core'
+import { execAsync } from '@sphinx/core'
 import {
   foundryTestFileName,
   foundryScriptFileName,
   sampleContractFileName,
   sampleConfigFileNameTypeScript,
   hhTestFileNameTypeScript,
-} from '@chugsplash/plugins'
+} from '@sphinx/plugins'
 import { expect } from 'chai'
 
-const configDirPath = 'chugsplash'
+const configDirPath = 'sphinx'
 
 describe('Init Task', () => {
   let configPath: string
@@ -58,7 +58,7 @@ describe('Init Task', () => {
     expect(fs.existsSync(foundryTestPath)).to.be.false
     expect(fs.existsSync(foundryScriptPath)).to.be.false
 
-    await execAsync('npx chugsplash init --ts')
+    await execAsync('npx sphinx init --ts')
 
     // Check that the files have been created
     expect(fs.existsSync(configPath)).to.be.true
@@ -80,7 +80,7 @@ describe('Init Task', () => {
 
     // This command infers that we're using a TypeScript project based on the fact that we have a
     // hardhat.config.ts (instead of .js).
-    await execAsync('npx hardhat chugsplash-init')
+    await execAsync('npx hardhat sphinx-init')
 
     // Check that the files have been created
     expect(fs.existsSync(configPath)).to.be.true
@@ -93,7 +93,7 @@ describe('Init Task', () => {
       `npx hardhat test ${hardhatTestPath} --config-path ${configPath} --project MyFirstProject --use-default-signer`
     )
     await execAsync(
-      `npx hardhat chugsplash-deploy --config-path ${configPath} --project MyFirstProject --use-default-signer`
+      `npx hardhat sphinx-deploy --config-path ${configPath} --project MyFirstProject --use-default-signer`
     )
   })
 })

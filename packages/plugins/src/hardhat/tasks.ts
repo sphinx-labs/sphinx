@@ -566,8 +566,8 @@ export const sphinxInitTask = async (
 }
 
 task(TASK_SPHINX_INIT)
-  .setDescription('Sets up a sample ChugSplash project.')
-  .addFlag('silent', "Hide ChugSplash's logs")
+  .setDescription('Sets up a sample Sphinx project.')
+  .addFlag('silent', "Hide Sphinx's logs")
   .setAction(sphinxInitTask)
 
 const resolveOwner = async (

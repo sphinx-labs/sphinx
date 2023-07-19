@@ -31,7 +31,7 @@
   },
   "scripts": {
     "build": "yarn workspaces run build",
-    "test": "yarn workspaces run test:coverage",
+    "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
     "lint": "yarn workspaces run lint",
     "lint:fix": "yarn workspaces run lint:fix"
