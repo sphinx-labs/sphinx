@@ -44,8 +44,11 @@ import {
   AUTH_IMPL_V1_ADDRESS,
   getDestinationChains,
 } from './addresses'
-import { SUPPORTED_NETWORKS } from './constants'
-import { LAYERZERO_ADDRESSES, SupportedChainId } from './networks'
+import {
+  LAYERZERO_ADDRESSES,
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+} from './networks'
 
 export const getSphinxConstants = (
   chainId: number,

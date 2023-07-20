@@ -8,7 +8,7 @@ const config: UserSphinxConfig = {
     orgThreshold: 1,
     orgId: 'cljvzl0om0001cbyqh3jw2tgo',
     mainnets: [],
-    testnets: ['goerli', 'optimism-goerli', 'arbitrum-goerli'],
+    testnets: ['goerli', 'optimism-goerli'],
     proposers: [ownerAddress],
     managers: [ownerAddress],
   },

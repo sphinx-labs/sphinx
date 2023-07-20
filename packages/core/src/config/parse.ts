@@ -77,13 +77,7 @@ import {
   ParsedProjectConfigs,
   ParsedOwnerConfig,
 } from './types'
-import {
-  CONTRACT_SIZE_LIMIT,
-  Keyword,
-  SUPPORTED_MAINNETS,
-  SUPPORTED_TESTNETS,
-  keywords,
-} from '../constants'
+import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -105,6 +99,7 @@ import { OZ_UUPS_UPDATER_ADDRESS, getSphinxManagerAddress } from '../addresses'
 import { resolveNetworkName } from '../messages'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import { readUserSphinxConfig } from '../config'
+import { SUPPORTED_MAINNETS, SUPPORTED_TESTNETS } from '../networks'
 
 export class ValidationError extends Error {
   constructor(message: string) {

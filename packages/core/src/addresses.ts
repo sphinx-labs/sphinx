@@ -29,8 +29,8 @@ import {
 } from '@sphinx/contracts'
 import { constants, utils } from 'ethers'
 
-import { CURRENT_SPHINX_MANAGER_VERSION, SUPPORTED_NETWORKS } from './constants'
-import { LAYERZERO_ADDRESSES } from './networks'
+import { CURRENT_SPHINX_MANAGER_VERSION } from './constants'
+import { LAYERZERO_ADDRESSES, SUPPORTED_NETWORKS } from './networks'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
