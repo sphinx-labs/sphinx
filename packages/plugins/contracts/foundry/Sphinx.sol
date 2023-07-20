@@ -37,8 +37,7 @@ contract Sphinx is Script {
 
     // Maps a Sphinx config path to a deployed contract's reference name to the deployed
     // contract's address.
-    mapping(string => mapping(string => mapping(string => mapping(bytes32 => address))))
-        private deployed;
+    mapping(string => mapping(string => mapping(bytes32 => address))) private deployed;
 
     ISphinxUtils internal utils;
 
@@ -80,14 +79,10 @@ contract Sphinx is Script {
     }
 
     // This is the entry point for the Sphinx deploy command.
-    function deploy(
-        string memory _configPath,
-        string memory _projectName,
-        string memory _rpcUrl
-    ) public {
+    function deploy(string memory _configPath, string memory _rpcUrl) public {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
-        deploy(_configPath, _projectName, _rpcUrl, newOwner);
+        deploy(_configPath, _rpcUrl, newOwner);
     }
 
     function initializeSphinx(string memory _rpcUrl) internal {
@@ -109,14 +104,13 @@ contract Sphinx is Script {
 
     function deploy(
         string memory _configPath,
-        string memory _projectName,
         string memory _rpcUrl,
         OptionalAddress memory _newOwner
     ) private noVmBroadcast {
         initializeSphinx(_rpcUrl);
         address owner = utils.msgSender();
 
-        Configs memory configs = ffiGetConfigs(_configPath, _projectName, owner);
+        Configs memory configs = ffiGetConfigs(_configPath, owner);
 
         ISphinxRegistry registry = utils.getSphinxRegistry();
         ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
@@ -138,7 +132,6 @@ contract Sphinx is Script {
         BundleInfo memory bundleInfo = getBundleInfo(
             _rpcUrl,
             configCache,
-            _projectName,
             configs.userConfigStr,
             owner
         );
@@ -159,7 +152,7 @@ contract Sphinx is Script {
 
         // Claim the project with the signer as the owner. Once we've completed the deployment
         // we'll transfer ownership to the new owner specified by the user, if it exists.
-        register(registry, manager, owner);
+        register(configs.minimalConfig.projectName, registry, manager, owner);
 
         if (
             bundleInfo.actionBundle.actions.length == 0 &&
@@ -172,8 +165,7 @@ contract Sphinx is Script {
         bytes32 deploymentId = utils.getDeploymentId(
             bundleInfo.actionBundle,
             bundleInfo.targetBundle,
-            bundleInfo.configUri,
-            configs.minimalConfig.projectName
+            bundleInfo.configUri
         );
 
         DeploymentState memory deploymentState = manager.deployments(deploymentId);
@@ -195,7 +187,6 @@ contract Sphinx is Script {
                 bundleInfo.actionBundle.actions
             );
             manager.approve{ gas: 1000000 }(
-                configs.minimalConfig.projectName,
                 bundleInfo.actionBundle.root,
                 bundleInfo.targetBundle.root,
                 bundleInfo.actionBundle.actions.length,
@@ -237,7 +228,7 @@ contract Sphinx is Script {
             transferProjectOwnership(manager, _newOwner.value, owner);
         }
 
-        updateDeploymentMapping(_configPath, _projectName, configs.minimalConfig.contracts);
+        updateDeploymentMapping(_configPath, configs.minimalConfig.contracts);
 
         if (!silent) {
             console.log("Success!");
@@ -259,7 +250,6 @@ contract Sphinx is Script {
     function getBundleInfo(
         string memory _rpcUrl,
         ConfigCache memory _configCache,
-        string memory _projectName,
         string memory _userConfigStr,
         address _owner
     ) private returns (BundleInfo memory) {
@@ -268,7 +258,6 @@ contract Sphinx is Script {
                 ISphinxUtils.ffiGetEncodedBundleInfo.selector,
                 _rpcUrl,
                 _configCache,
-                _projectName,
                 _userConfigStr,
                 rootFfiPath,
                 _owner
@@ -280,12 +269,13 @@ contract Sphinx is Script {
     }
 
     function register(
+        string memory _projectName,
         ISphinxRegistry _registry,
         ISphinxManager _manager,
         address _newOwner
     ) private {
         if (!utils.isProjectRegistered(_registry, address(_manager))) {
-            _registry.register{ gas: 1000000 }(_newOwner, 0, new bytes(0));
+            _registry.register{ gas: 1000000 }(_newOwner, _projectName, new bytes(0));
         } else {
             address existingOwner = IOwnable(address(_manager)).owner();
             if (existingOwner != _newOwner) {
@@ -317,12 +307,11 @@ contract Sphinx is Script {
 
     function updateDeploymentMapping(
         string memory _configPath,
-        string memory _projectName,
         MinimalContractConfig[] memory _contractConfigs
     ) private {
         for (uint i = 0; i < _contractConfigs.length; i++) {
             MinimalContractConfig memory contractConfig = _contractConfigs[i];
-            deployed[_configPath][_projectName][contractConfig.referenceName][
+            deployed[_configPath][contractConfig.referenceName][
                 contractConfig.userSaltHash
             ] = contractConfig.addr;
         }
@@ -333,12 +322,11 @@ contract Sphinx is Script {
     // future FFI calls.
     function ffiGetConfigs(
         string memory _configPath,
-        string memory _projectName,
         address _owner
     ) internal returns (Configs memory) {
         string memory ffiScriptPath = string(abi.encodePacked(rootFfiPath, "get-configs.js"));
 
-        string[] memory cmds = new string[](7);
+        string[] memory cmds = new string[](6);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript Sphinx config files.
         cmds[1] = "ts-node";
@@ -346,8 +334,7 @@ contract Sphinx is Script {
         cmds[2] = "--swc";
         cmds[3] = ffiScriptPath;
         cmds[4] = _configPath;
-        cmds[5] = _projectName;
-        cmds[6] = vm.toString(_owner);
+        cmds[5] = vm.toString(_owner);
 
         bytes memory result = vm.ffi(cmds);
 
@@ -370,19 +357,17 @@ contract Sphinx is Script {
 
     function getAddress(
         string memory _configPath,
-        string memory _projectName,
         string memory _referenceName
     ) public view returns (address) {
-        return getAddress(_configPath, _projectName, _referenceName, bytes32(0));
+        return getAddress(_configPath, _referenceName, bytes32(0));
     }
 
     function getAddress(
         string memory _configPath,
-        string memory _projectName,
         string memory _referenceName,
         bytes32 userSaltHash
     ) public view returns (address) {
-        address addr = deployed[_configPath][_projectName][_referenceName][userSaltHash];
+        address addr = deployed[_configPath][_referenceName][userSaltHash];
 
         require(
             utils.getCodeSize(addr) > 0,

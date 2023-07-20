@@ -5,9 +5,7 @@ contract SphinxManagerEvents {
     /**
      * @notice Emitted when a deployment is approved.
 
-     * @param projectNameHash   Hash of the project name that was approved.
      * @param deploymentId   ID of the deployment that was approved.
-     * @param projectName    Project name that was approved.
      * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
      * @param numActions   Number of actions in the deployment.
@@ -19,8 +17,6 @@ contract SphinxManagerEvents {
      */
     event SphinxDeploymentApproved(
         bytes32 indexed deploymentId,
-        string indexed projectNameHash,
-        string projectName,
         bytes32 actionRoot,
         bytes32 targetRoot,
         uint256 numActions,
@@ -54,7 +50,7 @@ contract SphinxManagerEvents {
      */
     event ProxiesInitiated(bytes32 indexed deploymentId, address indexed executor);
 
-    event ProxyUpgraded(bytes32 indexed deploymentId, address indexed proxy, string projectName);
+    event ProxyUpgraded(bytes32 indexed deploymentId, address indexed proxy);
 
     /**
      * @notice Emitted when a deployment is completed.
@@ -160,21 +156,15 @@ contract SphinxManagerEvents {
      * @notice Emitted when a deployment fails. This should only occur if the constructor of a
        deployed contract reverts.
      *
-     * @param projectNameHash Hash of the project name.
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
      * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
-     * @param projectName       String project name.
      * @param referenceName     String reference name.
      */
     event DeploymentFailed(
-        string indexed projectNameHash,
         string indexed referenceNameHash,
         bytes32 indexed deploymentId,
-        string projectName,
         string referenceName
     );
 
     event ProtocolDebtAdded(uint256 cost, uint256 totalProtocolDebt);
-
-    event ContractTransferred(string projectNameHash, address contractAddress, string projectName);
 }

@@ -76,32 +76,24 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export interface UserSphinxConfig {
-  options?: UserOrgConfigOptions
-  projects: UserProjectConfigs
-}
+export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 
-export type ProjectConfigOptions = {
-  projectOwners: Array<string>
-  projectThreshold: number
-}
-
-/**
- * Full user-defined config object that can be used to commit a deployment/upgrade.
- */
-export interface UserProjectConfig {
-  options?: ProjectConfigOptions
+export type UserConfig = {
+  project: string
   contracts: UserContractConfigs
+  options?: never
 }
 
-export type UserProjectConfigs = {
-  [projectName: string]: UserProjectConfig
+export type UserConfigWithOptions = {
+  project: string
+  contracts: UserContractConfigs
+  options: UserConfigOptions
 }
 
 /**
  * @notice The `mainnets` field is an array of network names, e.g. ['mainnet', 'optimism'].
  */
-export interface UserOrgConfigOptions extends OrgConfigOptions {
+export interface UserConfigOptions extends ConfigOptions {
   mainnets: Array<string>
   testnets: Array<string>
 }
@@ -110,69 +102,34 @@ export interface UserOrgConfigOptions extends OrgConfigOptions {
  * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
  * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
  * determined by the value of the boolean variable `isTestnet`, which is passed into the
- * `getParsedOrgConfig` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
+ * `getParsedConfigWithOptions` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
  * `mainnets`.
  */
-export interface ParsedOrgConfigOptions extends OrgConfigOptions {
+export interface ParsedConfigOptions extends ConfigOptions {
   chainIds: Array<number>
 }
 
-/**
- * @notice If any new fields are added to this interface, they must also be set in
- * `OwnerConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
- * both of these interfaces are mutually exclusive.
- */
-export interface OrgConfigOptions {
+export interface ConfigOptions {
   orgId: string
-  orgOwners: Array<string>
-  orgThreshold: number
+  owners: Array<string>
+  threshold: number
   proposers: Array<string>
-  managers: Array<string>
-  owner?: never
 }
 
-/**
- * @notice If any new fields are added to this interface, they must also be set in
- * `OrgConfigOptions` as 'never'. For example: `newField?: never`. This is to ensure that
- * both of these interfaces are mutually exclusive.
- */
-export type OwnerConfigOptions = {
-  owner: string
-  orgId?: never
-  orgThreshold?: never
-  orgOwners?: never
-  proposers?: never
-  managers?: never
-  networks?: never
-}
-
-export interface ParsedOwnerConfig {
-  options: OwnerConfigOptions
-  projects: ParsedProjectConfigs
-}
-
-export interface ParsedOrgConfig {
-  options: ParsedOrgConfigOptions
-  projects: ParsedProjectConfigs
-}
-
-export interface ParsedProjectConfigOptions {
-  deployer: string
+export interface ParsedConfig {
   project: string
-  projectOwners?: Array<string>
-  projectThreshold?: number
-}
-
-/**
- * Full parsed config object.
- */
-export interface ParsedProjectConfig {
-  options: ParsedProjectConfigOptions
+  deployer: string
   contracts: ParsedContractConfigs
 }
 
-export type ParsedProjectConfigs = {
-  [projectName: string]: ParsedProjectConfig
+export interface ParsedOwnerConfig extends ParsedConfig {
+  owner: string
+  options?: never
+}
+
+export interface ParsedConfigWithOptions extends ParsedConfig {
+  options: ParsedConfigOptions
+  owner?: never
 }
 
 export type UnsafeAllow = {
@@ -240,7 +197,7 @@ export type ParsedConfigVariables = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CanonicalProjectConfig extends ParsedProjectConfig {
+export interface CompilerConfig extends ParsedConfig {
   inputs: Array<SphinxInput>
 }
 
@@ -252,10 +209,6 @@ export type SphinxInput = {
 }
 
 export type ConfigArtifacts = {
-  [projectName: string]: ProjectConfigArtifacts
-}
-
-export type ProjectConfigArtifacts = {
   [referenceName: string]: {
     buildInfo: BuildInfo
     artifact: ContractArtifact
@@ -263,10 +216,6 @@ export type ProjectConfigArtifacts = {
 }
 
 export type ConfigCache = {
-  [projectName: string]: ProjectConfigCache
-}
-
-export type ProjectConfigCache = {
   isRegistered: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
@@ -276,7 +225,6 @@ export type ProjectConfigCache = {
 
 export type ContractConfigCache = {
   [referenceName: string]: {
-    existingProjectName: string
     isTargetDeployed: boolean
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
@@ -311,36 +259,27 @@ export type MinimalContractConfig = {
 
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
-) => Promise<ProjectConfigArtifacts>
+) => Promise<ConfigArtifacts>
 
 export type GetProviderForChainId = (
   chainId: number
 ) => providers.JsonRpcProvider
 
-export type GetCanonicalOrgConfig = (
+export type GetCanonicalConfig = (
   orgId: string,
   isTestnet: boolean,
   apiKey: string
-) => Promise<CanonicalOrgConfig | undefined>
+) => Promise<CanonicalConfig | undefined>
 
-export interface CanonicalOrgConfig {
+export interface CanonicalConfig {
   deployer: string
-  options: {
-    orgId: string
-    orgOwners: Array<string>
-    orgThreshold: number
-    proposers: Array<string>
-    managers: Array<string>
-  }
-  projects: ParsedProjectConfigs
+  project: string
+  options: ConfigOptions
+  contracts: ParsedContractConfigs
   chainStates: {
     [chainId: number]: {
       firstProposalOccurred: boolean
-      projects: {
-        [projectName: string]: {
-          projectCreated: boolean
-        }
-      }
+      projectCreated: boolean
     }
   }
 }

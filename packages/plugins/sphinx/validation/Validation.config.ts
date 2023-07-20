@@ -1,8 +1,7 @@
-import { UserProjectConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx/core'
 
-const projectName = 'VariableValidation'
-
-const config: UserProjectConfig = {
+const config: UserConfig = {
+  project: 'Validation',
   contracts: {
     // Ignore the fact that there's a TypeScript warning on this field. This config intentionally
     // does not have a 'kind' field to test that an error is thrown when it's missing.
@@ -74,4 +73,4 @@ const config: UserProjectConfig = {
   },
 }
 
-export { config, projectName }
+export default config

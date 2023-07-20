@@ -6,20 +6,14 @@ import { Signer, ethers } from 'ethers'
 import {
   isEmptySphinxConfig,
   isContractDeployed,
-  deployAbstractTask,
   writeSnapshotId,
   resolveNetworkName,
-  readUserSphinxConfig,
-  readParsedOwnerConfig,
   getSphinxManagerAddress,
   getTargetAddress,
   UserSalt,
+  readUserSphinxConfig,
 } from '@sphinx/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import ora from 'ora'
-
-import { makeGetConfigArtifacts } from './artifacts'
-import { createSphinxRuntime } from '../cre'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -61,63 +55,6 @@ export const getSignerFromAddress = async (
   return signer
 }
 
-/**
- * Deploys a list of Sphinx config files.
- *
- * @param hre Hardhat Runtime Environment.
- * @param contractName Name of the contract in the config file.
- */
-export const deployAllSphinxProjects = async (
-  hre: HardhatRuntimeEnvironment,
-  silent: boolean,
-  configPath: string,
-  signer: Signer,
-  projectNames: string[]
-) => {
-  const spinner = ora({ isSilent: silent })
-
-  const provider = hre.ethers.provider
-
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const deploymentFolder = hre.config.paths.deployments
-  const getConfigArtifacts = makeGetConfigArtifacts(hre)
-
-  const cre = await createSphinxRuntime(
-    false,
-    true,
-    canonicalConfigPath,
-    hre,
-    silent
-  )
-
-  for (const projectName of projectNames) {
-    const { parsedConfig, configArtifacts, configCache } =
-      await readParsedOwnerConfig(
-        configPath,
-        projectName,
-        hre.ethers.provider,
-        cre,
-        getConfigArtifacts,
-        await signer.getAddress()
-      )
-
-    const projectConfig = parsedConfig.projects[projectName]
-    await deployAbstractTask(
-      provider,
-      signer,
-      canonicalConfigPath,
-      deploymentFolder,
-      'hardhat',
-      cre,
-      projectConfig,
-      configCache[projectName],
-      configArtifacts[projectName],
-      undefined,
-      spinner
-    )
-  }
-}
-
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
@@ -141,15 +78,14 @@ export const getContract = async (
   )
 
   const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
-    const projects = resolvedConfig.config.projects
-    if (!projects) {
+    const config = resolvedConfig.config
+    if (!config.project) {
       return false
     }
-    const projectConfig = projects[projectName]
     return (
-      projectConfig &&
-      Object.keys(projectConfig.contracts).includes(referenceName) &&
-      projectConfig.contracts[referenceName].salt === userSalt
+      config.project === projectName &&
+      Object.keys(config.contracts).includes(referenceName) &&
+      config.contracts[referenceName].salt === userSalt
     )
   })
 
@@ -166,14 +102,16 @@ export const getContract = async (
     )
   }
 
-  const userConfig = userConfigs[0]
-  const deployer = getSphinxManagerAddress(await owner.getAddress())
-  const project = userConfig.config.projects[projectName]
-  const contractConfig = project.contracts[referenceName]
+  const { config: userConfig } = userConfigs[0]
+  const deployer = getSphinxManagerAddress(
+    await owner.getAddress(),
+    projectName
+  )
+  const contractConfig = userConfig.contracts[referenceName]
 
   const address =
     contractConfig.address ??
-    getTargetAddress(deployer, projectName, referenceName, contractConfig.salt)
+    getTargetAddress(deployer, referenceName, contractConfig.salt)
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(
       `The contract for ${referenceName} has not been deployed. Address: ${address}`
@@ -184,7 +122,7 @@ export const getContract = async (
     address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
-        project.contracts[referenceName].contract
+        userConfig.contracts[referenceName].contract
       ).abi
     ),
     hre.ethers.provider.getSigner()

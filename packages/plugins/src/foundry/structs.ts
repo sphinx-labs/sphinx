@@ -1,10 +1,10 @@
-import { ProjectConfigCache } from '@sphinx/core/dist/config/types'
+import { ConfigCache } from '@sphinx/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
   SphinxUtilsABI: any
-): ProjectConfigCache => {
+): ConfigCache => {
   const configCacheType = SphinxUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
@@ -14,7 +14,7 @@ export const decodeCachedConfig = (
     encodedConfigCache
   )[0]
 
-  const structuredConfigCache: ProjectConfigCache = {
+  const structuredConfigCache: ConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
     localNetwork: configCache.localNetwork,
     networkName: configCache.networkName,
@@ -24,7 +24,6 @@ export const decodeCachedConfig = (
 
   for (const cachedContract of configCache.contractConfigCache) {
     structuredConfigCache.contractConfigCache[cachedContract.referenceName] = {
-      existingProjectName: cachedContract.existingProjectName,
       isTargetDeployed: cachedContract.isTargetDeployed,
       deploymentRevert: {
         deploymentReverted: cachedContract.deploymentRevert.deploymentReverted,

@@ -44,8 +44,8 @@ import {
   isLocalNetwork,
   isOpenZeppelinContractKind,
   readBuildInfo,
-  fetchAndCacheCanonicalConfig,
-  getProjectConfigArtifactsRemote,
+  fetchAndCacheCompilerConfig,
+  getConfigArtifactsRemote,
   isProjectRegistered,
   getDuplicateElements,
 } from '../utils'
@@ -60,22 +60,18 @@ import {
   ContractKindEnum,
   DeploymentRevert,
   ImportCache,
-  ParsedProjectConfig,
-  ProjectConfigArtifacts,
-  UserProjectConfig,
-  Project,
   GetConfigArtifacts,
   ConfigCache,
-  ProjectConfigCache,
   ConfigArtifacts,
   UserSphinxConfig,
-  OwnerConfigOptions,
-  ParsedOrgConfigOptions,
-  UserOrgConfigOptions,
-  ProjectConfigOptions,
-  ParsedOrgConfig,
-  ParsedProjectConfigs,
+  ParsedConfigWithOptions,
+  UserConfigOptions,
+  ParsedContractConfigs,
+  ParsedConfig,
+  UserConfigWithOptions,
+  ParsedConfigOptions,
   ParsedOwnerConfig,
+  UserConfig,
 } from './types'
 import {
   CONTRACT_SIZE_LIMIT,
@@ -104,7 +100,6 @@ import { getStorageLayout } from '../actions/artifacts'
 import { OZ_UUPS_UPDATER_ADDRESS, getSphinxManagerAddress } from '../addresses'
 import { resolveNetworkName } from '../messages'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
-import { readUserSphinxConfig } from '../config'
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -130,25 +125,24 @@ const logValidationError = (
 
 /**
  * Reads a Sphinx config file, then parses and validates the selected projects inside of it.
- * This is meant to be used for configs that contain organizations. Configs that contain only a
- * single owner for the purpose of deploying locally should call `getParsedOrgConfig` instead of
+ * This is meant to be used for configs that contain an 'options' field. Configs that contain only a
+ * single owner for the purpose of deploying locally should call `getParsedConfigWithOptions` instead of
  * this function.
  *
  * @param configPath Path to the Sphinx config file.
  * @param projects The project name(s) to parse. This function will only validate these projects.
  * The returned parsed config will not include any other projects in the config file.
  * @param deployerAddress Address of the SphinxManager. Note that this may not be calculable
- * based on the config file because the organization owners may have changed after the
+ * based on the config file because the owners may have changed after the
  * SphinxManager was deployed, which would alter its Create2 address. However, if the
- * organization owners haven't changed, then this address can be calculated locally.
+ * owners haven't changed, then this address can be calculated locally.
  * @param authAddress Address of the SphinxAuth contract. Note that the same caveat applies
  * here as for the `deployerAddress` parameter.
  *
  * @returns The parsed Sphinx config file.
  */
-export const getParsedOrgConfig = async (
-  userConfig: UserSphinxConfig,
-  projects: Array<Project> | Project,
+export const getParsedConfigWithOptions = async (
+  userConfig: UserConfigWithOptions,
   deployerAddress: string,
   isTestnet: boolean,
   provider: providers.JsonRpcProvider,
@@ -156,49 +150,47 @@ export const getParsedOrgConfig = async (
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
-  parsedConfig: ParsedOrgConfig
+  parsedConfig: ParsedConfigWithOptions
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  const projectArray = Array.isArray(projects) ? projects : [projects]
-
-  if (!userConfig.options) {
-    // We throw an error immediately because the rest of the parsing logic for the organization
-    // fields won't work. We don't use `logValidationError` here because TypeScript wouldn't
-    // recognize that the `options` field is defined after this if-statement.
-    throw new Error(
-      `The top-level 'options' field is required for organization configs.`
+  if (!userConfig.project) {
+    logValidationError(
+      'error',
+      `Config is missing a 'project' field.`,
+      [],
+      cre.silent,
+      cre.stream
     )
   }
 
-  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
+  assertValidConfigOptions(userConfig.options, cre, failureAction)
 
-  const parsedConfigOptions = parseOrgConfigOptions(
-    userConfig.options,
-    isTestnet
-  )
+  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
 
-  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
+  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
+
+  const contractConfigs = getUnvalidatedContractConfigs(
     userConfig,
-    projectArray,
-    deployerAddress,
+    configArtifacts,
     cre,
-    getConfigArtifacts,
     failureAction,
-    true
+    deployerAddress
   )
 
-  const parsedConfig: ParsedOrgConfig = {
+  const parsedConfig: ParsedConfigWithOptions = {
+    deployer: deployerAddress,
     options: parsedConfigOptions,
-    projects: projectConfigs,
+    contracts: contractConfigs,
+    project: userConfig.project,
   }
 
   const configCache = await getConfigCache(
     provider,
-    projectConfigs,
+    contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
     getSphinxManagerReadOnly(deployerAddress, provider)
@@ -206,7 +198,7 @@ export const getParsedOrgConfig = async (
 
   await postParsingValidation(
     provider,
-    projectConfigs,
+    parsedConfig,
     configArtifacts,
     cre,
     configCache,
@@ -217,103 +209,44 @@ export const getParsedOrgConfig = async (
 }
 
 /**
- * @notice This function is called by `getParsedOrgConfig` and `readParsedOwnerConfig`.
- */
-export const getUnvalidatedParsedConfig = async (
-  userConfig: UserSphinxConfig,
-  projects: Array<Project>,
-  deployerAddress: string,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction,
-  isOrgConfig: boolean
-): Promise<{
-  projectConfigs: ParsedProjectConfigs
-  configArtifacts: ConfigArtifacts
-}> => {
-  const allProjectNames = Object.keys(userConfig.projects)
-  for (const project of projects) {
-    if (!allProjectNames.includes(project)) {
-      logValidationError(
-        'error',
-        `No project exists in the Sphinx config with the name: ${project}`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-  }
-
-  // We exit early here because everything after this won't work without valid project names
-  assertNoValidationErrors(failureAction)
-
-  const filteredUserConfigProjects = Object.entries(userConfig.projects).filter(
-    ([projectName]) => projects.includes(projectName)
-  )
-  const projectConfigs: ParsedProjectConfigs = {}
-  const configArtifacts: ConfigArtifacts = {}
-  for (const [projectName, projectConfig] of filteredUserConfigProjects) {
-    const projectConfigArtifacts = await getConfigArtifacts(
-      projectConfig.contracts
-    )
-    configArtifacts[projectName] = projectConfigArtifacts
-
-    assertValidProjectConfigOptions(
-      projectName,
-      isOrgConfig,
-      cre,
-      projectConfig.options
-    )
-
-    const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
-      projectConfig,
-      projectName,
-      projectConfigArtifacts,
-      cre,
-      failureAction,
-      deployerAddress
-    )
-
-    projectConfigs[projectName] = parsedProjectConfig
-  }
-
-  return { projectConfigs, configArtifacts }
-}
-
-/**
- * Reads a Sphinx config file, then parses and validates the selected projects inside of it.
+ * Gets a Sphinx config file, then parses and validates the selected projects inside of it.
  * This is meant to be used for configs that are only using Sphinx to deploy locally. Configs
- * that contain organizations should call `getParsedOrgConfig` instead.
+ * that contain options should call `getParsedConfigWithOptions` instead.
  *
  * @param configPath Path to the Sphinx config file.
  * @param projects The project name(s) to parse. This function will only validate these projects.
  * The returned parsed config will not include any other projects in the config file.
  * @returns The parsed Sphinx config file.
  */
-export const readParsedOwnerConfig = async (
-  configPath: string,
-  projects: Array<Project> | Project,
+export const getParsedConfig = async (
+  userConfig: UserConfig,
   provider: providers.JsonRpcProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   ownerAddress: string,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
-  parsedConfig: ParsedOwnerConfig
+  parsedConfig: ParsedConfig
   configArtifacts: ConfigArtifacts
   configCache: ConfigCache
 }> => {
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  const projectArray = Array.isArray(projects) ? projects : [projects]
-
-  const userConfig = await readUserSphinxConfig(configPath)
+  if (!userConfig.project) {
+    logValidationError(
+      'error',
+      `Config is missing a 'project' field.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
   if (userConfig.options) {
     logValidationError(
       'error',
-      `Organization configs cannot be used with this function.`,
+      `Config with an 'options' field cannot be used with this function.`,
       [],
       cre.silent,
       cre.stream
@@ -330,30 +263,31 @@ export const readParsedOwnerConfig = async (
     )
   }
 
-  const deployerAddress = getSphinxManagerAddress(ownerAddress)
+  const deployerAddress = getSphinxManagerAddress(
+    ownerAddress,
+    userConfig.project
+  )
 
-  const configOptions: OwnerConfigOptions = {
-    owner: ownerAddress,
-  }
+  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-  const { projectConfigs, configArtifacts } = await getUnvalidatedParsedConfig(
+  const contractConfigs = getUnvalidatedContractConfigs(
     userConfig,
-    projectArray,
-    deployerAddress,
+    configArtifacts,
     cre,
-    getConfigArtifacts,
     failureAction,
-    false
+    deployerAddress
   )
 
   const parsedConfig: ParsedOwnerConfig = {
-    options: configOptions,
-    projects: projectConfigs,
+    owner: ownerAddress,
+    contracts: contractConfigs,
+    project: userConfig.project,
+    deployer: deployerAddress,
   }
 
   const configCache = await getConfigCache(
     provider,
-    projectConfigs,
+    contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
     getSphinxManagerReadOnly(deployerAddress, provider)
@@ -361,7 +295,7 @@ export const readParsedOwnerConfig = async (
 
   await postParsingValidation(
     provider,
-    projectConfigs,
+    parsedConfig,
     configArtifacts,
     cre,
     configCache,
@@ -383,8 +317,8 @@ export const isEmptySphinxConfig = (configFileName: string): boolean => {
  *
  * @param config Config file to validate.
  */
-export const assertValidUserProjectConfig = (
-  config: UserProjectConfig,
+export const assertValidUserConfig = (
+  config: UserSphinxConfig,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ) => {
@@ -1868,15 +1802,15 @@ export const assertValidContractReferences = (
 }
 
 export const assertValidParsedSphinxFile = async (
-  parsedConfig: ParsedProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   contractConfigCache: ContractConfigCache,
+  deployerAddress: string,
   failureAction: FailureAction
 ): Promise<void> => {
-  const { canonicalConfigPath } = cre
-
-  const sphinxManagerAddress = parsedConfig.options.deployer
+  const { project } = parsedConfig
+  const { compilerConfigPath } = cre
 
   // Check that all user-defined contract addresses have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
@@ -1913,7 +1847,7 @@ export const assertValidParsedSphinxFile = async (
         logValidationError(
           'error',
           `The UUPS proxy ${referenceName} at ${address} must give your SphinxManager contract\n` +
-            `permission to call the 'upgradeTo' function. SphinxManager address: ${sphinxManagerAddress}.\n`,
+            `permission to call the 'upgradeTo' function. SphinxManager address: ${deployerAddress}.\n`,
           [],
           cre.silent,
           cre.stream
@@ -1991,10 +1925,10 @@ export const assertValidParsedSphinxFile = async (
       }
 
       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-        parsedConfig.options.project,
+        project,
         referenceName,
         contractConfig,
-        canonicalConfigPath,
+        compilerConfigPath,
         cre,
         previousConfigUri
       )
@@ -2018,12 +1952,12 @@ export const assertValidParsedSphinxFile = async (
 }
 
 export const assertValidSourceCode = (
-  parsedConfig: ParsedProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  contractConfigs: ParsedContractConfigs,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment
 ) => {
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
+    contractConfigs
   )) {
     // Get the source name and contract name from its fully qualified name
     const [sourceName, contractName] = contractConfig.contract.split(':')
@@ -2182,7 +2116,7 @@ const containsFunctionCall = (node: Expression): boolean => {
 }
 
 const logUnsafeOptions = (
-  userConfig: UserProjectConfig,
+  userConfig: UserSphinxConfig,
   silent: boolean,
   stream: NodeJS.WritableStream
 ) => {
@@ -2231,14 +2165,13 @@ const logUnsafeOptions = (
 }
 
 export const assertValidConstructorArgs = (
-  projectConfig: UserProjectConfig,
-  projectName: string,
-  configArtifacts: ProjectConfigArtifacts,
+  userConfig: UserSphinxConfig,
+  configArtifacts: ConfigArtifacts,
   deployerAddress: string,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): {
-  projectConfig: UserProjectConfig
+  validUserConfig: UserSphinxConfig
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
 } => {
@@ -2248,27 +2181,26 @@ export const assertValidConstructorArgs = (
 
   // Determine the addresses for all contracts.
   for (const [referenceName, userContractConfig] of Object.entries(
-    projectConfig.contracts
+    userConfig.contracts
   )) {
     const { address, salt } = userContractConfig
 
     // Set the address to the user-defined value if it exists, otherwise set it to the
     // Create3 address given to contracts deployed within the Sphinx system.
     contractReferences[referenceName] =
-      address ??
-      getTargetAddress(deployerAddress, projectName, referenceName, salt)
+      address ?? getTargetAddress(deployerAddress, referenceName, salt)
   }
 
   // Resolve all contract references.
-  projectConfig = JSON.parse(
-    Handlebars.compile(JSON.stringify(projectConfig))({
+  const validUserConfig: UserSphinxConfig = JSON.parse(
+    Handlebars.compile(JSON.stringify(userConfig))({
       ...contractReferences,
     })
   )
 
   // Parse and validate all the constructor arguments.
   for (const [referenceName, userContractConfig] of Object.entries(
-    projectConfig.contracts
+    validUserConfig.contracts
   )) {
     const { artifact } = configArtifacts[referenceName]
 
@@ -2287,20 +2219,20 @@ export const assertValidConstructorArgs = (
 
   // We return the cached values so we can use them in later steps without rereading the files
   return {
-    projectConfig,
+    validUserConfig,
     cachedConstructorArgs,
     contractReferences,
   }
 }
 
 const assertValidContractVariables = (
-  userProjectConfig: UserProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  userConfig: UserSphinxConfig,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
   const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
-    userProjectConfig.contracts
+    userConfig.contracts
   )) {
     if (userContractConfig.kind === 'immutable') {
       if (
@@ -2340,44 +2272,24 @@ const assertValidContractVariables = (
   return parsedVariables
 }
 
-const constructParsedProjectConfig = (
-  userProjectConfig: UserProjectConfig,
-  projectName: string,
-  deployerAddress: string,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+const parseContractConfigs = (
+  userConfig: UserSphinxConfig,
+  configArtifacts: ConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
   cre: SphinxRuntimeEnvironment
-): ParsedProjectConfig => {
-  // Converts project owner addresses to checksummed addresses and sorts them in ascending order.
-  const projectOwners = userProjectConfig.options
-    ? userProjectConfig.options.projectOwners
-        .map((address) => ethers.utils.getAddress(address))
-        .sort()
-    : undefined
-
-  const projectOptions = {
-    deployer: deployerAddress,
-    project: projectName,
-    projectOwners,
-    ...userProjectConfig.options,
-  }
-
-  const parsedConfig: ParsedProjectConfig = {
-    options: projectOptions,
-    contracts: {},
-  }
+): ParsedContractConfigs => {
+  const contractConfigs: ParsedContractConfigs = {}
 
   for (const [referenceName, userContractConfig] of Object.entries(
-    userProjectConfig.contracts
+    userConfig.contracts
   )) {
     const constructorArgs = cachedConstructorArgs[referenceName]
     // Change the `contract` fields to be a fully qualified name. This ensures that it's easy for the
     // executor to create the `ConfigArtifacts` when it eventually compiles the canonical
     // config.
-    const { sourceName, contractName } =
-      projectConfigArtifacts[referenceName].artifact
+    const { sourceName, contractName } = configArtifacts[referenceName].artifact
     const contractFullyQualifiedName = `${sourceName}:${contractName}`
 
     if (!userContractConfig.kind) {
@@ -2392,13 +2304,9 @@ const constructParsedProjectConfig = (
 
     const parsedContractKind = userContractConfig.kind ?? 'proxy'
 
-    const targetSalt = getTargetSalt(
-      projectName,
-      referenceName,
-      userContractConfig.salt
-    )
+    const targetSalt = getTargetSalt(referenceName, userContractConfig.salt)
 
-    parsedConfig.contracts[referenceName] = {
+    contractConfigs[referenceName] = {
       contract: contractFullyQualifiedName,
       address: contractReferences[referenceName],
       kind: parsedContractKind,
@@ -2412,12 +2320,12 @@ const constructParsedProjectConfig = (
     }
   }
 
-  return parsedConfig
+  return contractConfigs
 }
 
 export const setDefaultContractFields = (
-  userConfig: UserProjectConfig
-): UserProjectConfig => {
+  userConfig: UserSphinxConfig
+): UserSphinxConfig => {
   for (const contractConfig of Object.values(userConfig.contracts)) {
     if (contractConfig.unsafeAllow) {
       contractConfig.unsafeAllow.flexibleConstructor =
@@ -2433,70 +2341,63 @@ export const setDefaultContractFields = (
 }
 
 /**
- * Parses a Sphinx config file from the config file given by the user.
+ * Parses a Sphinx config file from the config file given by the user. This function is called by
+ * `getParsedConfigWithOptions` and `getParsedConfig`.
  *
  * @param userConfig Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const getUnvalidatedParsedProjectConfig = (
-  userProjectConfig: UserProjectConfig,
-  projectName: string,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+export const getUnvalidatedContractConfigs = (
+  userConfig: UserSphinxConfig,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction,
   deployerAddress: string
-): ParsedProjectConfig => {
+): ParsedContractConfigs => {
   // If the user disabled some safety checks, log warnings related to that
-  logUnsafeOptions(userProjectConfig, cre.silent, cre.stream)
+  logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserProjectConfig(userProjectConfig, cre, failureAction)
+  assertValidUserConfig(userConfig, cre, failureAction)
 
-  const configWithDefaultContractFields =
-    setDefaultContractFields(userProjectConfig)
+  const configWithDefaultContractFields = setDefaultContractFields(userConfig)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the parsed constructor args so we don't have to re-read them later
-  const {
-    projectConfig: validProjectConfig,
-    cachedConstructorArgs,
-    contractReferences,
-  } = assertValidConstructorArgs(
-    configWithDefaultContractFields,
-    projectName,
-    projectConfigArtifacts,
-    deployerAddress,
-    cre,
-    failureAction
-  )
+  const { validUserConfig, cachedConstructorArgs, contractReferences } =
+    assertValidConstructorArgs(
+      configWithDefaultContractFields,
+      configArtifacts,
+      deployerAddress,
+      cre,
+      failureAction
+    )
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
-    validProjectConfig,
-    projectConfigArtifacts,
+    validUserConfig,
+    configArtifacts,
     cre
   )
 
-  const parsedProjectConfig = constructParsedProjectConfig(
-    validProjectConfig,
-    projectName,
-    deployerAddress,
-    projectConfigArtifacts,
+  const parsedContractConfigs = parseContractConfigs(
+    validUserConfig,
+    configArtifacts,
     contractReferences,
     parsedVariables,
     cachedConstructorArgs,
     cre
   )
 
-  assertValidSourceCode(parsedProjectConfig, projectConfigArtifacts, cre)
+  assertValidSourceCode(parsedContractConfigs, configArtifacts, cre)
 
-  return parsedProjectConfig
+  return parsedContractConfigs
 }
 
 export const assertNoUpgradableContracts = (
-  parsedConfig: ParsedProjectConfig,
+  parsedConfig: ParsedConfig,
   cre: SphinxRuntimeEnvironment
 ) => {
   for (const contractConfig of Object.values(parsedConfig.contracts)) {
@@ -2515,32 +2416,25 @@ export const assertNoUpgradableContracts = (
   }
 }
 
-export const projectPostParsingValidation = async (
+export const postParsingValidation = async (
   provider: providers.JsonRpcProvider,
-  parsedProjectConfig: ParsedProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts,
-  projectName: string,
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
-  projectConfigCache: ProjectConfigCache,
+  configCache: ConfigCache,
   failureAction: FailureAction
 ) => {
-  const { blockGasLimit, localNetwork, contractConfigCache } =
-    projectConfigCache
+  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
+  const { contracts, deployer, project } = parsedConfig
 
-  assertAddressesNotInAnotherProject(
-    parsedProjectConfig,
-    projectConfigCache,
-    cre
-  )
-
-  assertNoUpgradableContracts(parsedProjectConfig, cre)
+  assertNoUpgradableContracts(parsedConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
 
   await assertAvailableCreate3Addresses(
     provider,
-    parsedProjectConfig,
-    projectConfigArtifacts,
+    contracts,
+    configArtifacts,
     cre,
     contractConfigCache
   )
@@ -2548,28 +2442,25 @@ export const projectPostParsingValidation = async (
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
   if (!localNetwork) {
-    assertContractsBelowSizeLimit(
-      parsedProjectConfig,
-      projectConfigArtifacts,
-      cre
-    )
+    assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
   }
 
-  assertValidDeploymentSize(parsedProjectConfig, cre, projectConfigCache)
+  assertValidDeploymentSize(contracts, cre, configCache)
 
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
   await assertValidParsedSphinxFile(
-    parsedProjectConfig,
-    projectConfigArtifacts,
+    parsedConfig,
+    configArtifacts,
     cre,
     contractConfigCache,
+    deployer,
     failureAction
   )
 
   assertNoValidationErrors(failureAction)
 
-  const containsUpgrade = Object.entries(parsedProjectConfig.contracts).some(
+  const containsUpgrade = Object.entries(parsedConfig.contracts).some(
     ([referenceName, contractConfig]) =>
       contractConfig.kind !== 'immutable' &&
       contractConfigCache[referenceName].isTargetDeployed
@@ -2578,7 +2469,7 @@ export const projectPostParsingValidation = async (
   // Confirm upgrade with user
   if (!cre.confirmUpgrade && containsUpgrade) {
     const userConfirmed = await yesno({
-      question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+      question: `Prior deployment(s) detected for project ${project}. Would you like to perform an upgrade? (y/n)`,
     })
     if (!userConfirmed) {
       throw new Error(`User denied upgrade.`)
@@ -2586,40 +2477,17 @@ export const projectPostParsingValidation = async (
   }
 }
 
-export const postParsingValidation = async (
-  provider: providers.JsonRpcProvider,
-  projectConfigs: ParsedProjectConfigs,
-  configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  configCache: ConfigCache,
-  failureAction: FailureAction
-) => {
-  for (const [projectName, parsedProjectConfig] of Object.entries(
-    projectConfigs
-  )) {
-    await projectPostParsingValidation(
-      provider,
-      parsedProjectConfig,
-      configArtifacts[projectName],
-      projectName,
-      cre,
-      configCache[projectName],
-      failureAction
-    )
-  }
-}
-
 /**
  * Asserts that the Sphinx config can be initiated in a single transaction.
  */
 export const assertValidDeploymentSize = (
-  parsedConfig: ParsedProjectConfig,
+  parsedContractConfigs: ParsedContractConfigs,
   cre: SphinxRuntimeEnvironment,
-  projectConfigCache: ProjectConfigCache
+  configCache: ConfigCache
 ): void => {
-  const { blockGasLimit } = projectConfigCache
+  const { blockGasLimit } = configCache
 
-  const numTargets = Object.values(parsedConfig.contracts).filter(
+  const numTargets = Object.values(parsedContractConfigs).filter(
     (contract) => contract.kind !== 'immutable'
   ).length
   const initiationGasCost = ethers.BigNumber.from(100_000).mul(numTargets)
@@ -2659,13 +2527,13 @@ export const assertValidBlockGasLimit = (
  * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
  */
 export const assertContractsBelowSizeLimit = (
-  parsedConfig: ParsedProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  parsedContractConfigs: ParsedContractConfigs,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment
 ) => {
   const tooLarge: string[] = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
+    parsedContractConfigs
   )) {
     const { deployedBytecode } = configArtifacts[referenceName].artifact
 
@@ -2723,13 +2591,13 @@ export const assertImmutableDeploymentsDoNotRevert = (
 
 const assertAvailableCreate3Addresses = async (
   provider: providers.JsonRpcProvider,
-  parsedConfig: ParsedProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  parsedContractConfigs: ParsedContractConfigs,
+  configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   contractConfigCache: ContractConfigCache
 ): Promise<void> => {
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedConfig.contracts
+    parsedContractConfigs
   )) {
     const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
       contractConfigCache[referenceName]
@@ -2764,15 +2632,13 @@ const assertAvailableCreate3Addresses = async (
   }
 }
 
-export const getProjectConfigCache = async (
+export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
-  projectConfig: ParsedProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  contractConfigs: ParsedContractConfigs,
+  configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
   manager: ethers.Contract
-): Promise<ProjectConfigCache> => {
-  const { contracts } = projectConfig
-
+): Promise<ConfigCache> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
@@ -2780,9 +2646,9 @@ export const getProjectConfigCache = async (
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
-    contracts
+    contractConfigs
   )) {
-    const { abi, bytecode } = projectConfigArtifacts[referenceName].artifact
+    const { abi, bytecode } = configArtifacts[referenceName].artifact
 
     const { address, constructorArgs } = parsedContractConfig
     const kind = toContractKindEnum(parsedContractConfig.kind)
@@ -2791,10 +2657,6 @@ export const getProjectConfigCache = async (
       constructorArgs,
       abi
     )
-
-    const existingProjectName = isRegistered
-      ? await manager.contractToProject(address)
-      : ''
 
     const isTargetDeployed = (await provider.getCode(address)) !== '0x'
 
@@ -2892,7 +2754,6 @@ export const getProjectConfigCache = async (
     }
 
     contractConfigCache[referenceName] = {
-      existingProjectName,
       isTargetDeployed,
       deployedCreationCodeWithArgsHash,
       deploymentRevert: deploymentRevert ?? {
@@ -2911,52 +2772,6 @@ export const getProjectConfigCache = async (
     localNetwork,
     networkName,
     contractConfigCache,
-  }
-}
-
-export const getConfigCache = async (
-  provider: providers.JsonRpcProvider,
-  projectConfigs: ParsedProjectConfigs,
-  configArtifacts: ConfigArtifacts,
-  registry: ethers.Contract,
-  manager: ethers.Contract
-): Promise<ConfigCache> => {
-  const configCache: ConfigCache = {}
-  for (const [projectName, projectConfig] of Object.entries(projectConfigs)) {
-    configCache[projectName] = await getProjectConfigCache(
-      provider,
-      projectConfig,
-      configArtifacts[projectName],
-      registry,
-      manager
-    )
-  }
-
-  return configCache
-}
-
-const assertAddressesNotInAnotherProject = (
-  parsedProjectConfig: ParsedProjectConfig,
-  projectConfigCache: ProjectConfigCache,
-  cre: SphinxRuntimeEnvironment
-): void => {
-  if (!projectConfigCache.isRegistered) {
-    return
-  }
-
-  const { project } = parsedProjectConfig.options
-  for (const referenceName of Object.keys(parsedProjectConfig.contracts)) {
-    const existingProjectName =
-      projectConfigCache.contractConfigCache[referenceName].existingProjectName
-    if (existingProjectName.length > 0 && existingProjectName !== project) {
-      logValidationError(
-        'error',
-        `The address for '${referenceName}' already belongs to an existing project: '${existingProjectName}'. Please use this project name instead.`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
   }
 }
 
@@ -2989,14 +2804,14 @@ export const getPreviousStorageLayoutOZFormat = async (
   projectName: string,
   referenceName: string,
   parsedContractConfig: ParsedContractConfig,
-  canonicalConfigFolderPath: string,
+  compilerConfigFolderPath: string,
   cre: SphinxRuntimeEnvironment,
   previousConfigUri?: string
 ): Promise<StorageLayout> => {
-  const previousCanonicalConfig = previousConfigUri
-    ? await fetchAndCacheCanonicalConfig(
+  const prevCompilerConfig = previousConfigUri
+    ? await fetchAndCacheCompilerConfig(
         previousConfigUri,
-        canonicalConfigFolderPath
+        compilerConfigFolderPath
       )
     : undefined
 
@@ -3008,7 +2823,7 @@ export const getPreviousStorageLayoutOZFormat = async (
   ) {
     const { input, output } = readBuildInfo(previousBuildInfo)
 
-    if (previousCanonicalConfig !== undefined) {
+    if (prevCompilerConfig !== undefined) {
       logValidationError(
         'warning',
         `Using the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
@@ -3026,12 +2841,11 @@ export const getPreviousStorageLayoutOZFormat = async (
       output,
       parsedContractConfig
     ).layout
-  } else if (previousCanonicalConfig !== undefined) {
-    const prevConfigArtifacts = await getProjectConfigArtifactsRemote(
-      previousCanonicalConfig
+  } else if (prevCompilerConfig !== undefined) {
+    const prevConfigArtifacts = await getConfigArtifactsRemote(
+      prevCompilerConfig
     )
-    const { buildInfo, artifact } =
-      prevConfigArtifacts[projectName][referenceName]
+    const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
     const { sourceName, contractName } = artifact
     return getOpenZeppelinUpgradableContract(
       `${sourceName}:${contractName}`,
@@ -3053,32 +2867,12 @@ export const getPreviousStorageLayoutOZFormat = async (
   }
 }
 
-export const assertValidOrgConfigOptions = (
-  options: UserOrgConfigOptions,
+export const assertValidConfigOptions = (
+  options: UserConfigOptions,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): void => {
-  const {
-    owner,
-    mainnets,
-    testnets,
-    orgId,
-    orgOwners,
-    orgThreshold,
-    proposers,
-    managers,
-  } = options
-
-  if (owner) {
-    logValidationError(
-      'error',
-      `Detected the 'owner' field in the organization config. Please use the 'owners' field instead:\n` +
-        `  owners: [${owner}]`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
+  const { mainnets, testnets, orgId, owners, threshold, proposers } = options
 
   if (orgId === '') {
     logValidationError(
@@ -3090,36 +2884,35 @@ export const assertValidOrgConfigOptions = (
     )
   }
 
-  if (orgThreshold === 0) {
+  if (threshold === 0) {
     logValidationError(
       'error',
-      `The 'orgThreshold' must be greater than 0.`,
+      `The 'threshold' must be greater than 0.`,
       [],
       cre.silent,
       cre.stream
     )
   }
 
-  if (orgThreshold > orgOwners.length) {
+  if (threshold > owners.length) {
     logValidationError(
       'error',
-      `The 'orgThreshold' must be less than or equal to the number of org owners.`,
+      `The 'threshold' must be less than or equal to the number of owners.`,
       [],
       cre.silent,
       cre.stream
     )
   }
 
-  const duplicatedOrgOwners = getDuplicateElements(orgOwners)
+  const duplicatedOwners = getDuplicateElements(owners)
   const duplicatedProposers = getDuplicateElements(proposers)
-  const duplicatedManagers = getDuplicateElements(managers)
   const duplicatedNetworks = getDuplicateElements(mainnets)
   const duplicatedTestnets = getDuplicateElements(testnets)
-  if (duplicatedOrgOwners.length > 0) {
+  if (duplicatedOwners.length > 0) {
     logValidationError(
       'error',
-      `The following org owners are duplicated:`,
-      duplicatedOrgOwners,
+      `The following owners are duplicated:`,
+      duplicatedOwners,
       cre.silent,
       cre.stream
     )
@@ -3129,15 +2922,6 @@ export const assertValidOrgConfigOptions = (
       'error',
       `The following proposers are duplicated:`,
       duplicatedProposers,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (duplicatedManagers.length > 0) {
-    logValidationError(
-      'error',
-      `The following managers are duplicated:`,
-      duplicatedManagers,
       cre.silent,
       cre.stream
     )
@@ -3161,13 +2945,10 @@ export const assertValidOrgConfigOptions = (
     )
   }
 
-  const invalidOrgOwnerAddresses = orgOwners.filter(
+  const invalidOwnerAddresses = owners.filter(
     (address) => !ethers.utils.isAddress(address)
   )
   const invalidProposerAddresses = proposers.filter(
-    (address) => !ethers.utils.isAddress(address)
-  )
-  const invalidManagerAddresses = managers.filter(
     (address) => !ethers.utils.isAddress(address)
   )
   const invalidMainnets = mainnets.filter(
@@ -3176,11 +2957,11 @@ export const assertValidOrgConfigOptions = (
   const invalidTestnets = testnets.filter(
     (testnet) => !SUPPORTED_TESTNETS[testnet]
   )
-  if (invalidOrgOwnerAddresses.length > 0) {
+  if (invalidOwnerAddresses.length > 0) {
     logValidationError(
       'error',
-      `The following org owners are not valid addresses:`,
-      invalidOrgOwnerAddresses,
+      `The following owners are not valid addresses:`,
+      invalidOwnerAddresses,
       cre.silent,
       cre.stream
     )
@@ -3190,15 +2971,6 @@ export const assertValidOrgConfigOptions = (
       'error',
       `The following proposers are not valid addresses:`,
       invalidProposerAddresses,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (invalidManagerAddresses.length > 0) {
-    logValidationError(
-      'error',
-      `The following managers are not valid addresses:`,
-      invalidManagerAddresses,
       cre.silent,
       cre.stream
     )
@@ -3226,7 +2998,7 @@ export const assertValidOrgConfigOptions = (
     )
   }
 
-  if (proposers.length === 0 && managers.length === 0) {
+  if (proposers.length === 0) {
     logValidationError(
       'error',
       `There must be at least one proposer or manager.`,
@@ -3249,122 +3021,29 @@ export const assertValidOrgConfigOptions = (
   assertNoValidationErrors(failureAction)
 }
 
-export const parseOrgConfigOptions = (
-  options: UserOrgConfigOptions,
+export const parseConfigOptions = (
+  options: UserConfigOptions,
   isTestnet: boolean
-): ParsedOrgConfigOptions => {
-  const { mainnets, testnets, orgId, orgThreshold } = options
+): ParsedConfigOptions => {
+  const { mainnets, testnets, orgId, threshold } = options
 
   const chainIds = isTestnet
     ? testnets.map((network) => SUPPORTED_TESTNETS[network])
     : mainnets.map((network) => SUPPORTED_MAINNETS[network])
 
   // Converts addresses to checksummed addresses and sorts them in ascending order.
-  const orgOwners = options.orgOwners
+  const owners = options.owners
     .map((address) => ethers.utils.getAddress(address))
     .sort()
   const proposers = options.proposers
-    .map((address) => ethers.utils.getAddress(address))
-    .sort()
-  const managers = options.managers
     .map((address) => ethers.utils.getAddress(address))
     .sort()
 
   return {
     chainIds,
     orgId,
-    orgOwners,
-    orgThreshold,
+    owners,
+    threshold,
     proposers,
-    managers,
-  }
-}
-
-const assertValidProjectConfigOptions = (
-  projectName: string,
-  isOrgConfig: boolean,
-  cre: SphinxRuntimeEnvironment,
-  projectOptions?: ProjectConfigOptions
-): void => {
-  if (!isOrgConfig) {
-    if (projectOptions) {
-      logValidationError(
-        'error',
-        `The 'options' field defined under the project ${projectName}, but this config does not belong to an organization.`,
-        [],
-        cre.silent,
-        cre.stream
-      )
-    }
-    return
-  }
-
-  // If we make it to this point, we know that this is an org config.
-  if (!projectOptions) {
-    logValidationError(
-      'error',
-      `The 'options' field is missing under the project ${projectName}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-    return
-  }
-
-  const { projectOwners, projectThreshold } = projectOptions
-
-  if (projectName === '') {
-    logValidationError(
-      'error',
-      `The project name cannot be an empty string.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (projectThreshold === 0) {
-    logValidationError(
-      'error',
-      `The 'projectThreshold' for ${projectName} must be greater than 0.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (projectThreshold > projectOwners.length) {
-    logValidationError(
-      'error',
-      `The 'projectThreshold' for ${projectName} must be less than or equal to the number of project owners.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const duplicatedProjectOwners = getDuplicateElements(projectOwners)
-  if (duplicatedProjectOwners.length > 0) {
-    logValidationError(
-      'error',
-      `The following project owners for ${projectName} are duplicated:`,
-      duplicatedProjectOwners,
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const invalidProjectOwnerAddresses = projectOwners.filter(
-    (address) => !ethers.utils.isAddress(address)
-  )
-  if (invalidProjectOwnerAddresses.length > 0) {
-    logValidationError(
-      'error',
-
-      `The following project owners for ${projectName} are not valid addresses:`,
-      invalidProjectOwnerAddresses,
-      cre.silent,
-      cre.stream
-    )
   }
 }

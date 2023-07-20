@@ -23,6 +23,7 @@ import {
   SphinxManagerABI,
   ProxyABI,
   AuthABI,
+  FactoryABI,
 } from '@sphinx/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -46,20 +47,20 @@ import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
-  CanonicalProjectConfig,
+  CompilerConfig,
   UserContractKind,
   userContractKinds,
   ParsedContractConfig,
   ContractKind,
   ParsedConfigVariables,
   ParsedConfigVariable,
-  ParsedProjectConfig,
-  ProjectConfigArtifacts,
-  CanonicalOrgConfig,
-  UserSphinxConfig,
-  ParsedOrgConfig,
   GetConfigArtifacts,
-  GetCanonicalOrgConfig,
+  ConfigArtifacts,
+  GetCanonicalConfig,
+  UserConfigWithOptions,
+  CanonicalConfig,
+  ParsedConfig,
+  ParsedConfigWithOptions,
 } from './config/types'
 import {
   AuthLeaf,
@@ -72,6 +73,7 @@ import {
 } from './actions/types'
 import { Integration, SUPPORTED_NETWORKS } from './constants'
 import {
+  FACTORY_ADDRESS,
   getAuthAddress,
   getSphinxManagerAddress,
   getSphinxRegistryAddress,
@@ -91,16 +93,15 @@ import {
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
 import {
-  assertValidOrgConfigOptions,
-  getParsedOrgConfig,
-  parseOrgConfigOptions,
+  assertValidConfigOptions,
+  getParsedConfigWithOptions,
+  parseConfigOptions,
 } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
-  configUri: string,
-  projectName: string
+  configUri: string
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
@@ -112,17 +113,8 @@ export const getDeploymentId = (
 
   return utils.keccak256(
     utils.defaultAbiCoder.encode(
+      ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
       [
-        'string',
-        'bytes32',
-        'bytes32',
-        'uint256',
-        'uint256',
-        'uint256',
-        'string',
-      ],
-      [
-        projectName,
         actionRoot,
         targetRoot,
         numActions,
@@ -185,7 +177,7 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
 
 export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedProjectConfig
+  parsedConfig: ParsedConfig
 ): Promise<boolean | string> => {
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -198,12 +190,13 @@ export const checkIsUpgrade = async (
 }
 
 /**
- * Finalizes the registration of an organization.
+ * Finalizes the registration of a project.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
  * @param ownerAddress Owner of the SphinxManager contract deployed by this call.
  */
 export const registerOwner = async (
+  projectName: string,
   registry: ethers.Contract,
   manager: ethers.Contract,
   ownerAddress: string,
@@ -216,7 +209,7 @@ export const registerOwner = async (
     await (
       await registry.register(
         ownerAddress,
-        0, // We set the saltNonce to 0 for now.
+        projectName,
         [], // We don't pass any extra initializer data to this version of the SphinxManager.
         await getGasPriceOverrides(provider)
       )
@@ -281,7 +274,7 @@ export const sphinxLog = (
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ParsedProjectConfig,
+  parsedConfig: ParsedConfig,
   silent: boolean
 ) => {
   if (!silent) {
@@ -347,17 +340,14 @@ export const formatEther = (
   return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
 }
 
-export const readCanonicalConfig = async (
-  canonicalConfigFolderPath: string,
+export const readCompilerConfig = async (
+  compilerConfigFolderPath: string,
   configUri: string
-): Promise<CanonicalProjectConfig | undefined> => {
+): Promise<CompilerConfig | undefined> => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Check that the file containing the canonical config exists.
-  const configFilePath = path.join(
-    canonicalConfigFolderPath,
-    `${ipfsHash}.json`
-  )
+  const configFilePath = path.join(compilerConfigFolderPath, `${ipfsHash}.json`)
   if (!fs.existsSync(configFilePath)) {
     return undefined
   }
@@ -365,23 +355,23 @@ export const readCanonicalConfig = async (
   return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
-export const writeCanonicalConfig = (
-  canonicalConfigFolderPath: string,
+export const writeCompilerConfig = (
+  compilerConfigDirPath: string,
   configUri: string,
-  canonicalConfig: CanonicalProjectConfig
+  compilerConfig: CompilerConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Create the canonical config network folder if it doesn't already exist.
-  if (!fs.existsSync(canonicalConfigFolderPath)) {
-    fs.mkdirSync(canonicalConfigFolderPath, { recursive: true })
+  if (!fs.existsSync(compilerConfigDirPath)) {
+    fs.mkdirSync(compilerConfigDirPath, { recursive: true })
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
   fs.writeFileSync(
-    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
-    JSON.stringify(canonicalConfig, null, 2)
+    path.join(compilerConfigDirPath, `${ipfsHash}.json`),
+    JSON.stringify(compilerConfig, null, 2)
   )
 }
 
@@ -891,39 +881,39 @@ export const getPreviousConfigUri = async (
   return deploymentState.configUri
 }
 
-export const fetchAndCacheCanonicalConfig = async (
+export const fetchAndCacheCompilerConfig = async (
   configUri: string,
-  canonicalConfigFolderPath: string
-): Promise<CanonicalProjectConfig> => {
-  const localCanonicalConfig = await readCanonicalConfig(
-    canonicalConfigFolderPath,
+  compilerConfigFolderPath: string
+): Promise<CompilerConfig> => {
+  const localCompilerConfig = await readCompilerConfig(
+    compilerConfigFolderPath,
     configUri
   )
-  if (localCanonicalConfig) {
-    return localCanonicalConfig
+  if (localCompilerConfig) {
+    return localCompilerConfig
   } else {
-    const remoteCanonicalConfig = await callWithTimeout<CanonicalProjectConfig>(
+    const remoteCompilerConfig = await callWithTimeout<CompilerConfig>(
       sphinxFetchSubtask({ configUri }),
       30000,
       'Failed to fetch config file from IPFS'
     )
 
     // Cache the canonical config by saving it to the local filesystem.
-    writeCanonicalConfig(
-      canonicalConfigFolderPath,
+    writeCompilerConfig(
+      compilerConfigFolderPath,
       configUri,
-      remoteCanonicalConfig
+      remoteCompilerConfig
     )
-    return remoteCanonicalConfig
+    return remoteCompilerConfig
   }
 }
 
-export const getProjectConfigArtifactsRemote = async (
-  canonicalConfig: CanonicalProjectConfig
-): Promise<ProjectConfigArtifacts> => {
+export const getConfigArtifactsRemote = async (
+  compilerConfig: CompilerConfig
+): Promise<ConfigArtifacts> => {
   const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
-  for (const sphinxInput of canonicalConfig.inputs) {
+  for (const sphinxInput of compilerConfig.inputs) {
     const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
     let compilerOutput: CompilerOutput
     if (solcBuild.isSolcJs) {
@@ -960,10 +950,10 @@ export const getProjectConfigArtifactsRemote = async (
     })
   }
 
-  const artifacts: ProjectConfigArtifacts = {}
+  const artifacts: ConfigArtifacts = {}
   // Generate an artifact for each contract in the Sphinx config.
   for (const [referenceName, contractConfig] of Object.entries(
-    canonicalConfig.contracts
+    compilerConfig.contracts
   )) {
     // Split the contract's fully qualified name into its source name and contract name.
     const [sourceName, contractName] = contractConfig.contract.split(':')
@@ -1206,78 +1196,72 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 }
 
 /**
- * @notice Gets various fields related to the Sphinx org config. from the back-end if it exists.
- * If it doesn't exist, it returns a new CanonicalOrgConfig with default parameters for the config
+ * @notice Gets various fields related to the Sphinx config from the back-end if it exists.
+ * If it doesn't exist, it returns a new canonicalConfigFolderPath with default parameters for the config
  * options.
  *
- * @returns {chainIds, prevOrgConfig, isNewConfig} where the `chainIds` array contains the chain IDs
- * in the current org config. The `prevOrgConfig` variable is the most recent CanonicalOrgConfig,
- * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevOrgConfig` is a new
- * config, i.e. it has not been used to setup the org on any chain.
+ * @returns {chainIds, prevConfig, isNewConfig} where the `chainIds` array contains the chain IDs
+ * in the current config. The `prevConfig` variable is the most recent CanonicalConfig,
+ * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevConfig` is a new
+ * config, i.e. it has not been used to setup the project on any chain.
  */
-export const getOrgConfigInfo = async (
-  getCanonicalOrgConfig: GetCanonicalOrgConfig,
-  userConfig: UserSphinxConfig,
-  projectName: string,
+export const getProjectConfigInfo = async (
+  getCanonicalConfig: GetCanonicalConfig,
+  userConfig: UserConfigWithOptions,
   isTestnet: boolean,
   apiKey: string,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): Promise<{
   chainIds: Array<number>
-  prevOrgConfig: CanonicalOrgConfig
+  prevConfig: CanonicalConfig
   isNewConfig: boolean
 }> => {
-  if (!userConfig.options) {
-    throw new Error(`Must provide an 'options' section in your config.`)
-  }
+  assertValidConfigOptions(userConfig.options, cre, failureAction)
+  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
 
-  assertValidOrgConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseOrgConfigOptions(
-    userConfig.options,
-    isTestnet
-  )
+  const { project } = userConfig
 
-  const prevOrgConfig = await getCanonicalOrgConfig(
+  const prevConfig = await getCanonicalConfig(
     parsedConfigOptions.orgId,
     isTestnet,
     apiKey
   )
 
-  if (prevOrgConfig) {
+  if (prevConfig) {
     return {
-      prevOrgConfig,
+      prevConfig,
       isNewConfig: false,
       chainIds: parsedConfigOptions.chainIds,
     }
   } else {
-    const { orgOwners, orgThreshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(orgOwners, orgThreshold)
-    const deployer = getSphinxManagerAddress(auth)
-    const emptyConfig = getEmptyCanonicalOrgConfig(
+    const { owners, threshold, chainIds, orgId } = parsedConfigOptions
+    const auth = getAuthAddress(owners, threshold, project)
+    const deployer = getSphinxManagerAddress(auth, project)
+    const emptyConfig = getEmptyCanonicalConfig(
       chainIds,
       deployer,
       orgId,
-      projectName
+      project
     )
-    return { prevOrgConfig: emptyConfig, isNewConfig: true, chainIds }
+    return { prevConfig: emptyConfig, isNewConfig: true, chainIds }
   }
 }
 
-export const fetchCanonicalOrgConfig = async (
+export const fetchCanonicalConfig = async (
   orgId: string,
   isTestnet: boolean,
   apiKey: string
-): Promise<CanonicalOrgConfig | undefined> => {
+): Promise<CanonicalConfig | undefined> => {
   const response = await axios.post(
-    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalOrgConfig`,
+    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
     {
       apiKey,
       isTestnet,
       orgId,
     }
   )
-  const config: CanonicalOrgConfig | undefined = response.data
+  const config: CanonicalConfig | undefined = response.data
   return config
 }
 
@@ -1318,7 +1302,7 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
 export const relayIPFSCommit = async (
   apiKey: string,
   orgId: string,
-  ipfsCommitRequest: Array<CanonicalProjectConfig>
+  ipfsCommitRequest: Array<CompilerConfig>
 ): Promise<IPFSCommitResponse> => {
   const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
     apiKey,
@@ -1340,16 +1324,16 @@ export const relayIPFSCommit = async (
 }
 
 /**
- * @notice Returns a new CanonicalOrgConfig with default parameters for the config options.
- * This is useful when the user is attempting to propose a completely new org config, since
- * there is no previous org config to use as a starting point yet.
+ * @notice Returns a new CanonicalConfig with default parameters for the config options.
+ * This is useful when the user is attempting to propose a completely new config, since
+ * there is no previous config to use as a starting point yet.
  */
-export const getEmptyCanonicalOrgConfig = (
+export const getEmptyCanonicalConfig = (
   chainIds: Array<number>,
   deployer: string,
   orgId: string,
-  projectName: string
-): CanonicalOrgConfig => {
+  project: string
+): CanonicalConfig => {
   if (chainIds.length === 0) {
     throw new Error(`Must provide at least one chain ID.`)
   }
@@ -1359,51 +1343,38 @@ export const getEmptyCanonicalOrgConfig = (
   chainIds.forEach((chainId) => {
     chainStates[chainId] = {
       firstProposalOccurred: false,
-      projects: {
-        [projectName]: {
-          projectCreated: false,
-        },
-      },
+      projectCreated: false,
     }
   })
 
   return {
+    project,
     deployer,
     options: {
       orgId,
-      orgOwners: [],
-      orgThreshold: 0,
+      owners: [],
+      threshold: 0,
       proposers: [],
-      managers: [],
     },
-    projects: {
-      [projectName]: {
-        options: {
-          deployer,
-          projectOwners: [],
-          projectThreshold: 0,
-          project: projectName,
-        },
-        contracts: {},
-      },
-    },
+    contracts: {},
     chainStates,
   }
 }
 
 /**
- * Converts a parsed org config into a canonical org config. Assumes that the `SphinxAuth`
+ * Converts a parsed config into a canonical config. Assumes that the `SphinxAuth`
  * contract has been created on each chain.
  *
  * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
  * for each chain ID in the parsed config.
  */
-export const toCanonicalOrgConfig = async (
-  parsedConfig: ParsedOrgConfig,
+export const toCanonicalConfig = async (
+  parsedConfig: ParsedConfigWithOptions,
   deployerAddress: string,
   authAddress: string,
   rpcProviders: Record<string, ethers.providers.JsonRpcProvider>
-): Promise<CanonicalOrgConfig> => {
+): Promise<CanonicalConfig> => {
+  const { project } = parsedConfig
   const chainStates = {}
 
   for (const chainId of parsedConfig.options.chainIds) {
@@ -1422,57 +1393,42 @@ export const toCanonicalOrgConfig = async (
     const Auth = new ethers.Contract(authAddress, AuthABI, provider)
     const firstProposalOccurred = await Auth.firstProposalOccurred()
 
-    const projects = {}
-    for (const projectName of Object.keys(parsedConfig.projects)) {
-      const projectCreated = await isProjectCreated(Auth, projectName)
-      projects[projectName] = {
-        projectCreated,
-      }
-    }
+    const projectCreated = await isProjectCreated(provider, Auth.address)
 
     chainStates[chainId] = {
       firstProposalOccurred,
-      projects,
+      projectCreated,
     }
   }
 
   return {
+    project,
     deployer: deployerAddress,
     options: parsedConfig.options,
-    projects: parsedConfig.projects,
+    contracts: parsedConfig.contracts,
     chainStates,
   }
 }
 
 export const getAuthLeafs = async (
-  userConfig: UserSphinxConfig,
-  prevOrgConfig: CanonicalOrgConfig,
+  userConfig: UserConfigWithOptions,
+  prevConfig: CanonicalConfig,
   rpcProviders: {
     [network: string]: ethers.providers.JsonRpcProvider
   },
-  projectName: string,
   deployerAddress: string,
   networks: Array<string>,
   isTestnet: boolean,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts
 ): Promise<Array<AuthLeaf>> => {
-  const orgId = userConfig.options?.orgId
-
-  // This removes a TypeScript error that occurs because TypeScript doesn't know that the
-  // `orgId` variable is defined.
-  if (!orgId) {
-    throw new Error(`Could not find orgId. Should never happen.`)
-  }
-
   const leafs: Array<AuthLeaf> = []
   for (const network of networks) {
     const provider = rpcProviders[network]
 
     const { parsedConfig, configCache, configArtifacts } =
-      await getParsedOrgConfig(
+      await getParsedConfigWithOptions(
         userConfig,
-        projectName,
         deployerAddress,
         isTestnet,
         provider,
@@ -1483,11 +1439,10 @@ export const getAuthLeafs = async (
     const chainId = SUPPORTED_NETWORKS[network]
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
-      projectName,
       parsedConfig,
       configArtifacts,
       configCache,
-      prevOrgConfig
+      prevConfig
     )
     leafs.push(...leafsForChain)
   }
@@ -1495,11 +1450,12 @@ export const getAuthLeafs = async (
 }
 
 export const isProjectCreated = async (
-  Auth: Contract,
-  projectName: string
+  provider: providers.Provider,
+  authAddress: string
 ): Promise<boolean> => {
-  const projectThreshold = await Auth.thresholds(projectName)
-  return projectThreshold.gt(0)
+  const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, provider)
+  const isCreated: boolean = await Factory.isDeployed(authAddress)
+  return isCreated
 }
 
 export const findNetwork = (chainId: number): string => {

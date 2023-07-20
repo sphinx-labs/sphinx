@@ -8,7 +8,7 @@ contract SphinxScript is Sphinx {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
-        deploy("sphinx/main.config.ts", 'Storage', vm.rpcUrl("anvil"));
+        deploy("sphinx/Storage.config.ts", vm.rpcUrl("anvil"));
         vm.stopBroadcast();
     }
 }

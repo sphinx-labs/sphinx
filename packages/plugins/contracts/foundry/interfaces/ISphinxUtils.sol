@@ -60,7 +60,6 @@ interface ISphinxUtils {
     function ffiGetEncodedBundleInfo(
         string memory _rpcUrl,
         ConfigCache memory _configCache,
-        string memory _projectName,
         string memory _userConfigStr,
         string memory _rootFfiPath,
         address _owner
@@ -108,8 +107,7 @@ interface ISphinxUtils {
     function getDeploymentId(
         SphinxActionBundle memory _actionBundle,
         SphinxTargetBundle memory _targetBundle,
-        string memory _configUri,
-        string memory _projectName
+        string memory _configUri
     ) external pure returns (bytes32);
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) external view returns (address);

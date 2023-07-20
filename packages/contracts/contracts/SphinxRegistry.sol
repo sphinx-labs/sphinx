@@ -62,16 +62,13 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
 
     /**
      * @notice Registers a new SphinxManagerProxy. The address of each new proxy is calculated
-        via CREATE2, using the `_owner` and `_saltNonce` as the salt.
+        via CREATE2, using the hashed owner and project name as the salt.
      *
      * @param _owner Address of the owner of the SphinxManagerProxy.
-     * @param _saltNonce Nonce that generates the salt that determines the address of the new
-            SphinxManagerProxy. This allows a single owner address to own multiple different
-            proxy contracts.
      */
     function register(
         address _owner,
-        uint256 _saltNonce,
+        string memory _projectName,
         bytes memory _data
     ) external returns (address) {
         require(
@@ -79,7 +76,7 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
             "SphinxRegistry: no manager implementation"
         );
 
-        bytes32 salt = keccak256(abi.encode(_owner, _saltNonce, _data));
+        bytes32 salt = keccak256(abi.encode(_owner, _projectName, _data));
         require(address(managers[salt]) == address(0), "SphinxRegistry: already registered");
 
         SphinxManagerProxy managerProxy = new SphinxManagerProxy{ salt: salt }(this, address(this));
@@ -94,15 +91,17 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
 
         bytes memory retdata = managerProxy.upgradeToAndCall(
             currentManagerImplementation,
-            abi.encodeCall(ISphinxManager.initialize, (_owner, _data))
+            abi.encodeCall(ISphinxManager.initialize, (_owner, _projectName, _data))
         );
 
         // Change manager proxy admin to the owner
         managerProxy.changeAdmin(_owner);
 
         emit SphinxManagerRegistered(
+            _projectName,
             salt,
             currentManagerImplementation,
+            _projectName,
             _owner,
             msg.sender,
             retdata

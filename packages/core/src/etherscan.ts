@@ -26,7 +26,7 @@ import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
-import { CanonicalProjectConfig, ProjectConfigArtifacts } from './config/types'
+import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
@@ -40,13 +40,13 @@ export interface EtherscanResponseBody {
 export const RESPONSE_OK = '1'
 
 export const verifySphinxConfig = async (
-  canonicalProjectConfig: CanonicalProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  compilerConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
 ) => {
-  const managerAddress = canonicalProjectConfig.options.deployer
+  const managerAddress = compilerConfig.deployer
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
@@ -57,12 +57,12 @@ export const verifySphinxConfig = async (
   )
 
   for (const [referenceName, contractConfig] of Object.entries(
-    canonicalProjectConfig.contracts
+    compilerConfig.contracts
   )) {
-    const { artifact, buildInfo } = projectConfigArtifacts[referenceName]
+    const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
-      canonicalProjectConfig.contracts[referenceName].constructorArgs,
+      compilerConfig.contracts[referenceName].constructorArgs,
       abi
     )
 
@@ -73,7 +73,7 @@ export const verifySphinxConfig = async (
       abi
     )
 
-    const sphinxInput = canonicalProjectConfig.inputs.find((compilerInput) =>
+    const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
       Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 

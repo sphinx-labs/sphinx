@@ -2,8 +2,8 @@ import path, { resolve } from 'path'
 import fs from 'fs'
 
 import {
-  getUnvalidatedParsedProjectConfig,
-  projectPostParsingValidation,
+  getUnvalidatedContractConfigs,
+  postParsingValidation,
 } from '@sphinx/core/dist/config/parse'
 import { FailureAction } from '@sphinx/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx/core/dist/tasks'
@@ -13,7 +13,7 @@ import {
   UserSphinxConfig,
   getSphinxManagerAddress,
   getDeployContractCosts,
-  writeCanonicalConfig,
+  writeCompilerConfig,
 } from '@sphinx/core/dist'
 import { providers } from 'ethers/lib/ethers'
 
@@ -32,9 +32,8 @@ const encodedConfigCache = args[0]
 const userConfigStr = args[1]
 const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
-const projectName = args[3]
-const ownerAddress = args[4]
-const rpcUrl = args[5]
+const ownerAddress = args[3]
+const rpcUrl = args[4]
 
 const provider = new providers.JsonRpcProvider(rpcUrl)
 
@@ -45,7 +44,7 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
     const {
       artifactFolder,
       buildInfoFolder,
-      canonicalConfigFolder,
+      compilerConfigFolder,
       storageLayout,
       gasEstimates,
       cachePath,
@@ -72,7 +71,7 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
     const cre = await createSphinxRuntime(
       false,
       true,
-      canonicalConfigFolder,
+      compilerConfigFolder,
       undefined,
       false,
       process.stderr
@@ -84,38 +83,43 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
       cachePath
     )
 
-    const projectConfigArtifacts = await getConfigArtifacts(
-      userConfig.projects[projectName].contracts
-    )
+    const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-    const deployerAddress = getSphinxManagerAddress(ownerAddress)
-    const parsedProjectConfig = getUnvalidatedParsedProjectConfig(
-      userConfig.projects[projectName],
-      projectName,
-      projectConfigArtifacts,
+    const deployerAddress = getSphinxManagerAddress(
+      ownerAddress,
+      userConfig.project
+    )
+    const contractConfigs = getUnvalidatedContractConfigs(
+      userConfig,
+      configArtifacts,
       cre,
       FailureAction.THROW,
       deployerAddress
     )
 
-    await projectPostParsingValidation(
+    const parsedConfig = {
+      deployer: deployerAddress,
+      contracts: contractConfigs,
+      project: userConfig.project,
+    }
+
+    await postParsingValidation(
       provider,
-      parsedProjectConfig,
-      projectConfigArtifacts,
-      projectName,
+      parsedConfig,
+      configArtifacts,
       cre,
       configCache,
       FailureAction.THROW
     )
 
-    const { configUri, bundles, canonicalConfig } = await getProjectBundleInfo(
-      parsedProjectConfig,
-      projectConfigArtifacts,
+    const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
+      parsedConfig,
+      configArtifacts,
       configCache
     )
 
     if (broadcasting) {
-      writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
+      writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
 
       const ipfsHash = configUri.replace('ipfs://', '')
       const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
@@ -128,7 +132,7 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
       // config URI as its name.
       fs.writeFileSync(
         path.join(artifactCachePath, `${ipfsHash}.json`),
-        JSON.stringify(projectConfigArtifacts, null, 2)
+        JSON.stringify(configArtifacts, null, 2)
       )
     }
 
@@ -151,7 +155,7 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
       [bundles.targetBundle]
     )
 
-    const deployContractCosts = getDeployContractCosts(projectConfigArtifacts)
+    const deployContractCosts = getDeployContractCosts(configArtifacts)
     const encodedConfigUriAndWarnings = defaultAbiCoder.encode(
       ['string', deployContractCostsType, 'string'],
       [configUri, deployContractCosts, getPrettyWarnings()]

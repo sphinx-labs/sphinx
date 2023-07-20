@@ -12,7 +12,7 @@ import {
  * @title SphinxLZReceiver
  * @notice This contract receives LayerZero cross chain messages. This contract is meant to handle
            permissionless operations, such as sending funds to trusted contracts and registering new
-           organizations, so we don't need to check the address on the source chain that sent the
+           projects, so we don't need to check the address on the source chain that sent the
            message. In other words, we don't use LayerZero's trusted remote lookup.
 
            We use the non-blocking version of LayerZero so that we can continue to receive messages

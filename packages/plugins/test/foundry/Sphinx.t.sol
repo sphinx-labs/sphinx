@@ -44,7 +44,7 @@ contract SphinxTest is Sphinx, Test {
     ISphinxRegistry registry;
     Sphinx sphinx;
 
-    string deployConfig = "./sphinx/main.config.ts";
+    string storageConfig = "./sphinx/Storage.config.ts";
 
     struct SimpleStruct {
         bytes32 a;
@@ -55,26 +55,15 @@ contract SphinxTest is Sphinx, Test {
     function setUp() public {
         silence();
 
-        deploy(deployConfig, "Storage", vm.rpcUrl("anvil"));
-        deploy(deployConfig, "Create3", vm.rpcUrl("anvil"));
+        deploy(storageConfig, vm.rpcUrl("anvil"));
 
-        myStorage = Storage(getAddress(deployConfig, "Storage", "MyStorage"));
-        myOtherImmutables = OtherImmutables(getAddress(deployConfig, "Storage", "MyOtherImmutables"));
-        mySimpleStorage = SimpleStorage(getAddress(deployConfig, "Storage", "MySimpleStorage"));
-        myStateless = Stateless(getAddress(deployConfig, "Storage", "Stateless"));
-        myStatelessWithSalt = Stateless(getAddress(deployConfig, "Create3", "Stateless", keccak256('1')));
-        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(deployConfig, "Storage", "ComplexConstructorArgs"));
+        myStorage = Storage(getAddress(storageConfig, "MyStorage"));
+        myOtherImmutables = OtherImmutables(getAddress(storageConfig,"MyOtherImmutables"));
+        mySimpleStorage = SimpleStorage(getAddress(storageConfig,"MySimpleStorage"));
+        myStateless = Stateless(getAddress(storageConfig,"Stateless"));
+        myComplexConstructorArgs = ComplexConstructorArgs(getAddress(storageConfig, "ComplexConstructorArgs"));
 
         registry = utils.getSphinxRegistry();
-    }
-
-    function testHasDifferentAddressWithSalt() public {
-        assertNotEq(address(myStateless), address(myStatelessWithSalt));
-    }
-
-    function testDeployStatelessImmutableWithSalt() public {
-        assertEq(myStatelessWithSalt.hello(), "Hello, world!");
-        assertEq(myStatelessWithSalt.immutableUint(), 2);
     }
 
     function testDeployStatelessImmutableContract() public {

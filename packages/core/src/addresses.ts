@@ -23,7 +23,7 @@ import {
   LZEndpointMockArtifact,
   LZSenderArtifact,
   LZReceiverArtifact,
-  AuthFactoryArtifact,
+  FactoryArtifact,
   AuthProxyArtifact,
   AuthArtifact,
 } from '@sphinx/contracts'
@@ -244,13 +244,13 @@ export const getLZReceiverAddress = (endpointAddress: string) => {
   )
 }
 
-export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
+export const FACTORY_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   constants.HashZero,
   utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      AuthFactoryArtifact.bytecode,
+      FactoryArtifact.bytecode,
       utils.defaultAbiCoder.encode(
         ['address', 'address'],
         [getSphinxRegistryAddress(), getOwnerAddress()]
@@ -306,13 +306,11 @@ export const getSphinxManagerV1Address = () =>
     )
   )
 
-export const getSphinxManagerAddress = (owner: string) => {
-  // We set the saltNonce to 0 since we can safely assume that each owner
-  // will only have one manager contract for now.
+export const getSphinxManagerAddress = (owner: string, projectName: string) => {
   const salt = utils.keccak256(
     utils.defaultAbiCoder.encode(
-      ['address', 'uint256', 'bytes'],
-      [owner, 0, []]
+      ['address', 'string', 'bytes'],
+      [owner, projectName, []]
     )
   )
 
@@ -324,32 +322,31 @@ export const getSphinxManagerAddress = (owner: string) => {
 }
 
 export const getAuthData = (
-  orgOwners: Array<string>,
-  orgThreshold: number
+  owners: Array<string>,
+  threshold: number
 ): string => {
   return utils.defaultAbiCoder.encode(
     ['address[]', 'uint256'],
-    [orgOwners, orgThreshold]
+    [owners, threshold]
   )
 }
 
-export const getAuthSalt = (authData: string): string => {
-  // We set the saltNonce to 0 since we can safely assume that each owner
-  // will only have one manager contract for now.
+export const getAuthSalt = (authData: string, projectName: string): string => {
   return utils.keccak256(
-    utils.defaultAbiCoder.encode(['bytes', 'uint256'], [authData, 0])
+    utils.defaultAbiCoder.encode(['bytes', 'string'], [authData, projectName])
   )
 }
 
 export const getAuthAddress = (
-  orgOwners: Array<string>,
-  orgThreshold: number
+  owners: Array<string>,
+  threshold: number,
+  projectName: string
 ): string => {
-  const authData = getAuthData(orgOwners, orgThreshold)
-  const salt = getAuthSalt(authData)
+  const authData = getAuthData(owners, threshold)
+  const salt = getAuthSalt(authData, projectName)
 
   return utils.getCreate2Address(
-    AUTH_FACTORY_ADDRESS,
+    FACTORY_ADDRESS,
     salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
@@ -357,7 +354,7 @@ export const getAuthAddress = (
         AuthProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'address'],
-          [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
+          [FACTORY_ADDRESS, FACTORY_ADDRESS]
         ),
       ]
     )

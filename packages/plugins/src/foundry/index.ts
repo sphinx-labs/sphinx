@@ -10,11 +10,11 @@ import {
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
-  CanonicalProjectConfig,
-  ProjectConfigArtifacts,
   getSphinxManagerAddress,
   proposeAbstractTask,
-  readUserSphinxConfig,
+  readUserConfigWithOptions,
+  ConfigArtifacts,
+  CompilerConfig,
 } from '@sphinx/core'
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -38,14 +38,13 @@ const command = args[0]
 
       try {
         const configPath = args[1]
-        const projectName = args[2]
-        const dryRun = args[3] === 'true'
-        const isTestnet = args[4] === 'true'
+        const dryRun = args[2] === 'true'
+        const isTestnet = args[3] === 'true'
 
         const {
           artifactFolder,
           buildInfoFolder,
-          canonicalConfigFolder,
+          compilerConfigFolder,
           cachePath,
           rpcEndpoints,
         } = await getFoundryConfigOptions()
@@ -53,16 +52,15 @@ const command = args[0]
         const cre = createSphinxRuntime(
           true,
           true,
-          canonicalConfigFolder,
+          compilerConfigFolder,
           undefined,
           false,
           process.stderr
         )
 
         await proposeAbstractTask(
-          await readUserSphinxConfig(configPath),
+          await readUserConfigWithOptions(configPath),
           isTestnet,
-          projectName,
           dryRun,
           cre,
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
@@ -102,12 +100,12 @@ const command = args[0]
 
       const exists = configUri !== undefined
 
-      const encodedCanonicalConfigUri = ethers.utils.defaultAbiCoder.encode(
+      const encodedConfigUri = ethers.utils.defaultAbiCoder.encode(
         ['bool', 'string'],
         [exists, configUri ?? '']
       )
 
-      process.stdout.write(encodedCanonicalConfigUri)
+      process.stdout.write(encodedConfigUri)
       break
     }
     case 'checkProxyBytecodeCompatible': {
@@ -150,17 +148,18 @@ const command = args[0]
       break
     }
     case 'generateArtifacts': {
-      const { canonicalConfigFolder, deploymentFolder, cachePath } =
+      const { compilerConfigFolder, deploymentFolder, cachePath } =
         await getFoundryConfigOptions()
 
       const networkName = args[1]
       const rpcUrl = args[2]
       const ownerAddress = args[3]
+      const projectName = args[4]
 
       const provider: ethers.providers.JsonRpcProvider =
         new ethers.providers.JsonRpcProvider(rpcUrl)
 
-      const deployer = getSphinxManagerAddress(ownerAddress)
+      const deployer = getSphinxManagerAddress(ownerAddress, projectName)
       const manager = getSphinxManagerReadOnly(deployer, provider)
 
       // Get the most recent deployment completed event for this deployment ID.
@@ -178,21 +177,21 @@ const command = args[0]
       )
 
       const ipfsHash = deployment.configUri.replace('ipfs://', '')
-      const canonicalConfig: CanonicalProjectConfig = JSON.parse(
-        fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
+      const compilerConfig: CompilerConfig = JSON.parse(
+        fs.readFileSync(`.compiler-configs/${ipfsHash}.json`).toString()
       )
 
-      const configArtifacts: ProjectConfigArtifacts = JSON.parse(
+      const configArtifacts: ConfigArtifacts = JSON.parse(
         fs
           .readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`)
           .toString()
       )
 
       await postDeploymentActions(
-        canonicalConfig,
+        compilerConfig,
         configArtifacts,
         deploymentId,
-        canonicalConfigFolder,
+        compilerConfigFolder,
         deployment.configUri,
         false,
         networkName,

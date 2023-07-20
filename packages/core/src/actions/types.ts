@@ -157,6 +157,15 @@ export type SetRoleMember = {
   add: boolean
 }
 
+export type DeploymentApproval = {
+  actionRoot: string
+  targetRoot: string
+  numActions: number
+  numTargets: number
+  numImmutableContracts: number
+  configUri: string
+}
+
 export type ContractInfo = {
   referenceName: string
   addr: string
@@ -178,14 +187,7 @@ export type AuthState = {
 interface Setup extends BaseAuthLeaf {
   leafType: 'setup'
   proposers: Array<SetRoleMember>
-  managers: Array<SetRoleMember>
   numLeafs: number
-}
-
-interface SetProjectManager extends BaseAuthLeaf {
-  leafType: 'setProjectManager'
-  projectManager: string
-  add: boolean
 }
 
 interface ExportProxy extends BaseAuthLeaf {
@@ -195,14 +197,14 @@ interface ExportProxy extends BaseAuthLeaf {
   newOwner: string
 }
 
-interface SetOrgOwner extends BaseAuthLeaf {
-  leafType: 'setOrgOwner'
-  orgOwner: string
+interface SetOwner extends BaseAuthLeaf {
+  leafType: 'setOwner'
+  owner: string
   add: boolean
 }
 
-interface SetOrgThreshold extends BaseAuthLeaf {
-  leafType: 'setOrgThreshold'
+interface SetThreshold extends BaseAuthLeaf {
+  leafType: 'setThreshold'
   newThreshold: number
 }
 
@@ -231,14 +233,6 @@ interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
   authData: string
 }
 
-interface CreateProject extends BaseAuthLeaf {
-  leafType: 'createProject'
-  projectName: string
-  projectThreshold: number
-  projectOwners: string[]
-  contractsToImport: ContractInfo[]
-}
-
 interface SetProposer extends BaseAuthLeaf {
   leafType: 'setProposer'
   proposer: string
@@ -252,44 +246,12 @@ interface WithdrawETH extends BaseAuthLeaf {
 
 export interface ApproveDeployment extends BaseAuthLeaf {
   leafType: 'approveDeployment'
-  projectName: string
-  actionRoot: string
-  targetRoot: string
-  numActions: number
-  numTargets: number
-  numImmutableContracts: number
-  configUri: string
-}
-
-interface SetProjectThreshold extends BaseAuthLeaf {
-  leafType: 'setProjectThreshold'
-  projectName: string
-  newThreshold: number
-}
-
-interface SetProjectOwner extends BaseAuthLeaf {
-  leafType: 'setProjectOwner'
-  projectName: string
-  projectOwner: string
-  add: boolean
-}
-
-interface RemoveProject extends BaseAuthLeaf {
-  leafType: 'removeProject'
-  projectName: string
-  contractAddresses: string[]
+  approval: DeploymentApproval
 }
 
 interface CancelActiveDeployment extends BaseAuthLeaf {
   leafType: 'cancelActiveDeployment'
   projectName: string
-}
-
-interface UpdateContractsInProject extends BaseAuthLeaf {
-  leafType: 'updateContractsInProject'
-  projectName: string
-  contractAddresses: string[]
-  addContract: boolean[]
 }
 
 interface Propose extends BaseAuthLeaf {
@@ -299,29 +261,21 @@ interface Propose extends BaseAuthLeaf {
 
 export type AuthLeaf =
   | Setup
-  | SetProjectManager
   | ExportProxy
-  | SetOrgOwner
-  | SetOrgThreshold
+  | SetOwner
+  | SetThreshold
   | TransferDeployerOwnership
   | UpgradeDeployerImplementation
   | UpgradeAuthImplementation
   | UpgradeAuthAndDeployerImpl
-  | CreateProject
   | SetProposer
   | WithdrawETH
   | ApproveDeployment
-  | SetProjectThreshold
-  | SetProjectOwner
-  | RemoveProject
   | CancelActiveDeployment
-  | UpdateContractsInProject
   | Propose
 
 export enum RoleType {
-  ORG_OWNER,
-  MANAGER,
-  PROJECT_OWNER,
+  OWNER,
   PROPOSER,
 }
 
@@ -329,25 +283,25 @@ type IPFSHash = string
 export type IPFSCommitResponse = IPFSHash[]
 
 /**
- * @param orgCanonicalConfig The stringified CanonicalOrgConfig that would be generated if this
- * proposal were to be approved and completely executed.
- * @param gasEstimates The estimated amount of gas required to the entire org tree on each chain,
+ * @param canonicalConfig The stringified CanonicalConfig that would be generated if this proposal
+ * is completely executed.
+ * @param gasEstimates The estimated amount of gas required to the entire auth tree on each chain,
  * including a buffer.
  */
 export type ProposalRequest = {
   apiKey: string
   orgId: string
   isTestnet: boolean
-  orgOwners: string[]
-  orgOwnerThreshold: number
+  owners: string[]
+  threshold: number
   authAddress: string
   deployerAddress: string
   deploymentName: string
   chainIds: Array<number>
-  orgCanonicalConfig: string
-  projectDeployments: Array<ProjectDeployments>
+  canonicalConfig: string
+  projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
-  orgTree: {
+  tree: {
     root: string
     chainStatus: Array<{
       numLeaves: number
@@ -357,7 +311,7 @@ export type ProposalRequest = {
   }
 }
 
-export type ProjectDeployments = {
+export type ProjectDeployment = {
   chainId: number
   deploymentId: string
   name: string // project name

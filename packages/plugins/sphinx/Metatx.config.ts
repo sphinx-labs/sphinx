@@ -1,8 +1,9 @@
-import { UserProjectConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx/core'
 
 const projectName = 'Metatxs'
 
-const config: UserProjectConfig = {
+const config: UserConfig = {
+  project: projectName,
   contracts: {
     Stateless: {
       contract: 'Stateless',
@@ -15,4 +16,4 @@ const config: UserProjectConfig = {
   },
 }
 
-export { config, projectName }
+export default config

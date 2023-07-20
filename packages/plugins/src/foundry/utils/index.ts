@@ -12,9 +12,9 @@ import {
   execAsync,
 } from '@sphinx/core/dist/utils'
 import {
+  ConfigArtifacts,
   GetConfigArtifacts,
   GetProviderForChainId,
-  ProjectConfigArtifacts,
   UserContractConfigs,
 } from '@sphinx/core/dist/config/types'
 import { parse } from 'semver'
@@ -326,16 +326,16 @@ export const makeGetConfigArtifacts = (
       JSON.stringify(buildInfoCache, null, 2)
     )
 
-    const projectConfigArtifacts: ProjectConfigArtifacts = {}
+    const configArtifacts: ConfigArtifacts = {}
 
     for (const { referenceName, artifact, buildInfo } of completeArtifacts) {
-      projectConfigArtifacts[referenceName] = {
+      configArtifacts[referenceName] = {
         artifact,
         buildInfo,
       }
     }
 
-    return projectConfigArtifacts
+    return configArtifacts
   }
 }
 

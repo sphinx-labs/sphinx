@@ -12,7 +12,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  AuthFactoryABI,
+  FactoryABI,
   LZEndpointMockABI,
 } from '@sphinx/contracts'
 import { Logger } from '@eth-optimism/common-ts'
@@ -32,7 +32,7 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  AUTH_FACTORY_ADDRESS,
+  FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
   getMockEndPointAddress,
   getLZReceiverAddress,
@@ -325,26 +325,20 @@ export const initializeSphinx = async (
 
   logger?.info('[Sphinx]: setting the default SphinxAuth version')
 
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    signer
-  )
+  const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, signer)
 
-  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
+  if (!(await Factory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
     await (
-      await AuthFactory.addVersion(
+      await Factory.addVersion(
         AUTH_IMPL_V1_ADDRESS,
         await getGasPriceOverrides(provider)
       )
     ).wait()
   }
 
-  if (
-    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
-  ) {
+  if ((await Factory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS) {
     await (
-      await AuthFactory.setCurrentAuthImplementation(
+      await Factory.setCurrentAuthImplementation(
         AUTH_IMPL_V1_ADDRESS,
         await getGasPriceOverrides(provider)
       )

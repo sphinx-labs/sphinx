@@ -15,7 +15,7 @@ import {
   ProxyArtifact,
   LZSenderArtifact,
   LZReceiverArtifact,
-  AuthFactoryArtifact,
+  FactoryArtifact,
   AuthArtifact,
   LZEndpointMockArtifact,
 } from '@sphinx/contracts'
@@ -40,7 +40,7 @@ import {
   getLZSenderAddress,
   getLZReceiverAddress,
   getMockEndPointAddress,
-  AUTH_FACTORY_ADDRESS,
+  FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
   getDestinationChains,
 } from './addresses'
@@ -188,8 +188,8 @@ export const getSphinxConstants = (
       constructorArgs: [[1, 0, 0]],
     },
     {
-      artifact: AuthFactoryArtifact,
-      expectedAddress: AUTH_FACTORY_ADDRESS,
+      artifact: FactoryArtifact,
+      expectedAddress: FACTORY_ADDRESS,
       constructorArgs: [getSphinxRegistryAddress(), getOwnerAddress()],
     },
     sender,

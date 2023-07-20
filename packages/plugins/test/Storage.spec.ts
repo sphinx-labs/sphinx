@@ -1,3 +1,4 @@
+import '../dist' // Imports Sphinx type extensions for Hardhat
 import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -7,7 +8,7 @@ import {
   immutableConstructorArgsOne,
   immutableConstructorArgsTwo,
   variables,
-} from '../constants'
+} from './constants'
 
 describe('Storage', () => {
   let MyStorage: Contract

@@ -9,7 +9,7 @@ interface ISphinxRegistry {
 
     function register(
         address _owner,
-        uint256 _saltNonce,
+        string memory _projectName,
         bytes memory _data
     ) external returns (address);
 

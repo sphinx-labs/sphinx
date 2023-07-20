@@ -15,12 +15,13 @@ import {
   sphinxCancelAbstractTask,
   sphinxExportProxyAbstractTask,
   sphinxImportProxyAbstractTask,
-  readParsedOwnerConfig,
   ensureSphinxInitialized,
   isHardhatFork,
   isLocalNetwork,
   proposeAbstractTask,
-  readUserSphinxConfig,
+  readUserConfigWithOptions,
+  readUserConfig,
+  getParsedConfig,
 } from '@sphinx/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
@@ -28,7 +29,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { Signer } from 'ethers/lib/ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import { deployAllSphinxProjects, getSignerFromAddress } from './deployments'
+import { getSignerFromAddress } from './deployments'
 import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './artifacts'
 import { createSphinxRuntime } from '../cre'
 
@@ -54,10 +55,9 @@ subtask(TASK_SPHINX_FETCH)
 export const sphinxDeployTask = async (
   args: {
     configPath: string
-    project: string
-    newOwner: string
     silent: boolean
     noCompile: boolean
+    newOwner?: string
     confirmUpgrade?: boolean
     signer?: string
     useDefaultSigner?: boolean
@@ -66,7 +66,6 @@ export const sphinxDeployTask = async (
 ) => {
   const {
     configPath,
-    project,
     newOwner,
     silent,
     noCompile,
@@ -92,7 +91,7 @@ export const sphinxDeployTask = async (
   const cre = await createSphinxRuntime(
     false,
     confirmUpgrade,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     hre,
     silent
   )
@@ -101,29 +100,27 @@ export const sphinxDeployTask = async (
 
   spinner.succeed('Sphinx is ready!')
 
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
+  const compilerConfigPath = hre.config.paths.compilerConfigs
   const deploymentFolder = hre.config.paths.deployments
 
-  const { parsedConfig, configCache, configArtifacts } =
-    await readParsedOwnerConfig(
-      configPath,
-      project,
-      provider,
-      cre,
-      makeGetConfigArtifacts(hre),
-      ownerAddress
-    )
+  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
+    await readUserConfig(configPath),
+    provider,
+    cre,
+    makeGetConfigArtifacts(hre),
+    ownerAddress
+  )
 
   await deployAbstractTask(
     provider,
     owner,
-    canonicalConfigPath,
+    compilerConfigPath,
     deploymentFolder,
     'hardhat',
     cre,
-    parsedConfig.projects[project],
-    configCache[project],
-    configArtifacts[project],
+    parsedConfig,
+    configCache,
+    configArtifacts,
     newOwner,
     spinner
   )
@@ -132,7 +129,6 @@ export const sphinxDeployTask = async (
 task(TASK_SPHINX_DEPLOY)
   .setDescription('Deploys a Sphinx config file')
   .addParam('configPath', 'Path to the Sphinx config file to deploy')
-  .addParam('project', 'The name of the project to deploy')
   .addOptionalParam(
     'signer',
     'Address of the signer that deploys the Sphinx config.'
@@ -156,7 +152,6 @@ task(TASK_SPHINX_DEPLOY)
 export const sphinxProposeTask = async (
   args: {
     configPath: string
-    project: string
     dryRun: boolean
     testnets: boolean
     mainnets: boolean
@@ -164,7 +159,7 @@ export const sphinxProposeTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, project, noCompile, dryRun, testnets, mainnets } = args
+  const { configPath, noCompile, dryRun, testnets, mainnets } = args
 
   let isTestnet: boolean
   if (testnets && mainnets) {
@@ -190,15 +185,14 @@ export const sphinxProposeTask = async (
   const cre = createSphinxRuntime(
     true,
     true,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     hre,
     false
   )
 
   await proposeAbstractTask(
-    await readUserSphinxConfig(configPath),
+    await readUserConfigWithOptions(configPath),
     isTestnet,
-    project,
     dryRun,
     cre,
     makeGetConfigArtifacts(hre),
@@ -260,11 +254,7 @@ task(TASK_NODE)
   )
 
 task(TASK_TEST)
-  .setDescription(
-    `Runs mocha tests. By default, deploys all Sphinx configs in 'sphinx/' before running the tests.`
-  )
-  .addFlag('silent', "Hide all of Sphinx's logs")
-  .addFlag('disableSphinx', "Completely disable all of Sphinx's activity.")
+  .addFlag('log', "Show Sphinx's deployment logs")
   .addOptionalParam(
     'signer',
     'Address of the signer that deploys the Sphinx config.'
@@ -277,109 +267,75 @@ task(TASK_TEST)
     'configPath',
     'Optional path to the single Sphinx config file to test.'
   )
-  .addOptionalParam(
-    'project',
-    'Name of a Sphinx project to deploy before running the tests.'
-  )
-  .addOptionalParam(
-    'projects',
-    `Names of Sphinx projects to deploy before running the tests. ` +
-      `Format must be a comma-separated string, such as: 'Project1, Project2'.`
-  )
   .setAction(
     async (
       args: {
-        silent: boolean
+        log: boolean
         noCompile: boolean
-        confirm: boolean
-        configPath: string
-        project: string
-        projects: string
-        disableSphinx?: boolean
+        configPath?: string
         signer?: string
         useDefaultSigner?: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const {
-        silent,
-        noCompile,
-        configPath,
-        project,
-        projects,
-        disableSphinx,
-        signer,
-        useDefaultSigner,
-      } = args
+      const { noCompile, configPath, signer, useDefaultSigner } = args
+      const silent = !args.log
 
-      if (!disableSphinx) {
-        const networkName = await resolveNetworkName(
-          hre.ethers.provider,
-          'hardhat'
-        )
-        if (
-          (await isLocalNetwork(hre.ethers.provider)) ||
-          (await isHardhatFork(hre.ethers.provider))
-        ) {
-          try {
-            const snapshotIdPath = path.join(
-              path.basename(hre.config.paths.deployments),
-              networkName,
-              '.snapshotId'
-            )
-            const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-            const snapshotReverted = await hre.network.provider.send(
-              'evm_revert',
-              [snapshotId]
-            )
-            if (!snapshotReverted) {
-              throw new Error('Snapshot failed to be reverted.')
-            }
-          } catch {
-            await ensureSphinxInitialized(
-              hre.ethers.provider,
-              hre.ethers.provider.getSigner()
-            )
-            if (!noCompile) {
-              await hre.run(TASK_COMPILE, {
-                quiet: true,
-              })
-            }
+      if (!configPath) {
+        await runSuper(args)
+        return
+      }
 
-            if (configPath) {
-              let projectNames: string[]
-              if (project) {
-                projectNames = [project]
-              } else if (projects) {
-                projectNames = projects.replace(/\s+/g, '').split(',')
-              } else {
-                throw new Error(
-                  'Must specify a Sphinx project name using --project or --projects'
-                )
-              }
-
-              const owner = await resolveOwner(hre, signer, useDefaultSigner)
-
-              await deployAllSphinxProjects(
-                hre,
-                silent,
-                configPath,
-                owner,
-                projectNames
-              )
-            } else {
-              if (project || projects) {
-                throw new Error('Must specify a sphinx config path')
-              }
-            }
-          }
-          await writeSnapshotId(
-            hre.ethers.provider,
+      const networkName = await resolveNetworkName(
+        hre.ethers.provider,
+        'hardhat'
+      )
+      if (
+        (await isLocalNetwork(hre.ethers.provider)) ||
+        (await isHardhatFork(hre.ethers.provider))
+      ) {
+        try {
+          const snapshotIdPath = path.join(
+            path.basename(hre.config.paths.deployments),
             networkName,
-            hre.config.paths.deployments
+            '.snapshotId'
+          )
+          const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
+          const snapshotReverted = await hre.network.provider.send(
+            'evm_revert',
+            [snapshotId]
+          )
+          if (!snapshotReverted) {
+            throw new Error('Snapshot failed to be reverted.')
+          }
+        } catch {
+          await ensureSphinxInitialized(
+            hre.ethers.provider,
+            hre.ethers.provider.getSigner()
+          )
+          if (!noCompile) {
+            await hre.run(TASK_COMPILE, {
+              quiet: true,
+            })
+          }
+
+          await sphinxDeployTask(
+            {
+              configPath,
+              silent,
+              noCompile: true,
+              signer,
+              useDefaultSigner,
+            },
+            hre
           )
         }
+        await writeSnapshotId(
+          hre.ethers.provider,
+          networkName,
+          hre.config.paths.deployments
+        )
       }
       await runSuper(args)
     }
@@ -400,7 +356,7 @@ export const sphinxCancelTask = async (
   const cre = await createSphinxRuntime(
     false,
     true,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     hre,
     false
   )
@@ -436,7 +392,7 @@ export const exportProxyTask = async (
   const cre = await createSphinxRuntime(
     false,
     true,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     hre,
     silent
   )
@@ -446,9 +402,8 @@ export const exportProxyTask = async (
   const owner = await resolveOwner(hre, signer, useDefaultSigner)
   const ownerAddress = await owner.getAddress()
 
-  const { parsedConfig } = await readParsedOwnerConfig(
-    configPath,
-    project,
+  const { parsedConfig } = await getParsedConfig(
+    await readUserConfig(configPath),
     provider,
     cre,
     makeGetConfigArtifacts(hre),
@@ -461,7 +416,7 @@ export const exportProxyTask = async (
     project,
     referenceName,
     'hardhat',
-    parsedConfig.projects,
+    parsedConfig,
     cre
   )
 }
@@ -487,6 +442,7 @@ task(TASK_SPHINX_EXPORT_PROXY)
 
 export const importProxyTask = async (
   args: {
+    project: string
     proxy: string
     silent: boolean
     signer?: string
@@ -494,7 +450,7 @@ export const importProxyTask = async (
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { proxy, silent, signer, useDefaultSigner } = args
+  const { project, proxy, silent, signer, useDefaultSigner } = args
 
   const owner = await resolveOwner(hre, signer, useDefaultSigner)
   const ownerAddress = await owner.getAddress()
@@ -504,12 +460,13 @@ export const importProxyTask = async (
   const cre = await createSphinxRuntime(
     false,
     true,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     hre,
     silent
   )
 
   await sphinxImportProxyAbstractTask(
+    project,
     provider,
     owner,
     proxy,

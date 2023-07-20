@@ -10,25 +10,16 @@ import { getEncodedFailure, validationStderrWrite } from './logs'
 
 const args = process.argv.slice(2)
 const configPath = args[0]
-const projectName = args[1]
-const ownerAddress = args[2]
+const ownerAddress = args[1]
 
 // This function is in its own file to minimize the number of dependencies that are imported, as
 // this speeds up the execution time of the script when called via FFI from Foundry.
 ;(async () => {
   process.stderr.write = validationStderrWrite
   try {
-    if (!projectName) {
-      throw Error('No project name provided')
-    }
-
     const userConfig = await readUserSphinxConfig(configPath)
 
-    const minimalConfig = getMinimalConfig(
-      userConfig,
-      projectName,
-      ownerAddress
-    )
+    const minimalConfig = getMinimalConfig(userConfig, ownerAddress)
 
     const rootImportPath =
       process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'

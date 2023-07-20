@@ -1,15 +1,16 @@
-import { UserProjectConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx/core'
 
 import {
   variables,
   complexConstructorArgs,
   immutableConstructorArgsOne,
   immutableConstructorArgsTwo,
-} from '../../test/constants'
+} from '../test/constants'
 
-const projectName = 'Storage'
+export const projectName = 'Storage'
 
-const config: UserProjectConfig = {
+const config: UserConfig = {
+  project: projectName,
   contracts: {
     MyStorage: {
       contract: 'contracts/test/ContainsStorage.sol:Storage',
@@ -53,4 +54,4 @@ const config: UserProjectConfig = {
   },
 }
 
-export { config, projectName }
+export default config

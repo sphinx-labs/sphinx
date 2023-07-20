@@ -7,7 +7,7 @@ import { Contract, Event, providers } from 'ethers'
 import { ParsedContractConfig } from './config/types'
 
 export type SphinxRuntimeEnvironment = {
-  canonicalConfigPath: string
+  compilerConfigPath: string
   remoteExecution: boolean
   confirmUpgrade: boolean
   stream: NodeJS.WritableStream

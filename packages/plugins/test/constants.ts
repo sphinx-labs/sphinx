@@ -4,12 +4,12 @@ import path from 'path'
 // eslint-disable-next-line import/order
 import hre from 'hardhat'
 
-import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `canonicalConfigPath`
+import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
 import '@nomiclabs/hardhat-ethers'
 
 import { BigNumber, ethers } from 'ethers'
 import {
-  UserSphinxConfig,
+  UserConfigWithOptions,
   getAuthAddress,
   getAuthData,
   getSphinxManagerAddress,
@@ -19,19 +19,19 @@ import { createSphinxRuntime } from '../src/cre'
 
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
-export const ORG_OWNER_ROLE_HASH = ethers.constants.HashZero
+export const OWNER_ROLE_HASH = ethers.constants.HashZero
 
 export const DUMMY_ORG_ID = '1111'
 
 export const cre = createSphinxRuntime(
   false,
   false,
-  hre.config.paths.canonicalConfigs,
+  hre.config.paths.compilerConfigs,
   hre,
   false
 )
 
-export const orgThreshold = 1
+export const threshold = 1
 
 // First account on Hardhat node
 export const ownerPrivateKey =
@@ -55,30 +55,17 @@ export const rpcProviders = {
 }
 export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
 
-export const orgOwners = [ownerAddress]
-export const sampleUserConfig: UserSphinxConfig = {
+export const sampleProjectName = 'MyProject'
+export const owners = [ownerAddress]
+export const sampleUserConfig: UserConfigWithOptions = {
+  project: sampleProjectName,
   options: {
     orgId: DUMMY_ORG_ID,
-    orgOwners,
-    orgThreshold,
+    owners,
+    threshold,
     testnets,
     mainnets: [],
     proposers: [ownerAddress],
-    managers: [ownerAddress],
-  },
-  projects: {},
-}
-
-export const authData = getAuthData(orgOwners, orgThreshold)
-export const authAddress = getAuthAddress(orgOwners, orgThreshold)
-export const deployerAddress = getSphinxManagerAddress(authAddress)
-
-export const sampleProjectName = 'MyProject'
-export const sampleProjectThreshold = 1
-sampleUserConfig.projects[sampleProjectName] = {
-  options: {
-    projectOwners: [ownerAddress],
-    projectThreshold: sampleProjectThreshold,
   },
   contracts: {
     MyContract: {
@@ -91,6 +78,13 @@ sampleUserConfig.projects[sampleProjectName] = {
     },
   },
 }
+
+export const authData = getAuthData(owners, threshold)
+export const authAddress = getAuthAddress(owners, threshold, sampleProjectName)
+export const deployerAddress = getSphinxManagerAddress(
+  authAddress,
+  sampleProjectName
+)
 
 export const fetchBuildInfo = () => {
   const directoryPath = path.join(__dirname, '../artifacts/build-info')

@@ -2,7 +2,11 @@ import { argv } from 'process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { getProjectBundleInfo, readParsedOwnerConfig } from '@sphinx/core'
+import {
+  getParsedConfig,
+  getProjectBundleInfo,
+  readUserConfig,
+} from '@sphinx/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -26,21 +30,20 @@ if (typeof configPath !== 'string') {
 const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
 
-  const cre = await createSphinxRuntime(
+  const cre = createSphinxRuntime(
     false,
     true,
-    hre.config.paths.canonicalConfigs,
+    hre.config.paths.compilerConfigs,
     undefined,
     false
   )
 
-  const { parsedConfig, configCache, configArtifacts } =
-    await readParsedOwnerConfig(
-      configPath,
-      provider,
-      cre,
-      makeGetConfigArtifacts(hre)
-    )
+  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
+    await readUserConfig(configPath),
+    provider,
+    cre,
+    makeGetConfigArtifacts(hre)
+  )
 
   const { configUri, bundles } = await getProjectBundleInfo(
     parsedConfig,

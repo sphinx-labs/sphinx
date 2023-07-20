@@ -11,7 +11,7 @@
 //   getSphinxManager,
 //   getSphinxRegistry,
 //   ProposalRoute,
-//   readParsedOwnerConfig,
+//   readParsedConfig,
 // } from '@sphinx/core'
 // import { ForwarderArtifact } from '@sphinx/contracts'
 // import { expect } from 'chai'
@@ -21,7 +21,7 @@
 // import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
 // const configPath = './sphinx/sphinx.config.ts'
-// import { projectName } from '../sphinx/projects/Metatx.config'
+// import { projectName } from '../sphinx/Metatx.config'
 
 // describe('Meta txs', () => {
 //   process.env['LOCAL_TEST_METATX_PROPOSE'] = 'true'
@@ -36,14 +36,14 @@
 //     const cre = await createSphinxRuntime(
 //       true,
 //       true,
-//       hre.config.paths.canonicalConfigs,
+//       hre.config.paths.compilerConfigs,
 //       hre,
 //       // if the config parsing fails and exits with code 1, you should flip this to false to see verbose output
 //       true
 //     )
 
 //     const { parsedConfig, configArtifacts, configCache } =
-//       await readParsedOwnerConfig(
+//       await readParsedConfig(
 //         configPath,
 //         projectName,
 //         provider,
@@ -79,14 +79,14 @@
 //     const metatxs = await sphinxProposeAbstractTask(
 //       provider,
 //       signer,
-//       parsedConfig.projects[projectName],
+//       parsedConfig,
 //       configPath,
 //       '',
 //       'hardhat',
 //       configArtifacts,
 //       ProposalRoute.RELAY,
 //       cre,
-//       configCache[projectName]
+//       configCache
 //     )
 
 //     const { request, signature, deploymentId } = metatxs!

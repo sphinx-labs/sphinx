@@ -10,7 +10,7 @@ import {
   isSetStorageAction,
 } from './actions'
 import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
-import { ParsedProjectConfig, contractKindHashes } from './config/types'
+import { contractKindHashes } from './config/types'
 
 /**
  * Gets the amount ETH in the SphinxManager that can be used to execute a deployment. This
@@ -119,11 +119,11 @@ export const hasSufficientFundsForExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number,
-  parsedProjectConfig: ParsedProjectConfig
+  deployerAddress: string
 ): Promise<boolean> => {
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedProjectConfig.options.deployer
+    deployerAddress
   )
 
   const currExecutionCost = await estimateExecutionCost(
@@ -139,7 +139,7 @@ export const getAmountToDeposit = async (
   provider: ethers.providers.JsonRpcProvider,
   bundles: SphinxBundles,
   actionsExecuted: number,
-  parsedConfig: ParsedProjectConfig,
+  deployerAddress: string,
   includeBuffer: boolean
 ): Promise<ethers.BigNumber> => {
   const currExecutionCost = await estimateExecutionCost(
@@ -150,7 +150,7 @@ export const getAmountToDeposit = async (
 
   const availableFunds = await availableFundsForExecution(
     provider,
-    parsedConfig.options.deployer
+    deployerAddress
   )
 
   const amountToDeposit = includeBuffer

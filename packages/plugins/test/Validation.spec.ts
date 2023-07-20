@@ -1,20 +1,21 @@
 import hre from 'hardhat'
+import '../dist' // Imports Sphinx type extensions for Hardhat
 import { expect } from 'chai'
 import {
   FailureAction,
   ensureSphinxInitialized,
-  readParsedOwnerConfig,
+  getParsedConfig,
+  readUserConfig,
 } from '@sphinx/core'
 import '@nomiclabs/hardhat-ethers'
 
-import '../dist'
 import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-import { projectName as validationName } from '../sphinx/projects/validation/Validation.config'
-import { projectName as constructorArgName } from '../sphinx/projects/validation/ConstructorArgValidation.config'
-import { projectName as reverterProjectName } from '../sphinx/projects/validation/Reverter.config'
 
-const configPath = './sphinx/main-validation.config.ts'
+const validationConfigPath = './sphinx/validation/Validation.config.ts'
+const constructorArgValidationConfigPath =
+  './sphinx/validation/ConstructorArgValidation.config.ts'
+const reverterConfigPath = './sphinx/validation/Reverter.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
@@ -33,16 +34,15 @@ describe('Validate', () => {
     const cre = createSphinxRuntime(
       false,
       true,
-      hre.config.paths.canonicalConfigs,
+      hre.config.paths.compilerConfigs,
       hre,
       false,
       process.stderr
     )
 
     try {
-      await readParsedOwnerConfig(
-        configPath,
-        validationName,
+      await getParsedConfig(
+        await readUserConfig(validationConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),
@@ -54,9 +54,8 @@ describe('Validate', () => {
     }
 
     try {
-      await readParsedOwnerConfig(
-        configPath,
-        constructorArgName,
+      await getParsedConfig(
+        await readUserConfig(constructorArgValidationConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),
@@ -68,9 +67,8 @@ describe('Validate', () => {
     }
 
     try {
-      await readParsedOwnerConfig(
-        configPath,
-        reverterProjectName,
+      await getParsedConfig(
+        await readUserConfig(reverterConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),

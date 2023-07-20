@@ -4,7 +4,6 @@ pragma solidity >=0.7.4 <0.9.0;
 /**
  * @notice Struct representing the state of a deployment.
  *
- * @custom:field projectName The name of the project.
  * @custom:field status The status of the deployment.
  * @custom:field actions An array of booleans representing whether or not an action has been
    executed.
@@ -20,7 +19,6 @@ pragma solidity >=0.7.4 <0.9.0;
  * @custom:field configUri URI pointing to the config file for the deployment.
  */
 struct DeploymentState {
-    string projectName;
     DeploymentStatus status;
     bool[] actions;
     uint256 targets;
@@ -180,14 +178,9 @@ struct ActionProof {
     bytes32[] siblings;
 }
 
-struct ContractInfo {
-    string referenceName;
-    address addr;
-}
-
 /**
  * @notice Struct representing a leaf in an auth Merkle tree. This represents an arbitrary
-   authenticated action taken by a permissioned account such as an organization owner or proposer.
+   authenticated action taken by a permissioned account such as an owner or proposer.
  *
  * @custom:field chainId The chain ID for the leaf to be executed on.
  * @custom:field to The address that is the subject of the data in this leaf. This should always be
@@ -227,4 +220,13 @@ enum AuthStatus {
 struct SetRoleMember {
     address member;
     bool add;
+}
+
+struct DeploymentApproval {
+    bytes32 actionRoot;
+    bytes32 targetRoot;
+    uint256 numActions;
+    uint256 numTargets;
+    uint256 numImmutableContracts;
+    string configUri;
 }

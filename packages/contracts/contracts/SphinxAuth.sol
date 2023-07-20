@@ -22,7 +22,7 @@ import {
     AuthState,
     AuthStatus,
     AuthLeaf,
-    ContractInfo,
+    DeploymentApproval,
     SetRoleMember
 } from "./SphinxDataTypes.sol";
 import { SphinxManagerProxy } from "./SphinxManagerProxy.sol";
@@ -35,8 +35,6 @@ import { Semver, Version } from "./Semver.sol";
 contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     bytes32 private constant PROPOSER_ROLE = keccak256("ProposerRole");
 
-    bytes32 private constant PROJECT_MANAGER_ROLE = keccak256("ProjectManagerRole");
-
     bytes32 private constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name)");
 
     bytes32 private constant DOMAIN_NAME_HASH = keccak256(bytes("Sphinx"));
@@ -48,19 +46,15 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
     ISphinxManager public manager;
 
-    uint256 public orgThreshold;
+    uint256 public threshold;
+
+    string public projectName;
 
     /**
      * @notice Boolean indicating whether or not a proposal has been made. After this occurs, the
-     *         the org owners of this contract can no longer call `setup`.
+     *         the owners of this contract can no longer call `setup`.
      */
     bool public firstProposalOccurred;
-
-    /**
-     * @notice Mapping of project names to the threshold required to execute an auth leaf for that
-     *        project.
-     */
-    mapping(string => uint256) public thresholds;
 
     /**
      * @notice Mapping of an auth Merkle root to the corresponding AuthState.
@@ -68,23 +62,17 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     mapping(bytes32 => AuthState) public authStates;
 
     event Setup(bytes32 indexed authRoot, uint256 numLeafs);
-    event ProjectManagerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ProxyExported(bytes32 indexed authRoot, uint256 leafIndex);
-    event OrgOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event OrgThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event OwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
+    event ThresholdSet(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerOwnershipTransferred(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProjectCreated(bytes32 indexed authRoot, uint256 leafIndex);
     event ProposerSet(bytes32 indexed authRoot, uint256 leafIndex);
     event ETHWithdrawn(bytes32 indexed authRoot, uint256 leafIndex);
     event DeploymentApproved(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProjectThresholdChanged(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProjectOwnerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event ProjectRemoved(bytes32 indexed authRoot, uint256 leafIndex);
     event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
-    event ContractsInProjectUpdated(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthRootProposed(bytes32 indexed authRoot, uint256 numLeafs);
     event AuthRootCompleted(bytes32 indexed authRoot, uint256 numLeafs);
 
@@ -99,7 +87,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthState memory authState = authStates[_authRoot];
         if (authState.status != AuthStatus.PROPOSED) revert AuthStateNotProposed();
 
-        verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
+        _verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
         _;
     }
 
@@ -121,26 +109,17 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     error InvalidLeafIndex();
     error InvalidMerkleProof();
     error FirstProposalOccurred();
-    error ArrayLengthMismatch();
     error AddressDoesNotHaveRole();
     error UnreachableThreshold();
     error EmptyProjectName();
-    error ProjectDoesNotExist();
     error DeploymentInProgress();
-    error ProjectAlreadyExists();
-    error ContractExistsInAnotherProject();
     error EmptyArray();
-    error ProjectHasActiveDeployment();
-    error ContractDoesNotExistInProject();
-    error LeftoverContractsInProject();
     error AuthStateNotEmpty();
     error AuthStateNotProposable();
-    error InvalidAuthRoot();
     error InvalidNumLeafs();
     error FunctionDisabled();
     error RoleMemberCannotBeZeroAddress();
     error RoleMemberCannotBeThisContract();
-    error LeftoverProjectOwners();
     error NumLeafsMismatch();
 
     constructor(Version memory _version) Semver(_version.major, _version.minor, _version.patch) {
@@ -156,45 +135,48 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
      * @param _manager Address of the SphinxManager contract.
      * @param _data Arbitrary data. Provides a flexible interface for future versions of this
                     contract. In this version, the data is expected to be the ABI-encoded
-                    list of org owners and the org threshold.
+                    list of owners and owner threshold.
      */
-    function initialize(address _manager, bytes memory _data) external initializer {
-        (address[] memory _orgOwners, uint256 _orgThreshold) = abi.decode(
-            _data,
-            (address[], uint256)
-        );
+    function initialize(
+        address _manager,
+        string memory _projectName,
+        bytes memory _data
+    ) external initializer {
+        (address[] memory _owners, uint256 _threshold) = abi.decode(_data, (address[], uint256));
 
-        if (_orgThreshold == 0) revert ThresholdCannotBeZero();
-        if (_orgOwners.length < _orgThreshold) revert ThresholdExceedsOwnerCount();
+        if (bytes(_projectName).length == 0) revert EmptyProjectName();
+        if (_threshold == 0) revert ThresholdCannotBeZero();
+        if (_owners.length < _threshold) revert ThresholdExceedsOwnerCount();
 
-        for (uint256 i = 0; i < _orgOwners.length; i++) {
-            address orgOwner = _orgOwners[i];
-            _assertValidRoleMemberAddress(orgOwner);
+        for (uint256 i = 0; i < _owners.length; i++) {
+            address owner = _owners[i];
+            _assertValidRoleMemberAddress(owner);
 
-            // Throw an error if the caller is attempting to add the same org owner twice, since
+            // Throw an error if the caller is attempting to add the same owner twice, since
             // this means that the caller made a mistake.
-            if (hasRole(DEFAULT_ADMIN_ROLE, orgOwner)) revert AddressAlreadyHasRole();
+            if (hasRole(DEFAULT_ADMIN_ROLE, owner)) revert AddressAlreadyHasRole();
 
-            _grantRole(DEFAULT_ADMIN_ROLE, orgOwner);
+            _grantRole(DEFAULT_ADMIN_ROLE, owner);
         }
 
+        projectName = _projectName;
         manager = ISphinxManager(_manager);
-        orgThreshold = _orgThreshold;
+        threshold = _threshold;
 
         __AccessControlEnumerable_init();
     }
 
-    /********************************** ORG OWNER FUNCTIONS **********************************/
+    /********************************** OWNER FUNCTIONS **********************************/
 
     /**
-     * @notice Sets initial proposers. The number of org owner signatures must be at least
-               `orgThreshold`.
+     * @notice Sets initial proposers. The number of owner signatures must be greater than
+     *         or equal to the threshold.
 
                This is the only permissioned function in this contract that doesn't require
                that the auth Merkle root has been proposed in a separate transaction.
 
                This function is callable until the first proposal occurs. This allows for the
-               possibility that the org owners mistakenly enter invalid initial proposers. For
+               possibility that the owners mistakenly enter invalid initial proposers. For
                example, they may enter proposers addresses that don't exist on this chain. If this
                function was only callable once, then this contract would be unusable in this
                scenario, since every other public function requires that a proposal has occurred.
@@ -202,7 +184,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
      * @param _authRoot Auth Merkle root for the Merkle tree that the owners approved.
      * @param _leaf AuthLeaf struct. This is the decoded leaf of the auth tree.
      * @param _signatures List of meta transaction signatures. Must correspond to signer addresses
-     *                    in ascending order (see `verifySignatures` for more info).
+     *                    in ascending order (see `_verifySignatures` for more info).
      * @param _proof    Merkle proof of the leaf in the auth tree.
      */
     function setup(
@@ -213,49 +195,35 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     ) public incrementProtocolDebt(gasleft()) {
         if (firstProposalOccurred) revert FirstProposalOccurred();
 
-        verifySignatures(_authRoot, _leaf, _proof, orgThreshold, DEFAULT_ADMIN_ROLE, _signatures);
+        _verifySignatures(_authRoot, _leaf, _proof, threshold, DEFAULT_ADMIN_ROLE, _signatures);
 
         AuthStatus status = authStates[_authRoot].status;
 
         if (status != AuthStatus.EMPTY) revert AuthStateNotEmpty();
 
-        (
-            SetRoleMember[] memory proposers,
-            SetRoleMember[] memory projectManagers,
-            uint256 numLeafs
-        ) = abi.decode(_leaf.data, (SetRoleMember[], SetRoleMember[], uint256));
+        (SetRoleMember[] memory proposers, uint256 numLeafs) = abi.decode(
+            _leaf.data,
+            (SetRoleMember[], uint256)
+        );
 
         if (numLeafs == 0) revert InvalidNumLeafs();
-        // There is no point calling the setup function if both of these arrays are empty.
-        if (proposers.length == 0 && projectManagers.length == 0) revert EmptyArray();
+        // There must be at least one proposer or else this function will be unusable, since every
+        // other public function requires that a proposal has occurred.
+        if (proposers.length == 0) revert EmptyArray();
 
         uint256 numProposers = proposers.length;
-        uint256 numProjectManagers = projectManagers.length;
         bool add;
-        address member;
+        address proposer;
         for (uint256 i = 0; i < numProposers; i++) {
+            proposer = proposers[i].member;
             add = proposers[i].add;
-            member = proposers[i].member;
             if (add) {
-                _assertValidRoleMemberAddress(member);
-                if (hasRole(PROPOSER_ROLE, member)) revert AddressAlreadyHasRole();
-                _grantRole(PROPOSER_ROLE, member);
+                _assertValidRoleMemberAddress(proposer);
+                if (hasRole(PROPOSER_ROLE, proposer)) revert AddressAlreadyHasRole();
+                _grantRole(PROPOSER_ROLE, proposer);
             } else {
-                if (!hasRole(PROPOSER_ROLE, member)) revert AddressDoesNotHaveRole();
-                _revokeRole(PROPOSER_ROLE, member);
-            }
-        }
-
-        for (uint256 i = 0; i < numProjectManagers; i++) {
-            add = projectManagers[i].add;
-            member = projectManagers[i].member;
-            if (add) {
-                _assertValidRoleMemberAddress(member);
-                if (hasRole(PROJECT_MANAGER_ROLE, member)) revert AddressAlreadyHasRole();
-                _grantRole(PROJECT_MANAGER_ROLE, member);
-            } else {
-                if (!hasRole(PROJECT_MANAGER_ROLE, member)) revert AddressDoesNotHaveRole();
-                _revokeRole(PROJECT_MANAGER_ROLE, member);
+                if (!hasRole(PROPOSER_ROLE, proposer)) revert AddressDoesNotHaveRole();
+                _revokeRole(PROPOSER_ROLE, proposer);
             }
         }
 
@@ -268,7 +236,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             });
             emit AuthRootCompleted(_authRoot, numLeafs);
         } else {
-            // Mark the auth root as setup if there are more leafs to execute in this tree. Note
+            // Set the status to be `SETUP` if there are more leafs to execute in this tree. Note
             // that it's not possible for there to be zero leafs since we would have reverted
             // earlier in this function.
             authStates[_authRoot] = AuthState({
@@ -279,39 +247,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         }
 
         emit Setup(_authRoot, numLeafs);
-    }
-
-    function setProjectManager(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            orgThreshold,
-            DEFAULT_ADMIN_ROLE,
-            _signatures
-        )
-    {
-        (address projectManager, bool add) = abi.decode(_leaf.data, (address, bool));
-
-        if (add) {
-            _assertValidRoleMemberAddress(projectManager);
-            if (hasRole(PROJECT_MANAGER_ROLE, projectManager)) revert AddressAlreadyHasRole();
-            _grantRole(PROJECT_MANAGER_ROLE, projectManager);
-        } else {
-            if (!hasRole(PROJECT_MANAGER_ROLE, projectManager)) revert AddressDoesNotHaveRole();
-            _revokeRole(PROJECT_MANAGER_ROLE, projectManager);
-        }
-
-        _updateProposedAuthState(_authRoot);
-
-        emit ProjectManagerSet(_authRoot, _leaf.index);
     }
 
     function exportProxy(
@@ -326,7 +261,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -343,7 +278,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProxyExported(_authRoot, _leaf.index);
     }
 
-    function setOrgOwner(
+    function setOwner(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
@@ -355,32 +290,29 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
     {
-        (address orgOwner, bool add) = abi.decode(_leaf.data, (address, bool));
+        (address owner, bool add) = abi.decode(_leaf.data, (address, bool));
 
         if (add) {
-            _assertValidRoleMemberAddress(orgOwner);
-            if (hasRole(DEFAULT_ADMIN_ROLE, orgOwner)) revert AddressAlreadyHasRole();
-            _grantRole(DEFAULT_ADMIN_ROLE, orgOwner);
+            _assertValidRoleMemberAddress(owner);
+            if (hasRole(DEFAULT_ADMIN_ROLE, owner)) revert AddressAlreadyHasRole();
+            _grantRole(DEFAULT_ADMIN_ROLE, owner);
         } else {
-            if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) <= orgThreshold)
-                revert UnreachableThreshold();
-            if (!hasRole(DEFAULT_ADMIN_ROLE, orgOwner)) revert AddressDoesNotHaveRole();
-            _revokeRole(DEFAULT_ADMIN_ROLE, orgOwner);
+            if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) <= threshold) revert UnreachableThreshold();
+            if (!hasRole(DEFAULT_ADMIN_ROLE, owner)) revert AddressDoesNotHaveRole();
+            _revokeRole(DEFAULT_ADMIN_ROLE, owner);
         }
 
         _updateProposedAuthState(_authRoot);
 
-        emit OrgOwnerSet(_authRoot, _leaf.index);
+        emit OwnerSet(_authRoot, _leaf.index);
     }
 
-    // Reverts if any of the contracts don't belong to the project. Also reverts if the project has
-    // a deployment that is currently executing.
-    function removeProject(
+    function setThreshold(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
@@ -392,74 +324,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
-            DEFAULT_ADMIN_ROLE,
-            _signatures
-        )
-    {
-        (string memory projectName, address[] memory contractAddresses) = abi.decode(
-            _leaf.data,
-            (string, address[])
-        );
-
-        // Use scope here to prevent "Stack too deep" error
-        {
-            if (bytes(projectName).length == 0) revert EmptyProjectName();
-            // We don't assert that the contract addresses array is non-empty because it's possible
-            // that the project has no contracts.
-
-            if (thresholds[projectName] == 0) revert ProjectDoesNotExist();
-
-            _updateProposedAuthState(_authRoot);
-
-            if (
-                keccak256(bytes(manager.deployments(manager.activeDeploymentId()).projectName)) ==
-                keccak256(bytes(projectName))
-            ) revert ProjectHasActiveDeployment();
-
-            // Remove all of the contracts from the project.
-            uint256 numContractsToRemove = contractAddresses.length;
-            for (uint256 i = 0; i < numContractsToRemove; i++) {
-                address contractAddress = contractAddresses[i];
-                string memory existingProjectName = manager.contractToProject(contractAddress);
-                if (keccak256(bytes(existingProjectName)) != keccak256(bytes(projectName)))
-                    revert ContractDoesNotExistInProject();
-                manager.transferContractToProject(contractAddress, "");
-            }
-
-            if (manager.numContracts(projectName) > 0) revert LeftoverContractsInProject();
-
-            // Remove all of the project owners.
-            bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-            uint256 numProjectOwners = getRoleMemberCount(projectOwnerRole);
-            for (uint256 i = 0; i < numProjectOwners; i++) {
-                address projectOwner = getRoleMember(projectOwnerRole, i);
-                _revokeRole(projectOwnerRole, projectOwner);
-            }
-
-            if (getRoleMemberCount(projectOwnerRole) > 0) revert LeftoverProjectOwners();
-        }
-
-        thresholds[projectName] = 0;
-
-        _updateProposedAuthState(_authRoot);
-
-        emit ProjectRemoved(_authRoot, _leaf.index);
-    }
-
-    function setOrgThreshold(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -470,11 +335,11 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         if (getRoleMemberCount(DEFAULT_ADMIN_ROLE) < newThreshold)
             revert ThresholdExceedsOwnerCount();
 
-        orgThreshold = newThreshold;
+        threshold = newThreshold;
 
         _updateProposedAuthState(_authRoot);
 
-        emit OrgThresholdSet(_authRoot, _leaf.index);
+        emit ThresholdSet(_authRoot, _leaf.index);
     }
 
     function transferDeployerOwnership(
@@ -489,7 +354,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -520,7 +385,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -552,7 +417,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -584,7 +449,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
             _authRoot,
             _leaf,
             _proof,
-            orgThreshold,
+            threshold,
             DEFAULT_ADMIN_ROLE,
             _signatures
         )
@@ -621,72 +486,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         emit DeployerAndAuthContractUpgraded(_authRoot, _leaf.index);
     }
 
-    /************************ PROJECT MANAGER FUNCTIONS *****************************/
-
-    /**
-     * @notice Creates a new project with the given name and threshold. Must be signed by at least
-       one project manager. Note that this function wil revert if any of the imported contract
-       addresses in the new project already belong to an existing project.
-     */
-    function createProject(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
-    {
-        _updateProposedAuthState(_authRoot);
-
-        // Use scope here to prevent "Stack too deep" error
-        {
-            (
-                string memory projectName,
-                uint256 projectThreshold,
-                address[] memory projectOwners,
-                ContractInfo[] memory contractsToImport
-            ) = abi.decode(_leaf.data, (string, uint256, address[], ContractInfo[]));
-
-            if (bytes(projectName).length == 0) revert EmptyProjectName();
-            if (projectThreshold == 0) revert ThresholdCannotBeZero();
-            if (thresholds[projectName] > 0) revert ProjectAlreadyExists();
-
-            thresholds[projectName] = projectThreshold;
-
-            bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-            uint256 numProjectOwners = projectOwners.length;
-            for (uint256 i = 0; i < numProjectOwners; i++) {
-                address projectOwner = projectOwners[i];
-                _assertValidRoleMemberAddress(projectOwner);
-                if (hasRole(projectOwnerRole, projectOwner)) revert AddressAlreadyHasRole();
-                _grantRole(projectOwnerRole, projectOwner);
-            }
-
-            uint256 numContracts = contractsToImport.length;
-            ContractInfo memory contractInfo;
-            address contractAddress;
-            string memory referenceName;
-            for (uint256 i = 0; i < numContracts; i++) {
-                contractInfo = contractsToImport[i];
-                contractAddress = contractInfo.addr;
-                referenceName = contractInfo.referenceName;
-
-                bytes memory existingProjectBytes = bytes(
-                    manager.contractToProject(contractAddress)
-                );
-                if (
-                    existingProjectBytes.length > 0 &&
-                    (keccak256(existingProjectBytes) != keccak256(bytes(projectName)))
-                ) revert ContractExistsInAnotherProject();
-                manager.transferContractToProject(contractAddress, referenceName);
-            }
-        }
-
-        emit ProjectCreated(_authRoot, _leaf.index);
-    }
-
     function setProposer(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -695,7 +494,14 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
+            threshold,
+            DEFAULT_ADMIN_ROLE,
+            _signatures
+        )
     {
         (address proposer, bool add) = abi.decode(_leaf.data, (address, bool));
 
@@ -721,7 +527,14 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     )
         public
         incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, 1, PROJECT_MANAGER_ROLE, _signatures)
+        isValidProposedAuthLeaf(
+            _authRoot,
+            _leaf,
+            _proof,
+            threshold,
+            DEFAULT_ADMIN_ROLE,
+            _signatures
+        )
     {
         address receiver = abi.decode(_leaf.data, (address));
         _updateProposedAuthState(_authRoot);
@@ -729,118 +542,40 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ETHWithdrawn(_authRoot, _leaf.index);
     }
 
-    /***************************** PROJECT OWNER FUNCTIONS ****************************/
-
     function approveDeployment(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
         bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        (
-            string memory projectName,
-            bytes32 actionRoot,
-            bytes32 targetRoot,
-            uint256 numActions,
-            uint256 numTargets,
-            uint256 numImmutableContracts,
-            string memory configUri
-        ) = abi.decode(_leaf.data, (string, bytes32, bytes32, uint256, uint256, uint256, string));
-
-        assertValidProposedAuthLeaf(
+    )
+        public
+        incrementProtocolDebt(gasleft())
+        isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
             _proof,
-            thresholds[projectName],
-            keccak256(abi.encodePacked(projectName, "ProjectOwner")),
+            threshold,
+            DEFAULT_ADMIN_ROLE,
             _signatures
-        );
+        )
+    {
+        // We must use a struct because unpacking the data into a tuple causes a "Stack too deep"
+        // error.
+        DeploymentApproval memory approval = abi.decode(_leaf.data, (DeploymentApproval));
 
         _updateProposedAuthState(_authRoot);
 
         manager.approve(
-            projectName,
-            actionRoot,
-            targetRoot,
-            numActions,
-            numTargets,
-            numImmutableContracts,
-            configUri,
+            approval.actionRoot,
+            approval.targetRoot,
+            approval.numActions,
+            approval.numTargets,
+            approval.numImmutableContracts,
+            approval.configUri,
             true
         );
 
         emit DeploymentApproved(_authRoot, _leaf.index);
-    }
-
-    function setProjectThreshold(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        (string memory projectName, uint256 newThreshold) = abi.decode(
-            _leaf.data,
-            (string, uint256)
-        );
-
-        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            thresholds[projectName],
-            projectOwnerRole,
-            _signatures
-        );
-
-        if (newThreshold == 0) revert ThresholdCannotBeZero();
-        if (getRoleMemberCount(projectOwnerRole) < newThreshold) revert UnreachableThreshold();
-
-        thresholds[projectName] = newThreshold;
-
-        _updateProposedAuthState(_authRoot);
-
-        emit ProjectThresholdChanged(_authRoot, _leaf.index);
-    }
-
-    function setProjectOwner(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        (string memory projectName, address projectOwner, bool add) = abi.decode(
-            _leaf.data,
-            (string, address, bool)
-        );
-
-        if (bytes(projectName).length == 0) revert EmptyProjectName();
-
-        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        uint256 projectThreshold = thresholds[projectName];
-        assertValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            projectThreshold,
-            projectOwnerRole,
-            _signatures
-        );
-
-        if (add) {
-            _assertValidRoleMemberAddress(projectOwner);
-            if (hasRole(projectOwnerRole, projectOwner)) revert AddressAlreadyHasRole();
-            _grantRole(projectOwnerRole, projectOwner);
-        } else {
-            if (getRoleMemberCount(projectOwnerRole) <= projectThreshold)
-                revert UnreachableThreshold();
-            if (!hasRole(projectOwnerRole, projectOwner)) revert AddressDoesNotHaveRole();
-            _revokeRole(projectOwnerRole, projectOwner);
-        }
-
-        _updateProposedAuthState(_authRoot);
-
-        emit ProjectOwnerSet(_authRoot, _leaf.index);
     }
 
     function cancelActiveDeployment(
@@ -848,83 +583,21 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
         bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        string memory projectName = abi.decode(_leaf.data, (string));
-
-        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidProposedAuthLeaf(
+    )
+        public
+        incrementProtocolDebt(gasleft())
+        isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
             _proof,
-            thresholds[projectName],
-            projectOwnerRole,
+            threshold,
+            DEFAULT_ADMIN_ROLE,
             _signatures
-        );
-
+        )
+    {
         _updateProposedAuthState(_authRoot);
-
         manager.cancelActiveSphinxDeployment();
-
         emit ActiveDeploymentCancelled(_authRoot, _leaf.index);
-    }
-
-    // Allows the project owners to add or remove contracts to their project. Reverts if any of the
-    // contracts already belong to another project. Reverts if a deployment in the SphinxManager
-    // is currently being executed. Although this last check may not be strictly necessary, it
-    // guarantees that it's not possible for this project to claim a contract address that will soon
-    // be deployed by the active project, which would prevent that project from executing. This
-    // shouldn't be possible anyway, since the salt of each contract address includes the project
-    // name, but it's possible that the salt could change in the future, so we play it safe here.
-    function updateContractsInProject(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
-        (
-            string memory projectName,
-            address[] memory contractAddresses,
-            bool[] memory addContract
-        ) = abi.decode(_leaf.data, (string, address[], bool[]));
-
-        uint256 numContracts = contractAddresses.length;
-        if (numContracts == 0) revert EmptyArray();
-
-        if (numContracts != addContract.length) revert ArrayLengthMismatch();
-
-        _updateProposedAuthState(_authRoot);
-
-        if (manager.isExecuting()) revert DeploymentInProgress();
-
-        bytes32 projectOwnerRole = keccak256(abi.encodePacked(projectName, "ProjectOwner"));
-        assertValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            thresholds[projectName],
-            projectOwnerRole,
-            _signatures
-        );
-
-        uint256 numContractsToUpdate = contractAddresses.length;
-        bool add;
-        for (uint256 i = 0; i < numContractsToUpdate; i++) {
-            address contractAddress = contractAddresses[i];
-            add = addContract[i];
-            bytes memory existingProjectNameBytes = bytes(
-                manager.contractToProject(contractAddress)
-            );
-            if (
-                existingProjectNameBytes.length > 0 &&
-                (keccak256(existingProjectNameBytes) != keccak256(bytes(projectName)))
-            ) revert ContractExistsInAnotherProject();
-
-            add
-                ? manager.transferContractToProject(contractAddress, projectName)
-                : manager.transferContractToProject(contractAddress, "");
-        }
-
-        emit ContractsInProjectUpdated(_authRoot, _leaf.index);
     }
 
     /****************************** PROPOSER FUNCTIONS ******************************/
@@ -944,7 +617,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes[] memory _signatures,
         bytes32[] memory _proof
     ) public incrementProtocolDebt(gasleft()) {
-        verifySignatures(_authRoot, _leaf, _proof, 1, PROPOSER_ROLE, _signatures);
+        _verifySignatures(_authRoot, _leaf, _proof, 1, PROPOSER_ROLE, _signatures);
 
         uint256 numLeafs = abi.decode(_leaf.data, (uint256));
 
@@ -1038,7 +711,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
                             that corresponds to the signer `0xff...`.
      * @param _proof    Merkle proof of the leaf in the auth tree.
      */
-    function verifySignatures(
+    function _verifySignatures(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
         bytes32[] memory _proof,
@@ -1057,7 +730,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         if (_leaf.chainId != block.chainid) revert InvalidChainId();
         if (_leaf.index != leafsExecuted) revert InvalidLeafIndex();
 
-        if (!MerkleProofUpgradeable.verify(_proof, _authRoot, getAuthLeafHash(_leaf)))
+        if (!MerkleProofUpgradeable.verify(_proof, _authRoot, _getAuthLeafHash(_leaf)))
             revert InvalidMerkleProof();
 
         bytes32 structHash = keccak256(abi.encode(TYPE_HASH, _authRoot));
@@ -1077,7 +750,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         }
     }
 
-    function getAuthLeafHash(AuthLeaf memory _leaf) private pure returns (bytes32) {
+    function _getAuthLeafHash(AuthLeaf memory _leaf) private pure returns (bytes32) {
         return
             keccak256(
                 bytes.concat(
@@ -1085,19 +758,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
                 )
             );
     }
-
-    function assertValidProposedAuthLeaf(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes32[] memory _proof,
-        uint256 _threshold,
-        bytes32 _verifyingRole,
-        bytes[] memory _signatures
-    )
-        private
-        view
-        isValidProposedAuthLeaf(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures)
-    {}
 
     function _updateProposedAuthState(bytes32 _authRoot) private {
         AuthState storage authState = authStates[_authRoot];

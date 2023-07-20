@@ -73,6 +73,8 @@ contract SphinxManager is
      */
     ISphinxRegistry public immutable registry;
 
+    string public projectName;
+
     /**
      * @notice Address of the Create3 contract.
      */
@@ -120,16 +122,6 @@ contract SphinxManager is
        profit 0.1 gwei. Note that the protocol does not profit during a self-executed deployment.
      */
     uint256 internal immutable protocolPaymentPercentage;
-
-    /**
-     * @notice Mapping of contract addresses to the project name that they belong to.
-     */
-    mapping(address => string) public contractToProject;
-
-    /**
-     * @notice Mapping from project name to the number of contracts that are in the project.
-     */
-    mapping(string => uint256) public numContracts;
 
     /**
      * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
@@ -312,9 +304,8 @@ contract SphinxManager is
      */
     error FailedToGetAddress();
 
+    error EmptyProjectName();
     error ProjectNameCannotBeEmpty();
-    error ContractDoesNotExistInProject();
-    error ContractExistsInOtherProject();
     error InvalidAddress();
 
     /**
@@ -378,7 +369,15 @@ contract SphinxManager is
 
      * @return Empty bytes.
      */
-    function initialize(address _owner, bytes memory) external initializer returns (bytes memory) {
+    function initialize(
+        address _owner,
+        string memory _projectName,
+        bytes memory
+    ) external initializer returns (bytes memory) {
+        if (bytes(_projectName).length == 0) revert EmptyProjectName();
+
+        projectName = _projectName;
+
         __ReentrancyGuard_init();
         __Ownable_init();
         _transferOwnership(_owner);
@@ -402,7 +401,6 @@ contract SphinxManager is
      * @param _remoteExecution Whether or not to allow remote execution of the deployment.
      */
     function approve(
-        string memory _projectName,
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -414,12 +412,10 @@ contract SphinxManager is
         if (activeDeploymentId != bytes32(0)) {
             revert DeploymentInProgress();
         }
-        if (bytes(_projectName).length == 0) revert ProjectNameCannotBeEmpty();
 
         // Compute the deployment ID.
         bytes32 deploymentId = keccak256(
             abi.encode(
-                _projectName,
                 _actionRoot,
                 _targetRoot,
                 _numActions,
@@ -451,7 +447,6 @@ contract SphinxManager is
 
         activeDeploymentId = deploymentId;
 
-        deployment.projectName = _projectName;
         deployment.status = DeploymentStatus.APPROVED;
         deployment.actionRoot = _actionRoot;
         deployment.targetRoot = _targetRoot;
@@ -463,8 +458,6 @@ contract SphinxManager is
 
         emit SphinxDeploymentApproved(
             deploymentId,
-            _projectName,
-            _projectName,
             _actionRoot,
             _targetRoot,
             _numActions,
@@ -641,8 +634,6 @@ contract SphinxManager is
             revert InvalidContractKind();
         }
 
-        _transferContractToProject(_proxy, "");
-
         emit ProxyExported(_proxy, _contractKindHash, _newOwner);
 
         // Delegatecall the adapter to change ownership of the proxy.
@@ -685,7 +676,7 @@ contract SphinxManager is
        meta transaction has been submitted to the user's SphinxAuth contract by a relayer. Note
        that it's possible for this function to increment the protocol debt by more than the amount
        of ETH stored in this contract. We don't revert in this situation to ensure that an
-       organization's transactions always get submitted in a timely manner.
+       projects's transactions always get submitted in a timely manner.
      */
     function incrementProtocolDebt(uint256 _initialGasLeft) external onlyOwner {
         uint256 gasPrice = gasPriceCalculator.getGasPrice();
@@ -700,13 +691,6 @@ contract SphinxManager is
         totalProtocolDebt += cost;
 
         emit ProtocolDebtAdded(cost, totalProtocolDebt);
-    }
-
-    function transferContractToProject(
-        address _addr,
-        string memory _projectName
-    ) external onlyOwner {
-        _transferContractToProject(_addr, _projectName);
     }
 
     function transferOwnership(address _newOwner) public override onlyOwner {
@@ -804,14 +788,6 @@ contract SphinxManager is
                 revert InvalidMerkleProof();
             }
 
-            string memory existingProjectName = contractToProject[action.addr];
-            if (
-                bytes(existingProjectName).length > 0 &&
-                !equals(existingProjectName, deployment.projectName)
-            ) {
-                revert ContractExistsInOtherProject();
-            }
-
             // Mark the action as executed and update the total number of executed actions.
             deployment.actionsExecuted++;
             deployment.actions[actionIndex] = true;
@@ -905,10 +881,6 @@ contract SphinxManager is
             address adapter = registry.adapters(target.contractKindHash);
             if (adapter == address(0)) {
                 revert InvalidContractKind();
-            }
-
-            if (!equals(contractToProject[target.addr], deployment.projectName)) {
-                revert ContractDoesNotExistInProject();
             }
 
             // Set the proxy's implementation to be a ProxyUpdater. Updaters ensure that only the
@@ -1005,9 +977,7 @@ contract SphinxManager is
                 revert FailedToFinalizeUpgrade();
             }
 
-            _transferContractToProject(target.addr, deployment.projectName);
-
-            emit ProxyUpgraded(activeDeploymentId, target.addr, deployment.projectName);
+            emit ProxyUpgraded(activeDeploymentId, target.addr);
             registry.announceWithData("ProxyUpgraded", abi.encodePacked(target.addr));
         }
 
@@ -1131,10 +1101,6 @@ contract SphinxManager is
             if (expectedAddress == actualAddress) {
                 // Contract was deployed successfully.
 
-                if (_action.contractKindHash != IMPLEMENTATION_CONTRACT_KIND_HASH) {
-                    _transferContractToProject(actualAddress, _deployment.projectName);
-                }
-
                 emit ContractDeployed(
                     referenceName,
                     actualAddress,
@@ -1153,13 +1119,7 @@ contract SphinxManager is
                 executorDebt[msg.sender] += ownerBondAmount;
                 totalExecutorDebt += ownerBondAmount;
 
-                emit DeploymentFailed(
-                    _deployment.projectName,
-                    referenceName,
-                    activeDeploymentId,
-                    _deployment.projectName,
-                    referenceName
-                );
+                emit DeploymentFailed(referenceName, activeDeploymentId, referenceName);
                 registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
 
                 activeDeploymentId = bytes32(0);
@@ -1237,29 +1197,5 @@ contract SphinxManager is
         } else if (_remoteExecution == false && owner() != msg.sender) {
             revert CallerIsNotOwner();
         }
-    }
-
-    function _transferContractToProject(address _addr, string memory _projectName) private {
-        string memory existingProject = contractToProject[_addr];
-
-        if (equals(existingProject, _projectName)) {
-            return;
-        }
-
-        if (bytes(existingProject).length > 0) {
-            numContracts[existingProject] -= 1;
-        }
-
-        if (bytes(_projectName).length > 0) {
-            numContracts[_projectName] += 1;
-        }
-
-        contractToProject[_addr] = _projectName;
-
-        emit ContractTransferred(_projectName, _addr, _projectName);
-    }
-
-    function equals(string memory _str1, string memory _str2) public pure returns (bool) {
-        return keccak256(bytes(_str1)) == keccak256(bytes(_str2));
     }
 }

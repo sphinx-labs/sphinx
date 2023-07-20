@@ -11,7 +11,7 @@ import {
 } from '../actions'
 import { getAmountToDeposit } from '../fund'
 import { getSphinxManager, getDeploymentEvents } from '../utils'
-import { ParsedProjectConfig } from '../config/types'
+import { ParsedConfigWithOptions } from '../config'
 
 export const getNumDeployedContracts = (
   bundle: SphinxActionBundle,
@@ -27,14 +27,14 @@ export const getNumDeployedContracts = (
 export const monitorExecution = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  parsedProjectConfig: ParsedProjectConfig,
+  parsedConfig: ParsedConfigWithOptions,
   bundles: SphinxBundles,
   deploymentId: string,
   silent: boolean
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const { project, deployer } = parsedProjectConfig.options
+  const { project, deployer } = parsedConfig
   const SphinxManager = getSphinxManager(deployer, signer)
 
   // Get the deployment state of the deployment ID.
@@ -78,7 +78,7 @@ export const monitorExecution = async (
       provider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      parsedProjectConfig,
+      deployer,
       false
     )
     if (amountToDeposit.gt(0)) {
