@@ -42,11 +42,14 @@ import { SphinxSystemConfig } from './types'
 import {
   PROTOCOL_PAYMENT_RECIPIENT_ROLE,
   REMOTE_EXECUTOR_ROLE,
-  SUPPORTED_NETWORKS,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
-import { LAYERZERO_ADDRESSES, SupportedChainId } from '../../networks'
+import {
+  LAYERZERO_ADDRESSES,
+  SUPPORTED_NETWORKS,
+  SupportedChainId,
+} from '../../networks'
 import { getSphinxConstants } from '../../contract-info'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
