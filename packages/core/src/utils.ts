@@ -71,7 +71,7 @@ import {
   IPFSCommitResponse,
   ProposalRequest,
 } from './actions/types'
-import { Integration, SUPPORTED_NETWORKS } from './constants'
+import { Integration } from './constants'
 import {
   FACTORY_ADDRESS,
   getAuthAddress,
@@ -98,6 +98,7 @@ import {
   parseConfigOptions,
 } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
+import { SUPPORTED_NETWORKS } from './networks'
 
 export const getDeploymentId = (
   bundles: SphinxBundles,
