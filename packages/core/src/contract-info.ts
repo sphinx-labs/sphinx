@@ -13,11 +13,8 @@ import {
   DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
-  LZSenderArtifact,
-  LZReceiverArtifact,
   FactoryArtifact,
   AuthArtifact,
-  LZEndpointMockArtifact,
 } from '@sphinx/contracts'
 
 import { ContractArtifact } from './languages/solidity/types'
@@ -37,88 +34,15 @@ import {
   getManagedServiceAddress,
   REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
-  getLZSenderAddress,
-  getLZReceiverAddress,
-  getMockEndPointAddress,
   FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
-  getDestinationChains,
 } from './addresses'
-import {
-  LAYERZERO_ADDRESSES,
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-} from './networks'
 
-export const getSphinxConstants = (
-  chainId: number,
-  localLZEndpoint: boolean
-): Array<{
+export const getSphinxConstants = (): Array<{
   artifact: ContractArtifact
   expectedAddress: string
   constructorArgs: any[]
 }> => {
-  const lzSourceChainAddressInfo =
-    chainId !== 31337
-      ? LAYERZERO_ADDRESSES[chainId as SupportedChainId]
-      : {
-          endpointAddress: getMockEndPointAddress(chainId),
-          relayerV2Address: '',
-          lzChainId: chainId,
-        }
-
-  // Get the endpoint address based on if this deployment is on a local node or not
-  const lzEndpointAddress =
-    localLZEndpoint || 31337
-      ? getMockEndPointAddress(lzSourceChainAddressInfo.lzChainId)
-      : lzSourceChainAddressInfo.endpointAddress
-
-  // Get the set of destination chains based off the supported networks
-  const destinationChains = getDestinationChains(localLZEndpoint)
-
-  // Get the sender using the expected endpoint address for this chain
-  const sender = {
-    artifact: LZSenderArtifact,
-    expectedAddress: getLZSenderAddress(localLZEndpoint, lzEndpointAddress),
-    constructorArgs: [lzEndpointAddress, destinationChains, getOwnerAddress()],
-  }
-
-  // Get the receiver(s)
-  // When running locally, we simulate multichain messaging by sending messages to multiple destination contracts
-  // So if we're deploying locally, then we need to deploy a receiver for each chainId we want to send too
-  const receivers = localLZEndpoint
-    ? Object.values(SUPPORTED_NETWORKS).map((id) => {
-        const mockAddress = getMockEndPointAddress(
-          LAYERZERO_ADDRESSES[id].lzChainId
-        )
-        return {
-          artifact: LZReceiverArtifact,
-          expectedAddress: getLZReceiverAddress(mockAddress),
-          constructorArgs: [mockAddress, getOwnerAddress()],
-        }
-      })
-    : [
-        {
-          artifact: LZReceiverArtifact,
-          expectedAddress: getLZReceiverAddress(lzEndpointAddress),
-          constructorArgs: [lzEndpointAddress, getOwnerAddress()],
-        },
-      ]
-
-  // B/c we simulate multichain messaging by sending messages to multiple destination contracts, we need to deploy
-  // a mock endpoint contract for each chain id when running locally
-  const mockEndpoints = localLZEndpoint
-    ? Object.values(SUPPORTED_NETWORKS).map((id) => {
-        return {
-          artifact: LZEndpointMockArtifact,
-          expectedAddress: getMockEndPointAddress(
-            LAYERZERO_ADDRESSES[id].lzChainId
-          ),
-          constructorArgs: [LAYERZERO_ADDRESSES[id].lzChainId],
-        }
-      })
-    : []
-
   return [
     {
       artifact: SphinxRegistryArtifact,
@@ -195,8 +119,5 @@ export const getSphinxConstants = (
       expectedAddress: FACTORY_ADDRESS,
       constructorArgs: [getSphinxRegistryAddress(), getOwnerAddress()],
     },
-    sender,
-    ...receivers,
-    ...mockEndpoints,
   ]
 }

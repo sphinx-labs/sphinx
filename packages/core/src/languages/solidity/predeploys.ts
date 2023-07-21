@@ -13,7 +13,6 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   FactoryABI,
-  LZEndpointMockABI,
 } from '@sphinx/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -34,8 +33,6 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
-  getMockEndPointAddress,
-  getLZReceiverAddress,
 } from '../../addresses'
 import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
 import { SphinxSystemConfig } from './types'
@@ -45,11 +42,6 @@ import {
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
-import {
-  LAYERZERO_ADDRESSES,
-  SUPPORTED_NETWORKS,
-  SupportedChainId,
-} from '../../networks'
 import { getSphinxConstants } from '../../contract-info'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
@@ -89,7 +81,6 @@ export const initializeAndVerifySphinx = async (
     (
       await provider.getNetwork()
     ).chainId,
-    false,
     logger
   )
 
@@ -149,7 +140,6 @@ export const ensureSphinxInitialized = async (
       (
         await provider.getNetwork()
       ).chainId,
-      false,
       logger
     )
   } else {
@@ -166,7 +156,6 @@ export const initializeSphinx = async (
   executors: string[],
   relayers: string[],
   chainId: number,
-  localLZEndpoint: boolean,
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
@@ -176,7 +165,7 @@ export const initializeSphinx = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of getSphinxConstants(chainId, localLZEndpoint)) {
+  } of getSphinxConstants()) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[Sphinx]: deploying ${contractName}...`)
@@ -462,35 +451,6 @@ export const initializeSphinx = async (
     logger?.info(
       '[Sphinx]: the internal default proxy type was already added to the SphinxRegistry'
     )
-  }
-
-  // If deploying locally, then we need to setup the destinations on all of the mock lz endpoints
-  if (localLZEndpoint) {
-    const srcEndpointAddress =
-      chainId !== 31337
-        ? getMockEndPointAddress(
-            LAYERZERO_ADDRESSES[chainId as SupportedChainId].lzChainId
-          )
-        : getMockEndPointAddress(chainId)
-
-    const srcEndpoint = new ethers.Contract(
-      srcEndpointAddress,
-      LZEndpointMockABI,
-      signer
-    )
-
-    for (const id of Object.values(SUPPORTED_NETWORKS)) {
-      const endpointAddress = getMockEndPointAddress(
-        LAYERZERO_ADDRESSES[id].lzChainId
-      )
-      await (
-        await srcEndpoint.setDestLzEndpoint(
-          getLZReceiverAddress(endpointAddress),
-          endpointAddress,
-          await getGasPriceOverrides(provider)
-        )
-      ).wait()
-    }
   }
 }
 

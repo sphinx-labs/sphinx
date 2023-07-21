@@ -20,9 +20,6 @@ import {
   DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
-  LZEndpointMockArtifact,
-  LZSenderArtifact,
-  LZReceiverArtifact,
   FactoryArtifact,
   AuthProxyArtifact,
   AuthArtifact,
@@ -30,7 +27,6 @@ import {
 import { constants, utils } from 'ethers'
 
 import { CURRENT_SPHINX_MANAGER_VERSION } from './constants'
-import { LAYERZERO_ADDRESSES, SUPPORTED_NETWORKS } from './networks'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -171,78 +167,6 @@ export const OZ_TRANSPARENT_ADAPTER_ADDRESS = utils.getCreate2Address(
     ]
   )
 )
-
-export const getMockEndPointAddress = (chainId: number) =>
-  utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        LZEndpointMockArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['uint16'], [chainId]),
-      ]
-    )
-  )
-
-export const getDestinationChains = (localLZEndpoint: boolean) => {
-  // Get the set of destination chains based off the supported networks
-  const destinationChains = Object.values(SUPPORTED_NETWORKS).map((id) => {
-    const lzDestChainAddressInfo = LAYERZERO_ADDRESSES[id]
-
-    return [
-      lzDestChainAddressInfo.lzChainId,
-      // Calculate the receiver address using either the mock or real endpoint depending on the situation
-      getLZReceiverAddress(
-        localLZEndpoint
-          ? getMockEndPointAddress(lzDestChainAddressInfo.lzChainId)
-          : lzDestChainAddressInfo.endpointAddress
-      ),
-    ] as [number, string]
-  })
-
-  return destinationChains
-}
-
-export const getLZSenderAddress = (
-  localLZEndpoint: boolean,
-  lzEndpointAddress: string
-) =>
-  utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        LZSenderArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'tuple(uint16,address)[]', 'address'],
-          [
-            lzEndpointAddress,
-            getDestinationChains(localLZEndpoint),
-            getOwnerAddress(),
-          ]
-        ),
-      ]
-    )
-  )
-
-export const getLZReceiverAddress = (endpointAddress: string) => {
-  return utils.getCreate2Address(
-    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
-      ['bytes', 'bytes'],
-      [
-        LZReceiverArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
-          ['address', 'address'],
-          [endpointAddress, getOwnerAddress()]
-        ),
-      ]
-    )
-  )
-}
 
 export const FACTORY_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
