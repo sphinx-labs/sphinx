@@ -19,7 +19,7 @@ declare module 'hardhat/types/config' {
   export interface ProjectPathsConfig {
     sphinx: string
     deployments: string
-    canonicalConfigs: string
+    compilerConfigs: string
   }
 }
 
@@ -33,7 +33,7 @@ declare module 'hardhat/types/runtime' {
         projectName: string,
         referenceName: string,
         owner: ethers.Signer,
-        salt?: string
+        salt?: UserSalt
       ) => Promise<ethers.Contract>
     }
   }
@@ -42,9 +42,9 @@ declare module 'hardhat/types/runtime' {
 extendConfig((config: HardhatConfig) => {
   config.paths.sphinx = path.join(config.paths.root, 'sphinx')
   config.paths.deployments = path.join(config.paths.root, 'deployments')
-  config.paths.canonicalConfigs = path.join(
+  config.paths.compilerConfigs = path.join(
     config.paths.root,
-    '.canonical-configs'
+    '.compiler-configs'
   )
 })
 

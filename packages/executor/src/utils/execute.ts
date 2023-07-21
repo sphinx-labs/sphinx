@@ -16,8 +16,8 @@ import {
   isSupportedNetworkOnEtherscan,
   verifySphinxConfig,
   deploymentDoesRevert,
-  CanonicalProjectConfig,
-  ProjectConfigArtifacts,
+  CompilerConfig,
+  ConfigArtifacts,
 } from '@sphinx/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -55,8 +55,8 @@ const generateRetryEvent = (
 
 const tryVerification = async (
   logger: Logger,
-  canonicalConfig: CanonicalProjectConfig,
-  configArtifacts: ProjectConfigArtifacts,
+  compilerConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
   network: string,
@@ -73,7 +73,7 @@ const tryVerification = async (
           `[Sphinx]: attempting to verify source code on etherscan for project: ${projectName}`
         )
         await verifySphinxConfig(
-          canonicalConfig,
+          compilerConfig,
           configArtifacts,
           rpcProvider,
           network,
@@ -99,7 +99,7 @@ const tryVerification = async (
       setTimeout(async () => {
         await tryVerification(
           logger,
-          canonicalConfig,
+          compilerConfig,
           configArtifacts,
           rpcProvider,
           projectName,
@@ -119,7 +119,7 @@ const tryVerification = async (
       contractName: string
       address: string
     }[] = []
-    Object.entries(canonicalConfig.contracts).forEach(
+    Object.entries(compilerConfig.contracts).forEach(
       ([referenceName, contractConfig]) => {
         contracts.push({
           referenceName,
@@ -227,25 +227,26 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
   let bundles: SphinxBundles
-  let canonicalProjectConfig: CanonicalProjectConfig
-  let projectConfigArtifacts: ProjectConfigArtifacts
+  let compilerConfig: CompilerConfig
+  let configArtifacts: ConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, canonicalProjectConfig, projectConfigArtifacts } =
-      await compileRemoteBundles(rpcProvider, approvalEvent.args.configUri))
+    ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
+      rpcProvider,
+      approvalEvent.args.configUri
+    ))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { project } = canonicalProjectConfig.options
+  const { project } = compilerConfig
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    approvalEvent.args.configUri,
-    project
+    approvalEvent.args.configUri
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
@@ -257,7 +258,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // log error and return
     logger.error(
       '[Sphinx]: error: compiled deployment id does not match proposal event deployment id',
-      canonicalProjectConfig.options
+      approvalEvent.args.deploymentId
     )
     return
   }
@@ -301,7 +302,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         logger.error(
           '[Sphinx]: error: claiming deployment error',
           err,
-          canonicalProjectConfig.options
+          expectedDeploymentId
         )
 
         // retry events which failed due to other errors
@@ -331,7 +332,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       rpcProvider,
       bundles,
       deploymentState.actionsExecuted.toNumber(),
-      canonicalProjectConfig
+      manager.address
     )
   ) {
     logger.info(`[Sphinx]: ${project} has sufficient funds`)
@@ -343,7 +344,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
         manager,
         bundles,
         blockGasLimit,
-        projectConfigArtifacts,
+        configArtifacts,
         rpcProvider
       )
 
@@ -367,11 +368,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       }
 
       // log error
-      logger.error(
-        '[Sphinx]: error: execution error',
-        e,
-        canonicalProjectConfig.options
-      )
+      logger.error('[Sphinx]: error: execution error', e, expectedDeploymentId)
 
       // retry the deployment later
       const retryEvent = generateRetryEvent(executorEvent)
@@ -397,8 +394,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // verify on etherscan 10s later
     await tryVerification(
       logger,
-      canonicalProjectConfig,
-      projectConfigArtifacts,
+      compilerConfig,
+      configArtifacts,
       rpcProvider,
       project,
       network,

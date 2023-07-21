@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       // This must be the chain ID of a live network that Sphinx supports. This allows us to
-      // test the remote executor against an org config, which can only contain supported live
+      // test the remote executor against an config, which can only contain supported live
       // networks. For a list of supported networks, see the `SUPPORTED_NETWORKS` object in the
       // `@sphinx/core` package.
       chainId: 5,

@@ -28,11 +28,10 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
  */
 export const getTargetAddress = (
   managerAddress: string,
-  projectName: string,
   referenceName: string,
   userSalt?: UserSalt
 ): string => {
-  const targetSalt = getTargetSalt(projectName, referenceName, userSalt)
+  const targetSalt = getTargetSalt(referenceName, userSalt)
 
   return getCreate3Address(managerAddress, targetSalt)
 }
@@ -63,15 +62,14 @@ export const getCreate3Address = (
 }
 
 export const getTargetSalt = (
-  projectName: string,
   referenceName: string,
   userSalt?: UserSalt
 ): string => {
   const userSaltHash = getUserSaltHash(userSalt)
 
   return utils.solidityKeccak256(
-    ['string', 'string', 'bytes32'],
-    [projectName, referenceName, userSaltHash]
+    ['string', 'bytes32'],
+    [referenceName, userSaltHash]
   )
 }
 

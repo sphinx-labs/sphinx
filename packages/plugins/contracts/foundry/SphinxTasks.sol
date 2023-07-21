@@ -15,10 +15,14 @@ import { ISphinxManager } from "@sphinx/contracts/contracts/interfaces/ISphinxMa
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
-    function generateArtifacts(address _owner, string memory _rpcUrl) internal {
+    function generateArtifacts(
+        address _owner,
+        string memory _rpcUrl,
+        string memory _projectName
+    ) internal {
         string memory networkName = utils.getChainAlias(_rpcUrl);
 
-        string[] memory cmds = new string[](7);
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = mainFfiScriptPath;
@@ -26,6 +30,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         cmds[4] = networkName;
         cmds[5] = _rpcUrl;
         cmds[6] = vm.toString(_owner);
+        cmds[7] = _projectName;
 
         vm.ffi(cmds);
 
@@ -34,11 +39,10 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
     function propose(
         string memory _configPath,
-        string memory _projectName,
         bool _dryRun,
         bool _isTestnet
     ) internal noVmBroadcast {
-        string[] memory cmds = new string[](9);
+        string[] memory cmds = new string[](8);
         cmds[0] = "npx";
         // We use ts-node here to support TypeScript Sphinx config files.
         cmds[1] = "ts-node";
@@ -47,9 +51,8 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         cmds[3] = mainFfiScriptPath;
         cmds[4] = "propose";
         cmds[5] = _configPath;
-        cmds[6] = _projectName;
-        cmds[7] = vm.toString(_dryRun);
-        cmds[8] = vm.toString(_isTestnet);
+        cmds[6] = vm.toString(_dryRun);
+        cmds[7] = vm.toString(_isTestnet);
 
         bytes memory result = vm.ffi(cmds);
 
@@ -67,9 +70,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
             }
 
             if (!silent) {
-                console.log(
-                    StdStyle.green(string.concat("Successfully proposed ", _projectName, "."))
-                );
+                console.log(StdStyle.green(string.concat("Successfully proposed!")));
             }
         } else {
             (string memory errors, string memory warnings) = abi.decode(data, (string, string));
@@ -83,14 +84,13 @@ contract SphinxTasks is Sphinx, SphinxConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(
         string memory _configPath,
-        string memory _projectName,
         address _proxy,
         string memory _rpcUrl
     ) internal noVmBroadcast {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 
-        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+        Configs memory configs = ffiGetConfigs(_configPath, signer);
 
         ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
 
@@ -132,7 +132,6 @@ contract SphinxTasks is Sphinx, SphinxConstants {
     // TODO: Test once we are officially supporting upgradable contracts
     function exportProxy(
         string memory _configPath,
-        string memory _projectName,
         string memory _referenceName,
         address _newOwner,
         string memory _rpcUrl
@@ -140,7 +139,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 
-        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+        Configs memory configs = ffiGetConfigs(_configPath, signer);
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
         ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
@@ -179,15 +178,11 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         manager.exportProxy(payable(targetContractConfig.addr), contractKindHash, _newOwner);
     }
 
-    function cancel(
-        string memory _configPath,
-        string memory _projectName,
-        string memory _rpcUrl
-    ) internal noVmBroadcast {
+    function cancel(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 
-        Configs memory configs = ffiGetConfigs(_configPath, _projectName, signer);
+        Configs memory configs = ffiGetConfigs(_configPath, signer);
 
         ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
 

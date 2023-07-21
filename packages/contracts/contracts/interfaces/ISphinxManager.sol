@@ -3,23 +3,13 @@ pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
 import { ISphinxRegistry } from "./ISphinxRegistry.sol";
-import {
-    DeploymentState,
-    RawSphinxAction,
-    SphinxTarget,
-    Version,
-    ContractInfo
-} from "../SphinxDataTypes.sol";
+import { DeploymentState, RawSphinxAction, SphinxTarget, Version } from "../SphinxDataTypes.sol";
 
 /**
  * @title SphinxManager
  * @notice Interface that must be inherited by the SphinxManager contract.
  */
 interface ISphinxManager {
-    function contractToProject(address) external returns (string memory);
-
-    function numContracts(string memory) external returns (uint256);
-
     /**
      * @notice Initializes this contract. Must only be callable one time, which should occur
        immediately after contract creation. This is necessary because this contract is meant to
@@ -27,7 +17,11 @@ interface ISphinxManager {
      *
      * @return Arbitrary bytes.
      */
-    function initialize(address _owner, bytes memory _data) external returns (bytes memory);
+    function initialize(
+        address _owner,
+        string memory _projectName,
+        bytes memory _data
+    ) external returns (bytes memory);
 
     /**
      * @notice Indicates whether or not a deployment is currently being executed.
@@ -52,7 +46,6 @@ interface ISphinxManager {
     ) external;
 
     function approve(
-        string memory _projectName,
         bytes32 _actionRoot,
         bytes32 _targetRoot,
         uint256 _numActions,
@@ -79,6 +72,4 @@ interface ISphinxManager {
     function finalizeUpgrade(SphinxTarget[] memory _targets, bytes32[][] memory _proofs) external;
 
     function incrementProtocolDebt(uint256 _initialGasLeft) external;
-
-    function transferContractToProject(address _addr, string memory _projectName) external;
 }

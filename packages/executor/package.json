@@ -16,7 +16,7 @@
     "test": "export DISABLE_ANALYTICS=true && export SPHINX_ALLOW_UPGRADABLE_CONTRACTS=true && yarn test:start-node && yarn test:start-executor && yarn test:run && yarn test:kill",
     "test:start-node": "npx hardhat node --disable-sphinx > /dev/null 2>&1 & sleep 5",
     "test:start-executor": "yarn start > /dev/null 2>&1 & sleep 5",
-    "test:run": "npx hardhat test --disable-sphinx --network localhost",
+    "test:run": "npx hardhat test --network localhost",
     "test:kill": "kill $(lsof -t -i:7300) && kill $(lsof -t -i:8545)",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",

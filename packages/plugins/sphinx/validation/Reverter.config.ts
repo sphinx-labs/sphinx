@@ -1,8 +1,7 @@
-import { UserProjectConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx/core'
 
-const projectName = 'Reverter'
-
-const config: UserProjectConfig = {
+const config: UserConfig = {
+  project: 'Reverter',
   contracts: {
     Reverter1: {
       contract: 'Reverter',
@@ -15,4 +14,4 @@ const config: UserProjectConfig = {
   },
 }
 
-export { config, projectName }
+export default config

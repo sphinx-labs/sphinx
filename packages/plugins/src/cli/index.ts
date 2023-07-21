@@ -14,7 +14,6 @@ import { inferSolcVersion } from '../foundry/utils'
 dotenv.config()
 
 const configPathOption = 'config-path'
-const projectOption = 'project'
 
 yargs(hideBin(process.argv))
   .scriptName('sphinx')
@@ -24,16 +23,11 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose --${configPathOption} <path> --${projectOption} <projectName> [--silent]`
+          `Usage: npx sphinx propose --${configPathOption} <path> [--silent]`
         )
         .option(configPathOption, {
           alias: 'c',
           describe: 'Path to the Sphinx config file.',
-          type: 'string',
-        })
-        .option('project', {
-          alias: 'p',
-          describe: 'The name of the project to propose.',
           type: 'string',
         })
         .option('testnets', {
@@ -56,7 +50,7 @@ yargs(hideBin(process.argv))
         })
         .hide('version'),
     async (argv) => {
-      const { configPath, project } = argv
+      const { configPath } = argv
       const silent = argv.silent ?? false
       const dryRun = argv.dryRun ?? false
       const testnets = argv.testnets ?? false
@@ -79,10 +73,6 @@ yargs(hideBin(process.argv))
         )
         process.exit(1)
       }
-      if (!project) {
-        console.error(`Must specify a project name via --${projectOption}.`)
-        process.exit(1)
-      }
 
       const rootFfiPath =
         process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
@@ -91,7 +81,6 @@ yargs(hideBin(process.argv))
         'contracts/foundry/Propose.sol'
       )
 
-      process.env['SPHINX_INTERNAL_PROJECT_NAME'] = project
       process.env['SPHINX_INTERNAL_CONFIG_PATH'] = configPath
       process.env['SPHINX_INTERNAL_DRY_RUN'] = dryRun.toString()
       process.env['SPHINX_INTERNAL_SILENT'] = silent.toString()

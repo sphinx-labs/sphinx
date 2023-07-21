@@ -7,21 +7,17 @@ import {
   getSphinxManagerReadOnly,
   getSphinxRegistryReadOnly,
   getDeploymentId,
-  getProjectConfigArtifactsRemote,
+  getConfigArtifactsRemote,
 } from '../utils'
-import {
-  CanonicalProjectConfig,
-  ProjectConfigArtifacts,
-  ProjectConfigCache,
-} from './types'
+import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { getProjectConfigCache } from './parse'
+import { getConfigCache } from './parse'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
   ipfsUrl?: string
-}): Promise<CanonicalProjectConfig> => {
-  let config: CanonicalProjectConfig
+}): Promise<CompilerConfig> => {
+  let config: CompilerConfig
   let ipfs: IPFSHTTPClient
   if (args.ipfsUrl) {
     ipfs = create({
@@ -64,24 +60,20 @@ export const sphinxFetchSubtask = async (args: {
 export const verifyDeployment = async (
   configUri: string,
   deploymentId: string,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  configArtifacts: ConfigArtifacts,
   projectName: string,
-  projectConfigCache: ProjectConfigCache,
+  configCache: ConfigCache,
   ipfsUrl?: string
 ) => {
-  const config = await callWithTimeout<CanonicalProjectConfig>(
+  const config = await callWithTimeout<CompilerConfig>(
     sphinxFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const bundles = makeBundlesFromConfig(
-    config,
-    projectConfigArtifacts,
-    projectConfigCache
-  )
+  const bundles = makeBundlesFromConfig(config, configArtifacts, configCache)
 
-  if (deploymentId !== getDeploymentId(bundles, configUri, projectName)) {
+  if (deploymentId !== getDeploymentId(bundles, configUri)) {
     throw new Error(
       'Deployment ID generated from downloaded config does NOT match given hash. Please report this error.'
     )
@@ -100,31 +92,33 @@ export const compileRemoteBundles = async (
   configUri: string
 ): Promise<{
   bundles: SphinxBundles
-  canonicalProjectConfig: CanonicalProjectConfig
-  projectConfigArtifacts: ProjectConfigArtifacts
+  compilerConfig: CompilerConfig
+  configArtifacts: ConfigArtifacts
 }> => {
-  const canonicalProjectConfig = await callWithTimeout<CanonicalProjectConfig>(
+  const compilerConfig = await callWithTimeout<CompilerConfig>(
     sphinxFetchSubtask({ configUri }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const projectConfigArtifacts = await getProjectConfigArtifactsRemote(
-    canonicalProjectConfig
-  )
+  const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
 
-  const configCache = await getProjectConfigCache(
+  const configCache = await getConfigCache(
     provider,
-    canonicalProjectConfig,
-    projectConfigArtifacts,
+    compilerConfig.contracts,
+    configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(canonicalProjectConfig.options.deployer, provider)
+    getSphinxManagerReadOnly(compilerConfig.deployer, provider)
   )
 
   const bundles = makeBundlesFromConfig(
-    canonicalProjectConfig,
-    projectConfigArtifacts,
+    compilerConfig,
+    configArtifacts,
     configCache
   )
-  return { bundles, canonicalProjectConfig, projectConfigArtifacts }
+  return {
+    bundles,
+    compilerConfig,
+    configArtifacts,
+  }
 }

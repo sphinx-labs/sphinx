@@ -5,14 +5,11 @@ import { astDereferencer } from 'solidity-ast/utils'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
 import {
-  CanonicalOrgConfig,
+  CanonicalConfig,
   ConfigArtifacts,
   ConfigCache,
-  ParsedOrgConfig,
-  ParsedProjectConfig,
-  ParsedProjectConfigs,
-  ProjectConfigArtifacts,
-  ProjectConfigCache,
+  ParsedConfig,
+  ParsedConfigWithOptions,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -24,7 +21,7 @@ import {
   getImplAddress,
   getDefaultProxyInitCode,
   getDeploymentId,
-  getEmptyCanonicalOrgConfig,
+  getEmptyCanonicalConfig,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -38,15 +35,14 @@ import {
   SphinxBundles,
   SphinxTarget,
   SphinxTargetBundle,
-  ContractInfo,
   DeployContractAction,
-  ProjectDeployments,
   ProposalRequest,
   RawAuthLeaf,
   RawSphinxAction,
   RoleType,
   SetStorageAction,
   ProposalRequestLeaf,
+  ProjectDeployment,
 } from './types'
 import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
@@ -248,20 +244,11 @@ export const makeTargetBundle = (
 
 export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
   switch (leaf.leafType) {
-    /************************ ORG OWNER ACTIONS *****************************/
+    /************************ OWNER ACTIONS *****************************/
     case 'setup':
       return utils.defaultAbiCoder.encode(
-        [
-          'tuple(address member, bool add)[]',
-          'tuple(address member, bool add)[]',
-          'uint256',
-        ],
-        [leaf.proposers, leaf.managers, leaf.numLeafs]
-      )
-    case 'setProjectManager':
-      return utils.defaultAbiCoder.encode(
-        ['address', 'bool'],
-        [leaf.projectManager, leaf.add]
+        ['tuple(address member, bool add)[]', 'uint256'],
+        [leaf.proposers, leaf.numLeafs]
       )
 
     case 'exportProxy':
@@ -270,19 +257,13 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
 
-    case 'setOrgOwner':
+    case 'setOwner':
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
-        [leaf.orgOwner, leaf.add]
+        [leaf.owner, leaf.add]
       )
 
-    case 'removeProject':
-      return utils.defaultAbiCoder.encode(
-        ['string', 'address[]'],
-        [leaf.projectName, leaf.contractAddresses]
-      )
-
-    case 'setOrgThreshold':
+    case 'setThreshold':
       return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
 
     case 'transferDeployerOwnership':
@@ -306,24 +287,6 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.deployerImpl, leaf.deployerData, leaf.authImpl, leaf.authData]
       )
 
-    /************************ PROJECT MANAGER ACTIONS *****************************/
-
-    case 'createProject':
-      return utils.defaultAbiCoder.encode(
-        [
-          'string',
-          'uint256',
-          'address[]',
-          'tuple(string referenceName, address addr)[]',
-        ],
-        [
-          leaf.projectName,
-          leaf.projectThreshold,
-          leaf.projectOwners,
-          leaf.contractsToImport,
-        ]
-      )
-
     case 'setProposer':
       return utils.defaultAbiCoder.encode(
         ['address', 'bool'],
@@ -333,50 +296,16 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     case 'withdrawETH':
       return utils.defaultAbiCoder.encode(['address'], [leaf.receiver])
 
-    /***************************** PROJECT OWNER ACTIONS ****************************/
-
     case 'approveDeployment':
       return utils.defaultAbiCoder.encode(
         [
-          'string',
-          'bytes32',
-          'bytes32',
-          'uint256',
-          'uint256',
-          'uint256',
-          'string',
+          'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numActions, uint256 numTargets, uint256 numImmutableContracts, string configUri)',
         ],
-        [
-          leaf.projectName,
-          leaf.actionRoot,
-          leaf.targetRoot,
-          leaf.numActions,
-          leaf.numTargets,
-          leaf.numImmutableContracts,
-          leaf.configUri,
-        ]
-      )
-
-    case 'setProjectThreshold':
-      return utils.defaultAbiCoder.encode(
-        ['string', 'uint256'],
-        [leaf.projectName, leaf.newThreshold]
-      )
-
-    case 'setProjectOwner':
-      return utils.defaultAbiCoder.encode(
-        ['string', 'address', 'bool'],
-        [leaf.projectName, leaf.projectOwner, leaf.add]
+        [leaf.approval]
       )
 
     case 'cancelActiveDeployment':
       return utils.defaultAbiCoder.encode(['string'], [leaf.projectName])
-
-    case 'updateContractsInProject':
-      return utils.defaultAbiCoder.encode(
-        ['string', 'address[]', 'bool[]'],
-        [leaf.projectName, leaf.contractAddresses, leaf.addContract]
-      )
 
     /****************************** PROPOSER ACTIONS ******************************/
 
@@ -393,44 +322,13 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
  * that is required to approve the leaf.
  */
 export const getAuthLeafSignerInfo = (
-  orgThreshold: number,
-  projectThreshold: number,
+  ownerThreshold: number,
   leafType: string
-): { threshold: number; roleType: RoleType } => {
-  switch (leafType) {
-    // Org owner
-    case 'setup':
-    case 'setProjectManager':
-    case 'exportProxy':
-    case 'setOrgOwner':
-    case 'removeProject':
-    case 'setOrgThreshold':
-    case 'transferDeployerOwnership':
-    case 'upgradeDeployerImplementation':
-    case 'upgradeAuthImplementation':
-    case 'upgradeDeployerAndAuthImpl':
-      return { threshold: orgThreshold, roleType: RoleType.ORG_OWNER }
-
-    // Manager
-    case 'createProject':
-    case 'setProposer':
-    case 'withdrawETH':
-      return { threshold: 1, roleType: RoleType.MANAGER }
-
-    // Project owner
-    case 'approveDeployment':
-    case 'setProjectThreshold':
-    case 'setProjectOwner':
-    case 'cancelActiveDeployment':
-    case 'updateContractsInProject':
-      return { threshold: projectThreshold, roleType: RoleType.PROJECT_OWNER }
-
-    // Proposer
-    case 'propose':
-      return { threshold: 1, roleType: RoleType.PROPOSER }
-
-    default:
-      throw Error(`Unknown auth leaf type. Should never happen.`)
+): { leafThreshold: number; roleType: RoleType } => {
+  if (leafType === 'propose') {
+    return { leafThreshold: 1, roleType: RoleType.PROPOSER }
+  } else {
+    return { leafThreshold: ownerThreshold, roleType: RoleType.OWNER }
   }
 }
 
@@ -551,19 +449,16 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 }
 
 export const makeBundlesFromConfig = (
-  parsedProjectConfig: ParsedProjectConfig,
-  projectArtifacts: ProjectConfigArtifacts,
-  projectConfigCache: ProjectConfigCache
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache
 ): SphinxBundles => {
   const actionBundle = makeActionBundleFromConfig(
-    parsedProjectConfig,
-    projectArtifacts,
-    projectConfigCache
+    parsedConfig,
+    configArtifacts,
+    configCache
   )
-  const targetBundle = makeTargetBundleFromConfig(
-    parsedProjectConfig,
-    projectArtifacts
-  )
+  const targetBundle = makeTargetBundleFromConfig(parsedConfig, configArtifacts)
   return { actionBundle, targetBundle }
 }
 
@@ -575,19 +470,18 @@ export const makeBundlesFromConfig = (
  * @returns Action bundle generated from the parsed config file.
  */
 export const makeActionBundleFromConfig = (
-  parsedConfig: ParsedProjectConfig,
-  projectArtifacts: ProjectConfigArtifacts,
-  projectConfigCache: ProjectConfigCache
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache
 ): SphinxActionBundle => {
-  const managerAddress = parsedConfig.options.deployer
+  const managerAddress = parsedConfig.deployer
   const actions: SphinxAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
   )) {
-    const { buildInfo, artifact } = projectArtifacts[referenceName]
+    const { buildInfo, artifact } = configArtifacts[referenceName]
     const { sourceName, contractName, abi, bytecode } = artifact
-    const { isTargetDeployed } =
-      projectConfigCache.contractConfigCache[referenceName]
+    const { isTargetDeployed } = configCache.contractConfigCache[referenceName]
     const { kind, address, salt, constructorArgs } = contractConfig
 
     if (!isTargetDeployed) {
@@ -689,16 +583,16 @@ export const makeActionBundleFromConfig = (
  * @returns Target bundle generated from the parsed config file.
  */
 export const makeTargetBundleFromConfig = (
-  parsedProjectConfig: ParsedProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts
 ): SphinxTargetBundle => {
-  const { deployer } = parsedProjectConfig.options
+  const { deployer } = parsedConfig
 
   const targets: SphinxTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedProjectConfig.contracts
+    parsedConfig.contracts
   )) {
-    const { abi, bytecode } = projectConfigArtifacts[referenceName].artifact
+    const { abi, bytecode } = configArtifacts[referenceName].artifact
 
     // Only add targets for proxies.
     if (contractConfig.kind !== 'immutable') {
@@ -721,9 +615,9 @@ export const makeTargetBundleFromConfig = (
 
 /**
  * @notice Generates a list of AuthLeafs for a chain by comparing the current parsed config with the
- * previous org config. If the current parsed config is completely new, then the previous org config
- * must be an empty config, which can be generated by calling `getEmptyCanonicalOrgConfig`. If a
- * chain ID exists in the parsed config but does not exist in the previous org config, then this
+ * previous config. If the current parsed config is completely new, then the previous config
+ * must be an empty config, which can be generated by calling `getEmptyCanonicalConfig`. If a
+ * chain ID exists in the parsed config but does not exist in the previous config, then this
  * function will generate the leafs required to approve the project's deployment on the new chain.
  * Note that this function will throw an error if the provided `chainId` is not in the parsed
  * config.
@@ -733,37 +627,24 @@ export const makeTargetBundleFromConfig = (
  */
 export const getAuthLeafsForChain = async (
   chainId: number,
-  projectName: string,
-  parsedConfig: ParsedOrgConfig,
+  parsedConfig: ParsedConfigWithOptions,
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache,
-  prevOrgConfig: CanonicalOrgConfig
+  prevConfig: CanonicalConfig
 ): Promise<Array<AuthLeaf>> => {
-  const { options, projects } = parsedConfig
-  const { proposers, managers, chainIds } = options
-  const projectConfig = projects[projectName]
-  const { options: projectOptions, contracts } = projectConfig
-  const { projectOwners, projectThreshold } = projectOptions
+  const { options, project } = parsedConfig
+  const { proposers, chainIds } = options
 
-  // This check is necessary for TypeScript to know that `projectOwners` and
-  // `projectThreshold` are defined. This is because these fields are optional, since the
-  // type is shared with non-org configs, which don't have these fields.
-  if (!projectOwners || !projectThreshold) {
-    throw new Error(
-      `Project owners or project threshold are not defined. Should never happen.`
-    )
-  }
-
-  // Get the previous config to use in the rest of this function. If the previous org config
-  // contains this chain ID, then we use the previous org config. Otherwise, we generate an empty
+  // Get the previous config to use in the rest of this function. If the previous config
+  // contains this chain ID, then we use the previous config. Otherwise, we generate an empty
   // config, which makes it easy to generate leafs for a new chain.
-  const prevConfigForChain = prevOrgConfig.chainStates[chainId]
-    ? prevOrgConfig
-    : getEmptyCanonicalOrgConfig(
+  const prevConfigForChain = prevConfig.chainStates[chainId]
+    ? prevConfig
+    : getEmptyCanonicalConfig(
         [chainId],
-        prevOrgConfig.deployer,
-        prevOrgConfig.options.orgId,
-        projectName
+        prevConfig.deployer,
+        prevConfig.options.orgId,
+        project
       )
 
   const {
@@ -771,7 +652,8 @@ export const getAuthLeafsForChain = async (
     chainStates: prevChainStates,
     options: prevOptions,
   } = prevConfigForChain
-  const { proposers: prevProposers, managers: prevManagers } = prevOptions
+  const prevProposers = prevOptions.proposers
+  const { firstProposalOccurred } = prevChainStates[chainId]
 
   if (!chainIds.includes(chainId)) {
     throw new Error(
@@ -780,15 +662,13 @@ export const getAuthLeafsForChain = async (
   }
 
   // We get a list of proposers to add and remove by comparing the current and previous proposers.
-  // We do the same for managers. It's possible that we'll need to remove proposers/managers even if
-  // the first proposal has not occurred yet. This is because the user may have already attempted to
-  // setup the org with an incorrect set of proposers/managers.
+  //  It's possible that we'll need to remove proposers even if the first proposal has not
+  //  occurred yet. This is because the user may have already attempted to setup the project with an
+  //  incorrect set of proposers.
   const proposersToAdd = proposers.filter((p) => !prevProposers.includes(p))
   const proposersToRemove = prevProposers.filter((p) => !proposers.includes(p))
-  const managersToAdd = managers.filter((m) => !prevManagers.includes(m))
-  const managersToRemove = prevManagers.filter((m) => !managers.includes(m))
 
-  // Transform the list of proposers/managers to add/remove into a list of tuples that will be used
+  // Transform the list of proposers to add/remove into a list of tuples that will be used
   // in the Setup leaf, if it's needed.
   const proposersToSet = proposersToAdd
     .map((p) => {
@@ -799,31 +679,6 @@ export const getAuthLeafsForChain = async (
         return { member: p, add: false }
       })
     )
-  const managersToSet = managersToAdd
-    .map((m) => {
-      return { member: m, add: true }
-    })
-    .concat(
-      managersToRemove.map((m) => {
-        return { member: m, add: false }
-      })
-    )
-
-  const { firstProposalOccurred } = prevChainStates[chainId]
-  if (!firstProposalOccurred && Object.keys(projects).length === 0) {
-    // Return a single Setup leaf.
-    return [
-      {
-        chainId,
-        to: deployer,
-        index: 0,
-        proposers: proposersToSet,
-        managers: managersToSet,
-        numLeafs: 1,
-        leafType: 'setup',
-      },
-    ]
-  }
 
   const leafs: Array<AuthLeaf> = []
 
@@ -836,36 +691,10 @@ export const getAuthLeafsForChain = async (
   // because the first two indexes are reserved for the setup and proposal leafs.
   let index = firstProposalOccurred ? 1 : 2
 
-  // Create the project if it didn't previously exist.
-  const { projectCreated } = prevChainStates[chainId].projects[projectName]
-  if (!projectCreated) {
-    // We only import contracts into the project if the user has explictly specified an
-    // address for the contract. Otherwise, the contract will eventually be deployed by
-    // Sphinx and automatically added to the project on-chain.
-    const contractsToImport: Array<ContractInfo> = Object.entries(contracts)
-      .filter(([, contractConfig]) => contractConfig.isUserDefinedAddress)
-      .map(([referenceName, contractConfig]) => {
-        return { referenceName, addr: contractConfig.address }
-      })
-
-    const createProjectLeaf: AuthLeaf = {
-      chainId,
-      to: deployer,
-      index,
-      projectName,
-      projectThreshold,
-      projectOwners,
-      contractsToImport,
-      leafType: 'createProject',
-    }
-    index += 1
-    leafs.push(createProjectLeaf)
-  }
-
   const { configUri, bundles } = await getProjectBundleInfo(
-    projectConfig,
-    configArtifacts[projectName],
-    configCache[projectName]
+    parsedConfig,
+    configArtifacts,
+    configCache
   )
   const { actionBundle, targetBundle } = bundles
 
@@ -878,13 +707,14 @@ export const getAuthLeafsForChain = async (
       chainId,
       to: deployer,
       index,
-      projectName,
-      actionRoot: actionBundle.root,
-      targetRoot: targetBundle.root,
-      numActions: actionBundle.actions.length,
-      numTargets: targetBundle.targets.length,
-      numImmutableContracts: getNumDeployContractActions(actionBundle),
-      configUri,
+      approval: {
+        actionRoot: actionBundle.root,
+        targetRoot: targetBundle.root,
+        numActions: actionBundle.actions.length,
+        numTargets: targetBundle.targets.length,
+        numImmutableContracts: getNumDeployContractActions(actionBundle),
+        configUri,
+      },
       leafType: 'approveDeployment',
     }
     index += 1
@@ -911,7 +741,6 @@ export const getAuthLeafsForChain = async (
       to: deployer,
       index: 0,
       proposers: proposersToSet,
-      managers: managersToSet,
       numLeafs: index,
       leafType: 'setup',
     }
@@ -975,37 +804,36 @@ export const findProposalRequestLeaf = (
   return leaf
 }
 
-export const getProjectDeploymentsForChain = async (
+export const getProjectDeploymentForChain = async (
   leafs: Array<AuthLeaf>,
   chainId: number,
-  projectConfigs: ParsedProjectConfigs,
-  configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache
-): Promise<Array<ProjectDeployments>> => {
-  const projectDeploymentPromises = leafs
+  project: string,
+  configUri: string,
+  bundles: SphinxBundles
+): Promise<ProjectDeployment | undefined> => {
+  const approvalLeafs = leafs
     .filter(isApproveDeploymentAuthLeaf)
     .filter((l) => l.chainId === chainId)
-    .map(async (l) => {
-      const { projectName } = l
-      const { configUri, bundles } = await getProjectBundleInfo(
-        projectConfigs[projectName],
-        configArtifacts[projectName],
-        configCache[projectName]
-      )
-      const deploymentId = getDeploymentId(bundles, configUri, projectName)
 
-      return {
-        chainId,
-        deploymentId,
-        name: projectName,
-      }
-    })
+  if (approvalLeafs.length === 0) {
+    return undefined
+  } else if (approvalLeafs.length > 1) {
+    throw new Error(
+      `Found multiple approval leafs for chain ${chainId}. Should never happen.`
+    )
+  }
 
-  return Promise.all(projectDeploymentPromises)
+  const deploymentId = getDeploymentId(bundles, configUri)
+
+  return {
+    chainId,
+    deploymentId,
+    name: project,
+  }
 }
 
 /**
- * @notice Gets the estimated amount of gas required to execute an org tree.
+ * @notice Gets the estimated amount of gas required to execute an auth tree.
  */
 export const getGasEstimates = async (
   leafs: Array<AuthLeaf>,
@@ -1026,9 +854,7 @@ export const getGasEstimates = async (
         // Estimate the gas required to deploy the contracts in the project. This doesn't include
         // the gas required to execute the "ApproveDeployment" leaf, since the contracts aren't
         // executed in that transaction.
-        const estDeployContractGas = getDeployContractCosts(
-          configArtifacts[leaf.projectName]
-        )
+        const estDeployContractGas = getDeployContractCosts(configArtifacts)
           .map(({ cost }) => cost.toNumber())
           .reduce((a, b) => a + b, 0)
         estLeafGas = estLeafGas.add(estDeployContractGas)

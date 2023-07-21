@@ -13,10 +13,7 @@ export const PROPOSER_ROLE = ethers.utils.solidityKeccak256(
   ['string'],
   ['ProposerRole']
 )
-export const PROJECT_MANAGER_ROLE = ethers.utils.solidityKeccak256(
-  ['string'],
-  ['ProjectManagerRole']
-)
+
 export const DEFAULT_ADMIN_ROLE = ethers.constants.HashZero
 
 export const SPHINX_PROXY_ADMIN_ADDRESS_SLOT_KEY = ethers.BigNumber.from(

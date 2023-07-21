@@ -12,13 +12,13 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
   const artifactFolder = resolve(outPath)
   const buildInfoFolder = resolve(buildInfoPath)
   const deploymentFolder = resolve('deployments')
-  const canonicalConfigFolder = resolve('.canonical-configs')
+  const compilerConfigFolder = resolve('.compiler-configs')
 
   return {
     artifactFolder,
     buildInfoFolder,
     deploymentFolder,
-    canonicalConfigFolder,
+    compilerConfigFolder,
   }
 }
 
@@ -26,7 +26,7 @@ export const getFoundryConfigOptions = async (): Promise<{
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
-  canonicalConfigFolder: string
+  compilerConfigFolder: string
   cachePath: string
   storageLayout: boolean
   gasEstimates: boolean

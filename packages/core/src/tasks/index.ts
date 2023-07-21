@@ -10,18 +10,16 @@ import { ProxyABI } from '@sphinx/contracts'
 import {
   SphinxInput,
   contractKindHashes,
-  ParsedProjectConfig,
-  ProjectConfigArtifacts,
-  ProjectConfigCache,
-  CanonicalProjectConfig,
-  CanonicalOrgConfig,
-  ParsedProjectConfigs,
+  CanonicalConfig,
   GetConfigArtifacts,
-  ParsedOrgConfig,
   GetProviderForChainId,
   ConfigArtifacts,
-  UserSphinxConfig,
-  GetCanonicalOrgConfig,
+  ParsedConfigWithOptions,
+  ConfigCache,
+  CompilerConfig,
+  GetCanonicalConfig,
+  UserConfigWithOptions,
+  ParsedConfig,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -32,15 +30,15 @@ import {
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
   isProjectRegistered,
-  writeCanonicalConfig,
+  writeCompilerConfig,
   writeSnapshotId,
   transferProjectOwnership,
   isHardhatFork,
-  getOrgConfigInfo,
+  getProjectConfigInfo,
   relayProposal,
   relayIPFSCommit,
   registerOwner,
-  fetchCanonicalOrgConfig,
+  fetchCanonicalConfig,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -59,10 +57,10 @@ import {
   writeDeploymentArtifacts,
   ProposalRequest,
   AuthLeaf,
-  ProjectDeployments,
-  getProjectDeploymentsForChain,
+  getProjectDeploymentForChain,
   getAuthLeafsForChain,
   getGasEstimates,
+  ProjectDeployment,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -74,27 +72,26 @@ import {
 import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
 import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
-import { getParsedOrgConfig } from '../config/parse'
+import { getParsedConfigWithOptions } from '../config/parse'
 
 // Load environment variables from .env
 dotenv.config()
 
 /**
- * @param getCanonicalOrgConfig A function that returns the canonical org config. By default,
- * this function will fetch the canonical org config from the back-end. However, it can be
- * overridden to return a different canonical org config. This is useful for testing.
+ * @param getCanonicalConfig A function that returns the canonical config. By default,
+ * this function will fetch the canonical config from the back-end. However, it can be
+ * overridden to return a different canonical config. This is useful for testing.
  */
 export const proposeAbstractTask = async (
-  userConfig: UserSphinxConfig,
+  userConfig: UserConfigWithOptions,
   isTestnet: boolean,
-  projectName: string,
   dryRun: boolean,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT,
-  getCanonicalOrgConfig: GetCanonicalOrgConfig = fetchCanonicalOrgConfig
+  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig
 ): Promise<ProposalRequest> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -107,13 +104,15 @@ export const proposeAbstractTask = async (
       `Must provide a 'PROPOSER_PRIVATE_KEY' environment variable.`
     )
   }
+
+  const { project } = userConfig
+
   const wallet = new ethers.Wallet(privateKey)
   const signerAddress = await wallet.getAddress()
 
-  const { isNewConfig, chainIds, prevOrgConfig } = await getOrgConfigInfo(
-    getCanonicalOrgConfig,
+  const { isNewConfig, chainIds, prevConfig } = await getProjectConfigInfo(
+    getCanonicalConfig,
     userConfig,
-    projectName,
     isTestnet,
     apiKey,
     cre,
@@ -123,16 +122,16 @@ export const proposeAbstractTask = async (
   // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
   // there aren't any network-specific errors that are caused by the config. These errors would most
   // likely occur in the `postParsingValidation` function that's a few calls inside of
-  // `getParsedOrgConfig`. Note that the parsed config will be the same on each chain ID because the
+  // `getParsedConfigWithOptions`. Note that the parsed config will be the same on each chain ID because the
   // network-specific validation does not change any fields in the parsed config. Likewise, the
   // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
   // `ConfigCache` object.
-  let parsedConfig: ParsedOrgConfig | undefined
+  let parsedConfig: ParsedConfigWithOptions | undefined
   let configArtifacts: ConfigArtifacts | undefined
   const leafs: Array<AuthLeaf> = []
-  const projectDeployments: Array<ProjectDeployments> = []
-  const canonicalProjectConfigs: {
-    [ipfsHash: string]: CanonicalProjectConfig
+  const projectDeployments: Array<ProjectDeployment> = []
+  const compilerConfigs: {
+    [ipfsHash: string]: CompilerConfig
   } = {}
   // We loop through any logic that depends on the provider object.
   for (const chainId of chainIds) {
@@ -140,10 +139,9 @@ export const proposeAbstractTask = async (
 
     await ensureSphinxInitialized(provider, wallet.connect(provider))
 
-    const parsedOrgConfigValues = await getParsedOrgConfig(
+    const parsedConfigValues = await getParsedConfigWithOptions(
       userConfig,
-      projectName,
-      prevOrgConfig.deployer,
+      prevConfig.deployer,
       isTestnet,
       provider,
       cre,
@@ -151,51 +149,53 @@ export const proposeAbstractTask = async (
       failureAction
     )
 
-    parsedConfig = parsedOrgConfigValues.parsedConfig
-    configArtifacts = parsedOrgConfigValues.configArtifacts
-    const configCache = parsedOrgConfigValues.configCache
+    parsedConfig = parsedConfigValues.parsedConfig
+    configArtifacts = parsedConfigValues.configArtifacts
+    const configCache = parsedConfigValues.configCache
 
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
-      projectName,
       parsedConfig,
       configArtifacts,
       configCache,
-      prevOrgConfig
+      prevConfig
     )
     leafs.push(...leafsForChain)
 
-    const projectDeploymentsForChain = await getProjectDeploymentsForChain(
-      leafs,
-      chainId,
-      parsedConfig.projects,
+    const { compilerConfig, configUri, bundles } = await getProjectBundleInfo(
+      parsedConfig,
       configArtifacts,
       configCache
     )
-    projectDeployments.push(...projectDeploymentsForChain)
 
-    const { canonicalConfig, configUri } = await getProjectBundleInfo(
-      parsedConfig.projects[projectName],
-      configArtifacts[projectName],
-      configCache[projectName]
+    const projectDeployment = await getProjectDeploymentForChain(
+      leafs,
+      chainId,
+      project,
+      configUri,
+      bundles
     )
-    canonicalProjectConfigs[configUri] = canonicalConfig
+    if (projectDeployment) {
+      projectDeployments.push(projectDeployment)
+    }
+
+    compilerConfigs[configUri] = compilerConfig
   }
 
   // This removes a TypeScript error that occurs because TypeScript doesn't know that the
   // `parsedConfig` variable is defined.
   if (!parsedConfig || !configArtifacts) {
     throw new Error(
-      'Could not find either parsed config or config artifacts. Should never happen'
+      'Could not find either parsed config or config artifacts. Should never happen.'
     )
   }
 
   const { orgId } = parsedConfig.options
 
-  if (!isNewConfig && orgId !== prevOrgConfig.options.orgId) {
+  if (!isNewConfig && orgId !== prevConfig.options.orgId) {
     throw new Error(
       `Organization ID cannot be changed.\n` +
-        `Previous: ${prevOrgConfig.options.orgId}\n` +
+        `Previous: ${prevConfig.options.orgId}\n` +
         `New: ${orgId}`
     )
   }
@@ -230,24 +230,20 @@ export const proposeAbstractTask = async (
     const { data } = leaf
 
     let firstProposalOccurred: boolean
-    let projectCreated: boolean
-    const chainStates = prevOrgConfig.chainStates[chainId]
+    const chainStates = prevConfig.chainStates[chainId]
     if (!chainStates) {
       firstProposalOccurred = false
-      projectCreated = false
     } else {
       firstProposalOccurred = chainStates.firstProposalOccurred
-      const project = chainStates.projects[projectName]
-      projectCreated = project && project.projectCreated
     }
 
     if (
       firstProposalOccurred &&
-      !prevOrgConfig.options.proposers.includes(signerAddress)
+      !prevConfig.options.proposers.includes(signerAddress)
     ) {
       throw new Error(
         `Signer is not currently a proposer on chain ${chainId}. Signer's address: ${signerAddress}\n` +
-          `Current proposers: ${prevOrgConfig.options.proposers.map(
+          `Current proposers: ${prevConfig.options.proposers.map(
             (proposer) => `\n- ${proposer}`
           )}`
       )
@@ -262,48 +258,25 @@ export const proposeAbstractTask = async (
       )
     }
 
-    let orgOwners: string[]
+    let owners: string[]
     let proposers: string[]
-    let managers: string[]
-    let orgThreshold: number
+    let ownerThreshold: number
     if (firstProposalOccurred) {
-      ;({ orgOwners, proposers, managers, orgThreshold } =
-        prevOrgConfig.options)
+      ;({ owners, proposers, threshold: ownerThreshold } = prevConfig.options)
     } else {
-      ;({ orgOwners, proposers, managers, orgThreshold } = parsedConfig.options)
+      ;({ owners, proposers, threshold: ownerThreshold } = parsedConfig.options)
     }
 
-    let projectOwners: string[] | undefined
-    let projectThreshold: number | undefined
-    if (firstProposalOccurred && projectCreated) {
-      ;({ projectOwners, projectThreshold } =
-        prevOrgConfig.projects[projectName].options)
-    } else {
-      ;({ projectOwners, projectThreshold } =
-        parsedConfig.projects[projectName].options)
-    }
-
-    if (!projectOwners || !projectThreshold) {
-      throw new Error(
-        `Project owners or project threshold is not defined. Should never happen.`
-      )
-    }
-
-    const { threshold, roleType } = getAuthLeafSignerInfo(
-      orgThreshold,
-      projectThreshold,
+    const { leafThreshold, roleType } = getAuthLeafSignerInfo(
+      ownerThreshold,
       leafType
     )
 
     let signerAddresses: string[]
-    if (roleType === RoleType.ORG_OWNER) {
-      signerAddresses = orgOwners
+    if (roleType === RoleType.OWNER) {
+      signerAddresses = owners
     } else if (roleType === RoleType.PROPOSER) {
       signerAddresses = proposers
-    } else if (roleType === RoleType.MANAGER) {
-      signerAddresses = managers
-    } else if (roleType === RoleType.PROJECT_OWNER) {
-      signerAddresses = projectOwners
     } else {
       throw new Error(`Invalid role type: ${roleType}`)
     }
@@ -320,35 +293,33 @@ export const proposeAbstractTask = async (
       leafType,
       data,
       siblings: proof,
-      threshold,
+      threshold: leafThreshold,
       signers,
     })
   }
 
-  const newChainStates: CanonicalOrgConfig['chainStates'] = {}
+  const newChainStates: CanonicalConfig['chainStates'] = {}
   for (const chainId of chainIds) {
     newChainStates[chainId] = {
       firstProposalOccurred: true,
-      projects: {
-        [projectName]: {
-          projectCreated: true,
-        },
-      },
+      projectCreated: true,
     }
   }
 
-  const newCanonicalOrgConfig: CanonicalOrgConfig = {
-    deployer: prevOrgConfig.deployer,
+  const newCanonicalConfig: CanonicalConfig = {
+    deployer: prevConfig.deployer,
     options: parsedConfig.options,
-    projects: parsedConfig.projects,
+    contracts: parsedConfig.contracts,
+    project: parsedConfig.project,
     chainStates: newChainStates,
   }
 
   const authAddress = getAuthAddress(
-    newCanonicalOrgConfig.options.orgOwners,
-    newCanonicalOrgConfig.options.orgThreshold
+    prevConfig.options.owners,
+    prevConfig.options.threshold,
+    parsedConfig.project
   )
-  const deployerAddress = getSphinxManagerAddress(authAddress)
+  const deployerAddress = getSphinxManagerAddress(authAddress, project)
 
   const gasEstimates = await getGasEstimates(leafs, configArtifacts)
 
@@ -357,15 +328,15 @@ export const proposeAbstractTask = async (
     orgId,
     isTestnet,
     chainIds,
-    deploymentName: projectName,
-    orgOwners: newCanonicalOrgConfig.options.orgOwners,
-    orgOwnerThreshold: newCanonicalOrgConfig.options.orgThreshold,
+    deploymentName: parsedConfig.project,
+    owners: newCanonicalConfig.options.owners,
+    threshold: newCanonicalConfig.options.threshold,
     authAddress,
     deployerAddress,
-    orgCanonicalConfig: JSON.stringify(newCanonicalOrgConfig),
+    canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
-    orgTree: {
+    tree: {
       root,
       chainStatus,
       leaves: proposalRequestLeafs,
@@ -375,8 +346,8 @@ export const proposeAbstractTask = async (
   // Only relay the proposal to the back-end if we're not doing a dry run.
   if (!dryRun) {
     await relayProposal(proposalRequest)
-    const canonicalProjectConfigArray = Object.values(canonicalProjectConfigs)
-    await relayIPFSCommit(apiKey, orgId, canonicalProjectConfigArray)
+    const compilerConfigArray = Object.values(compilerConfigs)
+    await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
   }
 
   spinner.succeed(`${dryRun ? 'Dry run' : 'Proposal'} succeeded!`)
@@ -385,16 +356,16 @@ export const proposeAbstractTask = async (
 }
 
 export const sphinxCommitAbstractSubtask = async (
-  parsedProjectConfig: ParsedProjectConfig,
+  parsedConfig: ParsedConfig,
   commitToIpfs: boolean,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  configArtifacts: ConfigArtifacts,
   ipfsUrl?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
   configUri: string
-  canonicalConfig: CanonicalProjectConfig
+  compilerConfig: CompilerConfig
 }> => {
-  const { project } = parsedProjectConfig.options
+  const { project } = parsedConfig
   if (spinner) {
     commitToIpfs
       ? spinner.start(`Committing ${project}...`)
@@ -403,9 +374,9 @@ export const sphinxCommitAbstractSubtask = async (
 
   const sphinxInputs: Array<SphinxInput> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedProjectConfig.contracts
+    parsedConfig.contracts
   )) {
-    const { buildInfo } = projectConfigArtifacts[referenceName]
+    const { buildInfo } = configArtifacts[referenceName]
 
     const prevSphinxInput = sphinxInputs.find(
       (input) => input.solcLongVersion === buildInfo.solcLongVersion
@@ -441,12 +412,12 @@ export const sphinxCommitAbstractSubtask = async (
     }
   }
 
-  const canonicalConfig: CanonicalProjectConfig = {
-    ...parsedProjectConfig,
+  const compilerConfig: CompilerConfig = {
+    ...parsedConfig,
     inputs: sphinxInputs,
   }
 
-  const ipfsData = JSON.stringify(canonicalConfig, null, 2)
+  const ipfsData = JSON.stringify(compilerConfig, null, 2)
 
   let ipfsHash
   if (!commitToIpfs) {
@@ -490,24 +461,24 @@ IPFS_API_KEY_SECRET: ...
       : spinner.succeed(`Built ${project}.`)
   }
 
-  return { configUri, canonicalConfig }
+  return { configUri, compilerConfig }
 }
 
 export const deployAbstractTask = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
-  canonicalConfigPath: string,
+  compilerConfigPath: string,
   deploymentFolder: string,
   integration: Integration,
   cre: SphinxRuntimeEnvironment,
-  parsedProjectConfig: ParsedProjectConfig,
-  projectConfigCache: ProjectConfigCache,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  parsedConfig: ParsedConfig,
+  configCache: ConfigCache,
+  configArtifacts: ConfigArtifacts,
   newOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const { project, deployer } = parsedProjectConfig.options
-  const { networkName, blockGasLimit, localNetwork } = projectConfigCache
+  const { project, deployer } = parsedConfig
+  const { networkName, blockGasLimit, localNetwork } = configCache
 
   const registry = getSphinxRegistry(signer)
   const manager = getSphinxManager(deployer, signer)
@@ -515,14 +486,21 @@ export const deployAbstractTask = async (
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the user-defined new owner, if it exists.
   const signerAddress = await signer.getAddress()
-  await registerOwner(registry, manager, signerAddress, provider, spinner)
+  await registerOwner(
+    project,
+    registry,
+    manager,
+    signerAddress,
+    provider,
+    spinner
+  )
 
   spinner.start(`Checking the status of ${project}...`)
 
-  const { configUri, bundles, canonicalConfig } = await getProjectBundleInfo(
-    parsedProjectConfig,
-    projectConfigArtifacts,
-    projectConfigCache
+  const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
+    parsedConfig,
+    configArtifacts,
+    configCache
   )
 
   if (
@@ -533,7 +511,7 @@ export const deployAbstractTask = async (
     return
   }
 
-  const deploymentId = getDeploymentId(bundles, configUri, project)
+  const deploymentId = getDeploymentId(bundles, configUri)
   const deploymentState: DeploymentState = await manager.deployments(
     deploymentId
   )
@@ -544,30 +522,11 @@ export const deployAbstractTask = async (
     throw new Error(`${project} was previously cancelled on ${networkName}.`)
   }
 
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedProjectConfig.contracts
-  )) {
-    if (contractConfig.isUserDefinedAddress) {
-      const existingProjectName =
-        projectConfigCache.contractConfigCache[referenceName]
-          .existingProjectName
-
-      if (existingProjectName !== project) {
-        await manager.transferContractToProject(
-          contractConfig.address,
-          project,
-          await getGasPriceOverrides(provider)
-        )
-      }
-    }
-  }
-
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${project} has not been deployed before.`)
     spinner.start(`Approving ${project}...`)
     await (
       await manager.approve(
-        project,
         bundles.actionBundle.root,
         bundles.targetBundle.root,
         bundles.actionBundle.actions.length,
@@ -592,7 +551,7 @@ export const deployAbstractTask = async (
       manager,
       bundles,
       blockGasLimit,
-      projectConfigArtifacts,
+      configArtifacts,
       provider
     )
 
@@ -621,10 +580,10 @@ export const deployAbstractTask = async (
 
   // TODO(post): foundry: this must only be called if the deployment was broadcasted.
   await postDeploymentActions(
-    canonicalConfig,
-    projectConfigArtifacts,
+    compilerConfig,
+    configArtifacts,
     deploymentId,
-    canonicalConfigPath,
+    compilerConfigPath,
     configUri,
     localNetwork,
     networkName,
@@ -642,10 +601,10 @@ export const deployAbstractTask = async (
 // TODO(post): we need to make `provider` an optional parameter. it should be undefined on the in-process
 // anvil node, and defined in all other cases, including the stand-alone anvil node.
 export const postDeploymentActions = async (
-  canonicalProjectConfig: CanonicalProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts,
+  compilerConfig: CompilerConfig,
+  configArtifacts: ConfigArtifacts,
   deploymentId: string,
-  canonicalConfigPath: string,
+  compilerConfigPath: string,
   configUri: string,
   localNetwork: boolean,
   networkName: string,
@@ -661,7 +620,7 @@ export const postDeploymentActions = async (
   spinner?.start(`Writing deployment artifacts...`)
 
   if (integration === 'hardhat') {
-    writeCanonicalConfig(canonicalConfigPath, configUri, canonicalProjectConfig)
+    writeCompilerConfig(compilerConfigPath, configUri, compilerConfig)
   }
 
   await trackDeployed(owner, networkName, integration)
@@ -670,11 +629,11 @@ export const postDeploymentActions = async (
   // This can be anywhere from 5 minutes to half an hour depending on the network
   await writeDeploymentArtifacts(
     provider,
-    canonicalProjectConfig,
+    compilerConfig,
     await getDeploymentEvents(manager, deploymentId),
     networkName,
     deploymentFolder,
-    projectConfigArtifacts
+    configArtifacts
   )
 
   spinner?.succeed(`Wrote deployment artifacts.`)
@@ -687,8 +646,8 @@ export const postDeploymentActions = async (
   if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
     if (etherscanApiKey) {
       await verifySphinxConfig(
-        canonicalProjectConfig,
-        projectConfigArtifacts,
+        compilerConfig,
+        configArtifacts,
         provider,
         networkName,
         etherscanApiKey
@@ -711,7 +670,7 @@ export const postDeploymentActions = async (
       }
     }
 
-    displayDeploymentTable(canonicalProjectConfig, silent)
+    displayDeploymentTable(compilerConfig, silent)
     spinner?.info(
       "Thank you for using Sphinx! We'd love to see you in the Discord: https://discord.gg/7Gc3DK33Np"
     )
@@ -728,7 +687,7 @@ export const sphinxCancelAbstractTask = async (
   const networkName = await resolveNetworkName(provider, integration)
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getSphinxManagerAddress(ownerAddress)
+  const deployer = getSphinxManagerAddress(ownerAddress, projectName)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
@@ -771,14 +730,14 @@ export const sphinxExportProxyAbstractTask = async (
   projectName: string,
   referenceName: string,
   integration: Integration,
-  projectConfigs: ParsedProjectConfigs,
+  parsedConfig: ParsedConfig,
   cre: SphinxRuntimeEnvironment
 ) => {
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getSphinxManagerAddress(ownerAddress)
+  const deployer = getSphinxManagerAddress(ownerAddress, projectName)
 
   const registry = getSphinxRegistry(owner)
   const manager = getSphinxManager(deployer, owner)
@@ -792,7 +751,7 @@ export const sphinxExportProxyAbstractTask = async (
 
   const signerAddress = await owner.getAddress()
   if (projectOwner !== signerAddress) {
-    throw new Error(`Caller does not own the organization.`)
+    throw new Error(`Caller does not own the project.`)
   }
 
   spinner.succeed('Project registration detected')
@@ -806,7 +765,7 @@ export const sphinxExportProxyAbstractTask = async (
     )
   }
 
-  const targetContract = projectConfigs[projectName].contracts[referenceName]
+  const targetContract = parsedConfig[projectName].contracts[referenceName]
   await (
     await manager.exportProxy(
       targetContract.address,
@@ -823,6 +782,7 @@ export const sphinxExportProxyAbstractTask = async (
 }
 
 export const sphinxImportProxyAbstractTask = async (
+  project: string,
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   proxy: string,
@@ -833,7 +793,7 @@ export const sphinxImportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const deployer = getSphinxManagerAddress(owner)
+  const deployer = getSphinxManagerAddress(owner, project)
   const registry = getSphinxRegistry(signer)
   const manager = getSphinxManager(deployer, signer)
 
@@ -904,27 +864,27 @@ export const sphinxImportProxyAbstractTask = async (
 }
 
 export const getProjectBundleInfo = async (
-  parsedProjectConfig: ParsedProjectConfig,
-  projectConfigArtifacts: ProjectConfigArtifacts,
-  projectConfigCache: ProjectConfigCache
+  parsedConfig: ParsedConfig,
+  configArtifacts: ConfigArtifacts,
+  configCache: ConfigCache
 ): Promise<{
   configUri: string
-  canonicalConfig: CanonicalProjectConfig
+  compilerConfig: CompilerConfig
   bundles: SphinxBundles
 }> => {
-  const { configUri, canonicalConfig } = await sphinxCommitAbstractSubtask(
-    parsedProjectConfig,
+  const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
+    parsedConfig,
     false,
-    projectConfigArtifacts
+    configArtifacts
   )
 
   const bundles = makeBundlesFromConfig(
-    parsedProjectConfig,
-    projectConfigArtifacts,
-    projectConfigCache
+    parsedConfig,
+    configArtifacts,
+    configCache
   )
 
-  return { configUri, canonicalConfig, bundles }
+  return { configUri, compilerConfig, bundles }
 }
 
 export const approveDeployment = async (
@@ -946,7 +906,6 @@ export const approveDeployment = async (
 
   await (
     await manager.approve(
-      projectName,
       bundles.actionBundle.root,
       bundles.targetBundle.root,
       bundles.actionBundle.actions.length,

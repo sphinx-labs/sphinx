@@ -8,7 +8,7 @@ import { SphinxAuth } from "./SphinxAuth.sol";
 import { SphinxAuthProxy } from "./SphinxAuthProxy.sol";
 import { Version, Semver } from "./Semver.sol";
 
-contract SphinxAuthFactory is Ownable {
+contract SphinxFactory is Ownable {
     /**
      * @notice Emitted whenever a SphinxAuthProxy is deployed.
      *
@@ -18,9 +18,11 @@ contract SphinxAuthFactory is Ownable {
      * @param caller         Address that finalized registration.
      */
     event AuthDeployed(
+        string indexed projectNameHash,
         bytes32 indexed salt,
         address indexed managerProxy,
-        address indexed authImpl,
+        string projectName,
+        address authImpl,
         address caller
     );
 
@@ -79,25 +81,22 @@ contract SphinxAuthFactory is Ownable {
     function deploy(
         bytes memory _authData,
         bytes memory _registryData,
-        uint256 _saltNonce
+        string memory _projectName
     ) external {
-        require(
-            currentAuthImplementation != address(0),
-            "SphinxAuthFactory: no auth implementation"
-        );
+        require(currentAuthImplementation != address(0), "SphinxFactory: no auth implementation");
 
-        bytes32 salt = keccak256(abi.encode(_authData, _saltNonce));
-        require(address(auths[salt]) == address(0), "SphinxAuthFactory: already deployed");
+        bytes32 salt = keccak256(abi.encode(_authData, _projectName));
+        require(address(auths[salt]) == address(0), "SphinxFactory: already deployed");
 
         address authProxyAddress = getAuthProxyAddress(salt);
 
-        address managerProxy = registry.register(authProxyAddress, _saltNonce, _registryData);
+        address managerProxy = registry.register(authProxyAddress, _projectName, _registryData);
 
         SphinxAuthProxy authProxy = new SphinxAuthProxy{ salt: salt }(this, address(this));
 
         require(
             address(authProxy) == authProxyAddress,
-            "SphinxAuthFactory: failed to deploy auth proxy"
+            "SphinxFactory: failed to deploy auth proxy"
         );
 
         auths[salt] = payable(authProxyAddress);
@@ -105,13 +104,20 @@ contract SphinxAuthFactory is Ownable {
 
         authProxy.upgradeToAndCall(
             currentAuthImplementation,
-            abi.encodeCall(SphinxAuth.initialize, (managerProxy, _authData))
+            abi.encodeCall(SphinxAuth.initialize, (managerProxy, _projectName, _authData))
         );
 
         // Set the auth proxy admin to itself
         authProxy.changeAdmin(authProxyAddress);
 
-        emit AuthDeployed(salt, managerProxy, currentAuthImplementation, msg.sender);
+        emit AuthDeployed(
+            _projectName,
+            salt,
+            managerProxy,
+            _projectName,
+            currentAuthImplementation,
+            msg.sender
+        );
     }
 
     /**
@@ -128,10 +134,7 @@ contract SphinxAuthFactory is Ownable {
         uint256 minor = version.minor;
         uint256 patch = version.patch;
 
-        require(
-            versions[major][minor][patch] == address(0),
-            "SphinxAuthFactory: version already set"
-        );
+        require(versions[major][minor][patch] == address(0), "SphinxFactory: version already set");
 
         authImplementations[_auth] = true;
         versions[major][minor][patch] = _auth;
@@ -140,7 +143,7 @@ contract SphinxAuthFactory is Ownable {
     }
 
     function setCurrentAuthImplementation(address _impl) external onlyOwner {
-        require(authImplementations[_impl], "SphinxAuthFactory: invalid auth implementation");
+        require(authImplementations[_impl], "SphinxFactory: invalid auth implementation");
         currentAuthImplementation = _impl;
         emit CurrentAuthImplementationSet(_impl);
     }

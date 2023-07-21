@@ -2,26 +2,26 @@ import hre from 'hardhat'
 import '@sphinx/plugins'
 import '@nomiclabs/hardhat-ethers'
 import {
-  AUTH_FACTORY_ADDRESS,
-  UserSphinxConfig,
+  FACTORY_ADDRESS,
+  UserSphinxConfig as UserConfigWithOptions,
   ensureSphinxInitialized,
   getAuthAddress,
   getAuthData,
   getSphinxManagerAddress,
   makeAuthBundle,
-  getParsedOrgConfig,
+  getParsedConfigWithOptions,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
   SUPPORTED_NETWORKS,
-  getEmptyCanonicalOrgConfig,
+  getEmptyCanonicalConfig,
   findBundledLeaf,
   getAuthLeafsForChain,
   getTargetAddress,
   monitorExecution,
   sphinxCommitAbstractSubtask,
 } from '@sphinx/core'
-import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { FactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { createSphinxRuntime } from '@sphinx/plugins/src/cre'
 import { makeGetConfigArtifacts } from '@sphinx/plugins/src/hardhat/artifacts'
 import { expect } from 'chai'
@@ -32,12 +32,12 @@ const DUMMY_ORG_ID = '1111'
 const cre = createSphinxRuntime(
   true,
   true,
-  hre.config.paths.canonicalConfigs,
+  hre.config.paths.compilerConfigs,
   hre,
   false
 )
 
-const orgThreshold = 1
+const threshold = 1
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
@@ -54,8 +54,8 @@ if (!process.env.IPFS_API_KEY_SECRET || !process.env.IPFS_PROJECT_ID) {
   )
 }
 
-// The name of the network is Goerli because we must supply a network that's supported for org
-// configs. We're not actually running the test on Goerli though; the RPC URL is localhost.
+// The name of the network is Goerli because we must supply a live network that's supported by
+// Sphinx. We're not actually running the test on Goerli though; the RPC URL is localhost.
 const network = 'goerli'
 
 const isTestnet = true
@@ -70,34 +70,22 @@ describe('Remote executor', () => {
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-    const orgOwners = [owner.address]
-    const userConfig: UserSphinxConfig = {
-      options: {
-        orgId: DUMMY_ORG_ID,
-        orgOwners,
-        orgThreshold,
-        testnets: [network],
-        mainnets: [],
-        proposers: [owner.address],
-        managers: [owner.address],
-      },
-      projects: {},
-    }
-
-    const authData = getAuthData(orgOwners, orgThreshold)
-    const authAddress = getAuthAddress(orgOwners, orgThreshold)
-    const deployerAddress = getSphinxManagerAddress(authAddress)
-
     const projectName = 'RemoteExecutorTest'
     const proxyReferenceName = 'Proxy'
     const proxyContractName = 'ExecutorProxyTest'
     const immutableReferenceName = 'Immutable'
     const immutableContractName = 'ExecutorImmutableTest'
-    const projectThreshold = 1
-    userConfig.projects[projectName] = {
+
+    const owners = [owner.address]
+    const userConfig: UserConfigWithOptions = {
+      project: projectName,
       options: {
-        projectOwners: [owner.address],
-        projectThreshold,
+        orgId: DUMMY_ORG_ID,
+        owners,
+        threshold,
+        testnets: [network],
+        mainnets: [],
+        proposers: [owner.address],
       },
       contracts: {
         [proxyReferenceName]: {
@@ -120,12 +108,15 @@ describe('Remote executor', () => {
       },
     }
 
+    const authData = getAuthData(owners, threshold)
+    const authAddress = getAuthAddress(owners, threshold, projectName)
+    const deployerAddress = getSphinxManagerAddress(authAddress, projectName)
+
     await ensureSphinxInitialized(provider, relayer)
 
     const { parsedConfig, configCache, configArtifacts } =
-      await getParsedOrgConfig(
+      await getParsedConfigWithOptions(
         userConfig,
-        projectName,
         deployerAddress,
         isTestnet,
         provider,
@@ -134,7 +125,7 @@ describe('Remote executor', () => {
       )
 
     const chainId = SUPPORTED_NETWORKS[network]
-    const prevOrgConfig = getEmptyCanonicalOrgConfig(
+    const prevConfig = getEmptyCanonicalConfig(
       [chainId],
       deployerAddress,
       DUMMY_ORG_ID,
@@ -142,20 +133,15 @@ describe('Remote executor', () => {
     )
     const leafs = await getAuthLeafsForChain(
       chainId,
-      projectName,
       parsedConfig,
       configArtifacts,
       configCache,
-      prevOrgConfig
+      prevConfig
     )
 
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-    const AuthFactory = new ethers.Contract(
-      AUTH_FACTORY_ADDRESS,
-      AuthFactoryABI,
-      relayer
-    )
+    const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, relayer)
     const Deployer = new ethers.Contract(
       deployerAddress,
       SphinxManagerABI,
@@ -164,7 +150,7 @@ describe('Remote executor', () => {
     const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
     // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-    await AuthFactory.deploy(authData, [], 0)
+    await Factory.deploy(authData, [], projectName)
 
     // Fund the SphinxManager.
     await owner.sendTransaction({
@@ -182,20 +168,14 @@ describe('Remote executor', () => {
       1,
       chainId
     )
-    const { leaf: createProjectLeaf, proof: createProjectProof } =
-      findBundledLeaf(bundledLeafs, 2, chainId)
     const { leaf: approvalLeaf, proof: approvalProof } = findBundledLeaf(
       bundledLeafs,
-      3,
+      2,
       chainId
     )
 
     // Commit the project to IPFS.
-    await sphinxCommitAbstractSubtask(
-      parsedConfig.projects[projectName],
-      true,
-      configArtifacts[projectName]
-    )
+    await sphinxCommitAbstractSubtask(parsedConfig, true, configArtifacts)
 
     const signature = await signAuthRootMetaTxn(owner, root)
 
@@ -203,29 +183,22 @@ describe('Remote executor', () => {
 
     await Auth.propose(root, proposalLeaf, [signature], proposalProof)
 
-    await Auth.createProject(
-      root,
-      createProjectLeaf,
-      [signature],
-      createProjectProof
-    )
-
     await Auth.approveDeployment(root, approvalLeaf, [signature], approvalProof)
 
     // Sanity check that the deployment has been approved.
     const { configUri, bundles } = await getProjectBundleInfo(
-      parsedConfig.projects[projectName],
-      configArtifacts[projectName],
-      configCache[projectName]
+      parsedConfig,
+      configArtifacts,
+      configCache
     )
-    const deploymentId = getDeploymentId(bundles, configUri, projectName)
+    const deploymentId = getDeploymentId(bundles, configUri)
 
     expect(await Deployer.activeDeploymentId()).equals(deploymentId)
 
     await monitorExecution(
       provider,
       owner,
-      parsedConfig.projects[projectName],
+      parsedConfig,
       bundles,
       deploymentId,
       true // Flip to false to see the status of the remote execution.
@@ -233,12 +206,12 @@ describe('Remote executor', () => {
 
     Proxy = await hre.ethers.getContractAt(
       proxyContractName,
-      getTargetAddress(deployerAddress, projectName, proxyReferenceName)
+      getTargetAddress(deployerAddress, proxyReferenceName)
     )
 
     Immutable = await hre.ethers.getContractAt(
       immutableContractName,
-      getTargetAddress(deployerAddress, projectName, immutableReferenceName)
+      getTargetAddress(deployerAddress, immutableReferenceName)
     )
   })
 

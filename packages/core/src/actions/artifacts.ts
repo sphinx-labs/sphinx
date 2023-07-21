@@ -6,8 +6,8 @@ import {
 } from '@sphinx/contracts'
 
 import {
-  ParsedProjectConfig,
-  ProjectConfigArtifacts,
+  ConfigArtifacts,
+  ParsedConfig,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -50,15 +50,15 @@ export const getDeployedBytecode = async (
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.providers.Provider,
-  parsedProjectConfig: ParsedProjectConfig,
+  parsedConfig: ParsedConfig,
   deploymentEvents: ethers.Event[],
   networkName: string,
   deploymentFolderPath: string,
-  projectConfigArtifacts: ProjectConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
-  const managerAddress = parsedProjectConfig.options.deployer
+  const managerAddress = parsedConfig.deployer
 
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {
@@ -116,10 +116,10 @@ export const writeDeploymentArtifacts = async (
     } else {
       // Get the deployed contract's info.
       const referenceName = deploymentEvent.args.referenceName
-      const { artifact, buildInfo } = projectConfigArtifacts[referenceName]
+      const { artifact, buildInfo } = configArtifacts[referenceName]
       const { sourceName, contractName, bytecode, abi } = artifact
       const constructorArgValues = getConstructorArgs(
-        parsedProjectConfig.contracts[referenceName].constructorArgs,
+        parsedConfig.contracts[referenceName].constructorArgs,
         abi
       )
       const { metadata } = buildInfo.output.contracts[sourceName][contractName]

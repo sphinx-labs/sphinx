@@ -1,7 +1,7 @@
 import { BigNumber } from 'ethers/lib/ethers'
 
-import { ProjectConfigArtifacts } from './config/types'
 import { CompilerOutputContract } from './languages/solidity/types'
+import { ConfigArtifacts } from './config'
 
 export type DeployContractCost = {
   referenceName: string
@@ -25,11 +25,11 @@ export const getEstDeployContractCost = (
 }
 
 export const getDeployContractCosts = (
-  projectConfigArtifacts: ProjectConfigArtifacts
+  configArtifacts: ConfigArtifacts
 ): DeployContractCost[] => {
   const deployContractCosts: DeployContractCost[] = []
   for (const [referenceName, { artifact, buildInfo }] of Object.entries(
-    projectConfigArtifacts
+    configArtifacts
   )) {
     const { sourceName, contractName } = artifact
 

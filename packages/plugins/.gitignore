@@ -9,7 +9,7 @@ forge-cache/
 out/
 
 # Sphinx artifacts
-.canonical-configs
+.compiler-configs
 
 # Typescript
 dist/

@@ -46,7 +46,6 @@ struct ConfigCache {
 }
 
 struct ContractConfigCache {
-    string existingProjectName;
     string referenceName;
     bool isTargetDeployed;
     DeploymentRevert deploymentRevert;

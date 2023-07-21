@@ -90,10 +90,10 @@ describe('Init Task', () => {
     // Next, we'll run the test and script files. If a Hardhat test case fails, or if there's some
     // other error that occurs when running either command, this test case will also fail.
     await execAsync(
-      `npx hardhat test ${hardhatTestPath} --config-path ${configPath} --project MyFirstProject --use-default-signer`
+      `npx hardhat test ${hardhatTestPath} --config-path ${configPath} --use-default-signer`
     )
     await execAsync(
-      `npx hardhat sphinx-deploy --config-path ${configPath} --project MyFirstProject --use-default-signer`
+      `npx hardhat sphinx-deploy --config-path ${configPath} --use-default-signer`
     )
   })
 })

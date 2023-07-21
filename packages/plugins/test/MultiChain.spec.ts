@@ -1,12 +1,12 @@
 import hre from 'hardhat'
-import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `canonicalConfigPath`
+import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
 import '@nomiclabs/hardhat-ethers'
 import {
-  AUTH_FACTORY_ADDRESS,
+  FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
   ensureSphinxInitialized,
-  getParsedOrgConfig,
+  getParsedConfigWithOptions,
   signAuthRootMetaTxn,
   getProjectBundleInfo,
   getDeploymentId,
@@ -14,14 +14,14 @@ import {
   executeDeployment,
   DeploymentState,
   DeploymentStatus,
-  CanonicalOrgConfig,
-  toCanonicalOrgConfig,
-  GetCanonicalOrgConfig,
+  CanonicalConfig,
+  toCanonicalConfig,
+  GetCanonicalConfig,
   proposeAbstractTask,
   findProposalRequestLeaf,
   fromProposalRequestLeafToRawAuthLeaf,
 } from '@sphinx/core'
-import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { FactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
@@ -31,16 +31,16 @@ import {
 } from '../src/hardhat/artifacts'
 import {
   setupThenApproveDeploymentWithSingleOwner,
-  setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute,
+  setupThenProposeThenApproveDeploymentThenExecute,
 } from './helpers'
 import {
-  ORG_OWNER_ROLE_HASH,
+  OWNER_ROLE_HASH,
   authAddress,
   authData,
   cre,
   deployerAddress,
-  orgOwners,
-  orgThreshold,
+  owners,
+  threshold,
   ownerPrivateKey,
   sampleProjectName,
   rpcProviders,
@@ -49,7 +49,7 @@ import {
   sampleUserConfig,
 } from './constants'
 
-describe('Org config', () => {
+describe('Multi chain config', () => {
   before(async () => {
     for (const provider of Object.values(rpcProviders)) {
       const relayerAndExecutor = new ethers.Wallet(relayerPrivateKey, provider)
@@ -60,15 +60,15 @@ describe('Org config', () => {
         relayerAndExecutor.address,
       ])
 
-      const AuthFactory = new ethers.Contract(
-        AUTH_FACTORY_ADDRESS,
-        AuthFactoryABI,
+      const Factory = new ethers.Contract(
+        FACTORY_ADDRESS,
+        FactoryABI,
         relayerAndExecutor
       )
       const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
 
       // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-      await AuthFactory.deploy(authData, [], 0)
+      await Factory.deploy(authData, [], sampleProjectName)
 
       // Fund the SphinxManager.
       await owner.sendTransaction({
@@ -77,13 +77,11 @@ describe('Org config', () => {
       })
 
       // Check that the Auth contract has been initialized correctly.
-      expect(await Auth.orgThreshold()).deep.equals(
-        BigNumber.from(orgThreshold)
-      )
-      expect(await Auth.getRoleMemberCount(ORG_OWNER_ROLE_HASH)).deep.equals(
+      expect(await Auth.threshold()).deep.equals(BigNumber.from(threshold))
+      expect(await Auth.getRoleMemberCount(OWNER_ROLE_HASH)).deep.equals(
         BigNumber.from(1)
       )
-      expect(await Auth.hasRole(ORG_OWNER_ROLE_HASH, orgOwners[0])).equals(true)
+      expect(await Auth.hasRole(OWNER_ROLE_HASH, owners[0])).equals(true)
     }
   })
 
@@ -91,8 +89,8 @@ describe('Org config', () => {
     [network: string]: string
   } = {}
   beforeEach(async () => {
-    // Revert to a snapshot of the blockchain before each test. The snapshot is taken after the
-    // `before` hook above is run.
+    // Revert to a snapshot of the blockchain state before each test. The snapshot is taken after
+    // the `before` hook above is run.
     for (const network of testnets) {
       const provider = rpcProviders[network]
 
@@ -111,39 +109,39 @@ describe('Org config', () => {
   })
 
   it(
-    'Setup -> Propose -> Create project -> Approve deployment',
+    'Setup -> Propose -> Approve deployment',
     setupThenApproveDeploymentWithSingleOwner
   )
 
-  describe('After project has been executed', () => {
-    let getCanonicalOrgConfig: GetCanonicalOrgConfig
+  describe('After contract deployment has been executed', () => {
+    let getCanonicalConfig: GetCanonicalConfig
     beforeEach(async () => {
       await setupThenApproveDeploymentWithSingleOwner()
 
-      // Get the previous parsed config, which we will convert into a CanonicalOrgConfig. We can use
+      // Get the previous parsed config, which we will convert into a CanonicalConfig. We can use
       // a randomly selected provider here because the parsed config doesn't change across networks.
-      const { parsedConfig: prevParsedConfig } = await getParsedOrgConfig(
-        sampleUserConfig,
-        sampleProjectName,
-        deployerAddress,
-        true,
-        Object.values(rpcProviders)[0], // Use a random provider
-        cre,
-        makeGetConfigArtifacts(hre)
-      )
+      const { parsedConfig: prevParsedConfig } =
+        await getParsedConfigWithOptions(
+          sampleUserConfig,
+          deployerAddress,
+          true,
+          Object.values(rpcProviders)[0], // Use a random provider
+          cre,
+          makeGetConfigArtifacts(hre)
+        )
 
-      getCanonicalOrgConfig = async (
+      getCanonicalConfig = async (
         orgId: string,
         isTestnet: boolean,
         apiKey: string
-      ): Promise<CanonicalOrgConfig | undefined> => {
+      ): Promise<CanonicalConfig | undefined> => {
         // We write these variables here to avoid a TypeScript error.
         orgId
         isTestnet
         apiKey
 
-        // Convert the previous parsed config into a CanonicalOrgConfig.
-        return toCanonicalOrgConfig(
+        // Convert the previous parsed config into a CanonicalConfig.
+        return toCanonicalConfig(
           prevParsedConfig,
           deployerAddress,
           authAddress,
@@ -152,13 +150,13 @@ describe('Org config', () => {
       }
     })
 
-    it('Add contract to project config -> Propose -> Approve deployment -> Execute deployment', async () => {
+    it('Add contract to config -> Propose -> Approve deployment -> Execute deployment', async () => {
       // Make a copy of the user config to avoid mutating the original object, which would impact
       // other tests.
       const newUserConfig = structuredClone(sampleUserConfig)
 
-      // Add a new contract to the project config.
-      newUserConfig.projects[sampleProjectName].contracts['MyContract2'] = {
+      // Add a new contract to the config.
+      newUserConfig.contracts['MyContract2'] = {
         contract: 'Stateless',
         kind: 'immutable',
         constructorArgs: {
@@ -170,16 +168,15 @@ describe('Org config', () => {
       const proposalRequest = await proposeAbstractTask(
         newUserConfig,
         true,
-        sampleProjectName,
         true, // Enable dry run to avoid sending an API request to the back-end
         cre,
         makeGetConfigArtifacts(hre),
         makeGetProviderFromChainId(hre),
         undefined, // Use the default spinner
         undefined, // Use the default FailureAction
-        getCanonicalOrgConfig
+        getCanonicalConfig
       )
-      const { root, leaves } = proposalRequest.orgTree
+      const { root, leaves } = proposalRequest.tree
 
       // There will be a proposal leaf and an approval leaf for each chain.
       const expectedNumLeafsPerChain = 2
@@ -238,9 +235,8 @@ describe('Org config', () => {
         // Check that the approve function executed correctly and that all of the leafs in the tree have
         // been executed.
         const { parsedConfig, configCache, configArtifacts } =
-          await getParsedOrgConfig(
+          await getParsedConfigWithOptions(
             newUserConfig,
-            sampleProjectName,
             deployerAddress,
             true,
             provider,
@@ -248,15 +244,11 @@ describe('Org config', () => {
             makeGetConfigArtifacts(hre)
           )
         const { configUri, bundles } = await getProjectBundleInfo(
-          parsedConfig.projects[sampleProjectName],
-          configArtifacts[sampleProjectName],
-          configCache[sampleProjectName]
+          parsedConfig,
+          configArtifacts,
+          configCache
         )
-        const deploymentId = getDeploymentId(
-          bundles,
-          configUri,
-          sampleProjectName
-        )
+        const deploymentId = getDeploymentId(bundles, configUri)
         expect(await Deployer.activeDeploymentId()).equals(deploymentId)
         authState = await Auth.authStates(root)
         expect(authState.status).equals(AuthStatus.COMPLETED)
@@ -268,7 +260,7 @@ describe('Org config', () => {
           Deployer,
           bundles,
           blockGasLimit,
-          configArtifacts[sampleProjectName],
+          configArtifacts,
           provider
         )
 
@@ -288,20 +280,14 @@ describe('Org config', () => {
 
       const { options } = newUserConfig
 
-      // This removes a TypeScript error that occurs because TypeScript doesn't know that the
-      // `options` variable is defined.
-      if (!options) {
-        throw new Error(`Options is not defined. Should never happen.`)
-      }
       options.testnets.push('gnosis-chiado')
       options.testnets.push('arbitrum-goerli')
 
-      await setupThenProposeThenCreateProjectThenApproveDeploymentThenExecute(
+      await setupThenProposeThenApproveDeploymentThenExecute(
         newUserConfig,
-        sampleProjectName,
         ['gnosis-chiado', 'arbitrum-goerli'],
-        4,
-        getCanonicalOrgConfig
+        3,
+        getCanonicalConfig
       )
     })
   })

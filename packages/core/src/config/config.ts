@@ -1,6 +1,12 @@
 import { resolve } from 'path'
 
-import { MinimalConfig, MinimalContractConfig, UserSphinxConfig } from './types'
+import {
+  MinimalConfig,
+  MinimalContractConfig,
+  UserConfig,
+  UserConfigWithOptions,
+  UserSphinxConfig,
+} from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
 import { getSphinxManagerAddress } from '../addresses'
 
@@ -12,26 +18,18 @@ import { getSphinxManagerAddress } from '../addresses'
  */
 export const getMinimalConfig = (
   userConfig: UserSphinxConfig,
-  projectName: string,
   owner: string
 ): MinimalConfig => {
-  const deployer = getSphinxManagerAddress(owner)
-
-  if (!Object.keys(userConfig.projects).includes(projectName)) {
-    // We always exit early here because everything after this wont work without a valid project name
-    throw Error(`No project exists with the name: ${projectName}`)
-  }
-
-  const projectConfig = userConfig.projects[projectName]
+  const deployer = getSphinxManagerAddress(owner, userConfig.project)
 
   const minimalContractConfigs: Array<MinimalContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
-    projectConfig.contracts
+    userConfig.contracts
   )) {
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ?? getTargetAddress(deployer, projectName, referenceName, salt)
+      address ?? getTargetAddress(deployer, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
@@ -43,9 +41,31 @@ export const getMinimalConfig = (
   return {
     deployer,
     owner,
-    projectName,
+    projectName: userConfig.project,
     contracts: minimalContractConfigs,
   }
+}
+
+export const readUserConfig = async (
+  configPath: string
+): Promise<UserConfig> => {
+  const userConfig = await readUserSphinxConfig(configPath)
+  if (userConfig.options) {
+    throw new Error(
+      `Detected 'options' field in config. Please use 'readUserConfigWithOptions' instead.`
+    )
+  }
+  return userConfig
+}
+
+export const readUserConfigWithOptions = async (
+  configPath: string
+): Promise<UserConfigWithOptions> => {
+  const userConfig = await readUserSphinxConfig(configPath)
+  if (!userConfig.options) {
+    throw new Error(`Did not detect 'options' field in config.`)
+  }
+  return userConfig
 }
 
 export const readUserSphinxConfig = async (

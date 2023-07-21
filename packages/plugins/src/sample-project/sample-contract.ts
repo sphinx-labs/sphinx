@@ -24,12 +24,11 @@ import { Sphinx } from "@sphinx/plugins/Sphinx.sol";
 contract SphinxDeploy is Sphinx {
 
     string configPath = "${configPath}";
-    string projectName = "MyFirstProject";
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
-        deploy(configPath, projectName, vm.rpcUrl("anvil"));
+        deploy(configPath, vm.rpcUrl("anvil"));
         vm.stopBroadcast();
     }
 }
@@ -51,12 +50,11 @@ contract HelloSphinxTest is Sphinx, Test {
     HelloSphinx helloSphinx;
 
     string configPath = "${configPath}";
-    string projectName = "MyFirstProject";
     string contractName = "MyContract";
 
     function setUp() public {
-        deploy(configPath, projectName, vm.rpcUrl("anvil"));
-        helloSphinx = HelloSphinx(getAddress(configPath, projectName, contractName));
+        deploy(configPath,  vm.rpcUrl("anvil"));
+        helloSphinx = HelloSphinx(getAddress(configPath, contractName));
     }
 
     function testSetNumber() public {

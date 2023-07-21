@@ -13,8 +13,8 @@ import {
   toOpenZeppelinContractKind,
   GetConfigArtifacts,
   validateBuildInfo,
-  ProjectConfigArtifacts,
   GetProviderForChainId,
+  ConfigArtifacts,
 } from '@sphinx/core'
 import {
   Manifest,
@@ -85,8 +85,8 @@ export const makeGetConfigArtifacts = (
 ): GetConfigArtifacts => {
   return async (
     contractConfigs: UserContractConfigs
-  ): Promise<ProjectConfigArtifacts> => {
-    const projectConfigArtifacts: ProjectConfigArtifacts = {}
+  ): Promise<ConfigArtifacts> => {
+    const configArtifacts: ConfigArtifacts = {}
     for (const [referenceName, contractConfig] of Object.entries(
       contractConfigs
     )) {
@@ -96,12 +96,12 @@ export const makeGetConfigArtifacts = (
         artifact.sourceName,
         artifact.contractName
       )
-      projectConfigArtifacts[referenceName] = {
+      configArtifacts[referenceName] = {
         artifact,
         buildInfo,
       }
     }
-    return projectConfigArtifacts
+    return configArtifacts
   }
 }
 
@@ -129,7 +129,7 @@ export const makeGetProviderFromChainId = (
     if (!isHttpNetworkConfig(networkConfig)) {
       throw new Error(
         `The network in your Hardhat config with chain ID ${networkConfig.chainId} does not appear to be a live network.\n` +
-          `Only live networks are supported in Sphinx org configs.`
+          `Only live networks are supported in Sphinx configs.`
       )
     }
 

@@ -12,8 +12,10 @@ contract SphinxRegistryEvents {
      * @param retdata        Return data from the SphinxManager initializer.
      */
     event SphinxManagerRegistered(
+        string indexed projectNameHash,
         bytes32 indexed salt,
         address indexed managerImpl,
+        string projectName,
         address owner,
         address caller,
         bytes retdata
