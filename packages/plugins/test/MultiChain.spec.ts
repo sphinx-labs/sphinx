@@ -133,7 +133,9 @@ describe('Multi chain config', () => {
       getCanonicalConfig = async (
         orgId: string,
         isTestnet: boolean,
-        apiKey: string
+        apiKey: string,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _projectName: string
       ): Promise<CanonicalConfig | undefined> => {
         // We write these variables here to avoid a TypeScript error.
         orgId
