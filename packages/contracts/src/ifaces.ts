@@ -15,12 +15,9 @@ export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contract
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
-export const LZSenderArtifact = require('../artifacts/contracts/SphinxLZSender.sol/SphinxLZSender.json')
 export const AuthArtifact = require('../artifacts/contracts/SphinxAuth.sol/SphinxAuth.json')
 export const FactoryArtifact = require('../artifacts/contracts/SphinxFactory.sol/SphinxFactory.json')
 export const AuthProxyArtifact = require('../artifacts/contracts/SphinxAuthProxy.sol/SphinxAuthProxy.json')
-export const LZReceiverArtifact = require('../artifacts/contracts/SphinxLZReceiver.sol/SphinxLZReceiver.json')
-export const LZEndpointMockArtifact = require('../artifacts/@layerzerolabs/solidity-examples/contracts/mocks/LZEndpointMock.sol/LZEndpointMock.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)
@@ -45,9 +42,6 @@ export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
 export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
-export const LZSenderABI = LZSenderArtifact.abi
 export const AuthABI = AuthArtifact.abi
 export const FactoryABI = FactoryArtifact.abi
 export const AuthProxyABI = AuthProxyArtifact.abi
-export const LZReceiverABI = LZReceiverArtifact.abi
-export const LZEndpointMockABI = LZEndpointMockArtifact.abi

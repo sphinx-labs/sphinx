@@ -103,15 +103,8 @@ const writeConstants = async () => {
     },
   }
 
-  const contractInfo = getSphinxConstants(31337, true)
-    .filter(
-      (el) =>
-        // We don't need the lz senders, receivers, or mocks in Foundry
-        el.artifact.contractName !== 'SphinxLZSender' &&
-        el.artifact.contractName !== 'SphinxLZReceiver' &&
-        el.artifact.contractName !== 'LZEndpointMock'
-    )
-    .map(({ artifact, constructorArgs, expectedAddress }) => {
+  const contractInfo = getSphinxConstants().map(
+    ({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact
 
       const iface = new ethers.utils.Interface(abi)
@@ -121,7 +114,8 @@ const writeConstants = async () => {
       )
 
       return { creationCode, expectedAddress }
-    })
+    }
+  )
 
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +

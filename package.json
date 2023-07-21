@@ -21,7 +21,6 @@
       "@sphinx/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
       "@sphinx/{contracts,plugins}/@eth-optimism/contracts-bedrock",
       "@sphinx/{contracts,plugins}/@eth-optimism/contracts",
-      "@sphinx/contracts/@layerzerolabs/solidity-examples",
       "@sphinx/{plugins,demo}/@sphinx/contracts",
       "@sphinx/{plugins,demo}/forge-std",
       "@sphinx/{plugins,demo}/ds-test",

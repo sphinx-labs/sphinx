@@ -133,7 +133,7 @@ export const verifySphinx = async (
     artifact,
     expectedAddress,
     constructorArgs,
-  } of getSphinxConstants((await provider.getNetwork()).chainId, false)) {
+  } of getSphinxConstants()) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
