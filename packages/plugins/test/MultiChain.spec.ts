@@ -168,13 +168,13 @@ describe('Multi chain config', () => {
       const proposalRequest = await proposeAbstractTask(
         newUserConfig,
         true,
-        true, // Enable dry run to avoid sending an API request to the back-end
         cre,
         makeGetConfigArtifacts(hre),
         makeGetProviderFromChainId(hre),
         undefined, // Use the default spinner
         undefined, // Use the default FailureAction
-        getCanonicalConfig
+        getCanonicalConfig,
+        true // Skip relaying the meta transaction to the back-end
       )
       const { root, leaves } = proposalRequest.tree
 

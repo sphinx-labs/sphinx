@@ -216,7 +216,7 @@ export type ConfigArtifacts = {
 }
 
 export type ConfigCache = {
-  isRegistered: boolean
+  isManagerDeployed: boolean
   blockGasLimit: BigNumber
   localNetwork: boolean
   networkName: string

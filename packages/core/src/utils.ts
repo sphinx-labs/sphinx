@@ -206,7 +206,7 @@ export const registerOwner = async (
 ): Promise<void> => {
   spinner.start(`Registering the project...`)
 
-  if (!(await isProjectRegistered(registry, manager.address))) {
+  if (!(await isManagerDeployed(registry, manager.address))) {
     await (
       await registry.register(
         ownerAddress,
@@ -438,7 +438,7 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
-export const isProjectRegistered = async (
+export const isManagerDeployed = async (
   registry: ethers.Contract,
   managerAddress: string
 ): Promise<boolean> => {
@@ -1469,4 +1469,25 @@ export const findNetwork = (chainId: number): string => {
   }
 
   return network
+}
+
+export const arraysEqual = (a: Array<any>, b: Array<any>): boolean => {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * @notice Returns a hyperlinked string that can be printed to the console.
+ */
+export const hyperlink = (text: string, url: string): string => {
+  return `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
 }

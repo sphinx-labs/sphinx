@@ -1,5 +1,7 @@
 import { BigNumber } from 'ethers'
 
+import { SphinxDiff } from '../diff'
+
 /**
  * Possible action types.
  */
@@ -301,6 +303,7 @@ export type ProposalRequest = {
   canonicalConfig: string
   projectDeployments: Array<ProjectDeployment>
   gasEstimates: Array<{ chainId: number; estimatedGas: string }>
+  diffs: { [networkName: string]: SphinxDiff }
   tree: {
     root: string
     chainStatus: Array<{

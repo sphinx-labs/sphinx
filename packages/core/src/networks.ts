@@ -1,20 +1,31 @@
-/**
- * Warning: The constants in this file are commonly imported from the frontend of the Sphinx Managed website.
- * Be careful when importing external dependencies to this file because they may cause issues when this file
- * is imported by the website.
- */
+// Warning: The constants in this file are commonly imported from the frontend of the Sphinx Managed website.
+// Be careful when importing external dependencies to this file because they may cause issues when this file
+// is imported by the website.
+
+type SupportedMainnetNetworkName = 'ethereum' | 'optimism' | 'arbitrum'
+type SupportedTestnetNetworkName =
+  | 'goerli'
+  | 'optimism-goerli'
+  | 'arbitrum-goerli'
+  | 'gnosis-chiado'
+
+export type SupportedNetworkName =
+  | SupportedMainnetNetworkName
+  | SupportedTestnetNetworkName
 
 // Maps a live network name to its chain ID. Does not include testnets.
-export const SUPPORTED_MAINNETS: {
-  [networkName: string]: SupportedMainnetChainId
-} = {
+export const SUPPORTED_MAINNETS: Record<
+  SupportedMainnetNetworkName,
+  SupportedMainnetChainId
+> = {
   ethereum: 1,
   optimism: 10,
   arbitrum: 42161,
 }
-export const SUPPORTED_TESTNETS: {
-  [networkName: string]: SupportedTestnetChainId
-} = {
+export const SUPPORTED_TESTNETS: Record<
+  SupportedTestnetNetworkName,
+  SupportedTestnetChainId
+> = {
   goerli: 5,
   'optimism-goerli': 420,
   'arbitrum-goerli': 421613,

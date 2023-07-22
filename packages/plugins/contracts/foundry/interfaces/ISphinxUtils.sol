@@ -149,7 +149,7 @@ interface ISphinxUtils {
 
     function isLocalNetwork(string memory _rpcUrl) external pure returns (bool);
 
-    function isProjectRegistered(
+    function isManagerDeployed(
         ISphinxRegistry _registry,
         address _manager
     ) external view returns (bool);

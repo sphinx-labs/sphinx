@@ -5,7 +5,7 @@ import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 
 export const createSphinxRuntime = (
   remoteExecution: boolean,
-  confirmUpgrade: boolean = false,
+  confirm: boolean = false,
   compilerConfigPath: string,
   hre: HardhatRuntimeEnvironment | undefined = undefined,
   silent: boolean,
@@ -14,7 +14,7 @@ export const createSphinxRuntime = (
   return {
     compilerConfigPath,
     remoteExecution,
-    confirmUpgrade,
+    confirm,
     stream,
     silent,
     importOpenZeppelinStorageLayout,

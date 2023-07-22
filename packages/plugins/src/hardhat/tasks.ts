@@ -55,30 +55,18 @@ subtask(TASK_SPHINX_FETCH)
 export const sphinxDeployTask = async (
   args: {
     configPath: string
-    silent: boolean
-    noCompile: boolean
+    silent?: boolean
+    noCompile?: boolean
     newOwner?: string
-    confirmUpgrade?: boolean
+    confirm?: boolean
     signer?: string
     useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    newOwner,
-    silent,
-    noCompile,
-    confirmUpgrade,
-    signer,
-    useDefaultSigner,
-  } = args
-  const spinner = ora({ isSilent: silent })
-
-  const owner = await resolveOwner(hre, signer, useDefaultSigner)
-  const ownerAddress = await owner.getAddress()
-
-  const provider = hre.ethers.provider
+  const { configPath, newOwner, noCompile, confirm, signer, useDefaultSigner } =
+    args
+  const silent = !!args.silent
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -86,19 +74,23 @@ export const sphinxDeployTask = async (
     })
   }
 
-  spinner.start('Booting up Sphinx...')
+  const spinner = ora({ isSilent: silent })
+  spinner.start('Getting project info...')
 
-  const cre = await createSphinxRuntime(
+  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const ownerAddress = await owner.getAddress()
+
+  const provider = hre.ethers.provider
+
+  const cre = createSphinxRuntime(
     false,
-    confirmUpgrade,
+    confirm,
     hre.config.paths.compilerConfigs,
     hre,
     silent
   )
 
   await ensureSphinxInitialized(provider, provider.getSigner())
-
-  spinner.succeed('Sphinx is ready!')
 
   const compilerConfigPath = hre.config.paths.compilerConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -143,23 +135,25 @@ task(TASK_SPHINX_DEPLOY)
   )
   .addFlag('silent', "Hide all of Sphinx's logs")
   .addFlag('noCompile', "Don't compile when running this task")
-  // .addFlag(
-  //   'confirmUpgrade',
-  //   'Automatically confirm contract upgrade. Only applicable if upgrading on a live network.'
-  // )
+  .addFlag('confirm', 'Automatically confirm the deployment.')
   .setAction(sphinxDeployTask)
 
 export const sphinxProposeTask = async (
   args: {
     configPath: string
-    dryRun: boolean
-    testnets: boolean
-    mainnets: boolean
-    noCompile: boolean
+    testnets?: boolean
+    mainnets?: boolean
+    noCompile?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, noCompile, dryRun, testnets, mainnets } = args
+  const { configPath, noCompile, testnets, mainnets } = args
+
+  if (!noCompile) {
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
+  }
 
   let isTestnet: boolean
   if (testnets && mainnets) {
@@ -172,19 +166,12 @@ export const sphinxProposeTask = async (
     throw new Error('Must specify either --testnets or --mainnets')
   }
 
-  const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
   const spinner = ora()
-  spinner.start(`${dryRunOrProposal} in progress...`)
-
-  if (!noCompile) {
-    await hre.run(TASK_COMPILE, {
-      quiet: true,
-    })
-  }
+  spinner.start(`Proposal in progress...`)
 
   const cre = createSphinxRuntime(
     true,
-    true,
+    false, // Users must manually confirm proposals.
     hre.config.paths.compilerConfigs,
     hre,
     false
@@ -193,7 +180,6 @@ export const sphinxProposeTask = async (
   await proposeAbstractTask(
     await readUserConfigWithOptions(configPath),
     isTestnet,
-    dryRun,
     cre,
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
@@ -206,7 +192,6 @@ task(TASK_SPHINX_PROPOSE)
     `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`
   )
   .addParam('configPath', 'Path to the Sphinx config file')
-  .addParam('project', 'The name of the project to propose')
   .addFlag('testnets', 'Propose on the testnets specified in the Sphinx config')
   .addFlag('mainnets', `Propose on the mainnets specified in the Sphinx config`)
   .addFlag(
@@ -223,9 +208,9 @@ task(TASK_NODE)
   .setAction(
     async (
       args: {
-        disableSphinx: boolean
-        hide: boolean
-        noCompile: boolean
+        disableSphinx?: boolean
+        hide?: boolean
+        noCompile?: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
@@ -270,8 +255,8 @@ task(TASK_TEST)
   .setAction(
     async (
       args: {
-        log: boolean
-        noCompile: boolean
+        log?: boolean
+        noCompile?: boolean
         configPath?: string
         signer?: string
         useDefaultSigner?: boolean
@@ -327,6 +312,7 @@ task(TASK_TEST)
               noCompile: true,
               signer,
               useDefaultSigner,
+              confirm: true,
             },
             hre
           )
@@ -344,11 +330,12 @@ task(TASK_TEST)
 export const sphinxCancelTask = async (
   args: {
     configPath: string
-    project: string
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { project } = args
+  const { configPath } = args
+
+  const { project } = await readUserConfig(configPath)
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
@@ -365,9 +352,8 @@ export const sphinxCancelTask = async (
 }
 
 task(TASK_SPHINX_CANCEL)
-  .setDescription('Cancel an active Sphinx project.')
+  .setDescription('Cancel an active Sphinx deployment.')
   .addParam('configPath', 'Path to the Sphinx config file to cancel')
-  .addParam('project', 'Name of the Sphinx project to cancel')
   .setAction(sphinxCancelTask)
 
 export const exportProxyTask = async (
@@ -421,24 +407,23 @@ export const exportProxyTask = async (
   )
 }
 
-task(TASK_SPHINX_EXPORT_PROXY)
-  .setDescription('Transfers ownership of a proxy from Sphinx to the caller')
-  .addParam(
-    'configPath',
-    'Path to the Sphinx config file for the project that owns the target contract'
-  )
-  .addOptionalParam('signer', 'Address of the signer to use.')
-  .addFlag(
-    'useDefaultSigner',
-    'Use the first signer in the Hardhat config file.'
-  )
-  .addParam('project', 'The name of the project this proxy is a part of')
-  .addParam(
-    'referenceName',
-    'Reference name of the contract that should be transferred to you'
-  )
-  .addFlag('silent', "Hide all of Sphinx's logs")
-  .setAction(exportProxyTask)
+// task(TASK_SPHINX_EXPORT_PROXY)
+//   .setDescription('Transfers ownership of a proxy from Sphinx to the caller')
+//   .addParam(
+//     'configPath',
+//     'Path to the Sphinx config file for the project that owns the target contract'
+//   )
+//   .addOptionalParam('signer', 'Address of the signer to use.')
+//   .addFlag(
+//     'useDefaultSigner',
+//     'Use the first signer in the Hardhat config file.'
+//   )
+//   .addParam(
+//     'referenceName',
+//     'Reference name of the contract that should be transferred to you'
+//   )
+//   .addFlag('silent', "Hide all of Sphinx's logs")
+//   .setAction(exportProxyTask)
 
 export const importProxyTask = async (
   args: {
@@ -476,27 +461,27 @@ export const importProxyTask = async (
   )
 }
 
-task(TASK_SPHINX_IMPORT_PROXY)
-  .setDescription('Transfers ownership of a proxy to Sphinx')
-  .addParam(
-    'configPath',
-    'Path to the Sphinx config file for the project that you would like to own the target contract'
-  )
-  .addOptionalParam('signer', 'Address of the signer to use.')
-  .addFlag(
-    'useDefaultSigner',
-    'Use the first signer in the Hardhat config file.'
-  )
-  .addParam(
-    'proxy',
-    'Address of the contract that should have its ownership transferred to Sphinx.'
-  )
-  .addFlag('silent', "Hide all of Sphinx's logs")
-  .setAction(importProxyTask)
+// task(TASK_SPHINX_IMPORT_PROXY)
+//   .setDescription('Transfers ownership of a proxy to Sphinx')
+//   .addParam(
+//     'configPath',
+//     'Path to the Sphinx config file for the project that you would like to own the target contract'
+//   )
+//   .addOptionalParam('signer', 'Address of the signer to use.')
+//   .addFlag(
+//     'useDefaultSigner',
+//     'Use the first signer in the Hardhat config file.'
+//   )
+//   .addParam(
+//     'proxy',
+//     'Address of the contract that should have its ownership transferred to Sphinx.'
+//   )
+//   .addFlag('silent', "Hide all of Sphinx's logs")
+//   .setAction(importProxyTask)
 
 export const sphinxInitTask = async (
   args: {
-    silent: boolean
+    silent?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {

@@ -274,7 +274,7 @@ contract Sphinx is Script {
         ISphinxManager _manager,
         address _newOwner
     ) private {
-        if (!utils.isProjectRegistered(_registry, address(_manager))) {
+        if (!utils.isManagerDeployed(_registry, address(_manager))) {
             _registry.register{ gas: 1000000 }(_newOwner, _projectName, new bytes(0));
         } else {
             address existingOwner = IOwnable(address(_manager)).owner();
