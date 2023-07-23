@@ -129,15 +129,7 @@ const command = args[0]
       )
 
       try {
-        await initializeSphinx(
-          provider,
-          wallet,
-          [],
-          [],
-          (
-            await provider.getNetwork()
-          ).chainId
-        )
+        await initializeSphinx(provider, wallet, [], [], [])
       } catch (e) {
         if (!e.reason.includes('could not detect network')) {
           throw e

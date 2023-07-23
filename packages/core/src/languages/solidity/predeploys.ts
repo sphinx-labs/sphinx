@@ -12,7 +12,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  FactoryABI,
+  AuthFactoryABI,
 } from '@sphinx/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
@@ -31,12 +31,13 @@ import {
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
 } from '../../addresses'
 import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
 import { SphinxSystemConfig } from './types'
 import {
+  FUNDER_ROLE,
   PROTOCOL_PAYMENT_RECIPIENT_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
@@ -52,7 +53,8 @@ const fetchSphinxSystemConfig = (configPath: string) => {
   if (
     typeof exported === 'object' &&
     exported.executors.length > 0 &&
-    exported.relayers.length > 0
+    exported.relayers.length > 0 &&
+    exported.funders.length > 0
   ) {
     return exported
   } else {
@@ -78,9 +80,7 @@ export const initializeAndVerifySphinx = async (
     await provider.getSigner(),
     config.executors,
     config.relayers,
-    (
-      await provider.getNetwork()
-    ).chainId,
+    config.funders,
     logger
   )
 
@@ -127,6 +127,7 @@ export const ensureSphinxInitialized = async (
   signer: ethers.Signer,
   executors: string[] = [],
   relayers: string[] = [],
+  funders: string[] = [],
   logger?: Logger
 ) => {
   if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
@@ -137,9 +138,7 @@ export const ensureSphinxInitialized = async (
       signer,
       executors,
       relayers,
-      (
-        await provider.getNetwork()
-      ).chainId,
+      funders,
       logger
     )
   } else {
@@ -155,7 +154,7 @@ export const initializeSphinx = async (
   deployer: ethers.Signer,
   executors: string[],
   relayers: string[],
-  chainId: number,
+  funders: string[],
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
@@ -165,7 +164,7 @@ export const initializeSphinx = async (
     artifact,
     constructorArgs,
     expectedAddress,
-  } of getSphinxConstants()) {
+  } of await getSphinxConstants(provider)) {
     const { abi, bytecode, contractName } = artifact
 
     logger?.info(`[Sphinx]: deploying ${contractName}...`)
@@ -275,6 +274,20 @@ export const initializeSphinx = async (
   }
   logger?.info('[Sphinx]: finished assigning caller roles')
 
+  logger?.info('[Sphinx]: assigning funder role...')
+  for (const funder of funders) {
+    if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
+      await (
+        await ManagedService.connect(signer).grantRole(
+          FUNDER_ROLE,
+          funder,
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+    }
+  }
+  logger?.info('[Sphinx]: finished assigning role')
+
   logger?.info('[Sphinx]: adding the initial SphinxManager version...')
 
   const SphinxRegistry = getSphinxRegistryReadOnly(provider)
@@ -317,20 +330,26 @@ export const initializeSphinx = async (
 
   logger?.info('[Sphinx]: setting the default SphinxAuth version')
 
-  const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, signer)
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    signer
+  )
 
-  if (!(await Factory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
+  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
     await (
-      await Factory.addVersion(
+      await AuthFactory.addVersion(
         AUTH_IMPL_V1_ADDRESS,
         await getGasPriceOverrides(provider)
       )
     ).wait()
   }
 
-  if ((await Factory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS) {
+  if (
+    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
+  ) {
     await (
-      await Factory.setCurrentAuthImplementation(
+      await AuthFactory.setCurrentAuthImplementation(
         AUTH_IMPL_V1_ADDRESS,
         await getGasPriceOverrides(provider)
       )

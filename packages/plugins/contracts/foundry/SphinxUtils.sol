@@ -31,7 +31,7 @@ import {
     BundledSphinxTarget,
     Version
 } from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
-import { SphinxFactory } from "@sphinx/contracts/contracts/SphinxFactory.sol";
+import { SphinxAuthFactory } from "@sphinx/contracts/contracts/SphinxAuthFactory.sol";
 import {
     MinimalConfig,
     Configs,
@@ -83,7 +83,7 @@ contract SphinxUtils is
 
     function ensureSphinxInitialized(string memory _rpcUrl, address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
-        SphinxFactory factory = SphinxFactory(factoryAddress);
+        SphinxAuthFactory factory = SphinxAuthFactory(factoryAddress);
         if (address(registry).code.length > 0) {
             return;
         } else if (isLocalNetwork(_rpcUrl)) {

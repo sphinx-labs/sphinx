@@ -20,13 +20,20 @@ import {
   DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
-  FactoryArtifact,
+  AuthFactoryArtifact,
   AuthProxyArtifact,
   AuthArtifact,
+  BalanceArtifact,
+  BalanceFactoryArtifact,
+  EscrowArtifact,
 } from '@sphinx/contracts'
 import { constants, utils } from 'ethers'
 
-import { CURRENT_SPHINX_MANAGER_VERSION } from './constants'
+import {
+  CURRENT_SPHINX_MANAGER_VERSION,
+  REFERENCE_ORG_ID,
+  USDC_ADDRESSES,
+} from './constants'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -168,13 +175,13 @@ export const OZ_TRANSPARENT_ADAPTER_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const FACTORY_ADDRESS = utils.getCreate2Address(
+export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   constants.HashZero,
   utils.solidityKeccak256(
     ['bytes', 'bytes'],
     [
-      FactoryArtifact.bytecode,
+      AuthFactoryArtifact.bytecode,
       utils.defaultAbiCoder.encode(
         ['address', 'address'],
         [getSphinxRegistryAddress(), getOwnerAddress()]
@@ -270,7 +277,7 @@ export const getAuthAddress = (
   const salt = getAuthSalt(authData, projectName)
 
   return utils.getCreate2Address(
-    FACTORY_ADDRESS,
+    AUTH_FACTORY_ADDRESS,
     salt,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
@@ -278,7 +285,7 @@ export const getAuthAddress = (
         AuthProxyArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'address'],
-          [FACTORY_ADDRESS, FACTORY_ADDRESS]
+          [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
         ),
       ]
     )
@@ -295,5 +302,72 @@ export const getManagerProxyInitCodeHash = (): string => {
         [getSphinxRegistryAddress(), getSphinxRegistryAddress()]
       ),
     ]
+  )
+}
+
+export const getBalanceFactoryAddress = (chainId: number): string => {
+  return utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        BalanceFactoryArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [USDC_ADDRESSES[chainId], getManagedServiceAddress()]
+        ),
+      ]
+    )
+  )
+}
+
+export const getReferenceEscrowContractAddress = (chainId: number): string => {
+  return utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        EscrowArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['string', 'address', 'address'],
+          getReferenceEscrowConstructorArgs(chainId)
+        ),
+      ]
+    )
+  )
+}
+
+export const getReferenceBalanceConstructorArgs = (
+  chainId: number
+): Array<string> => {
+  const balanceFactoryAddress = getBalanceFactoryAddress(chainId)
+  const usdcAddress = USDC_ADDRESSES[chainId]
+  const escrowAddress = getReferenceEscrowContractAddress(chainId)
+  return [REFERENCE_ORG_ID, balanceFactoryAddress, usdcAddress, escrowAddress]
+}
+
+export const getReferenceEscrowConstructorArgs = (
+  chainId: number
+): Array<string> => {
+  return [REFERENCE_ORG_ID, USDC_ADDRESSES[chainId], getManagedServiceAddress()]
+}
+
+export const getReferenceBalanceContractAddress = (chainId: number): string => {
+  const constructorArgs = getReferenceBalanceConstructorArgs(chainId)
+  return utils.getCreate2Address(
+    DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+    constants.HashZero,
+    utils.solidityKeccak256(
+      ['bytes', 'bytes'],
+      [
+        BalanceArtifact.bytecode,
+        utils.defaultAbiCoder.encode(
+          ['string', 'address', 'address', 'address'],
+          constructorArgs
+        ),
+      ]
+    )
   )
 }

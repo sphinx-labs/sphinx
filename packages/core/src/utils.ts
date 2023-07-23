@@ -23,7 +23,7 @@ import {
   SphinxManagerABI,
   ProxyABI,
   AuthABI,
-  FactoryABI,
+  AuthFactoryABI,
 } from '@sphinx/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -73,7 +73,7 @@ import {
 } from './actions/types'
 import { Integration } from './constants'
 import {
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   getAuthAddress,
   getSphinxManagerAddress,
   getSphinxRegistryAddress,
@@ -1454,8 +1454,12 @@ export const isProjectCreated = async (
   provider: providers.Provider,
   authAddress: string
 ): Promise<boolean> => {
-  const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, provider)
-  const isCreated: boolean = await Factory.isDeployed(authAddress)
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    provider
+  )
+  const isCreated: boolean = await AuthFactory.isDeployed(authAddress)
   return isCreated
 }
 
