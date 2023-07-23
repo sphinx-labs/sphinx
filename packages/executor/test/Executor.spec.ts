@@ -152,12 +152,6 @@ describe('Remote executor', () => {
     // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
     await Factory.deploy(authData, [], projectName)
 
-    // Fund the SphinxManager.
-    await owner.sendTransaction({
-      to: deployerAddress,
-      value: ethers.utils.parseEther('1'),
-    })
-
     const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
       bundledLeafs,
       0,

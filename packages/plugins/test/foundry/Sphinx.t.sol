@@ -16,9 +16,6 @@ import {
 } from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
 import { IProxyAdapter } from "@sphinx/contracts/contracts/interfaces/IProxyAdapter.sol";
 import { IProxyUpdater } from "@sphinx/contracts/contracts/interfaces/IProxyUpdater.sol";
-import {
-    IGasPriceCalculator
-} from "@sphinx/contracts/contracts/interfaces/IGasPriceCalculator.sol";
 import { ICreate3 } from "@sphinx/contracts/contracts/interfaces/ICreate3.sol";
 
 /* Sphinx Foundry Library Tests

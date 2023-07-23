@@ -1,7 +1,6 @@
-import { OWNER_BOND_AMOUNT } from '@sphinx/contracts'
 import { ethers } from 'ethers'
 
-import { getSphinxManagerReadOnly, isContractDeployed } from './utils'
+import { isContractDeployed } from './utils'
 import {
   SphinxBundles,
   DeployContractAction,
@@ -9,41 +8,7 @@ import {
   isDeployContractAction,
   isSetStorageAction,
 } from './actions'
-import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
 import { contractKindHashes } from './config/types'
-
-/**
- * Gets the amount ETH in the SphinxManager that can be used to execute a deployment. This
- * equals the SphinxManager's balance minus the total debt owed to executors minus the owner's
- * bond amount.
- */
-export const availableFundsForExecution = async (
-  provider: ethers.providers.JsonRpcProvider,
-  deployer: string
-): Promise<ethers.BigNumber> => {
-  const managerReadOnly = getSphinxManagerReadOnly(deployer, provider)
-
-  const managerBalance = await provider.getBalance(managerReadOnly.address)
-  const totalDebt = await managerReadOnly.totalDebt()
-  return managerBalance.sub(totalDebt).sub(OWNER_BOND_AMOUNT)
-}
-
-export const getOwnerWithdrawableAmount = async (
-  provider: ethers.providers.JsonRpcProvider,
-  deployer: string
-): Promise<ethers.BigNumber> => {
-  const SphinxManager = getSphinxManagerReadOnly(deployer, provider)
-
-  if (
-    (await SphinxManager.activeDeploymentId()) !== ethers.constants.HashZero
-  ) {
-    return ethers.BigNumber.from(0)
-  }
-
-  const managerBalance = await provider.getBalance(SphinxManager.address)
-  const totalDebt = await SphinxManager.totalDebt()
-  return managerBalance.sub(totalDebt)
-}
 
 export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -81,7 +46,7 @@ export const estimateExecutionGas = async (
     ethers.BigNumber.from(0)
   )
 
-  // We also tack on an extra 200k gas for each proxy target (including any that are not being upgraded) to account
+  // We also add an extra 200k gas for each proxy target (including any that are not being upgraded) to account
   // for the variable cost of the `initiateBundleExecution` and `completeBundleExecution` functions.
   const initiateAndCompleteCost = ethers.BigNumber.from(200_000).mul(
     bundles.targetBundle.targets.length
@@ -113,49 +78,4 @@ export const estimateExecutionCost = async (
   }
 
   return estExecutionGas.mul(estGasPrice)
-}
-
-export const hasSufficientFundsForExecution = async (
-  provider: ethers.providers.JsonRpcProvider,
-  bundles: SphinxBundles,
-  actionsExecuted: number,
-  deployerAddress: string
-): Promise<boolean> => {
-  const availableFunds = await availableFundsForExecution(
-    provider,
-    deployerAddress
-  )
-
-  const currExecutionCost = await estimateExecutionCost(
-    provider,
-    bundles,
-    actionsExecuted
-  )
-
-  return availableFunds.gte(currExecutionCost)
-}
-
-export const getAmountToDeposit = async (
-  provider: ethers.providers.JsonRpcProvider,
-  bundles: SphinxBundles,
-  actionsExecuted: number,
-  deployerAddress: string,
-  includeBuffer: boolean
-): Promise<ethers.BigNumber> => {
-  const currExecutionCost = await estimateExecutionCost(
-    provider,
-    bundles,
-    actionsExecuted
-  )
-
-  const availableFunds = await availableFundsForExecution(
-    provider,
-    deployerAddress
-  )
-
-  const amountToDeposit = includeBuffer
-    ? currExecutionCost.mul(EXECUTION_BUFFER_MULTIPLIER).sub(availableFunds)
-    : currExecutionCost.sub(availableFunds)
-
-  return amountToDeposit.lt(0) ? ethers.BigNumber.from(0) : amountToDeposit
 }

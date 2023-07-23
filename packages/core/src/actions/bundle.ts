@@ -293,9 +293,6 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.proposer, leaf.add]
       )
 
-    case 'withdrawETH':
-      return utils.defaultAbiCoder.encode(['address'], [leaf.receiver])
-
     case 'approveDeployment':
       return utils.defaultAbiCoder.encode(
         [

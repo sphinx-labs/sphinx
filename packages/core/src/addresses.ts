@@ -3,11 +3,8 @@ import {
   getOwnerAddress,
   ManagedServiceArtifact,
   EXECUTION_LOCK_TIME,
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  PROTOCOL_PAYMENT_PERCENTAGE,
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   SphinxManagerABI,
-  OWNER_BOND_AMOUNT,
   SphinxRegistryArtifact,
   SphinxManagerArtifact,
   DefaultAdapterArtifact,
@@ -17,7 +14,6 @@ import {
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
-  DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
   FactoryArtifact,
@@ -97,15 +93,6 @@ export const DEFAULT_CREATE3_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
   constants.HashZero,
   utils.solidityKeccak256(['bytes'], [DefaultCreate3Artifact.bytecode])
-)
-
-export const DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS = utils.getCreate2Address(
-  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
-    ['bytes'],
-    [DefaultGasPriceCalculatorArtifact.bytecode]
-  )
 )
 
 export const DEFAULT_UPDATER_ADDRESS = utils.getCreate2Address(
@@ -201,12 +188,8 @@ export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
 export const getManagerConstructorValues = () => [
   getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress(),
   EXECUTION_LOCK_TIME,
-  OWNER_BOND_AMOUNT.toString(),
-  EXECUTOR_PAYMENT_PERCENTAGE,
-  PROTOCOL_PAYMENT_PERCENTAGE,
   Object.values(CURRENT_SPHINX_MANAGER_VERSION),
 ]
 

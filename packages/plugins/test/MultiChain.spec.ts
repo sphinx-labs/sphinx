@@ -53,7 +53,6 @@ describe('Multi chain config', () => {
   before(async () => {
     for (const provider of Object.values(rpcProviders)) {
       const relayerAndExecutor = new ethers.Wallet(relayerPrivateKey, provider)
-      const owner = new ethers.Wallet(ownerPrivateKey, provider)
       // Initialize the Sphinx contracts including an executor so that it's possible to execute
       // the project deployments.
       await ensureSphinxInitialized(provider, relayerAndExecutor, [
@@ -69,12 +68,6 @@ describe('Multi chain config', () => {
 
       // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
       await Factory.deploy(authData, [], sampleProjectName)
-
-      // Fund the SphinxManager.
-      await owner.sendTransaction({
-        to: deployerAddress,
-        value: ethers.utils.parseEther('1'),
-      })
 
       // Check that the Auth contract has been initialized correctly.
       expect(await Auth.threshold()).deep.equals(BigNumber.from(threshold))

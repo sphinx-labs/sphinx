@@ -9,7 +9,6 @@ import * as semver from 'semver'
 import {
   utils,
   Signer,
-  Wallet,
   Contract,
   providers,
   ethers,
@@ -289,30 +288,6 @@ export const displayDeploymentTable = (
       }
     )
     console.table(deployments)
-  }
-}
-
-export const claimExecutorPayment = async (
-  executor: Wallet,
-  SphinxManager: Contract
-) => {
-  // The amount to withdraw is the minimum of the executor's debt and the SphinxManager's
-  // balance.
-  const debt = BigNumber.from(
-    await SphinxManager.executorDebt(executor.address)
-  )
-  const balance = BigNumber.from(
-    await executor.provider.getBalance(SphinxManager.address)
-  )
-  const withdrawAmount = debt.lt(balance) ? debt : balance
-
-  if (withdrawAmount.gt(0)) {
-    await (
-      await SphinxManager.claimExecutorPayment(
-        withdrawAmount,
-        await getGasPriceOverrides(executor.provider)
-      )
-    ).wait()
   }
 }
 

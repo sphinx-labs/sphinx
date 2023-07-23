@@ -239,11 +239,6 @@ interface SetProposer extends BaseAuthLeaf {
   add: boolean
 }
 
-interface WithdrawETH extends BaseAuthLeaf {
-  leafType: 'withdrawETH'
-  receiver: string
-}
-
 export interface ApproveDeployment extends BaseAuthLeaf {
   leafType: 'approveDeployment'
   approval: DeploymentApproval
@@ -269,7 +264,6 @@ export type AuthLeaf =
   | UpgradeAuthImplementation
   | UpgradeAuthAndDeployerImpl
   | SetProposer
-  | WithdrawETH
   | ApproveDeployment
   | CancelActiveDeployment
   | Propose

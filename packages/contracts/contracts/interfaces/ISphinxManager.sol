@@ -55,8 +55,6 @@ interface ISphinxManager {
         bool _remoteExecution
     ) external;
 
-    function withdrawOwnerETH(address _to) external;
-
     function activeDeploymentId() external view returns (bytes32);
 
     function deployments(bytes32 _deploymentId) external view returns (DeploymentState memory);
@@ -70,6 +68,4 @@ interface ISphinxManager {
     function initiateUpgrade(SphinxTarget[] memory _targets, bytes32[][] memory _proofs) external;
 
     function finalizeUpgrade(SphinxTarget[] memory _targets, bytes32[][] memory _proofs) external;
-
-    function incrementProtocolDebt(uint256 _initialGasLeft) external;
 }
