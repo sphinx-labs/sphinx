@@ -206,7 +206,6 @@ task(TASK_SPHINX_PROPOSE)
     `Propose the latest version of a config file. Signs a proposal meta transaction and relays it to Sphinx's back-end.`
   )
   .addParam('configPath', 'Path to the Sphinx config file')
-  .addParam('project', 'The name of the project to propose')
   .addFlag('testnets', 'Propose on the testnets specified in the Sphinx config')
   .addFlag('mainnets', `Propose on the mainnets specified in the Sphinx config`)
   .addFlag(

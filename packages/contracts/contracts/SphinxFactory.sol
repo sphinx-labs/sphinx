@@ -21,6 +21,7 @@ contract SphinxFactory is Ownable {
         string indexed projectNameHash,
         bytes32 indexed salt,
         address indexed managerProxy,
+        address authProxy,
         string projectName,
         address authImpl,
         address caller
@@ -114,6 +115,7 @@ contract SphinxFactory is Ownable {
             _projectName,
             salt,
             managerProxy,
+            address(authProxy),
             _projectName,
             currentAuthImplementation,
             msg.sender
