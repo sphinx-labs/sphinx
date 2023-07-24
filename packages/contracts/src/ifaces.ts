@@ -16,8 +16,11 @@ export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adap
 export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
 export const AuthArtifact = require('../artifacts/contracts/SphinxAuth.sol/SphinxAuth.json')
-export const FactoryArtifact = require('../artifacts/contracts/SphinxFactory.sol/SphinxFactory.json')
+export const AuthFactoryArtifact = require('../artifacts/contracts/SphinxAuthFactory.sol/SphinxAuthFactory.json')
 export const AuthProxyArtifact = require('../artifacts/contracts/SphinxAuthProxy.sol/SphinxAuthProxy.json')
+export const BalanceFactoryArtifact = require('../artifacts/contracts/SphinxBalanceFactory.sol/SphinxBalanceFactory.json')
+export const BalanceArtifact = require('../artifacts/contracts/SphinxBalance.sol/SphinxBalance.json')
+export const EscrowArtifact = require('../artifacts/contracts/SphinxEscrow.sol/SphinxEscrow.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)
@@ -43,5 +46,8 @@ export const DefaultGasPriceCalculatorABI =
   DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
 export const AuthABI = AuthArtifact.abi
-export const FactoryABI = FactoryArtifact.abi
+export const AuthFactoryABI = AuthFactoryArtifact.abi
 export const AuthProxyABI = AuthProxyArtifact.abi
+export const BalanceFactoryABI = BalanceFactoryArtifact.abi
+export const BalanceABI = BalanceArtifact.abi
+export const EscrowABI = EscrowArtifact.abi

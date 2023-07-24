@@ -144,12 +144,17 @@ export class SphinxExecutor extends BaseServiceV2<
     const relayers = process.env.TESTING_RELAYERS
       ? process.env.TESTING_RELAYERS.split(',')
       : []
+    const funders = process.env.TESTING_FUNDERS
+      ? process.env.TESTING_FUNDERS.split(',')
+      : []
+
     // Deploy the Sphinx contracts.
     await ensureSphinxInitialized(
       this.state.provider,
       wallet,
       executors,
       relayers,
+      funders,
       this.logger
     )
 

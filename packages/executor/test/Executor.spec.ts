@@ -2,7 +2,7 @@ import hre from 'hardhat'
 import '@sphinx/plugins'
 import '@nomiclabs/hardhat-ethers'
 import {
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   UserSphinxConfig as UserConfigWithOptions,
   ensureSphinxInitialized,
   getAuthAddress,
@@ -21,7 +21,7 @@ import {
   monitorExecution,
   sphinxCommitAbstractSubtask,
 } from '@sphinx/core'
-import { FactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { createSphinxRuntime } from '@sphinx/plugins/src/cre'
 import { makeGetConfigArtifacts } from '@sphinx/plugins/src/hardhat/artifacts'
 import { expect } from 'chai'
@@ -141,7 +141,11 @@ describe('Remote executor', () => {
 
     const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-    const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, relayer)
+    const AuthFactory = new ethers.Contract(
+      AUTH_FACTORY_ADDRESS,
+      AuthFactoryABI,
+      relayer
+    )
     const Deployer = new ethers.Contract(
       deployerAddress,
       SphinxManagerABI,
@@ -150,7 +154,7 @@ describe('Remote executor', () => {
     const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
     // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-    await Factory.deploy(authData, [], projectName)
+    await AuthFactory.deploy(authData, [], projectName)
 
     // Fund the SphinxManager.
     await owner.sendTransaction({

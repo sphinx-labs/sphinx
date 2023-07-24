@@ -2,7 +2,7 @@ import hre from 'hardhat'
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
 import '@nomiclabs/hardhat-ethers'
 import {
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
   ensureSphinxInitialized,
@@ -21,7 +21,7 @@ import {
   findProposalRequestLeaf,
   fromProposalRequestLeafToRawAuthLeaf,
 } from '@sphinx/core'
-import { FactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
@@ -60,15 +60,15 @@ describe('Multi chain config', () => {
         relayerAndExecutor.address,
       ])
 
-      const Factory = new ethers.Contract(
-        FACTORY_ADDRESS,
-        FactoryABI,
+      const AuthFactory = new ethers.Contract(
+        AUTH_FACTORY_ADDRESS,
+        AuthFactoryABI,
         relayerAndExecutor
       )
       const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
 
       // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-      await Factory.deploy(authData, [], sampleProjectName)
+      await AuthFactory.deploy(authData, [], sampleProjectName)
 
       // Fund the SphinxManager.
       await owner.sendTransaction({
