@@ -3,13 +3,11 @@ dotenv.config()
 import { SphinxManagerABI } from '@sphinx/contracts'
 import {
   DeploymentState,
-  claimExecutorPayment,
   compileRemoteBundles,
   executeDeployment,
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
-  hasSufficientFundsForExecution,
   trackExecuted,
   getDeploymentId,
   SphinxBundles,
@@ -327,105 +325,79 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[Sphinx]: checking that the project is funded...`)
 
-  if (
-    await hasSufficientFundsForExecution(
-      rpcProvider,
+  logger.info(`[Sphinx]: ${project} has sufficient funds`)
+
+  // execute deployment
+  try {
+    const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
+    const success = await executeDeployment(
+      manager,
       bundles,
-      deploymentState.actionsExecuted.toNumber(),
-      manager.address
+      blockGasLimit,
+      configArtifacts,
+      rpcProvider
     )
-  ) {
-    logger.info(`[Sphinx]: ${project} has sufficient funds`)
 
-    // execute deployment
-    try {
-      const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
-      const success = await executeDeployment(
-        manager,
-        bundles,
-        blockGasLimit,
-        configArtifacts,
-        rpcProvider
+    if (!success) {
+      // This likely means one of the user's constructors reverted during execution. We already
+      // logged the error inside `executeDeployment`, so we just discard the event and return.
+      process.send({ action: 'discard', payload: executorEvent })
+      return
+    }
+  } catch (e) {
+    // check if the error was due to the deployment being claimed by another executor, and discard if so
+    const errorDeploymentState: DeploymentState = await manager.deployments(
+      activeDeploymentId
+    )
+    if (errorDeploymentState.selectedExecutor !== wallet.address) {
+      logger.info(
+        '[Sphinx]: execution failed due to deployment being claimed by another executor'
       )
-
-      if (!success) {
-        // This likely means one of the user's constructors reverted during execution. We already
-        // logged the error inside `executeDeployment`, so we just discard the event and return.
-        process.send({ action: 'discard', payload: executorEvent })
-        return
-      }
-    } catch (e) {
-      // check if the error was due to the deployment being claimed by another executor, and discard if so
-      const errorDeploymentState: DeploymentState = await manager.deployments(
-        activeDeploymentId
-      )
-      if (errorDeploymentState.selectedExecutor !== wallet.address) {
-        logger.info(
-          '[Sphinx]: execution failed due to deployment being claimed by another executor'
-        )
-        process.send({ action: 'discard', payload: executorEvent })
-        return
-      }
-
-      // log error
-      logger.error('[Sphinx]: error: execution error', e, expectedDeploymentId)
-
-      // retry the deployment later
-      const retryEvent = generateRetryEvent(executorEvent)
-      process.send({ action: 'retry', payload: retryEvent })
+      process.send({ action: 'discard', payload: executorEvent })
       return
     }
 
-    // Update status in the Sphinx managed database
-    if (graphQLClient) {
-      try {
-        await updateDeployment(
-          graphQLClient,
-          activeDeploymentId,
-          rpcProvider.network.chainId,
-          'executed',
-          []
-        )
-      } catch (error) {
-        logger.error('[Sphinx]: error: deployment update error', error)
-      }
-    }
+    // log error
+    logger.error('[Sphinx]: error: execution error', e, expectedDeploymentId)
 
-    // verify on etherscan 10s later
-    await tryVerification(
-      logger,
-      compilerConfig,
-      configArtifacts,
-      rpcProvider,
-      project,
-      network,
-      graphQLClient,
-      activeDeploymentId,
-      1
-    )
-
-    await trackExecuted(await manager.owner(), network, undefined)
-  } else {
-    logger.info(`[Sphinx]: ${project} has insufficient funds`)
-
-    // Continue to the next deployment if there is an insufficient amount of funds in the
-    // SphinxManager. We will make attempts to execute the deployment on
-    // subsequent iterations of the BaseService for up to 30 minutes.
-    const retryEvent = generateRetryEvent(executorEvent, 100, 30000)
+    // retry the deployment later
+    const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
     return
   }
 
-  logger.info(`[Sphinx]: claiming executor's payment...`)
+  // Update status in the Sphinx managed database
+  if (graphQLClient) {
+    try {
+      await updateDeployment(
+        graphQLClient,
+        activeDeploymentId,
+        rpcProvider.network.chainId,
+        'executed',
+        []
+      )
+    } catch (error) {
+      logger.error('[Sphinx]: error: deployment update error', error)
+    }
+  }
 
-  // Withdraw any debt owed to the executor. Note that even if a deployment is cancelled by the
-  // project owner during execution, the executor will still be able to claim funds here.
-  await claimExecutorPayment(wallet, manager)
+  // verify on etherscan 10s later
+  await tryVerification(
+    logger,
+    compilerConfig,
+    configArtifacts,
+    rpcProvider,
+    project,
+    network,
+    graphQLClient,
+    activeDeploymentId,
+    1
+  )
 
-  logger.info(`[Sphinx]: claimed executor's payment`)
+  await trackExecuted(await manager.owner(), network, undefined)
 
   // If we make it to this point, we know that the executor has executed the deployment (or that it
-  // has been cancelled by the owner), and that the executor has claimed its payment.
+  // has been cancelled by the owner).
   logger.info('[Sphinx]: execution successful')
   process.send({ action: 'success', payload: executorEvent })
 }

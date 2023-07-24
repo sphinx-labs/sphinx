@@ -13,7 +13,6 @@ export const DefaultAdapterArtifact = require('../artifacts/contracts/adapters/D
 export const OZUUPSOwnableAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSOwnableAdapter.sol/OZUUPSOwnableAdapter.json')
 export const OZUUPSAccessControlAdapterArtifact = require('../artifacts/contracts/adapters/OZUUPSAccessControlAdapter.sol/OZUUPSAccessControlAdapter.json')
 export const OZTransparentAdapterArtifact = require('../artifacts/contracts/adapters/OZTransparentAdapter.sol/OZTransparentAdapter.json')
-export const DefaultGasPriceCalculatorArtifact = require('../artifacts/contracts/DefaultGasPriceCalculator.sol/DefaultGasPriceCalculator.json')
 export const DefaultCreate3Artifact = require('../artifacts/contracts/DefaultCreate3.sol/DefaultCreate3.json')
 export const AuthArtifact = require('../artifacts/contracts/SphinxAuth.sol/SphinxAuth.json')
 export const AuthFactoryArtifact = require('../artifacts/contracts/SphinxAuthFactory.sol/SphinxAuthFactory.json')
@@ -42,8 +41,6 @@ export const OZUUPSOwnableAdapterABI = OZUUPSOwnableAdapterArtifact.abi
 export const OZUUPSAccessControlAdapterABI =
   OZUUPSAccessControlAdapterArtifact.abi
 export const OZTransparentAdapterABI = OZTransparentAdapterArtifact.abi
-export const DefaultGasPriceCalculatorABI =
-  DefaultGasPriceCalculatorArtifact.abi
 export const DefaultCreate3ABI = DefaultCreate3Artifact.abi
 export const AuthABI = AuthArtifact.abi
 export const AuthFactoryABI = AuthFactoryArtifact.abi

@@ -23,7 +23,6 @@ import {
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { ICreate3 } from "./interfaces/ICreate3.sol";
 import { Semver, Version } from "./Semver.sol";
-import { IGasPriceCalculator } from "./interfaces/IGasPriceCalculator.sol";
 import {
     ContextUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
@@ -33,9 +32,9 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
  * @title SphinxManager
  * @custom:version 1.0.0
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
-   deployments. It contains the functionality for approving and executing deployments,
-   paying remote executors, and exporting proxies out of the Sphinx system if desired. It exists
-   as a single implementation contract behind SphinxManagerProxy contracts.
+   deployments. It contains the functionality for approving and executing deployments and
+   exporting proxies out of the Sphinx system if desired. It exists as a single implementation
+   contract behind SphinxManagerProxy contracts.
 
    After a deployment is approved, it is executed in the following steps, which must occur in order.
     1. Execute all of the `DEPLOY_CONTRACT` actions using the `executeActions` function. This is
@@ -81,53 +80,15 @@ contract SphinxManager is
     address internal immutable create3;
 
     /**
-     * @notice Address of the GasPriceCalculator contract.
-     */
-    IGasPriceCalculator internal immutable gasPriceCalculator;
-
-    /**
      * @notice Address of the ManagedService contract.
      */
     IAccessControl internal immutable managedService;
-
-    /**
-     * @notice Amount that must be stored in this contract in order to remotely execute a
-       deployment. It is not necessary to deposit this amount if the owner is self-executing their
-       deployment. The bond can be deposited by any account.
-
-       The owner can withdraw this amount whenever a deployment is not active. However, this amount
-       will be forfeited if the owner cancels a deployment that is in progress and within the
-       `executionLockTime`. This is necessary to prevent owners from trolling the remote executor by
-       immediately cancelling and withdrawing funds.
-     */
-    uint256 internal immutable ownerBondAmount;
 
     /**
      * @notice Amount of time for a remote executor to finish executing a deployment once they have
        claimed it.
      */
     uint256 internal immutable executionLockTime;
-
-    /**
-     * @notice Percentage that the remote executor profits from a deployment. This is denominated as
-       a percentage of the cost of execution. For example, if a deployment costs 1 gwei to execute
-       and the executorPaymentPercentage is 10, then the executor will profit 0.1 gwei.
-     */
-    uint256 internal immutable executorPaymentPercentage;
-
-    /**
-     * @notice Percentage that the protocol creators profit during a remotely executed deployment.
-       This is denominated as a percentage of the cost of execution. For example, if a deployment
-       costs 1 gwei to execute and the protocolPaymentPercentage is 10, then the protocol will
-       profit 0.1 gwei. Note that the protocol does not profit during a self-executed deployment.
-     */
-    uint256 internal immutable protocolPaymentPercentage;
-
-    /**
-     * @notice Mapping of executor addresses to the ETH amount stored in this contract that is
-     *         owed to them.
-     */
-    mapping(address => uint256) public executorDebt;
 
     /**
      * @notice Mapping of deployment IDs to deployment state.
@@ -140,16 +101,6 @@ contract SphinxManager is
     bytes32 public activeDeploymentId;
 
     /**
-     * @notice Total ETH amount stored in this contract that is owed to remote executors.
-     */
-    uint256 public totalExecutorDebt;
-
-    /**
-     * @notice Total ETH amount stored in this contract that is owed to the protocol creators.
-     */
-    uint256 public totalProtocolDebt;
-
-    /**
      * @notice Reverts if the caller is not a remote executor.
      */
     error CallerIsNotRemoteExecutor();
@@ -158,12 +109,6 @@ contract SphinxManager is
      * @notice Reverts if the deployment state cannot be approved.
      */
     error DeploymentStateIsNotApprovable();
-
-    /**
-     * @notice Reverts if there isn't at least `OWNER_BOND_AMOUNT` in this contract. Only applies
-       to deployments that will be remotely executed.
-     */
-    error InsufficientOwnerBond();
 
     /**
      * @notice Reverts if there is another active deployment ID.
@@ -184,28 +129,6 @@ contract SphinxManager is
      * @notice Reverts if the deployment has already been claimed by another remote executor.
      */
     error DeploymentAlreadyClaimed();
-
-    /**
-     * @notice Reverts if the amount equals zero.
-     */
-    error AmountMustBeGreaterThanZero();
-
-    /**
-     * @notice Reverts if the remote executor has insufficient debt in this contract.
-     */
-    error InsufficientExecutorDebt();
-
-    /**
-     * @notice Reverts if there's not enough funds in the contract pay the protocol fee and the
-     *  withdraw amount requested by the executor.
-     */
-    error InsufficientFunds();
-
-    /**
-     * @notice Reverts if a withdrawal transaction fails. This is likely due to insufficient funds
-       in this contract.
-     */
-    error WithdrawalFailed();
 
     /**
      * @notice Reverts if there is no bytecode at a given address.
@@ -321,47 +244,24 @@ contract SphinxManager is
     /**
      * @param _registry                  Address of the SphinxRegistry.
      * @param _create3                   Address of the Create3 contract.
-     * @param _gasPriceCalculator        Address of the GasPriceCalculator contract.
      * @param _managedService            Address of the ManagedService contract.
      * @param _executionLockTime         Amount of time for a remote executor to completely execute
        a deployment after claiming it.
-     * @param _ownerBondAmount           Amount that must be deposited in this contract in order to
-     *                                   remote execute a deployment.
-     * @param _executorPaymentPercentage Percentage that an executor will profit from completing a
-       deployment.
-     * @param _protocolPaymentPercentage Percentage that the protocol creators will profit from
-         completing a deployment.
      * @param _version                   Version of this contract.
      */
     constructor(
         ISphinxRegistry _registry,
         address _create3,
-        IGasPriceCalculator _gasPriceCalculator,
         IAccessControl _managedService,
         uint256 _executionLockTime,
-        uint256 _ownerBondAmount,
-        uint256 _executorPaymentPercentage,
-        uint256 _protocolPaymentPercentage,
         Version memory _version
     ) Semver(_version.major, _version.minor, _version.patch) {
         registry = _registry;
         create3 = _create3;
-        gasPriceCalculator = _gasPriceCalculator;
         managedService = _managedService;
         executionLockTime = _executionLockTime;
-        ownerBondAmount = _ownerBondAmount;
-        executorPaymentPercentage = _executorPaymentPercentage;
-        protocolPaymentPercentage = _protocolPaymentPercentage;
 
         _disableInitializers();
-    }
-
-    /**
-     * @notice Allows anyone to send ETH to this contract.
-     */
-    receive() external payable {
-        emit ETHDeposited(msg.sender, msg.value);
-        registry.announce("ETHDeposited");
     }
 
     /**
@@ -386,9 +286,7 @@ contract SphinxManager is
     }
 
     /**
-     * @notice Approve a deployment. Only callable by the owner of this contract. If remote
-       execution is enabled, there must be at least `ownerBondAmount` deposited in this contract
-       before the deployment can be approved.
+     * @notice Approve a deployment. Only callable by the owner of this contract.
      *
      * @param _actionRoot Root of the Merkle tree containing the actions for the deployment.
      * This may be `bytes32(0)` if there are no actions in the deployment.
@@ -426,14 +324,6 @@ contract SphinxManager is
         );
 
         DeploymentState storage deployment = _deployments[deploymentId];
-
-        if (
-            deployment.remoteExecution &&
-            address(this).balance > totalDebt() &&
-            address(this).balance - totalDebt() < ownerBondAmount
-        ) {
-            revert InsufficientOwnerBond();
-        }
 
         DeploymentStatus status = deployment.status;
         if (
@@ -503,11 +393,7 @@ contract SphinxManager is
      * @notice **WARNING**: Cancellation is a potentially dangerous action and should not be
      *         executed unless in an emergency.
      *
-     *         Allows the owner to cancel an active deployment that was approved. If an executor has
-               not claimed the deployment, the owner is simply allowed to withdraw their bond via a
-               subsequent call to `withdrawOwnerETH`. Otherwise, cancelling a deployment will cause
-               the owner to forfeit their bond to the executor. This is necessary to prevent owners
-               from trolling the remote executor by immediately cancelling and withdrawing funds.
+     *         Allows the owner to cancel an active deployment that was approved.
      */
     function cancelActiveSphinxDeployment() external onlyOwner {
         if (activeDeploymentId == bytes32(0)) {
@@ -515,16 +401,6 @@ contract SphinxManager is
         }
 
         DeploymentState storage deployment = _deployments[activeDeploymentId];
-
-        if (
-            deployment.remoteExecution &&
-            deployment.timeClaimed + executionLockTime >= block.timestamp
-        ) {
-            // Give the owner's bond to the executor if the deployment is cancelled within the
-            // `executionLockTime` window.
-            executorDebt[msg.sender] += ownerBondAmount;
-            totalExecutorDebt += ownerBondAmount;
-        }
 
         bytes32 cancelledDeploymentId = activeDeploymentId;
         activeDeploymentId = bytes32(0);
@@ -540,9 +416,8 @@ contract SphinxManager is
 
     /**
      * @notice Allows a remote executor to claim the sole right to execute a deployment over a
-               period of `executionLockTime`. Only the first executor to post a bond gains this
-               right. Executors must finish executing the deployment within `executionLockTime` or
-               else another executor may claim the deployment.
+               period of `executionLockTime`. Executors must finish executing the deployment within
+               `executionLockTime` or else another executor may claim the deployment.
      */
     function claimDeployment() external onlyExecutor {
         if (activeDeploymentId == bytes32(0)) {
@@ -564,46 +439,6 @@ contract SphinxManager is
 
         emit SphinxDeploymentClaimed(activeDeploymentId, msg.sender);
         registry.announce("SphinxDeploymentClaimed");
-    }
-
-    /**
-     * @notice Allows an executor to claim its ETH payment that was earned by completing a
-       deployment. Executors may only withdraw an amount less than or equal to the amount of ETH
-       owed to them by this contract. We allow the executor to withdraw less than the amount owed to
-       them because it's possible that the executor's debt exceeds the amount of ETH stored in this
-       contract. This situation can occur when the executor completes an underfunded deployment.
-
-     * @param _amount Amount of ETH to withdraw.
-     */
-    function claimExecutorPayment(uint256 _amount) external onlyExecutor {
-        if (_amount == 0) {
-            revert AmountMustBeGreaterThanZero();
-        }
-        if (executorDebt[msg.sender] < _amount) {
-            revert InsufficientExecutorDebt();
-        }
-        if (_amount + totalProtocolDebt > address(this).balance) {
-            revert InsufficientFunds();
-        }
-
-        executorDebt[msg.sender] -= _amount;
-        totalExecutorDebt -= _amount;
-
-        emit ExecutorPaymentClaimed(msg.sender, _amount, executorDebt[msg.sender]);
-
-        (bool paidExecutor, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
-        if (!paidExecutor) {
-            revert WithdrawalFailed();
-        }
-
-        (bool paidProtocol, ) = payable(address(managedService)).call{ value: totalProtocolDebt }(
-            new bytes(0)
-        );
-        if (!paidProtocol) {
-            revert WithdrawalFailed();
-        }
-
-        registry.announce("ExecutorPaymentClaimed");
     }
 
     /**
@@ -646,51 +481,6 @@ contract SphinxManager is
         }
 
         registry.announce("ProxyExported");
-    }
-
-    /**
-     * @notice Allows the owner to withdraw all funds in this contract minus the debt
-     *         owed to the executor and protocol. Cannot be called when there is an active
-               deployment, as this would rug the remote executor.
-     */
-    function withdrawOwnerETH(address _to) external onlyOwner {
-        if (activeDeploymentId != bytes32(0)) {
-            revert DeploymentInProgress();
-        }
-
-        uint256 amount = address(this).balance - totalDebt();
-
-        emit OwnerWithdrewETH(msg.sender, _to, amount);
-
-        (bool success, ) = payable(_to).call{ value: amount }(new bytes(0));
-        if (!success) {
-            revert WithdrawalFailed();
-        }
-
-        registry.announce("OwnerWithdrewETH");
-    }
-
-    /**
-     * @notice Increases the debt owed to the protocol. This is meant to be called by the user's
-       SphinxAuth contract, which owns the SphinxManager. The function call occurs after a
-       meta transaction has been submitted to the user's SphinxAuth contract by a relayer. Note
-       that it's possible for this function to increment the protocol debt by more than the amount
-       of ETH stored in this contract. We don't revert in this situation to ensure that an
-       projects's transactions always get submitted in a timely manner.
-     */
-    function incrementProtocolDebt(uint256 _initialGasLeft) external onlyOwner {
-        uint256 gasPrice = gasPriceCalculator.getGasPrice();
-
-        // Estimate the cost of the call data
-        uint256 calldataGasUsed = msg.data.length * 16;
-        // Calculate the gas used for the entire transaction, and add a buffer of 50k.
-        uint256 estGasUsed = 50_000 + calldataGasUsed + _initialGasLeft - gasleft();
-
-        uint256 cost = gasPrice * estGasUsed;
-
-        totalProtocolDebt += cost;
-
-        emit ProtocolDebtAdded(cost, totalProtocolDebt);
     }
 
     function transferOwnership(address _newOwner) public override onlyOwner {
@@ -742,8 +532,6 @@ contract SphinxManager is
         uint256[] memory _actionIndexes,
         bytes32[][] memory _proofs
     ) public nonReentrant {
-        uint256 initialGasLeft = gasleft();
-
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
@@ -812,8 +600,6 @@ contract SphinxManager is
                 revert InvalidActionType();
             }
         }
-
-        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
@@ -831,8 +617,6 @@ contract SphinxManager is
         SphinxTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) public nonReentrant {
-        uint256 initialGasLeft = gasleft();
-
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
@@ -902,8 +686,6 @@ contract SphinxManager is
 
         emit ProxiesInitiated(activeDeploymentId, msg.sender);
         registry.announce("ProxiesInitiated");
-
-        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
     }
 
     /**
@@ -917,8 +699,6 @@ contract SphinxManager is
         SphinxTarget[] memory _targets,
         bytes32[][] memory _proofs
     ) public nonReentrant {
-        uint256 initialGasLeft = gasleft();
-
         DeploymentState storage deployment = _deployments[activeDeploymentId];
 
         _assertCallerIsOwnerOrSelectedExecutor(deployment.remoteExecution);
@@ -982,17 +762,6 @@ contract SphinxManager is
         }
 
         _completeDeployment(deployment);
-
-        _payExecutorAndProtocol(initialGasLeft, deployment.remoteExecution);
-    }
-
-    /**
-     * @notice Returns the total debt owed to executors and the protocol creators.
-     *
-     * @return Total debt owed to executors and the protocol creators.
-     */
-    function totalDebt() public view returns (uint256) {
-        return totalExecutorDebt + totalProtocolDebt;
     }
 
     /**
@@ -1115,10 +884,6 @@ contract SphinxManager is
                 // transaction or if the creation bytecode has logic that causes the call to fail
                 // (e.g. a constructor that reverts).
 
-                // Give the owner's bond to the executor.
-                executorDebt[msg.sender] += ownerBondAmount;
-                totalExecutorDebt += ownerBondAmount;
-
                 emit DeploymentFailed(referenceName, activeDeploymentId, referenceName);
                 registry.announceWithData("DeploymentFailed", abi.encodePacked(activeDeploymentId));
 
@@ -1141,46 +906,6 @@ contract SphinxManager is
         registry.announce("SphinxDeploymentCompleted");
 
         activeDeploymentId = bytes32(0);
-    }
-
-    /**
-     * @notice Pay the executor and protocol creator based on the transaction's gas price and the
-       gas used. Note that no payment occurs for self-executed deployments.
-
-        * @param _initialGasLeft Gas left at the beginning of this transaction.
-        * @param _remoteExecution True if the deployment is being executed remotely, otherwise
-          false.
-     */
-    function _payExecutorAndProtocol(uint256 _initialGasLeft, bool _remoteExecution) internal {
-        if (!_remoteExecution) {
-            return;
-        }
-
-        uint256 gasPrice = gasPriceCalculator.getGasPrice();
-
-        // Estimate the gas used by the calldata. Note that, in general, 16 gas is used per non-zero
-        // byte of calldata and 4 gas is used per zero-byte of calldata. We use 16 for simplicity
-        // and because we must overestimate the executor's payment to ensure that it doesn't lose
-        // money.
-        uint256 calldataGasUsed = msg.data.length * 16;
-
-        // Estimate the total gas used in this transaction. We calculate this by adding the gas used
-        // by the calldata with the net estimated gas used by this function so far (i.e.
-        // `_initialGasLeft - gasleft()`). We add 100k to account for the intrinsic gas cost (21k)
-        // and the operations that occur after we assign a value to `estGasUsed`. Note that it's
-        // crucial for this estimate to be greater than the actual gas used by this transaction so
-        // that the executor doesn't lose money`.
-        uint256 estGasUsed = 100_000 + calldataGasUsed + _initialGasLeft - gasleft();
-
-        uint256 executorPayment = (gasPrice * estGasUsed * (100 + executorPaymentPercentage)) / 100;
-        uint256 protocolPayment = (gasPrice * estGasUsed * (protocolPaymentPercentage)) / 100;
-
-        // Add the executor's payment to the executor debt.
-        totalExecutorDebt += executorPayment;
-        executorDebt[msg.sender] += executorPayment;
-
-        // Add the protocol's payment to the protocol debt.
-        totalProtocolDebt += protocolPayment;
     }
 
     /**

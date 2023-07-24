@@ -10,7 +10,6 @@ import {
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
-  DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
   AuthFactoryArtifact,
@@ -34,7 +33,6 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress,
   REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
@@ -101,11 +99,6 @@ export const getSphinxConstants = async (
     {
       artifact: DefaultCreate3Artifact,
       expectedAddress: DEFAULT_CREATE3_ADDRESS,
-      constructorArgs: [],
-    },
-    {
-      artifact: DefaultGasPriceCalculatorArtifact,
-      expectedAddress: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
       constructorArgs: [],
     },
     {
