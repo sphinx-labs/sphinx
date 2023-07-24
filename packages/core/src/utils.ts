@@ -1226,7 +1226,8 @@ export const getProjectConfigInfo = async (
   const prevConfig = await getCanonicalConfig(
     parsedConfigOptions.orgId,
     isTestnet,
-    apiKey
+    apiKey,
+    userConfig.project
   )
 
   if (prevConfig) {
@@ -1252,7 +1253,8 @@ export const getProjectConfigInfo = async (
 export const fetchCanonicalConfig = async (
   orgId: string,
   isTestnet: boolean,
-  apiKey: string
+  apiKey: string,
+  projectName: string
 ): Promise<CanonicalConfig | undefined> => {
   const response = await axios.post(
     `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
@@ -1260,6 +1262,7 @@ export const fetchCanonicalConfig = async (
       apiKey,
       isTestnet,
       orgId,
+      projectName,
     }
   )
   const config: CanonicalConfig | undefined = response.data
