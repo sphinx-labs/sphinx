@@ -91,31 +91,6 @@ contract SphinxManagerEvents {
     event SphinxDeploymentClaimed(bytes32 indexed deploymentId, address indexed executor);
 
     /**
-     * @notice Emitted when an executor claims a payment.
-     *
-     * @param executor The executor being paid.
-     * @param withdrawn   Amount of ETH withdrawn.
-     * @param remaining  Amount of ETH remaining to be withdrawn by the executor.
-     */
-    event ExecutorPaymentClaimed(address indexed executor, uint256 withdrawn, uint256 remaining);
-
-    /**
-     * @notice Emitted when the owner withdraws ETH from this contract.
-     *
-     * @param owner  Address of the owner.
-     * @param amount ETH amount withdrawn.
-     */
-    event OwnerWithdrewETH(address indexed owner, address indexed to, uint256 amount);
-
-    /**
-     * @notice Emitted when ETH is deposited in this contract.
-     *
-     * @param from   Address of the account that deposited ETH.
-     * @param amount ETH amount deposited.
-     */
-    event ETHDeposited(address indexed from, uint256 indexed amount);
-
-    /**
      * @notice Emitted when a contract is deployed by this contract.
      *
      * @param referenceNameHash Hash of the reference name that corresponds to this contract.
@@ -165,6 +140,4 @@ contract SphinxManagerEvents {
         bytes32 indexed deploymentId,
         string referenceName
     );
-
-    event ProtocolDebtAdded(uint256 cost, uint256 totalProtocolDebt);
 }

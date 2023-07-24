@@ -9,7 +9,6 @@ import {
   DeploymentState,
   DeploymentStatus,
 } from '../actions'
-import { getAmountToDeposit } from '../fund'
 import { getSphinxManager, getDeploymentEvents } from '../utils'
 import { ParsedConfigWithOptions } from '../config'
 
@@ -70,23 +69,6 @@ export const monitorExecution = async (
     } else {
       spinner.start(
         `Number of actions executed: ${deploymentState.actionsExecuted.toNumber()} out of ${totalNumActions}`
-      )
-    }
-
-    // Check if there are enough funds in the SphinxManager to finish the deployment.
-    const amountToDeposit = await getAmountToDeposit(
-      provider,
-      bundles,
-      deploymentState.actionsExecuted.toNumber(),
-      deployer,
-      false
-    )
-    if (amountToDeposit.gt(0)) {
-      // If the amount to deposit is non-zero, we throw an error that informs the user to deposit
-      // more funds.
-      spinner.fail(`Project has insufficient funds to complete the deployment.`)
-      throw new Error(
-        `${project} has insufficient funds to complete the deployment. You'll need to deposit additional funds via the UI.`
       )
     }
 

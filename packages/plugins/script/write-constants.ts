@@ -1,3 +1,5 @@
+import hre from 'hardhat'
+import '@nomiclabs/hardhat-ethers'
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
@@ -15,7 +17,7 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   getSphinxConstants,
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
 } from '@sphinx/core'
 import { remove0x } from '@eth-optimism/core-utils'
@@ -95,7 +97,7 @@ const writeConstants = async () => {
     },
     factoryAddress: {
       type: 'address',
-      value: FACTORY_ADDRESS,
+      value: AUTH_FACTORY_ADDRESS,
     },
     authImplV1Address: {
       type: 'address',
@@ -103,7 +105,9 @@ const writeConstants = async () => {
     },
   }
 
-  const contractInfo = getSphinxConstants().map(
+  const sphinxConstants = await getSphinxConstants(hre.ethers.provider)
+
+  const contractInfo = sphinxConstants.map(
     ({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact
 

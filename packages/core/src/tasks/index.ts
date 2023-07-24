@@ -347,9 +347,14 @@ export const proposeAbstractTask = async (
     chainStates: newChainStates,
   }
 
+  // We calculate the auth address based on the current owners since this is used to store the
+  // address of the auth contract on any new chains in the DB.
+  // Note that calculating this here and passing in a single value works as long as the address
+  // is the same on all networks, but we may need to change this in the future to support chains
+  // which calculate addresses in different ways. I.e ZKSync Era
   const authAddress = getAuthAddress(
-    prevConfig.options.owners,
-    prevConfig.options.threshold,
+    parsedConfig.options.owners,
+    parsedConfig.options.threshold,
     parsedConfig.project
   )
   const deployerAddress = getSphinxManagerAddress(authAddress, project)

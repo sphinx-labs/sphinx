@@ -2,7 +2,7 @@ import hre from 'hardhat'
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
 import '@nomiclabs/hardhat-ethers'
 import {
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   AuthState,
   AuthStatus,
   ensureSphinxInitialized,
@@ -21,7 +21,7 @@ import {
   findProposalRequestLeaf,
   fromProposalRequestLeafToRawAuthLeaf,
 } from '@sphinx/core'
-import { FactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 
@@ -53,28 +53,21 @@ describe('Multi chain config', () => {
   before(async () => {
     for (const provider of Object.values(rpcProviders)) {
       const relayerAndExecutor = new ethers.Wallet(relayerPrivateKey, provider)
-      const owner = new ethers.Wallet(ownerPrivateKey, provider)
       // Initialize the Sphinx contracts including an executor so that it's possible to execute
       // the project deployments.
       await ensureSphinxInitialized(provider, relayerAndExecutor, [
         relayerAndExecutor.address,
       ])
 
-      const Factory = new ethers.Contract(
-        FACTORY_ADDRESS,
-        FactoryABI,
+      const AuthFactory = new ethers.Contract(
+        AUTH_FACTORY_ADDRESS,
+        AuthFactoryABI,
         relayerAndExecutor
       )
       const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
 
       // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-      await Factory.deploy(authData, [], sampleProjectName)
-
-      // Fund the SphinxManager.
-      await owner.sendTransaction({
-        to: deployerAddress,
-        value: ethers.utils.parseEther('1'),
-      })
+      await AuthFactory.deploy(authData, [], sampleProjectName)
 
       // Check that the Auth contract has been initialized correctly.
       expect(await Auth.threshold()).deep.equals(BigNumber.from(threshold))
@@ -133,7 +126,9 @@ describe('Multi chain config', () => {
       getCanonicalConfig = async (
         orgId: string,
         isTestnet: boolean,
-        apiKey: string
+        apiKey: string,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        _projectName: string
       ): Promise<CanonicalConfig | undefined> => {
         // We write these variables here to avoid a TypeScript error.
         orgId

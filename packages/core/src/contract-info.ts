@@ -10,12 +10,15 @@ import {
   OZUUPSUpdaterArtifact,
   OZTransparentAdapterArtifact,
   DefaultCreate3Artifact,
-  DefaultGasPriceCalculatorArtifact,
   SphinxManagerProxyArtifact,
   ProxyArtifact,
-  FactoryArtifact,
+  AuthFactoryArtifact,
   AuthArtifact,
+  BalanceFactoryArtifact,
+  BalanceArtifact,
+  EscrowArtifact,
 } from '@sphinx/contracts'
+import { providers } from 'ethers/lib/ethers'
 
 import { ContractArtifact } from './languages/solidity/types'
 import {
@@ -30,20 +33,29 @@ import {
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_CREATE3_ADDRESS,
-  DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
   getManagedServiceAddress,
   REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS,
   REFERENCE_PROXY_ADDRESS,
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
+  getReferenceBalanceContractAddress,
+  getReferenceBalanceConstructorArgs,
+  getReferenceEscrowConstructorArgs,
+  getBalanceFactoryAddress,
+  getReferenceEscrowContractAddress,
 } from './addresses'
+import { USDC_ADDRESSES } from './constants'
 
-export const getSphinxConstants = (): Array<{
-  artifact: ContractArtifact
-  expectedAddress: string
-  constructorArgs: any[]
-}> => {
-  return [
+export const getSphinxConstants = async (
+  provider: providers.Provider
+): Promise<
+  Array<{
+    artifact: ContractArtifact
+    expectedAddress: string
+    constructorArgs: any[]
+  }>
+> => {
+  const contractInfo = [
     {
       artifact: SphinxRegistryArtifact,
       expectedAddress: getSphinxRegistryAddress(),
@@ -90,11 +102,6 @@ export const getSphinxConstants = (): Array<{
       constructorArgs: [],
     },
     {
-      artifact: DefaultGasPriceCalculatorArtifact,
-      expectedAddress: DEFAULT_GAS_PRICE_CALCULATOR_ADDRESS,
-      constructorArgs: [],
-    },
-    {
       artifact: ManagedServiceArtifact,
       expectedAddress: getManagedServiceAddress(),
       constructorArgs: [getOwnerAddress()],
@@ -115,9 +122,39 @@ export const getSphinxConstants = (): Array<{
       constructorArgs: [[1, 0, 0]],
     },
     {
-      artifact: FactoryArtifact,
-      expectedAddress: FACTORY_ADDRESS,
+      artifact: AuthFactoryArtifact,
+      expectedAddress: AUTH_FACTORY_ADDRESS,
       constructorArgs: [getSphinxRegistryAddress(), getOwnerAddress()],
     },
   ]
+
+  // Add any network-specific contracts to the array.
+  const { chainId } = await provider.getNetwork()
+  if (chainId === 10 || chainId === 420) {
+    // These are contracts that only exist on Optimism Mainnet (chain ID 10) and Optimism Goerli
+    // (chain ID 420).
+    const balanceFactoryAddress = getBalanceFactoryAddress(chainId)
+    const usdcAddress = USDC_ADDRESSES[chainId]
+    const escrowAddress = getReferenceEscrowContractAddress(chainId)
+    const optimismContractInfo = [
+      {
+        artifact: BalanceFactoryArtifact,
+        expectedAddress: balanceFactoryAddress,
+        constructorArgs: [usdcAddress, getManagedServiceAddress()],
+      },
+      {
+        artifact: BalanceArtifact,
+        expectedAddress: getReferenceBalanceContractAddress(chainId),
+        constructorArgs: getReferenceBalanceConstructorArgs(chainId),
+      },
+      {
+        artifact: EscrowArtifact,
+        expectedAddress: escrowAddress,
+        constructorArgs: getReferenceEscrowConstructorArgs(chainId),
+      },
+    ]
+    contractInfo.push(...optimismContractInfo)
+  }
+
+  return contractInfo
 }

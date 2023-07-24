@@ -268,7 +268,8 @@ export type GetProviderForChainId = (
 export type GetCanonicalConfig = (
   orgId: string,
   isTestnet: boolean,
-  apiKey: string
+  apiKey: string,
+  projectName: string
 ) => Promise<CanonicalConfig | undefined>
 
 export interface CanonicalConfig {

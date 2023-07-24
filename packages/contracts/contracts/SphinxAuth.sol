@@ -70,7 +70,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     event AuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event DeployerAndAuthContractUpgraded(bytes32 indexed authRoot, uint256 leafIndex);
     event ProposerSet(bytes32 indexed authRoot, uint256 leafIndex);
-    event ETHWithdrawn(bytes32 indexed authRoot, uint256 leafIndex);
     event DeploymentApproved(bytes32 indexed authRoot, uint256 leafIndex);
     event ActiveDeploymentCancelled(bytes32 indexed authRoot, uint256 leafIndex);
     event AuthRootProposed(bytes32 indexed authRoot, uint256 numLeafs);
@@ -89,11 +88,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
         _verifySignatures(_authRoot, _leaf, _proof, _threshold, _verifyingRole, _signatures);
         _;
-    }
-
-    modifier incrementProtocolDebt(uint256 _initialGasLeft) {
-        _;
-        manager.incrementProtocolDebt(_initialGasLeft);
     }
 
     error AuthStateNotProposed();
@@ -192,7 +186,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
         bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
+    ) public {
         if (firstProposalOccurred) revert FirstProposalOccurred();
 
         _verifySignatures(_authRoot, _leaf, _proof, threshold, DEFAULT_ADMIN_ROLE, _signatures);
@@ -256,7 +250,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -285,7 +278,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -319,7 +311,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -349,7 +340,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -380,7 +370,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -412,7 +401,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -444,7 +432,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -493,7 +480,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -519,29 +505,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         emit ProposerSet(_authRoot, _leaf.index);
     }
 
-    function withdrawETH(
-        bytes32 _authRoot,
-        AuthLeaf memory _leaf,
-        bytes[] memory _signatures,
-        bytes32[] memory _proof
-    )
-        public
-        incrementProtocolDebt(gasleft())
-        isValidProposedAuthLeaf(
-            _authRoot,
-            _leaf,
-            _proof,
-            threshold,
-            DEFAULT_ADMIN_ROLE,
-            _signatures
-        )
-    {
-        address receiver = abi.decode(_leaf.data, (address));
-        _updateProposedAuthState(_authRoot);
-        manager.withdrawOwnerETH(receiver);
-        emit ETHWithdrawn(_authRoot, _leaf.index);
-    }
-
     function approveDeployment(
         bytes32 _authRoot,
         AuthLeaf memory _leaf,
@@ -549,7 +512,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -585,7 +547,6 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         bytes32[] memory _proof
     )
         public
-        incrementProtocolDebt(gasleft())
         isValidProposedAuthLeaf(
             _authRoot,
             _leaf,
@@ -616,7 +577,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         AuthLeaf memory _leaf,
         bytes[] memory _signatures,
         bytes32[] memory _proof
-    ) public incrementProtocolDebt(gasleft()) {
+    ) public {
         _verifySignatures(_authRoot, _leaf, _proof, 1, PROPOSER_ROLE, _signatures);
 
         uint256 numLeafs = abi.decode(_leaf.data, (uint256));

@@ -16,8 +16,6 @@ contract ManagedService is AccessControl {
     bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
         keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
 
-    event ExecutedCall(address indexed from, address indexed to, uint256 value);
-
     /**
      * @notice Emitted when a protocol payment recipient claims a payment.
      *
