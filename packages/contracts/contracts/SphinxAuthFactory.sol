@@ -8,7 +8,7 @@ import { SphinxAuth } from "./SphinxAuth.sol";
 import { SphinxAuthProxy } from "./SphinxAuthProxy.sol";
 import { Version, Semver } from "./Semver.sol";
 
-contract SphinxFactory is Ownable {
+contract SphinxAuthFactory is Ownable {
     /**
      * @notice Emitted whenever a SphinxAuthProxy is deployed.
      *
@@ -21,6 +21,7 @@ contract SphinxFactory is Ownable {
         string indexed projectNameHash,
         bytes32 indexed salt,
         address indexed managerProxy,
+        address authProxy,
         string projectName,
         address authImpl,
         address caller
@@ -83,10 +84,13 @@ contract SphinxFactory is Ownable {
         bytes memory _registryData,
         string memory _projectName
     ) external {
-        require(currentAuthImplementation != address(0), "SphinxFactory: no auth implementation");
+        require(
+            currentAuthImplementation != address(0),
+            "SphinxAuthFactory: no auth implementation"
+        );
 
         bytes32 salt = keccak256(abi.encode(_authData, _projectName));
-        require(address(auths[salt]) == address(0), "SphinxFactory: already deployed");
+        require(address(auths[salt]) == address(0), "SphinxAuthFactory: already deployed");
 
         address authProxyAddress = getAuthProxyAddress(salt);
 
@@ -96,7 +100,7 @@ contract SphinxFactory is Ownable {
 
         require(
             address(authProxy) == authProxyAddress,
-            "SphinxFactory: failed to deploy auth proxy"
+            "SphinxAuthFactory: failed to deploy auth proxy"
         );
 
         auths[salt] = payable(authProxyAddress);
@@ -114,6 +118,7 @@ contract SphinxFactory is Ownable {
             _projectName,
             salt,
             managerProxy,
+            address(authProxy),
             _projectName,
             currentAuthImplementation,
             msg.sender
@@ -134,7 +139,10 @@ contract SphinxFactory is Ownable {
         uint256 minor = version.minor;
         uint256 patch = version.patch;
 
-        require(versions[major][minor][patch] == address(0), "SphinxFactory: version already set");
+        require(
+            versions[major][minor][patch] == address(0),
+            "SphinxAuthFactory: version already set"
+        );
 
         authImplementations[_auth] = true;
         versions[major][minor][patch] = _auth;
@@ -143,7 +151,7 @@ contract SphinxFactory is Ownable {
     }
 
     function setCurrentAuthImplementation(address _impl) external onlyOwner {
-        require(authImplementations[_impl], "SphinxFactory: invalid auth implementation");
+        require(authImplementations[_impl], "SphinxAuthFactory: invalid auth implementation");
         currentAuthImplementation = _impl;
         emit CurrentAuthImplementationSet(_impl);
     }

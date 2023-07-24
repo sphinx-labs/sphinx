@@ -22,7 +22,7 @@ import {
   SphinxManagerABI,
   ProxyABI,
   AuthABI,
-  FactoryABI,
+  AuthFactoryABI,
 } from '@sphinx/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
@@ -72,7 +72,7 @@ import {
 } from './actions/types'
 import { Integration } from './constants'
 import {
-  FACTORY_ADDRESS,
+  AUTH_FACTORY_ADDRESS,
   getAuthAddress,
   getSphinxManagerAddress,
   getSphinxRegistryAddress,
@@ -1201,7 +1201,8 @@ export const getProjectConfigInfo = async (
   const prevConfig = await getCanonicalConfig(
     parsedConfigOptions.orgId,
     isTestnet,
-    apiKey
+    apiKey,
+    userConfig.project
   )
 
   if (prevConfig) {
@@ -1227,7 +1228,8 @@ export const getProjectConfigInfo = async (
 export const fetchCanonicalConfig = async (
   orgId: string,
   isTestnet: boolean,
-  apiKey: string
+  apiKey: string,
+  projectName: string
 ): Promise<CanonicalConfig | undefined> => {
   const response = await axios.post(
     `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
@@ -1235,6 +1237,7 @@ export const fetchCanonicalConfig = async (
       apiKey,
       isTestnet,
       orgId,
+      projectName,
     }
   )
   const config: CanonicalConfig | undefined = response.data
@@ -1429,8 +1432,12 @@ export const isProjectCreated = async (
   provider: providers.Provider,
   authAddress: string
 ): Promise<boolean> => {
-  const Factory = new ethers.Contract(FACTORY_ADDRESS, FactoryABI, provider)
-  const isCreated: boolean = await Factory.isDeployed(authAddress)
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    provider
+  )
+  const isCreated: boolean = await AuthFactory.isDeployed(authAddress)
   return isCreated
 }
 
