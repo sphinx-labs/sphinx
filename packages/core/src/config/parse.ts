@@ -19,7 +19,6 @@ import {
 } from '@openzeppelin/upgrades-core'
 import { ProxyABI } from '@sphinx/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
-import yesno from 'yesno'
 import { ContractDefinition, Expression } from 'solidity-ast'
 
 import {
@@ -46,7 +45,7 @@ import {
   readBuildInfo,
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
-  isProjectRegistered,
+  isManagerDeployed,
   getDuplicateElements,
 } from '../utils'
 import {
@@ -2420,19 +2419,11 @@ export const postParsingValidation = async (
   failureAction: FailureAction
 ) => {
   const { blockGasLimit, localNetwork, contractConfigCache } = configCache
-  const { contracts, deployer, project } = parsedConfig
+  const { contracts, deployer } = parsedConfig
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
-
-  await assertAvailableCreate3Addresses(
-    provider,
-    contracts,
-    configArtifacts,
-    cre,
-    contractConfigCache
-  )
 
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
@@ -2454,22 +2445,6 @@ export const postParsingValidation = async (
   )
 
   assertNoValidationErrors(failureAction)
-
-  const containsUpgrade = Object.entries(parsedConfig.contracts).some(
-    ([referenceName, contractConfig]) =>
-      contractConfig.kind !== 'immutable' &&
-      contractConfigCache[referenceName].isTargetDeployed
-  )
-
-  // Confirm upgrade with user
-  if (!cre.confirmUpgrade && containsUpgrade) {
-    const userConfirmed = await yesno({
-      question: `Prior deployment(s) detected for project ${project}. Would you like to perform an upgrade? (y/n)`,
-    })
-    if (!userConfirmed) {
-      throw new Error(`User denied upgrade.`)
-    }
-  }
 }
 
 /**
@@ -2584,49 +2559,6 @@ export const assertImmutableDeploymentsDoNotRevert = (
   }
 }
 
-const assertAvailableCreate3Addresses = async (
-  provider: providers.JsonRpcProvider,
-  parsedContractConfigs: ParsedContractConfigs,
-  configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  contractConfigCache: ContractConfigCache
-): Promise<void> => {
-  for (const [referenceName, contractConfig] of Object.entries(
-    parsedContractConfigs
-  )) {
-    const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
-      contractConfigCache[referenceName]
-    if (contractConfig.kind === 'immutable' && isTargetDeployed) {
-      const { bytecode, abi } = configArtifacts[referenceName].artifact
-
-      const currHash = ethers.utils.keccak256(
-        getCreationCodeWithConstructorArgs(
-          bytecode,
-          contractConfig.constructorArgs,
-          abi
-        )
-      )
-
-      const match = deployedCreationCodeWithArgsHash
-        ? BigNumber.from(deployedCreationCodeWithArgsHash).eq(
-            BigNumber.from(currHash)
-          )
-        : false
-      if (!match) {
-        const { chainId } = await provider.getNetwork()
-        logValidationError(
-          'warning',
-          `Skipping deployment of ${referenceName} on ${chainId} because a contract with this reference name has\n` +
-            `already been deployed. Add a new 'salt' value to re-deploy it at a new address.`,
-          [],
-          cre.silent,
-          cre.stream
-        )
-      }
-    }
-  }
-}
-
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
   contractConfigs: ParsedContractConfigs,
@@ -2637,7 +2569,7 @@ export const getConfigCache = async (
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
   const networkName = await resolveNetworkName(provider, 'hardhat')
-  const isRegistered = await isProjectRegistered(registry, manager.address)
+  const isManagerDeployed_ = await isManagerDeployed(registry, manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
@@ -2762,7 +2694,7 @@ export const getConfigCache = async (
   }
 
   return {
-    isRegistered,
+    isManagerDeployed: isManagerDeployed_,
     blockGasLimit,
     localNetwork,
     networkName,

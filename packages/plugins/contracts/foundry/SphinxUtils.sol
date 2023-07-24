@@ -288,7 +288,7 @@ contract SphinxUtils is
         return ISphinxRegistry(registryAddress);
     }
 
-    function isProjectRegistered(
+    function isManagerDeployed(
         ISphinxRegistry _registry,
         address _manager
     ) public view returns (bool) {
@@ -584,7 +584,7 @@ contract SphinxUtils is
         string memory _mainFfiScriptPath,
         Vm.Log[] memory _executionLogs
     ) external returns (ConfigCache memory) {
-        bool isRegistered = isProjectRegistered(_registry, address(_manager));
+        bool isManagerDeployed_ = isManagerDeployed(_registry, address(_manager));
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             _minimalConfig.contracts.length
@@ -664,7 +664,7 @@ contract SphinxUtils is
 
         return
             ConfigCache({
-                isRegistered: isRegistered,
+                isManagerDeployed: isManagerDeployed_,
                 blockGasLimit: block.gaslimit,
                 localNetwork: isLocalNetwork(_rpcUrl),
                 networkName: getChainAlias(_rpcUrl),

@@ -38,7 +38,7 @@ struct MinimalContractConfig {
 }
 
 struct ConfigCache {
-    bool isRegistered;
+    bool isManagerDeployed;
     uint256 blockGasLimit;
     bool localNetwork;
     string networkName;

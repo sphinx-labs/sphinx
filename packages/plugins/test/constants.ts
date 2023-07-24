@@ -25,7 +25,7 @@ export const DUMMY_ORG_ID = '1111'
 
 export const cre = createSphinxRuntime(
   false,
-  false,
+  true, // Automatically confirm proposals
   hre.config.paths.compilerConfigs,
   hre,
   false

@@ -6,6 +6,8 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@sphinx/contracts'
+import yesno from 'yesno'
+import { red } from 'chalk'
 
 import {
   SphinxInput,
@@ -29,7 +31,7 @@ import {
   getDeploymentEvents,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
-  isProjectRegistered,
+  isManagerDeployed,
   writeCompilerConfig,
   writeSnapshotId,
   transferProjectOwnership,
@@ -73,25 +75,28 @@ import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
 import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
 import { getParsedConfigWithOptions } from '../config/parse'
+import { SphinxDiff, getDiff, getDiffString } from '../diff'
 
 // Load environment variables from .env
 dotenv.config()
 
 /**
- * @param getCanonicalConfig A function that returns the canonical config. By default,
- * this function will fetch the canonical config from the back-end. However, it can be
- * overridden to return a different canonical config. This is useful for testing.
+ * @param getCanonicalConfig A function that returns the canonical config. By default, this function
+ * will fetch the canonical config from the back-end. However, it can be overridden to return a
+ * different canonical config. This is useful for testing.
+ * @param skipRelay If true, the proposal will not be relayed to the back-end. This is for testing
+ * purposes only.
  */
 export const proposeAbstractTask = async (
   userConfig: UserConfigWithOptions,
   isTestnet: boolean,
-  dryRun: boolean,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT,
-  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig
+  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig,
+  skipRelay: boolean = false
 ): Promise<ProposalRequest> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -133,6 +138,7 @@ export const proposeAbstractTask = async (
   const compilerConfigs: {
     [ipfsHash: string]: CompilerConfig
   } = {}
+  const diffs: { [networkName: string]: SphinxDiff } = {}
   // We loop through any logic that depends on the provider object.
   for (const chainId of chainIds) {
     const provider = getProviderForChainId(chainId)
@@ -152,6 +158,7 @@ export const proposeAbstractTask = async (
     parsedConfig = parsedConfigValues.parsedConfig
     configArtifacts = parsedConfigValues.configArtifacts
     const configCache = parsedConfigValues.configCache
+    const { networkName } = configCache
 
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
@@ -179,6 +186,11 @@ export const proposeAbstractTask = async (
       projectDeployments.push(projectDeployment)
     }
 
+    diffs[networkName] = getDiff(
+      parsedConfig.contracts,
+      configCache,
+      configArtifacts
+    )
     compilerConfigs[configUri] = compilerConfig
   }
 
@@ -190,6 +202,13 @@ export const proposeAbstractTask = async (
     )
   }
 
+  if (leafs.length === 0) {
+    console.error(
+      `No changes have been made to the config file since the last proposal, so there is nothing to propose.`
+    )
+    process.exit(1)
+  }
+
   const { orgId } = parsedConfig.options
 
   if (!isNewConfig && orgId !== prevConfig.options.orgId) {
@@ -198,6 +217,19 @@ export const proposeAbstractTask = async (
         `Previous: ${prevConfig.options.orgId}\n` +
         `New: ${orgId}`
     )
+  }
+
+  if (!cre.confirm) {
+    spinner.stop()
+    // Confirm deployment with the user before sending any transactions.
+    const confirmed = await yesno({
+      question: getDiffString(diffs),
+    })
+    if (!confirmed) {
+      console.error(red(`User denied deployment.`))
+      process.exit(1)
+    }
+    spinner.start(`Proposal in progress...`)
   }
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}
@@ -218,8 +250,9 @@ export const proposeAbstractTask = async (
 
   const { root, leafs: bundledLeafs } = makeAuthBundle(leafs)
 
-  // Skip signing the meta transaction if we're doing a dry run.
-  const metaTxnSignature = dryRun
+  // Sign the meta-txn for the auth root, or leave it undefined if we're not relaying the proposal
+  // to the back-end.
+  const metaTxnSignature = skipRelay
     ? undefined
     : await signAuthRootMetaTxn(wallet, root)
 
@@ -341,6 +374,7 @@ export const proposeAbstractTask = async (
     canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
+    diffs,
     tree: {
       root,
       chainStatus,
@@ -348,14 +382,13 @@ export const proposeAbstractTask = async (
     },
   }
 
-  // Only relay the proposal to the back-end if we're not doing a dry run.
-  if (!dryRun) {
+  if (!skipRelay) {
     await relayProposal(proposalRequest)
     const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
   }
 
-  spinner.succeed(`${dryRun ? 'Dry run' : 'Proposal'} succeeded!`)
+  spinner.succeed(`Proposal succeeded!`)
 
   return proposalRequest
 }
@@ -482,7 +515,26 @@ export const deployAbstractTask = async (
   newOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const { project, deployer } = parsedConfig
+  const { project, deployer, contracts } = parsedConfig
+
+  if (cre.confirm) {
+    spinner.succeed(`Got project info.`)
+  } else {
+    spinner.stop()
+
+    const diff = getDiff(contracts, configCache, configArtifacts)
+    const diffString = getDiffString({ [configCache.networkName]: diff })
+
+    // Confirm deployment with the user before sending any transactions.
+    const confirmed = await yesno({
+      question: diffString,
+    })
+    if (!confirmed) {
+      console.error(red(`User denied deployment.`))
+      process.exit(1)
+    }
+  }
+
   const { networkName, blockGasLimit, localNetwork } = configCache
 
   const registry = getSphinxRegistry(signer)
@@ -699,7 +751,7 @@ export const sphinxCancelAbstractTask = async (
   const registry = getSphinxRegistry(owner)
   const manager = getSphinxManager(deployer, owner)
 
-  if (!(await isProjectRegistered(registry, manager.address))) {
+  if (!(await isManagerDeployed(registry, manager.address))) {
     throw new Error(`Project has not been registered yet.`)
   }
 
@@ -748,7 +800,7 @@ export const sphinxExportProxyAbstractTask = async (
   const manager = getSphinxManager(deployer, owner)
 
   // Throw an error if the project has not been registered
-  if ((await isProjectRegistered(registry, manager.address)) === false) {
+  if ((await isManagerDeployed(registry, manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
@@ -803,7 +855,7 @@ export const sphinxImportProxyAbstractTask = async (
   const manager = getSphinxManager(deployer, signer)
 
   // Throw an error if the project has not been registered
-  if ((await isProjectRegistered(registry, manager.address)) === false) {
+  if ((await isManagerDeployed(registry, manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 

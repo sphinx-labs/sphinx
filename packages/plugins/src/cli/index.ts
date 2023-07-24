@@ -38,11 +38,6 @@ yargs(hideBin(process.argv))
           describe: `Propose on the mainnets specified in the Sphinx config`,
           boolean: true,
         })
-        .option('dryRun', {
-          describe:
-            'Dry run the proposal without signing or relaying it to the back-end.',
-          boolean: true,
-        })
         .option('silent', {
           alias: 's',
           describe: `Hide Sphinx's output.`,
@@ -52,7 +47,6 @@ yargs(hideBin(process.argv))
     async (argv) => {
       const { configPath } = argv
       const silent = argv.silent ?? false
-      const dryRun = argv.dryRun ?? false
       const testnets = argv.testnets ?? false
       const mainnets = argv.mainnets ?? false
 
@@ -82,13 +76,11 @@ yargs(hideBin(process.argv))
       )
 
       process.env['SPHINX_INTERNAL_CONFIG_PATH'] = configPath
-      process.env['SPHINX_INTERNAL_DRY_RUN'] = dryRun.toString()
       process.env['SPHINX_INTERNAL_SILENT'] = silent.toString()
       process.env['SPHINX_INTERNAL_IS_TESTNET'] = isTestnet.toString()
 
       const spinner = ora({ isSilent: silent })
-      const dryRunOrProposal = dryRun ? 'Dry run' : 'Proposal'
-      spinner.start(`${dryRunOrProposal} in progress...`)
+      spinner.start(`Proposal in progress...`)
 
       try {
         // Although it's not strictly necessary to propose via a Forge script, we do it anyways
@@ -98,7 +90,7 @@ yargs(hideBin(process.argv))
         // directly because calling `npx sphinx` uses Node, not TS Node.
         await execAsync(`forge script ${proposeContractPath}`)
       } catch ({ stderr }) {
-        spinner.fail(`${dryRunOrProposal} failed.`)
+        spinner.fail(`Proposal failed.`)
         // Strip \n from the end of the error message, if it exists
         const prettyError = stderr.endsWith('\n')
           ? stderr.substring(0, stderr.length - 1)
@@ -107,7 +99,7 @@ yargs(hideBin(process.argv))
         console.error(prettyError)
         process.exit(1)
       }
-      spinner.succeed(`${dryRunOrProposal} succeeded!`)
+      spinner.succeed(`Proposal succeeded!`)
     }
   )
   .command(

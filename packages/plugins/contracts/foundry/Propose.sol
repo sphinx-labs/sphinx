@@ -5,13 +5,12 @@ import { SphinxTasks } from "./SphinxTasks.sol";
 
 contract Propose is SphinxTasks {
     string private configPath = vm.envString("SPHINX_INTERNAL_CONFIG_PATH");
-    bool private dryRun = vm.envBool("SPHINX_INTERNAL_DRY_RUN");
     bool private isSilent = vm.envBool("SPHINX_INTERNAL_SILENT");
     bool private isTestnet = vm.envBool("SPHINX_INTERNAL_IS_TESTNET");
 
     function run() public {
         if (isSilent) silence();
 
-        propose(configPath, dryRun, isTestnet);
+        propose(configPath, isTestnet);
     }
 }

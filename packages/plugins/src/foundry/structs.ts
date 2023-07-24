@@ -18,7 +18,7 @@ export const decodeCachedConfig = (
     blockGasLimit: configCache.blockGasLimit,
     localNetwork: configCache.localNetwork,
     networkName: configCache.networkName,
-    isRegistered: configCache.isRegistered,
+    isManagerDeployed: configCache.isManagerDeployed,
     contractConfigCache: {},
   }
 

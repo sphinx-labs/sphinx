@@ -38,7 +38,6 @@ const command = args[0]
 
       try {
         const configPath = args[1]
-        const dryRun = args[2] === 'true'
         const isTestnet = args[3] === 'true'
 
         const {
@@ -51,7 +50,7 @@ const command = args[0]
 
         const cre = createSphinxRuntime(
           true,
-          true,
+          false, // Users must manually confirm proposals.
           compilerConfigFolder,
           undefined,
           false,
@@ -61,7 +60,6 @@ const command = args[0]
         await proposeAbstractTask(
           await readUserConfigWithOptions(configPath),
           isTestnet,
-          dryRun,
           cre,
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
           await makeGetProviderFromChainId(rpcEndpoints),

@@ -9,7 +9,7 @@ import { ParsedContractConfig } from './config/types'
 export type SphinxRuntimeEnvironment = {
   compilerConfigPath: string
   remoteExecution: boolean
-  confirmUpgrade: boolean
+  confirm: boolean
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined

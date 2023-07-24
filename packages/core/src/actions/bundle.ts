@@ -344,12 +344,17 @@ export const fromProposalRequestLeafToRawAuthLeaf = (
 
 /**
  * Generates a bundle of auth leafs. Effectively encodes the inputs that will be provided to the
- * SphinxAuth contract.
+ * SphinxAuth contract. Reverts if the list of leafs is empty, since the call to
+ * `StandardMerkleTree` will fail.
  *
  * @param leafs Series of auth leafs.
  * @return Bundled leafs.
  */
 export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
+  if (leafs.length === 0) {
+    throw new Error(`Cannot make an auth bundle with 0 leafs.`)
+  }
+
   // Turn the "nice" leaf structs into raw leafs.
   const leafPairs = leafs.map((leaf) => {
     return {
