@@ -34,7 +34,7 @@ import { SphinxManagerEvents } from "./SphinxManagerEvents.sol";
  * @notice This contract contains the logic for managing the entire lifecycle of a project's
    deployments. It contains the functionality for approving and executing deployments and
    exporting proxies out of the Sphinx system if desired. It exists as a single implementation
-   contract behind SphinxManagerProxy contracts.
+   contract behind SphinxManagerProxy contracts, which are each owned by a single project team.
 
    After a deployment is approved, it is executed in the following steps, which must occur in order.
     1. Execute all of the `DEPLOY_CONTRACT` actions using the `executeActions` function. This is

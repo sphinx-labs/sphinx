@@ -19,7 +19,7 @@ struct BundleInfo {
 }
 
 struct MinimalConfig {
-    address deployer;
+    address manager;
     address owner;
     string projectName;
     MinimalContractConfig[] contracts;

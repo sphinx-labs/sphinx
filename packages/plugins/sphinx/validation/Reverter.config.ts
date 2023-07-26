@@ -1,7 +1,7 @@
 import { UserConfig } from '@sphinx/core'
 
 const config: UserConfig = {
-  project: 'Reverter',
+  projectName: 'Reverter',
   contracts: {
     Reverter1: {
       contract: 'Reverter',

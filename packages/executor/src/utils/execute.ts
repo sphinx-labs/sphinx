@@ -68,7 +68,7 @@ const tryVerification = async (
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
-          `[Sphinx]: attempting to verify source code on etherscan for project: ${projectName}`
+          `[Sphinx]: attempting to verify source code on etherscan for projectName: ${projectName}`
         )
         await verifySphinxConfig(
           compilerConfig,
@@ -78,7 +78,7 @@ const tryVerification = async (
           apiKey
         )
         logger.info(
-          `[Sphinx]: finished attempting etherscan verification for project: ${projectName}`
+          `[Sphinx]: finished attempting etherscan verification for projectName: ${projectName}`
         )
       } else {
         logger.info(
@@ -232,7 +232,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
   try {
     ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
       rpcProvider,
-      approvalEvent.args.configUri
+      approvalEvent.args.configUri,
+      'hardhat'
     ))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
@@ -240,7 +241,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { project } = compilerConfig
+  const { projectName } = compilerConfig
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
@@ -261,7 +262,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  logger.info(`[Sphinx]: compiled ${project} on: ${network}.`)
+  logger.info(`[Sphinx]: compiled ${projectName} on: ${network}.`)
 
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
     logger.info(`[Sphinx]: checking if any of the constructors revert...`)
@@ -325,7 +326,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[Sphinx]: checking that the project is funded...`)
 
-  logger.info(`[Sphinx]: ${project} has sufficient funds`)
+  logger.info(`[Sphinx]: ${projectName} has sufficient funds`)
 
   // execute deployment
   try {
@@ -387,7 +388,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     compilerConfig,
     configArtifacts,
     rpcProvider,
-    project,
+    projectName,
     network,
     graphQLClient,
     activeDeploymentId,

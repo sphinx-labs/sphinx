@@ -24,6 +24,7 @@ export const OWNER_ROLE_HASH = ethers.constants.HashZero
 export const DUMMY_ORG_ID = '1111'
 
 export const cre = createSphinxRuntime(
+  'hardhat',
   false,
   true, // Automatically confirm proposals
   hre.config.paths.compilerConfigs,
@@ -58,7 +59,7 @@ export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
 export const sampleProjectName = 'MyProject'
 export const owners = [ownerAddress]
 export const sampleUserConfig: UserConfigWithOptions = {
-  project: sampleProjectName,
+  projectName: sampleProjectName,
   options: {
     orgId: DUMMY_ORG_ID,
     owners,
@@ -81,7 +82,7 @@ export const sampleUserConfig: UserConfigWithOptions = {
 
 export const authData = getAuthData(owners, threshold)
 export const authAddress = getAuthAddress(owners, threshold, sampleProjectName)
-export const deployerAddress = getSphinxManagerAddress(
+export const managerAddress = getSphinxManagerAddress(
   authAddress,
   sampleProjectName
 )

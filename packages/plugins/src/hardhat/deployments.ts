@@ -7,7 +7,6 @@ import {
   isEmptySphinxConfig,
   isContractDeployed,
   writeSnapshotId,
-  resolveNetworkName,
   getSphinxManagerAddress,
   getTargetAddress,
   UserSalt,
@@ -79,11 +78,11 @@ export const getContract = async (
 
   const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
     const config = resolvedConfig.config
-    if (!config.project) {
+    if (!config.projectName) {
       return false
     }
     return (
-      config.project === projectName &&
+      config.projectName === projectName &&
       Object.keys(config.contracts).includes(referenceName) &&
       config.contracts[referenceName].salt === userSalt
     )
@@ -103,15 +102,12 @@ export const getContract = async (
   }
 
   const { config: userConfig } = userConfigs[0]
-  const deployer = getSphinxManagerAddress(
-    await owner.getAddress(),
-    projectName
-  )
+  const manager = getSphinxManagerAddress(await owner.getAddress(), projectName)
   const contractConfig = userConfig.contracts[referenceName]
 
   const address =
     contractConfig.address ??
-    getTargetAddress(deployer, referenceName, contractConfig.salt)
+    getTargetAddress(manager, referenceName, contractConfig.salt)
   if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
     throw new Error(
       `The contract for ${referenceName} has not been deployed. Address: ${address}`
@@ -134,13 +130,9 @@ export const getContract = async (
 export const resetSphinxDeployments = async (
   hre: HardhatRuntimeEnvironment
 ) => {
-  const networkFolderName = await resolveNetworkName(
-    hre.ethers.provider,
-    'hardhat'
-  )
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployments),
-    networkFolderName,
+    'hardhat',
     '.snapshotId'
   )
   const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -152,7 +144,7 @@ export const resetSphinxDeployments = async (
   }
   await writeSnapshotId(
     hre.ethers.provider,
-    networkFolderName,
+    'hardhat',
     hre.config.paths.deployments
   )
 }

@@ -13,7 +13,9 @@ const configPath = args[0]
 const ownerAddress = args[1]
 
 // This function is in its own file to minimize the number of dependencies that are imported, as
-// this speeds up the execution time of the script when called via FFI from Foundry.
+// this speeds up the execution time of the script when called via FFI from Foundry. Note that this
+// function must not rely on a provider object being available because a provider doesn't exist
+// outside of Solidity for the in-process Anvil node.
 ;(async () => {
   process.stderr.write = validationStderrWrite
   try {

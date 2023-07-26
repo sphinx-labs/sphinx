@@ -266,10 +266,10 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
     case 'setThreshold':
       return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
 
-    case 'transferDeployerOwnership':
+    case 'transferManagerOwnership':
       return utils.defaultAbiCoder.encode(['address'], [leaf.newOwner])
 
-    case 'upgradeDeployerImplementation':
+    case 'upgradeManagerImplementation':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes'],
         [leaf.impl, leaf.data]
@@ -281,10 +281,10 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
         [leaf.impl, leaf.data]
       )
 
-    case 'upgradeDeployerAndAuthImpl':
+    case 'upgradeManagerAndAuthImpl':
       return utils.defaultAbiCoder.encode(
         ['address', 'bytes', 'address', 'bytes'],
-        [leaf.deployerImpl, leaf.deployerData, leaf.authImpl, leaf.authData]
+        [leaf.managerImpl, leaf.managerData, leaf.authImpl, leaf.authData]
       )
 
     case 'setProposer':
@@ -476,7 +476,7 @@ export const makeActionBundleFromConfig = (
   configArtifacts: ConfigArtifacts,
   configCache: ConfigCache
 ): SphinxActionBundle => {
-  const managerAddress = parsedConfig.deployer
+  const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -588,7 +588,7 @@ export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts
 ): SphinxTargetBundle => {
-  const { deployer } = parsedConfig
+  const { manager } = parsedConfig
 
   const targets: SphinxTarget[] = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -602,7 +602,7 @@ export const makeTargetBundleFromConfig = (
         contractKindHash: contractKindHashes[contractConfig.kind],
         addr: contractConfig.address,
         implementation: getImplAddress(
-          deployer,
+          manager,
           bytecode,
           contractConfig.constructorArgs,
           abi
@@ -634,7 +634,7 @@ export const getAuthLeafsForChain = async (
   configCache: ConfigCache,
   prevConfig: CanonicalConfig
 ): Promise<Array<AuthLeaf>> => {
-  const { options, project } = parsedConfig
+  const { options, projectName } = parsedConfig
   const { proposers, chainIds } = options
 
   // Get the previous config to use in the rest of this function. If the previous config
@@ -644,13 +644,13 @@ export const getAuthLeafsForChain = async (
     ? prevConfig
     : getEmptyCanonicalConfig(
         [chainId],
-        prevConfig.deployer,
+        prevConfig.manager,
         prevConfig.options.orgId,
-        project
+        projectName
       )
 
   const {
-    deployer,
+    manager,
     chainStates: prevChainStates,
     options: prevOptions,
   } = prevConfigForChain
@@ -707,7 +707,7 @@ export const getAuthLeafsForChain = async (
   ) {
     const approvalLeaf: AuthLeaf = {
       chainId,
-      to: deployer,
+      to: manager,
       index,
       approval: {
         actionRoot: actionBundle.root,
@@ -730,7 +730,7 @@ export const getAuthLeafsForChain = async (
   if (firstProposalOccurred && addProposalLeaf) {
     const proposalLeaf: AuthLeaf = {
       chainId,
-      to: deployer,
+      to: manager,
       index: 0,
       numLeafs: index,
       leafType: 'propose',
@@ -740,7 +740,7 @@ export const getAuthLeafsForChain = async (
     // We always add a Setup leaf if the first proposal hasn't occurred yet.
     const setupLeaf: AuthLeaf = {
       chainId,
-      to: deployer,
+      to: manager,
       index: 0,
       proposers: proposersToSet,
       numLeafs: index,
@@ -752,7 +752,7 @@ export const getAuthLeafsForChain = async (
     if (addProposalLeaf) {
       const proposalLeaf: AuthLeaf = {
         chainId,
-        to: deployer,
+        to: manager,
         index: 1,
         numLeafs: index,
         leafType: 'propose',
@@ -809,7 +809,7 @@ export const findProposalRequestLeaf = (
 export const getProjectDeploymentForChain = async (
   leafs: Array<AuthLeaf>,
   chainId: number,
-  project: string,
+  projectName: string,
   configUri: string,
   bundles: SphinxBundles
 ): Promise<ProjectDeployment | undefined> => {
@@ -830,7 +830,7 @@ export const getProjectDeploymentForChain = async (
   return {
     chainId,
     deploymentId,
-    name: project,
+    name: projectName,
   }
 }
 

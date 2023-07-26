@@ -38,7 +38,7 @@ import {
   authAddress,
   authData,
   cre,
-  deployerAddress,
+  managerAddress,
   owners,
   threshold,
   ownerPrivateKey,
@@ -116,7 +116,7 @@ describe('Multi chain config', () => {
       const { parsedConfig: prevParsedConfig } =
         await getParsedConfigWithOptions(
           sampleUserConfig,
-          deployerAddress,
+          managerAddress,
           true,
           Object.values(rpcProviders)[0], // Use a random provider
           cre,
@@ -138,7 +138,7 @@ describe('Multi chain config', () => {
         // Convert the previous parsed config into a CanonicalConfig.
         return toCanonicalConfig(
           prevParsedConfig,
-          deployerAddress,
+          managerAddress,
           authAddress,
           rpcProviders
         )
@@ -184,8 +184,8 @@ describe('Multi chain config', () => {
         const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
         const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
-        const Deployer = new ethers.Contract(
-          deployerAddress,
+        const Manager = new ethers.Contract(
+          managerAddress,
           SphinxManagerABI,
           relayer
         )
@@ -216,7 +216,7 @@ describe('Multi chain config', () => {
         expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
 
         // Check that there is no active deployment before approving the deployment.
-        expect(await Deployer.activeDeploymentId()).equals(
+        expect(await Manager.activeDeploymentId()).equals(
           ethers.constants.HashZero
         )
 
@@ -232,7 +232,7 @@ describe('Multi chain config', () => {
         const { parsedConfig, configCache, configArtifacts } =
           await getParsedConfigWithOptions(
             newUserConfig,
-            deployerAddress,
+            managerAddress,
             true,
             provider,
             cre,
@@ -244,15 +244,15 @@ describe('Multi chain config', () => {
           configCache
         )
         const deploymentId = getDeploymentId(bundles, configUri)
-        expect(await Deployer.activeDeploymentId()).equals(deploymentId)
+        expect(await Manager.activeDeploymentId()).equals(deploymentId)
         authState = await Auth.authStates(root)
         expect(authState.status).equals(AuthStatus.COMPLETED)
 
         // Execute the deployment.
         const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-        await Deployer.claimDeployment()
+        await Manager.claimDeployment()
         const success = await executeDeployment(
-          Deployer,
+          Manager,
           bundles,
           blockGasLimit,
           configArtifacts,
@@ -261,7 +261,7 @@ describe('Multi chain config', () => {
 
         // Check that the deployment executed correctly.
         expect(success).equals(true)
-        const deployment: DeploymentState = await Deployer.deployments(
+        const deployment: DeploymentState = await Manager.deployments(
           deploymentId
         )
         expect(deployment.status).equals(DeploymentStatus.COMPLETED)

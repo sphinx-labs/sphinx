@@ -15,3 +15,4 @@ allow_paths = ["../contracts"]
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
+

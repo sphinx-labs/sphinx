@@ -58,7 +58,6 @@ interface ISphinxUtils {
     ) external returns (OptionalString memory);
 
     function ffiGetEncodedBundleInfo(
-        string memory _rpcUrl,
         ConfigCache memory _configCache,
         string memory _userConfigStr,
         string memory _rootFfiPath,

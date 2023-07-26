@@ -46,7 +46,7 @@ export const verifySphinxConfig = async (
   networkName: string,
   apiKey: string
 ) => {
-  const managerAddress = compilerConfig.deployer
+  const managerAddress = compilerConfig.manager
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any

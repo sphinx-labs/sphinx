@@ -1,7 +1,7 @@
 npx hardhat test test/ManagerUpgrade.spec.ts --config-path \
-  sphinx/manager-upgrade.config.ts --signer 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f &&
+  sphinx/manager-upgrade.config.ts --signer 8 &&
 npx hardhat test test/Validation.spec.ts test/Create3.spec.ts
-npx hardhat test test/Storage.spec.ts --log --config-path sphinx/Storage.config.ts --use-default-signer
+npx hardhat test test/Storage.spec.ts --log --config-path sphinx/Storage.config.ts --signer 0
 
 # We spin up a few nodes to simulate a multi-chain environment
 anvil --silent --chain-id 5 --port 42005 --host 0.0.0.0 &

@@ -26,7 +26,7 @@ import {
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { Signer } from 'ethers/lib/ethers'
+import { Signer, utils } from 'ethers/lib/ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { getSignerFromAddress } from './deployments'
@@ -55,17 +55,15 @@ subtask(TASK_SPHINX_FETCH)
 export const sphinxDeployTask = async (
   args: {
     configPath: string
+    signer: string
     silent?: boolean
     noCompile?: boolean
     newOwner?: string
     confirm?: boolean
-    signer?: string
-    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { configPath, newOwner, noCompile, confirm, signer, useDefaultSigner } =
-    args
+  const { configPath, newOwner, noCompile, confirm, signer } = args
   const silent = !!args.silent
 
   if (!noCompile) {
@@ -77,12 +75,13 @@ export const sphinxDeployTask = async (
   const spinner = ora({ isSilent: silent })
   spinner.start('Getting project info...')
 
-  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
 
   const provider = hre.ethers.provider
 
   const cre = createSphinxRuntime(
+    'hardhat',
     false,
     confirm,
     hre.config.paths.compilerConfigs,
@@ -121,13 +120,9 @@ export const sphinxDeployTask = async (
 task(TASK_SPHINX_DEPLOY)
   .setDescription('Deploys a Sphinx config file')
   .addParam('configPath', 'Path to the Sphinx config file to deploy')
-  .addOptionalParam(
+  .addParam(
     'signer',
-    'Address of the signer that deploys the Sphinx config.'
-  )
-  .addFlag(
-    'useDefaultSigner',
-    'Use the first signer in the Hardhat config to deploy the Sphinx config.'
+    'Account to deploy the Sphinx config. This can either be the index of the signer in the Hardhat config or the address of the signer.'
   )
   .addOptionalParam(
     'newOwner',
@@ -170,6 +165,7 @@ export const sphinxProposeTask = async (
   spinner.start(`Proposal in progress...`)
 
   const cre = createSphinxRuntime(
+    'hardhat',
     true,
     false, // Users must manually confirm proposals.
     hre.config.paths.compilerConfigs,
@@ -194,10 +190,6 @@ task(TASK_SPHINX_PROPOSE)
   .addParam('configPath', 'Path to the Sphinx config file')
   .addFlag('testnets', 'Propose on the testnets specified in the Sphinx config')
   .addFlag('mainnets', `Propose on the mainnets specified in the Sphinx config`)
-  .addFlag(
-    'dryRun',
-    'Dry run the proposal without signing or relaying it to the back-end.'
-  )
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')
   .setAction(sphinxProposeTask)
 
@@ -242,11 +234,7 @@ task(TASK_TEST)
   .addFlag('log', "Show Sphinx's deployment logs")
   .addOptionalParam(
     'signer',
-    'Address of the signer that deploys the Sphinx config.'
-  )
-  .addFlag(
-    'useDefaultSigner',
-    'Use the first signer in the Hardhat config to deploy the Sphinx config.'
+    'Account to deploy the Sphinx config. This can either be the index of the signer in the Hardhat config or the address of the signer.'
   )
   .addOptionalParam(
     'configPath',
@@ -255,16 +243,15 @@ task(TASK_TEST)
   .setAction(
     async (
       args: {
+        signer?: string
         log?: boolean
         noCompile?: boolean
         configPath?: string
-        signer?: string
-        useDefaultSigner?: boolean
       },
       hre: HardhatRuntimeEnvironment,
       runSuper
     ) => {
-      const { noCompile, configPath, signer, useDefaultSigner } = args
+      const { noCompile, configPath, signer } = args
       const silent = !args.log
 
       if (!configPath) {
@@ -272,14 +259,19 @@ task(TASK_TEST)
         return
       }
 
+      if (!signer) {
+        throw new Error(
+          'Must specify a signer via --signer when running Sphinx tests.'
+        )
+      }
+
+      const localNetwork = await isLocalNetwork(hre.ethers.provider)
       const networkName = await resolveNetworkName(
         hre.ethers.provider,
+        localNetwork,
         'hardhat'
       )
-      if (
-        (await isLocalNetwork(hre.ethers.provider)) ||
-        (await isHardhatFork(hre.ethers.provider))
-      ) {
+      if (localNetwork || (await isHardhatFork(hre.ethers.provider))) {
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
@@ -311,7 +303,6 @@ task(TASK_TEST)
               silent,
               noCompile: true,
               signer,
-              useDefaultSigner,
               confirm: true,
             },
             hre
@@ -335,12 +326,13 @@ export const sphinxCancelTask = async (
 ) => {
   const { configPath } = args
 
-  const { project } = await readUserConfig(configPath)
+  const { projectName } = await readUserConfig(configPath)
 
   const provider = hre.ethers.provider
   const signer = provider.getSigner()
 
   const cre = await createSphinxRuntime(
+    'hardhat',
     false,
     true,
     hre.config.paths.compilerConfigs,
@@ -348,7 +340,7 @@ export const sphinxCancelTask = async (
     false
   )
 
-  await sphinxCancelAbstractTask(provider, signer, project, 'hardhat', cre)
+  await sphinxCancelAbstractTask(provider, signer, projectName, 'hardhat', cre)
 }
 
 task(TASK_SPHINX_CANCEL)
@@ -358,24 +350,17 @@ task(TASK_SPHINX_CANCEL)
 
 export const exportProxyTask = async (
   args: {
-    project: string
+    projectName: string
+    signer: string
     configPath: string
     referenceName: string
     silent: boolean
-    signer?: string
-    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const {
-    configPath,
-    project,
-    referenceName,
-    silent,
-    signer,
-    useDefaultSigner,
-  } = args
+  const { configPath, projectName, referenceName, silent, signer } = args
   const cre = await createSphinxRuntime(
+    'hardhat',
     false,
     true,
     hre.config.paths.compilerConfigs,
@@ -385,7 +370,7 @@ export const exportProxyTask = async (
 
   const provider = hre.ethers.provider
 
-  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
 
   const { parsedConfig } = await getParsedConfig(
@@ -399,7 +384,7 @@ export const exportProxyTask = async (
   await sphinxExportProxyAbstractTask(
     provider,
     owner,
-    project,
+    projectName,
     referenceName,
     'hardhat',
     parsedConfig,
@@ -414,10 +399,6 @@ export const exportProxyTask = async (
 //     'Path to the Sphinx config file for the project that owns the target contract'
 //   )
 //   .addOptionalParam('signer', 'Address of the signer to use.')
-//   .addFlag(
-//     'useDefaultSigner',
-//     'Use the first signer in the Hardhat config file.'
-//   )
 //   .addParam(
 //     'referenceName',
 //     'Reference name of the contract that should be transferred to you'
@@ -427,22 +408,22 @@ export const exportProxyTask = async (
 
 export const importProxyTask = async (
   args: {
-    project: string
+    projectName: string
+    signer: string
     proxy: string
     silent: boolean
-    signer?: string
-    useDefaultSigner?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { project, proxy, silent, signer, useDefaultSigner } = args
+  const { projectName, proxy, silent, signer } = args
 
-  const owner = await resolveOwner(hre, signer, useDefaultSigner)
+  const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
 
   const provider = hre.ethers.provider
 
   const cre = await createSphinxRuntime(
+    'hardhat',
     false,
     true,
     hre.config.paths.compilerConfigs,
@@ -451,7 +432,7 @@ export const importProxyTask = async (
   )
 
   await sphinxImportProxyAbstractTask(
-    project,
+    projectName,
     provider,
     owner,
     proxy,
@@ -468,10 +449,6 @@ export const importProxyTask = async (
 //     'Path to the Sphinx config file for the project that you would like to own the target contract'
 //   )
 //   .addOptionalParam('signer', 'Address of the signer to use.')
-//   .addFlag(
-//     'useDefaultSigner',
-//     'Use the first signer in the Hardhat config file.'
-//   )
 //   .addParam(
 //     'proxy',
 //     'Address of the contract that should have its ownership transferred to Sphinx.'
@@ -481,18 +458,17 @@ export const importProxyTask = async (
 
 export const sphinxInitTask = async (
   args: {
-    silent?: boolean
+    quickStart?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
-  const { silent } = args
-  const spinner = ora({ isSilent: silent })
+  const spinner = ora()
   spinner.start('Initializing Sphinx project...')
 
   // Get the Solidity compiler version from the Hardhat config.
   const [{ version: solcVersion }] = hre.config.solidity.compilers
 
-  // True if the Hardhat project is TypeScript and false if it's JavaScript.
+  // True if the Hardhat config is TypeScript and false if it's JavaScript.
   const isTypeScriptProject =
     path.extname(hre.config.paths.configFile) === '.ts'
 
@@ -501,6 +477,7 @@ export const sphinxInitTask = async (
     hre.config.paths.sources,
     hre.config.paths.tests,
     isTypeScriptProject,
+    false,
     solcVersion,
     'hardhat'
   )
@@ -510,25 +487,16 @@ export const sphinxInitTask = async (
 
 task(TASK_SPHINX_INIT)
   .setDescription('Sets up a sample Sphinx project.')
-  .addFlag('silent', "Hide Sphinx's logs")
   .setAction(sphinxInitTask)
 
-const resolveOwner = async (
+const resolveSigner = async (
   hre: HardhatRuntimeEnvironment,
-  signerAddress?: string,
-  useDefaultSigner?: boolean
+  signerStr: string
 ): Promise<Signer> => {
-  if (!signerAddress && !useDefaultSigner) {
-    throw new Error(
-      'Must specify either --signer <address> or --use-default-signer'
-    )
-  } else if (signerAddress && useDefaultSigner) {
-    throw new Error(
-      'Cannot specify both --signer <address> and --use-default-signer'
-    )
-  } else if (signerAddress) {
-    return getSignerFromAddress(hre, signerAddress)
+  if (utils.isAddress(signerStr)) {
+    return getSignerFromAddress(hre, signerStr)
   } else {
-    return hre.ethers.provider.getSigner()
+    const signerIndex = Number(signerStr)
+    return hre.ethers.provider.getSigner(signerIndex)
   }
 }

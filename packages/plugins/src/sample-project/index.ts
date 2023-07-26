@@ -8,12 +8,13 @@ import * as path from 'path'
 import { Integration } from '@sphinx/core'
 
 import {
+  forgeConfig,
+  sampleDotEnvFile,
   sampleSphinxFileJavaScript,
   sampleSphinxFileTypeScript,
 } from './sample-config-files'
 import {
   getSampleContractFile,
-  getSampleFoundryDeployFile,
   getSampleFoundryTestFile,
 } from './sample-contract'
 import {
@@ -26,7 +27,6 @@ export const sampleConfigFileNameTypeScript = 'HelloSphinx.config.ts'
 export const sampleConfigNameJavaScript = 'HelloSphinx.config.js'
 
 export const foundryTestFileName = 'HelloSphinx.t.sol'
-export const foundryScriptFileName = 'HelloSphinx.s.sol'
 
 // Hardhat test file names
 export const hhTestFileNameTypeScript = 'HelloSphinx.spec.ts'
@@ -37,10 +37,14 @@ export const writeSampleProjectFiles = (
   contractDirPath: string,
   testDirPath: string,
   isTypeScriptProject: boolean,
+  quickStart: boolean,
   solcVersion: string,
-  integration: Integration,
-  scriptDirPath?: string
+  integration: Integration
 ) => {
+  if (quickStart && integration === 'hardhat') {
+    throw new Error('Quick start is not supported for Hardhat projects.')
+  }
+
   // Create the Sphinx config folder if it doesn't exist
   if (!fs.existsSync(configDirPath)) {
     fs.mkdirSync(configDirPath)
@@ -99,15 +103,9 @@ export const writeSampleProjectFiles = (
       )
     }
   } else if (integration === 'foundry') {
-    if (!scriptDirPath) {
-      throw new Error(
-        'Script path is required for foundry integration. Should never happen.'
-      )
-    }
-
-    // Create a folder for Forge script files if it doesn't exist
-    if (!fs.existsSync(scriptDirPath)) {
-      fs.mkdirSync(scriptDirPath)
+    if (quickStart) {
+      fs.writeFileSync('foundry.toml', forgeConfig)
+      fs.writeFileSync('.env', sampleDotEnvFile)
     }
 
     // Check if the sample test file exists.
@@ -119,15 +117,7 @@ export const writeSampleProjectFiles = (
         getSampleFoundryTestFile(solcVersion, configPath)
       )
     }
-
-    // Check if the sample test file exists.
-    const scriptFilePath = path.join(scriptDirPath, foundryScriptFileName)
-    if (!fs.existsSync(scriptFilePath)) {
-      // Create the sample test file.
-      fs.writeFileSync(
-        scriptFilePath,
-        getSampleFoundryDeployFile(solcVersion, configPath)
-      )
-    }
+  } else {
+    throw new Error(`Unknown integration: ${integration}. Should never happen.`)
   }
 }

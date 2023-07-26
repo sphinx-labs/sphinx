@@ -18,7 +18,7 @@ const projectName = 'Create3'
 const referenceName = 'Stateless'
 
 const userConfig: UserConfig = {
-  project: projectName,
+  projectName,
   contracts: {
     [referenceName]: {
       contract: 'Stateless',
@@ -42,6 +42,7 @@ describe('Create3', () => {
     const provider = hre.ethers.provider
 
     const cre = createSphinxRuntime(
+      'hardhat',
       false,
       true,
       hre.config.paths.compilerConfigs,
@@ -101,16 +102,16 @@ describe('Create3', () => {
       newConfigArtifacts
     )
 
-    const deployerAddress = getSphinxManagerAddress(ownerAddress, projectName)
+    const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
 
     Stateless = await hre.ethers.getContractAt(
       'Stateless',
-      getTargetAddress(deployerAddress, referenceName),
+      getTargetAddress(managerAddress, referenceName),
       owner
     )
     StatelessWithSalt = await hre.ethers.getContractAt(
       'Stateless',
-      getTargetAddress(deployerAddress, referenceName, salt),
+      getTargetAddress(managerAddress, referenceName, salt),
       owner
     )
   })

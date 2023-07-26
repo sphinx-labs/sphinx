@@ -4,24 +4,46 @@ import { expect } from 'chai'
 import { Signer, Contract } from 'ethers'
 
 describe('HelloSphinx', () => {
-  const projectName: string = 'MyFirstProject'
-  const contractName: string = 'MyContract'
+  const projectName: string = 'MyProject'
   const signer: Signer = ethers.provider.getSigner()
 
-  let MyFirstContract: Contract
+  let FirstContract: Contract
+  let SecondContract: Contract
   beforeEach(async () => {
-    // You must reset your Sphinx deployments to their initial state here
+    // Resets the contracts to their initial state.
     await sphinx.reset()
 
-    MyFirstContract = await sphinx.getContract(
+    // Gets the deployed contracts.
+    FirstContract = await sphinx.getContract(
       projectName,
-      contractName,
+      "ContractOne",
+      signer
+    )
+    SecondContract = await sphinx.getContract(
+      projectName,
+      "ContractTwo",
       signer
     )
   })
 
-  it('initializes correctly', async () => {
-    expect(await MyFirstContract.number()).equals(1)
+  it('initializes first constructor', async () => {
+    expect(await FirstContract.number()).equals(1)
+    expect(await FirstContract.contractOne()).equals(FirstContract.address)
+  })
+
+  it('initializes second constructor', async () => {
+    expect(await SecondContract.number()).equals(2)
+    expect(await SecondContract.contractOne()).equals(FirstContract.address)
+  })
+
+  it('increments first number', async () => {
+    await FirstContract.increment()
+    expect(await FirstContract.number()).equals(2)
+  })
+
+  it('increments second number', async () => {
+    await SecondContract.increment()
+    expect(await SecondContract.number()).equals(3)
   })
 })
 `
@@ -32,24 +54,46 @@ const { expect } = require('chai')
 const { Signer, Contract } = require('ethers')
 
 describe('HelloSphinx', () => {
-  const projectName = 'MyFirstProject'
-  const contractName = 'MyContract'
+  const projectName = 'MyProject'
   const signer = ethers.provider.getSigner()
 
-  let MyFirstContract
+  let FirstContract
+  let SecondContract
   beforeEach(async () => {
-    // You must reset your Sphinx deployments to their initial state here
+    // Reset the contracts to their initial state.
     await sphinx.reset()
 
-    MyFirstContract = await sphinx.getContract(
+    // Get the deployed contracts.
+    FirstContract = await sphinx.getContract(
       projectName,
-      contractName,
+      "ContractOne",
+      signer
+    )
+    SecondContract = await sphinx.getContract(
+      projectName,
+      "ContractTwo",
       signer
     )
   })
 
-  it('initializes correctly', async () => {
-    expect(await MyFirstContract.number()).equals(1)
+  it('initializes first constructor', async () => {
+    expect(await FirstContract.number()).equals(1)
+    expect(await FirstContract.contractOne()).equals(FirstContract.address)
+  })
+
+  it('initializes second constructor', async () => {
+    expect(await SecondContract.number()).equals(2)
+    expect(await SecondContract.contractOne()).equals(FirstContract.address)
+  })
+
+  it('increments first number', async () => {
+    await FirstContract.increment()
+    expect(await FirstContract.number()).equals(2)
+  })
+
+  it('increments second number', async () => {
+    await SecondContract.increment()
+    expect(await SecondContract.number()).equals(3)
   })
 })
 `

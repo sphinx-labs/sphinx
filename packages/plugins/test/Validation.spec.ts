@@ -32,6 +32,7 @@ describe('Validate', () => {
     await ensureSphinxInitialized(provider, signer)
 
     const cre = createSphinxRuntime(
+      'hardhat',
       false,
       true,
       hre.config.paths.compilerConfigs,

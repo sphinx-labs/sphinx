@@ -41,8 +41,6 @@
     "url": "https://github.com/smartcontracts/sphinx.git"
   },
   "dependencies": {
-    "@sphinx/contracts": "^0.8.2",
-    "@sphinx/core": "^0.11.0",
     "@eth-optimism/contracts": "^0.5.40",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethereumjs/common": "^3.0.1",
@@ -51,9 +49,14 @@
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/upgrades-core": "^1.24.0",
     "@prb/math": "^4.0.0",
+    "@sphinx/contracts": "^0.8.2",
+    "@sphinx/core": "^0.11.0",
     "@swc/core": "^1.3.62",
+    "core-js": "^3.31.1",
     "dotenv": "^16.0.3",
+    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "ethers": "^5.6.9",
+    "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",
     "ipfs-http-client": "56.0.3",
     "ipfs-only-hash": "^4.0.0",
     "node-fetch": "^2.6.7",
@@ -72,8 +75,6 @@
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@types/yargs": "^17.0.24",
     "chai": "^4.3.7",
-    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",
     "hardhat": "^2.10.0"
   },
   "peerDependencies": {

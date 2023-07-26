@@ -4,7 +4,7 @@ import { UserConfig } from '@sphinx/core'
 // with a different owner because otherwise the SphinxManager's version will
 // be altered for all subsequent tests in the test suite.
 const config: UserConfig = {
-  project: 'ManagerUpgrade',
+  projectName: 'ManagerUpgrade',
   contracts: {
     Stateless: {
       contract: 'Stateless',

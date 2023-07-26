@@ -58,7 +58,7 @@ export const writeDeploymentArtifacts = async (
 ) => {
   writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
 
-  const managerAddress = parsedConfig.deployer
+  const managerAddress = parsedConfig.manager
 
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {

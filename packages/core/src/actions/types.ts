@@ -210,13 +210,13 @@ interface SetThreshold extends BaseAuthLeaf {
   newThreshold: number
 }
 
-interface TransferDeployerOwnership extends BaseAuthLeaf {
-  leafType: 'transferDeployerOwnership'
+interface TransferManagerOwnership extends BaseAuthLeaf {
+  leafType: 'transferManagerOwnership'
   newOwner: string
 }
 
-interface UpgradeDeployerImplementation extends BaseAuthLeaf {
-  leafType: 'upgradeDeployerImplementation'
+interface UpgradeManagerImplementation extends BaseAuthLeaf {
+  leafType: 'upgradeManagerImplementation'
   impl: string
   data: string
 }
@@ -227,10 +227,10 @@ interface UpgradeAuthImplementation extends BaseAuthLeaf {
   data: string
 }
 
-interface UpgradeAuthAndDeployerImpl extends BaseAuthLeaf {
-  leafType: 'upgradeDeployerAndAuthImpl'
-  deployerImpl: string
-  deployerData: string
+interface UpgradeAuthAndManagerImpl extends BaseAuthLeaf {
+  leafType: 'upgradeManagerAndAuthImpl'
+  managerImpl: string
+  managerData: string
   authImpl: string
   authData: string
 }
@@ -261,10 +261,10 @@ export type AuthLeaf =
   | ExportProxy
   | SetOwner
   | SetThreshold
-  | TransferDeployerOwnership
-  | UpgradeDeployerImplementation
+  | TransferManagerOwnership
+  | UpgradeManagerImplementation
   | UpgradeAuthImplementation
-  | UpgradeAuthAndDeployerImpl
+  | UpgradeAuthAndManagerImpl
   | SetProposer
   | ApproveDeployment
   | CancelActiveDeployment
@@ -291,7 +291,7 @@ export type ProposalRequest = {
   owners: string[]
   threshold: number
   authAddress: string
-  deployerAddress: string
+  managerAddress: string
   deploymentName: string
   chainIds: Array<number>
   canonicalConfig: string

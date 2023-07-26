@@ -20,7 +20,7 @@ export const getMinimalConfig = (
   userConfig: UserSphinxConfig,
   owner: string
 ): MinimalConfig => {
-  const deployer = getSphinxManagerAddress(owner, userConfig.project)
+  const manager = getSphinxManagerAddress(owner, userConfig.projectName)
 
   const minimalContractConfigs: Array<MinimalContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
@@ -29,7 +29,7 @@ export const getMinimalConfig = (
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ?? getTargetAddress(deployer, referenceName, salt)
+      address ?? getTargetAddress(manager, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
@@ -39,9 +39,9 @@ export const getMinimalConfig = (
     })
   }
   return {
-    deployer,
+    manager,
     owner,
-    projectName: userConfig.project,
+    projectName: userConfig.projectName,
     contracts: minimalContractConfigs,
   }
 }

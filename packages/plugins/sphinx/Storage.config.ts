@@ -10,7 +10,7 @@ import {
 export const projectName = 'Storage'
 
 const config: UserConfig = {
-  project: projectName,
+  projectName,
   contracts: {
     MyStorage: {
       contract: 'contracts/test/ContainsStorage.sol:Storage',

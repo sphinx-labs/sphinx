@@ -1,48 +1,36 @@
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 import { Integration } from '../constants'
+import { SUPPORTED_NETWORKS } from '../networks'
 
 export const resolveNetworkName = async (
   provider: ethers.providers.Provider,
+  isLocalNetwork: boolean,
   integration: Integration
 ) => {
-  const { name: networkName } = await provider.getNetwork()
-  if (networkName === 'unknown') {
+  if (isLocalNetwork) {
     if (integration === 'hardhat') {
       return 'hardhat'
     } else if (integration === 'foundry') {
       return 'anvil'
+    } else {
+      throw new Error('Unknown integration. Should never happen.')
     }
   }
-  return networkName
-}
 
-export const successfulProposalMessage = async (
-  provider: ethers.providers.JsonRpcProvider,
-  amount: BigNumber,
-  configPath: string,
-  integration: Integration
-): Promise<string> => {
-  const networkName = await resolveNetworkName(provider, integration)
-
-  if (amount.gt(0)) {
-    return `Project successfully proposed on ${networkName}. You can now fund and approve the deployment via the UI.`
+  const { chainId, name: networkName } = await provider.getNetwork()
+  if (networkName !== 'unknown') {
+    return networkName
   } else {
-    return `Project successfully proposed and funded on ${networkName}. You can now approve the deployment via the UI.`
-  }
-}
-
-export const alreadyProposedMessage = async (
-  provider: ethers.providers.JsonRpcProvider,
-  amount: BigNumber,
-  configPath: string,
-  integration: Integration
-): Promise<string> => {
-  const networkName = await resolveNetworkName(provider, integration)
-
-  if (amount.gt(0)) {
-    return `Project has already been proposed on ${networkName}. Fund and approve the deployment via the UI.`
-  } else {
-    return `Project has already been proposed and funded on ${networkName}. Approve the deployment via the UI.`
+    const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
+      ([, supportedChainId]) => supportedChainId === chainId
+    )
+    if (supportedNetwork) {
+      return supportedNetwork[0]
+    } else {
+      throw new Error(
+        `Unsupported network ${networkName} with chainId ${chainId}`
+      )
+    }
   }
 }

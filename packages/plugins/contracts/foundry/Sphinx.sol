@@ -78,7 +78,14 @@ contract Sphinx is Script {
         silent = true;
     }
 
-    // This is the entry point for the Sphinx deploy command.
+    /**
+     * @notice This is the entry point for the Sphinx deploy command. It makes a few FFI calls to
+     *         TypeScript logic that's shared with the Hardhat plugin. Note that this command must
+     *         perform all read and write operations to the blockchain from within Solidity instead
+     *         of using a provider object in TypeScript. Otherwise, an error will be thrown because
+     *         we can't create a provider object for the in-process Anvil node from outside of
+     *         Solidity.
+     */
     function deploy(string memory _configPath, string memory _rpcUrl) public {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
@@ -113,7 +120,7 @@ contract Sphinx is Script {
         Configs memory configs = ffiGetConfigs(_configPath, owner);
 
         ISphinxRegistry registry = utils.getSphinxRegistry();
-        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
+        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.manager));
 
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
@@ -129,12 +136,7 @@ contract Sphinx is Script {
         require(success, string(utils.removeSelector(retdata)));
         ConfigCache memory configCache = abi.decode(retdata, (ConfigCache));
 
-        BundleInfo memory bundleInfo = getBundleInfo(
-            _rpcUrl,
-            configCache,
-            configs.userConfigStr,
-            owner
-        );
+        BundleInfo memory bundleInfo = getBundleInfo(configCache, configs.userConfigStr, owner);
 
         require(
             owner == configs.minimalConfig.owner,
@@ -248,7 +250,6 @@ contract Sphinx is Script {
     }
 
     function getBundleInfo(
-        string memory _rpcUrl,
         ConfigCache memory _configCache,
         string memory _userConfigStr,
         address _owner
@@ -256,7 +257,6 @@ contract Sphinx is Script {
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.ffiGetEncodedBundleInfo.selector,
-                _rpcUrl,
                 _configCache,
                 _userConfigStr,
                 rootFfiPath,

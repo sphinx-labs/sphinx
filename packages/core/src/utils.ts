@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 
+import yesno from 'yesno'
 import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
@@ -235,18 +236,15 @@ export const getSphinxRegistryReadOnly = (
   return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
 }
 
-export const getSphinxManager = (
-  deployer: string,
-  signer: Signer
-): Contract => {
-  return new Contract(deployer, SphinxManagerABI, signer)
+export const getSphinxManager = (manager: string, signer: Signer): Contract => {
+  return new Contract(manager, SphinxManagerABI, signer)
 }
 
 export const getSphinxManagerReadOnly = (
-  deployer: string,
+  manager: string,
   provider: providers.Provider
 ): Contract => {
-  return new Contract(deployer, SphinxManagerABI, provider)
+  return new Contract(manager, SphinxManagerABI, provider)
 }
 
 export const sphinxLog = (
@@ -1196,13 +1194,13 @@ export const getProjectConfigInfo = async (
   assertValidConfigOptions(userConfig.options, cre, failureAction)
   const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
 
-  const { project } = userConfig
+  const { projectName } = userConfig
 
   const prevConfig = await getCanonicalConfig(
     parsedConfigOptions.orgId,
     isTestnet,
     apiKey,
-    userConfig.project
+    userConfig.projectName
   )
 
   if (prevConfig) {
@@ -1213,13 +1211,13 @@ export const getProjectConfigInfo = async (
     }
   } else {
     const { owners, threshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(owners, threshold, project)
-    const deployer = getSphinxManagerAddress(auth, project)
+    const auth = getAuthAddress(owners, threshold, projectName)
+    const manager = getSphinxManagerAddress(auth, projectName)
     const emptyConfig = getEmptyCanonicalConfig(
       chainIds,
-      deployer,
+      manager,
       orgId,
-      project
+      projectName
     )
     return { prevConfig: emptyConfig, isNewConfig: true, chainIds }
   }
@@ -1309,9 +1307,9 @@ export const relayIPFSCommit = async (
  */
 export const getEmptyCanonicalConfig = (
   chainIds: Array<number>,
-  deployer: string,
+  manager: string,
   orgId: string,
-  project: string
+  projectName: string
 ): CanonicalConfig => {
   if (chainIds.length === 0) {
     throw new Error(`Must provide at least one chain ID.`)
@@ -1327,8 +1325,8 @@ export const getEmptyCanonicalConfig = (
   })
 
   return {
-    project,
-    deployer,
+    projectName,
+    manager,
     options: {
       orgId,
       owners: [],
@@ -1349,11 +1347,11 @@ export const getEmptyCanonicalConfig = (
  */
 export const toCanonicalConfig = async (
   parsedConfig: ParsedConfigWithOptions,
-  deployerAddress: string,
+  managerAddress: string,
   authAddress: string,
   rpcProviders: Record<string, ethers.providers.JsonRpcProvider>
 ): Promise<CanonicalConfig> => {
-  const { project } = parsedConfig
+  const { projectName } = parsedConfig
   const chainStates = {}
 
   for (const chainId of parsedConfig.options.chainIds) {
@@ -1381,8 +1379,8 @@ export const toCanonicalConfig = async (
   }
 
   return {
-    project,
-    deployer: deployerAddress,
+    projectName,
+    manager: managerAddress,
     options: parsedConfig.options,
     contracts: parsedConfig.contracts,
     chainStates,
@@ -1395,7 +1393,7 @@ export const getAuthLeafs = async (
   rpcProviders: {
     [network: string]: ethers.providers.JsonRpcProvider
   },
-  deployerAddress: string,
+  managerAddress: string,
   networks: Array<string>,
   isTestnet: boolean,
   cre: SphinxRuntimeEnvironment,
@@ -1408,7 +1406,7 @@ export const getAuthLeafs = async (
     const { parsedConfig, configCache, configArtifacts } =
       await getParsedConfigWithOptions(
         userConfig,
-        deployerAddress,
+        managerAddress,
         isTestnet,
         provider,
         cre,
@@ -1472,4 +1470,14 @@ export const arraysEqual = (a: Array<any>, b: Array<any>): boolean => {
  */
 export const hyperlink = (text: string, url: string): string => {
   return `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
+}
+
+export const userConfirmation = async (question: string) => {
+  const confirmed = await yesno({
+    question,
+  })
+  if (!confirmed) {
+    console.error(`Denied by the user.`)
+    process.exit(1)
+  }
 }
