@@ -56,3 +56,11 @@ export const supportedTestnetIds = Object.values(SUPPORTED_TESTNETS)
 export type SupportedMainnetChainId = 1 | 10 | 42161 | 137 | 56 | 100
 export type SupportedTestnetChainId = 5 | 420 | 80001 | 97 | 421613 | 10200
 export type SupportedChainId = SupportedMainnetChainId | SupportedTestnetChainId
+
+// Maps a chain ID to the USDC address on the network.
+export const USDC_ADDRESSES: { [chainId: string]: string } = {
+  // Optimism Goerli:
+  420: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E',
+  // Optimism Mainnet:
+  10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+}

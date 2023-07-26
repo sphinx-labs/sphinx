@@ -23,7 +23,10 @@ export const executeDeployment = async (
   configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   logger?: Logger | undefined
-): Promise<boolean> => {
+): Promise<{
+  success: boolean
+  receipts: ethers.providers.TransactionReceipt[]
+}> => {
   const { actionBundle, targetBundle } = bundles
 
   logger?.info(`[Sphinx]: preparing to execute the project...`)
@@ -40,7 +43,7 @@ export const executeDeployment = async (
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
   logger?.info(`[Sphinx]: executing 'DEPLOY_CONTRACT' actions...`)
-  const status = await executeBatchActions(
+  const { status, receipts } = await executeBatchActions(
     deployContractActionBundle,
     manager,
     maxGasLimit,
@@ -50,26 +53,28 @@ export const executeDeployment = async (
   )
   if (status === DeploymentStatus.FAILED) {
     logger?.error(`[Sphinx]: failed to execute 'DEPLOY_CONTRACT' actions`)
-    return false
+    return { success: false, receipts }
   } else if (status === DeploymentStatus.COMPLETED) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
-    return true
+    return { success: true, receipts }
   } else {
     logger?.info(`[Sphinx]: executed 'DEPLOY_CONTRACT' actions`)
   }
 
   logger?.info(`[Sphinx]: initiating upgrade...`)
-  await (
-    await manager.initiateUpgrade(
-      targetBundle.targets.map((target) => target.target),
-      targetBundle.targets.map((target) => target.siblings),
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
+  receipts.push(
+    await (
+      await manager.initiateUpgrade(
+        targetBundle.targets.map((target) => target.target),
+        targetBundle.targets.map((target) => target.siblings),
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  )
   logger?.info(`[Sphinx]: initiated upgrde`)
 
   logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
-  await executeBatchActions(
+  const { receipts: setStorageReceipts } = await executeBatchActions(
     setStorageActionBundle,
     manager,
     maxGasLimit,
@@ -77,20 +82,23 @@ export const executeDeployment = async (
     provider,
     logger
   )
+  receipts.push(...setStorageReceipts)
   logger?.info(`[Sphinx]: executed 'SET_STORAGE' actions`)
 
   logger?.info(`[Sphinx]: finalizing upgrade...`)
-  await (
-    await manager.finalizeUpgrade(
-      targetBundle.targets.map((target) => target.target),
-      targetBundle.targets.map((target) => target.siblings),
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
+  receipts.push(
+    await (
+      await manager.finalizeUpgrade(
+        targetBundle.targets.map((target) => target.target),
+        targetBundle.targets.map((target) => target.siblings),
+        await getGasPriceOverrides(provider)
+      )
+    ).wait()
+  )
 
   // We're done!
   logger?.info(`[Sphinx]: successfully deployed project`)
-  return true
+  return { success: true, receipts }
 }
 
 /**
@@ -147,7 +155,12 @@ const executeBatchActions = async (
   configArtifacts: ConfigArtifacts,
   provider: providers.Provider,
   logger?: Logger | undefined
-): Promise<DeploymentStatus> => {
+): Promise<{
+  status: DeploymentStatus
+  receipts: ethers.providers.TransactionReceipt[]
+}> => {
+  const receipts: ethers.providers.TransactionReceipt[] = []
+
   // Pull the deployment state from the contract so we're guaranteed to be up to date.
   const activeDeploymentId = await manager.activeDeploymentId()
   let state: DeploymentState = await manager.deployments(activeDeploymentId)
@@ -160,7 +173,7 @@ const executeBatchActions = async (
   // We can return early if there are no actions to execute.
   if (filtered.length === 0) {
     logger?.info('[Sphinx]: no actions left to execute')
-    return state.status
+    return { status: state.status, receipts }
   }
 
   let executed = 0
@@ -183,7 +196,7 @@ const executeBatchActions = async (
     )
 
     // Execute the batch.
-    await (
+    const tx = await (
       await manager.executeActions(
         batch.map((action) => action.action),
         batch.map((action) => action.proof.actionIndex),
@@ -191,17 +204,18 @@ const executeBatchActions = async (
         await getGasPriceOverrides(provider)
       )
     ).wait()
+    receipts.push(tx)
 
     state = await manager.deployments(activeDeploymentId)
     if (state.status === DeploymentStatus.FAILED) {
-      return state.status
+      return { status: state.status, receipts }
     }
 
     // Move on to the next batch if necessary.
     executed += batchSize
   }
 
-  return state.status
+  return { status: state.status, receipts }
 }
 
 /**

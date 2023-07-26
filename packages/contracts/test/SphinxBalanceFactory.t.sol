@@ -13,18 +13,25 @@ contract SphinxBalanceFactory_Test is Test {
         string indexed orgIdHash,
         address owner,
         string orgId,
-        address caller
+        address caller,
+        address balance,
+        address escrow
     );
+
+    string alchemyApiKey = vm.envString("ALCHEMY_API_KEY");
+    string optimismRpcUrl =
+        string(abi.encodePacked("https://opt-mainnet.g.alchemy.com/v2/", alchemyApiKey));
 
     SphinxBalanceFactory factory;
 
-    address usdc = address(1);
+    address usdc = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
     address managedService = address(2);
     address owner = address(3);
     address caller = address(4);
     string orgId = "test-org-id";
 
     function setUp() public {
+        vm.createSelectFork(optimismRpcUrl);
         factory = new SphinxBalanceFactory(usdc, managedService);
     }
 
@@ -45,13 +52,6 @@ contract SphinxBalanceFactory_Test is Test {
     }
 
     function test_deploy_succeeds() external {
-        vm.expectEmit(address(factory));
-        emit BalanceFactoryDeployment(orgId, owner, orgId, caller);
-
-        vm.prank(caller);
-        factory.deploy(orgId, owner);
-        assertTrue(factory.isDeployed(keccak256(abi.encode(orgId))));
-
         bytes32 salt = keccak256(abi.encode(orgId));
         bytes memory escrowInitCode = abi.encodePacked(
             type(SphinxEscrow).creationCode,
@@ -69,6 +69,13 @@ contract SphinxBalanceFactory_Test is Test {
             keccak256(balanceInitCode),
             address(factory)
         );
+
+        vm.expectEmit(address(factory));
+        emit BalanceFactoryDeployment(orgId, owner, orgId, caller, balance, escrow);
+
+        vm.prank(caller);
+        factory.deploy(orgId, owner);
+        assertTrue(factory.isDeployed(keccak256(abi.encode(orgId))));
 
         assertEq(Ownable(balance).owner(), owner);
         assertEq(address(SphinxBalance(balance).usdc()), usdc);

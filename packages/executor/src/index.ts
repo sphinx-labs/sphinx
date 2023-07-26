@@ -24,6 +24,7 @@ import { GraphQLClient } from 'graphql-request'
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
+const defaultURL = 'http://localhost:8545'
 export class SphinxExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
@@ -45,7 +46,7 @@ export class SphinxExecutor extends BaseServiceV2<
         url: {
           desc: 'Target deployment network access url',
           validator: validators.str,
-          default: 'http://localhost:8545',
+          default: defaultURL,
         },
         network: {
           desc: 'Target deployment network name',
@@ -88,6 +89,12 @@ export class SphinxExecutor extends BaseServiceV2<
       name: 'Logger',
       level: options.logLevel,
     })
+
+    if (options.url === defaultURL && process.env.CHAIN_ID) {
+      options.url = `http://localhost:${
+        42000 + (parseInt(process.env.CHAIN_ID, 10) % 1000)
+      }`
+    }
 
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)

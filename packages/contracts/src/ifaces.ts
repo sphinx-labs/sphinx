@@ -20,6 +20,7 @@ export const AuthProxyArtifact = require('../artifacts/contracts/SphinxAuthProxy
 export const BalanceFactoryArtifact = require('../artifacts/contracts/SphinxBalanceFactory.sol/SphinxBalanceFactory.json')
 export const BalanceArtifact = require('../artifacts/contracts/SphinxBalance.sol/SphinxBalance.json')
 export const EscrowArtifact = require('../artifacts/contracts/SphinxEscrow.sol/SphinxEscrow.json')
+export const ERC20Artifact = require('../artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json')
 
 const directoryPath = path.join(__dirname, '../artifacts/build-info')
 const fileNames = fs.readdirSync(directoryPath)
@@ -48,3 +49,4 @@ export const AuthProxyABI = AuthProxyArtifact.abi
 export const BalanceFactoryABI = BalanceFactoryArtifact.abi
 export const BalanceABI = BalanceArtifact.abi
 export const EscrowABI = EscrowArtifact.abi
+export const ERC20ABI = ERC20Artifact.abi

@@ -1,6 +1,6 @@
 import { UserConfigWithOptions } from '@sphinx/core'
 
-const ownerAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+const ownerAddress = '0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51'
 
 // Used for testing the website, please do not delete
 const config: UserConfigWithOptions = {

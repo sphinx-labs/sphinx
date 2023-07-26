@@ -29,12 +29,19 @@ type Contract = {
   address: string
 }
 
+export type Transaction = {
+  txHash: string
+  cost: string
+  chainId: number
+}
+
 export const updateDeployment = async (
   client: GraphQLClient,
   deploymentId: string,
   chainId: number,
   status: DeploymentStatus,
-  contracts: Contract[]
+  contracts: Contract[],
+  transactions: Transaction[]
 ) => {
   if (contracts.length > 0) {
     await client.request(createContractsMutation, {
@@ -53,6 +60,7 @@ export const updateDeployment = async (
       chainId,
       status,
       publicKey: process.env.MANAGED_PUBLIC_KEY,
+      transactions,
     },
   })
 }

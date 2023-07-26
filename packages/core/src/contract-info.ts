@@ -46,7 +46,7 @@ import {
   getReferenceEscrowContractAddress,
   ReferenceAuthProxyAddress,
 } from './addresses'
-import { USDC_ADDRESSES } from './constants'
+import { USDC_ADDRESSES } from './networks'
 
 export const getSphinxConstants = async (
   provider: providers.Provider
@@ -57,6 +57,7 @@ export const getSphinxConstants = async (
     constructorArgs: any[]
   }>
 > => {
+  const { chainId } = await provider.getNetwork()
   const contractInfo = [
     {
       artifact: SphinxRegistryArtifact,
@@ -65,8 +66,8 @@ export const getSphinxConstants = async (
     },
     {
       artifact: SphinxManagerArtifact,
-      expectedAddress: getSphinxManagerV1Address(),
-      constructorArgs: getManagerConstructorValues(),
+      expectedAddress: getSphinxManagerV1Address(chainId),
+      constructorArgs: getManagerConstructorValues(chainId),
     },
     {
       artifact: DefaultAdapterArtifact,
@@ -105,8 +106,13 @@ export const getSphinxConstants = async (
     },
     {
       artifact: ManagedServiceArtifact,
-      expectedAddress: getManagedServiceAddress(),
-      constructorArgs: [getOwnerAddress()],
+      expectedAddress: getManagedServiceAddress(chainId),
+      constructorArgs: [
+        getOwnerAddress(),
+        chainId === 420 || chainId === 10
+          ? USDC_ADDRESSES[chainId]
+          : constants.AddressZero,
+      ],
     },
     {
       artifact: SphinxManagerProxyArtifact,
@@ -136,7 +142,6 @@ export const getSphinxConstants = async (
   ]
 
   // Add any network-specific contracts to the array.
-  const { chainId } = await provider.getNetwork()
   if (chainId === 10 || chainId === 420) {
     // These are contracts that only exist on Optimism Mainnet (chain ID 10) and Optimism Goerli
     // (chain ID 420).
@@ -147,7 +152,7 @@ export const getSphinxConstants = async (
       {
         artifact: BalanceFactoryArtifact,
         expectedAddress: balanceFactoryAddress,
-        constructorArgs: [usdcAddress, getManagedServiceAddress()],
+        constructorArgs: [usdcAddress, getManagedServiceAddress(chainId)],
       },
       {
         artifact: BalanceArtifact,
