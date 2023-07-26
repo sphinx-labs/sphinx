@@ -17,8 +17,9 @@ import {
   BalanceFactoryArtifact,
   BalanceArtifact,
   EscrowArtifact,
+  AuthProxyArtifact,
 } from '@sphinx/contracts'
-import { providers } from 'ethers/lib/ethers'
+import { constants, providers } from 'ethers/lib/ethers'
 
 import { ContractArtifact } from './languages/solidity/types'
 import {
@@ -43,6 +44,7 @@ import {
   getReferenceEscrowConstructorArgs,
   getBalanceFactoryAddress,
   getReferenceEscrowContractAddress,
+  ReferenceAuthProxyAddress,
 } from './addresses'
 import { USDC_ADDRESSES } from './constants'
 
@@ -125,6 +127,11 @@ export const getSphinxConstants = async (
       artifact: AuthFactoryArtifact,
       expectedAddress: AUTH_FACTORY_ADDRESS,
       constructorArgs: [getSphinxRegistryAddress(), getOwnerAddress()],
+    },
+    {
+      artifact: AuthProxyArtifact,
+      expectedAddress: ReferenceAuthProxyAddress,
+      constructorArgs: [AUTH_FACTORY_ADDRESS, constants.AddressZero],
     },
   ]
 

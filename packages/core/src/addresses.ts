@@ -354,3 +354,18 @@ export const getReferenceBalanceContractAddress = (chainId: number): string => {
     )
   )
 }
+
+export const ReferenceAuthProxyAddress = utils.getCreate2Address(
+  DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
+  constants.HashZero,
+  utils.solidityKeccak256(
+    ['bytes', 'bytes'],
+    [
+      AuthProxyArtifact.bytecode,
+      utils.defaultAbiCoder.encode(
+        ['address', 'address'],
+        [AUTH_FACTORY_ADDRESS, constants.AddressZero]
+      ),
+    ]
+  )
+)
