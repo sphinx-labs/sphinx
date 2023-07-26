@@ -3,7 +3,7 @@ import { UserConfig } from '@sphinx/core'
 const projectName = 'Metatxs'
 
 const config: UserConfig = {
-  project: projectName,
+  projectName,
   contracts: {
     Stateless: {
       contract: 'Stateless',

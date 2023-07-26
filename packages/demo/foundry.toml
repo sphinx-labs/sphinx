@@ -14,4 +14,4 @@ remappings=[
 ]
 
 [rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
+anvil = "http://localhost:8545"

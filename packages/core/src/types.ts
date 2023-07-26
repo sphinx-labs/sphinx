@@ -5,8 +5,10 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { Contract, Event, providers } from 'ethers'
 
 import { ParsedContractConfig } from './config/types'
+import { Integration } from './constants'
 
 export type SphinxRuntimeEnvironment = {
+  integration: Integration
   compilerConfigPath: string
   remoteExecution: boolean
   confirm: boolean

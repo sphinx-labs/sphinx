@@ -31,7 +31,7 @@ import {
 import {
   authAddress,
   cre,
-  deployerAddress,
+  managerAddress,
   ownerAddress,
   ownerPrivateKey,
   rpcProviders,
@@ -93,8 +93,8 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     // The relayer is the signer that executes the transactions on the Auth contract
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
-    const Deployer = new ethers.Contract(
-      deployerAddress,
+    const Manager = new ethers.Contract(
+      managerAddress,
       SphinxManagerABI,
       relayer
     )
@@ -156,7 +156,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     const { parsedConfig, configCache, configArtifacts } =
       await getParsedConfigWithOptions(
         userConfig,
-        deployerAddress,
+        managerAddress,
         true,
         provider,
         cre,
@@ -168,17 +168,17 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
       configCache
     )
     const deploymentId = getDeploymentId(bundles, configUri)
-    expect(await Deployer.activeDeploymentId()).equals(deploymentId)
+    expect(await Manager.activeDeploymentId()).equals(deploymentId)
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.COMPLETED)
 
     // Execute the deployment.
     const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-    const deployer = getSphinxManager(deployerAddress, relayer)
+    const manager = getSphinxManager(managerAddress, relayer)
 
-    await Deployer.claimDeployment()
+    await Manager.claimDeployment()
     const success = await executeDeployment(
-      deployer,
+      manager,
       bundles,
       blockGasLimit,
       configArtifacts,
@@ -187,7 +187,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
 
     // Check that the deployment executed correctly.
     expect(success).equals(true)
-    const deployment: DeploymentState = await Deployer.deployments(deploymentId)
+    const deployment: DeploymentState = await Manager.deployments(deploymentId)
     expect(deployment.status).equals(DeploymentStatus.COMPLETED)
   }
 }

@@ -31,6 +31,7 @@ const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
 
   const cre = createSphinxRuntime(
+    'hardhat',
     false,
     true,
     hre.config.paths.compilerConfigs,

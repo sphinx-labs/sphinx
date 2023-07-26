@@ -13,7 +13,6 @@ import {
   getCreationCodeWithConstructorArgs,
   hyperlink,
 } from './utils'
-import { WEBSITE_URL } from './constants'
 
 type ContractAction = 'deploying' | 'skippingIdentical' | 'skippingModified'
 const contractActions: Array<ContractAction> = [
@@ -107,7 +106,10 @@ export const getDiffString = (diffs: {
     for (const e of deploying) {
       const referenceNames = e.referenceNames.map((name) => {
         if (name === 'SphinxManager') {
-          const link = hyperlink('here', WEBSITE_URL) // TODO: change website url
+          const link = hyperlink(
+            'here',
+            'https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md'
+          )
           return green(`+ ${name}`) + ` (see ${blue(link)} for more info)`
         }
         return green(`+ ${name}`)
@@ -139,7 +141,7 @@ export const getDiffString = (diffs: {
   const skippingIdenticalReason =
     yellow(`Reason: Contract with `) +
     yellow.underline('identical') +
-    yellow(` creation code already deployed at the Create3 address.\n`)
+    yellow(` creation code already deployed at the Create3 address.`)
   const skippingIdenticalString = getSkippingString(
     diffObject['skippingIdentical'],
     skippingIdenticalHeader,
@@ -177,6 +179,7 @@ const getSkippingString = (
   if (skipping.length > 0) {
     skippingString += header
     skippingString += reason
+    skippingString += yellow.bold(`\nContract(s):`)
 
     for (const e of skipping) {
       const referenceNames = e.referenceNames.map((name) => {

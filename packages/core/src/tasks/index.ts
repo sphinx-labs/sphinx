@@ -1,4 +1,5 @@
 import process from 'process'
+import { join, sep } from 'path'
 
 import * as dotenv from 'dotenv'
 import { ethers } from 'ethers'
@@ -6,8 +7,6 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@sphinx/contracts'
-import yesno from 'yesno'
-import { red } from 'chalk'
 
 import {
   SphinxInput,
@@ -41,6 +40,8 @@ import {
   relayIPFSCommit,
   registerOwner,
   fetchCanonicalConfig,
+  userConfirmation,
+  isLocalNetwork,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
@@ -110,7 +111,7 @@ export const proposeAbstractTask = async (
     )
   }
 
-  const { project } = userConfig
+  const { projectName } = userConfig
 
   const wallet = new ethers.Wallet(privateKey)
   const signerAddress = await wallet.getAddress()
@@ -147,7 +148,7 @@ export const proposeAbstractTask = async (
 
     const parsedConfigValues = await getParsedConfigWithOptions(
       userConfig,
-      prevConfig.deployer,
+      prevConfig.manager,
       isTestnet,
       provider,
       cre,
@@ -178,7 +179,7 @@ export const proposeAbstractTask = async (
     const projectDeployment = await getProjectDeploymentForChain(
       leafs,
       chainId,
-      project,
+      projectName,
       configUri,
       bundles
     )
@@ -221,14 +222,8 @@ export const proposeAbstractTask = async (
 
   if (!cre.confirm) {
     spinner.stop()
-    // Confirm deployment with the user before sending any transactions.
-    const confirmed = await yesno({
-      question: getDiffString(diffs),
-    })
-    if (!confirmed) {
-      console.error(red(`User denied deployment.`))
-      process.exit(1)
-    }
+    // Confirm deployment with the user before proceeding.
+    await userConfirmation(getDiffString(diffs))
     spinner.start(`Proposal in progress...`)
   }
 
@@ -340,10 +335,10 @@ export const proposeAbstractTask = async (
   }
 
   const newCanonicalConfig: CanonicalConfig = {
-    deployer: prevConfig.deployer,
+    manager: prevConfig.manager,
     options: parsedConfig.options,
     contracts: parsedConfig.contracts,
-    project: parsedConfig.project,
+    projectName: parsedConfig.projectName,
     chainStates: newChainStates,
   }
 
@@ -355,9 +350,9 @@ export const proposeAbstractTask = async (
   const authAddress = getAuthAddress(
     parsedConfig.options.owners,
     parsedConfig.options.threshold,
-    parsedConfig.project
+    parsedConfig.projectName
   )
-  const deployerAddress = getSphinxManagerAddress(authAddress, project)
+  const managerAddress = getSphinxManagerAddress(authAddress, projectName)
 
   const gasEstimates = await getGasEstimates(leafs, configArtifacts)
 
@@ -366,11 +361,11 @@ export const proposeAbstractTask = async (
     orgId,
     isTestnet,
     chainIds,
-    deploymentName: parsedConfig.project,
+    deploymentName: parsedConfig.projectName,
     owners: newCanonicalConfig.options.owners,
     threshold: newCanonicalConfig.options.threshold,
     authAddress,
-    deployerAddress,
+    managerAddress,
     canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
@@ -403,10 +398,10 @@ export const sphinxCommitAbstractSubtask = async (
   configUri: string
   compilerConfig: CompilerConfig
 }> => {
-  const { project } = parsedConfig
+  const { projectName } = parsedConfig
   if (spinner) {
     commitToIpfs
-      ? spinner.start(`Committing ${project}...`)
+      ? spinner.start(`Committing ${projectName}...`)
       : spinner.start('Building the project...')
   }
 
@@ -495,8 +490,8 @@ IPFS_API_KEY_SECRET: ...
 
   if (spinner) {
     commitToIpfs
-      ? spinner.succeed(`${project} has been committed to IPFS.`)
-      : spinner.succeed(`Built ${project}.`)
+      ? spinner.succeed(`${projectName} has been committed to IPFS.`)
+      : spinner.succeed(`Built ${projectName}.`)
   }
 
   return { configUri, compilerConfig }
@@ -515,7 +510,7 @@ export const deployAbstractTask = async (
   newOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const { project, deployer, contracts } = parsedConfig
+  const { projectName, manager, contracts } = parsedConfig
 
   if (cre.confirm) {
     spinner.succeed(`Got project info.`)
@@ -526,33 +521,27 @@ export const deployAbstractTask = async (
     const diffString = getDiffString({ [configCache.networkName]: diff })
 
     // Confirm deployment with the user before sending any transactions.
-    const confirmed = await yesno({
-      question: diffString,
-    })
-    if (!confirmed) {
-      console.error(red(`User denied deployment.`))
-      process.exit(1)
-    }
+    await userConfirmation(diffString)
   }
 
   const { networkName, blockGasLimit, localNetwork } = configCache
 
-  const registry = getSphinxRegistry(signer)
-  const manager = getSphinxManager(deployer, signer)
+  const Registry = getSphinxRegistry(signer)
+  const Manager = getSphinxManager(manager, signer)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
   // transfer ownership to the user-defined new owner, if it exists.
   const signerAddress = await signer.getAddress()
   await registerOwner(
-    project,
-    registry,
-    manager,
+    projectName,
+    Registry,
+    Manager,
     signerAddress,
     provider,
     spinner
   )
 
-  spinner.start(`Checking the status of ${project}...`)
+  spinner.start(`Checking the status of ${projectName}...`)
 
   const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
     parsedConfig,
@@ -569,21 +558,23 @@ export const deployAbstractTask = async (
   }
 
   const deploymentId = getDeploymentId(bundles, configUri)
-  const deploymentState: DeploymentState = await manager.deployments(
+  const deploymentState: DeploymentState = await Manager.deployments(
     deploymentId
   )
   const initialDeploymentStatus = deploymentState.status
   let currDeploymentStatus = deploymentState.status
 
   if (currDeploymentStatus === DeploymentStatus.CANCELLED) {
-    throw new Error(`${project} was previously cancelled on ${networkName}.`)
+    throw new Error(
+      `${projectName} was previously cancelled on ${networkName}.`
+    )
   }
 
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
-    spinner.succeed(`${project} has not been deployed before.`)
-    spinner.start(`Approving ${project}...`)
+    spinner.succeed(`${projectName} has not been deployed before.`)
+    spinner.start(`Approving ${projectName}...`)
     await (
-      await manager.approve(
+      await Manager.approve(
         bundles.actionBundle.root,
         bundles.targetBundle.root,
         bundles.actionBundle.actions.length,
@@ -595,17 +586,17 @@ export const deployAbstractTask = async (
       )
     ).wait()
     currDeploymentStatus = DeploymentStatus.APPROVED
-    spinner.succeed(`Approved ${project}.`)
+    spinner.succeed(`Approved ${projectName}.`)
   }
 
   if (
     currDeploymentStatus === DeploymentStatus.APPROVED ||
     currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED
   ) {
-    spinner.start(`Executing ${project}...`)
+    spinner.start(`Executing ${projectName}...`)
 
     const success = await executeDeployment(
-      manager,
+      Manager,
       bundles,
       blockGasLimit,
       configArtifacts,
@@ -614,19 +605,19 @@ export const deployAbstractTask = async (
 
     if (!success) {
       throw new Error(
-        `Failed to execute ${project}, likely because one of the user's constructors reverted during the deployment.`
+        `Failed to execute ${projectName}, likely because one of the user's constructors reverted during the deployment.`
       )
     }
   }
 
   initialDeploymentStatus === DeploymentStatus.COMPLETED
-    ? spinner.succeed(`${project} was already completed on ${networkName}.`)
-    : spinner.succeed(`Executed ${project}.`)
+    ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
+    : spinner.succeed(`Executed ${projectName}.`)
 
   if (newOwner) {
     spinner.start(`Transferring ownership to: ${newOwner}`)
     await transferProjectOwnership(
-      manager,
+      Manager,
       newOwner,
       signerAddress,
       provider,
@@ -635,7 +626,6 @@ export const deployAbstractTask = async (
     spinner.succeed(`Transferred ownership to: ${newOwner}`)
   }
 
-  // TODO(post): foundry: this must only be called if the deployment was broadcasted.
   await postDeploymentActions(
     compilerConfig,
     configArtifacts,
@@ -647,16 +637,14 @@ export const deployAbstractTask = async (
     deploymentFolder,
     integration,
     cre.silent,
-    manager.owner(),
+    await Manager.owner(),
     provider,
-    manager,
+    Manager,
     spinner,
     process.env.ETHERSCAN_API_KEY
   )
 }
 
-// TODO(post): we need to make `provider` an optional parameter. it should be undefined on the in-process
-// anvil node, and defined in all other cases, including the stand-alone anvil node.
 export const postDeploymentActions = async (
   compilerConfig: CompilerConfig,
   configArtifacts: ConfigArtifacts,
@@ -682,8 +670,6 @@ export const postDeploymentActions = async (
 
   await trackDeployed(owner, networkName, integration)
 
-  // Only write deployment artifacts if the deployment was completed in the last 150 blocks.
-  // This can be anywhere from 5 minutes to half an hour depending on the network
   await writeDeploymentArtifacts(
     provider,
     compilerConfig,
@@ -693,9 +679,11 @@ export const postDeploymentActions = async (
     configArtifacts
   )
 
-  spinner?.succeed(`Wrote deployment artifacts.`)
+  spinner?.succeed(
+    `Wrote deployment artifacts to: ${join(deploymentFolder, networkName, sep)}`
+  )
 
-  // TODO(post): wait to see if Foundry can automatically verify the contracts. It's unlikely because we
+  // TODO: wait to see if Foundry can automatically verify the contracts. It's unlikely because we
   // deploy them in a non-standard way, but it's possible. If foundry can do it, we should just
   // never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
   // via `execAsync(forge config --json)` and pass it in here
@@ -741,27 +729,31 @@ export const sphinxCancelAbstractTask = async (
   integration: Integration,
   cre: SphinxRuntimeEnvironment
 ) => {
-  const networkName = await resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(
+    provider,
+    await isLocalNetwork(provider),
+    integration
+  )
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getSphinxManagerAddress(ownerAddress, projectName)
+  const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
 
   const spinner = ora({ stream: cre.stream })
   spinner.start(`Cancelling deployment for ${projectName} on ${networkName}.`)
   const registry = getSphinxRegistry(owner)
-  const manager = getSphinxManager(deployer, owner)
+  const Manager = getSphinxManager(managerAddress, owner)
 
-  if (!(await isManagerDeployed(registry, manager.address))) {
+  if (!(await isManagerDeployed(registry, managerAddress))) {
     throw new Error(`Project has not been registered yet.`)
   }
 
-  const currOwner = await manager.owner()
+  const currOwner = await Manager.owner()
   if (currOwner !== ownerAddress) {
     throw new Error(`Project is owned by: ${currOwner}.
 You attempted to cancel the project using the address: ${await owner.getAddress()}`)
   }
 
-  const activeDeploymentId = await manager.activeDeploymentId()
+  const activeDeploymentId = await Manager.activeDeploymentId()
 
   if (activeDeploymentId === ethers.constants.HashZero) {
     spinner.fail(
@@ -771,14 +763,14 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
   }
 
   await (
-    await manager.cancelActiveSphinxDeployment(
+    await Manager.cancelActiveSphinxDeployment(
       await getGasPriceOverrides(provider)
     )
   ).wait()
 
   spinner.succeed(`Cancelled deployment for ${projectName} on ${networkName}.`)
 
-  await trackCancel(await manager.owner(), networkName, integration)
+  await trackCancel(await Manager.owner(), networkName, integration)
 }
 
 export const sphinxExportProxyAbstractTask = async (
@@ -794,17 +786,17 @@ export const sphinxExportProxyAbstractTask = async (
   spinner.start('Checking project registration...')
 
   const ownerAddress = await owner.getAddress()
-  const deployer = getSphinxManagerAddress(ownerAddress, projectName)
+  const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
 
-  const registry = getSphinxRegistry(owner)
-  const manager = getSphinxManager(deployer, owner)
+  const Registry = getSphinxRegistry(owner)
+  const Manager = getSphinxManager(managerAddress, owner)
 
   // Throw an error if the project has not been registered
-  if ((await isManagerDeployed(registry, manager.address)) === false) {
+  if ((await isManagerDeployed(Registry, Manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
-  const projectOwner = await manager.owner()
+  const projectOwner = await Manager.owner()
 
   const signerAddress = await owner.getAddress()
   if (projectOwner !== signerAddress) {
@@ -814,7 +806,7 @@ export const sphinxExportProxyAbstractTask = async (
   spinner.succeed('Project registration detected')
   spinner.start('Claiming proxy ownership...')
 
-  const activeDeploymentId = await manager.activeDeploymentId()
+  const activeDeploymentId = await Manager.activeDeploymentId()
   if (activeDeploymentId !== ethers.constants.HashZero) {
     throw new Error(
       `A project is currently being executed. Proxy ownership has not been transferred.
@@ -824,7 +816,7 @@ export const sphinxExportProxyAbstractTask = async (
 
   const targetContract = parsedConfig[projectName].contracts[referenceName]
   await (
-    await manager.exportProxy(
+    await Manager.exportProxy(
       targetContract.address,
       contractKindHashes[targetContract.kind],
       signerAddress,
@@ -832,14 +824,18 @@ export const sphinxExportProxyAbstractTask = async (
     )
   ).wait()
 
-  const networkName = await resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(
+    provider,
+    await isLocalNetwork(provider),
+    integration
+  )
   await trackExportProxy(projectOwner, networkName, integration)
 
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
 }
 
 export const sphinxImportProxyAbstractTask = async (
-  project: string,
+  projectName: string,
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   proxy: string,
@@ -850,19 +846,23 @@ export const sphinxImportProxyAbstractTask = async (
   const spinner = ora({ isSilent: cre.silent, stream: cre.stream })
   spinner.start('Checking project registration...')
 
-  const deployer = getSphinxManagerAddress(owner, project)
-  const registry = getSphinxRegistry(signer)
-  const manager = getSphinxManager(deployer, signer)
+  const managerAddress = getSphinxManagerAddress(owner, projectName)
+  const Registry = getSphinxRegistry(signer)
+  const Manager = getSphinxManager(managerAddress, signer)
 
   // Throw an error if the project has not been registered
-  if ((await isManagerDeployed(registry, manager.address)) === false) {
+  if ((await isManagerDeployed(Registry, managerAddress)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
   spinner.succeed('Project registration detected')
   spinner.start('Checking proxy compatibility...')
 
-  const networkName = await resolveNetworkName(provider, integration)
+  const networkName = await resolveNetworkName(
+    provider,
+    await isLocalNetwork(provider),
+    integration
+  )
   if ((await provider.getCode(proxy)) === '0x') {
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
@@ -887,7 +887,7 @@ export const sphinxImportProxyAbstractTask = async (
 
   // If proxy owner is already Sphinx, then throw an error
   if (
-    ethers.utils.getAddress(manager.address) ===
+    ethers.utils.getAddress(managerAddress) ===
     ethers.utils.getAddress(ownerAddress)
   ) {
     throw new Error('Proxy is already owned by Sphinx')
@@ -910,12 +910,12 @@ export const sphinxImportProxyAbstractTask = async (
   const Proxy = new ethers.Contract(proxy, ProxyABI, signer)
   await (
     await Proxy.changeAdmin(
-      manager.address,
+      managerAddress,
       await getGasPriceOverrides(provider)
     )
   ).wait()
 
-  await trackImportProxy(await manager.owner(), networkName, integration)
+  await trackImportProxy(await Manager.owner(), networkName, integration)
 
   spinner.succeed('Proxy ownership successfully transferred to Sphinx')
 }

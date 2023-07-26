@@ -1,7 +1,7 @@
 import { UserConfig } from '@sphinx/core'
 
 const config: UserConfig = {
-  project: 'Validation',
+  projectName: 'Validation',
   contracts: {
     // Ignore the fact that there's a TypeScript warning on this field. This config intentionally
     // does not have a 'kind' field to test that an error is thrown when it's missing.

@@ -30,6 +30,7 @@ import { Contract, ethers } from 'ethers'
 const DUMMY_ORG_ID = '1111'
 
 const cre = createSphinxRuntime(
+  'hardhat',
   true,
   true,
   hre.config.paths.compilerConfigs,
@@ -78,7 +79,7 @@ describe('Remote executor', () => {
 
     const owners = [owner.address]
     const userConfig: UserConfigWithOptions = {
-      project: projectName,
+      projectName,
       options: {
         orgId: DUMMY_ORG_ID,
         owners,
@@ -110,14 +111,14 @@ describe('Remote executor', () => {
 
     const authData = getAuthData(owners, threshold)
     const authAddress = getAuthAddress(owners, threshold, projectName)
-    const deployerAddress = getSphinxManagerAddress(authAddress, projectName)
+    const managerAddress = getSphinxManagerAddress(authAddress, projectName)
 
     await ensureSphinxInitialized(provider, relayer)
 
     const { parsedConfig, configCache, configArtifacts } =
       await getParsedConfigWithOptions(
         userConfig,
-        deployerAddress,
+        managerAddress,
         isTestnet,
         provider,
         cre,
@@ -127,7 +128,7 @@ describe('Remote executor', () => {
     const chainId = SUPPORTED_NETWORKS[network]
     const prevConfig = getEmptyCanonicalConfig(
       [chainId],
-      deployerAddress,
+      managerAddress,
       DUMMY_ORG_ID,
       projectName
     )
@@ -146,8 +147,8 @@ describe('Remote executor', () => {
       AuthFactoryABI,
       relayer
     )
-    const Deployer = new ethers.Contract(
-      deployerAddress,
+    const Manager = new ethers.Contract(
+      managerAddress,
       SphinxManagerABI,
       relayer
     )
@@ -191,7 +192,7 @@ describe('Remote executor', () => {
     )
     const deploymentId = getDeploymentId(bundles, configUri)
 
-    expect(await Deployer.activeDeploymentId()).equals(deploymentId)
+    expect(await Manager.activeDeploymentId()).equals(deploymentId)
 
     await monitorExecution(
       provider,
@@ -204,12 +205,12 @@ describe('Remote executor', () => {
 
     Proxy = await hre.ethers.getContractAt(
       proxyContractName,
-      getTargetAddress(deployerAddress, proxyReferenceName)
+      getTargetAddress(managerAddress, proxyReferenceName)
     )
 
     Immutable = await hre.ethers.getContractAt(
       immutableContractName,
-      getTargetAddress(deployerAddress, immutableReferenceName)
+      getTargetAddress(managerAddress, immutableReferenceName)
     )
   })
 

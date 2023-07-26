@@ -89,7 +89,11 @@ export const initializeAndVerifySphinx = async (
     // Verify the Sphinx contracts if the current network is supported.
     if (
       isSupportedNetworkOnEtherscan(
-        await resolveNetworkName(provider, 'hardhat')
+        await resolveNetworkName(
+          provider,
+          await isLocalNetwork(provider),
+          'hardhat'
+        )
       )
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
@@ -151,7 +155,7 @@ export const ensureSphinxInitialized = async (
 
 export const initializeSphinx = async (
   provider: ethers.providers.JsonRpcProvider,
-  deployer: ethers.Signer,
+  signer: ethers.Signer,
   executors: string[],
   relayers: string[],
   funders: string[],
@@ -170,7 +174,7 @@ export const initializeSphinx = async (
     logger?.info(`[Sphinx]: deploying ${contractName}...`)
 
     const contract = await doDeterministicDeploy(provider, {
-      signer: deployer,
+      signer,
       contract: {
         abi,
         bytecode,
@@ -195,7 +199,7 @@ export const initializeSphinx = async (
   // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
   // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
   //    In this case, we need to create a signer using the SPHINX_INTERNAL__OWNER_PRIVATE_KEY and use that.
-  let signer: ethers.Signer
+  let owner: ethers.Signer
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
@@ -205,18 +209,18 @@ export const initializeSphinx = async (
       throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
     }
 
-    signer = new ethers.Wallet(
+    owner = new ethers.Wallet(
       process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
       provider
     )
   } else {
     // if target owner is multisig, then use an impersonated multisig signer
     if (getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-      signer = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
+      owner = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
     } else {
       // if target owner is not multisig, then use the owner signer
       // SPHINX_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
-      signer = new ethers.Wallet(
+      owner = new ethers.Wallet(
         process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
         provider
       )
@@ -225,8 +229,8 @@ export const initializeSphinx = async (
     if (localNetwork) {
       // Fund the signer
       await (
-        await deployer.sendTransaction({
-          to: await signer.getAddress(),
+        await signer.sendTransaction({
+          to: await owner.getAddress(),
           value: ethers.utils.parseEther('0.1'),
         })
       ).wait()
@@ -236,7 +240,7 @@ export const initializeSphinx = async (
   const ManagedService = new ethers.Contract(
     getManagedServiceAddress(),
     ManagedServiceArtifact.abi,
-    signer
+    owner
   )
 
   logger?.info('[Sphinx]: assigning executor roles...')
@@ -245,7 +249,7 @@ export const initializeSphinx = async (
       (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
     ) {
       await (
-        await ManagedService.connect(signer).grantRole(
+        await ManagedService.connect(owner).grantRole(
           REMOTE_EXECUTOR_ROLE,
           executor,
           await getGasPriceOverrides(provider)
@@ -264,7 +268,7 @@ export const initializeSphinx = async (
       )) === false
     ) {
       await (
-        await ManagedService.connect(signer).grantRole(
+        await ManagedService.connect(owner).grantRole(
           PROTOCOL_PAYMENT_RECIPIENT_ROLE,
           relayer,
           await getGasPriceOverrides(provider)
@@ -278,7 +282,7 @@ export const initializeSphinx = async (
   for (const funder of funders) {
     if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
       await (
-        await ManagedService.connect(signer).grantRole(
+        await ManagedService.connect(owner).grantRole(
           FUNDER_ROLE,
           funder,
           await getGasPriceOverrides(provider)
@@ -298,7 +302,7 @@ export const initializeSphinx = async (
   ) {
     try {
       await (
-        await SphinxRegistry.connect(signer).addVersion(
+        await SphinxRegistry.connect(owner).addVersion(
           sphinxManagerV1Address,
           await getGasPriceOverrides(provider)
         )
@@ -319,7 +323,7 @@ export const initializeSphinx = async (
     sphinxManagerV1Address
   ) {
     await (
-      await SphinxRegistry.connect(signer).setCurrentManagerImplementation(
+      await SphinxRegistry.connect(owner).setCurrentManagerImplementation(
         sphinxManagerV1Address,
         await getGasPriceOverrides(provider)
       )
@@ -333,7 +337,7 @@ export const initializeSphinx = async (
   const AuthFactory = new ethers.Contract(
     AUTH_FACTORY_ADDRESS,
     AuthFactoryABI,
-    signer
+    owner
   )
 
   if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
@@ -369,7 +373,7 @@ export const initializeSphinx = async (
     transparentAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(signer).addContractKind(
+      await SphinxRegistry.connect(owner).addContractKind(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         transparentAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -393,7 +397,7 @@ export const initializeSphinx = async (
     uupsOwnableAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(signer).addContractKind(
+      await SphinxRegistry.connect(owner).addContractKind(
         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
         uupsOwnableAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -416,7 +420,7 @@ export const initializeSphinx = async (
     ozUUPSAccessControlAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(signer).addContractKind(
+      await SphinxRegistry.connect(owner).addContractKind(
         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
         ozUUPSAccessControlAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -437,7 +441,7 @@ export const initializeSphinx = async (
     defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(signer).addContractKind(
+      await SphinxRegistry.connect(owner).addContractKind(
         EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -457,7 +461,7 @@ export const initializeSphinx = async (
     defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(signer).addContractKind(
+      await SphinxRegistry.connect(owner).addContractKind(
         ethers.constants.HashZero,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)

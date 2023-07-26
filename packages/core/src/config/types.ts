@@ -79,19 +79,20 @@ export type ParsedConfigVariable =
 export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 
 export type UserConfig = {
-  project: string
+  projectName: string
   contracts: UserContractConfigs
   options?: never
 }
 
 export type UserConfigWithOptions = {
-  project: string
+  projectName: string
   contracts: UserContractConfigs
   options: UserConfigOptions
 }
 
 /**
- * @notice The `mainnets` field is an array of network names, e.g. ['mainnet', 'optimism'].
+ * @notice The `mainnets` field is an array of network names, e.g. ['ethereum', 'optimism'].
+ * The `testnets` field is an array of network names, e.g. ['goerli', 'optimism-goerli'].
  */
 export interface UserConfigOptions extends ConfigOptions {
   mainnets: Array<string>
@@ -117,8 +118,8 @@ export interface ConfigOptions {
 }
 
 export interface ParsedConfig {
-  project: string
-  deployer: string
+  projectName: string
+  manager: string
   contracts: ParsedContractConfigs
 }
 
@@ -244,7 +245,7 @@ export type ImportCache = {
 }
 
 export type MinimalConfig = {
-  deployer: string
+  manager: string
   owner: string
   projectName: string
   contracts: Array<MinimalContractConfig>
@@ -273,8 +274,8 @@ export type GetCanonicalConfig = (
 ) => Promise<CanonicalConfig | undefined>
 
 export interface CanonicalConfig {
-  deployer: string
-  project: string
+  manager: string
+  projectName: string
   options: ConfigOptions
   contracts: ParsedContractConfigs
   chainStates: {

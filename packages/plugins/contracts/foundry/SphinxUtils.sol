@@ -192,14 +192,13 @@ contract SphinxUtils is
        causes an error to be thrown by Forge.
      */
     function ffiGetEncodedBundleInfo(
-        string memory _rpcUrl,
         ConfigCache memory _configCache,
         string memory _userConfigStr,
         string memory _rootFfiPath,
         address _owner
     ) external returns (bytes memory) {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
-        string[] memory cmds = new string[](8);
+        string[] memory cmds = new string[](7);
         cmds[0] = "npx";
         cmds[1] = "node";
         cmds[2] = string.concat(_rootFfiPath, "get-bundle-info.js");
@@ -207,7 +206,6 @@ contract SphinxUtils is
         cmds[4] = _userConfigStr;
         cmds[5] = vm.toString(callerMode == VmSafe.CallerMode.RecurrentBroadcast);
         cmds[6] = vm.toString(_owner);
-        cmds[7] = _rpcUrl;
 
         bytes memory result = vm.ffi(cmds);
         return result;
@@ -544,10 +542,13 @@ contract SphinxUtils is
     }
 
     function getChainAlias(string memory _rpcUrl) public view returns (string memory) {
+        bool isLocalNetwork_ = isLocalNetwork(_rpcUrl);
         Vm.Rpc[] memory urls = vm.rpcUrlStructs();
         for (uint i = 0; i < urls.length; i++) {
             Vm.Rpc memory rpc = urls[i];
             if (equals(rpc.url, _rpcUrl)) {
+                return rpc.key;
+            } else if (isLocalNetwork_ && isLocalNetwork(rpc.url)) {
                 return rpc.key;
             }
         }

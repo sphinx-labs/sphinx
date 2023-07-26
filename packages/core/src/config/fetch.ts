@@ -12,6 +12,7 @@ import {
 import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
 import { getConfigCache } from './parse'
+import { Integration } from '../constants'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -89,7 +90,8 @@ export const verifyDeployment = async (
  */
 export const compileRemoteBundles = async (
   provider: providers.JsonRpcProvider,
-  configUri: string
+  configUri: string,
+  integration: Integration
 ): Promise<{
   bundles: SphinxBundles
   compilerConfig: CompilerConfig
@@ -108,7 +110,8 @@ export const compileRemoteBundles = async (
     compilerConfig.contracts,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(compilerConfig.deployer, provider)
+    getSphinxManagerReadOnly(compilerConfig.manager, provider),
+    integration
   )
 
   const bundles = makeBundlesFromConfig(

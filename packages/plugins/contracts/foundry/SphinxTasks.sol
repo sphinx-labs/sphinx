@@ -15,28 +15,6 @@ import { ISphinxManager } from "@sphinx/contracts/contracts/interfaces/ISphinxMa
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
-    function generateArtifacts(
-        address _owner,
-        string memory _rpcUrl,
-        string memory _projectName
-    ) internal {
-        string memory networkName = utils.getChainAlias(_rpcUrl);
-
-        string[] memory cmds = new string[](8);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = mainFfiScriptPath;
-        cmds[3] = "generateArtifacts";
-        cmds[4] = networkName;
-        cmds[5] = _rpcUrl;
-        cmds[6] = vm.toString(_owner);
-        cmds[7] = _projectName;
-
-        vm.ffi(cmds);
-
-        console.log(string.concat("Wrote deployment artifacts to ./deployments/", networkName));
-    }
-
     function propose(string memory _configPath, bool _isTestnet) internal noVmBroadcast {
         string[] memory cmds = new string[](7);
         cmds[0] = "npx";
@@ -87,9 +65,9 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
 
-        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
+        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.manager));
 
-        require(address(manager) != address(0), "Sphinx: No project found for organization ID");
+        require(address(manager) != address(0), "Sphinx: No project found");
 
         // check bytecode compatible with either UUPS or Transparent
         require(
@@ -137,7 +115,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         Configs memory configs = ffiGetConfigs(_configPath, signer);
         MinimalConfig memory minimalConfig = configs.minimalConfig;
 
-        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
+        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.manager));
 
         require(address(manager) != address(0), "Sphinx: No project found for organization ID");
 
@@ -179,7 +157,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
 
-        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.deployer));
+        ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.manager));
 
         manager.cancelActiveSphinxDeployment();
     }

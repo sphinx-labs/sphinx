@@ -15,7 +15,6 @@ import {
   getDeployContractCosts,
   writeCompilerConfig,
 } from '@sphinx/core/dist'
-import { providers } from 'ethers/lib/ethers'
 
 import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
@@ -33,10 +32,9 @@ const userConfigStr = args[1]
 const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
 const ownerAddress = args[3]
-const rpcUrl = args[4]
 
-const provider = new providers.JsonRpcProvider(rpcUrl)
-
+// This function must not rely on a provider object being available because a provider doesn't exist
+// outside of Solidity for the in-process Anvil node.
 ;(async () => {
   process.stderr.write = validationStderrWrite
 
@@ -68,7 +66,8 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
 
     const configCache = decodeCachedConfig(encodedConfigCache, SphinxUtilsABI)
 
-    const cre = await createSphinxRuntime(
+    const cre = createSphinxRuntime(
+      'foundry',
       false,
       true,
       compilerConfigFolder,
@@ -85,26 +84,25 @@ const provider = new providers.JsonRpcProvider(rpcUrl)
 
     const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-    const deployerAddress = getSphinxManagerAddress(
+    const managerAddress = getSphinxManagerAddress(
       ownerAddress,
-      userConfig.project
+      userConfig.projectName
     )
     const contractConfigs = getUnvalidatedContractConfigs(
       userConfig,
       configArtifacts,
       cre,
       FailureAction.THROW,
-      deployerAddress
+      managerAddress
     )
 
     const parsedConfig = {
-      deployer: deployerAddress,
+      manager: managerAddress,
       contracts: contractConfigs,
-      project: userConfig.project,
+      projectName: userConfig.projectName,
     }
 
     await postParsingValidation(
-      provider,
       parsedConfig,
       configArtifacts,
       cre,

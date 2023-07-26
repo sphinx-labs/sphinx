@@ -8,7 +8,7 @@ import {
 const projectName = 'ConstructorArgValidation'
 
 const config: UserConfig = {
-  project: projectName,
+  projectName,
   contracts: {
     ConstructorArgsValidationPartOne: {
       contract: 'ConstructorArgsValidationPartOne',

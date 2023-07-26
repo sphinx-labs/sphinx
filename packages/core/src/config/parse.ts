@@ -47,6 +47,7 @@ import {
   getConfigArtifactsRemote,
   isManagerDeployed,
   getDuplicateElements,
+  hyperlink,
 } from '../utils'
 import {
   ParsedConfigVariable,
@@ -72,7 +73,12 @@ import {
   ParsedOwnerConfig,
   UserConfig,
 } from './types'
-import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
+import {
+  CONTRACT_SIZE_LIMIT,
+  Integration,
+  Keyword,
+  keywords,
+} from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -126,18 +132,18 @@ const logValidationError = (
  * @param configPath Path to the Sphinx config file.
  * @param projects The project name(s) to parse. This function will only validate these projects.
  * The returned parsed config will not include any other projects in the config file.
- * @param deployerAddress Address of the SphinxManager. Note that this may not be calculable
+ * @param managerAddress Address of the SphinxManager. Note that this may not be calculable
  * based on the config file because the owners may have changed after the
  * SphinxManager was deployed, which would alter its Create2 address. However, if the
  * owners haven't changed, then this address can be calculated locally.
  * @param authAddress Address of the SphinxAuth contract. Note that the same caveat applies
- * here as for the `deployerAddress` parameter.
+ * here as for the `managerAddress` parameter.
  *
  * @returns The parsed Sphinx config file.
  */
 export const getParsedConfigWithOptions = async (
   userConfig: UserConfigWithOptions,
-  deployerAddress: string,
+  managerAddress: string,
   isTestnet: boolean,
   provider: providers.JsonRpcProvider,
   cre: SphinxRuntimeEnvironment,
@@ -151,7 +157,7 @@ export const getParsedConfigWithOptions = async (
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  if (!userConfig.project) {
+  if (!userConfig.projectName) {
     logValidationError(
       'error',
       `Config is missing a 'project' field.`,
@@ -172,14 +178,14 @@ export const getParsedConfigWithOptions = async (
     configArtifacts,
     cre,
     failureAction,
-    deployerAddress
+    managerAddress
   )
 
   const parsedConfig: ParsedConfigWithOptions = {
-    deployer: deployerAddress,
+    manager: managerAddress,
     options: parsedConfigOptions,
     contracts: contractConfigs,
-    project: userConfig.project,
+    projectName: userConfig.projectName,
   }
 
   const configCache = await getConfigCache(
@@ -187,11 +193,11 @@ export const getParsedConfigWithOptions = async (
     contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(deployerAddress, provider)
+    getSphinxManagerReadOnly(managerAddress, provider),
+    cre.integration
   )
 
   await postParsingValidation(
-    provider,
     parsedConfig,
     configArtifacts,
     cre,
@@ -227,7 +233,7 @@ export const getParsedConfig = async (
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  if (!userConfig.project) {
+  if (!userConfig.projectName) {
     logValidationError(
       'error',
       `Config is missing a 'project' field.`,
@@ -257,9 +263,9 @@ export const getParsedConfig = async (
     )
   }
 
-  const deployerAddress = getSphinxManagerAddress(
+  const managerAddress = getSphinxManagerAddress(
     ownerAddress,
-    userConfig.project
+    userConfig.projectName
   )
 
   const configArtifacts = await getConfigArtifacts(userConfig.contracts)
@@ -269,14 +275,14 @@ export const getParsedConfig = async (
     configArtifacts,
     cre,
     failureAction,
-    deployerAddress
+    managerAddress
   )
 
   const parsedConfig: ParsedOwnerConfig = {
     owner: ownerAddress,
     contracts: contractConfigs,
-    project: userConfig.project,
-    deployer: deployerAddress,
+    projectName: userConfig.projectName,
+    manager: managerAddress,
   }
 
   const configCache = await getConfigCache(
@@ -284,11 +290,11 @@ export const getParsedConfig = async (
     contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(deployerAddress, provider)
+    getSphinxManagerReadOnly(managerAddress, provider),
+    cre.integration
   )
 
   await postParsingValidation(
-    provider,
     parsedConfig,
     configArtifacts,
     cre,
@@ -1800,10 +1806,10 @@ export const assertValidParsedSphinxFile = async (
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   contractConfigCache: ContractConfigCache,
-  deployerAddress: string,
+  managerAddress: string,
   failureAction: FailureAction
 ): Promise<void> => {
-  const { project } = parsedConfig
+  const { projectName } = parsedConfig
   const { compilerConfigPath } = cre
 
   // Check that all user-defined contract addresses have already been deployed.
@@ -1841,7 +1847,7 @@ export const assertValidParsedSphinxFile = async (
         logValidationError(
           'error',
           `The UUPS proxy ${referenceName} at ${address} must give your SphinxManager contract\n` +
-            `permission to call the 'upgradeTo' function. SphinxManager address: ${deployerAddress}.\n`,
+            `permission to call the 'upgradeTo' function. SphinxManager address: ${managerAddress}.\n`,
           [],
           cre.silent,
           cre.stream
@@ -1919,7 +1925,7 @@ export const assertValidParsedSphinxFile = async (
       }
 
       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-        project,
+        projectName,
         referenceName,
         contractConfig,
         compilerConfigPath,
@@ -2032,7 +2038,7 @@ export const assertValidSourceCode = (
                 }' at: ${decodeSrc(node)}`,
                 [
                   'This is not allowed because the value will not exist in the upgradeable contract.',
-                  'Please remove the value in the contract and define it in your Sphinx file instead',
+                  'Please remove the value in the contract and define it in your Sphinx config file instead',
                   `Alternatively, you can also set '${node.name}' to be a constant or immutable variable.`,
                 ],
                 cre.silent,
@@ -2161,7 +2167,7 @@ const logUnsafeOptions = (
 export const assertValidConstructorArgs = (
   userConfig: UserSphinxConfig,
   configArtifacts: ConfigArtifacts,
-  deployerAddress: string,
+  managerAddress: string,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): {
@@ -2182,7 +2188,7 @@ export const assertValidConstructorArgs = (
     // Set the address to the user-defined value if it exists, otherwise set it to the
     // Create3 address given to contracts deployed within the Sphinx system.
     contractReferences[referenceName] =
-      address ?? getTargetAddress(deployerAddress, referenceName, salt)
+      address ?? getTargetAddress(managerAddress, referenceName, salt)
   }
 
   // Resolve all contract references.
@@ -2347,7 +2353,7 @@ export const getUnvalidatedContractConfigs = (
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction,
-  deployerAddress: string
+  managerAddress: string
 ): ParsedContractConfigs => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
@@ -2364,7 +2370,7 @@ export const getUnvalidatedContractConfigs = (
     assertValidConstructorArgs(
       configWithDefaultContractFields,
       configArtifacts,
-      deployerAddress,
+      managerAddress,
       cre,
       failureAction
     )
@@ -2411,7 +2417,6 @@ export const assertNoUpgradableContracts = (
 }
 
 export const postParsingValidation = async (
-  provider: providers.JsonRpcProvider,
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
@@ -2419,7 +2424,7 @@ export const postParsingValidation = async (
   failureAction: FailureAction
 ) => {
   const { blockGasLimit, localNetwork, contractConfigCache } = configCache
-  const { contracts, deployer } = parsedConfig
+  const { contracts, manager } = parsedConfig
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
@@ -2440,7 +2445,7 @@ export const postParsingValidation = async (
     configArtifacts,
     cre,
     contractConfigCache,
-    deployer,
+    manager,
     failureAction
   )
 
@@ -2564,11 +2569,16 @@ export const getConfigCache = async (
   contractConfigs: ParsedContractConfigs,
   configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
-  manager: ethers.Contract
+  manager: ethers.Contract,
+  integration: Integration
 ): Promise<ConfigCache> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
   const localNetwork = await isLocalNetwork(provider)
-  const networkName = await resolveNetworkName(provider, 'hardhat')
+  const networkName = await resolveNetworkName(
+    provider,
+    localNetwork,
+    integration
+  )
   const isManagerDeployed_ = await isManagerDeployed(registry, manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
@@ -2939,6 +2949,47 @@ export const assertValidConfigOptions = (
     logValidationError(
       'error',
       `There must be at least one network or testnet in your Sphinx config.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  // These are temporary until we add support for multisigs.
+  if (owners.length > 1) {
+    logValidationError(
+      'error',
+      `We currently only support configs that contain a single owner. Join our ${hyperlink(
+        'Discord',
+        'https://discord.gg/7Gc3DK33Np'
+      )} to \n` + `request this feature.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (proposers.length > 1) {
+    logValidationError(
+      'error',
+      `We currently only support configs that contain a single proposer. Join our ${hyperlink(
+        'Discord',
+        'https://discord.gg/7Gc3DK33Np'
+      )} to \n` + `request this feature.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
+  if (
+    ethers.utils.getAddress(owners[0]) !== ethers.utils.getAddress(proposers[0])
+  ) {
+    logValidationError(
+      'error',
+      `We currently only support configs that have the same proposer and owner address. Join\n` +
+        `our ${hyperlink(
+          'Discord',
+          'https://discord.gg/7Gc3DK33Np'
+        )} to request this feature.`,
       [],
       cre.silent,
       cre.stream

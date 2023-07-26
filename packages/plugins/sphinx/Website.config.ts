@@ -4,7 +4,7 @@ const ownerAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
 
 // Used for testing the website, please do not delete
 const config: UserConfigWithOptions = {
-  project: 'MultiChain Deployments',
+  projectName: 'MultiChain Deployments',
   options: {
     orgId: 'cljvzl0om0001cbyqh3jw2tgo',
     owners: [ownerAddress],

@@ -33,8 +33,8 @@ export const monitorExecution = async (
 ) => {
   const spinner = ora({ isSilent: silent })
   spinner.start('Waiting for executor...')
-  const { project, deployer } = parsedConfig
-  const SphinxManager = getSphinxManager(deployer, signer)
+  const { projectName, manager } = parsedConfig
+  const SphinxManager = getSphinxManager(manager, signer)
 
   // Get the deployment state of the deployment ID.
   let deploymentState: DeploymentState = await SphinxManager.deployments(
@@ -80,7 +80,7 @@ export const monitorExecution = async (
   }
 
   if (deploymentState.status === DeploymentStatus.COMPLETED) {
-    spinner.succeed(`Finished executing ${project}.`)
+    spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
       SphinxManager,
@@ -89,8 +89,8 @@ export const monitorExecution = async (
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
   } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
-    spinner.fail(`${project} was cancelled.`)
-    throw new Error(`${project} was cancelled.`)
+    spinner.fail(`${projectName} was cancelled.`)
+    throw new Error(`${projectName} was cancelled.`)
   } else {
     spinner.fail(
       `Project was never active. Current status: ${deploymentState.status}`
