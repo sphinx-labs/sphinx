@@ -25,11 +25,8 @@ import {
 } from '@sphinx/contracts'
 import { constants, utils } from 'ethers'
 
-import {
-  CURRENT_SPHINX_MANAGER_VERSION,
-  REFERENCE_ORG_ID,
-  USDC_ADDRESSES,
-} from './constants'
+import { CURRENT_SPHINX_MANAGER_VERSION, REFERENCE_ORG_ID } from './constants'
+import { USDC_ADDRESSES } from './networks'
 
 const [registryConstructorFragment] = SphinxRegistryABI.filter(
   (fragment) => fragment.type === 'constructor'
@@ -56,18 +53,26 @@ export const getSphinxRegistryAddress = () =>
     )
   )
 
-export const getManagedServiceAddress = () =>
-  utils.getCreate2Address(
+export const getManagedServiceAddress = (chainId: number) => {
+  const usdcAddress =
+    chainId === 10 || chainId === 420
+      ? USDC_ADDRESSES[chainId]
+      : constants.AddressZero
+  return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
       ['bytes', 'bytes'],
       [
         ManagedServiceArtifact.bytecode,
-        utils.defaultAbiCoder.encode(['address'], [getOwnerAddress()]),
+        utils.defaultAbiCoder.encode(
+          ['address', 'address'],
+          [getOwnerAddress(), usdcAddress]
+        ),
       ]
     )
   )
+}
 
 export const REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS = utils.getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
@@ -192,10 +197,10 @@ export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const getManagerConstructorValues = () => [
+export const getManagerConstructorValues = (chainId: number) => [
   getSphinxRegistryAddress(),
   DEFAULT_CREATE3_ADDRESS,
-  getManagedServiceAddress(),
+  getManagedServiceAddress(chainId),
   EXECUTION_LOCK_TIME,
   Object.values(CURRENT_SPHINX_MANAGER_VERSION),
 ]
@@ -204,8 +209,8 @@ const [managerConstructorFragment] = SphinxManagerABI.filter(
   (fragment) => fragment.type === 'constructor'
 )
 
-export const getSphinxManagerV1Address = () =>
-  utils.getCreate2Address(
+export const getSphinxManagerV1Address = (chainId: number) => {
+  return utils.getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
     constants.HashZero,
     utils.solidityKeccak256(
@@ -214,11 +219,12 @@ export const getSphinxManagerV1Address = () =>
         SphinxManagerArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           managerConstructorFragment.inputs,
-          getManagerConstructorValues()
+          getManagerConstructorValues(chainId)
         ),
       ]
     )
   )
+}
 
 export const getSphinxManagerAddress = (owner: string, projectName: string) => {
   const salt = utils.keccak256(
@@ -298,7 +304,7 @@ export const getBalanceFactoryAddress = (chainId: number): string => {
         BalanceFactoryArtifact.bytecode,
         utils.defaultAbiCoder.encode(
           ['address', 'address'],
-          [USDC_ADDRESSES[chainId], getManagedServiceAddress()]
+          [USDC_ADDRESSES[chainId], getManagedServiceAddress(chainId)]
         ),
       ]
     )
@@ -334,7 +340,11 @@ export const getReferenceBalanceConstructorArgs = (
 export const getReferenceEscrowConstructorArgs = (
   chainId: number
 ): Array<string> => {
-  return [REFERENCE_ORG_ID, USDC_ADDRESSES[chainId], getManagedServiceAddress()]
+  return [
+    REFERENCE_ORG_ID,
+    USDC_ADDRESSES[chainId],
+    getManagedServiceAddress(chainId),
+  ]
 }
 
 export const getReferenceBalanceContractAddress = (chainId: number): string => {

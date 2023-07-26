@@ -37,7 +37,7 @@ contract SphinxEscrow_Test is Test {
     function setUp() public {
         vm.createSelectFork(optimismRpcUrl);
 
-        managedService = new ManagedService(managedServiceOwner);
+        managedService = new ManagedService(managedServiceOwner, address(usdc));
 
         // Grant the funder role to the funder
         vm.prank(managedServiceOwner);

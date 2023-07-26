@@ -133,7 +133,8 @@ const tryVerification = async (
         activeDeploymentId,
         rpcProvider.network.chainId,
         'verified',
-        contracts
+        contracts,
+        []
       )
     } catch (error) {
       logger.error('[Sphinx]: error: deployment update error', error)
@@ -264,6 +265,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[Sphinx]: compiled ${projectName} on: ${network}.`)
 
+  const deploymentTransactionReceipts: ethers.providers.TransactionReceipt[] =
+    []
+
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
     logger.info(`[Sphinx]: checking if any of the constructors revert...`)
 
@@ -280,9 +284,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
 
     try {
-      await (
-        await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
-      ).wait()
+      deploymentTransactionReceipts.push(
+        await (
+          await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
+        ).wait()
+      )
     } catch (err) {
       if (
         err.message.includes(
@@ -324,20 +330,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[Sphinx]: constructors probably won't revert.`)
 
-  logger.info(`[Sphinx]: checking that the project is funded...`)
-
-  logger.info(`[Sphinx]: ${projectName} has sufficient funds`)
-
   // execute deployment
   try {
     const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
-    const success = await executeDeployment(
+    const { success, receipts } = await executeDeployment(
       manager,
       bundles,
       blockGasLimit,
       configArtifacts,
       rpcProvider
     )
+    deploymentTransactionReceipts.push(...receipts)
 
     if (!success) {
       // This likely means one of the user's constructors reverted during execution. We already
@@ -375,7 +378,14 @@ export const handleExecution = async (data: ExecutorMessage) => {
         activeDeploymentId,
         rpcProvider.network.chainId,
         'executed',
-        []
+        [],
+        deploymentTransactionReceipts.map((receipt) => {
+          return {
+            txHash: receipt.transactionHash,
+            cost: receipt.gasUsed.mul(receipt.effectiveGasPrice).toString(),
+            chainId: rpcProvider.network.chainId,
+          }
+        })
       )
     } catch (error) {
       logger.error('[Sphinx]: error: deployment update error', error)

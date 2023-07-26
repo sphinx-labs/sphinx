@@ -17,7 +17,9 @@ contract SphinxBalanceFactory {
         string indexed orgIdHash,
         address owner,
         string orgId,
-        address caller
+        address caller,
+        address balance,
+        address escrow
     );
 
     address public immutable usdc;
@@ -59,6 +61,13 @@ contract SphinxBalanceFactory {
         // Transfer ownership of the SphinxBalance contract to the specified owner.
         Ownable(balance).transferOwnership(_owner);
 
-        emit BalanceFactoryDeployment(_orgId, _owner, _orgId, msg.sender);
+        emit BalanceFactoryDeployment(
+            _orgId,
+            _owner,
+            _orgId,
+            msg.sender,
+            address(balance),
+            address(escrow)
+        );
     }
 }

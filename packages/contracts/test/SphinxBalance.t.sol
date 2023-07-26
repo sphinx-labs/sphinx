@@ -64,35 +64,4 @@ contract SphinxBalance_Test is Test {
         assertEq(usdc.balanceOf(address(balance)), 0);
         assertEq(usdc.balanceOf(receiver), usdcTransferAmount);
     }
-
-    function test_increaseAllowance_notOwner_reverts() external {
-        vm.prank(nonOwner);
-        vm.expectRevert("Ownable: caller is not the owner");
-        balance.increaseAllowance(nonOwner, 1);
-    }
-
-    function test_increaseAllowance_succeeds() external {
-        assertEq(usdc.allowance(address(balance), spender), 0);
-
-        vm.prank(owner);
-        balance.increaseAllowance(spender, allowance);
-
-        assertEq(usdc.allowance(address(balance), spender), allowance);
-    }
-
-    function test_decreaseAllowance_notOwner_reverts() external {
-        vm.prank(nonOwner);
-        vm.expectRevert("Ownable: caller is not the owner");
-        balance.decreaseAllowance(nonOwner, 1);
-    }
-
-    function test_decreaseAllowance_succeeds() external {
-        vm.startPrank(owner);
-        balance.increaseAllowance(spender, allowance);
-        assertEq(usdc.allowance(address(balance), spender), allowance);
-
-        balance.decreaseAllowance(spender, allowance);
-
-        assertEq(usdc.allowance(address(balance), spender), 0);
-    }
 }

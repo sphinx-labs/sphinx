@@ -38,7 +38,7 @@ import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
 import { SphinxSystemConfig } from './types'
 import {
   FUNDER_ROLE,
-  PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+  RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
 import { resolveNetworkName } from '../../messages'
@@ -237,8 +237,9 @@ export const initializeSphinx = async (
     }
   }
 
+  const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(),
+    getManagedServiceAddress(chainId),
     ManagedServiceArtifact.abi,
     owner
   )
@@ -261,15 +262,10 @@ export const initializeSphinx = async (
 
   logger?.info('[Sphinx]: assigning caller roles...')
   for (const relayer of relayers) {
-    if (
-      (await ManagedService.hasRole(
-        PROTOCOL_PAYMENT_RECIPIENT_ROLE,
-        relayer
-      )) === false
-    ) {
+    if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
       await (
         await ManagedService.connect(owner).grantRole(
-          PROTOCOL_PAYMENT_RECIPIENT_ROLE,
+          RELAYER_ROLE,
           relayer,
           await getGasPriceOverrides(provider)
         )
@@ -295,7 +291,7 @@ export const initializeSphinx = async (
   logger?.info('[Sphinx]: adding the initial SphinxManager version...')
 
   const SphinxRegistry = getSphinxRegistryReadOnly(provider)
-  const sphinxManagerV1Address = getSphinxManagerV1Address()
+  const sphinxManagerV1Address = getSphinxManagerV1Address(chainId)
   if (
     (await SphinxRegistry.managerImplementations(sphinxManagerV1Address)) ===
     false

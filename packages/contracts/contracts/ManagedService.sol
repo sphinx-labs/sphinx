@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title ManagedService
@@ -10,11 +11,12 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 Users can opt in to this functionality if they choose to do so.
  */
 contract ManagedService is AccessControl {
+    ERC20 public immutable usdc;
+
     /**
      * @notice Role required to collect the protocol creator's payment.
      */
-    bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
-        keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
+    bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
      * @notice Emitted when a protocol payment recipient claims a payment.
@@ -27,13 +29,19 @@ contract ManagedService is AccessControl {
     /**
      * @notice Reverts if the caller is not a protocol payment recipient.
      */
-    error CallerIsNotProtocolPaymentRecipient();
+    error CallerIsNotRelayer();
+
+    /**
+     * @notice Reverts if the caller is not the admin.
+     */
+    error CallerIsNotAdmin();
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
        multisig owned by the Sphinx team.
      */
-    constructor(address _owner) {
+    constructor(address _owner, address _usdc) {
+        usdc = ERC20(_usdc);
         _grantRole(bytes32(0), _owner);
     }
 
@@ -41,12 +49,12 @@ contract ManagedService is AccessControl {
      * @notice Allows the protocol creators to claim their royalty, which is only earned during
        remotely executed deployments.
      */
-    function claimProtocolPayment(uint256 _amount) external {
-        if (!hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender)) {
-            revert CallerIsNotProtocolPaymentRecipient();
+    function withdrawRelayerFunds(uint256 _amount) external {
+        if (!hasRole(RELAYER_ROLE, msg.sender)) {
+            revert CallerIsNotRelayer();
         }
         if (_amount > address(this).balance) {
-            revert("ManagedService: Insufficient funds to withdraw protocol payment");
+            revert("ManagedService: Insufficient funds to withdraw relayer funds");
         }
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);
@@ -54,8 +62,15 @@ contract ManagedService is AccessControl {
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         if (!success) {
-            revert("ManagedService: Failed to withdraw protocol payment");
+            revert("ManagedService: Failed to withdraw relayer funds");
         }
+    }
+
+    function withdrawUSDCBalance(address _to, uint256 _amount) external {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert CallerIsNotAdmin();
+        }
+        usdc.transfer(_to, _amount);
     }
 
     /**

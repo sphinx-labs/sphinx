@@ -77,7 +77,7 @@ const writeConstants = async () => {
     },
     managerImplementationAddress: {
       type: 'address',
-      value: getSphinxManagerV1Address(),
+      value: getSphinxManagerV1Address(31337),
     },
     ozTransparentAdapterAddr: {
       type: 'address',
