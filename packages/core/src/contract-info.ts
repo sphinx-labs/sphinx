@@ -143,29 +143,34 @@ export const getSphinxConstants = async (
 
   // Add any network-specific contracts to the array.
   if (chainId === 10 || chainId === 420) {
-    // These are contracts that only exist on Optimism Mainnet (chain ID 10) and Optimism Goerli
-    // (chain ID 420).
-    const balanceFactoryAddress = getBalanceFactoryAddress(chainId)
     const usdcAddress = USDC_ADDRESSES[chainId]
-    const escrowAddress = getReferenceEscrowContractAddress(chainId)
-    const optimismContractInfo = [
-      {
-        artifact: BalanceFactoryArtifact,
-        expectedAddress: balanceFactoryAddress,
-        constructorArgs: [usdcAddress, getManagedServiceAddress(chainId)],
-      },
-      {
-        artifact: BalanceArtifact,
-        expectedAddress: getReferenceBalanceContractAddress(chainId),
-        constructorArgs: getReferenceBalanceConstructorArgs(chainId),
-      },
-      {
-        artifact: EscrowArtifact,
-        expectedAddress: escrowAddress,
-        constructorArgs: getReferenceEscrowConstructorArgs(chainId),
-      },
-    ]
-    contractInfo.push(...optimismContractInfo)
+    // Only add the Optimism-specific contracts if the USDC contract address exists. This contract
+    // won't exist if we're on a local Anvil node that has an Optimism chain ID, which occurs
+    // during testing.
+    if ((await provider.getCode(usdcAddress)) !== '0x') {
+      // These are contracts that only exist on Optimism Mainnet (chain ID 10) and Optimism Goerli
+      // (chain ID 420).
+      const balanceFactoryAddress = getBalanceFactoryAddress(chainId)
+      const escrowAddress = getReferenceEscrowContractAddress(chainId)
+      const optimismContractInfo = [
+        {
+          artifact: BalanceFactoryArtifact,
+          expectedAddress: balanceFactoryAddress,
+          constructorArgs: [usdcAddress, getManagedServiceAddress(chainId)],
+        },
+        {
+          artifact: BalanceArtifact,
+          expectedAddress: getReferenceBalanceContractAddress(chainId),
+          constructorArgs: getReferenceBalanceConstructorArgs(chainId),
+        },
+        {
+          artifact: EscrowArtifact,
+          expectedAddress: escrowAddress,
+          constructorArgs: getReferenceEscrowConstructorArgs(chainId),
+        },
+      ]
+      contractInfo.push(...optimismContractInfo)
+    }
   }
 
   return contractInfo

@@ -177,7 +177,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     const manager = getSphinxManager(managerAddress, relayer)
 
     await Manager.claimDeployment()
-    const success = await executeDeployment(
+    const { success } = await executeDeployment(
       manager,
       bundles,
       blockGasLimit,

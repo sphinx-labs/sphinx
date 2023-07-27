@@ -251,7 +251,7 @@ describe('Multi chain config', () => {
         // Execute the deployment.
         const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
         await Manager.claimDeployment()
-        const success = await executeDeployment(
+        const { success } = await executeDeployment(
           Manager,
           bundles,
           blockGasLimit,

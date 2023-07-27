@@ -37,7 +37,7 @@ contract Sphinx is Script {
 
     // Maps a Sphinx config path to a deployed contract's reference name to the deployed
     // contract's address.
-    mapping(string => mapping(string => mapping(bytes32 => address))) private deployed;
+    mapping(string => mapping(string => address)) private deployed;
 
     ISphinxUtils internal utils;
 
@@ -274,7 +274,7 @@ contract Sphinx is Script {
         ISphinxManager _manager,
         address _newOwner
     ) private {
-        if (!utils.isManagerDeployed(_registry, address(_manager))) {
+        if (!_registry.isManagerDeployed(address(_manager))) {
             _registry.register{ gas: 1000000 }(_newOwner, _projectName, new bytes(0));
         } else {
             address existingOwner = IOwnable(address(_manager)).owner();
@@ -311,9 +311,11 @@ contract Sphinx is Script {
     ) private {
         for (uint i = 0; i < _contractConfigs.length; i++) {
             MinimalContractConfig memory contractConfig = _contractConfigs[i];
-            deployed[_configPath][contractConfig.referenceName][
-                contractConfig.userSaltHash
-            ] = contractConfig.addr;
+            require(
+                deployed[_configPath][contractConfig.referenceName] == address(0),
+                "Sphinx: Attempted to overwrite a contract that was already deployed. Should never happen."
+            );
+            deployed[_configPath][contractConfig.referenceName] = contractConfig.addr;
         }
     }
 
@@ -359,21 +361,13 @@ contract Sphinx is Script {
         string memory _configPath,
         string memory _referenceName
     ) public view returns (address) {
-        return getAddress(_configPath, _referenceName, bytes32(0));
-    }
-
-    function getAddress(
-        string memory _configPath,
-        string memory _referenceName,
-        bytes32 userSaltHash
-    ) public view returns (address) {
-        address addr = deployed[_configPath][_referenceName][userSaltHash];
+        address addr = deployed[_configPath][_referenceName];
 
         require(
             utils.getCodeSize(addr) > 0,
             string(
                 abi.encodePacked(
-                    "Could not find contract: ",
+                    "Sphinx: Could not find contract: ",
                     _referenceName,
                     " in ",
                     _configPath,

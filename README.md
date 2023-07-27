@@ -34,6 +34,7 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 - [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
 - [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
+- [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
 
 ## Supported Networks
 

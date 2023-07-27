@@ -1,3 +1,7 @@
+# This setting ensures that this script will exit if any subsequent command in this script fails.
+# Without this, the CI process will pass even if tests in this script fail.
+set -e
+
 npx hardhat test test/ManagerUpgrade.spec.ts --config-path \
   sphinx/manager-upgrade.config.ts --signer 8 &&
 npx hardhat test test/Validation.spec.ts test/Create3.spec.ts

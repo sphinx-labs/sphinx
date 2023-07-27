@@ -511,7 +511,7 @@ export const makeActionBundleFromConfig = (
         })
       } else {
         throw new Error(
-          `${referenceName} is not deployed. Should never happen.`
+          `${referenceName}, which is '${kind}' kind, is not deployed. Should never happen.`
         )
       }
     }

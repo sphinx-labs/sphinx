@@ -36,7 +36,6 @@ import {
   sphinxLog,
   isDataHexString,
   getCreationCodeWithConstructorArgs,
-  getDeployedCreationCodeWithArgsHash,
   getPreviousConfigUri,
   getSphinxRegistryReadOnly,
   getSphinxManagerReadOnly,
@@ -45,7 +44,6 @@ import {
   readBuildInfo,
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
-  isManagerDeployed,
   getDuplicateElements,
   hyperlink,
 } from '../utils'
@@ -2579,7 +2577,7 @@ export const getConfigCache = async (
     localNetwork,
     integration
   )
-  const isManagerDeployed_ = await isManagerDeployed(registry, manager.address)
+  const isManagerDeployed_ = await registry.isManagerDeployed(manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
@@ -2601,14 +2599,6 @@ export const getConfigCache = async (
       isTargetDeployed && kind !== ContractKindEnum.IMMUTABLE
         ? await getPreviousConfigUri(provider, registry, address)
         : undefined
-
-    const deployedCreationCodeWithArgsHash = isTargetDeployed
-      ? await getDeployedCreationCodeWithArgsHash(
-          manager,
-          referenceName,
-          address
-        )
-      : undefined
 
     let deploymentRevert: DeploymentRevert | undefined
     // Here we attempt to deploy non-proxy contracts. We do not attempt to deploy the implementation
@@ -2692,7 +2682,6 @@ export const getConfigCache = async (
 
     contractConfigCache[referenceName] = {
       isTargetDeployed,
-      deployedCreationCodeWithArgsHash,
       deploymentRevert: deploymentRevert ?? {
         deploymentReverted: false,
       },
