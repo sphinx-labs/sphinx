@@ -32,7 +32,7 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
      * @notice Mapping of SphinxManagerProxy addresses to a boolean indicating whether or not
      *         it was deployed by this contract.
      */
-    mapping(address => bool) public isDeployed;
+    mapping(address => bool) public isManagerDeployed;
 
     /**
      * @notice Mapping of contract kind hashes to adapter contract addresses.
@@ -87,7 +87,7 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
         );
 
         managers[salt] = payable(address(managerProxy));
-        isDeployed[address(managerProxy)] = true;
+        isManagerDeployed[address(managerProxy)] = true;
 
         bytes memory retdata = managerProxy.upgradeToAndCall(
             currentManagerImplementation,
@@ -117,7 +117,10 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
      * @param _event Name of the event to announce.
      */
     function announce(string memory _event) external {
-        require(isDeployed[msg.sender], "SphinxRegistry: events can only be announced by managers");
+        require(
+            isManagerDeployed[msg.sender],
+            "SphinxRegistry: events can only be announced by managers"
+        );
 
         emit EventAnnounced(_event, msg.sender, _event);
     }
@@ -130,7 +133,10 @@ contract SphinxRegistry is Ownable, Initializable, SphinxRegistryEvents, ISphinx
      * @param _data  Arbitrary data to include in the announced event.
      */
     function announceWithData(string memory _event, bytes memory _data) external {
-        require(isDeployed[msg.sender], "SphinxRegistry: events can only be announced by managers");
+        require(
+            isManagerDeployed[msg.sender],
+            "SphinxRegistry: events can only be announced by managers"
+        );
 
         emit EventAnnouncedWithData(_event, msg.sender, _data, _event, _data);
     }

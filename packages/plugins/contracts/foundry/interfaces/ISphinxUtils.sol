@@ -96,13 +96,6 @@ interface ISphinxUtils {
 
     function getCurrentSphinxManagerVersion() external pure returns (Version memory);
 
-    function getDeployedCreationCodeWithArgsHash(
-        ISphinxManager _manager,
-        string memory _referenceName,
-        address _contractAddress,
-        VmSafe.Log[] memory _executionLogs
-    ) external pure returns (OptionalBytes32 memory);
-
     function getDeploymentId(
         SphinxActionBundle memory _actionBundle,
         SphinxTargetBundle memory _targetBundle,
@@ -147,11 +140,6 @@ interface ISphinxUtils {
     ) external;
 
     function isLocalNetwork(string memory _rpcUrl) external pure returns (bool);
-
-    function isManagerDeployed(
-        ISphinxRegistry _registry,
-        address _manager
-    ) external view returns (bool);
 
     function minimalConfig() external pure returns (MinimalConfig memory);
 

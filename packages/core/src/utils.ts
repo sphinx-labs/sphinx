@@ -206,7 +206,7 @@ export const registerOwner = async (
 ): Promise<void> => {
   spinner.start(`Registering the project...`)
 
-  if (!(await isManagerDeployed(registry, manager.address))) {
+  if (!(await registry.isManagerDeployed(manager.address))) {
     await (
       await registry.register(
         ownerAddress,
@@ -409,13 +409,6 @@ export const getGasPriceOverrides = async (
   }
 
   return overridden
-}
-
-export const isManagerDeployed = async (
-  registry: ethers.Contract,
-  managerAddress: string
-): Promise<boolean> => {
-  return registry.isDeployed(managerAddress)
 }
 
 export const isInternalDefaultProxy = async (
@@ -1081,24 +1074,6 @@ export const deploymentDoesRevert = async (
     return true
   }
   return false
-}
-
-export const getDeployedCreationCodeWithArgsHash = async (
-  manager: ethers.Contract,
-  referenceName: string,
-  contractAddress: string
-): Promise<string | undefined> => {
-  const latestDeploymentEvent = (
-    await manager.queryFilter(
-      manager.filters.ContractDeployed(referenceName, contractAddress)
-    )
-  ).at(-1)
-
-  if (!latestDeploymentEvent || !latestDeploymentEvent.args) {
-    return undefined
-  } else {
-    return latestDeploymentEvent.args.creationCodeWithArgsHash
-  }
 }
 
 // Transfer ownership of the SphinxManager if a new project owner has been specified.

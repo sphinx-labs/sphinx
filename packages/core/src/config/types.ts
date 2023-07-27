@@ -229,7 +229,6 @@ export type ContractConfigCache = {
     isTargetDeployed: boolean
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
-    deployedCreationCodeWithArgsHash?: string
     previousConfigUri?: string
   }
 }

@@ -13,7 +13,7 @@ interface ISphinxRegistry {
         bytes memory _data
     ) external returns (address);
 
-    function isDeployed(address) external view returns (bool);
+    function isManagerDeployed(address) external view returns (bool);
 
     function addContractKind(bytes32 _contractKindHash, address _adapter) external;
 

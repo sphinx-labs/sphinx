@@ -1,25 +1,10 @@
 import { yellow, green, blue } from 'chalk'
-import { BigNumber, utils } from 'ethers/lib/ethers'
 
-import {
-  ConfigArtifacts,
-  ConfigCache,
-  ContractConfigCache,
-  ParsedContractConfig,
-  ParsedContractConfigs,
-} from './config/types'
-import {
-  arraysEqual,
-  getCreationCodeWithConstructorArgs,
-  hyperlink,
-} from './utils'
+import { ConfigCache } from './config/types'
+import { arraysEqual, hyperlink } from './utils'
 
-type ContractAction = 'deploying' | 'skippingIdentical' | 'skippingModified'
-const contractActions: Array<ContractAction> = [
-  'deploying',
-  'skippingIdentical',
-  'skippingModified',
-]
+type ContractAction = 'deploying' | 'skipping'
+const contractActions: Array<ContractAction> = ['deploying', 'skipping']
 
 export type SphinxDiff = Record<ContractAction, Array<string>>
 
@@ -53,8 +38,7 @@ export const getDiffString = (diffs: {
     }>
   > = {
     deploying: [],
-    skippingIdentical: [],
-    skippingModified: [],
+    skipping: [],
   }
   for (const contractAction of contractActions) {
     const actions = diffObject[contractAction]
@@ -133,38 +117,21 @@ export const getDiffString = (diffs: {
     }
   }
 
-  // Create the diff string for the contracts that will be skipped because there is already a
-  // contract at their Create3 address with identical creation code.
-  const skippingIdenticalHeader = yellow.bold.underline(
-    `Skipping (identical):\n`
+  // Create the diff string for the contracts that will be skipped.
+  const skippingHeader = yellow.bold.underline(`Skipping:\n`)
+  const skippingReason = yellow(
+    `Reason: Contract already deployed at the Create3 address. To deploy instead of skipping, see instructions ${hyperlink(
+      'here',
+      'https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md#how-do-i-deploy-a-contract-when-another-contract-already-exists-at-its-create3-address'
+    )}.`
   )
-  const skippingIdenticalReason =
-    yellow(`Reason: Contract with `) +
-    yellow.underline('identical') +
-    yellow(` creation code already deployed at the Create3 address.`)
-  const skippingIdenticalString = getSkippingString(
-    diffObject['skippingIdentical'],
-    skippingIdenticalHeader,
-    skippingIdenticalReason
-  )
-
-  // Create the diff string for the contracts that will be skipped because there is already a
-  // contract at their Create3 address with different creation code.
-  const skippingModifiedHeader = yellow.bold.underline(`Skipping (modified):\n`)
-  const skippingModifiedReason =
-    yellow(`Reason: Contract with `) +
-    yellow.underline('different') +
-    yellow(` creation code already deployed at the Create3 address.\n`)
-  const skippingModifiedString = getSkippingString(
-    diffObject['skippingModified'],
-    skippingModifiedHeader,
-    skippingModifiedReason
+  const skippingString = getSkippingString(
+    diffObject['skipping'],
+    skippingHeader,
+    skippingReason
   )
 
-  return (
-    `\n${deployingString}${skippingIdenticalString}${skippingModifiedString}` +
-    `Confirm? [y/n]`
-  )
+  return `\n${deployingString}${skippingString}` + `Confirm? [y/n]`
 }
 
 const getSkippingString = (
@@ -206,71 +173,26 @@ const getSkippingString = (
   return skippingString
 }
 
-export const getDiff = (
-  contractConfigs: ParsedContractConfigs,
-  configCache: ConfigCache,
-  configArtifacts: ConfigArtifacts
-): SphinxDiff => {
-  const { contractConfigCache } = configCache
-
+export const getDiff = (configCache: ConfigCache): SphinxDiff => {
   const deploying: Array<string> = []
   if (!configCache.isManagerDeployed) {
     deploying.push('SphinxManager')
   }
 
-  const skippingIdentical: Array<string> = []
-  const skippingModified: Array<string> = []
-  for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
+  const skipping: Array<string> = []
+  for (const [referenceName, contractConfigCache] of Object.entries(
+    configCache.contractConfigCache
   )) {
-    const { isTargetDeployed } = contractConfigCache[referenceName]
+    const { isTargetDeployed } = contractConfigCache
     if (!isTargetDeployed) {
       deploying.push(referenceName)
-    } else if (
-      initCodeHashMatches(
-        referenceName,
-        contractConfig,
-        configArtifacts,
-        contractConfigCache
-      )
-    ) {
-      skippingIdentical.push(referenceName)
     } else {
-      skippingModified.push(referenceName)
+      skipping.push(referenceName)
     }
   }
 
   return {
     deploying,
-    skippingIdentical,
-    skippingModified,
+    skipping,
   }
-}
-
-export const initCodeHashMatches = (
-  referenceName: string,
-  contractConfig: ParsedContractConfig,
-  configArtifacts: ConfigArtifacts,
-  contractConfigCache: ContractConfigCache
-): boolean => {
-  const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
-    contractConfigCache[referenceName]
-
-  if (!isTargetDeployed || !deployedCreationCodeWithArgsHash) {
-    return false
-  }
-
-  const { bytecode, abi } = configArtifacts[referenceName].artifact
-
-  const currHash = utils.keccak256(
-    getCreationCodeWithConstructorArgs(
-      bytecode,
-      contractConfig.constructorArgs,
-      abi
-    )
-  )
-
-  return BigNumber.from(deployedCreationCodeWithArgsHash).eq(
-    BigNumber.from(currHash)
-  )
 }

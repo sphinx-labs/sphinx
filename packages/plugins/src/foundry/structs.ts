@@ -37,10 +37,6 @@ export const decodeCachedConfig = (
           ? cachedContract.importCache.currProxyAdmin.value
           : undefined,
       },
-      deployedCreationCodeWithArgsHash: cachedContract
-        .deployedCreationCodeWithArgsHash.exists
-        ? cachedContract.deployedCreationCodeWithArgsHash.value
-        : undefined,
       previousConfigUri: cachedContract.previousConfigUri.exists
         ? cachedContract.previousConfigUri.value
         : undefined,

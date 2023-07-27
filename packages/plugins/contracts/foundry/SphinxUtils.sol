@@ -286,39 +286,6 @@ contract SphinxUtils is
         return ISphinxRegistry(registryAddress);
     }
 
-    function isManagerDeployed(
-        ISphinxRegistry _registry,
-        address _manager
-    ) public view returns (bool) {
-        return _registry.isDeployed(_manager);
-    }
-
-    function getDeployedCreationCodeWithArgsHash(
-        ISphinxManager _manager,
-        string memory _referenceName,
-        address _contractAddress,
-        Vm.Log[] memory _executionLogs
-    ) public pure returns (OptionalBytes32 memory) {
-        OptionalLog memory latestDeploymentEvent = getLatestEvent(
-            _executionLogs,
-            address(_manager),
-            ContractDeployed.selector,
-            OptionalBytes32({ exists: true, value: keccak256(bytes(_referenceName)) }),
-            OptionalBytes32({ exists: true, value: toBytes32(_contractAddress) }),
-            OptionalBytes32({ exists: false, value: bytes32(0) })
-        );
-
-        if (!latestDeploymentEvent.exists) {
-            return OptionalBytes32({ exists: false, value: bytes32(0) });
-        } else {
-            (, , bytes32 creationCodeWithArgsHash) = abi.decode(
-                latestDeploymentEvent.value.data,
-                (string, uint256, bytes32)
-            );
-            return OptionalBytes32({ exists: true, value: creationCodeWithArgsHash });
-        }
-    }
-
     function getEIP1967ProxyAdminAddress(address _proxyAddress) public view returns (address) {
         // The EIP-1967 storage slot that holds the address of the owner.
         // bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
@@ -381,8 +348,8 @@ contract SphinxUtils is
     ) public pure returns (OptionalLog memory) {
         // We iterate over the events in descending order because the most recent event is at the
         // end of the array.
-        for (uint256 i = _executionLogs.length - 1; i >= 0; i--) {
-            Vm.Log memory log = _executionLogs[i];
+        for (uint256 i = _executionLogs.length; i > 0; i--) {
+            Vm.Log memory log = _executionLogs[i - 1];
             uint256 numTopics = log.topics.length;
             if (
                 log.emitter == _emitter &&
@@ -585,7 +552,7 @@ contract SphinxUtils is
         string memory _mainFfiScriptPath,
         Vm.Log[] memory _executionLogs
     ) external returns (ConfigCache memory) {
-        bool isManagerDeployed_ = isManagerDeployed(_registry, address(_manager));
+        bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
 
         ContractConfigCache[] memory contractConfigCache = new ContractConfigCache[](
             _minimalConfig.contracts.length
@@ -606,15 +573,6 @@ contract SphinxUtils is
                     _executionLogs
                 )
                 : OptionalString({ exists: false, value: "" });
-
-            OptionalBytes32 memory deployedCreationCodeWithArgsHash = isTargetDeployed
-                ? getDeployedCreationCodeWithArgsHash(
-                    _manager,
-                    contractConfig.referenceName,
-                    contractConfig.addr,
-                    _executionLogs
-                )
-                : OptionalBytes32({ exists: false, value: "" });
 
             // At this point in the TypeScript version of this function, we attempt to deploy all of
             // the non-proxy contracts. We skip this step here because it's unnecessary in this
@@ -656,7 +614,6 @@ contract SphinxUtils is
             contractConfigCache[i] = ContractConfigCache({
                 referenceName: contractConfig.referenceName,
                 isTargetDeployed: isTargetDeployed,
-                deployedCreationCodeWithArgsHash: deployedCreationCodeWithArgsHash,
                 deploymentRevert: deploymentRevert,
                 importCache: importCache,
                 previousConfigUri: previousConfigUri

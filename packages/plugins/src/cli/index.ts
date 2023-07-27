@@ -370,20 +370,15 @@ yargs(hideBin(process.argv))
           process.stderr
         )
 
-        const { parsedConfig, configCache, configArtifacts } =
-          await getParsedConfig(
-            userConfig,
-            provider,
-            cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-            owner.address
-          )
-
-        const diff = getDiff(
-          parsedConfig.contracts,
-          configCache,
-          configArtifacts
+        const { configCache } = await getParsedConfig(
+          userConfig,
+          provider,
+          cre,
+          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+          owner.address
         )
+
+        const diff = getDiff(configCache)
         const diffString = getDiffString({ [configCache.networkName]: diff })
 
         spinner.stop()

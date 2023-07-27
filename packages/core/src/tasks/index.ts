@@ -30,7 +30,6 @@ import {
   getDeploymentEvents,
   getEIP1967ProxyAdminAddress,
   getGasPriceOverrides,
-  isManagerDeployed,
   writeCompilerConfig,
   writeSnapshotId,
   transferProjectOwnership,
@@ -187,11 +186,7 @@ export const proposeAbstractTask = async (
       projectDeployments.push(projectDeployment)
     }
 
-    diffs[networkName] = getDiff(
-      parsedConfig.contracts,
-      configCache,
-      configArtifacts
-    )
+    diffs[networkName] = getDiff(configCache)
     compilerConfigs[configUri] = compilerConfig
   }
 
@@ -510,14 +505,14 @@ export const deployAbstractTask = async (
   newOwner?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
-  const { projectName, manager, contracts } = parsedConfig
+  const { projectName, manager } = parsedConfig
 
   if (cre.confirm) {
     spinner.succeed(`Got project info.`)
   } else {
     spinner.stop()
 
-    const diff = getDiff(contracts, configCache, configArtifacts)
+    const diff = getDiff(configCache)
     const diffString = getDiffString({ [configCache.networkName]: diff })
 
     // Confirm deployment with the user before sending any transactions.
@@ -595,7 +590,7 @@ export const deployAbstractTask = async (
   ) {
     spinner.start(`Executing ${projectName}...`)
 
-    const success = await executeDeployment(
+    const { success } = await executeDeployment(
       Manager,
       bundles,
       blockGasLimit,
@@ -743,7 +738,7 @@ export const sphinxCancelAbstractTask = async (
   const registry = getSphinxRegistry(owner)
   const Manager = getSphinxManager(managerAddress, owner)
 
-  if (!(await isManagerDeployed(registry, managerAddress))) {
+  if (!(await registry.isManagerDeployed(managerAddress))) {
     throw new Error(`Project has not been registered yet.`)
   }
 
@@ -792,7 +787,7 @@ export const sphinxExportProxyAbstractTask = async (
   const Manager = getSphinxManager(managerAddress, owner)
 
   // Throw an error if the project has not been registered
-  if ((await isManagerDeployed(Registry, Manager.address)) === false) {
+  if ((await Registry.isManagerDeployed(Manager.address)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
@@ -851,7 +846,7 @@ export const sphinxImportProxyAbstractTask = async (
   const Manager = getSphinxManager(managerAddress, signer)
 
   // Throw an error if the project has not been registered
-  if ((await isManagerDeployed(Registry, managerAddress)) === false) {
+  if ((await Registry.isManagerDeployed(managerAddress)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
