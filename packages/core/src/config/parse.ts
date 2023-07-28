@@ -39,13 +39,14 @@ import {
   getPreviousConfigUri,
   getSphinxRegistryReadOnly,
   getSphinxManagerReadOnly,
-  isLocalNetwork,
   isOpenZeppelinContractKind,
   readBuildInfo,
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
   getDuplicateElements,
   hyperlink,
+  getNetworkType,
+  resolveNetwork,
 } from '../utils'
 import {
   ParsedConfigVariable,
@@ -59,7 +60,6 @@ import {
   DeploymentRevert,
   ImportCache,
   GetConfigArtifacts,
-  ConfigCache,
   ConfigArtifacts,
   UserSphinxConfig,
   ParsedConfigWithOptions,
@@ -70,13 +70,10 @@ import {
   ParsedConfigOptions,
   ParsedOwnerConfig,
   UserConfig,
+  MinimalConfigCache,
+  ConfigCache,
 } from './types'
-import {
-  CONTRACT_SIZE_LIMIT,
-  Integration,
-  Keyword,
-  keywords,
-} from '../constants'
+import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
   getStorageType,
   extendStorageLayout,
@@ -95,7 +92,6 @@ import {
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
 import { OZ_UUPS_UPDATER_ADDRESS, getSphinxManagerAddress } from '../addresses'
-import { resolveNetworkName } from '../messages'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import { SUPPORTED_MAINNETS, SUPPORTED_TESTNETS } from '../networks'
 
@@ -191,8 +187,7 @@ export const getParsedConfigWithOptions = async (
     contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider),
-    cre.integration
+    getSphinxManagerReadOnly(managerAddress, provider)
   )
 
   await postParsingValidation(
@@ -288,8 +283,7 @@ export const getParsedConfig = async (
     contractConfigs,
     configArtifacts,
     getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider),
-    cre.integration
+    getSphinxManagerReadOnly(managerAddress, provider)
   )
 
   await postParsingValidation(
@@ -2418,10 +2412,10 @@ export const postParsingValidation = async (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
-  configCache: ConfigCache,
+  configCache: MinimalConfigCache,
   failureAction: FailureAction
 ) => {
-  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
+  const { blockGasLimit, contractConfigCache } = configCache
   const { contracts, manager } = parsedConfig
 
   assertNoUpgradableContracts(parsedConfig, cre)
@@ -2430,7 +2424,7 @@ export const postParsingValidation = async (
 
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
-  if (!localNetwork) {
+  if (!cre.allowUnlimitedContractSize) {
     assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
   }
 
@@ -2456,7 +2450,7 @@ export const postParsingValidation = async (
 export const assertValidDeploymentSize = (
   parsedContractConfigs: ParsedContractConfigs,
   cre: SphinxRuntimeEnvironment,
-  configCache: ConfigCache
+  configCache: MinimalConfigCache
 ): void => {
   const { blockGasLimit } = configCache
 
@@ -2567,16 +2561,11 @@ export const getConfigCache = async (
   contractConfigs: ParsedContractConfigs,
   configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
-  manager: ethers.Contract,
-  integration: Integration
+  manager: ethers.Contract
 ): Promise<ConfigCache> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-  const localNetwork = await isLocalNetwork(provider)
-  const networkName = await resolveNetworkName(
-    provider,
-    localNetwork,
-    integration
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName, chainId } = await resolveNetwork(provider, networkType)
   const isManagerDeployed_ = await registry.isManagerDeployed(manager.address)
 
   const contractConfigCache: ContractConfigCache = {}
@@ -2694,8 +2683,9 @@ export const getConfigCache = async (
 
   return {
     isManagerDeployed: isManagerDeployed_,
+    chainId,
+    networkType,
     blockGasLimit,
-    localNetwork,
     networkName,
     contractConfigCache,
   }

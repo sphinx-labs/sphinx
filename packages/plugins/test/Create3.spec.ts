@@ -44,6 +44,7 @@ describe('Create3', () => {
     const cre = createSphinxRuntime(
       'hardhat',
       false,
+      hre.config.networks.hardhat.allowUnlimitedContractSize,
       true,
       hre.config.paths.compilerConfigs,
       hre,

@@ -1,10 +1,10 @@
-import { ConfigCache } from '@sphinx/core/dist/config/types'
+import { MinimalConfigCache } from '@sphinx/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
   SphinxUtilsABI: any
-): ConfigCache => {
+): MinimalConfigCache => {
   const configCacheType = SphinxUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
@@ -14,10 +14,9 @@ export const decodeCachedConfig = (
     encodedConfigCache
   )[0]
 
-  const structuredConfigCache: ConfigCache = {
+  const structuredConfigCache: MinimalConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
-    localNetwork: configCache.localNetwork,
-    networkName: configCache.networkName,
+    chainId: configCache.chainId,
     isManagerDeployed: configCache.isManagerDeployed,
     contractConfigCache: {},
   }

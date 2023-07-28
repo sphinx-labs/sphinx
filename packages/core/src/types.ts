@@ -11,6 +11,7 @@ export type SphinxRuntimeEnvironment = {
   integration: Integration
   compilerConfigPath: string
   remoteExecution: boolean
+  allowUnlimitedContractSize: boolean
   confirm: boolean
   stream: NodeJS.WritableStream
   silent: boolean

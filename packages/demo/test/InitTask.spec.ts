@@ -61,12 +61,12 @@ describe('Init Task', () => {
   it('Succeeds for a sample Foundry project with a TypeScript Sphinx config', async () => {
     const deploymentArtifactOne = path.join(
       deploymentArtifactDir,
-      'anvil',
+      'anvil-31337',
       'ContractOne.json'
     )
     const deploymentArtifactTwo = path.join(
       deploymentArtifactDir,
-      'anvil',
+      'anvil-31337',
       'ContractTwo.json'
     )
 
@@ -103,12 +103,12 @@ describe('Init Task', () => {
   it('Succeeds for a sample Hardhat project with a TypeScript Sphinx config', async () => {
     const deploymentArtifactOne = path.join(
       deploymentArtifactDir,
-      'hardhat',
+      'hardhat-31337',
       'ContractOne.json'
     )
     const deploymentArtifactTwo = path.join(
       deploymentArtifactDir,
-      'hardhat',
+      'hardhat-31337',
       'ContractTwo.json'
     )
 

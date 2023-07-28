@@ -6,8 +6,8 @@ import { StdStyle } from "forge-std/StdStyle.sol";
 import { Sphinx } from "./Sphinx.sol";
 import {
     Configs,
-    MinimalConfig,
-    MinimalContractConfig,
+    FoundryConfig,
+    FoundryContractConfig,
     ContractKindEnum
 } from "./SphinxPluginTypes.sol";
 import { ISphinxRegistry } from "@sphinx/contracts/contracts/interfaces/ISphinxRegistry.sol";
@@ -113,13 +113,13 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         address signer = utils.msgSender();
 
         Configs memory configs = ffiGetConfigs(_configPath, signer);
-        MinimalConfig memory minimalConfig = configs.minimalConfig;
+        FoundryConfig memory minimalConfig = configs.minimalConfig;
 
         ISphinxManager manager = ISphinxManager(payable(configs.minimalConfig.manager));
 
         require(address(manager) != address(0), "Sphinx: No project found for organization ID");
 
-        MinimalContractConfig memory targetContractConfig;
+        FoundryContractConfig memory targetContractConfig;
 
         for (uint256 i = 0; i < minimalConfig.contracts.length; i++) {
             if (

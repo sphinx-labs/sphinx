@@ -17,7 +17,7 @@ import {
     DeployContractCost,
     OptionalString,
     BundleInfo,
-    MinimalConfig,
+    FoundryConfig,
     OptionalBytes32
 } from "../SphinxPluginTypes.sol";
 
@@ -39,7 +39,7 @@ interface ISphinxUtils {
         BundledSphinxAction[] memory actions
     ) external pure returns (RawSphinxAction[] memory, uint256[] memory, bytes32[][] memory);
 
-    function ensureSphinxInitialized(string memory _rpcUrl, address _systemOwner) external;
+    function ensureSphinxInitialized(address _systemOwner) external;
 
     function equals(string memory _str1, string memory _str2) external pure returns (bool);
 
@@ -81,17 +81,14 @@ interface ISphinxUtils {
         DeployContractCost[] memory costs
     ) external pure returns (uint256);
 
-    function getChainAlias(string memory _rpcUrl) external view returns (string memory);
-
     function getSphinxRegistry() external pure returns (ISphinxRegistry);
 
     function getConfigCache(
-        MinimalConfig memory _minimalConfig,
+        FoundryConfig memory _minimalConfig,
         ISphinxRegistry _registry,
         ISphinxManager _manager,
         string memory _rpcUrl,
-        string memory _mainFfiScriptPath,
-        VmSafe.Log[] memory _executionLogs
+        string memory _mainFfiScriptPath
     ) external returns (ConfigCache memory);
 
     function getCurrentSphinxManagerVersion() external pure returns (Version memory);
@@ -104,27 +101,9 @@ interface ISphinxUtils {
 
     function getEIP1967ProxyAdminAddress(address _proxyAddress) external view returns (address);
 
-    function getLatestEvent(
-        VmSafe.Log[] memory _executionLogs,
-        address _emitter,
-        bytes32 _topic1,
-        OptionalBytes32 memory _topic2,
-        OptionalBytes32 memory _topic3,
-        OptionalBytes32 memory _topic4
-    ) external pure returns (OptionalLog memory);
-
     function getNumActions(
         BundledSphinxAction[] memory _actions
     ) external pure returns (uint256, uint256);
-
-    function getPreviousConfigUri(
-        ISphinxRegistry _registry,
-        address _proxyAddress,
-        bool _localNetwork,
-        string memory _rpcUrl,
-        string memory _mainFfiScriptPath,
-        VmSafe.Log[] memory _executionLogs
-    ) external returns (OptionalString memory);
 
     function inefficientSlice(
         BundledSphinxAction[] memory selected,
@@ -139,9 +118,7 @@ interface ISphinxUtils {
         address _systemOwner
     ) external;
 
-    function isLocalNetwork(string memory _rpcUrl) external pure returns (bool);
-
-    function minimalConfig() external pure returns (MinimalConfig memory);
+    function minimalConfig() external pure returns (FoundryConfig memory);
 
     function msgSender() external view returns (address);
 

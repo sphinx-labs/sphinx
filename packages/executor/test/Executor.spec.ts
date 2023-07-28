@@ -32,6 +32,7 @@ const DUMMY_ORG_ID = '1111'
 const cre = createSphinxRuntime(
   'hardhat',
   true,
+  hre.config.networks.hardhat.allowUnlimitedContractSize,
   true,
   hre.config.paths.compilerConfigs,
   hre,

@@ -61,6 +61,7 @@ import {
   CanonicalConfig,
   ParsedConfig,
   ParsedConfigWithOptions,
+  NetworkType,
 } from './config/types'
 import {
   AuthLeaf,
@@ -129,11 +130,11 @@ export const getDeploymentId = (
 
 export const writeSnapshotId = async (
   provider: ethers.providers.JsonRpcProvider,
-  networkName: string,
+  networkDirName: string,
   deploymentFolderPath: string
 ) => {
   const snapshotId = await provider.send('evm_snapshot', [])
-  const networkPath = path.join(deploymentFolderPath, networkName)
+  const networkPath = path.join(deploymentFolderPath, networkDirName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
@@ -142,24 +143,24 @@ export const writeSnapshotId = async (
 }
 
 export const writeDeploymentFolderForNetwork = (
-  networkName: string,
+  networkDirName: string,
   deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(deploymentFolderPath, networkName)
+  const networkPath = path.join(deploymentFolderPath, networkDirName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
 }
 
 export const writeDeploymentArtifact = (
-  networkName: string,
+  networkDirName: string,
   deploymentFolderPath: string,
   artifact: any,
   referenceName: string
 ) => {
   const artifactPath = path.join(
     deploymentFolderPath,
-    networkName,
+    networkDirName,
     `${referenceName}.json`
   )
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
@@ -984,13 +985,6 @@ export const getDeploymentEvents = async (
   return contractDeployedEvents
 }
 
-export const getChainId = async (
-  provider: ethers.providers.Provider
-): Promise<number> => {
-  const network = await provider.getNetwork()
-  return network.chainId
-}
-
 /**
  * Returns true and only if the variable is a valid ethers DataHexString:
  * https://docs.ethers.org/v5/api/utils/bytes/#DataHexString
@@ -999,39 +993,30 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.utils.isHexString(variable) && variable.length % 2 === 0
 }
 
-/**
- * @notice Returns true if the current network is the local Hardhat network. Returns false if the
- * current network is a forked or live network.
- */
-export const isLocalNetwork = async (
+export const getNetworkType = async (
   provider: providers.JsonRpcProvider
-): Promise<boolean> => {
+): Promise<NetworkType> => {
   try {
-    // This RPC method will throw an error on live networks.
+    // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
+    // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
+    // namespace is an alias for `hardhat_`. Source:
+    // https://book.getfoundry.sh/reference/anvil/#custom-methods
     await provider.send('hardhat_impersonateAccount', [
       ethers.constants.AddressZero,
     ])
   } catch (err) {
-    // We're on a live network, so return false.
-    return false
+    return NetworkType.LIVE_NETWORK
   }
 
   try {
-    if (await isHardhatFork(provider)) {
-      return false
-    }
-  } catch (e) {
-    return true
+    // This RPC method will throw an error on Hardhat but not Anvil. This includes forked networks.
+    await provider.send('anvil_impersonateAccount', [
+      ethers.constants.AddressZero,
+    ])
+    return NetworkType.ANVIL
+  } catch (err) {
+    return NetworkType.HARDHAT
   }
-
-  return true
-}
-
-export const isHardhatFork = async (
-  provider: providers.JsonRpcProvider
-): Promise<boolean> => {
-  const metadata = await provider.send('hardhat_metadata', [])
-  return metadata.forkedNetwork !== undefined
 }
 
 export const getImpersonatedSigner = async (
@@ -1454,5 +1439,96 @@ export const userConfirmation = async (question: string) => {
   if (!confirmed) {
     console.error(`Denied by the user.`)
     process.exit(1)
+  }
+}
+
+export const resolveNetwork = async (
+  provider: ethers.providers.Provider,
+  networkType: NetworkType
+): Promise<{
+  networkName: string
+  chainId: number
+}> => {
+  const { chainId, name } = await provider.getNetwork()
+  if (name !== 'unknown') {
+    return { chainId, networkName: name }
+  } else {
+    // The network name could be 'unknown' on a supported network, e.g. gnosis-chiado. We check if
+    // the chain ID matches a supported network and use the network name if it does.
+    const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
+      ([, supportedChainId]) => supportedChainId === chainId
+    )
+    if (supportedNetwork) {
+      return { chainId, networkName: supportedNetwork[0] }
+    } else if (networkType === NetworkType.ANVIL) {
+      return { chainId, networkName: 'anvil' }
+    } else if (networkType === NetworkType.HARDHAT) {
+      return { chainId, networkName: 'hardhat' }
+    } else {
+      // The network is an unsupported live network.
+      throw new Error(`Unsupported network: ${chainId}`)
+    }
+  }
+}
+
+/**
+ * @notice Returns the name of the directory that stores the artifacts for the specified network.
+ * The directory name will be one of the following:
+ *
+ * 1. `networkName` if the network is a live network. For example, 'ethereum'.
+ *
+ * 2. `networkName-local` if the network matches a supported network and the network is local, i.e.
+ * either a forked network or a local Anvil/Hardhat node with a user-defined chain ID. For
+ * example, 'ethereum-local'. We say 'local' instead of 'fork' because it's difficult to reliably
+ * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
+ * `anvil --chain-id 5`.
+ *
+ * 3. `<hardhat/anvil>-chainId` otherwise. This will occur on standard Hardhat/Anvil nodes. For
+ * example, 'hardhat-31337'.
+ */
+export const getNetworkDirName = (
+  networkName: string,
+  networkType: NetworkType,
+  chainId: number
+): string => {
+  if (networkType === NetworkType.LIVE_NETWORK) {
+    return networkName
+  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
+    return `${networkName}-local`
+  } else {
+    const localNetworkName =
+      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
+    return `${localNetworkName}-${chainId}`
+  }
+}
+
+/**
+ * @notice Returns a string that describes a network, which is used in the diff. A network tag can
+ * take three forms (in order of precedence):
+ *
+ * 1. `networkName` if the network is a live network. For example, 'ethereum'.
+ *
+ * 2. `networkName (local)` if the network matches a supported network and the network is local, i.e.
+ * either a forked network or a local Anvil/Hardhat node with a user-defined chain ID. For
+ * example, 'ethereum-local'. We say 'local' instead of 'fork' because it's difficult to reliably
+ * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
+ * `anvil --chain-id 5`.
+ *
+ * 3. `<hardhat/anvil> (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
+ * example, 'hardhat-31337'.
+ */
+export const getNetworkTag = (
+  networkName: string,
+  networkType: NetworkType,
+  chainId: number
+): string => {
+  if (networkType === NetworkType.LIVE_NETWORK) {
+    return networkName
+  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
+    return `${networkName} (local)`
+  } else {
+    const localNetworkType =
+      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
+    return `${localNetworkType} (chain ID: ${chainId})`
   }
 }

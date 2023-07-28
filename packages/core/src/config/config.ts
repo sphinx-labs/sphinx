@@ -1,8 +1,8 @@
 import { resolve } from 'path'
 
 import {
-  MinimalConfig,
-  MinimalContractConfig,
+  FoundryConfig,
+  FoundryContractConfig,
   UserConfig,
   UserConfigWithOptions,
   UserSphinxConfig,
@@ -16,13 +16,13 @@ import { getSphinxManagerAddress } from '../addresses'
  * support for types. We limit the number of fields in the minimal config to minimize the amount of
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
-export const getMinimalConfig = (
+export const getFoundryConfig = (
   userConfig: UserSphinxConfig,
   owner: string
-): MinimalConfig => {
+): FoundryConfig => {
   const manager = getSphinxManagerAddress(owner, userConfig.projectName)
 
-  const minimalContractConfigs: Array<MinimalContractConfig> = []
+  const minimalContractConfigs: Array<FoundryContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
     userConfig.contracts
   )) {

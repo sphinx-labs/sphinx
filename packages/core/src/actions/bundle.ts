@@ -7,7 +7,7 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 import {
   CanonicalConfig,
   ConfigArtifacts,
-  ConfigCache,
+  MinimalConfigCache,
   ParsedConfig,
   ParsedConfigWithOptions,
   contractKindHashes,
@@ -453,7 +453,7 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
 export const makeBundlesFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache
+  configCache: MinimalConfigCache
 ): SphinxBundles => {
   const actionBundle = makeActionBundleFromConfig(
     parsedConfig,
@@ -474,7 +474,7 @@ export const makeBundlesFromConfig = (
 export const makeActionBundleFromConfig = (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache
+  configCache: MinimalConfigCache
 ): SphinxActionBundle => {
   const managerAddress = parsedConfig.manager
   const actions: SphinxAction[] = []
@@ -519,7 +519,7 @@ export const makeActionBundleFromConfig = (
     if (kind !== 'immutable') {
       // Add a DEPLOY_CONTRACT action for the proxy's implementation. Note that it may be possible
       // for the implementation to be deployed already. We don't check for that here because this
-      // would slow down the Foundry plugin's FFI call to retrieve the MinimalConfig, since we would
+      // would slow down the Foundry plugin's FFI call to retrieve the FoundryConfig, since we would
       // need to run the parsing logic in order to get the implementation's constructor args and
       // bytecode.
 
@@ -631,7 +631,7 @@ export const getAuthLeafsForChain = async (
   chainId: number,
   parsedConfig: ParsedConfigWithOptions,
   configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache,
+  configCache: MinimalConfigCache,
   prevConfig: CanonicalConfig
 ): Promise<Array<AuthLeaf>> => {
   const { options, projectName } = parsedConfig

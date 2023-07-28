@@ -69,6 +69,7 @@ const ownerAddress = args[3]
     const cre = createSphinxRuntime(
       'foundry',
       false,
+      false,
       true,
       compilerConfigFolder,
       undefined,

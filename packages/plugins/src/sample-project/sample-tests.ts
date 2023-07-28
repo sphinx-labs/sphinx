@@ -11,7 +11,7 @@ describe('HelloSphinx', () => {
   let SecondContract: Contract
   beforeEach(async () => {
     // Resets the contracts to their initial state.
-    await sphinx.reset()
+    await sphinx.reset(ethers.provider)
 
     // Gets the deployed contracts.
     FirstContract = await sphinx.getContract(
@@ -61,7 +61,7 @@ describe('HelloSphinx', () => {
   let SecondContract
   beforeEach(async () => {
     // Reset the contracts to their initial state.
-    await sphinx.reset()
+    await sphinx.reset(ethers.provider)
 
     // Get the deployed contracts.
     FirstContract = await sphinx.getContract(

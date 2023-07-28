@@ -1,12 +1,12 @@
 import {
   getSphinxRegistryReadOnly,
   getPreviousConfigUri,
-  initializeSphinx,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
   proposeAbstractTask,
   readUserConfigWithOptions,
+  ensureSphinxInitialized,
 } from '@sphinx/core'
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
@@ -44,6 +44,7 @@ const command = args[0]
         const cre = createSphinxRuntime(
           'foundry',
           true,
+          false,
           false, // Users must manually confirm proposals.
           compilerConfigFolder,
           undefined,
@@ -121,8 +122,10 @@ const command = args[0]
       )
 
       try {
-        await initializeSphinx(provider, wallet, [], [], [])
+        await ensureSphinxInitialized(provider, wallet, [], [], [])
       } catch (e) {
+        // The 'could not detect network' error will occur on the in-process Anvil node,
+        // since we can't access it in TypeScript.
         if (!e.reason.includes('could not detect network')) {
           throw e
         }

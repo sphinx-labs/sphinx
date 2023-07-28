@@ -26,6 +26,7 @@ export const DUMMY_ORG_ID = '1111'
 export const cre = createSphinxRuntime(
   'hardhat',
   false,
+  hre.config.networks.hardhat.allowUnlimitedContractSize,
   true, // Automatically confirm proposals
   hre.config.paths.compilerConfigs,
   hre,

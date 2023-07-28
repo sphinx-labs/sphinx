@@ -20,8 +20,9 @@ import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  isLocalNetwork,
   getSphinxRegistryReadOnly,
+  getNetworkType,
+  resolveNetwork,
 } from '../../utils'
 import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
@@ -41,9 +42,9 @@ import {
   RELAYER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
-import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
 import { getSphinxConstants } from '../../contract-info'
+import { NetworkType } from '../../config'
 
 const fetchSphinxSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
@@ -87,14 +88,11 @@ export const initializeAndVerifySphinx = async (
   // Verify Sphinx contracts on etherscan
   try {
     // Verify the Sphinx contracts if the current network is supported.
+    const networkType = await getNetworkType(provider)
+    const { networkName } = await resolveNetwork(provider, networkType)
     if (
-      isSupportedNetworkOnEtherscan(
-        await resolveNetworkName(
-          provider,
-          await isLocalNetwork(provider),
-          'hardhat'
-        )
-      )
+      isSupportedNetworkOnEtherscan(networkName) &&
+      networkType === NetworkType.LIVE_NETWORK
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
@@ -123,8 +121,8 @@ export const initializeAndVerifySphinx = async (
 
 /**
  * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
- * transactions from the signer if the provider is a local, non-forked network. The signer will
- * never be used to send transactions on a live network.
+ * transactions from the signer exists on a non-live network (i.e. a local or forked network). The
+ * signer will never be used to send transactions on a live network.
  */
 export const ensureSphinxInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
@@ -136,7 +134,7 @@ export const ensureSphinxInitialized = async (
 ) => {
   if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
     return
-  } else if (await isLocalNetwork(provider)) {
+  } else if ((await getNetworkType(provider)) !== NetworkType.LIVE_NETWORK) {
     await initializeSphinx(
       provider,
       signer,
@@ -146,9 +144,10 @@ export const ensureSphinxInitialized = async (
       logger
     )
   } else {
-    const { name } = await provider.getNetwork()
+    const networkType = await getNetworkType(provider)
+    const { networkName } = await resolveNetwork(provider, networkType)
     throw new Error(
-      `Sphinx is not supported on ${name} yet. Reach out on Discord if you'd like us to support it!`
+      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it!`
     )
   }
 }
@@ -203,8 +202,11 @@ export const initializeSphinx = async (
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  const localNetwork = await isLocalNetwork(provider)
-  if (!localNetwork && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
+  const networkType = await getNetworkType(provider)
+  if (
+    networkType === NetworkType.LIVE_NETWORK &&
+    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
+  ) {
     if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
       throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
     }
@@ -226,7 +228,7 @@ export const initializeSphinx = async (
       )
     }
 
-    if (localNetwork) {
+    if (networkType !== NetworkType.LIVE_NETWORK) {
       // Fund the signer
       await (
         await signer.sendTransaction({
