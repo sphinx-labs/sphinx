@@ -233,8 +233,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   try {
     ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
       rpcProvider,
-      approvalEvent.args.configUri,
-      'hardhat'
+      approvalEvent.args.configUri
     ))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)

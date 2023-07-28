@@ -21,10 +21,10 @@ import {
     SphinxTargetBundle
 } from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
 import {
-    MinimalConfig,
+    FoundryConfig,
     Configs,
     BundleInfo,
-    MinimalContractConfig,
+    FoundryContractConfig,
     ConfigCache,
     DeployContractCost,
     OptionalAddress
@@ -177,8 +177,7 @@ contract Sphinx is Script {
                 string(
                     abi.encodePacked(
                         configs.minimalConfig.projectName,
-                        " was previously cancelled on ",
-                        configCache.networkName
+                        " was previously cancelled."
                     )
                 )
             );
@@ -235,7 +234,7 @@ contract Sphinx is Script {
         if (!silent) {
             console.log("Success!");
             for (uint i = 0; i < configs.minimalConfig.contracts.length; i++) {
-                MinimalContractConfig memory contractConfig = configs.minimalConfig.contracts[i];
+                FoundryContractConfig memory contractConfig = configs.minimalConfig.contracts[i];
                 console.log(
                     string(
                         abi.encodePacked(
@@ -307,10 +306,10 @@ contract Sphinx is Script {
 
     function updateDeploymentMapping(
         string memory _configPath,
-        MinimalContractConfig[] memory _contractConfigs
+        FoundryContractConfig[] memory _contractConfigs
     ) private {
         for (uint i = 0; i < _contractConfigs.length; i++) {
-            MinimalContractConfig memory contractConfig = _contractConfigs[i];
+            FoundryContractConfig memory contractConfig = _contractConfigs[i];
             require(
                 deployed[_configPath][contractConfig.referenceName] == address(0),
                 "Sphinx: Attempted to overwrite a contract that was already deployed. Should never happen."
@@ -346,9 +345,9 @@ contract Sphinx is Script {
         bytes memory data = utils.slice(result, 0, result.length - 32);
 
         if (success) {
-            (MinimalConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
+            (FoundryConfig memory minimalConfig, string memory userConfigStr) = abi.decode(
                 result,
-                (MinimalConfig, string)
+                (FoundryConfig, string)
             );
             return Configs(minimalConfig, userConfigStr);
         } else {

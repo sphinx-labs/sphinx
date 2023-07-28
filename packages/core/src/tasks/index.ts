@@ -16,11 +16,13 @@ import {
   GetProviderForChainId,
   ConfigArtifacts,
   ParsedConfigWithOptions,
-  ConfigCache,
   CompilerConfig,
   GetCanonicalConfig,
   UserConfigWithOptions,
   ParsedConfig,
+  ConfigCache,
+  MinimalConfigCache,
+  NetworkType,
 } from '../config/types'
 import {
   getDeploymentId,
@@ -33,18 +35,18 @@ import {
   writeCompilerConfig,
   writeSnapshotId,
   transferProjectOwnership,
-  isHardhatFork,
   getProjectConfigInfo,
   relayProposal,
   relayIPFSCommit,
   registerOwner,
   fetchCanonicalConfig,
   userConfirmation,
-  isLocalNetwork,
+  getNetworkType,
+  resolveNetwork,
+  getNetworkDirName,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration } from '../constants'
-import { resolveNetworkName } from '../messages'
 import {
   SphinxBundles,
   DeploymentState,
@@ -75,7 +77,7 @@ import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
 import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
 import { getParsedConfigWithOptions } from '../config/parse'
-import { SphinxDiff, getDiff, getDiffString } from '../diff'
+import { getDiff, getDiffString } from '../diff'
 
 // Load environment variables from .env
 dotenv.config()
@@ -138,7 +140,7 @@ export const proposeAbstractTask = async (
   const compilerConfigs: {
     [ipfsHash: string]: CompilerConfig
   } = {}
-  const diffs: { [networkName: string]: SphinxDiff } = {}
+  const configCaches: Array<ConfigCache> = []
   // We loop through any logic that depends on the provider object.
   for (const chainId of chainIds) {
     const provider = getProviderForChainId(chainId)
@@ -158,7 +160,6 @@ export const proposeAbstractTask = async (
     parsedConfig = parsedConfigValues.parsedConfig
     configArtifacts = parsedConfigValues.configArtifacts
     const configCache = parsedConfigValues.configCache
-    const { networkName } = configCache
 
     const leafsForChain = await getAuthLeafsForChain(
       chainId,
@@ -186,9 +187,11 @@ export const proposeAbstractTask = async (
       projectDeployments.push(projectDeployment)
     }
 
-    diffs[networkName] = getDiff(configCache)
+    configCaches.push(configCache)
     compilerConfigs[configUri] = compilerConfig
   }
+
+  const diff = getDiff(configCaches)
 
   // This removes a TypeScript error that occurs because TypeScript doesn't know that the
   // `parsedConfig` variable is defined.
@@ -218,7 +221,7 @@ export const proposeAbstractTask = async (
   if (!cre.confirm) {
     spinner.stop()
     // Confirm deployment with the user before proceeding.
-    await userConfirmation(getDiffString(diffs))
+    await userConfirmation(getDiffString(diff))
     spinner.start(`Proposal in progress...`)
   }
 
@@ -364,7 +367,7 @@ export const proposeAbstractTask = async (
     canonicalConfig: JSON.stringify(newCanonicalConfig),
     projectDeployments,
     gasEstimates,
-    diffs,
+    diff,
     tree: {
       root,
       chainStatus,
@@ -506,20 +509,19 @@ export const deployAbstractTask = async (
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<void> => {
   const { projectName, manager } = parsedConfig
+  const { networkName, blockGasLimit } = configCache
 
   if (cre.confirm) {
     spinner.succeed(`Got project info.`)
   } else {
     spinner.stop()
 
-    const diff = getDiff(configCache)
-    const diffString = getDiffString({ [configCache.networkName]: diff })
+    const diff = getDiff([configCache])
+    const diffString = getDiffString(diff)
 
     // Confirm deployment with the user before sending any transactions.
     await userConfirmation(diffString)
   }
-
-  const { networkName, blockGasLimit, localNetwork } = configCache
 
   const Registry = getSphinxRegistry(signer)
   const Manager = getSphinxManager(manager, signer)
@@ -627,8 +629,7 @@ export const deployAbstractTask = async (
     deploymentId,
     compilerConfigPath,
     configUri,
-    localNetwork,
-    networkName,
+    configCache,
     deploymentFolder,
     integration,
     cre.silent,
@@ -646,8 +647,7 @@ export const postDeploymentActions = async (
   deploymentId: string,
   compilerConfigPath: string,
   configUri: string,
-  localNetwork: boolean,
-  networkName: string,
+  configCache: ConfigCache,
   deploymentFolder: string,
   integration: Integration,
   silent: boolean,
@@ -663,19 +663,26 @@ export const postDeploymentActions = async (
     writeCompilerConfig(compilerConfigPath, configUri, compilerConfig)
   }
 
+  const { networkName, chainId, networkType } = configCache
+  const networkDirName = getNetworkDirName(networkName, networkType, chainId)
+
   await trackDeployed(owner, networkName, integration)
 
   await writeDeploymentArtifacts(
     provider,
     compilerConfig,
     await getDeploymentEvents(manager, deploymentId),
-    networkName,
+    networkDirName,
     deploymentFolder,
     configArtifacts
   )
 
   spinner?.succeed(
-    `Wrote deployment artifacts to: ${join(deploymentFolder, networkName, sep)}`
+    `Wrote deployment artifacts to: ${join(
+      deploymentFolder,
+      networkDirName,
+      sep
+    )}`
   )
 
   // TODO: wait to see if Foundry can automatically verify the contracts. It's unlikely because we
@@ -697,13 +704,11 @@ export const postDeploymentActions = async (
     }
   }
 
-  if (integration === 'hardhat') {
+  if (integration === 'hardhat' && networkType !== NetworkType.LIVE_NETWORK) {
     try {
-      if (localNetwork || (await isHardhatFork(provider))) {
-        // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
-        // against the most recently deployed contracts.
-        await writeSnapshotId(provider, networkName, deploymentFolder)
-      }
+      // We save the snapshot ID here so that tests on the stand-alone Hardhat network can be run
+      // against the most recently deployed contracts.
+      await writeSnapshotId(provider, networkDirName, deploymentFolder)
     } catch (e) {
       if (!e.message.includes('hardhat_metadata')) {
         throw e
@@ -724,11 +729,8 @@ export const sphinxCancelAbstractTask = async (
   integration: Integration,
   cre: SphinxRuntimeEnvironment
 ) => {
-  const networkName = await resolveNetworkName(
-    provider,
-    await isLocalNetwork(provider),
-    integration
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName } = await resolveNetwork(provider, networkType)
 
   const ownerAddress = await owner.getAddress()
   const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
@@ -819,11 +821,8 @@ export const sphinxExportProxyAbstractTask = async (
     )
   ).wait()
 
-  const networkName = await resolveNetworkName(
-    provider,
-    await isLocalNetwork(provider),
-    integration
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName } = await resolveNetwork(provider, networkType)
   await trackExportProxy(projectOwner, networkName, integration)
 
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
@@ -853,11 +852,8 @@ export const sphinxImportProxyAbstractTask = async (
   spinner.succeed('Project registration detected')
   spinner.start('Checking proxy compatibility...')
 
-  const networkName = await resolveNetworkName(
-    provider,
-    await isLocalNetwork(provider),
-    integration
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName } = await resolveNetwork(provider, networkType)
   if ((await provider.getCode(proxy)) === '0x') {
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
@@ -918,7 +914,7 @@ export const sphinxImportProxyAbstractTask = async (
 export const getProjectBundleInfo = async (
   parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
-  configCache: ConfigCache
+  configCache: MinimalConfigCache
 ): Promise<{
   configUri: string
   compilerConfig: CompilerConfig

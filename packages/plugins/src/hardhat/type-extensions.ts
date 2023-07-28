@@ -28,7 +28,7 @@ declare module 'hardhat/types/runtime' {
   // scripts, and tests.
   export interface HardhatRuntimeEnvironment {
     sphinx: {
-      reset: () => Promise<void>
+      reset: (provider: ethers.providers.JsonRpcProvider) => Promise<void>
       getContract: (
         projectName: string,
         referenceName: string,
@@ -51,8 +51,10 @@ extendConfig((config: HardhatConfig) => {
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
   hre.sphinx = lazyObject(() => {
     return {
-      reset: async (): Promise<void> => {
-        await resetSphinxDeployments(hre)
+      reset: async (
+        provider: ethers.providers.JsonRpcProvider
+      ): Promise<void> => {
+        await resetSphinxDeployments(hre, provider)
       },
       getContract: async (
         projectName: string,

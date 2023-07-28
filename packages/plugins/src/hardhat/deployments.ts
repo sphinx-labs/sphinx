@@ -11,6 +11,9 @@ import {
   getTargetAddress,
   UserSalt,
   readUserSphinxConfig,
+  getNetworkDirName,
+  resolveNetwork,
+  getNetworkType,
 } from '@sphinx/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -128,11 +131,15 @@ export const getContract = async (
 }
 
 export const resetSphinxDeployments = async (
-  hre: HardhatRuntimeEnvironment
+  hre: HardhatRuntimeEnvironment,
+  provider: ethers.providers.JsonRpcProvider
 ) => {
+  const networkType = await getNetworkType(provider)
+  const { networkName, chainId } = await resolveNetwork(provider, networkType)
+  const networkDirName = getNetworkDirName(networkName, networkType, chainId)
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployments),
-    'hardhat',
+    networkDirName,
     '.snapshotId'
   )
   const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -144,7 +151,7 @@ export const resetSphinxDeployments = async (
   }
   await writeSnapshotId(
     hre.ethers.provider,
-    'hardhat',
+    networkDirName,
     hre.config.paths.deployments
   )
 }

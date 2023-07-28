@@ -5,11 +5,12 @@ import { writeDeploymentArtifacts } from '@sphinx/core/dist/actions/artifacts'
 import { DeploymentState } from '@sphinx/core/dist/actions/types'
 import { getSphinxManagerAddress } from '@sphinx/core/dist/addresses'
 import { CompilerConfig, ConfigArtifacts } from '@sphinx/core/dist/config/types'
-import { resolveNetworkName } from '@sphinx/core/dist/messages'
 import {
   getDeploymentEvents,
+  getNetworkDirName,
+  getNetworkType,
   getSphinxManagerReadOnly,
-  isLocalNetwork,
+  resolveNetwork,
 } from '@sphinx/core/dist/utils'
 import { providers } from 'ethers/lib/ethers'
 import { Ora } from 'ora'
@@ -50,11 +51,9 @@ export const writeDeploymentArtifactsUsingEvents = async (
     readFileSync(`.compiler-configs/${ipfsHash}.json`).toString()
   )
 
-  const networkName = await resolveNetworkName(
-    provider,
-    await isLocalNetwork(provider),
-    'foundry'
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName, chainId } = await resolveNetwork(provider, networkType)
+  const networkDirName = getNetworkDirName(networkName, networkType, chainId)
 
   const configArtifacts: ConfigArtifacts = JSON.parse(
     readFileSync(`${cachePath}/configArtifacts/${ipfsHash}.json`).toString()
@@ -64,11 +63,11 @@ export const writeDeploymentArtifactsUsingEvents = async (
     provider,
     compilerConfig,
     await getDeploymentEvents(Manager, deploymentId),
-    networkName,
+    networkDirName,
     deploymentFolder,
     configArtifacts
   )
 
-  const deploymentArtifactsPath = join(deploymentFolder, networkName, sep)
+  const deploymentArtifactsPath = join(deploymentFolder, networkDirName, sep)
   spinner.succeed(`Wrote deployment artifacts to: ${deploymentArtifactsPath}`)
 }

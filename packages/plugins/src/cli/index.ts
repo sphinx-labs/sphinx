@@ -363,6 +363,7 @@ yargs(hideBin(process.argv))
         const cre = createSphinxRuntime(
           'foundry',
           false,
+          false,
           confirm,
           compilerConfigFolder,
           undefined,
@@ -378,8 +379,8 @@ yargs(hideBin(process.argv))
           owner.address
         )
 
-        const diff = getDiff(configCache)
-        const diffString = getDiffString({ [configCache.networkName]: diff })
+        const diff = getDiff([configCache])
+        const diffString = getDiffString(diff)
 
         spinner.stop()
         await userConfirmation(diffString)

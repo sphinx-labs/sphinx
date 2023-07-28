@@ -4,7 +4,6 @@ pragma experimental ABIEncoderV2;
 
 import { CommonBase } from "forge-std/Base.sol";
 import { VmSafe } from "forge-std/Vm.sol";
-import { strings } from "./lib/strings.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import "forge-std/Script.sol";
 import "forge-std/Test.sol";
@@ -33,10 +32,10 @@ import {
 } from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
 import { SphinxAuthFactory } from "@sphinx/contracts/contracts/SphinxAuthFactory.sol";
 import {
-    MinimalConfig,
+    FoundryConfig,
     Configs,
     BundleInfo,
-    MinimalContractConfig,
+    FoundryContractConfig,
     ConfigCache,
     DeployContractCost,
     ContractConfigCache,
@@ -75,18 +74,18 @@ contract SphinxUtils is
         string memory _mainFfiScriptPath,
         address _systemOwner
     ) external {
-        if (isLocalNetwork(_rpcUrl) && _isRecurrentBroadcast) {
+        if (_isRecurrentBroadcast) {
             ffiDeployOnAnvil(_rpcUrl, _mainFfiScriptPath);
         }
-        ensureSphinxInitialized(_rpcUrl, _systemOwner);
+        ensureSphinxInitialized(_systemOwner);
     }
 
-    function ensureSphinxInitialized(string memory _rpcUrl, address _systemOwner) public {
+    function ensureSphinxInitialized(address _systemOwner) public {
         ISphinxRegistry registry = getSphinxRegistry();
         SphinxAuthFactory factory = SphinxAuthFactory(factoryAddress);
         if (address(registry).code.length > 0) {
             return;
-        } else if (isLocalNetwork(_rpcUrl)) {
+        } else {
             vm.etch(
                 DETERMINISTIC_DEPLOYMENT_PROXY,
                 hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
@@ -134,33 +133,6 @@ contract SphinxUtils is
             registry.addContractKind(bytes32(0), defaultAdapterAddr);
 
             vm.stopPrank();
-        } else {
-            revert(
-                "Sphinx is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!"
-            );
-        }
-    }
-
-    /**
-     * @notice Returns true if the current network is either the in-process or standalone Anvil
-     * node. Returns false if the current network is a forked or live network.
-     */
-    function isLocalNetwork(string memory _rpcUrl) public pure returns (bool) {
-        strings.slice memory sliceUrl = strings.toSlice(_rpcUrl);
-        strings.slice memory delim = strings.toSlice(":");
-        string[] memory parts = new string[](strings.count(sliceUrl, delim) + 1);
-        for (uint i = 0; i < parts.length; i++) {
-            parts[i] = strings.toString(strings.split(sliceUrl, delim));
-        }
-        if (parts.length < 2) {
-            revert(string.concat(_rpcUrl, " is not a valid RPC url."));
-        }
-        string memory host = parts[1];
-
-        if (equals(host, "//127.0.0.1") || equals(host, "//localhost")) {
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -171,7 +143,7 @@ contract SphinxUtils is
 
     function configCache() external pure returns (ConfigCache memory) {}
 
-    function minimalConfig() external pure returns (MinimalConfig memory) {}
+    function minimalConfig() external pure returns (FoundryConfig memory) {}
 
     function deployContractCosts() external pure returns (DeployContractCost[] memory) {}
 
@@ -321,51 +293,6 @@ contract SphinxUtils is
             );
     }
 
-    /**
-     * @notice This function retrieves the most recent event emitted by the given emitter that
-     *         matches the topics. It relies on the logs collected in this contract via
-     *         `vm.getRecordedLogs`. It can only be used on Anvil networks. It operates in the same
-     *         manner as Ethers.js' `queryFilter` function, except it retrieves only the most recent
-     *         event that matches the topics instead of a list of all the events that match.
-     *
-     * @param _emitter The address of the contract that emitted the event.
-     * @param _topic1  The first topic of the event. This is the event selector unless the event is
-     *                 anonymous.
-     * @param _topic2  The second topic of the event. If omitted, it won't be used to filter the
-     *                 events.
-     * @param _topic3  The third topic of the event. If omitted, it won't be used to filter the
-     *                 events.
-     * @param _topic4  The fourth topic of the event. If omitted, it won't be used to filter the
-     *                 events.
-     */
-    function getLatestEvent(
-        Vm.Log[] memory _executionLogs,
-        address _emitter,
-        bytes32 _topic1,
-        OptionalBytes32 memory _topic2,
-        OptionalBytes32 memory _topic3,
-        OptionalBytes32 memory _topic4
-    ) public pure returns (OptionalLog memory) {
-        // We iterate over the events in descending order because the most recent event is at the
-        // end of the array.
-        for (uint256 i = _executionLogs.length; i > 0; i--) {
-            Vm.Log memory log = _executionLogs[i - 1];
-            uint256 numTopics = log.topics.length;
-            if (
-                log.emitter == _emitter &&
-                (numTopics > 0 && _topic1 == log.topics[0]) &&
-                (!_topic2.exists || (numTopics > 1 && _topic2.value == log.topics[1])) &&
-                (!_topic3.exists || (numTopics > 2 && _topic3.value == log.topics[2])) &&
-                (!_topic4.exists || (numTopics > 3 && _topic4.value == log.topics[3]))
-            ) {
-                return OptionalLog({ exists: true, value: log });
-            }
-        }
-        // Return an empty log if no event was found.
-        Vm.Log memory emptyLog;
-        return OptionalLog({ exists: false, value: emptyLog });
-    }
-
     function getCurrentSphinxManagerVersion() public pure returns (Version memory) {
         return Version({ major: major, minor: minor, patch: patch });
     }
@@ -508,26 +435,6 @@ contract SphinxUtils is
         return bytes32(uint256(uint160(_addr)));
     }
 
-    function getChainAlias(string memory _rpcUrl) public view returns (string memory) {
-        bool isLocalNetwork_ = isLocalNetwork(_rpcUrl);
-        Vm.Rpc[] memory urls = vm.rpcUrlStructs();
-        for (uint i = 0; i < urls.length; i++) {
-            Vm.Rpc memory rpc = urls[i];
-            if (equals(rpc.url, _rpcUrl)) {
-                return rpc.key;
-            } else if (isLocalNetwork_ && isLocalNetwork(rpc.url)) {
-                return rpc.key;
-            }
-        }
-        revert(
-            string.concat(
-                "Could not find the chain alias for the RPC url: ",
-                _rpcUrl,
-                ". Did you forget to define it in your foundry.toml?"
-            )
-        );
-    }
-
     function getNumActions(
         BundledSphinxAction[] memory _actions
     ) public pure returns (uint256, uint256) {
@@ -545,12 +452,11 @@ contract SphinxUtils is
     }
 
     function getConfigCache(
-        MinimalConfig memory _minimalConfig,
+        FoundryConfig memory _minimalConfig,
         ISphinxRegistry _registry,
         ISphinxManager _manager,
         string memory _rpcUrl,
-        string memory _mainFfiScriptPath,
-        Vm.Log[] memory _executionLogs
+        string memory _mainFfiScriptPath
     ) external returns (ConfigCache memory) {
         bool isManagerDeployed_ = _registry.isManagerDeployed(address(_manager));
 
@@ -558,20 +464,13 @@ contract SphinxUtils is
             _minimalConfig.contracts.length
         );
         for (uint256 i = 0; i < contractConfigCache.length; i++) {
-            MinimalContractConfig memory contractConfig = _minimalConfig.contracts[i];
+            FoundryContractConfig memory contractConfig = _minimalConfig.contracts[i];
 
             bool isTargetDeployed = contractConfig.addr.code.length > 0;
 
             OptionalString memory previousConfigUri = isTargetDeployed &&
                 contractConfig.kind != ContractKindEnum.IMMUTABLE
-                ? getPreviousConfigUri(
-                    _registry,
-                    contractConfig.addr,
-                    isLocalNetwork(_rpcUrl),
-                    _rpcUrl,
-                    _mainFfiScriptPath,
-                    _executionLogs
-                )
+                ? ffiGetPreviousConfigUri(contractConfig.addr, _rpcUrl, _mainFfiScriptPath)
                 : OptionalString({ exists: false, value: "" });
 
             // At this point in the TypeScript version of this function, we attempt to deploy all of
@@ -624,72 +523,9 @@ contract SphinxUtils is
             ConfigCache({
                 isManagerDeployed: isManagerDeployed_,
                 blockGasLimit: block.gaslimit,
-                localNetwork: isLocalNetwork(_rpcUrl),
-                networkName: getChainAlias(_rpcUrl),
+                chainId: block.chainid,
                 contractConfigCache: contractConfigCache
             });
-    }
-
-    function getPreviousConfigUri(
-        ISphinxRegistry _registry,
-        address _proxyAddress,
-        bool _localNetwork,
-        string memory _rpcUrl,
-        string memory _mainFfiScriptPath,
-        Vm.Log[] memory _executionLogs
-    ) public returns (OptionalString memory) {
-        if (!_localNetwork) {
-            // We rely on FFI for non-Anvil networks because the previous config URI
-            // could correspond to a deployment that happened before this script was
-            // called.
-            return ffiGetPreviousConfigUri(_proxyAddress, _rpcUrl, _mainFfiScriptPath);
-        } else {
-            // We can't rely on FFI for the in-process Anvil node because there is no accessible
-            // provider to use in TypeScript. So, we use the logs collected in this contract to get
-            // the previous config URI.
-            OptionalLog memory latestRegistryEvent = getLatestEvent(
-                _executionLogs,
-                address(_registry),
-                EventAnnouncedWithData.selector,
-                OptionalBytes32({ exists: true, value: keccak256("ProxyUpgraded") }),
-                OptionalBytes32({ exists: false, value: bytes32(0) }),
-                OptionalBytes32({ exists: true, value: keccak256(abi.encodePacked(_proxyAddress)) })
-            );
-
-            if (!latestRegistryEvent.exists) {
-                return OptionalString({ exists: false, value: "" });
-            }
-
-            // The SphinxManager's address is stored as a topic in the ProxyUpgraded event.
-            address manager = abi.decode(
-                bytes.concat(latestRegistryEvent.value.topics[2]),
-                (address)
-            );
-
-            OptionalBytes32 memory proxyTopic = OptionalBytes32({
-                exists: true,
-                value: toBytes32(_proxyAddress)
-            });
-            OptionalLog memory latestUpgradeEvent = getLatestEvent(
-                _executionLogs,
-                manager,
-                ProxyUpgraded.selector,
-                OptionalBytes32({ exists: false, value: bytes32(0) }),
-                proxyTopic,
-                OptionalBytes32({ exists: false, value: bytes32(0) })
-            );
-
-            if (!latestUpgradeEvent.exists) {
-                return OptionalString({ exists: false, value: "" });
-            }
-
-            bytes32 deploymentId = latestUpgradeEvent.value.topics[1];
-            DeploymentState memory deploymentState = ISphinxManager(payable(manager)).deployments(
-                deploymentId
-            );
-
-            return OptionalString({ exists: true, value: deploymentState.configUri });
-        }
     }
 
     function ffiGetPreviousConfigUri(

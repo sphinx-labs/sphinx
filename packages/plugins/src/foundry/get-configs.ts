@@ -2,7 +2,7 @@ import { resolve } from 'path'
 
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
-  getMinimalConfig,
+  getFoundryConfig,
   readUserSphinxConfig,
 } from '@sphinx/core/dist/config/config'
 
@@ -21,7 +21,7 @@ const ownerAddress = args[1]
   try {
     const userConfig = await readUserSphinxConfig(configPath)
 
-    const minimalConfig = getMinimalConfig(userConfig, ownerAddress)
+    const minimalConfig = getFoundryConfig(userConfig, ownerAddress)
 
     const rootImportPath =
       process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'

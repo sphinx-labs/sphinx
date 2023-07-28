@@ -78,6 +78,10 @@ forge test
 
 ## 6. Deploy locally
 
+With the Sphinx CLI tool, you deploy contracts using a CLI command instead of directly invoking a Forge script.
+The CLI command is a thin wrapper over a basic Forge script that also displays a preview of the deployment
+before it occurs and generates deployment artifacts afterwards.
+
 If your Sphinx config file is written in TypeScript:
 
 ```

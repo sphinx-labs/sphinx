@@ -216,12 +216,35 @@ export type ConfigArtifacts = {
   }
 }
 
-export type ConfigCache = {
+/**
+ * @notice This is the ConfigCache that's used in the Foundry plugin. It's a subset of the
+ * ConfigCache that's used in the Hardhat Sphinx plugin. The fields that are missing from this type
+ * are either difficult to retrieve in Solidity or not needed in the Foundry plugin.
+ */
+export interface MinimalConfigCache {
   isManagerDeployed: boolean
   blockGasLimit: BigNumber
-  localNetwork: boolean
-  networkName: string
+  chainId: number
   contractConfigCache: ContractConfigCache
+}
+
+/**
+ * @notice This is the ConfigCache that's used in the Hardhat Sphinx plugin.
+ */
+export interface ConfigCache extends MinimalConfigCache {
+  networkName: string
+  networkType: NetworkType
+}
+
+/**
+ * @param LIVE_NETWORK - The network is a live network (e.g. ethereum).
+ * @param ANVIL - The network is an Anvil node, which could be a fork of a live network.
+ * @param HARDHAT - The network is a Hardhat node, which could be a fork of a live network.
+ */
+export enum NetworkType {
+  LIVE_NETWORK,
+  ANVIL,
+  HARDHAT,
 }
 
 export type ContractConfigCache = {
@@ -243,14 +266,14 @@ export type ImportCache = {
   currProxyAdmin?: string
 }
 
-export type MinimalConfig = {
+export type FoundryConfig = {
   manager: string
   owner: string
   projectName: string
-  contracts: Array<MinimalContractConfig>
+  contracts: Array<FoundryContractConfig>
 }
 
-export type MinimalContractConfig = {
+export type FoundryContractConfig = {
   referenceName: string
   addr: string
   kind: ContractKindEnum

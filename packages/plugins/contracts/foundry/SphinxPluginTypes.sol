@@ -7,7 +7,7 @@ import {
 } from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
 
 struct Configs {
-    MinimalConfig minimalConfig;
+    FoundryConfig minimalConfig;
     string userConfigStr;
 }
 
@@ -18,11 +18,11 @@ struct BundleInfo {
     SphinxTargetBundle targetBundle;
 }
 
-struct MinimalConfig {
+struct FoundryConfig {
     address manager;
     address owner;
     string projectName;
-    MinimalContractConfig[] contracts;
+    FoundryContractConfig[] contracts;
 }
 
 struct DeployContractCost {
@@ -30,7 +30,7 @@ struct DeployContractCost {
     uint256 cost;
 }
 
-struct MinimalContractConfig {
+struct FoundryContractConfig {
     string referenceName;
     address addr;
     ContractKindEnum kind;
@@ -40,8 +40,7 @@ struct MinimalContractConfig {
 struct ConfigCache {
     bool isManagerDeployed;
     uint256 blockGasLimit;
-    bool localNetwork;
-    string networkName;
+    uint256 chainId;
     ContractConfigCache[] contractConfigCache;
 }
 

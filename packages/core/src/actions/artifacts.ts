@@ -52,11 +52,11 @@ export const writeDeploymentArtifacts = async (
   provider: ethers.providers.Provider,
   parsedConfig: ParsedConfig,
   deploymentEvents: ethers.Event[],
-  networkName: string,
+  networkDirName: string,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
 ) => {
-  writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
+  writeDeploymentFolderForNetwork(networkDirName, deploymentFolderPath)
 
   const managerAddress = parsedConfig.manager
 
@@ -108,7 +108,7 @@ export const writeDeploymentArtifacts = async (
 
       // Write the deployment artifact for the proxy contract.
       writeDeploymentArtifact(
-        networkName,
+        networkDirName,
         deploymentFolderPath,
         proxyArtifact,
         `${deploymentEvent.args.referenceName}Proxy`
@@ -162,7 +162,7 @@ export const writeDeploymentArtifacts = async (
       }
       // Write the deployment artifact for the deployed contract.
       writeDeploymentArtifact(
-        networkName,
+        networkDirName,
         deploymentFolderPath,
         contractArtifact,
         referenceName

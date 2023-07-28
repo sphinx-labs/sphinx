@@ -10,18 +10,19 @@ import {
 import {
   sphinxFetchSubtask,
   deployAbstractTask,
-  resolveNetworkName,
   writeSnapshotId,
   sphinxCancelAbstractTask,
   sphinxExportProxyAbstractTask,
   sphinxImportProxyAbstractTask,
   ensureSphinxInitialized,
-  isHardhatFork,
-  isLocalNetwork,
   proposeAbstractTask,
   readUserConfigWithOptions,
   readUserConfig,
   getParsedConfig,
+  getNetworkType,
+  NetworkType,
+  resolveNetwork,
+  getNetworkDirName,
 } from '@sphinx/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
@@ -83,6 +84,7 @@ export const sphinxDeployTask = async (
   const cre = createSphinxRuntime(
     'hardhat',
     false,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
     confirm,
     hre.config.paths.compilerConfigs,
     hre,
@@ -167,6 +169,7 @@ export const sphinxProposeTask = async (
   const cre = createSphinxRuntime(
     'hardhat',
     true,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
     false, // Users must manually confirm proposals.
     hre.config.paths.compilerConfigs,
     hre,
@@ -194,7 +197,10 @@ task(TASK_SPHINX_PROPOSE)
   .setAction(sphinxProposeTask)
 
 task(TASK_NODE)
-  .addFlag('disableSphinx', "Completely disable all of Sphinx's activity.")
+  .addFlag(
+    'disableSphinx',
+    "Don't deploy the Sphinx contracts when starting the node."
+  )
   .addFlag('hide', "Hide all of Sphinx's logs")
   .addFlag('noCompile', "Don't compile when running this task")
   .setAction(
@@ -265,17 +271,22 @@ task(TASK_TEST)
         )
       }
 
-      const localNetwork = await isLocalNetwork(hre.ethers.provider)
-      const networkName = await resolveNetworkName(
+      const networkType = await getNetworkType(hre.ethers.provider)
+      const { networkName, chainId } = await resolveNetwork(
         hre.ethers.provider,
-        localNetwork,
-        'hardhat'
+        networkType
       )
-      if (localNetwork || (await isHardhatFork(hre.ethers.provider))) {
+
+      if (networkType !== NetworkType.LIVE_NETWORK) {
+        const networkDirName = getNetworkDirName(
+          networkName,
+          networkType,
+          chainId
+        )
         try {
           const snapshotIdPath = path.join(
             path.basename(hre.config.paths.deployments),
-            networkName,
+            networkDirName,
             '.snapshotId'
           )
           const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -310,7 +321,7 @@ task(TASK_TEST)
         }
         await writeSnapshotId(
           hre.ethers.provider,
-          networkName,
+          networkDirName,
           hre.config.paths.deployments
         )
       }
@@ -334,6 +345,7 @@ export const sphinxCancelTask = async (
   const cre = await createSphinxRuntime(
     'hardhat',
     false,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
     true,
     hre.config.paths.compilerConfigs,
     hre,
@@ -362,6 +374,7 @@ export const exportProxyTask = async (
   const cre = await createSphinxRuntime(
     'hardhat',
     false,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
     true,
     hre.config.paths.compilerConfigs,
     hre,
@@ -425,6 +438,7 @@ export const importProxyTask = async (
   const cre = await createSphinxRuntime(
     'hardhat',
     false,
+    hre.config.networks.hardhat.allowUnlimitedContractSize,
     true,
     hre.config.paths.compilerConfigs,
     hre,
