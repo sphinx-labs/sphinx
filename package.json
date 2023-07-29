@@ -25,7 +25,8 @@
       "@sphinx/{plugins,demo}/forge-std",
       "@sphinx/{plugins,demo}/ds-test",
       "@sphinx/plugins/solidity-stringutils",
-      "@sphinx/plugins/@prb/math"
+      "@sphinx/plugins/@prb/math",
+      "@sphinx/plugins/@layerzerolabs/solidity-examples"
     ]
   },
   "scripts": {

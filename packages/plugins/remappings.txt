@@ -10,3 +10,4 @@ solidity-stringutils=node_modules/solidity-stringutils/src/
 solmate/src/=node_modules/solmate/src/
 @prb/math/=node_modules/prb/math/src/
 @sphinx/plugins=./foundry-contracts/
+@layerzerolabs/solidity-examples/contracts/=node_modules/@layerzerolabs/solidity-examples/contracts/
