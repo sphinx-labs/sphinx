@@ -2,7 +2,7 @@ import '@nomiclabs/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Signer, ethers } from 'ethers'
+import { Wallet, ethers, providers } from 'ethers'
 import {
   isEmptySphinxConfig,
   isContractDeployed,
@@ -61,9 +61,11 @@ export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
   referenceName: string,
-  owner: Signer,
+  owner: providers.JsonRpcSigner | Wallet,
   userSalt?: UserSalt
 ): Promise<ethers.Contract> => {
+  const provider = owner.provider
+
   const filteredConfigNames: string[] = fetchFilesRecursively(
     hre.config.paths.sphinx
   ).filter((configFileName) => {
@@ -111,7 +113,7 @@ export const getContract = async (
   const address =
     contractConfig.address ??
     getTargetAddress(manager, referenceName, contractConfig.salt)
-  if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
+  if ((await isContractDeployed(address, provider)) === false) {
     throw new Error(
       `The contract for ${referenceName} has not been deployed. Address: ${address}`
     )
@@ -124,7 +126,7 @@ export const getContract = async (
         userConfig.contracts[referenceName].contract
       ).abi
     ),
-    hre.ethers.provider.getSigner()
+    owner
   )
 
   return Proxy

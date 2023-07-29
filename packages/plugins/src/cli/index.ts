@@ -316,6 +316,10 @@ yargs(hideBin(process.argv))
       const privateKey = argv[privateKeyOption] ?? ''
       const rpcUrl = argv[rpcOption] ?? 'http://127.0.0.1:8545'
 
+      // First, we compile the contracts to make sure we're using the latest versions. This command
+      // displays the compilation process to the user in real time.
+      spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+
       const {
         artifactFolder,
         buildInfoFolder,
@@ -407,11 +411,23 @@ yargs(hideBin(process.argv))
       }
 
       // Run the deployment script.
+      let isEmptyDeployment: boolean = false
       try {
-        // We use `spawnSync` instead of `execAsync` because we want to display the output of the
-        // command to the user in real time, particularly the Foundry compilation process.
-        spawnSync(`forge`, forgeScriptArgs, { stdio: 'inherit' })
+        spinner.start(`Deploying project...`)
+        const { stdout } = await execAsync(`forge ${forgeScriptArgs.join(' ')}`)
+
+        if (
+          stdout.includes(
+            'Nothing to execute in this deployment. Exiting early.'
+          )
+        ) {
+          isEmptyDeployment = true
+        }
+
+        spinner.stop()
+        console.log(stdout)
       } catch ({ stderr }) {
+        spinner.stop()
         // Strip \n from the end of the error message, if it exists
         const prettyError = stderr.endsWith('\n')
           ? stderr.substring(0, stderr.length - 1)
@@ -421,7 +437,7 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      if (broadcast) {
+      if (broadcast && !isEmptyDeployment) {
         spinner.start(`Writing deployment artifacts...`)
         const provider = new providers.JsonRpcProvider(rpcUrl)
         const owner = new Wallet(privateKey, provider)

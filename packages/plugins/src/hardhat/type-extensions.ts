@@ -59,7 +59,7 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
       getContract: async (
         projectName: string,
         referenceName: string,
-        owner: ethers.Signer,
+        owner: ethers.providers.JsonRpcSigner | ethers.Wallet,
         salt?: UserSalt
       ): Promise<ethers.Contract> => {
         const contract = await getContract(

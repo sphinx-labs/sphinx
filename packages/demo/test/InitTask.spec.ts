@@ -2,7 +2,11 @@ import * as fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
 
-import { execAsync } from '@sphinx/core'
+import {
+  execAsync,
+  getSphinxManagerAddress,
+  getTargetAddress,
+} from '@sphinx/core'
 import {
   foundryTestFileName,
   sampleContractFileName,
@@ -10,15 +14,20 @@ import {
   hhTestFileNameTypeScript,
 } from '@sphinx/plugins'
 import { expect } from 'chai'
+import { sphinx } from 'hardhat'
+import '@nomiclabs/hardhat-ethers'
+import { ethers, providers } from 'ethers'
 
 const configDirPath = 'sphinx'
 const deploymentArtifactDir = 'deployments'
+const projectName = 'MyProject'
 
 describe('Init Task', () => {
   let configPath: string
   let contractPath: string
   let foundryTestPath: string
   let hardhatTestPath: string
+  let provider: providers.JsonRpcProvider
   before(async () => {
     const forgeConfigOutput = await execAsync('forge config --json')
     const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
@@ -29,6 +38,8 @@ describe('Init Task', () => {
     foundryTestPath = path.join(test, foundryTestFileName)
 
     hardhatTestPath = path.join(test, hhTestFileNameTypeScript)
+
+    provider = new providers.JsonRpcProvider('http://localhost:8545')
   })
 
   beforeEach(async () => {
@@ -90,10 +101,23 @@ describe('Init Task', () => {
     expect(fs.existsSync(deploymentArtifactOne)).to.be.false
     expect(fs.existsSync(deploymentArtifactTwo)).to.be.false
 
+    const ownerPrivateKey =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
     await execAsync(
       `npx sphinx deploy --confirm --config ${configPath} --broadcast --rpc http://localhost:8545 ` +
-        `--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+        `--private-key ${ownerPrivateKey}`
     )
+
+    // Check that the contracts were deployed
+    const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
+    const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
+    const firstContractAddress = getTargetAddress(managerAddress, 'ContractOne')
+    const secondContractAddress = getTargetAddress(
+      managerAddress,
+      'ContractTwo'
+    )
+    expect(await provider.getCode(firstContractAddress)).to.not.equal('0x')
+    expect(await provider.getCode(secondContractAddress)).to.not.equal('0x')
 
     // Check that the deployment artifacts have been created
     expect(fs.existsSync(deploymentArtifactOne)).to.be.true
@@ -138,6 +162,20 @@ describe('Init Task', () => {
     await execAsync(
       `npx hardhat sphinx-deploy --confirm --config-path ${configPath} --network localhost --signer 0`
     )
+
+    // Check that the contracts were deployed
+    const FirstContract = await sphinx.getContract(
+      projectName,
+      'ContractOne',
+      provider.getSigner()
+    )
+    const SecondContract = await sphinx.getContract(
+      projectName,
+      'ContractTwo',
+      provider.getSigner()
+    )
+    expect(await provider.getCode(FirstContract.address)).to.not.equal('0x')
+    expect(await provider.getCode(SecondContract.address)).to.not.equal('0x')
 
     // Check that the deployment artifacts have been created
     expect(fs.existsSync(deploymentArtifactOne)).to.be.true
