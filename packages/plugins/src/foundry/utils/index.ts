@@ -106,13 +106,20 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   const networks = await Promise.all(
     urls.map(async (url) => {
       const provider = new providers.JsonRpcProvider(url)
-      const { chainId } = await provider.getNetwork()
-      return { chainId, url }
+      try {
+        // We put this RPC call in a try/catch because it may not be possible to connect to some of
+        // the RPC endpoints in the foundry.toml file. For example, the user may have a local RPC
+        // endpoint that is not currently running.
+        const { chainId, name: networkName } = await provider.getNetwork()
+        return { chainId, url, networkName }
+      } catch (err) {
+        undefined
+      }
     })
   )
 
   return (chainId: number): providers.JsonRpcProvider => {
-    const network = networks.find((n) => n.chainId === chainId)
+    const network = networks.find((n) => n && n.chainId === chainId)
     if (network === undefined) {
       throw new Error(
         `Could not find an RPC endpoint in your foundry.toml that corresponds to chain ID ${chainId}.`

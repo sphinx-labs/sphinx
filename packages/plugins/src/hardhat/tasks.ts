@@ -146,12 +146,6 @@ export const sphinxProposeTask = async (
 ) => {
   const { configPath, noCompile, testnets, mainnets } = args
 
-  if (!noCompile) {
-    await hre.run(TASK_COMPILE, {
-      quiet: true,
-    })
-  }
-
   let isTestnet: boolean
   if (testnets && mainnets) {
     throw new Error('Cannot specify both --testnets and --mainnets')
@@ -161,6 +155,12 @@ export const sphinxProposeTask = async (
     isTestnet = false
   } else {
     throw new Error('Must specify either --testnets or --mainnets')
+  }
+
+  if (!noCompile) {
+    await hre.run(TASK_COMPILE, {
+      quiet: true,
+    })
   }
 
   const spinner = ora()

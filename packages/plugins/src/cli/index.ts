@@ -18,11 +18,17 @@ import {
   userConfirmation,
   UserConfig,
   ensureSphinxInitialized,
+  proposeAbstractTask,
+  UserConfigWithOptions,
 } from '@sphinx/core'
 import 'core-js/features/array/at'
 
 import { writeSampleProjectFiles } from '../sample-project'
-import { inferSolcVersion, makeGetConfigArtifacts } from '../foundry/utils'
+import {
+  inferSolcVersion,
+  makeGetConfigArtifacts,
+  makeGetProviderFromChainId,
+} from '../foundry/utils'
 import { getFoundryConfigOptions } from '../foundry/options'
 import { createSphinxRuntime } from '../cre'
 import { writeDeploymentArtifactsUsingEvents } from '../foundry/artifacts'
@@ -48,7 +54,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose --${configOption} <path> [--testnets|--mainnets] [--silent]`
+          `Usage: npx sphinx propose --${configOption} <path> [--testnets|--mainnets]`
         )
         .option(configOption, {
           alias: 'c',
@@ -63,27 +69,23 @@ yargs(hideBin(process.argv))
           describe: `Propose on the mainnets specified in the Sphinx config`,
           boolean: true,
         })
-        .option('silent', {
-          alias: 's',
-          describe: `Hide Sphinx's output.`,
-          boolean: true,
-        })
         .hide('version'),
     async (argv) => {
       const { config } = argv
-      const silent = argv.silent ?? false
       const testnets = argv.testnets ?? false
       const mainnets = argv.mainnets ?? false
 
       let isTestnet: boolean
       if (testnets && mainnets) {
-        throw new Error('Cannot specify both --testnets and --mainnets')
+        console.error('Cannot specify both --testnets and --mainnets')
+        process.exit(1)
       } else if (testnets) {
         isTestnet = true
       } else if (mainnets) {
         isTestnet = false
       } else {
-        throw new Error('Must specify either --testnets or --mainnets')
+        console.error('Must specify either --testnets or --mainnets')
+        process.exit(1)
       }
 
       if (!config) {
@@ -93,36 +95,61 @@ yargs(hideBin(process.argv))
         process.exit(1)
       }
 
-      const proposeContractPath = join(
-        rootFfiPath,
-        'contracts/foundry/Propose.sol'
-      )
+      // First, we compile the contracts to make sure we're using the latest versions. This command
+      // displays the compilation process to the user in real time.
+      spawnSync(`forge`, ['build'], { stdio: 'inherit' })
 
-      process.env['SPHINX_INTERNAL_CONFIG_PATH'] = config
-      process.env['SPHINX_INTERNAL_SILENT'] = silent.toString()
-      process.env['SPHINX_INTERNAL_IS_TESTNET'] = isTestnet.toString()
-
-      const spinner = ora({ isSilent: silent })
+      const spinner = ora()
       spinner.start(`Proposal in progress...`)
 
-      try {
-        // Although it's not strictly necessary to propose via a Forge script, we do it anyways
-        // because it's a convenient way to ensure that the latest versions of the contracts are
-        // compiled. It's also convenient because it invokes `ts-node`, which allows us to support
-        // TypeScript configs. This can't be done by calling the TypeScript propose function
-        // directly because calling `npx sphinx` uses Node, not TS Node.
-        await execAsync(`forge script ${proposeContractPath}`)
-      } catch ({ stderr }) {
-        spinner.fail(`Proposal failed.`)
-        // Strip \n from the end of the error message, if it exists
-        const prettyError = stderr.endsWith('\n')
-          ? stderr.substring(0, stderr.length - 1)
-          : stderr
+      const {
+        artifactFolder,
+        buildInfoFolder,
+        cachePath,
+        compilerConfigFolder,
+        rpcEndpoints,
+      } = await getFoundryConfigOptions()
 
-        console.error(prettyError)
+      const cre = createSphinxRuntime(
+        'hardhat',
+        true,
+        false,
+        false, // Users must manually confirm proposals.
+        compilerConfigFolder,
+        undefined,
+        false,
+        process.stderr
+      )
+
+      // Get the user config by invoking a script with TS node. This is necessary to support
+      // TypeScript configs because the current context is invoked with Node, not TS Node.
+      const userConfigScriptPath = join(
+        rootFfiPath,
+        'dist',
+        'foundry',
+        'display-user-config.js'
+      )
+      let userConfig: UserConfigWithOptions
+      try {
+        // Using --swc speeds up the execution of the script.
+        const { stdout } = await execAsync(
+          `npx ts-node --swc ${userConfigScriptPath} ${config}`
+        )
+        userConfig = JSON.parse(stdout)
+      } catch ({ stderr }) {
+        spinner.stop()
+        console.error(stderr)
         process.exit(1)
       }
-      spinner.succeed(`Proposal succeeded!`)
+
+      await proposeAbstractTask(
+        userConfig,
+        isTestnet,
+        cre,
+        makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+        await makeGetProviderFromChainId(rpcEndpoints),
+        spinner
+      )
     }
   )
   .command(

@@ -1,6 +1,6 @@
 import { argv } from 'process'
 
-import { readUserConfig } from '@sphinx/core/dist/config/config'
+import { readUserSphinxConfig } from '@sphinx/core/dist/config/config'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
@@ -8,6 +8,6 @@ if (typeof configPath !== 'string') {
 }
 
 ;(async () => {
-  const userConfig = await readUserConfig(configPath)
+  const userConfig = await readUserSphinxConfig(configPath)
   process.stdout.write(JSON.stringify(userConfig, null, 2))
 })()
