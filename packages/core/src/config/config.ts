@@ -83,7 +83,7 @@ export const readUserSphinxConfig = async (
   } catch (err) {
     if (err.code === 'MODULE_NOT_FOUND') {
       // We throw a more helpful error message than the default "Module not found" message.
-      throw new Error(`User entered an incorrect config path: ${configPath}`)
+      throw new Error(`File does not exist: ${resolve(configPath)}`)
     } else {
       throw err
     }

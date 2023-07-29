@@ -160,6 +160,9 @@ contract Sphinx is Script {
             bundleInfo.actionBundle.actions.length == 0 &&
             bundleInfo.targetBundle.targets.length == 0
         ) {
+            // This string is used in the off-chain deploy task to detect whether or not a
+            // deployment is empty. Make sure to update the deploy task if you change this log
+            // message.
             console.log("Nothing to execute in this deployment. Exiting early.");
             return;
         }

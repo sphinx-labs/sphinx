@@ -83,7 +83,7 @@ export const getContractArtifact = async (
     // If we can't find the artifact, throw an error and recommend checking their options and using fully qualified format
     throw new Error(
       `Could not find artifact for: ${name}.
-- Please make sure that this contract exists in either the src, script, or test directory that you've configured in your foundry.toml.
+- Please make sure that this contract exists in either your contract, script, or test directory that you've configured in your foundry.toml.
 - If you have multiple contracts in the same file or have files with different names from the contracts they contain, please use the fully qualified name for the contract.
   For example: 'path/to/file/SomeFile.sol:MyContract'
 `
