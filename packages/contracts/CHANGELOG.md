@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.9.2
+
+### Patch Changes
+
+- a778e4ff: Include build during release process
+
 ## 0.9.1
 
 ### Patch Changes
