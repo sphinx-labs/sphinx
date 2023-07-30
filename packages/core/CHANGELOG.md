@@ -1,5 +1,13 @@
 # @sphinx-labs/core
 
+## 0.12.2
+
+### Patch Changes
+
+- a778e4ff: Include build during release process
+- Updated dependencies [a778e4ff]
+  - @sphinx-labs/contracts@0.9.2
+
 ## 0.12.1
 
 ### Patch Changes
