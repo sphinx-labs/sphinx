@@ -30,7 +30,7 @@
     ]
   },
   "scripts": {
-    "build:release": "/bin/bash ./scripts/build-release.sh",
+    "build:release": "/bin/bash ./scripts/build-release.sh && yarn build",
     "build": "yarn workspaces run build",
     "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
