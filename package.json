@@ -30,6 +30,7 @@
     ]
   },
   "scripts": {
+    "build:release": "xargs -n 1 cp -v README.md<<<'./packages/core/ ./packages/plugins/ ./packages/contracts/ ./packages/executor/ ./packages/demo/'",
     "build": "yarn workspaces run build",
     "test": "yarn workspaces run test",
     "clean": "yarn workspaces run clean",
