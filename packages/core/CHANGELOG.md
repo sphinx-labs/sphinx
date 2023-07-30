@@ -1,5 +1,15 @@
 # @sphinx-labs/core
 
+## 0.12.1
+
+### Patch Changes
+
+- 02674b8e: Include readme in release
+- edf822d7: Rename scope to sphinx-labs
+- Updated dependencies [02674b8e]
+- Updated dependencies [edf822d7]
+  - @sphinx-labs/contracts@0.9.1
+
 ## 0.12.0
 
 ### Minor Changes
