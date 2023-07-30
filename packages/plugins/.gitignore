@@ -15,7 +15,7 @@ out/
 dist/
 tsconfig.tsbuildinfo
 
-node_modules/@sphinx
+node_modules/@sphinx-labs
 .openzeppelin/*
 
 broadcast/

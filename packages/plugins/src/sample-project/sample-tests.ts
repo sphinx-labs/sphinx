@@ -1,4 +1,4 @@
-export const sampleTestFileTypeScript = `import '@sphinx/plugins'
+export const sampleTestFileTypeScript = `import '@sphinx-labs/plugins'
 import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Signer, Contract } from 'ethers'
@@ -48,7 +48,7 @@ describe('HelloSphinx', () => {
 })
 `
 
-export const sampleTestFileJavaScript = `require('@sphinx/plugins')
+export const sampleTestFileJavaScript = `require('@sphinx-labs/plugins')
 const { sphinx, ethers } = require('hardhat')
 const { expect } = require('chai')
 const { Signer, Contract } = require('ethers')

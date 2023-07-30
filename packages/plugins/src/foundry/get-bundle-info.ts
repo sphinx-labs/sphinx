@@ -4,9 +4,9 @@ import fs from 'fs'
 import {
   getUnvalidatedContractConfigs,
   postParsingValidation,
-} from '@sphinx/core/dist/config/parse'
-import { FailureAction } from '@sphinx/core/dist/types'
-import { getProjectBundleInfo } from '@sphinx/core/dist/tasks'
+} from '@sphinx-labs/core/dist/config/parse'
+import { FailureAction } from '@sphinx-labs/core/dist/types'
+import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
@@ -14,7 +14,7 @@ import {
   getSphinxManagerAddress,
   getDeployContractCosts,
   writeCompilerConfig,
-} from '@sphinx/core/dist'
+} from '@sphinx-labs/core/dist'
 
 import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
@@ -55,7 +55,7 @@ const ownerAddress = args[3]
     }
 
     const rootImportPath =
-      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
+      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
     const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
     const SphinxUtilsABI =

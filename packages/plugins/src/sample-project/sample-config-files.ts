@@ -1,4 +1,4 @@
-export const sampleSphinxFileTypeScript = `import { UserConfig } from '@sphinx/core'
+export const sampleSphinxFileTypeScript = `import { UserConfig } from '@sphinx-labs/core'
 
 const config: UserConfig = {
   projectName: 'MyProject',
@@ -55,10 +55,10 @@ build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
 remappings=[
-  'forge-std/=node_modules/@sphinx/plugins/node_modules/forge-std/src/',
-  'ds-test/=node_modules/@sphinx/plugins/node_modules/ds-test/src/',
-  '@sphinx/plugins=node_modules/@sphinx/plugins/contracts/foundry',
-  '@sphinx/contracts=node_modules/@sphinx/contracts/'
+  'forge-std/=node_modules/@sphinx-labs/plugins/node_modules/forge-std/src/',
+  'ds-test/=node_modules/@sphinx-labs/plugins/node_modules/ds-test/src/',
+  '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
 ]
 
 [rpc_endpoints]

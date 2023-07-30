@@ -4,7 +4,7 @@ import { extendConfig, extendEnvironment } from 'hardhat/config'
 import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
 import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
-import { UserSalt } from '@sphinx/core'
+import { UserSalt } from '@sphinx-labs/core'
 
 import { getContract, resetSphinxDeployments } from './deployments'
 

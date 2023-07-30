@@ -6,7 +6,7 @@ import { ethers } from 'ethers'
 import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
-import { ProxyABI } from '@sphinx/contracts'
+import { ProxyABI } from '@sphinx-labs/contracts'
 
 import {
   SphinxInput,

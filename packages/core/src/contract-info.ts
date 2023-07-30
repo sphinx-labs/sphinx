@@ -18,7 +18,7 @@ import {
   BalanceArtifact,
   EscrowArtifact,
   AuthProxyArtifact,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { constants, providers } from 'ethers/lib/ethers'
 
 import { ContractArtifact } from './languages/solidity/types'

@@ -4,7 +4,7 @@ pragma solidity >=0.7.4 <0.9.0;
 import {
     SphinxActionBundle,
     SphinxTargetBundle
-} from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
+} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 
 struct Configs {
     FoundryConfig minimalConfig;

@@ -1,4 +1,4 @@
-import { MinimalConfigCache } from '@sphinx/core/dist/config/types'
+import { MinimalConfigCache } from '@sphinx-labs/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (

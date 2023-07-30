@@ -12,8 +12,8 @@
 //   getSphinxRegistry,
 //   ProposalRoute,
 //   readParsedConfig,
-// } from '@sphinx/core'
-// import { ForwarderArtifact } from '@sphinx/contracts'
+// } from '@sphinx-labs/core'
+// import { ForwarderArtifact } from '@sphinx-labs/contracts'
 // import { expect } from 'chai'
 // import ora from 'ora'
 

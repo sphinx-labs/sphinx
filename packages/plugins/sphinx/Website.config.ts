@@ -1,4 +1,4 @@
-import { UserConfigWithOptions } from '@sphinx/core'
+import { UserConfigWithOptions } from '@sphinx-labs/core'
 
 const ownerAddress = '0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51'
 

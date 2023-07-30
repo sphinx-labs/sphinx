@@ -7,7 +7,7 @@ import {
   proposeAbstractTask,
   readUserConfigWithOptions,
   ensureSphinxInitialized,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 

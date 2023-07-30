@@ -14,7 +14,7 @@ import {
   getNetworkDirName,
   resolveNetwork,
   getNetworkType,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
 export const fetchFilesRecursively = (dir): string[] => {

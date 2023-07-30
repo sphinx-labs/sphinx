@@ -6,7 +6,7 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import {
   CURRENT_SPHINX_MANAGER_VERSION,
   getSphinxRegistryAddress,
@@ -19,7 +19,7 @@ import {
   getSphinxConstants,
   AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 

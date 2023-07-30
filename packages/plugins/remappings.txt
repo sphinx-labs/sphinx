@@ -1,5 +1,5 @@
 hardhat=../../node_modules/hardhat/
-@sphinx/contracts/=../contracts
+@sphinx-labs/contracts/=../contracts
 @openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
 @openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 forge-std/=node_modules/forge-std/src/
@@ -9,5 +9,5 @@ solidity-stringutils=node_modules/solidity-stringutils/src/
 @eth-optimism/contracts/=node_modules/@eth-optimism/contracts/
 solmate/src/=node_modules/solmate/src/
 @prb/math/=node_modules/prb/math/src/
-@sphinx/plugins=./foundry-contracts/
+@sphinx-labs/plugins=./foundry-contracts/
 @layerzerolabs/solidity-examples/contracts/=node_modules/@layerzerolabs/solidity-examples/contracts/

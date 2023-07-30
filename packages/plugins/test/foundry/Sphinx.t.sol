@@ -8,15 +8,15 @@ import { SimpleStorage } from "../../contracts/test/SimpleStorage.sol";
 import { OtherImmutables, Storage, Types } from "../../contracts/test/ContainsStorage.sol";
 import { ComplexConstructorArgs } from "../../contracts/test/ComplexConstructorArgs.sol";
 import { Stateless } from "../../contracts/test/Stateless.sol";
-import { SphinxRegistry } from "@sphinx/contracts/contracts/SphinxRegistry.sol";
-import { SphinxManager } from "@sphinx/contracts/contracts/SphinxManager.sol";
-import { SphinxManagerProxy } from "@sphinx/contracts/contracts/SphinxManagerProxy.sol";
+import { SphinxRegistry } from "@sphinx-labs/contracts/contracts/SphinxRegistry.sol";
+import { SphinxManager } from "@sphinx-labs/contracts/contracts/SphinxManager.sol";
+import { SphinxManagerProxy } from "@sphinx-labs/contracts/contracts/SphinxManagerProxy.sol";
 import {
     ISphinxManager
-} from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
-import { IProxyAdapter } from "@sphinx/contracts/contracts/interfaces/IProxyAdapter.sol";
-import { IProxyUpdater } from "@sphinx/contracts/contracts/interfaces/IProxyUpdater.sol";
-import { ICreate3 } from "@sphinx/contracts/contracts/interfaces/ICreate3.sol";
+} from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+import { IProxyAdapter } from "@sphinx-labs/contracts/contracts/interfaces/IProxyAdapter.sol";
+import { IProxyUpdater } from "@sphinx-labs/contracts/contracts/interfaces/IProxyUpdater.sol";
+import { ICreate3 } from "@sphinx-labs/contracts/contracts/interfaces/ICreate3.sol";
 
 /* Sphinx Foundry Library Tests
  *

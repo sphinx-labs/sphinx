@@ -13,20 +13,20 @@
       "packages/demo"
     ],
     "nohoist": [
-      "@sphinx/contracts/@connext/interfaces",
-      "@sphinx/{contracts,plugins}/solmate",
-      "@sphinx/{contracts,plugins}/forge-std",
-      "@sphinx/{contracts,plugins}/ds-test",
-      "@sphinx/{contracts,plugins}/@openzeppelin/contracts",
-      "@sphinx/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
-      "@sphinx/{contracts,plugins}/@eth-optimism/contracts-bedrock",
-      "@sphinx/{contracts,plugins}/@eth-optimism/contracts",
-      "@sphinx/{plugins,demo}/@sphinx/contracts",
-      "@sphinx/{plugins,demo}/forge-std",
-      "@sphinx/{plugins,demo}/ds-test",
-      "@sphinx/plugins/solidity-stringutils",
-      "@sphinx/plugins/@prb/math",
-      "@sphinx/plugins/@layerzerolabs/solidity-examples"
+      "@sphinx-labs/contracts/@connext/interfaces",
+      "@sphinx-labs/{contracts,plugins}/solmate",
+      "@sphinx-labs/{contracts,plugins}/forge-std",
+      "@sphinx-labs/{contracts,plugins}/ds-test",
+      "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts",
+      "@sphinx-labs/{contracts,plugins}/@openzeppelin/contracts-upgradeable",
+      "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts-bedrock",
+      "@sphinx-labs/{contracts,plugins}/@eth-optimism/contracts",
+      "@sphinx-labs/{plugins,demo}/@sphinx-labs/contracts",
+      "@sphinx-labs/{plugins,demo}/forge-std",
+      "@sphinx-labs/{plugins,demo}/ds-test",
+      "@sphinx-labs/plugins/solidity-stringutils",
+      "@sphinx-labs/plugins/@prb/math",
+      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
     ]
   },
   "scripts": {
