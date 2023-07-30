@@ -78,7 +78,7 @@ export const initializeAndVerifySphinx = async (
   // Deploy Contracts
   await initializeSphinx(
     provider,
-    await provider.getSigner(),
+    provider.getSigner(),
     config.executors,
     config.relayers,
     config.funders,
@@ -89,9 +89,8 @@ export const initializeAndVerifySphinx = async (
   try {
     // Verify the Sphinx contracts if the current network is supported.
     const networkType = await getNetworkType(provider)
-    const { networkName } = await resolveNetwork(provider, networkType)
     if (
-      isSupportedNetworkOnEtherscan(networkName) &&
+      (await isSupportedNetworkOnEtherscan(provider)) &&
       networkType === NetworkType.LIVE_NETWORK
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
@@ -161,6 +160,7 @@ export const initializeSphinx = async (
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+
   assertValidBlockGasLimit(blockGasLimit)
 
   for (const {

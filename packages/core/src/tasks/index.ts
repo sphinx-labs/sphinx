@@ -690,7 +690,7 @@ export const postDeploymentActions = async (
   // never pass in the `etherscanApiKey`. if foundry can't do it, we should  retrieve the api key
   // via `execAsync(forge config --json)` and pass it in here
 
-  if (isSupportedNetworkOnEtherscan(networkName) && etherscanApiKey) {
+  if ((await isSupportedNetworkOnEtherscan(provider)) && etherscanApiKey) {
     if (etherscanApiKey) {
       await verifySphinxConfig(
         compilerConfig,

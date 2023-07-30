@@ -131,7 +131,7 @@ export class SphinxExecutor extends BaseServiceV2<
   async init() {
     await this.setup(this.options)
 
-    this.logger.info('[Sphinx]: setting up sphinx...')
+    this.logger.info(`[Sphinx ${this.options.network}]: setting up sphinx...`)
 
     const wallet = new ethers.Wallet(
       this.state.keys[0].privateKey,
@@ -165,7 +165,9 @@ export class SphinxExecutor extends BaseServiceV2<
       this.logger
     )
 
-    this.logger.info('[Sphinx]: finished setting up sphinx')
+    this.logger.info(
+      `[Sphinx ${this.options.network}]: finished setting up sphinx`
+    )
   }
 
   async main() {
@@ -178,6 +180,16 @@ export class SphinxExecutor extends BaseServiceV2<
     // does not use interval mining (i.e the default hardhat network)
     if (this.state.lastBlockNumber > latestBlockNumber) {
       return
+    }
+
+    // Handle edge case where bnb testnet cannot query for events pass 10000 blocks back
+    const chainId = (await provider.getNetwork()).chainId
+    if (
+      chainId === 97 &&
+      this.state.lastBlockNumber === 0 &&
+      latestBlockNumber > 9000
+    ) {
+      this.state.lastBlockNumber = latestBlockNumber - 9000
     }
 
     // Get approval events in blocks after the stored block number
@@ -216,12 +228,12 @@ export class SphinxExecutor extends BaseServiceV2<
 
     // If none found, return
     if (this.state.eventsQueue.length === 0) {
-      this.logger.info('[Sphinx]: no projects found')
+      this.logger.info(`[Sphinx ${this.options.network}]: no projects found`)
       return
     }
 
     this.logger.info(
-      `[Sphinx]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
+      `[Sphinx ${this.options.network}]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
     )
 
     // Create a copy of the events queue, which we will iterate over. It's necessary to create a
@@ -231,7 +243,9 @@ export class SphinxExecutor extends BaseServiceV2<
 
     // execute all approved deployments
     for (const executorEvent of eventsCopy) {
-      this.logger.info('[Sphinx]: detected a project...')
+      this.logger.info(
+        `[Sphinx ${this.options.network}]: detected a project...`
+      )
 
       // If still waiting on retry, then continue
       if (executorEvent.nextTry > currentTime) {
@@ -243,7 +257,7 @@ export class SphinxExecutor extends BaseServiceV2<
         (el) => el.locked === false
       )
       if (key === undefined) {
-        this.logger.info('[Sphinx]: All keys in use')
+        this.logger.info(`[Sphinx ${this.options.network}]: All keys in use`)
         continue
       } else {
         // lock the selected key
@@ -295,7 +309,7 @@ export class SphinxExecutor extends BaseServiceV2<
           case 'retry':
             if (message.payload.retry === -1) {
               this.logger.info(
-                '[Sphinx]: execution failed, discarding event due to reaching retry limit'
+                `[Sphinx ${this.options.network}]: execution failed, discarding event due to reaching retry limit`
               )
             } else {
               this.state.eventsQueue.push(message.payload)
