@@ -19,6 +19,11 @@ contract ManagedService is AccessControl {
     bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
     /**
+     * @notice Role required to be a remote executor for a deployment.
+     */
+    bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
+
+    /**
      * @notice Emitted when a protocol payment recipient claims a payment.
      *
      * @param recipient The recipient that withdrew the funds.
@@ -50,7 +55,7 @@ contract ManagedService is AccessControl {
        remotely executed deployments.
      */
     function withdrawRelayerFunds(uint256 _amount) external {
-        if (!hasRole(RELAYER_ROLE, msg.sender)) {
+        if (!hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
             revert CallerIsNotRelayer();
         }
         if (_amount > address(this).balance) {

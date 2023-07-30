@@ -6,7 +6,16 @@ export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 export const WEBSITE_URL = `https://sphinx.dev`
 
 // Etherscan constants
-export const customChains: CustomChain[] = []
+export const customChains: CustomChain[] = [
+  {
+    network: 'gnosis-chiado',
+    chainId: 10200,
+    urls: {
+      apiURL: 'https://gnosis-chiado.blockscout.com/api',
+      browserURL: 'https://gnosis-chiado.blockscout.com',
+    },
+  },
+]
 
 export const EXECUTION_BUFFER_MULTIPLIER = 2
 export type Integration = 'hardhat' | 'foundry'

@@ -33,29 +33,45 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    // goerli: {
+    //   chainId: 5,
+    //   url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // 'optimism-goerli': {
+    //   chainId: 420,
+    //   url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // 'arbitrum-goerli': {
+    //   chainId: 421613,
+    //   url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // bnbt: {
+    //   chainId: 97,
+    //   url: `https://young-wandering-energy.bsc-testnet.discover.quiknode.pro/${process.env.QUICKNODE_API_KEY}`,
+    //   accounts,
+    // },
+    // 'gnosis-chiado': {
+    //   chainId: 10200,
+    //   url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
+    //   accounts,
+    // },
+    // maticmum: {
+    //   chainId: 80001,
+    //   url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+
     goerli: {
       chainId: 5,
       url: 'http://localhost:42005',
       accounts,
     },
-    ethereum: {
-      chainId: 1,
-      url: 'http://localhost:42001',
-      accounts,
-    },
     'optimism-goerli': {
       chainId: 420,
       url: 'http://localhost:42420',
-      accounts,
-    },
-    optimism: {
-      chainId: 10,
-      url: 'http://localhost:42010',
-      accounts,
-    },
-    arbitrum: {
-      chainId: 42161,
-      url: 'http://localhost:42161',
       accounts,
     },
     'arbitrum-goerli': {
@@ -66,6 +82,47 @@ const config: HardhatUserConfig = {
     'gnosis-chiado': {
       chainId: 10200,
       url: 'http://localhost:42102',
+      accounts,
+    },
+    bnbt: {
+      chainId: 97,
+      url: 'http://localhost:42097',
+      accounts,
+    },
+    maticmum: {
+      chainId: 80001,
+      url: 'http://localhost:42001',
+      accounts,
+    },
+
+    ethereum: {
+      chainId: 1,
+      url: 'http://localhost:10001',
+      accounts,
+    },
+    optimism: {
+      chainId: 10,
+      url: 'http://localhost:10010',
+      accounts,
+    },
+    arbitrum: {
+      chainId: 42161,
+      url: 'http://localhost:10161',
+      accounts,
+    },
+    gnosis: {
+      chainId: 100,
+      url: 'http://localhost:10100',
+      accounts,
+    },
+    bnb: {
+      chainId: 56,
+      url: 'http://localhost:10056',
+      accounts,
+    },
+    polygon: {
+      chainId: 137,
+      url: 'http://localhost:10137',
       accounts,
     },
   },
