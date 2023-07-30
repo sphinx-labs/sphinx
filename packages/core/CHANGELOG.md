@@ -1,5 +1,34 @@
 # @sphinx/core
 
+## 0.12.0
+
+### Minor Changes
+
+- 8aad6210: Separate testnets and mainnets in the Sphinx config
+- 0b4dd04e: Add first-class support for organizations and one-click multi-chain deployments
+- 21e3702f: Remove the concept of an organization in the core logic
+- c53f22dd: Add diff to deploy and propose tasks
+
+### Patch Changes
+
+- 5a391224: Add a reference AuthProxy to the initialization logic to verify on Etherscan
+- 48668b7e: Add Foundry deploy task and update proposal, test, and init tasks
+- 115d3c10: Rebrand
+- 4a97c8f9: Add support for contracts in projects and new chains in org config
+- 227da3f8: Add crosschain funding contract
+- f9ea5503: Compile before displaying the diff in the Foundry deploy task
+- 6156fb98: Update diff to include local network info
+- 1ce34a93: Add Balance contracts
+- b93b5a91: Log warning to the user if a contract deployment is being skipped
+- 02a360d9: Remove logic that relies on init code hash
+- Updated dependencies [48668b7e]
+- Updated dependencies [115d3c10]
+- Updated dependencies [0b4dd04e]
+- Updated dependencies [227da3f8]
+- Updated dependencies [1ce34a93]
+- Updated dependencies [21e3702f]
+  - @sphinx/contracts@0.9.0
+
 ## 0.11.0
 
 ### Minor Changes

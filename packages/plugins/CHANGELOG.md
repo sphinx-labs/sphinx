@@ -1,5 +1,46 @@
 # @sphinx/plugins
 
+## 0.17.0
+
+### Minor Changes
+
+- 8aad6210: Separate testnets and mainnets in the Sphinx config
+- 48668b7e: Add Foundry deploy task and update proposal, test, and init tasks
+- 0b4dd04e: Add first-class support for organizations and one-click multi-chain deployments
+
+### Patch Changes
+
+- 1b0540c0: Fix compilation issue when optimizer disabled
+- f0bb0351: Update init tasks and add tests for TypeScript init tasks
+- 115d3c10: Rebrand
+- 77e1496c: Update Foundry propose task to display diff
+- 4a97c8f9: Add support for contracts in projects and new chains in org config
+- f9ea5503: Compile before displaying the diff in the Foundry deploy task
+- 6156fb98: Update diff to include local network info
+- 1ce34a93: Add Balance contracts
+- 83340e80: Detect ambiguous contract names in foundry
+- 21e3702f: Remove the concept of an organization in the core logic
+- c53f22dd: Add diff to deploy and propose tasks
+- ab3a11c5: Use cache to avoid reading all build info files
+- 4e6a91e7: Support fully qualified names in foundry
+- 02a360d9: Remove logic that relies on init code hash
+- Updated dependencies [8aad6210]
+- Updated dependencies [5a391224]
+- Updated dependencies [48668b7e]
+- Updated dependencies [115d3c10]
+- Updated dependencies [4a97c8f9]
+- Updated dependencies [0b4dd04e]
+- Updated dependencies [227da3f8]
+- Updated dependencies [f9ea5503]
+- Updated dependencies [6156fb98]
+- Updated dependencies [1ce34a93]
+- Updated dependencies [21e3702f]
+- Updated dependencies [c53f22dd]
+- Updated dependencies [b93b5a91]
+- Updated dependencies [02a360d9]
+  - @sphinx/core@0.12.0
+  - @sphinx/contracts@0.9.0
+
 ## 0.16.5
 
 ### Patch Changes
