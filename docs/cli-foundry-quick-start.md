@@ -39,12 +39,12 @@ You can install using Yarn or npm.
 
 Yarn:
 ```
-yarn add --dev @sphinx/plugins
+yarn add --dev @sphinx-labs/plugins
 ```
 
 npm:
 ```
-npm install --save-dev @sphinx/plugins
+npm install --save-dev @sphinx-labs/plugins
 ```
 
 ## 4. Initialize project

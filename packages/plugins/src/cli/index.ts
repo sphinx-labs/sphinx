@@ -7,9 +7,9 @@ import * as dotenv from 'dotenv'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
-import { execAsync } from '@sphinx/core/dist/utils'
+import { execAsync } from '@sphinx-labs/core/dist/utils'
 import { satisfies } from 'semver'
-import { getSphinxManagerAddress } from '@sphinx/core/dist/addresses'
+import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
 import { Wallet, providers } from 'ethers/lib/ethers'
 import {
   getDiff,
@@ -20,7 +20,7 @@ import {
   ensureSphinxInitialized,
   proposeAbstractTask,
   UserConfigWithOptions,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
 import { writeSampleProjectFiles } from '../sample-project'
@@ -44,7 +44,7 @@ const confirmOption = 'confirm'
 const broadcastOption = 'broadcast'
 
 const rootFfiPath =
-  process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
+  process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
 
 yargs(hideBin(process.argv))
   .scriptName('sphinx')

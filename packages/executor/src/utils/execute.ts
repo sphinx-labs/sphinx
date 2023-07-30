@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { ManagedServiceABI, SphinxManagerABI } from '@sphinx/contracts'
+import { ManagedServiceABI, SphinxManagerABI } from '@sphinx-labs/contracts'
 import {
   DeploymentState,
   compileRemoteBundles,
@@ -18,7 +18,7 @@ import {
   ConfigArtifacts,
   estimateExecutionCost,
   getManagedServiceAddress,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'

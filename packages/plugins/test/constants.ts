@@ -13,7 +13,7 @@ import {
   getAuthAddress,
   getAuthData,
   getSphinxManagerAddress,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 
 import { createSphinxRuntime } from '../src/cre'
 

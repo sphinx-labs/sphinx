@@ -1,4 +1,4 @@
-import { UserConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx-labs/core'
 
 // This config tests an upgrade of the SphinxManager's version. We use a config
 // with a different owner because otherwise the SphinxManager's version will

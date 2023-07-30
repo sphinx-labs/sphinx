@@ -41,12 +41,12 @@ You can install Sphinx using Yarn or npm.
 
 Yarn:
 ```
-yarn add --dev @sphinx/plugins
+yarn add --dev @sphinx-labs/plugins
 ```
 
 npm:
 ```
-npm install --save-dev @sphinx/plugins
+npm install --save-dev @sphinx-labs/plugins
 ```
 
 ## 4. Update `forge-std`
@@ -74,15 +74,15 @@ Next, we'll need to add a couple remappings. You probably already have remapping
 
 If you're using a `remappings.txt` file, add:
 ```
-@sphinx/plugins=node_modules/@sphinx/plugins/contracts/foundry/
-@sphinx/contracts=node_modules/@sphinx/contracts/
+@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry/
+@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/
 ```
 
 If your remappings are in `foundry.toml`, update your `remappings` array to include:
 ```
 remappings=[
-  '@sphinx/plugins=node_modules/@sphinx/plugins/contracts/foundry',
-  '@sphinx/contracts=node_modules/@sphinx/contracts/'
+  '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
+  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
 ]
 ```
 

@@ -1,17 +1,20 @@
 import { readFileSync } from 'fs'
 import { join, sep } from 'path'
 
-import { writeDeploymentArtifacts } from '@sphinx/core/dist/actions/artifacts'
-import { DeploymentState } from '@sphinx/core/dist/actions/types'
-import { getSphinxManagerAddress } from '@sphinx/core/dist/addresses'
-import { CompilerConfig, ConfigArtifacts } from '@sphinx/core/dist/config/types'
+import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
+import { DeploymentState } from '@sphinx-labs/core/dist/actions/types'
+import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
+import {
+  CompilerConfig,
+  ConfigArtifacts,
+} from '@sphinx-labs/core/dist/config/types'
 import {
   getDeploymentEvents,
   getNetworkDirName,
   getNetworkType,
   getSphinxManagerReadOnly,
   resolveNetwork,
-} from '@sphinx/core/dist/utils'
+} from '@sphinx-labs/core/dist/utils'
 import { providers } from 'ethers/lib/ethers'
 import { Ora } from 'ora'
 

@@ -13,7 +13,7 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   AuthFactoryABI,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {

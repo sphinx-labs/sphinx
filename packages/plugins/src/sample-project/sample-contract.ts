@@ -25,7 +25,7 @@ export const getSampleFoundryTestFile = (
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import { Sphinx } from "@sphinx/plugins/Sphinx.sol";
+import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
 import { Test } from "forge-std/Test.sol";
 import { HelloSphinx } from "../contracts/HelloSphinx.sol";
 

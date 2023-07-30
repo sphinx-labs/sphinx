@@ -6,13 +6,13 @@ import {
   execAsync,
   getSphinxManagerAddress,
   getTargetAddress,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import {
   foundryTestFileName,
   sampleContractFileName,
   sampleConfigFileNameTypeScript,
   hhTestFileNameTypeScript,
-} from '@sphinx/plugins'
+} from '@sphinx-labs/plugins'
 import { expect } from 'chai'
 import { sphinx } from 'hardhat'
 import '@nomiclabs/hardhat-ethers'

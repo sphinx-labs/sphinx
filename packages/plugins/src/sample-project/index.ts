@@ -5,7 +5,7 @@ export * from './sample-config-files'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Integration } from '@sphinx/core'
+import { Integration } from '@sphinx-labs/core'
 
 import {
   forgeConfig,

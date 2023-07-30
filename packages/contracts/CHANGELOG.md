@@ -1,4 +1,4 @@
-# @sphinx/contracts
+# @sphinx-labs/contracts
 
 ## 0.9.0
 

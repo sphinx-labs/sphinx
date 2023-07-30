@@ -22,7 +22,7 @@ import {
   BalanceArtifact,
   BalanceFactoryArtifact,
   EscrowArtifact,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { constants, utils } from 'ethers'
 
 import { CURRENT_SPHINX_MANAGER_VERSION, REFERENCE_ORG_ID } from './constants'

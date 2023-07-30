@@ -23,7 +23,7 @@ import {
   NetworkType,
   resolveNetwork,
   getNetworkDirName,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'

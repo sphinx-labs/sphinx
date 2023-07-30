@@ -6,7 +6,7 @@ import {
   IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 

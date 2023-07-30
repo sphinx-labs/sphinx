@@ -3,7 +3,7 @@ import {
   ProxyABI,
   ProxyArtifact,
   buildInfo as sphinxBuildInfo,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 
 import {
   ConfigArtifacts,

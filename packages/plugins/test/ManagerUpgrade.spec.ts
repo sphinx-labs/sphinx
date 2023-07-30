@@ -3,11 +3,11 @@ import '../dist' // Imports type extensions for hre.sphinx
 
 import hre, { sphinx } from 'hardhat'
 import { BigNumber, Contract, Signer } from 'ethers'
-import { getSphinxManagerAddress, getSphinxRegistry } from '@sphinx/core'
+import { getSphinxManagerAddress, getSphinxRegistry } from '@sphinx-labs/core'
 import {
   SphinxManagerProxyArtifact,
   OWNER_MULTISIG_ADDRESS,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 
 const ownerAddress = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'
