@@ -1,5 +1,39 @@
 # @sphinx/executor
 
+## 0.12.0
+
+### Minor Changes
+
+- 0b4dd04e: Add first-class support for organizations and one-click multi-chain deployments
+
+### Patch Changes
+
+- 48668b7e: Add Foundry deploy task and update proposal, test, and init tasks
+- 115d3c10: Rebrand
+- 21e3702f: Remove the concept of an organization in the core logic
+- Updated dependencies [8aad6210]
+- Updated dependencies [1b0540c0]
+- Updated dependencies [5a391224]
+- Updated dependencies [48668b7e]
+- Updated dependencies [f0bb0351]
+- Updated dependencies [115d3c10]
+- Updated dependencies [77e1496c]
+- Updated dependencies [4a97c8f9]
+- Updated dependencies [0b4dd04e]
+- Updated dependencies [227da3f8]
+- Updated dependencies [f9ea5503]
+- Updated dependencies [6156fb98]
+- Updated dependencies [1ce34a93]
+- Updated dependencies [83340e80]
+- Updated dependencies [21e3702f]
+- Updated dependencies [c53f22dd]
+- Updated dependencies [ab3a11c5]
+- Updated dependencies [4e6a91e7]
+- Updated dependencies [b93b5a91]
+- Updated dependencies [02a360d9]
+  - @sphinx/plugins@0.17.0
+  - @sphinx/core@0.12.0
+
 ## 0.11.0
 
 ### Minor Changes
