@@ -1,5 +1,19 @@
 # @sphinx/contracts
 
+## 0.9.0
+
+### Minor Changes
+
+- 0b4dd04e: Add first-class support for organizations and one-click multi-chain deployments
+- 1ce34a93: Add Balance contracts
+- 21e3702f: Remove the concept of an organization in the core logic
+
+### Patch Changes
+
+- 48668b7e: Add Foundry deploy task and update proposal, test, and init tasks
+- 115d3c10: Rebrand
+- 227da3f8: Add crosschain funding contract
+
 ## 0.8.2
 
 ### Patch Changes
