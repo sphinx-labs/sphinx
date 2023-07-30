@@ -66,12 +66,15 @@ export const verifySphinxConfig = async (
       abi
     )
 
-    const implementationAddress = getImplAddress(
-      managerAddress,
-      bytecode,
-      contractConfig.constructorArgs,
-      abi
-    )
+    const implementationAddress =
+      contractConfig.kind !== 'immutable'
+        ? getImplAddress(
+            managerAddress,
+            bytecode,
+            contractConfig.constructorArgs,
+            abi
+          )
+        : contractConfig.address
 
     const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
       Object.keys(compilerInput.input.sources).includes(sourceName)
@@ -105,14 +108,16 @@ export const verifySphinxConfig = async (
       constructorArgValues
     )
 
-    // Link the proxy with its implementation
-    await linkProxyWithImplementation(
-      etherscanApiEndpoints.urls,
-      apiKey,
-      contractConfig.address,
-      implementationAddress,
-      contractName
-    )
+    if (contractConfig.kind !== 'immutable') {
+      // Link the proxy with its implementation
+      await linkProxyWithImplementation(
+        etherscanApiEndpoints.urls,
+        apiKey,
+        contractConfig.address,
+        implementationAddress,
+        contractName
+      )
+    }
   }
 }
 
@@ -207,7 +212,10 @@ export const attemptVerification = async (
   try {
     response = await verifyContract(urls.apiURL, verifyRequest)
   } catch (err) {
-    if (err.message === 'Contract source code already verified') {
+    if (
+      err.message === 'Contract source code already verified' ||
+      err.message.includes('Smart-contract already verified')
+    ) {
       console.log(
         `${contractName} has already been already verified:
         ${buildContractUrl(urls.browserURL, contractAddress)}`
@@ -358,10 +366,27 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
-  const customNetworks = customChains.map((chain) => chain.network)
-  return (
-    chainConfig[networkName] !== undefined ||
-    customNetworks.includes(networkName)
+export const isSupportedNetworkOnEtherscan = async (
+  provider: ethers.providers.JsonRpcProvider
+): Promise<boolean> => {
+  const chainIdsToNames = new Map(
+    Object.entries(chainConfig).map(([chainName, config]) => [
+      config.chainId,
+      chainName,
+    ])
   )
+
+  const chainID = parseInt(await provider.send('eth_chainId', []), 16)
+
+  const networkInCustomChains = [...customChains]
+    .reverse() // the last entry wins
+    .find((customChain) => customChain.chainId === chainID)
+
+  const network = networkInCustomChains ?? chainIdsToNames.get(chainID)
+
+  if (network === undefined) {
+    return false
+  }
+
+  return true
 }

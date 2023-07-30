@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { SphinxManagerABI } from '@sphinx/contracts'
+import { ManagedServiceABI, SphinxManagerABI } from '@sphinx/contracts'
 import {
   DeploymentState,
   compileRemoteBundles,
@@ -16,6 +16,8 @@ import {
   deploymentDoesRevert,
   CompilerConfig,
   ConfigArtifacts,
+  estimateExecutionCost,
+  getManagedServiceAddress,
 } from '@sphinx/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
@@ -64,7 +66,7 @@ const tryVerification = async (
 ) => {
   // verify on etherscan
   try {
-    if (isSupportedNetworkOnEtherscan(network)) {
+    if (isSupportedNetworkOnEtherscan(rpcProvider)) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
@@ -217,11 +219,6 @@ export const handleExecution = async (data: ExecutorMessage) => {
     return
   }
 
-  // Retrieve the corresponding approval event to get the config URI.
-  const [approvalEvent] = await manager.queryFilter(
-    manager.filters.SphinxDeploymentApproved(activeDeploymentId)
-  )
-
   logger.info('[Sphinx]: retrieving the deployment...')
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
@@ -233,7 +230,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
   try {
     ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
       rpcProvider,
-      approvalEvent.args.configUri
+      deploymentState.configUri
     ))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
@@ -243,13 +240,51 @@ export const handleExecution = async (data: ExecutorMessage) => {
   }
   const { projectName } = compilerConfig
 
+  // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
+  const estimatedCost = (await estimateExecutionCost(rpcProvider, bundles, 0))
+    .mul(15)
+    .div(10)
+  const balance = await wallet.getBalance()
+  if (balance.lt(estimatedCost)) {
+    logger.info(
+      `[Relayer]: Wallet balance low, withdrawing from ManagedService contract`
+    )
+    // check if managed service has funds
+    const managedServiceAddress = getManagedServiceAddress(
+      (await rpcProvider.getNetwork()).chainId
+    )
+    const withdraw = estimatedCost.mul('200').div('100')
+    // Log an error if not
+    if ((await rpcProvider.getBalance(managedServiceAddress)).lt(withdraw)) {
+      throw new Error(
+        'Failed to withdraw new funds from managed service contract, insufficent balance'
+      )
+    } else {
+      // Otherwise, withdraw funds
+      const ManagedService = new ethers.Contract(
+        managedServiceAddress,
+        ManagedServiceABI,
+        wallet
+      )
+      await (
+        await ManagedService.withdrawRelayerFunds(
+          withdraw,
+          await getGasPriceOverrides(rpcProvider)
+        )
+      ).wait()
+      logger.info(
+        `[Relayer]: Withdrew from ManagedService contract successfully`
+      )
+    }
+  }
+
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    approvalEvent.args.configUri
+    deploymentState.configUri
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
-  if (expectedDeploymentId !== approvalEvent.args.deploymentId) {
+  if (expectedDeploymentId !== activeDeploymentId) {
     // We cannot execute the current deployment, so we dicard the event
     // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
     process.send({ action: 'discard', payload: executorEvent })
@@ -257,7 +292,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     // log error and return
     logger.error(
       '[Sphinx]: error: compiled deployment id does not match proposal event deployment id',
-      approvalEvent.args.deploymentId
+      activeDeploymentId
     )
     return
   }

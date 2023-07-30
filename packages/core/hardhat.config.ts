@@ -62,7 +62,17 @@ const config: HardhatUserConfig = {
       url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
-    polygonMumbai: {
+    bnbt: {
+      chainId: 97,
+      url: `https://young-wandering-energy.bsc-testnet.discover.quiknode.pro/${process.env.QUICKNODE_API_KEY}`,
+      accounts,
+    },
+    'gnosis-chiado': {
+      chainId: 10200,
+      url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
+      accounts,
+    },
+    maticmum: {
       chainId: 80001,
       url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
