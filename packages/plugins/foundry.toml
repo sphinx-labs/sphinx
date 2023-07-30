@@ -14,4 +14,6 @@ verbosity = 2
 allow_paths = ["../contracts"]
 
 [rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
+anvil = "http://localhost:8545"
+goerli = "http://localhost:42005"
+optimism-goerli = "http://localhost:42420"

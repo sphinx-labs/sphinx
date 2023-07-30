@@ -1,19 +1,20 @@
 export * from './sample-contract'
 export * from './sample-tests'
-export * from './sample-chugsplash-files'
+export * from './sample-config-files'
 
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Integration } from '@chugsplash/core'
+import { Integration } from '@sphinx/core'
 
 import {
-  sampleChugSplashFileJavaScript,
-  sampleChugSplashFileTypeScript,
-} from './sample-chugsplash-files'
+  forgeConfig,
+  sampleDotEnvFile,
+  sampleSphinxFileJavaScript,
+  sampleSphinxFileTypeScript,
+} from './sample-config-files'
 import {
   getSampleContractFile,
-  getSampleFoundryDeployFile,
   getSampleFoundryTestFile,
 } from './sample-contract'
 import {
@@ -21,49 +22,64 @@ import {
   sampleTestFileTypeScript,
 } from './sample-tests'
 
+export const sampleContractFileName = 'HelloSphinx.sol'
+export const sampleConfigFileNameTypeScript = 'HelloSphinx.config.ts'
+export const sampleConfigNameJavaScript = 'HelloSphinx.config.js'
+
+export const foundryTestFileName = 'HelloSphinx.t.sol'
+
+// Hardhat test file names
+export const hhTestFileNameTypeScript = 'HelloSphinx.spec.ts'
+export const hhTestFileNameJavaScript = 'HelloSphinx.test.js'
+
 export const writeSampleProjectFiles = (
-  chugsplashPath: string,
-  sourcePath: string,
-  testPath: string,
+  configDirPath: string,
+  contractDirPath: string,
+  testDirPath: string,
   isTypeScriptProject: boolean,
+  quickStart: boolean,
   solcVersion: string,
-  integration: Integration,
-  scriptPath?: string
+  integration: Integration
 ) => {
-  // Create the ChugSplash folder if it doesn't exist
-  if (!fs.existsSync(chugsplashPath)) {
-    fs.mkdirSync(chugsplashPath)
+  if (quickStart && integration === 'hardhat') {
+    throw new Error('Quick start is not supported for Hardhat projects.')
+  }
+
+  // Create the Sphinx config folder if it doesn't exist
+  if (!fs.existsSync(configDirPath)) {
+    fs.mkdirSync(configDirPath)
   }
 
   // Create a folder for smart contract source files if it doesn't exist
-  if (!fs.existsSync(sourcePath)) {
-    fs.mkdirSync(sourcePath)
+  if (!fs.existsSync(contractDirPath)) {
+    fs.mkdirSync(contractDirPath)
   }
 
   // Create a folder for test files if it doesn't exist
-  if (!fs.existsSync(testPath)) {
-    fs.mkdirSync(testPath)
+  if (!fs.existsSync(testDirPath)) {
+    fs.mkdirSync(testDirPath)
   }
 
-  // Check if the sample ChugSplash config file already exists.
-  const chugsplashFileName = isTypeScriptProject
-    ? 'HelloChugSplash.config.ts'
-    : 'HelloChugSplash.config.js'
-  const configPath = path.join(chugsplashPath, chugsplashFileName)
+  // Check if the sample Sphinx config file already exists.
+  const configFileName = isTypeScriptProject
+    ? sampleConfigFileNameTypeScript
+    : sampleConfigNameJavaScript
+
+  const configPath = path.join(configDirPath, configFileName)
   if (!fs.existsSync(configPath)) {
-    // Create the sample ChugSplash config file.
+    // Create the sample Sphinx config file.
     fs.writeFileSync(
       configPath,
       isTypeScriptProject
-        ? sampleChugSplashFileTypeScript
-        : sampleChugSplashFileJavaScript
+        ? sampleSphinxFileTypeScript
+        : sampleSphinxFileJavaScript
     )
   }
 
   // Next, we'll create the sample contract file.
 
   // Check if the sample smart contract exists.
-  const contractFilePath = path.join(sourcePath, 'HelloChugSplash.sol')
+  const contractFilePath = path.join(contractDirPath, sampleContractFileName)
   if (!fs.existsSync(contractFilePath)) {
     // Create the sample contract file.
     fs.writeFileSync(contractFilePath, getSampleContractFile(solcVersion))
@@ -74,9 +90,9 @@ export const writeSampleProjectFiles = (
   if (integration === 'hardhat') {
     // Check if the sample test file exists.
     const testFileName = isTypeScriptProject
-      ? 'HelloChugSplash.spec.ts'
-      : 'HelloChugSplash.test.js'
-    const testFilePath = path.join(testPath, testFileName)
+      ? hhTestFileNameTypeScript
+      : hhTestFileNameJavaScript
+    const testFilePath = path.join(testDirPath, testFileName)
     if (!fs.existsSync(testFilePath)) {
       // Create the sample test file.
       fs.writeFileSync(
@@ -87,20 +103,13 @@ export const writeSampleProjectFiles = (
       )
     }
   } else if (integration === 'foundry') {
-    if (!scriptPath) {
-      throw new Error(
-        'Script path is required for foundry integration. Should never happen.'
-      )
-    }
-
-    // Create a folder for Forge script files if it doesn't exist
-    if (!fs.existsSync(scriptPath)) {
-      fs.mkdirSync(scriptPath)
+    if (quickStart) {
+      fs.writeFileSync('foundry.toml', forgeConfig)
+      fs.writeFileSync('.env', sampleDotEnvFile)
     }
 
     // Check if the sample test file exists.
-    const testFileName = 'HelloChugSplash.t.sol'
-    const testFilePath = path.join(testPath, testFileName)
+    const testFilePath = path.join(testDirPath, foundryTestFileName)
     if (!fs.existsSync(testFilePath)) {
       // Create the sample test file.
       fs.writeFileSync(
@@ -108,16 +117,7 @@ export const writeSampleProjectFiles = (
         getSampleFoundryTestFile(solcVersion, configPath)
       )
     }
-
-    // Check if the sample test file exists.
-    const deployFileName = 'HelloChugSplash.s.sol'
-    const deployFilePath = path.join(scriptPath, deployFileName)
-    if (!fs.existsSync(deployFilePath)) {
-      // Create the sample test file.
-      fs.writeFileSync(
-        deployFilePath,
-        getSampleFoundryDeployFile(solcVersion, configPath)
-      )
-    }
+  } else {
+    throw new Error(`Unknown integration: ${integration}. Should never happen.`)
   }
 }

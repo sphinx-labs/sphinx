@@ -2,12 +2,12 @@ import { ethers } from 'ethers'
 import {
   ProxyABI,
   ProxyArtifact,
-  buildInfo as chugsplashBuildInfo,
-} from '@chugsplash/contracts'
+  buildInfo as sphinxBuildInfo,
+} from '@sphinx/contracts'
 
 import {
   ConfigArtifacts,
-  ParsedChugSplashConfig,
+  ParsedConfig,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -20,7 +20,6 @@ import {
   writeDeploymentArtifact,
 } from '../utils'
 import 'core-js/features/array/at'
-import { getChugSplashManagerAddress } from '../addresses'
 
 /**
  * Gets the storage layout for a contract.
@@ -51,17 +50,15 @@ export const getDeployedBytecode = async (
 
 export const writeDeploymentArtifacts = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedChugSplashConfig,
+  parsedConfig: ParsedConfig,
   deploymentEvents: ethers.Event[],
-  networkName: string,
+  networkDirName: string,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
 ) => {
-  writeDeploymentFolderForNetwork(networkName, deploymentFolderPath)
+  writeDeploymentFolderForNetwork(networkDirName, deploymentFolderPath)
 
-  const managerAddress = getChugSplashManagerAddress(
-    parsedConfig.options.organizationID
-  )
+  const managerAddress = parsedConfig.manager
 
   for (const deploymentEvent of deploymentEvents) {
     if (!deploymentEvent.args) {
@@ -73,7 +70,7 @@ export const writeDeploymentArtifacts = async (
     if (deploymentEvent.args.contractKindHash === contractKindHashes['proxy']) {
       // The deployment event is for a default proxy.
       const { metadata, storageLayout } =
-        chugsplashBuildInfo.output.contracts[
+        sphinxBuildInfo.output.contracts[
           '@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol'
         ]['Proxy']
       const { devdoc, userdoc } =
@@ -86,7 +83,7 @@ export const writeDeploymentArtifacts = async (
         address: deploymentEvent.args.contractAddress,
         abi: ProxyABI,
         transactionHash: deploymentEvent.transactionHash,
-        solcInputHash: chugsplashBuildInfo.id,
+        solcInputHash: sphinxBuildInfo.id,
         receipt: {
           ...receipt,
           gasUsed: receipt.gasUsed.toString(),
@@ -111,7 +108,7 @@ export const writeDeploymentArtifacts = async (
 
       // Write the deployment artifact for the proxy contract.
       writeDeploymentArtifact(
-        networkName,
+        networkDirName,
         deploymentFolderPath,
         proxyArtifact,
         `${deploymentEvent.args.referenceName}Proxy`
@@ -165,7 +162,7 @@ export const writeDeploymentArtifacts = async (
       }
       // Write the deployment artifact for the deployed contract.
       writeDeploymentArtifact(
-        networkName,
+        networkDirName,
         deploymentFolderPath,
         contractArtifact,
         referenceName

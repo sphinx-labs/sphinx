@@ -1,27 +1,23 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { ChugSplashBundles } from '../actions/types'
+import { SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
-  getChugSplashManagerReadOnly,
-  getChugSplashRegistryReadOnly,
-  getConfigArtifactsRemote,
+  getSphinxManagerReadOnly,
+  getSphinxRegistryReadOnly,
   getDeploymentId,
+  getConfigArtifactsRemote,
 } from '../utils'
-import {
-  CanonicalChugSplashConfig,
-  ConfigArtifacts,
-  ConfigCache,
-} from './types'
+import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
 import { getConfigCache } from './parse'
 
-export const chugsplashFetchSubtask = async (args: {
+export const sphinxFetchSubtask = async (args: {
   configUri: string
   ipfsUrl?: string
-}): Promise<CanonicalChugSplashConfig> => {
-  let config: CanonicalChugSplashConfig
+}): Promise<CompilerConfig> => {
+  let config: CompilerConfig
   let ipfs: IPFSHTTPClient
   if (args.ipfsUrl) {
     ipfs = create({
@@ -65,11 +61,12 @@ export const verifyDeployment = async (
   configUri: string,
   deploymentId: string,
   configArtifacts: ConfigArtifacts,
+  projectName: string,
   configCache: ConfigCache,
   ipfsUrl?: string
 ) => {
-  const config = await callWithTimeout<CanonicalChugSplashConfig>(
-    chugsplashFetchSubtask({ configUri, ipfsUrl }),
+  const config = await callWithTimeout<CompilerConfig>(
+    sphinxFetchSubtask({ configUri, ipfsUrl }),
     30000,
     'Failed to fetch config file from IPFS'
   )
@@ -84,43 +81,44 @@ export const verifyDeployment = async (
 }
 
 /**
- * Compiles a remote ChugSplashBundle from a uri.
+ * Compiles a remote SphinxBundle from a uri.
  *
- * @param configUri URI of the ChugSplashBundle to compile.
+ * @param configUri URI of the SphinxBundle to compile.
  * @param provider JSON RPC provider.
- * @returns Compiled ChugSplashBundle.
+ * @returns Compiled SphinxBundle.
  */
 export const compileRemoteBundles = async (
   provider: providers.JsonRpcProvider,
   configUri: string
 ): Promise<{
-  bundles: ChugSplashBundles
-  canonicalConfig: CanonicalChugSplashConfig
+  bundles: SphinxBundles
+  compilerConfig: CompilerConfig
   configArtifacts: ConfigArtifacts
 }> => {
-  const canonicalConfig = await callWithTimeout<CanonicalChugSplashConfig>(
-    chugsplashFetchSubtask({ configUri }),
+  const compilerConfig = await callWithTimeout<CompilerConfig>(
+    sphinxFetchSubtask({ configUri }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(canonicalConfig)
+  const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
 
   const configCache = await getConfigCache(
     provider,
-    canonicalConfig,
+    compilerConfig.contracts,
     configArtifacts,
-    getChugSplashRegistryReadOnly(provider),
-    getChugSplashManagerReadOnly(
-      provider,
-      canonicalConfig.options.organizationID
-    )
+    getSphinxRegistryReadOnly(provider),
+    getSphinxManagerReadOnly(compilerConfig.manager, provider)
   )
 
   const bundles = makeBundlesFromConfig(
-    canonicalConfig,
+    compilerConfig,
     configArtifacts,
     configCache
   )
-  return { bundles, canonicalConfig, configArtifacts }
+  return {
+    bundles,
+    compilerConfig,
+    configArtifacts,
+  }
 }

@@ -1,21 +1,25 @@
+import hre from 'hardhat'
+import '@nomiclabs/hardhat-ethers'
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@chugsplash/contracts'
+} from '@sphinx/contracts'
 import {
-  CURRENT_CHUGSPLASH_MANAGER_VERSION,
-  getChugSplashRegistryAddress,
+  CURRENT_SPHINX_MANAGER_VERSION,
+  getSphinxRegistryAddress,
   getManagerProxyInitCodeHash,
-  CHUGSPLASH_CONTRACT_INFO,
-  getChugSplashManagerV1Address,
+  getSphinxManagerV1Address,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
-} from '@chugsplash/core'
+  getSphinxConstants,
+  AUTH_FACTORY_ADDRESS,
+  AUTH_IMPL_V1_ADDRESS,
+} from '@sphinx/core'
 import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 
@@ -28,12 +32,12 @@ import { ethers } from 'ethers'
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const writeConstants = async () => {
-  const { major, minor, patch } = CURRENT_CHUGSPLASH_MANAGER_VERSION
+  const { major, minor, patch } = CURRENT_SPHINX_MANAGER_VERSION
 
   const constants = {
     registryAddress: {
       type: 'address',
-      value: getChugSplashRegistryAddress(),
+      value: getSphinxRegistryAddress(),
     },
     managerProxyInitCodeHash: {
       type: 'bytes32',
@@ -73,7 +77,7 @@ const writeConstants = async () => {
     },
     managerImplementationAddress: {
       type: 'address',
-      value: getChugSplashManagerV1Address(),
+      value: getSphinxManagerV1Address(31337),
     },
     ozTransparentAdapterAddr: {
       type: 'address',
@@ -91,9 +95,19 @@ const writeConstants = async () => {
       type: 'address',
       value: DEFAULT_ADAPTER_ADDRESS,
     },
+    factoryAddress: {
+      type: 'address',
+      value: AUTH_FACTORY_ADDRESS,
+    },
+    authImplV1Address: {
+      type: 'address',
+      value: AUTH_IMPL_V1_ADDRESS,
+    },
   }
 
-  const contractInfo = CHUGSPLASH_CONTRACT_INFO.map(
+  const sphinxConstants = await getSphinxConstants(hre.ethers.provider)
+
+  const contractInfo = sphinxConstants.map(
     ({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact
 
@@ -110,23 +124,23 @@ const writeConstants = async () => {
   const solidityFile =
     `// SPDX-License-Identifier: MIT\n` +
     `pragma solidity >=0.6.2 <0.9.0;\n\n` +
-    `struct ChugSplashContractInfo {\n` +
+    `struct SphinxContractInfo {\n` +
     `  bytes creationCode;\n` +
     `  address expectedAddress;\n` +
     `}\n\n` +
-    `contract ChugSplashConstants {\n` +
+    `contract SphinxConstants {\n` +
     `${Object.entries(constants)
       .map(
         ([name, { type, value }]) =>
           `  ${type} public constant ${name} = ${value};`
       )
       .join('\n')}\n\n` +
-    `  function getChugSplashContractInfo() public pure returns (ChugSplashContractInfo[] memory) {\n` +
-    `    ChugSplashContractInfo[] memory contracts = new ChugSplashContractInfo[](${CHUGSPLASH_CONTRACT_INFO.length});\n` +
+    `  function getSphinxContractInfo() public pure returns (SphinxContractInfo[] memory) {\n` +
+    `    SphinxContractInfo[] memory contracts = new SphinxContractInfo[](${contractInfo.length});\n` +
     `${contractInfo
       .map(
         ({ creationCode, expectedAddress }, i) =>
-          `    contracts[${i}] = ChugSplashContractInfo(hex"${remove0x(
+          `    contracts[${i}] = SphinxContractInfo(hex"${remove0x(
             creationCode
           )}", ${expectedAddress});`
       )

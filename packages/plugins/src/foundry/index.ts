@@ -1,33 +1,25 @@
-import * as fs from 'fs'
-
 import {
-  chugsplashProposeAbstractTask,
-  readValidatedChugSplashConfig,
-  readUserChugSplashConfig,
-  ProposalRoute,
-  getChugSplashRegistryReadOnly,
+  getSphinxRegistryReadOnly,
   getPreviousConfigUri,
-  postDeploymentActions,
-  CanonicalChugSplashConfig,
-  getChugSplashManagerReadOnly,
-  DeploymentState,
-  ConfigArtifacts,
-  initializeChugSplash,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
   FailureAction,
-} from '@chugsplash/core'
-import { Contract, ethers } from 'ethers'
+  proposeAbstractTask,
+  readUserConfigWithOptions,
+  ensureSphinxInitialized,
+} from '@sphinx/core'
+import { ethers } from 'ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 
 import { getFoundryConfigOptions } from './options'
-import { makeGetConfigArtifacts } from './utils'
-import { createChugSplashRuntime } from '../cre'
+import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './utils'
+import { createSphinxRuntime } from '../cre'
 import {
   getEncodedFailure,
   getPrettyWarnings,
   validationStderrWrite,
 } from './logs'
+import 'core-js/features/array/at'
 
 const args = process.argv.slice(2)
 const command = args[0]
@@ -39,52 +31,44 @@ const command = args[0]
 
       try {
         const configPath = args[1]
-        const rpcUrl = args[2]
-        const privateKey = args[3]
+        const isTestnet = args[3] === 'true'
 
-        const { artifactFolder, buildInfoFolder, canonicalConfigFolder } =
-          await getFoundryConfigOptions()
+        const {
+          artifactFolder,
+          buildInfoFolder,
+          compilerConfigFolder,
+          cachePath,
+          rpcEndpoints,
+        } = await getFoundryConfigOptions()
 
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-        const cre = await createChugSplashRuntime(
+        const cre = createSphinxRuntime(
+          'foundry',
           true,
-          true,
-          canonicalConfigFolder,
+          false,
+          false, // Users must manually confirm proposals.
+          compilerConfigFolder,
           undefined,
-          true,
+          false,
           process.stderr
         )
 
-        const { parsedConfig, configArtifacts, configCache } =
-          await readValidatedChugSplashConfig(
-            configPath,
-            provider,
-            cre,
-            makeGetConfigArtifacts(artifactFolder, buildInfoFolder),
-            FailureAction.THROW
-          )
-        const wallet = new ethers.Wallet(privateKey, provider)
-
-        await chugsplashProposeAbstractTask(
-          provider,
-          wallet,
-          parsedConfig,
-          configPath,
-          '',
-          'foundry',
-          configArtifacts,
-          ProposalRoute.RELAY,
+        await proposeAbstractTask(
+          await readUserConfigWithOptions(configPath),
+          isTestnet,
           cre,
-          configCache
+          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
+          await makeGetProviderFromChainId(rpcEndpoints),
+          undefined,
+          FailureAction.THROW
         )
 
-        const encodedProjectNameAndWarnings = defaultAbiCoder.encode(
-          ['string', 'string'],
-          [parsedConfig.options.projectName, getPrettyWarnings()]
+        const encodedWarnings = defaultAbiCoder.encode(
+          ['string'],
+          [getPrettyWarnings()]
         )
 
         const encodedSuccess = hexConcat([
-          encodedProjectNameAndWarnings,
+          encodedWarnings,
           defaultAbiCoder.encode(['bool'], [true]), // true = success
         ])
 
@@ -99,7 +83,7 @@ const command = args[0]
       const rpcUrl = args[1]
       const proxyAddress = args[2]
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl)
-      const registry = await getChugSplashRegistryReadOnly(provider)
+      const registry = await getSphinxRegistryReadOnly(provider)
 
       const configUri = await getPreviousConfigUri(
         provider,
@@ -109,12 +93,12 @@ const command = args[0]
 
       const exists = configUri !== undefined
 
-      const encodedCanonicalConfigUri = ethers.utils.defaultAbiCoder.encode(
+      const encodedConfigUri = ethers.utils.defaultAbiCoder.encode(
         ['bool', 'string'],
         [exists, configUri ?? '']
       )
 
-      process.stdout.write(encodedCanonicalConfigUri)
+      process.stdout.write(encodedConfigUri)
       break
     }
     case 'checkProxyBytecodeCompatible': {
@@ -138,71 +122,16 @@ const command = args[0]
       )
 
       try {
-        await initializeChugSplash(provider, wallet, [], [], [])
+        await ensureSphinxInitialized(provider, wallet, [], [], [])
       } catch (e) {
+        // The 'could not detect network' error will occur on the in-process Anvil node,
+        // since we can't access it in TypeScript.
         if (!e.reason.includes('could not detect network')) {
           throw e
         }
       }
 
       break
-    }
-    case 'generateArtifacts': {
-      const { canonicalConfigFolder, deploymentFolder } =
-        await getFoundryConfigOptions()
-
-      const configPath = args[1]
-      const networkName = args[2]
-      const rpcUrl = args[3]
-
-      const provider: ethers.providers.JsonRpcProvider =
-        new ethers.providers.JsonRpcProvider(rpcUrl)
-
-      const config = await readUserChugSplashConfig(configPath)
-
-      const manager: Contract = await getChugSplashManagerReadOnly(
-        provider,
-        config.options.organizationID
-      )
-
-      // Get the most recent deployment completed event for this deployment ID.
-      const deploymentCompletedEvent = (
-        await manager.queryFilter(
-          // This might be problematic if you're deploying multiple projects with the same manager.
-          // We really should include the project name on these events so we can filter by it.
-          manager.filters.ChugSplashDeploymentCompleted()
-        )
-      ).at(-1)
-      const deploymentId = deploymentCompletedEvent?.args?.deploymentId
-
-      const deployment: DeploymentState = await manager.deployments(
-        deploymentId
-      )
-
-      const ipfsHash = deployment.configUri.replace('ipfs://', '')
-      const canonicalConfig: CanonicalChugSplashConfig = JSON.parse(
-        fs.readFileSync(`.canonical-configs/${ipfsHash}.json`).toString()
-      )
-
-      const configArtifacts: ConfigArtifacts = JSON.parse(
-        fs.readFileSync(`./cache/${ipfsHash}.json`).toString()
-      )
-
-      await postDeploymentActions(
-        canonicalConfig,
-        configArtifacts,
-        deploymentId,
-        canonicalConfigFolder,
-        deployment.configUri,
-        false,
-        networkName,
-        deploymentFolder,
-        'foundry',
-        true,
-        manager.owner(),
-        provider,
-        manager
-      )
     }
   }
 })()

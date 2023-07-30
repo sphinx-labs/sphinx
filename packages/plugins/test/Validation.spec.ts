@@ -1,46 +1,54 @@
-// Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
-import '../dist'
-
-import { expect } from 'chai'
 import hre from 'hardhat'
-import { FailureAction, readValidatedChugSplashConfig } from '@chugsplash/core'
+import '../dist' // Imports Sphinx type extensions for Hardhat
+import { expect } from 'chai'
+import {
+  FailureAction,
+  ensureSphinxInitialized,
+  getParsedConfig,
+  readUserConfig,
+} from '@sphinx/core'
+import '@nomiclabs/hardhat-ethers'
 
-import { createChugSplashRuntime } from '../src/cre'
+import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
 
-const variableValidateConfigPath = './chugsplash/Validation.config.ts'
-const constructorArgConfigPath =
-  './chugsplash/ConstructorArgValidation.config.ts'
-const noProxyContractReferenceConfigPath =
-  './chugsplash/NoProxyContractReference.config.ts'
+const validationConfigPath = './sphinx/validation/Validation.config.ts'
+const constructorArgValidationConfigPath =
+  './sphinx/validation/ConstructorArgValidation.config.ts'
+const reverterConfigPath = './sphinx/validation/Reverter.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
 
   before(async () => {
     const provider = hre.ethers.provider
+    const signer = provider.getSigner()
+    const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message
       return true
     }
 
-    const cre = await createChugSplashRuntime(
+    await ensureSphinxInitialized(provider, signer)
+
+    const cre = createSphinxRuntime(
+      'hardhat',
       false,
+      hre.config.networks.hardhat.allowUnlimitedContractSize,
       true,
-      hre.config.paths.canonicalConfigs,
+      hre.config.paths.compilerConfigs,
       hre,
       false,
       process.stderr
     )
 
     try {
-      await readValidatedChugSplashConfig(
-        variableValidateConfigPath,
+      await getParsedConfig(
+        await readUserConfig(validationConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -48,11 +56,12 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
-        constructorArgConfigPath,
+      await getParsedConfig(
+        await readUserConfig(constructorArgValidationConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -60,11 +69,12 @@ describe('Validate', () => {
     }
 
     try {
-      await readValidatedChugSplashConfig(
-        noProxyContractReferenceConfigPath,
+      await getParsedConfig(
+        await readUserConfig(reverterConfigPath),
         provider,
         cre,
         makeGetConfigArtifacts(hre),
+        signerAddress,
         FailureAction.THROW
       )
     } catch (e) {
@@ -314,7 +324,7 @@ describe('Validate', () => {
 
   it('did catch missing variables', async () => {
     expect(validationOutput).to.have.string(
-      'were not defined in the ChugSplash config file'
+      'were not defined in the Sphinx config file'
     )
     expect(validationOutput).to.have.string('notSetUint')
     expect(validationOutput).to.have.string('notSetString')
@@ -322,7 +332,7 @@ describe('Validate', () => {
 
   it('did catch extra variables', async () => {
     expect(validationOutput).to.have.string(
-      'defined in the ChugSplash config file that do not exist in the contract'
+      'defined in the Sphinx config file that do not exist in the contract'
     )
     expect(validationOutput).to.have.string('extraVar')
     expect(validationOutput).to.have.string('anotherExtraVar')
@@ -354,7 +364,7 @@ describe('Validate', () => {
 
   it('did catch invalid definition of function type', async () => {
     expect(validationOutput).to.have.string(
-      `Detected value for functionType which is a function. Function variables should be ommitted from your ChugSplash config.`
+      `Detected value for functionType which is a function. Function variables should be ommitted from your Sphinx config.`
     )
   })
 

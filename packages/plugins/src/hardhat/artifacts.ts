@@ -1,16 +1,21 @@
 import path from 'path'
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import {
+  HardhatRuntimeEnvironment,
+  HttpNetworkConfig,
+  NetworkConfig,
+} from 'hardhat/types'
 import {
   UserContractConfigs,
   getEIP1967ProxyImplementationAddress,
   BuildInfo,
   ParsedContractConfig,
   toOpenZeppelinContractKind,
-  ConfigArtifacts,
   GetConfigArtifacts,
   validateBuildInfo,
-} from '@chugsplash/core'
+  GetProviderForChainId,
+  ConfigArtifacts,
+} from '@sphinx/core'
 import {
   Manifest,
   getStorageLayoutForAddress,
@@ -18,6 +23,7 @@ import {
   withValidationDefaults,
 } from '@openzeppelin/upgrades-core'
 import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
+import { providers } from 'ethers/lib/ethers'
 
 /**
  * Retrieves contract build info by name.
@@ -100,8 +106,47 @@ export const makeGetConfigArtifacts = (
 }
 
 /**
+ * Creates a callback for `getProviderFromChainId`, which is a function that returns a provider
+ * object for a given chain ID. We use a callback to create a standard interface for the
+ * `getProviderFromChainId` function, which has a different implementation in Hardhat and Foundry.
+ *
+ * @param hre Hardhat runtime environment.
+ * @returns The provider object that corresponds to the chain ID.
+ */
+export const makeGetProviderFromChainId = (
+  hre: HardhatRuntimeEnvironment
+): GetProviderForChainId => {
+  return (chainId: number): providers.JsonRpcProvider => {
+    const networkConfig = Object.values(hre.config.networks).find(
+      (network) => network.chainId === chainId
+    )
+    if (networkConfig === undefined) {
+      throw new Error(
+        `Unable to find the network for chain ID ${chainId} in your Hardhat config.`
+      )
+    }
+
+    if (!isHttpNetworkConfig(networkConfig)) {
+      throw new Error(
+        `The network in your Hardhat config with chain ID ${networkConfig.chainId} does not appear to be a live network.\n` +
+          `Only live networks are supported in Sphinx configs.`
+      )
+    }
+
+    return new providers.JsonRpcProvider(networkConfig.url)
+  }
+}
+
+// From: https://github.com/NomicFoundation/hardhat/blob/f92e3233acc3180686e99b3c1b31a0e469f2ff1a/packages/hardhat-core/src/internal/core/config/config-resolution.ts#L112-L116
+const isHttpNetworkConfig = (
+  config: NetworkConfig
+): config is HttpNetworkConfig => {
+  return 'url' in config
+}
+
+/**
  * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
- * into ChugSplash from the OpenZeppelin Hardhat Upgrades plugin.
+ * into Sphinx from the OpenZeppelin Hardhat Upgrades plugin.
  */
 export const importOpenZeppelinStorageLayout = async (
   hre: HardhatRuntimeEnvironment,

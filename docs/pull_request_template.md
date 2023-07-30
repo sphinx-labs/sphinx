@@ -22,4 +22,4 @@
 <!--- Please describe in detail how you tested your changes. -->
 <!--- Please describe any automated tests you've added to test your changes. -->
 
-## Example ChugSplash Config (if appropriate):
+## Example Sphinx Config (if appropriate):

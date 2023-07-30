@@ -8,6 +8,7 @@ import {
   SolidityStorageType,
   SolidityStorageTypes,
 } from './types'
+import 'core-js/features/array/at'
 
 export type VariableHandlerProps<Input, Output> = {
   variable: Extract<Input, UserConfigVariable>

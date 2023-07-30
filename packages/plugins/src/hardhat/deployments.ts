@@ -2,23 +2,20 @@ import '@nomiclabs/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { ethers } from 'ethers'
+import { Wallet, ethers, providers } from 'ethers'
 import {
-  isEmptyChugSplashConfig,
+  isEmptySphinxConfig,
   isContractDeployed,
-  chugsplashDeployAbstractTask,
   writeSnapshotId,
-  resolveNetworkName,
-  readUserChugSplashConfig,
-  readValidatedChugSplashConfig,
-  getChugSplashManagerAddress,
+  getSphinxManagerAddress,
   getTargetAddress,
-} from '@chugsplash/core'
+  UserSalt,
+  readUserSphinxConfig,
+  getNetworkDirName,
+  resolveNetwork,
+  getNetworkType,
+} from '@sphinx/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import ora from 'ora'
-
-import { makeGetConfigArtifacts } from './artifacts'
-import { createChugSplashRuntime } from '../cre'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -37,148 +34,114 @@ export const fetchFilesRecursively = (dir): string[] => {
 }
 
 /**
- * Deploys a list of ChugSplash config files.
+ * Returns the signer for the given address. This is different from Hardhat's `getSigners` function
+ * because it will throw an error if the signer does not exist in the user's Hardhat config file.
  *
  * @param hre Hardhat Runtime Environment.
- * @param contractName Name of the contract in the config file.
+ * @param address Address of the signer.
  */
-export const deployAllChugSplashConfigs = async (
+export const getSignerFromAddress = async (
   hre: HardhatRuntimeEnvironment,
-  silent: boolean,
-  fileNames?: string[]
-) => {
-  const spinner = ora({ isSilent: silent })
+  address: string
+): Promise<ethers.Signer> => {
+  const signers = await hre.ethers.getSigners()
+  const signer = signers.find((s) => s.address === address)
 
-  fileNames =
-    fileNames ?? (await fetchFilesRecursively(hre.config.paths.chugsplash))
-
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
-
-  const canonicalConfigPath = hre.config.paths.canonicalConfigs
-  const deploymentFolder = hre.config.paths.deployments
-  const getConfigArtifacts = makeGetConfigArtifacts(hre)
-
-  for (const configPath of fileNames) {
-    const cre = await createChugSplashRuntime(
-      false,
-      true,
-      canonicalConfigPath,
-      hre,
-      silent
-    )
-
-    // Skip this config if it's empty.
-    if (isEmptyChugSplashConfig(configPath)) {
-      continue
-    }
-    const { parsedConfig, configArtifacts, configCache } =
-      await readValidatedChugSplashConfig(
-        configPath,
-        hre.ethers.provider,
-        cre,
-        getConfigArtifacts
-      )
-
-    await chugsplashDeployAbstractTask(
-      provider,
-      signer,
-      canonicalConfigPath,
-      deploymentFolder,
-      'hardhat',
-      cre,
-      parsedConfig,
-      configCache,
-      configArtifacts,
-      undefined,
-      spinner
+  if (!signer) {
+    const { chainId } = await hre.ethers.provider.getNetwork()
+    throw new Error(
+      `Could not find the signer for the address: ${address}.\n` +
+        `Please include this signer in your Hardhat config file for the chain ID: ${chainId}`
     )
   }
+  return signer
 }
 
 export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
   referenceName: string,
-  userSalt?: string
+  owner: providers.JsonRpcSigner | Wallet,
+  userSalt?: UserSalt
 ): Promise<ethers.Contract> => {
+  const provider = owner.provider
+
   const filteredConfigNames: string[] = fetchFilesRecursively(
-    hre.config.paths.chugsplash
+    hre.config.paths.sphinx
   ).filter((configFileName) => {
-    return !isEmptyChugSplashConfig(configFileName)
+    return !isEmptySphinxConfig(configFileName)
   })
 
   const resolvedConfigs = await Promise.all(
     filteredConfigNames.map(async (configFileName) => {
       return {
-        config: await readUserChugSplashConfig(configFileName),
+        config: await readUserSphinxConfig(configFileName),
         filePath: configFileName,
       }
     })
   )
 
   const userConfigs = resolvedConfigs.filter((resolvedConfig) => {
-    const { options, contracts } = resolvedConfig.config
+    const config = resolvedConfig.config
+    if (!config.projectName) {
+      return false
+    }
     return (
-      Object.keys(contracts).includes(referenceName) &&
-      options.projectName === projectName &&
-      contracts[referenceName].salt === userSalt
+      config.projectName === projectName &&
+      Object.keys(config.contracts).includes(referenceName) &&
+      config.contracts[referenceName].salt === userSalt
     )
   })
 
   if (userConfigs.length === 0) {
     throw new Error(
-      `Cannot find a project with ID "${projectName}" that contains the reference name "${referenceName}".`
+      `Cannot find a project called "${projectName}" that contains the reference name "${referenceName}".`
     )
   }
 
   if (userConfigs.length > 1) {
     throw new Error(
-      `Multiple projects with ID "${projectName}" contain the reference name "${referenceName}"\n` +
-        `Please merge these projects or change one of the organization IDs.`
+      `Multiple projects called "${projectName}" contain the reference name "${referenceName}"\n` +
+        `Please merge these projects or change one of the project names.`
     )
   }
 
-  const userConfig = userConfigs[0]
-  const { organizationID } = userConfig.config.options
-  const managerAddress = getChugSplashManagerAddress(organizationID)
-  const contractConfig = userConfig.config.contracts[referenceName]
+  const { config: userConfig } = userConfigs[0]
+  const manager = getSphinxManagerAddress(await owner.getAddress(), projectName)
+  const contractConfig = userConfig.contracts[referenceName]
 
   const address =
     contractConfig.address ??
-    getTargetAddress(
-      managerAddress,
-      projectName,
-      referenceName,
-      contractConfig.salt
+    getTargetAddress(manager, referenceName, contractConfig.salt)
+  if ((await isContractDeployed(address, provider)) === false) {
+    throw new Error(
+      `The contract for ${referenceName} has not been deployed. Address: ${address}`
     )
-  if ((await isContractDeployed(address, hre.ethers.provider)) === false) {
-    throw new Error(`The contract for ${referenceName} has not been deployed.`)
   }
 
   const Proxy = new ethers.Contract(
     address,
     new ethers.utils.Interface(
       hre.artifacts.readArtifactSync(
-        userConfig.config.contracts[referenceName].contract
+        userConfig.contracts[referenceName].contract
       ).abi
     ),
-    hre.ethers.provider.getSigner()
+    owner
   )
 
   return Proxy
 }
 
-export const resetChugSplashDeployments = async (
-  hre: HardhatRuntimeEnvironment
+export const resetSphinxDeployments = async (
+  hre: HardhatRuntimeEnvironment,
+  provider: ethers.providers.JsonRpcProvider
 ) => {
-  const networkFolderName = await resolveNetworkName(
-    hre.ethers.provider,
-    'hardhat'
-  )
+  const networkType = await getNetworkType(provider)
+  const { networkName, chainId } = await resolveNetwork(provider, networkType)
+  const networkDirName = getNetworkDirName(networkName, networkType, chainId)
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployments),
-    networkFolderName,
+    networkDirName,
     '.snapshotId'
   )
   const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
@@ -190,7 +153,7 @@ export const resetChugSplashDeployments = async (
   }
   await writeSnapshotId(
     hre.ethers.provider,
-    networkFolderName,
+    networkDirName,
     hre.config.paths.deployments
   )
 }
