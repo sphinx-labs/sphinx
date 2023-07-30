@@ -17,8 +17,9 @@ import {
   StorageLayout,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
-import { ProxyABI } from '@sphinx/contracts'
+import { ProxyABI } from '@chugsplash/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
+import yesno from 'yesno'
 import { ContractDefinition, Expression } from 'solidity-ast'
 
 import {
@@ -33,45 +34,35 @@ import {
   getOpenZeppelinUpgradableContract,
   isEqualType,
   getOpenZeppelinValidationOpts,
-  sphinxLog,
+  chugsplashLog,
   isDataHexString,
   getCreationCodeWithConstructorArgs,
+  getDeployedCreationCodeWithArgsHash,
   getPreviousConfigUri,
-  getSphinxRegistryReadOnly,
-  getSphinxManagerReadOnly,
+  getChugSplashRegistryReadOnly,
+  getChugSplashManagerReadOnly,
+  isLocalNetwork,
+  getConfigArtifactsRemote,
   isOpenZeppelinContractKind,
   readBuildInfo,
-  fetchAndCacheCompilerConfig,
-  getConfigArtifactsRemote,
-  getDuplicateElements,
-  hyperlink,
-  getNetworkType,
-  resolveNetwork,
+  fetchAndCacheCanonicalConfig,
 } from '../utils'
 import {
+  UserChugSplashConfig,
+  ParsedChugSplashConfig,
   ParsedConfigVariable,
   UserContractConfig,
   UserConfigVariable,
   UserConfigVariables,
   ParsedConfigVariables,
   ParsedContractConfig,
+  ConfigArtifacts,
+  GetConfigArtifacts,
+  ConfigCache,
   ContractConfigCache,
   ContractKindEnum,
   DeploymentRevert,
   ImportCache,
-  GetConfigArtifacts,
-  ConfigArtifacts,
-  UserSphinxConfig,
-  ParsedConfigWithOptions,
-  UserConfigOptions,
-  ParsedContractConfigs,
-  ParsedConfig,
-  UserConfigWithOptions,
-  ParsedConfigOptions,
-  ParsedOwnerConfig,
-  UserConfig,
-  MinimalConfigCache,
-  ConfigCache,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -89,11 +80,15 @@ import {
   VariableHandlerProps,
   buildMappingStorageObj,
 } from '../languages/solidity/iterator'
-import { SphinxRuntimeEnvironment, FailureAction } from '../types'
+import { ChugSplashRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
-import { OZ_UUPS_UPDATER_ADDRESS, getSphinxManagerAddress } from '../addresses'
+import {
+  OZ_UUPS_UPDATER_ADDRESS,
+  getChugSplashManagerAddress,
+} from '../addresses'
+import { resolveNetworkName } from '../messages'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
-import { SUPPORTED_MAINNETS, SUPPORTED_TESTNETS } from '../networks'
+import { readUserChugSplashConfig } from '../config'
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -114,80 +109,64 @@ const logValidationError = (
   if (logLevel === 'error') {
     validationErrors = true
   }
-  sphinxLog(logLevel, title, lines, silent, stream)
+  chugsplashLog(logLevel, title, lines, silent, stream)
 }
 
-/**
- * Reads a Sphinx config file, then parses and validates the selected projects inside of it.
- * This is meant to be used for configs that contain an 'options' field. Configs that contain only a
- * single owner for the purpose of deploying locally should call `getParsedConfigWithOptions` instead of
- * this function.
- *
- * @param configPath Path to the Sphinx config file.
- * @param projects The project name(s) to parse. This function will only validate these projects.
- * The returned parsed config will not include any other projects in the config file.
- * @param managerAddress Address of the SphinxManager. Note that this may not be calculable
- * based on the config file because the owners may have changed after the
- * SphinxManager was deployed, which would alter its Create2 address. However, if the
- * owners haven't changed, then this address can be calculated locally.
- * @param authAddress Address of the SphinxAuth contract. Note that the same caveat applies
- * here as for the `managerAddress` parameter.
- *
- * @returns The parsed Sphinx config file.
- */
-export const getParsedConfigWithOptions = async (
-  userConfig: UserConfigWithOptions,
-  managerAddress: string,
-  isTestnet: boolean,
-  provider: providers.JsonRpcProvider,
-  cre: SphinxRuntimeEnvironment,
+export const readUnvalidatedParsedConfig = async (
+  configPath: string,
+  cre: ChugSplashRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction = FailureAction.EXIT
+  failureAction: FailureAction
 ): Promise<{
-  parsedConfig: ParsedConfigWithOptions
+  parsedConfig: ParsedChugSplashConfig
   configArtifacts: ConfigArtifacts
-  configCache: ConfigCache
 }> => {
+  const userConfig = await readUserChugSplashConfig(configPath)
+  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
+
   // Just in case, we reset the global validation errors flag before parsing
   validationErrors = false
 
-  if (!userConfig.projectName) {
-    logValidationError(
-      'error',
-      `Config is missing a 'project' field.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  assertValidConfigOptions(userConfig.options, cre, failureAction)
-
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
-
-  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-  const contractConfigs = getUnvalidatedContractConfigs(
+  const parsedConfig = getUnvalidatedParsedConfig(
     userConfig,
     configArtifacts,
     cre,
-    failureAction,
-    managerAddress
+    failureAction
   )
 
-  const parsedConfig: ParsedConfigWithOptions = {
-    manager: managerAddress,
-    options: parsedConfigOptions,
-    contracts: contractConfigs,
-    projectName: userConfig.projectName,
-  }
+  return { parsedConfig, configArtifacts }
+}
+
+/**
+ * Reads a ChugSplash config file and completes full parsing and validation on it.
+ *
+ * @param configPath Path to the ChugSplash config file.
+ * @returns The parsed ChugSplash config file.
+ */
+export const readValidatedChugSplashConfig = async (
+  configPath: string,
+  provider: providers.JsonRpcProvider,
+  cre: ChugSplashRuntimeEnvironment,
+  getConfigArtifacts: GetConfigArtifacts,
+  failureAction: FailureAction = FailureAction.EXIT
+): Promise<{
+  parsedConfig: ParsedChugSplashConfig
+  configArtifacts: ConfigArtifacts
+  configCache: ConfigCache
+}> => {
+  const { parsedConfig, configArtifacts } = await readUnvalidatedParsedConfig(
+    configPath,
+    cre,
+    getConfigArtifacts,
+    failureAction
+  )
 
   const configCache = await getConfigCache(
     provider,
-    contractConfigs,
+    parsedConfig,
     configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider)
+    getChugSplashRegistryReadOnly(provider),
+    getChugSplashManagerReadOnly(provider, parsedConfig.options.organizationID)
   )
 
   await postParsingValidation(
@@ -201,103 +180,7 @@ export const getParsedConfigWithOptions = async (
   return { parsedConfig, configArtifacts, configCache }
 }
 
-/**
- * Gets a Sphinx config file, then parses and validates the selected projects inside of it.
- * This is meant to be used for configs that are only using Sphinx to deploy locally. Configs
- * that contain options should call `getParsedConfigWithOptions` instead.
- *
- * @param configPath Path to the Sphinx config file.
- * @param projects The project name(s) to parse. This function will only validate these projects.
- * The returned parsed config will not include any other projects in the config file.
- * @returns The parsed Sphinx config file.
- */
-export const getParsedConfig = async (
-  userConfig: UserConfig,
-  provider: providers.JsonRpcProvider,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts,
-  ownerAddress: string,
-  failureAction: FailureAction = FailureAction.EXIT
-): Promise<{
-  parsedConfig: ParsedConfig
-  configArtifacts: ConfigArtifacts
-  configCache: ConfigCache
-}> => {
-  // Just in case, we reset the global validation errors flag before parsing
-  validationErrors = false
-
-  if (!userConfig.projectName) {
-    logValidationError(
-      'error',
-      `Config is missing a 'project' field.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (userConfig.options) {
-    logValidationError(
-      'error',
-      `Config with an 'options' field cannot be used with this function.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (!ethers.utils.isAddress(ownerAddress)) {
-    logValidationError(
-      'error',
-      `The owner address is invalid: ${ownerAddress}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const managerAddress = getSphinxManagerAddress(
-    ownerAddress,
-    userConfig.projectName
-  )
-
-  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-  const contractConfigs = getUnvalidatedContractConfigs(
-    userConfig,
-    configArtifacts,
-    cre,
-    failureAction,
-    managerAddress
-  )
-
-  const parsedConfig: ParsedOwnerConfig = {
-    owner: ownerAddress,
-    contracts: contractConfigs,
-    projectName: userConfig.projectName,
-    manager: managerAddress,
-  }
-
-  const configCache = await getConfigCache(
-    provider,
-    contractConfigs,
-    configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider)
-  )
-
-  await postParsingValidation(
-    parsedConfig,
-    configArtifacts,
-    cre,
-    configCache,
-    failureAction
-  )
-
-  return { parsedConfig, configArtifacts, configCache }
-}
-
-export const isEmptySphinxConfig = (configFileName: string): boolean => {
+export const isEmptyChugSplashConfig = (configFileName: string): boolean => {
   delete require.cache[require.resolve(path.resolve(configFileName))]
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const config = require(path.resolve(configFileName))
@@ -305,16 +188,26 @@ export const isEmptySphinxConfig = (configFileName: string): boolean => {
 }
 
 /**
- * Validates a Sphinx config file.
+ * Validates a ChugSplash config file.
  *
  * @param config Config file to validate.
  */
-export const assertValidUserConfig = (
-  config: UserSphinxConfig,
-  cre: SphinxRuntimeEnvironment,
+export const assertValidUserConfigFields = (
+  config: UserChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ) => {
   const validReferenceNames = Object.keys(config.contracts)
+
+  if (!ethers.utils.isHexString(config.options.organizationID, 32)) {
+    logValidationError(
+      'error',
+      `Organization ID must be a 32-byte hex string. Instead, got: ${config.options.organizationID}`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
   for (const [referenceName, contractConfig] of Object.entries(
     config.contracts
@@ -404,7 +297,7 @@ export const assertValidUserConfig = (
     ) {
       logValidationError(
         'error',
-        `User included a 'previousBuildInfo' field in the Sphinx config file for ${contractConfig.contract}, but\ndid not include a 'previousFullyQualifiedName' field. Please include both or neither.`,
+        `User included a 'previousBuildInfo' field in the ChugSplash config file for ${contractConfig.contract}, but\ndid not include a 'previousFullyQualifiedName' field. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -415,7 +308,7 @@ export const assertValidUserConfig = (
     ) {
       logValidationError(
         'error',
-        `User included a 'previousFullyQualifiedName' field in the Sphinx config file for ${contractConfig.contract}, but\ndid not include a 'previousBuildInfo' field. Please include both or neither.`,
+        `User included a 'previousFullyQualifiedName' field in the ChugSplash config file for ${contractConfig.contract}, but\ndid not include a 'previousBuildInfo' field. Please include both or neither.`,
         [],
         cre.silent,
         cre.stream
@@ -452,7 +345,7 @@ export const assertValidUserConfig = (
       ) {
         logValidationError(
           'error',
-          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your Sphinx config file. This \nkeyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`,
+          `Detected the '{preserve}' keyword in the 'constructorArgs' field of your ChugSplash config file. This \nkeyword can only be used in the 'variables' field. Please remove all instances of it in 'constructorArgs'.`,
           [],
           cre.silent,
           cre.stream
@@ -466,7 +359,7 @@ export const assertValidUserConfig = (
     ) {
       logValidationError(
         'error',
-        `Detected the 'unsafeAllow.flexibleConstructor' field set to true in the Sphinx config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
+        `Detected the 'unsafeAllow.flexibleConstructor' field set to true in the ChugSplash config file for proxied contract ${contractConfig.contract}. This field can only be used for non-proxied contracts. Please remove this field or set it to false.`,
         [],
         cre.silent,
         cre.stream
@@ -476,7 +369,7 @@ export const assertValidUserConfig = (
     if (contractConfig.kind !== 'immutable' && contractConfig.salt) {
       logValidationError(
         'error',
-        `Detected a 'salt' field for the proxied contract ${referenceName} in the Sphinx config file. This field can only be used for non-proxied contracts.`,
+        `Detected a 'salt' field for the proxied contract ${referenceName} in the ChugSplash config file. This field can only be used for non-proxied contracts.`,
         [],
         cre.silent,
         cre.stream
@@ -488,7 +381,7 @@ export const assertValidUserConfig = (
     ) {
       logValidationError(
         'error',
-        `The 'salt' field for ${referenceName} in the Sphinx config file must be a string or number.`,
+        `The 'salt' field for ${referenceName} in the ChugSplash config file must be a string or number.`,
         [],
         cre.silent,
         cre.stream
@@ -512,7 +405,7 @@ const stringifyVariableType = (variable: UserConfigVariable) => {
  * @param storageObj Solidity compiler JSON output describing the layout for this array.
  * @param storageTypes Full list of storage types allowed.
  * @param nestedSlotOffset Not used, only included here because of the shared recursiveLayoutIterator structure.
- * @returns Array with it's elements converted into the correct type for the parsed sphinx config.
+ * @returns Array with it's elements converted into the correct type for the parsed chugsplash config.
  */
 export const parseArrayElements = (
   array: Array<UserConfigVariable>,
@@ -1155,7 +1048,7 @@ export const parseGap = (
 
 /**
  * Handles parsing and validating functions, in practice this function does nothing because
- * functions should not be defined in the Sphinx config.
+ * functions should not be defined in the ChugSplash config.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns undefined
@@ -1189,7 +1082,7 @@ export const handleParseOnlyKeywords = (
  * @param storageObj Solidity compiler JSON output describing the layout for this variable.
  * @param storageTypes Full list of storage types allowed for this encoding.
  * @param nestedSlotOffset Not used, only included here because of the shared recursiveLayoutIterator structure.
- * @returns Variable parsed into the format expected by the parsed sphinx config.
+ * @returns Variable parsed into the format expected by the parsed chugsplash config.
  */
 export const parseAndValidateVariable = (
   variable: UserConfigVariable,
@@ -1247,16 +1140,16 @@ export const parseAndValidateVariable = (
 /**
  * Parses and validates all variables in a config file.
  *
- * @param contractConfig Unparsed User-defined contract definition in a Sphinx config.
+ * @param contractConfig Unparsed User-defined contract definition in a ChugSplash config.
  * @param storageLayout Storage layout returned by the solidity compiler for the relevant contract.
  * @param compilerOutput Complete compiler output.
- * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
+ * @returns complete set of variables parsed into the format expected by the parsed chugsplash config.
  */
 const parseContractVariables = (
   contractConfig: UserContractConfig,
   storageLayout: SolidityStorageLayout,
   compilerOutput: CompilerOutput,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const parsedConfigVariables: ParsedConfigVariables = {}
 
@@ -1292,7 +1185,7 @@ const parseContractVariables = (
       storageObj.type.startsWith('t_function')
     ) {
       parsingErrors.push(
-        `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your Sphinx config.`
+        `Detected value for ${storageObj.configVarName} which is a function. Function variables should be ommitted from your ChugSplash config.`
       )
     }
 
@@ -1338,10 +1231,10 @@ const parseContractVariables = (
         lines.push(`${variable}`)
       }
       lines.push(
-        `- If any of these variables are immutable, please remove their definition in the 'variables' section of the Sphinx config file and use the 'constructorArgs' field instead.`
+        `- If any of these variables are immutable, please remove their definition in the 'variables' section of the ChugSplash config file and use the 'constructorArgs' field instead.`
       )
       lines.push(
-        `- If any of these variables are meant to be mutable, please remove their definition in the Sphinx config file.`
+        `- If any of these variables are meant to be mutable, please remove their definition in the ChugSplash config file.`
       )
       lines.push(
         `- If this problem persists, delete your cache folder then try again.`
@@ -1349,7 +1242,7 @@ const parseContractVariables = (
 
       logValidationError(
         'error',
-        `Detected variables defined in the Sphinx config file that do not exist in the contract ${contractConfig.contract}:`,
+        `Detected variables defined in the ChugSplash config file that do not exist in the contract ${contractConfig.contract}:`,
         lines,
         cre.silent,
         cre.stream
@@ -1363,10 +1256,10 @@ const parseContractVariables = (
         lines.push(variable)
       }
       lines.push(
-        '- Every variable defined in your contracts must be assigned a value in your Sphinx config file.'
+        '- Every variable defined in your contracts must be assigned a value in your ChugSplash config file.'
       )
       lines.push(
-        '- Please define the variable in your Sphinx config file then run this command again.'
+        '- Please define the variable in your ChugSplash config file then run this command again.'
       )
       lines.push(
         '- If this problem persists, delete your cache folder then try again.'
@@ -1374,7 +1267,7 @@ const parseContractVariables = (
 
       logValidationError(
         'error',
-        `The following variables were defined in the contract ${contractConfig.contract} (or one of its parent contracts) but were not defined in the Sphinx config file:`,
+        `The following variables were defined in the contract ${contractConfig.contract} (or one of its parent contracts) but were not defined in the ChugSplash config file:`,
         lines,
         cre.silent,
         cre.stream
@@ -1389,7 +1282,7 @@ const parseArrayConstructorArg = (
   input: ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable[] => {
   if (!Array.isArray(constructorArgValue)) {
     throw new ValidationError(
@@ -1419,7 +1312,7 @@ export const parseStructConstructorArg = (
   paramType: ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   if (typeof constructorArgValue !== 'object') {
     throw new ValidationError(
@@ -1473,7 +1366,7 @@ const parseAndValidateConstructorArg = (
   input: ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariable => {
   const constructorArgType = input.type
   // We fetch a new ParamType using the input type even though input is a ParamType object
@@ -1540,17 +1433,17 @@ const parseAndValidateConstructorArg = (
 /**
  * Parses and validates constructor args for a single contract in a config file.
  *
- * @param userContractConfig Unparsed User-defined contract definition in a Sphinx config.
- * @param referenceName Name of the contract as it appears in the Sphinx config file.
+ * @param userContractConfig Unparsed User-defined contract definition in a ChugSplash config.
+ * @param referenceName Name of the contract as it appears in the ChugSplash config file.
  * @param abi ABI of the contract.
  * @param contractReferences Map of contract names to their addresses used to resolve contract references.
- * @returns complete set of variables parsed into the format expected by the parsed sphinx config.
+ * @returns complete set of variables parsed into the format expected by the parsed chugsplash config.
  */
 export const parseContractConstructorArgs = (
   userContractConfig: UserContractConfig,
   referenceName: string,
   abi: Array<Fragment>,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ): ParsedConfigVariables => {
   const userConstructorArgs: UserConfigVariables =
     userContractConfig.constructorArgs ?? {}
@@ -1564,7 +1457,7 @@ export const parseContractConstructorArgs = (
   if (constructorFragment === undefined) {
     if (Object.keys(userConstructorArgs).length > 0) {
       throw new ValidationError(
-        `User entered constructor arguments in the Sphinx config file for ${referenceName}, but\n` +
+        `User entered constructor arguments in the ChugSplash config file for ${referenceName}, but\n` +
           `no constructor exists in the contract.`
       )
     } else {
@@ -1665,7 +1558,7 @@ export const assertStorageCompatiblePreserveKeywords = (
   contractConfig: ParsedContractConfig,
   prevStorageLayout: StorageLayout,
   newStorageLayout: StorageLayout,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const prevDetailedLayout = getDetailedLayout(prevStorageLayout)
   const newDetailedLayout = getDetailedLayout(newStorageLayout)
@@ -1719,13 +1612,13 @@ export const assertStorageCompatiblePreserveKeywords = (
  * 2. The contract reference is not included in the array of valid contract references.
  *
  * @param variable Config variable defined by the user.
- * @param validReferenceNames Valid reference names for this Sphinx config file.
+ * @param validReferenceNames Valid reference names for this ChugSplash config file.
  */
 export const assertValidContractReferences = (
   contract: UserContractConfig,
   variable: UserConfigVariable,
   validReferenceNames: string[],
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   if (
     typeof variable === 'string' &&
@@ -1793,16 +1686,18 @@ export const assertValidContractReferences = (
   }
 }
 
-export const assertValidParsedSphinxFile = async (
-  parsedConfig: ParsedConfig,
+export const assertValidParsedChugSplashFile = async (
+  parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
+  cre: ChugSplashRuntimeEnvironment,
   contractConfigCache: ContractConfigCache,
-  managerAddress: string,
   failureAction: FailureAction
 ): Promise<void> => {
-  const { projectName } = parsedConfig
-  const { compilerConfigPath } = cre
+  const { canonicalConfigPath } = cre
+
+  const chugSplashManagerAddress = getChugSplashManagerAddress(
+    parsedConfig.options.organizationID
+  )
 
   // Check that all user-defined contract addresses have already been deployed.
   for (const [referenceName, contractConfig] of Object.entries(
@@ -1838,8 +1733,8 @@ export const assertValidParsedSphinxFile = async (
       if (kind === 'oz-ownable-uups' || kind === 'oz-access-control-uups') {
         logValidationError(
           'error',
-          `The UUPS proxy ${referenceName} at ${address} must give your SphinxManager contract\n` +
-            `permission to call the 'upgradeTo' function. SphinxManager address: ${managerAddress}.\n`,
+          `The UUPS proxy ${referenceName} at ${address} must give your ChugSplashManager contract\n` +
+            `permission to call the 'upgradeTo' function. ChugSplashManager address: ${chugSplashManagerAddress}.\n`,
           [],
           cre.silent,
           cre.stream
@@ -1858,8 +1753,8 @@ export const assertValidParsedSphinxFile = async (
 
         logValidationError(
           'error',
-          `The Transparent proxy ${referenceName} at ${address} is not owned by Sphinx.\n` +
-            `Please import this proxy into Sphinx. Current proxy admin: ${currProxyAdmin}\n`,
+          `The Transparent proxy ${referenceName} at ${address} is not owned by ChugSplash.\n` +
+            `Please import this proxy into ChugSplash. Current proxy admin: ${currProxyAdmin}\n`,
           [],
           cre.silent,
           cre.stream
@@ -1873,7 +1768,7 @@ export const assertValidParsedSphinxFile = async (
           'error',
           'Detected the "{preserve}" keyword in a fresh deployment.',
           [
-            'This keyword is reserved for upgrades only. Please remove all instances of it in your Sphinx config file.',
+            'This keyword is reserved for upgrades only. Please remove all instances of it in your ChugSplash config file.',
           ],
           cre.silent,
           cre.stream
@@ -1917,10 +1812,9 @@ export const assertValidParsedSphinxFile = async (
       }
 
       const previousStorageLayout = await getPreviousStorageLayoutOZFormat(
-        projectName,
         referenceName,
         contractConfig,
-        compilerConfigPath,
+        canonicalConfigPath,
         cre,
         previousConfigUri
       )
@@ -1944,12 +1838,12 @@ export const assertValidParsedSphinxFile = async (
 }
 
 export const assertValidSourceCode = (
-  contractConfigs: ParsedContractConfigs,
+  parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   for (const [referenceName, contractConfig] of Object.entries(
-    contractConfigs
+    parsedConfig.contracts
   )) {
     // Get the source name and contract name from its fully qualified name
     const [sourceName, contractName] = contractConfig.contract.split(':')
@@ -2013,7 +1907,7 @@ export const assertValidSourceCode = (
                     node
                   )}.`,
                   [
-                    'Only immutable variable assignments are allowed in the constructor to ensure that Sphinx',
+                    'Only immutable variable assignments are allowed in the constructor to ensure that ChugSplash',
                     'can deterministically deploy your contracts.',
                   ],
                   cre.silent,
@@ -2030,7 +1924,7 @@ export const assertValidSourceCode = (
                 }' at: ${decodeSrc(node)}`,
                 [
                   'This is not allowed because the value will not exist in the upgradeable contract.',
-                  'Please remove the value in the contract and define it in your Sphinx config file instead',
+                  'Please remove the value in the contract and define it in your ChugSplash file instead',
                   `Alternatively, you can also set '${node.name}' to be a constant or immutable variable.`,
                 ],
                 cre.silent,
@@ -2049,7 +1943,7 @@ export const assertValidSourceCode = (
                   node
                 )}.`,
                 [
-                  'This is not allowed to ensure that Sphinx is deterministic. Please remove the function call.',
+                  'This is not allowed to ensure that ChugSplash is deterministic. Please remove the function call.',
                 ],
                 cre.silent,
                 cre.stream
@@ -2108,7 +2002,7 @@ const containsFunctionCall = (node: Expression): boolean => {
 }
 
 const logUnsafeOptions = (
-  userConfig: UserSphinxConfig,
+  userConfig: UserChugSplashConfig,
   silent: boolean,
   stream: NodeJS.WritableStream
 ) => {
@@ -2145,7 +2039,7 @@ const logUnsafeOptions = (
     }
 
     if (lines.length > 0) {
-      sphinxLog(
+      chugsplashLog(
         'warning',
         `Allowing the following potentially unsafe options for ${referenceName}:`,
         lines,
@@ -2157,16 +2051,18 @@ const logUnsafeOptions = (
 }
 
 export const assertValidConstructorArgs = (
-  userConfig: UserSphinxConfig,
+  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  managerAddress: string,
-  cre: SphinxRuntimeEnvironment,
+  cre: ChugSplashRuntimeEnvironment,
   failureAction: FailureAction
 ): {
-  validUserConfig: UserSphinxConfig
+  userConfig: UserChugSplashConfig
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables }
   contractReferences: { [referenceName: string]: string }
 } => {
+  const { projectName, organizationID } = userConfig.options
+  const managerAddress = getChugSplashManagerAddress(organizationID)
+
   // We cache the compiler output, constructor args, and other artifacts so we don't have to read them multiple times.
   const cachedConstructorArgs = {}
   const contractReferences: { [referenceName: string]: string } = {}
@@ -2178,13 +2074,14 @@ export const assertValidConstructorArgs = (
     const { address, salt } = userContractConfig
 
     // Set the address to the user-defined value if it exists, otherwise set it to the
-    // Create3 address given to contracts deployed within the Sphinx system.
+    // Create3 address given to contracts deployed within the ChugSplash system.
     contractReferences[referenceName] =
-      address ?? getTargetAddress(managerAddress, referenceName, salt)
+      address ??
+      getTargetAddress(managerAddress, projectName, referenceName, salt)
   }
 
   // Resolve all contract references.
-  const validUserConfig: UserSphinxConfig = JSON.parse(
+  userConfig = JSON.parse(
     Handlebars.compile(JSON.stringify(userConfig))({
       ...contractReferences,
     })
@@ -2192,7 +2089,7 @@ export const assertValidConstructorArgs = (
 
   // Parse and validate all the constructor arguments.
   for (const [referenceName, userContractConfig] of Object.entries(
-    validUserConfig.contracts
+    userConfig.contracts
   )) {
     const { artifact } = configArtifacts[referenceName]
 
@@ -2211,16 +2108,16 @@ export const assertValidConstructorArgs = (
 
   // We return the cached values so we can use them in later steps without rereading the files
   return {
-    validUserConfig,
+    userConfig,
     cachedConstructorArgs,
     contractReferences,
   }
 }
 
 const assertValidContractVariables = (
-  userConfig: UserSphinxConfig,
+  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ): { [referenceName: string]: ParsedConfigVariables } => {
   const parsedVariables: { [referenceName: string]: ParsedConfigVariables } = {}
   for (const [referenceName, userContractConfig] of Object.entries(
@@ -2264,16 +2161,20 @@ const assertValidContractVariables = (
   return parsedVariables
 }
 
-const parseContractConfigs = (
-  userConfig: UserSphinxConfig,
+const constructParsedConfig = (
+  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   contractReferences: { [referenceName: string]: string },
   parsedVariables: { [referenceName: string]: ParsedConfigVariables },
   cachedConstructorArgs: { [referenceName: string]: ParsedConfigVariables },
-  cre: SphinxRuntimeEnvironment
-): ParsedContractConfigs => {
-  const contractConfigs: ParsedContractConfigs = {}
+  cre: ChugSplashRuntimeEnvironment
+): ParsedChugSplashConfig => {
+  const parsedConfig: ParsedChugSplashConfig = {
+    options: userConfig.options,
+    contracts: {},
+  }
 
+  const { projectName } = userConfig.options
   for (const [referenceName, userContractConfig] of Object.entries(
     userConfig.contracts
   )) {
@@ -2296,9 +2197,13 @@ const parseContractConfigs = (
 
     const parsedContractKind = userContractConfig.kind ?? 'proxy'
 
-    const targetSalt = getTargetSalt(referenceName, userContractConfig.salt)
+    const targetSalt = getTargetSalt(
+      projectName,
+      referenceName,
+      userContractConfig.salt
+    )
 
-    contractConfigs[referenceName] = {
+    parsedConfig.contracts[referenceName] = {
       contract: contractFullyQualifiedName,
       address: contractReferences[referenceName],
       kind: parsedContractKind,
@@ -2312,12 +2217,12 @@ const parseContractConfigs = (
     }
   }
 
-  return contractConfigs
+  return parsedConfig
 }
 
-export const setDefaultContractFields = (
-  userConfig: UserSphinxConfig
-): UserSphinxConfig => {
+export const setDefaultContractOptions = (
+  userConfig: UserChugSplashConfig
+): UserChugSplashConfig => {
   for (const contractConfig of Object.values(userConfig.contracts)) {
     if (contractConfig.unsafeAllow) {
       contractConfig.unsafeAllow.flexibleConstructor =
@@ -2333,39 +2238,39 @@ export const setDefaultContractFields = (
 }
 
 /**
- * Parses a Sphinx config file from the config file given by the user. This function is called by
- * `getParsedConfigWithOptions` and `getParsedConfig`.
+ * Parses a ChugSplash config file from the config file given by the user.
  *
  * @param userConfig Unparsed config file to parse.
  * @param env Environment variables to inject into the file.
  * @return Parsed config file with template variables replaced.
  */
-export const getUnvalidatedContractConfigs = (
-  userConfig: UserSphinxConfig,
+export const getUnvalidatedParsedConfig = (
+  userConfig: UserChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction,
-  managerAddress: string
-): ParsedContractConfigs => {
+  cre: ChugSplashRuntimeEnvironment,
+  failureAction: FailureAction
+): ParsedChugSplashConfig => {
   // If the user disabled some safety checks, log warnings related to that
   logUnsafeOptions(userConfig, cre.silent, cre.stream)
 
   // Validate top level config and contract options
-  assertValidUserConfig(userConfig, cre, failureAction)
+  assertValidUserConfigFields(userConfig, cre, failureAction)
 
-  const configWithDefaultContractFields = setDefaultContractFields(userConfig)
+  const configWithDefaultOptions = setDefaultContractOptions(userConfig)
 
   // Parse and validate contract constructor args
   // During this function, we also resolve all contract references throughout the entire config b/c constructor args may impact contract addresses
   // We also cache the parsed constructor args so we don't have to re-read them later
-  const { validUserConfig, cachedConstructorArgs, contractReferences } =
-    assertValidConstructorArgs(
-      configWithDefaultContractFields,
-      configArtifacts,
-      managerAddress,
-      cre,
-      failureAction
-    )
+  const {
+    userConfig: validUserConfig,
+    cachedConstructorArgs,
+    contractReferences,
+  } = assertValidConstructorArgs(
+    configWithDefaultOptions,
+    configArtifacts,
+    cre,
+    failureAction
+  )
 
   // Parse and validate contract variables
   const parsedVariables = assertValidContractVariables(
@@ -2374,7 +2279,8 @@ export const getUnvalidatedContractConfigs = (
     cre
   )
 
-  const parsedContractConfigs = parseContractConfigs(
+  // Construct the parsed config
+  const parsedConfig = constructParsedConfig(
     validUserConfig,
     configArtifacts,
     contractReferences,
@@ -2383,19 +2289,19 @@ export const getUnvalidatedContractConfigs = (
     cre
   )
 
-  assertValidSourceCode(parsedContractConfigs, configArtifacts, cre)
+  assertValidSourceCode(parsedConfig, configArtifacts, cre)
 
-  return parsedContractConfigs
+  return parsedConfig
 }
 
 export const assertNoUpgradableContracts = (
-  parsedConfig: ParsedConfig,
-  cre: SphinxRuntimeEnvironment
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   for (const contractConfig of Object.values(parsedConfig.contracts)) {
     if (
       contractConfig.kind !== 'immutable' &&
-      process.env.SPHINX_ALLOW_UPGRADABLE_CONTRACTS !== 'true'
+      process.env.CHUGSPLASH_ALLOW_UPGRADABLE_CONTRACTS !== 'true'
     ) {
       logValidationError(
         'error',
@@ -2409,52 +2315,74 @@ export const assertNoUpgradableContracts = (
 }
 
 export const postParsingValidation = async (
-  parsedConfig: ParsedConfig,
+  parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment,
-  configCache: MinimalConfigCache,
+  cre: ChugSplashRuntimeEnvironment,
+  configCache: ConfigCache,
   failureAction: FailureAction
 ) => {
-  const { blockGasLimit, contractConfigCache } = configCache
-  const { contracts, manager } = parsedConfig
+  const { projectName } = parsedConfig.options
+  const { blockGasLimit, localNetwork, contractConfigCache } = configCache
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
   assertValidBlockGasLimit(blockGasLimit)
 
+  assertAvailableCreate3Addresses(
+    parsedConfig,
+    configArtifacts,
+    cre,
+    contractConfigCache
+  )
+
   assertImmutableDeploymentsDoNotRevert(cre, contractConfigCache)
 
-  if (!cre.allowUnlimitedContractSize) {
-    assertContractsBelowSizeLimit(contracts, configArtifacts, cre)
+  if (!localNetwork) {
+    assertContractsBelowSizeLimit(parsedConfig, configArtifacts, cre)
   }
 
-  assertValidDeploymentSize(contracts, cre, configCache)
+  assertValidDeploymentSize(parsedConfig, cre, configCache)
 
   // Complete misc pre-deploy validation
   // I.e run storage slot checker + other safety checks, detect if the deployment is an upgrade, etc
-  await assertValidParsedSphinxFile(
+  await assertValidParsedChugSplashFile(
     parsedConfig,
     configArtifacts,
     cre,
     contractConfigCache,
-    manager,
     failureAction
   )
 
   assertNoValidationErrors(failureAction)
+
+  const containsUpgrade = Object.entries(parsedConfig.contracts).some(
+    ([referenceName, contractConfig]) =>
+      contractConfig.kind !== 'immutable' &&
+      contractConfigCache[referenceName].isTargetDeployed
+  )
+
+  // Confirm upgrade with user
+  if (!cre.autoConfirm && containsUpgrade) {
+    const userConfirmed = await yesno({
+      question: `Prior deployment(s) detected for project ${projectName}. Would you like to perform an upgrade? (y/n)`,
+    })
+    if (!userConfirmed) {
+      throw new Error(`User denied upgrade.`)
+    }
+  }
 }
 
 /**
- * Asserts that the Sphinx config can be initiated in a single transaction.
+ * Asserts that the ChugSplash config can be initiated in a single transaction.
  */
 export const assertValidDeploymentSize = (
-  parsedContractConfigs: ParsedContractConfigs,
-  cre: SphinxRuntimeEnvironment,
-  configCache: MinimalConfigCache
+  parsedConfig: ParsedChugSplashConfig,
+  cre: ChugSplashRuntimeEnvironment,
+  configCache: ConfigCache
 ): void => {
   const { blockGasLimit } = configCache
 
-  const numTargets = Object.values(parsedContractConfigs).filter(
+  const numTargets = Object.values(parsedConfig.contracts).filter(
     (contract) => contract.kind !== 'immutable'
   ).length
   const initiationGasCost = ethers.BigNumber.from(100_000).mul(numTargets)
@@ -2464,7 +2392,7 @@ export const assertValidDeploymentSize = (
   if (costWithBuffer.gt(blockGasLimit)) {
     logValidationError(
       'error',
-      `Too many contracts in your Sphinx config.`,
+      `Too many contracts in your ChugSplash config.`,
       [],
       cre.silent,
       cre.stream
@@ -2480,7 +2408,7 @@ export const assertValidBlockGasLimit = (
 ): void => {
   // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
   //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
-  //  SphinxManager V1, which is at the contract size limit.
+  //  ChugSplashManager V1, which is at the contract size limit.
   if (blockGasLimit.lt(15_000_000)) {
     throw new Error(
       `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
@@ -2494,13 +2422,13 @@ export const assertValidBlockGasLimit = (
  * Asserts that the contracts in the parsed config are below the contract size limit (24576 bytes).
  */
 export const assertContractsBelowSizeLimit = (
-  parsedContractConfigs: ParsedContractConfigs,
+  parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
-  cre: SphinxRuntimeEnvironment
+  cre: ChugSplashRuntimeEnvironment
 ) => {
   const tooLarge: string[] = []
   for (const [referenceName, contractConfig] of Object.entries(
-    parsedContractConfigs
+    parsedConfig.contracts
   )) {
     const { deployedBytecode } = configArtifacts[referenceName].artifact
 
@@ -2523,7 +2451,7 @@ export const assertContractsBelowSizeLimit = (
 }
 
 export const assertImmutableDeploymentsDoNotRevert = (
-  cre: SphinxRuntimeEnvironment,
+  cre: ChugSplashRuntimeEnvironment,
   contractConfigCache: ContractConfigCache
 ): void => {
   const revertStrings: { [referenceName: string]: string } = {}
@@ -2556,21 +2484,80 @@ export const assertImmutableDeploymentsDoNotRevert = (
   }
 }
 
+const assertAvailableCreate3Addresses = (
+  parsedConfig: ParsedChugSplashConfig,
+  configArtifacts: ConfigArtifacts,
+  cre: ChugSplashRuntimeEnvironment,
+  contractConfigCache: ContractConfigCache
+): void => {
+  // List of reference names that correspond to the unavailable Create3 addresses
+  const unavailable: string[] = []
+
+  for (const [referenceName, contractConfig] of Object.entries(
+    parsedConfig.contracts
+  )) {
+    const { isTargetDeployed, deployedCreationCodeWithArgsHash } =
+      contractConfigCache[referenceName]
+    if (contractConfig.kind === 'immutable' && isTargetDeployed) {
+      const { bytecode, abi } = configArtifacts[referenceName].artifact
+
+      const currHash = ethers.utils.keccak256(
+        getCreationCodeWithConstructorArgs(
+          bytecode,
+          contractConfig.constructorArgs,
+          abi
+        )
+      )
+
+      const match = deployedCreationCodeWithArgsHash
+        ? BigNumber.from(deployedCreationCodeWithArgsHash).eq(
+            BigNumber.from(currHash)
+          )
+        : false
+      if (match) {
+        logValidationError(
+          'warning',
+          `Skipping deployment of ${referenceName} since it has already been deployed and has not changed. Add a new 'salt' value to re-deploy it at a new address.`,
+          [],
+          cre.silent,
+          cre.stream
+        )
+      } else {
+        unavailable.push(referenceName)
+      }
+    }
+  }
+
+  if (unavailable.length > 0) {
+    logValidationError(
+      'error',
+      `A contract has already been deployed at the Create3 address for the following contracts.\n` +
+        `Please add a new 'salt' field for each of these contracts in the config.`,
+      unavailable.map((referenceName) => {
+        return `  - ${referenceName}`
+      }),
+      cre.silent,
+      cre.stream
+    )
+  }
+}
+
 export const getConfigCache = async (
   provider: providers.JsonRpcProvider,
-  contractConfigs: ParsedContractConfigs,
+  parsedConfig: ParsedChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   registry: ethers.Contract,
   manager: ethers.Contract
 ): Promise<ConfigCache> => {
+  const { contracts } = parsedConfig
+
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-  const networkType = await getNetworkType(provider)
-  const { networkName, chainId } = await resolveNetwork(provider, networkType)
-  const isManagerDeployed_ = await registry.isManagerDeployed(manager.address)
+  const localNetwork = await isLocalNetwork(provider)
+  const networkName = await resolveNetworkName(provider, 'hardhat')
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
-    contractConfigs
+    contracts
   )) {
     const { abi, bytecode } = configArtifacts[referenceName].artifact
 
@@ -2588,6 +2575,14 @@ export const getConfigCache = async (
       isTargetDeployed && kind !== ContractKindEnum.IMMUTABLE
         ? await getPreviousConfigUri(provider, registry, address)
         : undefined
+
+    const deployedCreationCodeWithArgsHash = isTargetDeployed
+      ? await getDeployedCreationCodeWithArgsHash(
+          manager,
+          referenceName,
+          address
+        )
+      : undefined
 
     let deploymentRevert: DeploymentRevert | undefined
     // Here we attempt to deploy non-proxy contracts. We do not attempt to deploy the implementation
@@ -2615,7 +2610,7 @@ export const getConfigCache = async (
         kind === ContractKindEnum.OZ_OWNABLE_UUPS ||
         kind === ContractKindEnum.OZ_ACCESS_CONTROL_UUPS
       ) {
-        // We must manually check that the SphinxManager can call the UUPS proxy's `upgradeTo`
+        // We must manually check that the ChugSplashManager can call the UUPS proxy's `upgradeTo`
         // function because OpenZeppelin UUPS proxies can implement arbitrary access control
         // mechanisms.
         const managerVoidSigner = new ethers.VoidSigner(
@@ -2629,7 +2624,7 @@ export const getConfigCache = async (
         )
         try {
           // Attempt to staticcall the `upgradeTo` function on the proxy from the
-          // SphinxManager's address. Note that it's necessary for us to set the proxy's
+          // ChugSplashManager's address. Note that it's necessary for us to set the proxy's
           // implementation to an OpenZeppelin UUPS ProxyUpdater contract to ensure that:
           // 1. The new implementation is deployed on every network. Otherwise, the call will revert
           //    due to this check:
@@ -2639,13 +2634,13 @@ export const getConfigCache = async (
           //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
           await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
         } catch (e) {
-          // The SphinxManager does not have permission to call the `upgradeTo` function on the
+          // The ChugSplashManager does not have permission to call the `upgradeTo` function on the
           // UUPS proxy, which means the user must grant it permission via whichever access control
           // mechanism the UUPS proxy uses.
           importCache = {
             requiresImport: true,
             // We leave the `currProxyAdmin` blank because the UUPS proxy may use AccessControl,
-            // which prevents us from knowing which permission the SphinxManager needs to
+            // which prevents us from knowing which permission the ChugSplashManager needs to
             // call the 'upgradeTo' function.
           }
         }
@@ -2654,7 +2649,7 @@ export const getConfigCache = async (
         kind === ContractKindEnum.INTERNAL_DEFAULT ||
         kind === ContractKindEnum.OZ_TRANSPARENT
       ) {
-        // Check that the SphinxManager is the owner of the Transparent proxy.
+        // Check that the ChugSplashManager is the owner of the Transparent proxy.
         const currProxyAdmin = await getEIP1967ProxyAdminAddress(
           provider,
           address
@@ -2671,6 +2666,7 @@ export const getConfigCache = async (
 
     contractConfigCache[referenceName] = {
       isTargetDeployed,
+      deployedCreationCodeWithArgsHash,
       deploymentRevert: deploymentRevert ?? {
         deploymentReverted: false,
       },
@@ -2682,10 +2678,8 @@ export const getConfigCache = async (
   }
 
   return {
-    isManagerDeployed: isManagerDeployed_,
-    chainId,
-    networkType,
     blockGasLimit,
+    localNetwork,
     networkName,
     contractConfigCache,
   }
@@ -2709,7 +2703,7 @@ const assertNoValidationErrors = (failureAction: FailureAction): void => {
  * highest to lowest):
  * 1. The 'previousBuildInfo' and 'previousFullyQualifiedName' fields if both have been declared by
  * the user.
- * 2. The latest deployment in the Sphinx system for the proxy address that corresponds to the
+ * 2. The latest deployment in the ChugSplash system for the proxy address that corresponds to the
  * reference name.
  * 3. OpenZeppelin's Network File if the proxy is an OpenZeppelin proxy type
  *
@@ -2717,17 +2711,16 @@ const assertNoValidationErrors = (failureAction: FailureAction): void => {
  * storage layout located at 'previousBuildInfo'.
  */
 export const getPreviousStorageLayoutOZFormat = async (
-  projectName: string,
   referenceName: string,
   parsedContractConfig: ParsedContractConfig,
-  compilerConfigFolderPath: string,
-  cre: SphinxRuntimeEnvironment,
+  canonicalConfigFolderPath: string,
+  cre: ChugSplashRuntimeEnvironment,
   previousConfigUri?: string
 ): Promise<StorageLayout> => {
-  const prevCompilerConfig = previousConfigUri
-    ? await fetchAndCacheCompilerConfig(
+  const previousCanonicalConfig = previousConfigUri
+    ? await fetchAndCacheCanonicalConfig(
         previousConfigUri,
-        compilerConfigFolderPath
+        canonicalConfigFolderPath
       )
     : undefined
 
@@ -2739,12 +2732,12 @@ export const getPreviousStorageLayoutOZFormat = async (
   ) {
     const { input, output } = readBuildInfo(previousBuildInfo)
 
-    if (prevCompilerConfig !== undefined) {
+    if (previousCanonicalConfig !== undefined) {
       logValidationError(
         'warning',
         `Using the "previousBuildInfo" and "previousFullyQualifiedName" field to get the storage layout for\n` +
           `the contract: ${referenceName}. If you'd like to use the storage layout from your most recent\n` +
-          `Sphinx deployment instead, please remove these two fields from your Sphinx config file.`,
+          `ChugSplash deployment instead, please remove these two fields from your ChugSplash config file.`,
         [],
         cre.silent,
         cre.stream
@@ -2757,9 +2750,9 @@ export const getPreviousStorageLayoutOZFormat = async (
       output,
       parsedContractConfig
     ).layout
-  } else if (prevCompilerConfig !== undefined) {
+  } else if (previousCanonicalConfig !== undefined) {
     const prevConfigArtifacts = await getConfigArtifactsRemote(
-      prevCompilerConfig
+      previousCanonicalConfig
     )
     const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
     const { sourceName, contractName } = artifact
@@ -2778,229 +2771,7 @@ export const getPreviousStorageLayoutOZFormat = async (
   } else {
     throw new Error(
       `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
-        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your Sphinx config file.`
+        `a "previousBuildInfo" and "previousFullyQualifiedName" field for this contract in your ChugSplash config file.`
     )
-  }
-}
-
-export const assertValidConfigOptions = (
-  options: UserConfigOptions,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction
-): void => {
-  const { mainnets, testnets, orgId, owners, threshold, proposers } = options
-
-  if (orgId === '') {
-    logValidationError(
-      'error',
-      `The 'orgId' cannot be an empty string.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (threshold === 0) {
-    logValidationError(
-      'error',
-      `The 'threshold' must be greater than 0.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (threshold > owners.length) {
-    logValidationError(
-      'error',
-      `The 'threshold' must be less than or equal to the number of owners.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const duplicatedOwners = getDuplicateElements(owners)
-  const duplicatedProposers = getDuplicateElements(proposers)
-  const duplicatedNetworks = getDuplicateElements(mainnets)
-  const duplicatedTestnets = getDuplicateElements(testnets)
-  if (duplicatedOwners.length > 0) {
-    logValidationError(
-      'error',
-      `The following owners are duplicated:`,
-      duplicatedOwners,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (duplicatedProposers.length > 0) {
-    logValidationError(
-      'error',
-      `The following proposers are duplicated:`,
-      duplicatedProposers,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (duplicatedNetworks.length > 0) {
-    logValidationError(
-      'error',
-      `The following networks are duplicated:`,
-      duplicatedNetworks,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (duplicatedTestnets.length > 0) {
-    logValidationError(
-      'error',
-      `The following testnets are duplicated:`,
-      duplicatedTestnets,
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const invalidOwnerAddresses = owners.filter(
-    (address) => !ethers.utils.isAddress(address)
-  )
-  const invalidProposerAddresses = proposers.filter(
-    (address) => !ethers.utils.isAddress(address)
-  )
-  const invalidMainnets = mainnets.filter(
-    (network) => !SUPPORTED_MAINNETS[network]
-  )
-  const invalidTestnets = testnets.filter(
-    (testnet) => !SUPPORTED_TESTNETS[testnet]
-  )
-  if (invalidOwnerAddresses.length > 0) {
-    logValidationError(
-      'error',
-      `The following owners are not valid addresses:`,
-      invalidOwnerAddresses,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (invalidProposerAddresses.length > 0) {
-    logValidationError(
-      'error',
-      `The following proposers are not valid addresses:`,
-      invalidProposerAddresses,
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (invalidMainnets.length > 0) {
-    logValidationError(
-      'error',
-      `The following networks in your Sphinx config are not supported: ${invalidMainnets.join(
-        ', '
-      )}.\nSupported networks are:`,
-      Object.keys(SUPPORTED_MAINNETS).map((n) => `- ${n}`),
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (invalidTestnets.length > 0) {
-    logValidationError(
-      'error',
-      `The following testnets in your Sphinx config are not supported: ${invalidTestnets.join(
-        ', '
-      )}.\nSupported testnets are:`,
-      Object.keys(SUPPORTED_TESTNETS).map((n) => `- ${n}`),
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (proposers.length === 0) {
-    logValidationError(
-      'error',
-      `There must be at least one proposer or manager.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (mainnets.length === 0 && testnets.length === 0) {
-    logValidationError(
-      'error',
-      `There must be at least one network or testnet in your Sphinx config.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  // These are temporary until we add support for multisigs.
-  if (owners.length > 1) {
-    logValidationError(
-      'error',
-      `We currently only support configs that contain a single owner. Join our ${hyperlink(
-        'Discord',
-        'https://discord.gg/7Gc3DK33Np'
-      )} to \n` + `request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (proposers.length > 1) {
-    logValidationError(
-      'error',
-      `We currently only support configs that contain a single proposer. Join our ${hyperlink(
-        'Discord',
-        'https://discord.gg/7Gc3DK33Np'
-      )} to \n` + `request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (
-    ethers.utils.getAddress(owners[0]) !== ethers.utils.getAddress(proposers[0])
-  ) {
-    logValidationError(
-      'error',
-      `We currently only support configs that have the same proposer and owner address. Join\n` +
-        `our ${hyperlink(
-          'Discord',
-          'https://discord.gg/7Gc3DK33Np'
-        )} to request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  assertNoValidationErrors(failureAction)
-}
-
-export const parseConfigOptions = (
-  options: UserConfigOptions,
-  isTestnet: boolean
-): ParsedConfigOptions => {
-  const { mainnets, testnets, orgId, threshold } = options
-
-  const chainIds = isTestnet
-    ? testnets.map((network) => SUPPORTED_TESTNETS[network])
-    : mainnets.map((network) => SUPPORTED_MAINNETS[network])
-
-  // Converts addresses to checksummed addresses and sorts them in ascending order.
-  const owners = options.owners
-    .map((address) => ethers.utils.getAddress(address))
-    .sort()
-  const proposers = options.proposers
-    .map((address) => ethers.utils.getAddress(address))
-    .sort()
-
-  return {
-    chainIds,
-    orgId,
-    owners,
-    threshold,
-    proposers,
   }
 }

@@ -2,34 +2,30 @@ import { ethers, providers } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
-  BundledSphinxAction,
-  SphinxActionType,
-  SphinxBundles,
+  BundledChugSplashAction,
+  ChugSplashActionType,
+  ChugSplashBundles,
   DeploymentState,
   DeploymentStatus,
 } from './types'
-import { getGasPriceOverrides } from '../utils'
+import { getEstDeployContractCost, getGasPriceOverrides } from '../utils'
 import {
   getDeployContractActionBundle,
   getSetStorageActionBundle,
 } from './bundle'
-import { getEstDeployContractCost } from '../estimate'
-import { ConfigArtifacts } from '../config'
+import { ConfigArtifacts } from '../config/types'
 
 export const executeDeployment = async (
   manager: ethers.Contract,
-  bundles: SphinxBundles,
+  bundles: ChugSplashBundles,
   blockGasLimit: ethers.BigNumber,
   configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   logger?: Logger | undefined
-): Promise<{
-  success: boolean
-  receipts: ethers.providers.TransactionReceipt[]
-}> => {
+): Promise<boolean> => {
   const { actionBundle, targetBundle } = bundles
 
-  logger?.info(`[Sphinx]: preparing to execute the project...`)
+  logger?.info(`[ChugSplash]: preparing to execute the project...`)
 
   // We execute all actions in batches to reduce the total number of transactions and reduce the
   // cost of a deployment in general. Approaching the maximum block gas limit can cause
@@ -42,8 +38,8 @@ export const executeDeployment = async (
   const deployContractActionBundle = getDeployContractActionBundle(actionBundle)
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
-  logger?.info(`[Sphinx]: executing 'DEPLOY_CONTRACT' actions...`)
-  const { status, receipts } = await executeBatchActions(
+  logger?.info(`[ChugSplash]: executing 'DEPLOY_CONTRACT' actions...`)
+  const status = await executeBatchActions(
     deployContractActionBundle,
     manager,
     maxGasLimit,
@@ -52,29 +48,27 @@ export const executeDeployment = async (
     logger
   )
   if (status === DeploymentStatus.FAILED) {
-    logger?.error(`[Sphinx]: failed to execute 'DEPLOY_CONTRACT' actions`)
-    return { success: false, receipts }
+    logger?.error(`[ChugSplash]: failed to execute 'DEPLOY_CONTRACT' actions`)
+    return false
   } else if (status === DeploymentStatus.COMPLETED) {
-    logger?.info(`[Sphinx]: finished non-proxied deployment early`)
-    return { success: true, receipts }
+    logger?.info(`[ChugSplash]: finished non-proxied deployment early`)
+    return true
   } else {
-    logger?.info(`[Sphinx]: executed 'DEPLOY_CONTRACT' actions`)
+    logger?.info(`[ChugSplash]: executed 'DEPLOY_CONTRACT' actions`)
   }
 
-  logger?.info(`[Sphinx]: initiating upgrade...`)
-  receipts.push(
-    await (
-      await manager.initiateUpgrade(
-        targetBundle.targets.map((target) => target.target),
-        targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-  )
-  logger?.info(`[Sphinx]: initiated upgrde`)
+  logger?.info(`[ChugSplash]: initiating upgrade...`)
+  await (
+    await manager.initiateUpgrade(
+      targetBundle.targets.map((target) => target.target),
+      targetBundle.targets.map((target) => target.siblings),
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
+  logger?.info(`[ChugSplash]: initiated upgrde`)
 
-  logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
-  const { receipts: setStorageReceipts } = await executeBatchActions(
+  logger?.info(`[ChugSplash]: executing 'SET_STORAGE' actions...`)
+  await executeBatchActions(
     setStorageActionBundle,
     manager,
     maxGasLimit,
@@ -82,23 +76,20 @@ export const executeDeployment = async (
     provider,
     logger
   )
-  receipts.push(...setStorageReceipts)
-  logger?.info(`[Sphinx]: executed 'SET_STORAGE' actions`)
+  logger?.info(`[ChugSplash]: executed 'SET_STORAGE' actions`)
 
-  logger?.info(`[Sphinx]: finalizing upgrade...`)
-  receipts.push(
-    await (
-      await manager.finalizeUpgrade(
-        targetBundle.targets.map((target) => target.target),
-        targetBundle.targets.map((target) => target.siblings),
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-  )
+  logger?.info(`[ChugSplash]: finalizing upgrade...`)
+  await (
+    await manager.finalizeUpgrade(
+      targetBundle.targets.map((target) => target.target),
+      targetBundle.targets.map((target) => target.siblings),
+      await getGasPriceOverrides(provider)
+    )
+  ).wait()
 
   // We're done!
-  logger?.info(`[Sphinx]: successfully deployed project`)
-  return { success: true, receipts }
+  logger?.info(`[ChugSplash]: successfully deployed project`)
+  return true
 }
 
 /**
@@ -110,7 +101,7 @@ export const executeDeployment = async (
  * @returns Maximum number of actions that can be executed.
  */
 const findMaxBatchSize = async (
-  actions: BundledSphinxAction[],
+  actions: BundledChugSplashAction[],
   maxGasLimit: ethers.BigNumber,
   configArtifacts: ConfigArtifacts
 ): Promise<number> => {
@@ -149,18 +140,13 @@ const findMaxBatchSize = async (
  * @param actions List of actions to execute.
  */
 const executeBatchActions = async (
-  actions: BundledSphinxAction[],
+  actions: BundledChugSplashAction[],
   manager: ethers.Contract,
   maxGasLimit: ethers.BigNumber,
   configArtifacts: ConfigArtifacts,
   provider: providers.Provider,
   logger?: Logger | undefined
-): Promise<{
-  status: DeploymentStatus
-  receipts: ethers.providers.TransactionReceipt[]
-}> => {
-  const receipts: ethers.providers.TransactionReceipt[] = []
-
+): Promise<DeploymentStatus> => {
   // Pull the deployment state from the contract so we're guaranteed to be up to date.
   const activeDeploymentId = await manager.activeDeploymentId()
   let state: DeploymentState = await manager.deployments(activeDeploymentId)
@@ -172,8 +158,8 @@ const executeBatchActions = async (
 
   // We can return early if there are no actions to execute.
   if (filtered.length === 0) {
-    logger?.info('[Sphinx]: no actions left to execute')
-    return { status: state.status, receipts }
+    logger?.info('[ChugSplash]: no actions left to execute')
+    return state.status
   }
 
   let executed = 0
@@ -190,13 +176,13 @@ const executeBatchActions = async (
 
     // Keep 'em notified.
     logger?.info(
-      `[Sphinx]: executing actions ${executed} to ${executed + batchSize} of ${
-        filtered.length
-      }...`
+      `[ChugSplash]: executing actions ${executed} to ${
+        executed + batchSize
+      } of ${filtered.length}...`
     )
 
     // Execute the batch.
-    const tx = await (
+    await (
       await manager.executeActions(
         batch.map((action) => action.action),
         batch.map((action) => action.proof.actionIndex),
@@ -204,18 +190,17 @@ const executeBatchActions = async (
         await getGasPriceOverrides(provider)
       )
     ).wait()
-    receipts.push(tx)
 
     state = await manager.deployments(activeDeploymentId)
     if (state.status === DeploymentStatus.FAILED) {
-      return { status: state.status, receipts }
+      return state.status
     }
 
     // Move on to the next batch if necessary.
     executed += batchSize
   }
 
-  return { status: state.status, receipts }
+  return state.status
 }
 
 /**
@@ -225,7 +210,7 @@ const executeBatchActions = async (
  * @returns True if the batch is executable, false otherwise.
  */
 export const executable = async (
-  selected: BundledSphinxAction[],
+  selected: BundledChugSplashAction[],
   maxGasLimit: ethers.BigNumber,
   configArtifacts: ConfigArtifacts
 ): Promise<boolean> => {
@@ -233,7 +218,7 @@ export const executable = async (
 
   for (const action of selected) {
     const { actionType, referenceName } = action.action
-    if (actionType === SphinxActionType.DEPLOY_CONTRACT) {
+    if (actionType === ChugSplashActionType.DEPLOY_CONTRACT) {
       const { buildInfo, artifact } = configArtifacts[referenceName]
       const { sourceName, contractName } = artifact
 
@@ -244,7 +229,7 @@ export const executable = async (
       // We add 150k as an estimate for the cost of the transaction that executes the DeployContract
       // action.
       estGasUsed = estGasUsed.add(deployContractCost).add(150_000)
-    } else if (actionType === SphinxActionType.SET_STORAGE) {
+    } else if (actionType === ChugSplashActionType.SET_STORAGE) {
       estGasUsed = estGasUsed.add(ethers.BigNumber.from(150_000))
     } else {
       throw new Error(`Unknown action type. Should never happen.`)

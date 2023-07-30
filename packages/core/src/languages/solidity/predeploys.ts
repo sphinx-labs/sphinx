@@ -12,168 +12,154 @@ import {
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-  AuthFactoryABI,
-} from '@sphinx/contracts'
+} from '@chugsplash/contracts'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  getSphinxRegistryReadOnly,
-  getNetworkType,
-  resolveNetwork,
+  isLocalNetwork,
+  getChugSplashRegistryReadOnly,
 } from '../../utils'
 import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
-  getSphinxManagerV1Address,
-  getSphinxRegistryAddress,
-  getManagedServiceAddress,
+  getChugSplashManagerV1Address,
+  getChugSplashRegistryAddress,
+  MANAGED_SERVICE_ADDRESS,
   OZ_TRANSPARENT_ADAPTER_ADDRESS,
   DEFAULT_ADAPTER_ADDRESS,
   OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS,
-  AUTH_FACTORY_ADDRESS,
-  AUTH_IMPL_V1_ADDRESS,
 } from '../../addresses'
-import { isSupportedNetworkOnEtherscan, verifySphinx } from '../../etherscan'
-import { SphinxSystemConfig } from './types'
 import {
-  FUNDER_ROLE,
-  RELAYER_ROLE,
+  isSupportedNetworkOnEtherscan,
+  verifyChugSplash,
+} from '../../etherscan'
+import { ChugSplashSystemConfig } from './types'
+import {
+  CALLER_ROLE,
+  MANAGED_PROPOSER_ROLE,
   REMOTE_EXECUTOR_ROLE,
 } from '../../constants'
+import { resolveNetworkName } from '../../messages'
 import { assertValidBlockGasLimit } from '../../config/parse'
-import { getSphinxConstants } from '../../contract-info'
-import { NetworkType } from '../../config'
+import { CHUGSPLASH_CONTRACT_INFO } from '../../contract-info'
 
-const fetchSphinxSystemConfig = (configPath: string) => {
+const fetchChugSplashSystemConfig = (configPath: string) => {
   delete require.cache[require.resolve(path.resolve(configPath))]
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const exported: SphinxSystemConfig = require(path.resolve(configPath)).default
+  const exported: ChugSplashSystemConfig = require(path.resolve(
+    configPath
+  )).default
   if (
     typeof exported === 'object' &&
+    exported.callers.length > 0 &&
     exported.executors.length > 0 &&
-    exported.relayers.length > 0 &&
-    exported.funders.length > 0
+    exported.proposers.length > 0
   ) {
     return exported
   } else {
     throw new Error(
-      'Config file must export a valid config object with a list of executors and relayers.'
+      'Config file must export a valid config object with a list of executors, callers, and proposers.'
     )
   }
 }
 
-export const initializeAndVerifySphinx = async (
+export const initializeAndVerifyChugSplash = async (
   systemConfigPath: string,
   provider: ethers.providers.JsonRpcProvider
 ) => {
-  const config = fetchSphinxSystemConfig(systemConfigPath)
+  const config = fetchChugSplashSystemConfig(systemConfigPath)
 
   const logger = new Logger({
     name: 'deploy',
   })
 
   // Deploy Contracts
-  await initializeSphinx(
+  await initializeChugSplash(
     provider,
-    provider.getSigner(),
+    await provider.getSigner(),
     config.executors,
-    config.relayers,
-    config.funders,
+    config.proposers,
+    config.callers,
     logger
   )
 
-  // Verify Sphinx contracts on etherscan
+  // Verify ChugSplash contracts on etherscan
   try {
-    // Verify the Sphinx contracts if the current network is supported.
-    const networkType = await getNetworkType(provider)
+    // Verify the ChugSplash contracts if the current network is supported.
     if (
-      (await isSupportedNetworkOnEtherscan(provider)) &&
-      networkType === NetworkType.LIVE_NETWORK
+      isSupportedNetworkOnEtherscan(
+        await resolveNetworkName(provider, 'hardhat')
+      )
     ) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
-        logger.info('[Sphinx]: attempting to verify the sphinx contracts...')
-        await verifySphinx(provider, provider.network.name, apiKey)
         logger.info(
-          '[Sphinx]: finished attempting to verify the sphinx contracts'
+          '[ChugSplash]: attempting to verify the chugsplash contracts...'
+        )
+        await verifyChugSplash(provider, provider.network.name, apiKey)
+        logger.info(
+          '[ChugSplash]: finished attempting to verify the chugsplash contracts'
         )
       } else {
         logger.info(
-          `[Sphinx]: skipped verifying sphinx contracts. reason: no api key found`
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
         )
       }
     } else {
       logger.info(
-        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${provider.network.name}`
+        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${provider.network.name}`
       )
     }
   } catch (e) {
     logger.error(
-      `[Sphinx]: error: failed to verify sphinx contracts on ${provider.network.name}`,
+      `[ChugSplash]: error: failed to verify chugsplash contracts on ${provider.network.name}`,
       e
     )
   }
 }
 
-/**
- * @notice Ensures that the Sphinx contracts are deployed and initialized. This will only send
- * transactions from the signer exists on a non-live network (i.e. a local or forked network). The
- * signer will never be used to send transactions on a live network.
- */
-export const ensureSphinxInitialized = async (
+export const ensureChugSplashInitialized = async (
   provider: ethers.providers.JsonRpcProvider,
   signer: ethers.Signer,
   executors: string[] = [],
-  relayers: string[] = [],
-  funders: string[] = [],
   logger?: Logger
 ) => {
-  if (await isContractDeployed(getSphinxRegistryAddress(), provider)) {
+  if (await isContractDeployed(getChugSplashRegistryAddress(), provider)) {
     return
-  } else if ((await getNetworkType(provider)) !== NetworkType.LIVE_NETWORK) {
-    await initializeSphinx(
-      provider,
-      signer,
-      executors,
-      relayers,
-      funders,
-      logger
-    )
+  } else if (await isLocalNetwork(provider)) {
+    await initializeChugSplash(provider, signer, executors, [], [], logger)
   } else {
-    const networkType = await getNetworkType(provider)
-    const { networkName } = await resolveNetwork(provider, networkType)
     throw new Error(
-      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it!`
+      `ChugSplash is not available on this network. If you are working on a local network, please report this error to the developers. If you are working on a live network, then it may not be officially supported yet. Feel free to drop a messaging in the Discord and we'll see what we can do!`
     )
   }
 }
 
-export const initializeSphinx = async (
+export const initializeChugSplash = async (
   provider: ethers.providers.JsonRpcProvider,
-  signer: ethers.Signer,
+  deployer: ethers.Signer,
   executors: string[],
-  relayers: string[],
-  funders: string[],
+  proposers: string[],
+  callers: string[],
   logger?: Logger
 ): Promise<void> => {
   const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-
   assertValidBlockGasLimit(blockGasLimit)
 
   for (const {
     artifact,
     constructorArgs,
     expectedAddress,
-  } of await getSphinxConstants(provider)) {
+  } of CHUGSPLASH_CONTRACT_INFO) {
     const { abi, bytecode, contractName } = artifact
 
-    logger?.info(`[Sphinx]: deploying ${contractName}...`)
+    logger?.info(`[ChugSplash]: deploying ${contractName}...`)
 
     const contract = await doDeterministicDeploy(provider, {
-      signer,
+      signer: deployer,
       contract: {
         abi,
         bytecode,
@@ -187,72 +173,68 @@ export const initializeSphinx = async (
       `address mismatch for ${contractName}`
     )
 
-    logger?.info(`[Sphinx]: deployed ${contractName}, ${contract.address}`)
+    logger?.info(`[ChugSplash]: deployed ${contractName}`)
   }
 
-  logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
+  logger?.info(`[ChugSplash]: finished deploying ChugSplash contracts`)
 
   // We need to do some additional setup: adding the manager version, adding executor roles, etc
   // This requires a signer with the owner role which we have to handle differently depending on the situation.
   // 1. If the owner is the multisig and we're deploying on a test node then we can use an impersonated signer.
   // 2. If the owner is the multisig and we're deploying on a live network then we have to use the gnosis safe ethers adapter (which we have not implemented yet).
-  // 3. We also allow the user to specify a different owner via process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
-  //    In this case, we need to create a signer using the SPHINX_INTERNAL__OWNER_PRIVATE_KEY and use that.
-  let owner: ethers.Signer
+  // 3. We also allow the user to specify a different owner via process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY. This is useful for testing on live networks without using the multisig.
+  //    In this case, we need to create a signer using the CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY and use that.
+  let signer: ethers.Signer
 
   // If deploying on a live network and the target owner is the multisig, then throw an error because
   // we have not setup the safe ethers adapter yet.
-  const networkType = await getNetworkType(provider)
-  if (
-    networkType === NetworkType.LIVE_NETWORK &&
-    getOwnerAddress() === OWNER_MULTISIG_ADDRESS
-  ) {
-    if (!process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY) {
-      throw new Error('Must define SPHINX_INTERNAL__OWNER_PRIVATE_KEY')
+  const localNetwork = await isLocalNetwork(provider)
+  if (!localNetwork && getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
+    if (!process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY) {
+      throw new Error('Must define CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY')
     }
 
-    owner = new ethers.Wallet(
-      process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
+    signer = new ethers.Wallet(
+      process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY!,
       provider
     )
   } else {
     // if target owner is multisig, then use an impersonated multisig signer
     if (getOwnerAddress() === OWNER_MULTISIG_ADDRESS) {
-      owner = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
+      signer = await getImpersonatedSigner(OWNER_MULTISIG_ADDRESS, provider)
     } else {
       // if target owner is not multisig, then use the owner signer
-      // SPHINX_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
-      owner = new ethers.Wallet(
-        process.env.SPHINX_INTERNAL__OWNER_PRIVATE_KEY!,
+      // CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY will always be defined if the OWNER_ADDRESS is not the OWNER_MULTISIG_ADDRESS
+      signer = new ethers.Wallet(
+        process.env.CHUGSPLASH_INTERNAL__OWNER_PRIVATE_KEY!,
         provider
       )
     }
 
-    if (networkType !== NetworkType.LIVE_NETWORK) {
+    if (localNetwork) {
       // Fund the signer
       await (
-        await signer.sendTransaction({
-          to: await owner.getAddress(),
+        await deployer.sendTransaction({
+          to: await signer.getAddress(),
           value: ethers.utils.parseEther('0.1'),
         })
       ).wait()
     }
   }
 
-  const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(chainId),
+    MANAGED_SERVICE_ADDRESS,
     ManagedServiceArtifact.abi,
-    owner
+    signer
   )
 
-  logger?.info('[Sphinx]: assigning executor roles...')
+  logger?.info('[ChugSplash]: assigning executor roles...')
   for (const executor of executors) {
     if (
       (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
     ) {
       await (
-        await ManagedService.connect(owner).grantRole(
+        await ManagedService.connect(signer).grantRole(
           REMOTE_EXECUTOR_ROLE,
           executor,
           await getGasPriceOverrides(provider)
@@ -260,48 +242,51 @@ export const initializeSphinx = async (
       ).wait()
     }
   }
-  logger?.info('[Sphinx]: finished assigning executor roles')
+  logger?.info('[ChugSplash]: finished assigning executor roles')
 
-  logger?.info('[Sphinx]: assigning caller roles...')
-  for (const relayer of relayers) {
-    if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
+  logger?.info('[ChugSplash]: assigning proposer roles...')
+  for (const proposer of proposers) {
+    if (
+      (await ManagedService.hasRole(MANAGED_PROPOSER_ROLE, proposer)) === false
+    ) {
       await (
-        await ManagedService.connect(owner).grantRole(
-          RELAYER_ROLE,
-          relayer,
+        await ManagedService.connect(signer).grantRole(
+          MANAGED_PROPOSER_ROLE,
+          proposer,
           await getGasPriceOverrides(provider)
         )
       ).wait()
     }
   }
-  logger?.info('[Sphinx]: finished assigning caller roles')
+  logger?.info('[ChugSplash]: finished assigning proposer roles')
 
-  logger?.info('[Sphinx]: assigning funder role...')
-  for (const funder of funders) {
-    if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
+  logger?.info('[ChugSplash]: assigning caller roles...')
+  for (const caller of callers) {
+    if ((await ManagedService.hasRole(CALLER_ROLE, caller)) === false) {
       await (
-        await ManagedService.connect(owner).grantRole(
-          FUNDER_ROLE,
-          funder,
+        await ManagedService.connect(signer).grantRole(
+          CALLER_ROLE,
+          caller,
           await getGasPriceOverrides(provider)
         )
       ).wait()
     }
   }
-  logger?.info('[Sphinx]: finished assigning role')
+  logger?.info('[ChugSplash]: finished assigning caller roles')
 
-  logger?.info('[Sphinx]: adding the initial SphinxManager version...')
+  logger?.info('[ChugSplash]: adding the initial ChugSplashManager version...')
 
-  const SphinxRegistry = getSphinxRegistryReadOnly(provider)
-  const sphinxManagerV1Address = getSphinxManagerV1Address(chainId)
+  const ChugSplashRegistry = getChugSplashRegistryReadOnly(provider)
+  const chugSplashManagerV1Address = getChugSplashManagerV1Address()
   if (
-    (await SphinxRegistry.managerImplementations(sphinxManagerV1Address)) ===
-    false
+    (await ChugSplashRegistry.managerImplementations(
+      chugSplashManagerV1Address
+    )) === false
   ) {
     try {
       await (
-        await SphinxRegistry.connect(owner).addVersion(
-          sphinxManagerV1Address,
+        await ChugSplashRegistry.connect(signer).addVersion(
+          chugSplashManagerV1Address,
           await getGasPriceOverrides(provider)
         )
       ).wait()
@@ -312,101 +297,57 @@ export const initializeSphinx = async (
     }
   }
 
-  logger?.info('[Sphinx]: added the initial SphinxManager version')
-
-  logger?.info('[Sphinx]: setting the default SphinxManager version')
-
-  if (
-    (await SphinxRegistry.currentManagerImplementation()) !==
-    sphinxManagerV1Address
-  ) {
-    await (
-      await SphinxRegistry.connect(owner).setCurrentManagerImplementation(
-        sphinxManagerV1Address,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-  }
-
-  logger?.info('[Sphinx]: set the default SphinxManager version')
-
-  logger?.info('[Sphinx]: setting the default SphinxAuth version')
-
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    owner
-  )
-
-  if (!(await AuthFactory.authImplementations(AUTH_IMPL_V1_ADDRESS))) {
-    await (
-      await AuthFactory.addVersion(
-        AUTH_IMPL_V1_ADDRESS,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-  }
-
-  if (
-    (await AuthFactory.currentAuthImplementation()) !== AUTH_IMPL_V1_ADDRESS
-  ) {
-    await (
-      await AuthFactory.setCurrentAuthImplementation(
-        AUTH_IMPL_V1_ADDRESS,
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-  }
-
-  logger?.info('[Sphinx]: set the default SphinxAuth version')
+  logger?.info('[ChugSplash]: added the initial ChugSplashManager version')
 
   logger?.info(
-    '[Sphinx]: adding the default proxy type to the SphinxRegistry...'
+    '[ChugSplash]: adding the default proxy type to the ChugSplashRegistry...'
   )
 
   // Set the oz transparent proxy type on the registry.
   const transparentAdapterAddress = OZ_TRANSPARENT_ADAPTER_ADDRESS
   if (
-    (await SphinxRegistry.adapters(OZ_TRANSPARENT_PROXY_TYPE_HASH)) !==
+    (await ChugSplashRegistry.adapters(OZ_TRANSPARENT_PROXY_TYPE_HASH)) !==
     transparentAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await ChugSplashRegistry.connect(signer).addContractKind(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         transparentAdapterAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[Sphinx]: added the transparent proxy type to the SphinxRegistry'
+      '[ChugSplash]: added the transparent proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[Sphinx]: the transparent proxy type was already added to the SphinxRegistry'
+      '[ChugSplash]: the transparent proxy type was already added to the ChugSplashRegistry'
     )
   }
 
-  logger?.info('[Sphinx]: adding the uups proxy type to the SphinxRegistry...')
+  logger?.info(
+    '[ChugSplash]: adding the uups proxy type to the ChugSplashRegistry...'
+  )
 
   // Set the oz uups proxy type on the registry.
   const uupsOwnableAdapterAddress = OZ_UUPS_OWNABLE_ADAPTER_ADDRESS
   if (
-    (await SphinxRegistry.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
+    (await ChugSplashRegistry.adapters(OZ_UUPS_OWNABLE_PROXY_TYPE_HASH)) !==
     uupsOwnableAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await ChugSplashRegistry.connect(signer).addContractKind(
         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
         uupsOwnableAdapterAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[Sphinx]: added the uups ownable proxy type to the SphinxRegistry'
+      '[ChugSplash]: added the uups ownable proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[Sphinx]: the uups ownable proxy type was already added to the SphinxRegistry'
+      '[ChugSplash]: the uups ownable proxy type was already added to the ChugSplashRegistry'
     )
   }
 
@@ -414,63 +355,65 @@ export const initializeSphinx = async (
   const ozUUPSAccessControlAdapterAddress =
     OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS
   if (
-    (await SphinxRegistry.adapters(OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH)) !==
-    ozUUPSAccessControlAdapterAddress
+    (await ChugSplashRegistry.adapters(
+      OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH
+    )) !== ozUUPSAccessControlAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await ChugSplashRegistry.connect(signer).addContractKind(
         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
         ozUUPSAccessControlAdapterAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[Sphinx]: added the uups access control proxy type to the SphinxRegistry'
+      '[ChugSplash]: added the uups access control proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[Sphinx]: the uups access control proxy type was already added to the SphinxRegistry'
+      '[ChugSplash]: the uups access control proxy type was already added to the ChugSplashRegistry'
     )
   }
 
   const defaultAdapterAddress = DEFAULT_ADAPTER_ADDRESS
   if (
-    (await SphinxRegistry.adapters(EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH)) !==
-    defaultAdapterAddress
+    (await ChugSplashRegistry.adapters(
+      EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH
+    )) !== defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await ChugSplashRegistry.connect(signer).addContractKind(
         EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[Sphinx]: added the external default proxy type to the SphinxRegistry'
+      '[ChugSplash]: added the external default proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[Sphinx]: the external default proxy type was already added to the SphinxRegistry'
+      '[ChugSplash]: the external default proxy type was already added to the ChugSplashRegistry'
     )
   }
 
   if (
-    (await SphinxRegistry.adapters(DEFAULT_PROXY_TYPE_HASH)) !==
+    (await ChugSplashRegistry.adapters(DEFAULT_PROXY_TYPE_HASH)) !==
     defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await ChugSplashRegistry.connect(signer).addContractKind(
         ethers.constants.HashZero,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
       )
     ).wait()
     logger?.info(
-      '[Sphinx]: added the internal default proxy type to the SphinxRegistry'
+      '[ChugSplash]: added the internal default proxy type to the ChugSplashRegistry'
     )
   } else {
     logger?.info(
-      '[Sphinx]: the internal default proxy type was already added to the SphinxRegistry'
+      '[ChugSplash]: the internal default proxy type was already added to the ChugSplashRegistry'
     )
   }
 }

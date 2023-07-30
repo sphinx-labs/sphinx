@@ -1,24 +1,24 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
-import { ManagedServiceABI, SphinxManagerABI } from '@sphinx/contracts'
+import { ChugSplashManagerABI } from '@chugsplash/contracts'
 import {
+  CanonicalChugSplashConfig,
   DeploymentState,
+  claimExecutorPayment,
   compileRemoteBundles,
   executeDeployment,
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
+  hasSufficientFundsForExecution,
   trackExecuted,
   getDeploymentId,
-  SphinxBundles,
+  ChugSplashBundles,
   isSupportedNetworkOnEtherscan,
-  verifySphinxConfig,
+  verifyChugSplashConfig,
   deploymentDoesRevert,
-  CompilerConfig,
   ConfigArtifacts,
-  estimateExecutionCost,
-  getManagedServiceAddress,
-} from '@sphinx/core'
+} from '@chugsplash/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
@@ -55,7 +55,7 @@ const generateRetryEvent = (
 
 const tryVerification = async (
   logger: Logger,
-  compilerConfig: CompilerConfig,
+  canonicalConfig: CanonicalChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   rpcProvider: ethers.providers.JsonRpcProvider,
   projectName: string,
@@ -66,40 +66,40 @@ const tryVerification = async (
 ) => {
   // verify on etherscan
   try {
-    if (isSupportedNetworkOnEtherscan(rpcProvider)) {
+    if (isSupportedNetworkOnEtherscan(network)) {
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info(
-          `[Sphinx]: attempting to verify source code on etherscan for projectName: ${projectName}`
+          `[ChugSplash]: attempting to verify source code on etherscan for project: ${projectName}`
         )
-        await verifySphinxConfig(
-          compilerConfig,
+        await verifyChugSplashConfig(
+          canonicalConfig,
           configArtifacts,
           rpcProvider,
           network,
           apiKey
         )
         logger.info(
-          `[Sphinx]: finished attempting etherscan verification for projectName: ${projectName}`
+          `[ChugSplash]: finished attempting etherscan verification for project: ${projectName}`
         )
       } else {
         logger.info(
-          `[Sphinx]: skipped verifying sphinx contracts. reason: no api key found`
+          `[ChugSplash]: skipped verifying chugsplash contracts. reason: no api key found`
         )
       }
     } else {
       logger.info(
-        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${network}`
+        `[ChugSplash]: skipped verifying chugsplash contracts. reason: etherscan config not detected for: ${network}`
       )
     }
   } catch (e) {
-    logger.error('[Sphinx]: error: verification error', e)
+    logger.error('[ChugSplash]: error: verification error', e)
     if (attempts < 6) {
       // Try again in 30 seconds
       setTimeout(async () => {
         await tryVerification(
           logger,
-          compilerConfig,
+          canonicalConfig,
           configArtifacts,
           rpcProvider,
           projectName,
@@ -112,14 +112,14 @@ const tryVerification = async (
     }
   }
 
-  // Update status in the Sphinx managed database
+  // Update status in the ChugSplash managed database
   if (graphQLClient) {
     const contracts: {
       referenceName: string
       contractName: string
       address: string
     }[] = []
-    Object.entries(compilerConfig.contracts).forEach(
+    Object.entries(canonicalConfig.contracts).forEach(
       ([referenceName, contractConfig]) => {
         contracts.push({
           referenceName,
@@ -135,11 +135,10 @@ const tryVerification = async (
         activeDeploymentId,
         rpcProvider.network.chainId,
         'verified',
-        contracts,
-        []
+        contracts
       )
     } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
+      logger.error('[ChugSplash]: error: deployment update error', error)
     }
   }
 }
@@ -162,6 +161,7 @@ export type ResponseMessage = {
     message: string
     err: Error
     options: {
+      organizationID: string
       projectName: string
       skipStorageCheck?: boolean
     }
@@ -200,7 +200,11 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   const managedAddress = executorEvent.event.args[1]
   // fetch manager for relevant project
-  const manager = new ethers.Contract(managedAddress, SphinxManagerABI, wallet)
+  const manager = new ethers.Contract(
+    managedAddress,
+    ChugSplashManagerABI,
+    wallet
+  )
 
   // get active deployment ID for this project
   const activeDeploymentId = await manager.activeDeploymentId()
@@ -210,100 +214,62 @@ export const handleExecution = async (data: ExecutorMessage) => {
   )
 
   if (!deploymentState.remoteExecution) {
-    logger.info('[Sphinx]: skipping local deployment')
+    logger.info('[ChugSplash]: skipping local deployment')
     process.send({ action: 'discard', payload: executorEvent })
     return
   } else if (activeDeploymentId === ethers.constants.HashZero) {
-    logger.info('[Sphinx]: no active deployment in project')
+    logger.info('[ChugSplash]: no active deployment in project')
     process.send({ action: 'discard', payload: executorEvent })
     return
   }
 
-  logger.info('[Sphinx]: retrieving the deployment...')
+  // Retrieve the corresponding proposal event to get the config URI.
+  const [proposalEvent] = await manager.queryFilter(
+    manager.filters.ChugSplashDeploymentProposed(activeDeploymentId)
+  )
+
+  logger.info('[ChugSplash]: retrieving the deployment...')
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
-  let bundles: SphinxBundles
-  let compilerConfig: CompilerConfig
+  let bundles: ChugSplashBundles
+  let canonicalConfig: CanonicalChugSplashConfig
   let configArtifacts: ConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
-      rpcProvider,
-      deploymentState.configUri
-    ))
+    ;({ bundles, canonicalConfig, configArtifacts } =
+      await compileRemoteBundles(rpcProvider, proposalEvent.args.configUri))
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName } = compilerConfig
-
-  // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
-  const estimatedCost = (await estimateExecutionCost(rpcProvider, bundles, 0))
-    .mul(15)
-    .div(10)
-  const balance = await wallet.getBalance()
-  if (balance.lt(estimatedCost)) {
-    logger.info(
-      `[Relayer]: Wallet balance low, withdrawing from ManagedService contract`
-    )
-    // check if managed service has funds
-    const managedServiceAddress = getManagedServiceAddress(
-      (await rpcProvider.getNetwork()).chainId
-    )
-    const withdraw = estimatedCost.mul('200').div('100')
-    // Log an error if not
-    if ((await rpcProvider.getBalance(managedServiceAddress)).lt(withdraw)) {
-      throw new Error(
-        'Failed to withdraw new funds from managed service contract, insufficent balance'
-      )
-    } else {
-      // Otherwise, withdraw funds
-      const ManagedService = new ethers.Contract(
-        managedServiceAddress,
-        ManagedServiceABI,
-        wallet
-      )
-      await (
-        await ManagedService.withdrawRelayerFunds(
-          withdraw,
-          await getGasPriceOverrides(rpcProvider)
-        )
-      ).wait()
-      logger.info(
-        `[Relayer]: Withdrew from ManagedService contract successfully`
-      )
-    }
-  }
+  const { projectName, organizationID } = canonicalConfig.options
 
   const expectedDeploymentId = getDeploymentId(
     bundles,
-    deploymentState.configUri
+    proposalEvent.args.configUri
   )
 
   // ensure compiled deployment ID matches proposed deployment ID
-  if (expectedDeploymentId !== activeDeploymentId) {
+  if (expectedDeploymentId !== proposalEvent.args.deploymentId) {
     // We cannot execute the current deployment, so we dicard the event
     // Discarding the event causes the parent process to remove this event from its cache of events currently being executed
     process.send({ action: 'discard', payload: executorEvent })
 
     // log error and return
     logger.error(
-      '[Sphinx]: error: compiled deployment id does not match proposal event deployment id',
-      activeDeploymentId
+      '[ChugSplash]: error: compiled deployment id does not match proposal event deployment id',
+      canonicalConfig.options
     )
     return
   }
 
-  logger.info(`[Sphinx]: compiled ${projectName} on: ${network}.`)
-
-  const deploymentTransactionReceipts: ethers.providers.TransactionReceipt[] =
-    []
+  logger.info(`[ChugSplash]: compiled ${projectName} on: ${network}.`)
 
   if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
-    logger.info(`[Sphinx]: checking if any of the constructors revert...`)
+    logger.info(`[ChugSplash]: checking if any of the constructors revert...`)
 
     if (
       await deploymentDoesRevert(
@@ -318,19 +284,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
 
     try {
-      deploymentTransactionReceipts.push(
-        await (
-          await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
-        ).wait()
-      )
+      await (
+        await manager.claimDeployment(await getGasPriceOverrides(rpcProvider))
+      ).wait()
     } catch (err) {
       if (
         err.message.includes(
-          'SphinxManager: deployment is currently claimed by an executor'
+          'ChugSplashManager: deployment is currently claimed by an executor'
         )
       ) {
         logger.info(
-          '[Sphinx]: a different executor claimed the deployment right before this executor'
+          '[ChugSplash]: a different executor claimed the deployment right before this executor'
         )
 
         // Do not retry the deployment since it will be handled by another executor
@@ -339,9 +303,9 @@ export const handleExecution = async (data: ExecutorMessage) => {
         // A different error occurred. This most likely means the owner cancelled the deployment
         // before it could be claimed. We'll log the error message.
         logger.error(
-          '[Sphinx]: error: claiming deployment error',
+          '[ChugSplash]: error: claiming deployment error',
           err,
-          expectedDeploymentId
+          canonicalConfig.options
         )
 
         // retry events which failed due to other errors
@@ -354,7 +318,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     }
   } else if (deploymentState.selectedExecutor !== wallet.address) {
     logger.info(
-      '[Sphinx]: a different executor has already claimed the deployment'
+      '[ChugSplash]: a different executor has already claimed the deployment'
     )
     return
   }
@@ -362,87 +326,119 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // If we make it to the point, we know that this executor is selected to claim the deployment and
   // that the deployment should execute without an error (i.e. a constructor reverting).
 
-  logger.info(`[Sphinx]: constructors probably won't revert.`)
+  logger.info(`[ChugSplash]: constructors probably won't revert.`)
 
-  // execute deployment
-  try {
-    const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
-    const { success, receipts } = await executeDeployment(
-      manager,
+  logger.info(`[ChugSplash]: checking that the project is funded...`)
+
+  if (
+    await hasSufficientFundsForExecution(
+      rpcProvider,
       bundles,
-      blockGasLimit,
-      configArtifacts,
-      rpcProvider
+      deploymentState.actionsExecuted.toNumber(),
+      canonicalConfig
     )
-    deploymentTransactionReceipts.push(...receipts)
+  ) {
+    logger.info(`[ChugSplash]: ${projectName} has sufficient funds`)
 
-    if (!success) {
-      // This likely means one of the user's constructors reverted during execution. We already
-      // logged the error inside `executeDeployment`, so we just discard the event and return.
-      process.send({ action: 'discard', payload: executorEvent })
-      return
-    }
-  } catch (e) {
-    // check if the error was due to the deployment being claimed by another executor, and discard if so
-    const errorDeploymentState: DeploymentState = await manager.deployments(
-      activeDeploymentId
-    )
-    if (errorDeploymentState.selectedExecutor !== wallet.address) {
-      logger.info(
-        '[Sphinx]: execution failed due to deployment being claimed by another executor'
+    // execute deployment
+    try {
+      const { gasLimit: blockGasLimit } = await rpcProvider.getBlock('latest')
+      const success = await executeDeployment(
+        manager,
+        bundles,
+        blockGasLimit,
+        configArtifacts,
+        rpcProvider
       )
-      process.send({ action: 'discard', payload: executorEvent })
+
+      if (!success) {
+        // This likely means one of the user's constructors reverted during execution. We already
+        // logged the error inside `executeDeployment`, so we just discard the event and return.
+        process.send({ action: 'discard', payload: executorEvent })
+        return
+      }
+    } catch (e) {
+      // check if the error was due to the deployment being claimed by another executor, and discard if so
+      const errorDeploymentState: DeploymentState = await manager.deployments(
+        activeDeploymentId
+      )
+      if (errorDeploymentState.selectedExecutor !== wallet.address) {
+        logger.info(
+          '[ChugSplash]: execution failed due to deployment being claimed by another executor'
+        )
+        process.send({ action: 'discard', payload: executorEvent })
+        return
+      }
+
+      // log error
+      logger.error(
+        '[ChugSplash]: error: execution error',
+        e,
+        canonicalConfig.options
+      )
+
+      // retry the deployment later
+      const retryEvent = generateRetryEvent(executorEvent)
+      process.send({ action: 'retry', payload: retryEvent })
       return
     }
 
-    // log error
-    logger.error('[Sphinx]: error: execution error', e, expectedDeploymentId)
+    // Update status in the ChugSplash managed database
+    if (graphQLClient) {
+      try {
+        await updateDeployment(
+          graphQLClient,
+          activeDeploymentId,
+          rpcProvider.network.chainId,
+          'executed',
+          []
+        )
+      } catch (error) {
+        logger.error('[ChugSplash]: error: deployment update error', error)
+      }
+    }
 
-    // retry the deployment later
-    const retryEvent = generateRetryEvent(executorEvent)
+    // verify on etherscan 10s later
+    await tryVerification(
+      logger,
+      canonicalConfig,
+      configArtifacts,
+      rpcProvider,
+      projectName,
+      network,
+      graphQLClient,
+      activeDeploymentId,
+      1
+    )
+
+    await trackExecuted(
+      await manager.owner(),
+      organizationID,
+      projectName,
+      network,
+      undefined
+    )
+  } else {
+    logger.info(`[ChugSplash]: ${projectName} has insufficient funds`)
+
+    // Continue to the next deployment if there is an insufficient amount of funds in the
+    // ChugSplashManager. We will make attempts to execute the deployment on
+    // subsequent iterations of the BaseService for up to 30 minutes.
+    const retryEvent = generateRetryEvent(executorEvent, 100, 30000)
     process.send({ action: 'retry', payload: retryEvent })
     return
   }
 
-  // Update status in the Sphinx managed database
-  if (graphQLClient) {
-    try {
-      await updateDeployment(
-        graphQLClient,
-        activeDeploymentId,
-        rpcProvider.network.chainId,
-        'executed',
-        [],
-        deploymentTransactionReceipts.map((receipt) => {
-          return {
-            txHash: receipt.transactionHash,
-            cost: receipt.gasUsed.mul(receipt.effectiveGasPrice).toString(),
-            chainId: rpcProvider.network.chainId,
-          }
-        })
-      )
-    } catch (error) {
-      logger.error('[Sphinx]: error: deployment update error', error)
-    }
-  }
+  logger.info(`[ChugSplash]: claiming executor's payment...`)
 
-  // verify on etherscan 10s later
-  await tryVerification(
-    logger,
-    compilerConfig,
-    configArtifacts,
-    rpcProvider,
-    projectName,
-    network,
-    graphQLClient,
-    activeDeploymentId,
-    1
-  )
+  // Withdraw any debt owed to the executor. Note that even if a deployment is cancelled by the
+  // project owner during execution, the executor will still be able to claim funds here.
+  await claimExecutorPayment(wallet, manager)
 
-  await trackExecuted(await manager.owner(), network, undefined)
+  logger.info(`[ChugSplash]: claimed executor's payment`)
 
   // If we make it to this point, we know that the executor has executed the deployment (or that it
-  // has been cancelled by the owner).
-  logger.info('[Sphinx]: execution successful')
+  // has been cancelled by the owner), and that the executor has claimed its payment.
+  logger.info('[ChugSplash]: execution successful')
   process.send({ action: 'success', payload: executorEvent })
 }

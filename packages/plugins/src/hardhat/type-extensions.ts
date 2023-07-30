@@ -4,10 +4,8 @@ import { extendConfig, extendEnvironment } from 'hardhat/config'
 import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
 import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
-import { UserSalt } from '@sphinx/core'
 
-import { getContract, resetSphinxDeployments } from './deployments'
-
+import { getContract, resetChugSplashDeployments } from './deployments'
 // To extend one of Hardhat's types, you need to import the module where it has been defined, and
 // redeclare it.
 import 'hardhat/types/config'
@@ -17,9 +15,9 @@ declare module 'hardhat/types/config' {
   // Extend the HardhatConfig type, which represents the configuration after it has been resolved.
   // This is the type used during the execution of tasks, tests and scripts.
   export interface ProjectPathsConfig {
-    sphinx: string
+    chugsplash: string
     deployments: string
-    compilerConfigs: string
+    canonicalConfigs: string
   }
 }
 
@@ -27,46 +25,41 @@ declare module 'hardhat/types/runtime' {
   // Extend the HardhatRuntimeEnvironment type. These new fields will be available in tasks,
   // scripts, and tests.
   export interface HardhatRuntimeEnvironment {
-    sphinx: {
-      reset: (provider: ethers.providers.JsonRpcProvider) => Promise<void>
+    chugsplash: {
+      reset: () => Promise<void>
       getContract: (
         projectName: string,
         referenceName: string,
-        owner: ethers.Signer,
-        salt?: UserSalt
+        salt?: string
       ) => Promise<ethers.Contract>
     }
   }
 }
 
 extendConfig((config: HardhatConfig) => {
-  config.paths.sphinx = path.join(config.paths.root, 'sphinx')
+  config.paths.chugsplash = path.join(config.paths.root, 'chugsplash')
   config.paths.deployments = path.join(config.paths.root, 'deployments')
-  config.paths.compilerConfigs = path.join(
+  config.paths.canonicalConfigs = path.join(
     config.paths.root,
-    '.compiler-configs'
+    '.canonical-configs'
   )
 })
 
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
-  hre.sphinx = lazyObject(() => {
+  hre.chugsplash = lazyObject(() => {
     return {
-      reset: async (
-        provider: ethers.providers.JsonRpcProvider
-      ): Promise<void> => {
-        await resetSphinxDeployments(hre, provider)
+      reset: async (): Promise<void> => {
+        await resetChugSplashDeployments(hre)
       },
       getContract: async (
         projectName: string,
         referenceName: string,
-        owner: ethers.providers.JsonRpcSigner | ethers.Wallet,
-        salt?: UserSalt
+        salt?: string
       ): Promise<ethers.Contract> => {
         const contract = await getContract(
           hre,
           projectName,
           referenceName,
-          owner,
           salt
         )
         return contract

@@ -539,7 +539,7 @@ export const encodePreserve: VariableHandler<
 
 /**
  * Handles encoding function types. Since we do not support defining function types in the
- * Sphinx config, we just zero out the storage slot.
+ * ChugSplash config, we just zero out the storage slot.
  *
  * @param props standard VariableHandler props. See ./iterator.ts for more information.
  * @returns A encoded storage slot with a value of 0 for the function type.

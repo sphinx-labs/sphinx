@@ -2,52 +2,47 @@ import { argv } from 'process'
 
 import hre from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import {
-  getParsedConfig,
-  getProjectBundleInfo,
-  readUserConfig,
-} from '@sphinx/core'
+import { getBundleInfo, readValidatedChugSplashConfig } from '@chugsplash/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
-import { createSphinxRuntime } from '../src/cre'
+import { createChugSplashRuntime } from '../src/cre'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {
-  throw new Error(`Pass in a path to a Sphinx config file.`)
+  throw new Error(`Pass in a path to a ChugSplash config file.`)
 }
 
 /**
- * Display a Sphinx bundle. The purpose of this script is to easily generate bundles in a format
- * that can be used alongside the `vm.readJson` cheatcode in order to test the Sphinx contracts
+ * Display a ChugSplash bundle. The purpose of this script is to easily generate bundles in a format
+ * that can be used alongside the `vm.readJson` cheatcode in order to test the ChugSplash contracts
  * with Forge. This script is NOT meant to be called via FFI in the Foundry plugin.
  *
  * This script can be called by running:
- * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/sphinx/file>
+ * npx ts-node --require hardhat/register src/scripts/display-bundle-info.ts <path/to/chugsplash/file>
  *
  * The output can be written to a file by appending this CLI command with: `> fileName.json`.
  */
 const displayBundleInfo = async () => {
   const provider = hre.ethers.provider
 
-  const cre = createSphinxRuntime(
-    'hardhat',
+  const cre = await createChugSplashRuntime(
     false,
-    hre.config.networks.hardhat.allowUnlimitedContractSize,
     true,
-    hre.config.paths.compilerConfigs,
+    hre.config.paths.canonicalConfigs,
     undefined,
     false
   )
 
-  const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
-    await readUserConfig(configPath),
-    provider,
-    cre,
-    makeGetConfigArtifacts(hre)
-  )
+  const { parsedConfig, configCache, configArtifacts } =
+    await readValidatedChugSplashConfig(
+      configPath,
+      provider,
+      cre,
+      makeGetConfigArtifacts(hre)
+    )
 
-  const { configUri, bundles } = await getProjectBundleInfo(
+  const { configUri, bundles } = await getBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache

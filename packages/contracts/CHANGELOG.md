@@ -1,10 +1,10 @@
-# @sphinx/contracts
+# @chugsplash/contracts
 
 ## 0.8.2
 
 ### Patch Changes
 
-- 586c823: Minimize size of Sphinx.sol and allow Solidity versions >= 0.7.4
+- 586c823: Minimize size of ChugSplash.sol and allow Solidity versions >= 0.7.4
 
 ## 0.8.1
 
@@ -42,11 +42,11 @@
 
 - ea4bc1e: Add a protocol fee to be collected during execution
 - c319493: Deploy contracts before modifying proxies during execution
-- e5b9f81: Add SphinxClaimer which will exist on L1
+- e5b9f81: Add ChugSplashClaimer which will exist on L1
 - d652952: Use create3 to deploy non-proxy contracts
 - d2f9fae: Add local adapter contract
-- 57cd798: Make Sphinx non-upgradeable
-- 34790fa: Add helper function on SphinxManager to execute entire bundle in one transaction
+- 57cd798: Make ChugSplash non-upgradeable
+- 34790fa: Add helper function on ChugSplashManager to execute entire bundle in one transaction
 - 1ba3adc: Make contract execution atomic
 - 1c8fc74: Support rollbacks in the contracts
 - e797869: Add claimer field to config
@@ -54,15 +54,15 @@
 
 ### Patch Changes
 
-- b8952d1: Remove TODOs in the SphinxManager
+- b8952d1: Remove TODOs in the ChugSplashManager
 - 1ac2ebd: Optimize gas in contract for loops
 - 49a4934: Support arbitrary contract calls from the ManagedService contract
-- ddbea87: Add Semver versioning to SphinxManager
+- ddbea87: Add Semver versioning to ChugSplashManager
 - 28e807d: Fix incorrect fee calculation
 - c309331: Add organization ID
 - 73277b5: Add reentrancy guards to the bundle initiation and completion functions
-- 491683b: Move `adapter.initiateExecution` function into the corresponding function in the SphinxManager
-- 9fccb34: Merge execution functions in the SphinxManager
+- 491683b: Move `adapter.initiateExecution` function into the corresponding function in the ChugSplashManager
+- 9fccb34: Merge execution functions in the ChugSplashManager
 - 992e2fb: Resolve build info files automatically
 - c2712bf: Allow executor to withdraw specified amount of debt
 - 69dcfba: Add support for opt-in manager upgrades
@@ -74,7 +74,7 @@
 - f72b185: Use general Create2 contract
 - ae6641d: Add propoer address to bundle proposed event
 - 99ef1a7: Allow configurable system owner
-- 0c045f9: Remove Optimism-specific logic for tx.gasprice in SphinxManager
+- 0c045f9: Remove Optimism-specific logic for tx.gasprice in ChugSplashManager
 - c87c4a3: Resolve slither warnings
 - 15368e8: Add PermissionedCaller contract
 - 2b9f72c: Check that the bundle has been initiated in the `executeActions` function
@@ -82,19 +82,19 @@
 - 5e6feaa: Improve gas estimation on-chain
 - 3d9f9c2: Add support for deploying stateless non-proxied contracts
 - f433bc2: Remove claimer from config and registry
-- 11fd15c: Make sphinx-deploy task execute locally by default
+- 11fd15c: Make chugsplash-deploy task execute locally by default
 
 ## 0.6.0
 
 ### Minor Changes
 
-- 3da5ee8: Add meta upgrades to SphinxRegistry
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
 
 ### Patch Changes
 
 - 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
-- c76142e: Remove contract unit tests until Sphinx contracts stabilize
-- 35c7a63: Add meta upgrades for root SphinxManager
+- c76142e: Remove contract unit tests until ChugSplash contracts stabilize
+- 35c7a63: Add meta upgrades for root ChugSplashManager
 
 ## 0.5.2
 
@@ -125,8 +125,8 @@
 
 ### Patch Changes
 
-- 4265ae4: Bump sphinx salt value
-- 4554d0c: Make `SphinxManagerProxy` address stable by removing dependency on `SphinxRegistry`'s bytecode
+- 4265ae4: Bump chugsplash salt value
+- 4554d0c: Make `ChugSplashManagerProxy` address stable by removing dependency on `ChugSplashRegistry`'s bytecode
 - 591e7da: improve transparent proxy test names
 
 ## 0.4.2
@@ -139,7 +139,7 @@
 
 ### Patch Changes
 
-- 5a135ec: Fix issue verifying Sphinx contracts
+- 5a135ec: Fix issue verifying ChugSplash contracts
 
 ## 0.4.0
 
@@ -163,7 +163,7 @@
 ### Patch Changes
 
 - 10f3054: Use `tx.gasprice` instead of `block.basefee`
-- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the Sphinx contracts
+- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the ChugSplash contracts
 - 88e9465: Update owner multisig address
 - a60020a: Remove Infura as RPC URL service
 
@@ -171,8 +171,8 @@
 
 ### Patch Changes
 
-- 74a61c0: Change deployment process so that Sphinx addresses are calculated based on multisig address
-- 3ec7a05: Announce events with data on the SphinxRegistry
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
+- 3ec7a05: Announce events with data on the ChugSplashRegistry
 
 ## 0.3.14
 
@@ -191,7 +191,7 @@
 
 ### Patch Changes
 
-- 40c7bfb: Adds proposers to the SphinxManager
+- 40c7bfb: Adds proposers to the ChugSplashManager
 
 ## 0.3.11
 
@@ -206,8 +206,8 @@
 
 ### Patch Changes
 
-- 6f83489: Add support for executing multiple actions at once in the SphinxManager
-- 16348b2: Make the SphinxRegistry proxy's address deterministic
+- 6f83489: Add support for executing multiple actions at once in the ChugSplashManager
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
 - 9be91c3: Fix underflow bug when cancelling bundle with no executor
 
 ## 0.3.9
@@ -226,9 +226,9 @@
 
 ### Patch Changes
 
-- a536675: Export constructor arguments for all Sphinx contracts
+- a536675: Export constructor arguments for all ChugSplash contracts
 - 273d4c3: Use creation bytecode instead of the `DEPLOY_CODE_PREFIX` to deploy implementation contracts for Etherscan compatibility
-- c08a950: Export Sphinx predeploy contracts
+- c08a950: Export ChugSplash predeploy contracts
 - 78acb9a: Fix build info export bug
 
 ## 0.3.6
@@ -290,8 +290,8 @@
 
 ### Minor Changes
 
-- 416d41b: Add unit and integration tests to the Sphinx contracts
-- 19cf359: Adds local Sphinx deployments for testing contracts on the Hardhat network.
+- 416d41b: Add unit and integration tests to the ChugSplash contracts
+- 19cf359: Adds local ChugSplash deployments for testing contracts on the Hardhat network.
 - 53e1514: Adds upgradeability to the Manager and Registry contracts.
 
 ## 0.2.0
@@ -302,23 +302,23 @@
 - e7ee72d: Adds the ProxyAdmin, which owns the proxies for a project.
 - d7f930f: Adds executor selection to Manager
 - 3450d6f: Implements the adapter for the default proxy.
-- da53947: Adds logic for handling project owner and executor bonds in SphinxManager
-- f92ff76: Adds logic to the Manager to support non-standard proxies. Removes SphinxProxy in favor of a
+- da53947: Adds logic for handling project owner and executor bonds in ChugSplashManager
+- f92ff76: Adds logic to the Manager to support non-standard proxies. Removes ChugSplashProxy in favor of a
   minimal EIP-1967 proxy.
 - 2cc3bc9: Adds the Simple Lock ESS
 
 ### Patch Changes
 
 - e0db3d0: Moves `setCode` logic from ProxyUpdater to ProxyAdmin
-- efccd1a: Deploys `ProxyAdmin` in `SphinxManager` so that it is owned by the manager.
+- efccd1a: Deploys `ProxyAdmin` in `ChugSplashManager` so that it is owned by the manager.
 - 967b529: Allows project owners to transfer proxy ownership by querying with the target's name
 - 67c3507: Allow project owner to claim ownership of their proxies.
-- 2cc3bc9: Removes Executor Selection Strategies and merges executor selector logic into the SphinxManager.
+- 2cc3bc9: Removes Executor Selection Strategies and merges executor selector logic into the ChugSplashManager.
 - 3a7b19c: Fixes a typo in a variable name (activebundleID => activeBundleID) that was created as a result of an errant find/replace
 
 ## 0.1.1
 
 ### Patch Changes
 
-- 6403ed2: Add hardhat-deploy script for SphinxRegistry
-- e5fe498: Brings back the SphinxManager contract
+- 6403ed2: Add hardhat-deploy script for ChugSplashRegistry
+- e5fe498: Brings back the ChugSplashManager contract

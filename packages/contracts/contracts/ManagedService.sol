@@ -2,26 +2,23 @@
 pragma solidity ^0.8.15;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title ManagedService
- * @notice Contract controlled by the Sphinx managed service. This contract allows the managed
-   service to remotely execute deployments and collect the protocol's fee.
+ * @notice Contract controlled by the ChugSplash managed service. This contract allows the managed
+   service to remotely execute deployments, propose deployments, and collect the protocol's fee.
 Users can opt in to this functionality if they choose to do so.
  */
 contract ManagedService is AccessControl {
-    ERC20 public immutable usdc;
+    bytes32 public constant CALLER_ROLE = keccak256("CALLER_ROLE");
 
     /**
      * @notice Role required to collect the protocol creator's payment.
      */
-    bytes32 internal constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 internal constant PROTOCOL_PAYMENT_RECIPIENT_ROLE =
+        keccak256("PROTOCOL_PAYMENT_RECIPIENT_ROLE");
 
-    /**
-     * @notice Role required to be a remote executor for a deployment.
-     */
-    bytes32 internal constant REMOTE_EXECUTOR_ROLE = keccak256("REMOTE_EXECUTOR_ROLE");
+    event ExecutedCall(address indexed from, address indexed to, uint256 value);
 
     /**
      * @notice Emitted when a protocol payment recipient claims a payment.
@@ -34,32 +31,43 @@ contract ManagedService is AccessControl {
     /**
      * @notice Reverts if the caller is not a protocol payment recipient.
      */
-    error CallerIsNotRelayer();
-
-    /**
-     * @notice Reverts if the caller is not the admin.
-     */
-    error CallerIsNotAdmin();
+    error CallerIsNotProtocolPaymentRecipient();
 
     /**
      * @param _owner The address that will be granted the `DEFAULT_ADMIN_ROLE`. This address is the
-       multisig owned by the Sphinx team.
+       multisig owned by the ChugSplash team.
      */
-    constructor(address _owner, address _usdc) {
-        usdc = ERC20(_usdc);
+    constructor(address _owner) {
         _grantRole(bytes32(0), _owner);
+    }
+
+    /**
+     * @notice Executes an arbitrary call to any contract. This is primarily used to claim
+     *         organizations on behalf of users.
+     * @param _to Address of target contract.
+     * @param _data The calldata.
+     */
+    function executeCall(
+        address _to,
+        bytes memory _data,
+        uint256 _value
+    ) external payable onlyRole(CALLER_ROLE) returns (bytes memory) {
+        emit ExecutedCall(msg.sender, _to, _value);
+        (bool success, bytes memory returnData) = _to.call{ value: _value }(_data);
+        require(success, "PermissionedCaller: call failed");
+        return returnData;
     }
 
     /**
      * @notice Allows the protocol creators to claim their royalty, which is only earned during
        remotely executed deployments.
      */
-    function withdrawRelayerFunds(uint256 _amount) external {
-        if (!hasRole(RELAYER_ROLE, msg.sender) && !hasRole(REMOTE_EXECUTOR_ROLE, msg.sender)) {
-            revert CallerIsNotRelayer();
+    function claimProtocolPayment(uint256 _amount) external {
+        if (!hasRole(PROTOCOL_PAYMENT_RECIPIENT_ROLE, msg.sender)) {
+            revert CallerIsNotProtocolPaymentRecipient();
         }
         if (_amount > address(this).balance) {
-            revert("ManagedService: Insufficient funds to withdraw relayer funds");
+            revert("ManagedService: Insufficient funds to withdraw protocol payment");
         }
 
         emit ProtocolPaymentClaimed(msg.sender, _amount);
@@ -67,15 +75,8 @@ contract ManagedService is AccessControl {
         // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = payable(msg.sender).call{ value: _amount }(new bytes(0));
         if (!success) {
-            revert("ManagedService: Failed to withdraw relayer funds");
+            revert("ManagedService: Failed to withdraw protocol payment");
         }
-    }
-
-    function withdrawUSDCBalance(address _to, uint256 _amount) external {
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            revert CallerIsNotAdmin();
-        }
-        usdc.transfer(_to, _amount);
     }
 
     /**

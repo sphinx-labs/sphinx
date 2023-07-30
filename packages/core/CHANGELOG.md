@@ -1,4 +1,4 @@
-# @sphinx/core
+# @chugsplash/core
 
 ## 0.11.0
 
@@ -9,13 +9,13 @@
 ### Patch Changes
 
 - Updated dependencies [b6d1f76]
-  - @sphinx/contracts@0.8.0
+  - @chugsplash/contracts@0.8.0
 
 ## 0.10.1
 
 ### Patch Changes
 
-- f13070f: Use Optimism contracts-bedrock package canary version in all Sphinx packages
+- f13070f: Use Optimism contracts-bedrock package canary version in all ChugSplash packages
 
 ## 0.10.0
 
@@ -33,9 +33,9 @@
 
 - c319493: Deploy contracts before modifying proxies during execution
 - c309331: Add organization ID
-- 57cd798: Make Sphinx non-upgradeable
+- 57cd798: Make ChugSplash non-upgradeable
 - e797869: Add claimer field to config
-- 11fd15c: Make sphinx-deploy task execute locally by default
+- 11fd15c: Make chugsplash-deploy task execute locally by default
 - ac40b0b: Require that proposers are approved by the project owner
 
 ### Patch Changes
@@ -46,16 +46,16 @@
 - c43c960: Add input validation for config variables
 - ea4bc1e: Add a protocol fee to be collected during execution
 - 41f420c: Allow function types in contracts
-- 06c9af9: Only initialize Sphinx on local networks
+- 06c9af9: Only initialize ChugSplash on local networks
 - e2392ad: Update remoteExecution parameter to only be true when proposing on a live network
 - d7dc1ba: Resolve inherited private variable conflicts
 - fb9442a: Add support for user defined types
 - 0ef343d: Write artifacts for proxy and implementation contracts
-- e5b9f81: Add SphinxClaimer which will exist on L1
+- e5b9f81: Add ChugSplashClaimer which will exist on L1
 - 2a0939a: Separate local canonical config files by network
 - b7e779f: Assert that the contracts in the config are below the contract size limit
 - d652952: Use create3 to deploy non-proxy contracts
-- 9fccb34: Merge execution functions in the SphinxManager
+- 9fccb34: Merge execution functions in the ChugSplashManager
 - a26ab46: Validate usage of the preserve keyword
 - ed81039: Assert block gas limit is sufficiently high in parsing logic
 - bf1fde7: Add parsing and validation on constructor arugments
@@ -127,7 +127,7 @@
 - Updated dependencies [f433bc2]
 - Updated dependencies [11fd15c]
 - Updated dependencies [ac40b0b]
-  - @sphinx/contracts@0.7.0
+  - @chugsplash/contracts@0.7.0
 
 ## 0.8.1
 
@@ -140,7 +140,7 @@
 
 ### Minor Changes
 
-- 3da5ee8: Add meta upgrades to SphinxRegistry
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
 
 ### Patch Changes
 
@@ -148,22 +148,22 @@
 - ecef09e: Improve executor retry policy
 - 3e923a0: Change implementation salt and skip deploying implementation if it's already been deployed
 - 22c24d2: Add support for parallel execution
-- 35c7a63: Add meta upgrades for root SphinxManager
+- 35c7a63: Add meta upgrades for root ChugSplashManager
 - Updated dependencies [3da5ee8]
 - Updated dependencies [3e923a0]
 - Updated dependencies [c76142e]
 - Updated dependencies [35c7a63]
-  - @sphinx/contracts@0.6.0
+  - @chugsplash/contracts@0.6.0
 
 ## 0.7.0
 
 ### Minor Changes
 
-- 9dca319: Integrate Executor with Sphinx Managed
+- 9dca319: Integrate Executor with ChugSplash Managed
 
 ### Patch Changes
 
-- 5dcb7d3: Allow user to specify a previous storage layout in their Sphinx file
+- 5dcb7d3: Allow user to specify a previous storage layout in their ChugSplash file
 - c8af97c: Update `setStorage` function to set only a segment of a storage slot
 - 44e592e: Add the 'preserve' keyword that allows variables to be maintained across upgrades
 - 80b1a53: Refactor functions that get build info and storage layout
@@ -172,7 +172,7 @@
 - Updated dependencies [20f1a7e]
 - Updated dependencies [c8af97c]
 - Updated dependencies [736b859]
-  - @sphinx/contracts@0.5.2
+  - @chugsplash/contracts@0.5.2
 
 ## 0.6.1
 
@@ -180,13 +180,13 @@
 
 - ca6d384: Bump contracts
 - Updated dependencies [ca6d384]
-  - @sphinx/contracts@0.5.1
+  - @chugsplash/contracts@0.5.1
 
 ## 0.6.0
 
 ### Minor Changes
 
-- 3b13db4: Set immutable variables in the Sphinx file via the 'constructorArgs' field
+- 3b13db4: Set immutable variables in the ChugSplash file via the 'constructorArgs' field
 - fa3f420: Add support for UUPS proxies
 
 ### Patch Changes
@@ -198,7 +198,7 @@
 - Updated dependencies [263b34d]
 - Updated dependencies [fa3f420]
 - Updated dependencies [57a327d]
-  - @sphinx/contracts@0.5.0
+  - @chugsplash/contracts@0.5.0
 
 ## 0.5.6
 
@@ -241,7 +241,7 @@
 - Updated dependencies [4265ae4]
 - Updated dependencies [4554d0c]
 - Updated dependencies [591e7da]
-  - @sphinx/contracts@0.4.3
+  - @chugsplash/contracts@0.4.3
 
 ## 0.5.0
 
@@ -257,13 +257,13 @@
 - 4029daf: Change `target` to `referenceName` everywhere
 - a37d5c3: Add discord link to output
 - Updated dependencies [4029daf]
-  - @sphinx/contracts@0.4.2
+  - @chugsplash/contracts@0.4.2
 
 ## 0.4.2
 
 ### Patch Changes
 
-- 68c1a56: Remove `initializeSphinx` call in register and propose task
+- 68c1a56: Remove `initializeChugSplash` call in register and propose task
 
 ## 0.4.1
 
@@ -282,7 +282,7 @@
 
 - ad46bbc: Change error messages so that they don't infer network name
 - 042541b: Remove unnecessary TODO
-- c8664a2: Check if proxy is deployed before transferring to Sphinx
+- c8664a2: Check if proxy is deployed before transferring to ChugSplash
 - 57a367d: Fix issue where executor always tries to execute locally
 - 1cbd07b: Set `strictNullChecks` to true for TypeScript
 - c379fb6: Use artifact paths object instead of inferring artifacts
@@ -301,7 +301,7 @@
 - Updated dependencies [60d7adc]
 - Updated dependencies [0443459]
 - Updated dependencies [40f0d0a]
-  - @sphinx/contracts@0.4.0
+  - @chugsplash/contracts@0.4.0
 
 ## 0.3.24
 
@@ -309,7 +309,7 @@
 
 - 2267ec4: Bump versions
 - Updated dependencies [2267ec4]
-  - @sphinx/contracts@0.3.17
+  - @chugsplash/contracts@0.3.17
 
 ## 0.3.23
 
@@ -323,25 +323,25 @@
 
 - 1cb43e7: Fix Etherscan bug that was caused by an incorrect calculation of implementation addresses
 - acfe88d: Improve execution cost estimation
-- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the Sphinx contracts
+- fdf512b: Adds a universal salt that makes it easy to deploy new versions of the ChugSplash contracts
 - Updated dependencies [10f3054]
 - Updated dependencies [fdf512b]
 - Updated dependencies [88e9465]
 - Updated dependencies [a60020a]
-  - @sphinx/contracts@0.3.16
+  - @chugsplash/contracts@0.3.16
 
 ## 0.3.21
 
 ### Patch Changes
 
-- 74a61c0: Change deployment process so that Sphinx addresses are calculated based on multisig address
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
 - baf3ac1: Changes contract reference syntax from '!Ref' to '{{ }}'
 - 89cd352: feat(core): support bytes/strings (length >31)
 - dba31f7: Write canonical config to file system when using executing bundles locally
 - c9eeb47: Make configPath a normal parameter on all tasks
 - Updated dependencies [74a61c0]
 - Updated dependencies [3ec7a05]
-  - @sphinx/contracts@0.3.15
+  - @chugsplash/contracts@0.3.15
 
 ## 0.3.20
 
@@ -349,13 +349,13 @@
 
 - 3f6cabd: Smarter management of batched action execution
 - 921f917: Improved logs for funding and post-execution actions
-- d8554c0: Prefix logs with [Sphinx]
+- d8554c0: Prefix logs with [ChugSplash]
 - 780a395: Standardize logger messages
-- 335dfc7: Adds more logs to the Sphinx setup process in the executor
+- 335dfc7: Adds more logs to the ChugSplash setup process in the executor
 - ba24573: Add list-proposers and add-proposers tasks
 - 276d5ea: Adds function comments to several type checking functions
 - Updated dependencies [c5cf649]
-  - @sphinx/contracts@0.3.14
+  - @chugsplash/contracts@0.3.14
 
 ## 0.3.19
 
@@ -368,7 +368,7 @@
 - 2652df5: Fixes circular dependency issue caused by `isContractDeployed`
 - Updated dependencies [7047b9d]
 - Updated dependencies [b55ab15]
-  - @sphinx/contracts@0.3.13
+  - @chugsplash/contracts@0.3.13
 
 ## 0.3.18
 
@@ -376,29 +376,29 @@
 
 - e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
 - Updated dependencies [40c7bfb]
-  - @sphinx/contracts@0.3.12
+  - @chugsplash/contracts@0.3.12
 
 ## 0.3.17
 
 ### Patch Changes
 
 - d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
-- 7e8dd1e: Removes the projectOwner from the Sphinx config
+- 7e8dd1e: Removes the projectOwner from the ChugSplash config
 - Updated dependencies [d7fff20]
 - Updated dependencies [b1850ad]
 - Updated dependencies [e1dc2ec]
 - Updated dependencies [da79232]
-  - @sphinx/contracts@0.3.11
+  - @chugsplash/contracts@0.3.11
 
 ## 0.3.16
 
 ### Patch Changes
 
 - 74da4d0: Simplify storage slot encoding logic
-- 7a1737e: Separate config type into UserSphinxConfig and ParsedSphinxConfig
+- 7a1737e: Separate config type into UserChugSplashConfig and ParsedChugSplashConfig
 - c32f23e: Add basic support for upgrades
-- 16348b2: Make the SphinxRegistry proxy's address deterministic
-- fd5177e: Add sphinx-list-projects Hardhat task
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
+- fd5177e: Add chugsplash-list-projects Hardhat task
 - e1af6e3: Merge deploy and upgrade tasks
 - 3572abd: Batch SetStorage actions into large transactions to speed up execution
 - ec87d11: Fixes bug where signed integers were encoded as unsigned integers
@@ -411,23 +411,23 @@
 - 6a2644e: Fix long error messages truncating
 - 64463f1: Change storageEntries to be the correct type
 - fc8cfd3: Remove progress bar in execution-related Hardhat tasks
-- f217221: Use the executor to deploy and verify the Sphinx predeployed contracts
+- f217221: Use the executor to deploy and verify the ChugSplash predeployed contracts
 - 780e54f: Submit the minimum compiler input necessary to verify contracts on Etherscan
 - ec41164: Remove console.log
-- da5cb35: Move the logic that initializes the Sphinx predeploys into the executor.
-- 5406b7b: Update canonical Sphinx config type usage
+- da5cb35: Move the logic that initializes the ChugSplash predeploys into the executor.
+- 5406b7b: Update canonical ChugSplash config type usage
 - Updated dependencies [6f83489]
 - Updated dependencies [16348b2]
 - Updated dependencies [9be91c3]
-  - @sphinx/contracts@0.3.10
+  - @chugsplash/contracts@0.3.10
 
 ## 0.3.15
 
 ### Patch Changes
 
-- 457b19a: Improve sphinx-deploy hardhat task
+- 457b19a: Improve chugsplash-deploy hardhat task
 - Updated dependencies [ed7babc]
-  - @sphinx/contracts@0.3.9
+  - @chugsplash/contracts@0.3.9
 
 ## 0.3.14
 
@@ -445,15 +445,15 @@
 
 ### Patch Changes
 
-- ecafe45: Refactor sphinx-commit and sphinx-load subtasks
+- ecafe45: Refactor chugsplash-commit and chugsplash-load subtasks
 
 ## 0.3.11
 
 ### Patch Changes
 
-- 9d38797: Update sphinx-register task to work locally
+- 9d38797: Update chugsplash-register task to work locally
 - Updated dependencies [6a6f0c0]
-  - @sphinx/contracts@0.3.8
+  - @chugsplash/contracts@0.3.8
 
 ## 0.3.10
 
@@ -466,7 +466,7 @@
 - Updated dependencies [273d4c3]
 - Updated dependencies [c08a950]
 - Updated dependencies [78acb9a]
-  - @sphinx/contracts@0.3.7
+  - @chugsplash/contracts@0.3.7
 
 ## 0.3.9
 
@@ -511,17 +511,17 @@
 
 - 123d9c1: Add support for deployments on live networks
 - Updated dependencies [123d9c1]
-  - @sphinx/contracts@0.3.5
+  - @chugsplash/contracts@0.3.5
 
 ## 0.3.3
 
 ### Patch Changes
 
-- 4ce753b: Add function that checks if a Sphinx config file is empty
+- 4ce753b: Add function that checks if a ChugSplash config file is empty
 - 2c5b238: Change config file names
 - 2c5b238: Support demo
 - Updated dependencies [2c5b238]
-  - @sphinx/contracts@0.3.3
+  - @chugsplash/contracts@0.3.3
 
 ## 0.3.2
 
@@ -529,7 +529,7 @@
 
 - 03d557c: Bump all versions
 - Updated dependencies [03d557c]
-  - @sphinx/contracts@0.3.2
+  - @chugsplash/contracts@0.3.2
 
 ## 0.3.1
 
@@ -538,7 +538,7 @@
 - 557e3bd: Bump versions
 - Updated dependencies [557e3bd]
 - Updated dependencies [cd310fe]
-  - @sphinx/contracts@0.3.1
+  - @chugsplash/contracts@0.3.1
 
 ## 0.3.0
 
@@ -549,7 +549,7 @@
 ### Patch Changes
 
 - Updated dependencies [52c7f6c]
-  - @sphinx/contracts@0.3.0
+  - @chugsplash/contracts@0.3.0
 
 ## 0.2.1
 
@@ -562,14 +562,14 @@
 
 ### Minor Changes
 
-- 19cf359: Adds local Sphinx deployments for testing contracts on the Hardhat network.
+- 19cf359: Adds local ChugSplash deployments for testing contracts on the Hardhat network.
 
 ### Patch Changes
 
 - Updated dependencies [416d41b]
 - Updated dependencies [19cf359]
 - Updated dependencies [53e1514]
-  - @sphinx/contracts@0.2.0
+  - @chugsplash/contracts@0.2.0
 
 ## 0.1.1
 

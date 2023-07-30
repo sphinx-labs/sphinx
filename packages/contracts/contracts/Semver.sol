@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Version } from "./SphinxDataTypes.sol";
+import { Version } from "./ChugSplashDataTypes.sol";
 
 /**
  * @title Semver

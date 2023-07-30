@@ -6,7 +6,7 @@ import { ProxyUpdater } from "./ProxyUpdater.sol";
 /**
  * @title DefaultUpdater
  * @notice Proxy updater that works with Transparent proxies, including the default Proxy contracts
-   used in the Sphinx system.
+   used in the ChugSplash system.
  */
 contract DefaultUpdater is ProxyUpdater {
     /**

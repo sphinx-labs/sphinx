@@ -1,7 +1,7 @@
 import { fork } from 'child_process'
 
 import * as dotenv from 'dotenv'
-dotenv.config({ path: `.env.${process.env.NODE_ENV}` })
+dotenv.config()
 import {
   BaseServiceV2,
   Logger,
@@ -9,23 +9,22 @@ import {
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
-import { SphinxRegistryABI } from '@sphinx/contracts'
+import { ChugSplashRegistryABI } from '@chugsplash/contracts'
 import {
-  getSphinxRegistryAddress,
+  getChugSplashRegistryAddress,
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
-  ensureSphinxInitialized,
-} from '@sphinx/core'
+  ensureChugSplashInitialized,
+} from '@chugsplash/core'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
-const defaultURL = 'http://localhost:8545'
-export class SphinxExecutor extends BaseServiceV2<
+export class ChugSplashExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState & {
@@ -34,7 +33,7 @@ export class SphinxExecutor extends BaseServiceV2<
 > {
   constructor(options?: Partial<ExecutorOptions & StandardOptions>) {
     super({
-      name: 'sphinx-executor',
+      name: 'chugsplash-executor',
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       version: require('../package.json').version,
       loop: true,
@@ -46,7 +45,7 @@ export class SphinxExecutor extends BaseServiceV2<
         url: {
           desc: 'Target deployment network access url',
           validator: validators.str,
-          default: defaultURL,
+          default: 'http://localhost:8545',
         },
         network: {
           desc: 'Target deployment network name',
@@ -65,7 +64,7 @@ export class SphinxExecutor extends BaseServiceV2<
           default: 'error',
         },
         managedApiUrl: {
-          desc: 'Sphinx Managed GraphQL API',
+          desc: 'ChugSplash Managed GraphQL API',
           validator: validators.str,
           default: '',
         },
@@ -90,17 +89,11 @@ export class SphinxExecutor extends BaseServiceV2<
       level: options.logLevel,
     })
 
-    if (options.url === defaultURL && process.env.CHAIN_ID) {
-      options.url = `http://localhost:${
-        42000 + (parseInt(process.env.CHAIN_ID, 10) % 1000)
-      }`
-    }
-
     this.state.provider =
       provider ?? new ethers.providers.JsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
-      getSphinxRegistryAddress(),
-      SphinxRegistryABI,
+      getChugSplashRegistryAddress(),
+      ChugSplashRegistryABI,
       this.state.provider
     )
     this.state.lastBlockNumber = 0
@@ -131,7 +124,7 @@ export class SphinxExecutor extends BaseServiceV2<
   async init() {
     await this.setup(this.options)
 
-    this.logger.info(`[Sphinx ${this.options.network}]: setting up sphinx...`)
+    this.logger.info('[ChugSplash]: setting up chugsplash...')
 
     const wallet = new ethers.Wallet(
       this.state.keys[0].privateKey,
@@ -148,26 +141,15 @@ export class SphinxExecutor extends BaseServiceV2<
       (el) => new ethers.Wallet(el.privateKey).address
     )
 
-    const relayers = process.env.TESTING_RELAYERS
-      ? process.env.TESTING_RELAYERS.split(',')
-      : []
-    const funders = process.env.TESTING_FUNDERS
-      ? process.env.TESTING_FUNDERS.split(',')
-      : []
-
-    // Deploy the Sphinx contracts.
-    await ensureSphinxInitialized(
+    // Deploy the ChugSplash contracts.
+    await ensureChugSplashInitialized(
       this.state.provider,
       wallet,
       executors,
-      relayers,
-      funders,
       this.logger
     )
 
-    this.logger.info(
-      `[Sphinx ${this.options.network}]: finished setting up sphinx`
-    )
+    this.logger.info('[ChugSplash]: finished setting up chugsplash')
   }
 
   async main() {
@@ -182,19 +164,9 @@ export class SphinxExecutor extends BaseServiceV2<
       return
     }
 
-    // Handle edge case where bnb testnet cannot query for events pass 10000 blocks back
-    const chainId = (await provider.getNetwork()).chainId
-    if (
-      chainId === 97 &&
-      this.state.lastBlockNumber === 0 &&
-      latestBlockNumber > 9000
-    ) {
-      this.state.lastBlockNumber = latestBlockNumber - 9000
-    }
-
     // Get approval events in blocks after the stored block number
     const newApprovalEvents = await registry.queryFilter(
-      registry.filters.EventAnnouncedWithData('SphinxDeploymentApproved'),
+      registry.filters.EventAnnounced('ChugSplashDeploymentApproved'),
       this.state.lastBlockNumber,
       latestBlockNumber
     )
@@ -228,12 +200,12 @@ export class SphinxExecutor extends BaseServiceV2<
 
     // If none found, return
     if (this.state.eventsQueue.length === 0) {
-      this.logger.info(`[Sphinx ${this.options.network}]: no projects found`)
+      this.logger.info('[ChugSplash]: no projects found')
       return
     }
 
     this.logger.info(
-      `[Sphinx ${this.options.network}]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
+      `[ChugSplash]: total number of events: ${this.state.eventsQueue.length}. new events: ${newApprovalEvents.length}`
     )
 
     // Create a copy of the events queue, which we will iterate over. It's necessary to create a
@@ -243,9 +215,7 @@ export class SphinxExecutor extends BaseServiceV2<
 
     // execute all approved deployments
     for (const executorEvent of eventsCopy) {
-      this.logger.info(
-        `[Sphinx ${this.options.network}]: detected a project...`
-      )
+      this.logger.info('[ChugSplash]: detected a project...')
 
       // If still waiting on retry, then continue
       if (executorEvent.nextTry > currentTime) {
@@ -257,7 +227,7 @@ export class SphinxExecutor extends BaseServiceV2<
         (el) => el.locked === false
       )
       if (key === undefined) {
-        this.logger.info(`[Sphinx ${this.options.network}]: All keys in use`)
+        this.logger.info('[ChugSplash]: All keys in use')
         continue
       } else {
         // lock the selected key
@@ -309,7 +279,7 @@ export class SphinxExecutor extends BaseServiceV2<
           case 'retry':
             if (message.payload.retry === -1) {
               this.logger.info(
-                `[Sphinx ${this.options.network}]: execution failed, discarding event due to reaching retry limit`
+                '[ChugSplash]: execution failed, discarding event due to reaching retry limit'
               )
             } else {
               this.state.eventsQueue.push(message.payload)
@@ -322,6 +292,6 @@ export class SphinxExecutor extends BaseServiceV2<
 }
 
 if (require.main === module) {
-  const service = new SphinxExecutor()
+  const service = new ChugSplashExecutor()
   service.run()
 }

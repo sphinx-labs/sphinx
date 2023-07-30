@@ -1,35 +1,34 @@
 import { resolve } from 'path'
 
 import {
-  FoundryConfig,
-  FoundryContractConfig,
-  UserConfig,
-  UserConfigWithOptions,
-  UserSphinxConfig,
+  MinimalConfig,
+  MinimalContractConfig,
+  UserChugSplashConfig,
 } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
-import { getSphinxManagerAddress } from '../addresses'
+import { getChugSplashManagerAddress } from '../addresses'
 
 /**
- * Returns a minimal version of the Sphinx config. This is used as a substitute for the full
- * config in Solidity for the Sphinx Foundry plugin. We use it because of Solidity's limited
+ * Returns a minimal version of the ChugSplash config. This is used as a substitute for the full
+ * config in Solidity for the ChugSplash Foundry plugin. We use it because of Solidity's limited
  * support for types. We limit the number of fields in the minimal config to minimize the amount of
  * work that occurs in TypeScript, since this improves the speed of the Foundry plugin.
  */
-export const getFoundryConfig = (
-  userConfig: UserSphinxConfig,
-  owner: string
-): FoundryConfig => {
-  const manager = getSphinxManagerAddress(owner, userConfig.projectName)
+export const getMinimalConfig = (
+  userConfig: UserChugSplashConfig
+): MinimalConfig => {
+  const { organizationID, projectName } = userConfig.options
+  const managerAddress = getChugSplashManagerAddress(organizationID)
 
-  const minimalContractConfigs: Array<FoundryContractConfig> = []
+  const minimalContractConfigs: Array<MinimalContractConfig> = []
   for (const [referenceName, contractConfig] of Object.entries(
     userConfig.contracts
   )) {
     const { address, kind, salt } = contractConfig
 
     const targetAddress =
-      address ?? getTargetAddress(manager, referenceName, salt)
+      address ??
+      getTargetAddress(managerAddress, projectName, referenceName, salt)
 
     minimalContractConfigs.push({
       referenceName,
@@ -39,38 +38,15 @@ export const getFoundryConfig = (
     })
   }
   return {
-    manager,
-    owner,
-    projectName: userConfig.projectName,
+    organizationID,
+    projectName,
     contracts: minimalContractConfigs,
   }
 }
 
-export const readUserConfig = async (
+export const readUserChugSplashConfig = async (
   configPath: string
-): Promise<UserConfig> => {
-  const userConfig = await readUserSphinxConfig(configPath)
-  if (userConfig.options) {
-    throw new Error(
-      `Detected 'options' field in config. Please use 'readUserConfigWithOptions' instead.`
-    )
-  }
-  return userConfig
-}
-
-export const readUserConfigWithOptions = async (
-  configPath: string
-): Promise<UserConfigWithOptions> => {
-  const userConfig = await readUserSphinxConfig(configPath)
-  if (!userConfig.options) {
-    throw new Error(`Did not detect 'options' field in config.`)
-  }
-  return userConfig
-}
-
-export const readUserSphinxConfig = async (
-  configPath: string
-): Promise<UserSphinxConfig> => {
+): Promise<UserChugSplashConfig> => {
   let rawConfig
   try {
     // Remove the config from the cache. Without removing it, it'd be possible for this function to
@@ -83,13 +59,13 @@ export const readUserSphinxConfig = async (
   } catch (err) {
     if (err.code === 'MODULE_NOT_FOUND') {
       // We throw a more helpful error message than the default "Module not found" message.
-      throw new Error(`File does not exist: ${resolve(configPath)}`)
+      throw new Error(`User entered an incorrect config path: ${configPath}`)
     } else {
       throw err
     }
   }
 
-  let config: UserSphinxConfig
+  let config: UserChugSplashConfig
   if (typeof rawConfig === 'function') {
     config = await rawConfig()
   } else if (typeof rawConfig === 'object') {

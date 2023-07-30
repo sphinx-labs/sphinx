@@ -1,22 +1,60 @@
+import { OWNER_BOND_AMOUNT } from '@chugsplash/contracts'
 import { ethers } from 'ethers'
 
-import { isContractDeployed } from './utils'
+import { getChugSplashManagerReadOnly, isContractDeployed } from './utils'
 import {
-  SphinxBundles,
+  ChugSplashBundles,
   DeployContractAction,
-  fromRawSphinxAction,
+  fromRawChugSplashAction,
   isDeployContractAction,
   isSetStorageAction,
 } from './actions'
-import { contractKindHashes } from './config/types'
+import { EXECUTION_BUFFER_MULTIPLIER } from './constants'
+import { ParsedChugSplashConfig, contractKindHashes } from './config/types'
+
+/**
+ * Gets the amount ETH in the ChugSplashManager that can be used to execute a deployment. This
+ * equals the ChugSplashManager's balance minus the total debt owed to executors minus the owner's
+ * bond amount.
+ */
+export const availableFundsForExecution = async (
+  provider: ethers.providers.JsonRpcProvider,
+  organizationID: string
+): Promise<ethers.BigNumber> => {
+  const managerReadOnly = getChugSplashManagerReadOnly(provider, organizationID)
+
+  const managerBalance = await provider.getBalance(managerReadOnly.address)
+  const totalDebt = await managerReadOnly.totalDebt()
+  return managerBalance.sub(totalDebt).sub(OWNER_BOND_AMOUNT)
+}
+
+export const getOwnerWithdrawableAmount = async (
+  provider: ethers.providers.JsonRpcProvider,
+  organizationID: string
+): Promise<ethers.BigNumber> => {
+  const ChugSplashManager = getChugSplashManagerReadOnly(
+    provider,
+    organizationID
+  )
+
+  if (
+    (await ChugSplashManager.activeDeploymentId()) !== ethers.constants.HashZero
+  ) {
+    return ethers.BigNumber.from(0)
+  }
+
+  const managerBalance = await provider.getBalance(ChugSplashManager.address)
+  const totalDebt = await ChugSplashManager.totalDebt()
+  return managerBalance.sub(totalDebt)
+}
 
 export const estimateExecutionGas = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: SphinxBundles,
+  bundles: ChugSplashBundles,
   actionsExecuted: number
 ): Promise<ethers.BigNumber> => {
   const actions = bundles.actionBundle.actions
-    .map((action) => fromRawSphinxAction(action.action))
+    .map((action) => fromRawChugSplashAction(action.action))
     .slice(actionsExecuted)
 
   const estimatedGas = ethers.BigNumber.from(150_000).mul(
@@ -46,7 +84,7 @@ export const estimateExecutionGas = async (
     ethers.BigNumber.from(0)
   )
 
-  // We also add an extra 200k gas for each proxy target (including any that are not being upgraded) to account
+  // We also tack on an extra 200k gas for each proxy target (including any that are not being upgraded) to account
   // for the variable cost of the `initiateBundleExecution` and `completeBundleExecution` functions.
   const initiateAndCompleteCost = ethers.BigNumber.from(200_000).mul(
     bundles.targetBundle.targets.length
@@ -59,7 +97,7 @@ export const estimateExecutionGas = async (
 
 export const estimateExecutionCost = async (
   provider: ethers.providers.JsonRpcProvider,
-  bundles: SphinxBundles,
+  bundles: ChugSplashBundles,
   actionsExecuted: number
 ): Promise<ethers.BigNumber> => {
   const estExecutionGas = await estimateExecutionGas(
@@ -78,4 +116,49 @@ export const estimateExecutionCost = async (
   }
 
   return estExecutionGas.mul(estGasPrice)
+}
+
+export const hasSufficientFundsForExecution = async (
+  provider: ethers.providers.JsonRpcProvider,
+  bundles: ChugSplashBundles,
+  actionsExecuted: number,
+  parsedConfig: ParsedChugSplashConfig
+): Promise<boolean> => {
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    parsedConfig.options.organizationID
+  )
+
+  const currExecutionCost = await estimateExecutionCost(
+    provider,
+    bundles,
+    actionsExecuted
+  )
+
+  return availableFunds.gte(currExecutionCost)
+}
+
+export const getAmountToDeposit = async (
+  provider: ethers.providers.JsonRpcProvider,
+  bundles: ChugSplashBundles,
+  actionsExecuted: number,
+  parsedConfig: ParsedChugSplashConfig,
+  includeBuffer: boolean
+): Promise<ethers.BigNumber> => {
+  const currExecutionCost = await estimateExecutionCost(
+    provider,
+    bundles,
+    actionsExecuted
+  )
+
+  const availableFunds = await availableFundsForExecution(
+    provider,
+    parsedConfig.options.organizationID
+  )
+
+  const amountToDeposit = includeBuffer
+    ? currExecutionCost.mul(EXECUTION_BUFFER_MULTIPLIER).sub(availableFunds)
+    : currExecutionCost.sub(availableFunds)
+
+  return amountToDeposit.lt(0) ? ethers.BigNumber.from(0) : amountToDeposit
 }

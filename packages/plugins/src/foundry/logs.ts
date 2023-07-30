@@ -1,6 +1,14 @@
-// These variables are used to capture any errors or warnings that occur during the Sphinx
+// These variables are used to capture any errors or warnings that occur during the ChugSplash
 
+import { ConfigArtifacts } from '@chugsplash/core/dist/config/types'
+import { getEstDeployContractCost } from '@chugsplash/core/dist/utils'
+import { BigNumber } from 'ethers/lib/ethers'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
+
+export type DeployContractCost = {
+  referenceName: string
+  cost: BigNumber
+}
 
 // config validation process.
 let validationWarnings: string = ''
@@ -24,10 +32,8 @@ export const getEncodedFailure = (err: Error): string => {
   const prettyWarnings = getPrettyWarnings()
 
   let prettyError: string
-  if (err.name === 'ValidationError' && err.message === '') {
-    // We throw a ValidationError with an empty message inside `logValidationError` if there's one or
-    // more parsing errors. In this situation, we return the parsing error messages that have been
-    // collected in the `validationErrors` variable.
+  if (err.name === 'ValidationError') {
+    // We return the error messages and warnings.
 
     // Removes unnecessary '\n' characters from the end of 'errors'
     prettyError = validationErrors.endsWith('\n\n')
@@ -62,4 +68,25 @@ export const getPrettyWarnings = (): string => {
   return validationWarnings.endsWith('\n\n')
     ? validationWarnings.substring(0, validationWarnings.length - 1)
     : validationWarnings
+}
+
+export const getDeployContractCosts = (
+  configArtifacts: ConfigArtifacts
+): DeployContractCost[] => {
+  const deployContractCosts: DeployContractCost[] = []
+  for (const [referenceName, { artifact, buildInfo }] of Object.entries(
+    configArtifacts
+  )) {
+    const { sourceName, contractName } = artifact
+
+    const deployContractCost = getEstDeployContractCost(
+      buildInfo.output.contracts[sourceName][contractName].evm.gasEstimates
+    )
+
+    deployContractCosts.push({
+      referenceName,
+      cost: deployContractCost,
+    })
+  }
+  return deployContractCosts
 }

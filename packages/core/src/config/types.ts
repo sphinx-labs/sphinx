@@ -3,11 +3,10 @@ import {
   OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   IMMUTABLE_TYPE_HASH,
-  IMPLEMENTATION_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
-} from '@sphinx/contracts'
-import { BigNumber, providers } from 'ethers'
+} from '@chugsplash/contracts'
+import { BigNumber } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
@@ -34,11 +33,8 @@ export const contractKindHashes: { [contractKind: string]: string } = {
   'oz-ownable-uups': OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
   'oz-access-control-uups': OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
   immutable: IMMUTABLE_TYPE_HASH,
-  implementation: IMPLEMENTATION_TYPE_HASH,
   proxy: DEFAULT_PROXY_TYPE_HASH,
 }
-
-export type Project = string | 'all'
 
 export type ContractKind = UserContractKind | 'proxy'
 
@@ -52,7 +48,7 @@ export enum ContractKindEnum {
 }
 
 /**
- * Allowable types for Sphinx config variables defined by the user.
+ * Allowable types for ChugSplash config variables defined by the user.
  */
 export type UserConfigVariable =
   | boolean
@@ -65,7 +61,7 @@ export type UserConfigVariable =
     }
 
 /**
- * Parsed Sphinx config variable.
+ * Parsed ChugSplash config variable.
  */
 export type ParsedConfigVariable =
   | boolean
@@ -76,61 +72,26 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export type UserSphinxConfig = UserConfig | UserConfigWithOptions
-
-export type UserConfig = {
-  projectName: string
+/**
+ * Full user-defined config object that can be used to commit a deployment/upgrade.
+ */
+export interface UserChugSplashConfig {
+  options: {
+    organizationID: string
+    projectName: string
+  }
   contracts: UserContractConfigs
-  options?: never
-}
-
-export type UserConfigWithOptions = {
-  projectName: string
-  contracts: UserContractConfigs
-  options: UserConfigOptions
 }
 
 /**
- * @notice The `mainnets` field is an array of network names, e.g. ['ethereum', 'optimism'].
- * The `testnets` field is an array of network names, e.g. ['goerli', 'optimism-goerli'].
+ * Full parsed config object.
  */
-export interface UserConfigOptions extends ConfigOptions {
-  mainnets: Array<string>
-  testnets: Array<string>
-}
-
-/**
- * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
- * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
- * determined by the value of the boolean variable `isTestnet`, which is passed into the
- * `getParsedConfigWithOptions` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
- * `mainnets`.
- */
-export interface ParsedConfigOptions extends ConfigOptions {
-  chainIds: Array<number>
-}
-
-export interface ConfigOptions {
-  orgId: string
-  owners: Array<string>
-  threshold: number
-  proposers: Array<string>
-}
-
-export interface ParsedConfig {
-  projectName: string
-  manager: string
+export interface ParsedChugSplashConfig {
+  options: {
+    organizationID: string
+    projectName: string
+  }
   contracts: ParsedContractConfigs
-}
-
-export interface ParsedOwnerConfig extends ParsedConfig {
-  owner: string
-  options?: never
-}
-
-export interface ParsedConfigWithOptions extends ParsedConfig {
-  options: ParsedConfigOptions
-  owner?: never
 }
 
 export type UnsafeAllow = {
@@ -144,7 +105,7 @@ export type UnsafeAllow = {
 }
 
 /**
- * User-defined contract definition in a Sphinx config.
+ * User-defined contract definition in a ChugSplash config.
  */
 export type UserContractConfig = {
   contract: string
@@ -169,7 +130,7 @@ export type UserConfigVariables = {
 }
 
 /**
- * Contract definition in a parsed config. Note that the `contract` field is the
+ * Contract definition in a `ParsedChugSplashConfig`. Note that the `contract` field is the
  * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
  * qualified name or the contract name.
  */
@@ -198,11 +159,11 @@ export type ParsedConfigVariables = {
  * Config object with added compilation details. Must add compilation details to the config before
  * the config can be published or off-chain tooling won't be able to re-generate the deployment.
  */
-export interface CompilerConfig extends ParsedConfig {
-  inputs: Array<SphinxInput>
+export interface CanonicalChugSplashConfig extends ParsedChugSplashConfig {
+  inputs: Array<ChugSplashInput>
 }
 
-export type SphinxInput = {
+export type ChugSplashInput = {
   solcVersion: string
   solcLongVersion: string
   input: CompilerInput
@@ -216,35 +177,11 @@ export type ConfigArtifacts = {
   }
 }
 
-/**
- * @notice This is the ConfigCache that's used in the Foundry plugin. It's a subset of the
- * ConfigCache that's used in the Hardhat Sphinx plugin. The fields that are missing from this type
- * are either difficult to retrieve in Solidity or not needed in the Foundry plugin.
- */
-export interface MinimalConfigCache {
-  isManagerDeployed: boolean
+export type ConfigCache = {
   blockGasLimit: BigNumber
-  chainId: number
-  contractConfigCache: ContractConfigCache
-}
-
-/**
- * @notice This is the ConfigCache that's used in the Hardhat Sphinx plugin.
- */
-export interface ConfigCache extends MinimalConfigCache {
+  localNetwork: boolean
   networkName: string
-  networkType: NetworkType
-}
-
-/**
- * @param LIVE_NETWORK - The network is a live network (e.g. ethereum).
- * @param ANVIL - The network is an Anvil node, which could be a fork of a live network.
- * @param HARDHAT - The network is a Hardhat node, which could be a fork of a live network.
- */
-export enum NetworkType {
-  LIVE_NETWORK,
-  ANVIL,
-  HARDHAT,
+  contractConfigCache: ContractConfigCache
 }
 
 export type ContractConfigCache = {
@@ -252,6 +189,7 @@ export type ContractConfigCache = {
     isTargetDeployed: boolean
     deploymentRevert: DeploymentRevert
     importCache: ImportCache
+    deployedCreationCodeWithArgsHash?: string
     previousConfigUri?: string
   }
 }
@@ -266,14 +204,13 @@ export type ImportCache = {
   currProxyAdmin?: string
 }
 
-export type FoundryConfig = {
-  manager: string
-  owner: string
+export type MinimalConfig = {
+  organizationID: string
   projectName: string
-  contracts: Array<FoundryContractConfig>
+  contracts: Array<MinimalContractConfig>
 }
 
-export type FoundryContractConfig = {
+export type MinimalContractConfig = {
   referenceName: string
   addr: string
   kind: ContractKindEnum
@@ -283,27 +220,3 @@ export type FoundryContractConfig = {
 export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
 ) => Promise<ConfigArtifacts>
-
-export type GetProviderForChainId = (
-  chainId: number
-) => providers.JsonRpcProvider
-
-export type GetCanonicalConfig = (
-  orgId: string,
-  isTestnet: boolean,
-  apiKey: string,
-  projectName: string
-) => Promise<CanonicalConfig | undefined>
-
-export interface CanonicalConfig {
-  manager: string
-  projectName: string
-  options: ConfigOptions
-  contracts: ParsedContractConfigs
-  chainStates: {
-    [chainId: number]: {
-      firstProposalOccurred: boolean
-      projectCreated: boolean
-    }
-  }
-}

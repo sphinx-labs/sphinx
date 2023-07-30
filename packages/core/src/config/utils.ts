@@ -22,22 +22,23 @@ export const toContractKindEnum = (kind: ContractKind): ContractKindEnum => {
 }
 
 /**
- * Returns the Create3 address of a target contract deployed by Sphinx. There is a one-to-one mapping
+ * Returns the Create3 address of a target contract deployed by ChugSplash. There is a one-to-one mapping
  * between a Create3 address and the input parameters to this function. Note that the contract may
  * not yet be deployed at this address since it's calculated via Create3.
  */
 export const getTargetAddress = (
   managerAddress: string,
+  projectName: string,
   referenceName: string,
   userSalt?: UserSalt
 ): string => {
-  const targetSalt = getTargetSalt(referenceName, userSalt)
+  const targetSalt = getTargetSalt(projectName, referenceName, userSalt)
 
   return getCreate3Address(managerAddress, targetSalt)
 }
 
 export const getCreate3Address = (
-  managerAddress: string,
+  deployerAddress: string,
   salt: string
 ): string => {
   // Hard-coded bytecode of the proxy used by Create3 to deploy the contract. See the `CREATE3.sol`
@@ -45,7 +46,7 @@ export const getCreate3Address = (
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
 
   const proxyAddress = utils.getCreate2Address(
-    managerAddress,
+    deployerAddress,
     salt,
     utils.keccak256(proxyBytecode)
   )
@@ -62,14 +63,15 @@ export const getCreate3Address = (
 }
 
 export const getTargetSalt = (
+  projectName: string,
   referenceName: string,
   userSalt?: UserSalt
 ): string => {
   const userSaltHash = getUserSaltHash(userSalt)
 
   return utils.solidityKeccak256(
-    ['string', 'bytes32'],
-    [referenceName, userSaltHash]
+    ['string', 'string', 'bytes32'],
+    [projectName, referenceName, userSaltHash]
   )
 }
 

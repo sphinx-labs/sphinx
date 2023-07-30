@@ -1,4 +1,4 @@
-# @sphinx/executor
+# @chugsplash/executor
 
 ## 0.11.0
 
@@ -9,8 +9,8 @@
 ### Patch Changes
 
 - Updated dependencies [b6d1f76]
-  - @sphinx/plugins@0.16.0
-  - @sphinx/core@0.11.0
+  - @chugsplash/plugins@0.16.0
+  - @chugsplash/core@0.11.0
 
 ## 0.10.0
 
@@ -22,19 +22,19 @@
 
 - Updated dependencies [1dafc2c]
 - Updated dependencies [6b975e7]
-  - @sphinx/plugins@0.15.0
-  - @sphinx/core@0.10.0
+  - @chugsplash/plugins@0.15.0
+  - @chugsplash/core@0.10.0
 
 ## 0.9.0
 
 ### Minor Changes
 
 - c319493: Deploy contracts before modifying proxies during execution
-- 57cd798: Make Sphinx non-upgradeable
+- 57cd798: Make ChugSplash non-upgradeable
 
 ### Patch Changes
 
-- 06c9af9: Only initialize Sphinx on local networks
+- 06c9af9: Only initialize ChugSplash on local networks
 - af346c9: Catch error during remote execution
 - c309331: Add organization ID
 - da576c3: Split UUPS adapter into ownable and access control adapters
@@ -42,11 +42,11 @@
 - b05b489: Replace TODOs with Linear tickets
 - 1ba3adc: Make contract execution atomic
 - e797869: Add claimer field to config
-- 821e9fd: Deploy and verify reference DefaultProxy and SphinxManagerProxy contracts
+- 821e9fd: Deploy and verify reference DefaultProxy and ChugSplashManagerProxy contracts
 - 3d9f9c2: Add support for deploying stateless non-proxied contracts
 - f433bc2: Remove claimer from config and registry
 - 26ab2ad: Get previous storage layout using OpenZeppelin's format
-- 11fd15c: Make sphinx-deploy task execute locally by default
+- 11fd15c: Make chugsplash-deploy task execute locally by default
 - Updated dependencies [7ee54af]
 - Updated dependencies [5896c7c]
 - Updated dependencies [27cb63b]
@@ -105,8 +105,8 @@
 - Updated dependencies [ab983d4]
 - Updated dependencies [be43435]
 - Updated dependencies [c69aa51]
-  - @sphinx/core@0.9.0
-  - @sphinx/plugins@0.14.0
+  - @chugsplash/core@0.9.0
+  - @chugsplash/plugins@0.14.0
 
 ## 0.8.1
 
@@ -116,13 +116,13 @@
 - 6b3e2ed: Fix contract verification constructor args
 - Updated dependencies [6b3e2ed]
 - Updated dependencies [6b3e2ed]
-  - @sphinx/core@0.8.1
+  - @chugsplash/core@0.8.1
 
 ## 0.8.0
 
 ### Minor Changes
 
-- 3da5ee8: Add meta upgrades to SphinxRegistry
+- 3da5ee8: Add meta upgrades to ChugSplashRegistry
 
 ### Patch Changes
 
@@ -135,13 +135,13 @@
 - Updated dependencies [3e923a0]
 - Updated dependencies [22c24d2]
 - Updated dependencies [35c7a63]
-  - @sphinx/core@0.8.0
+  - @chugsplash/core@0.8.0
 
 ## 0.7.0
 
 ### Minor Changes
 
-- 9dca319: Integrate Executor with Sphinx Managed
+- 9dca319: Integrate Executor with ChugSplash Managed
 
 ### Patch Changes
 
@@ -152,7 +152,7 @@
 - Updated dependencies [80b1a53]
 - Updated dependencies [6a48dd7]
 - Updated dependencies [736b859]
-  - @sphinx/core@0.7.0
+  - @chugsplash/core@0.7.0
 
 ## 0.6.1
 
@@ -160,7 +160,7 @@
 
 - ca6d384: Bump contracts
 - Updated dependencies [ca6d384]
-  - @sphinx/core@0.6.1
+  - @chugsplash/core@0.6.1
 
 ## 0.6.0
 
@@ -170,7 +170,7 @@
 
 ### Patch Changes
 
-- a76efad: Removes an unnecessary environment variable in the SphinxExecutor.
+- a76efad: Removes an unnecessary environment variable in the ChugSplashExecutor.
 - 263b34d: Add logic for claiming bundles
 - Updated dependencies [3b13db4]
 - Updated dependencies [04dba20]
@@ -178,7 +178,7 @@
 - Updated dependencies [263b34d]
 - Updated dependencies [fa3f420]
 - Updated dependencies [57a327d]
-  - @sphinx/core@0.6.0
+  - @chugsplash/core@0.6.0
 
 ## 0.5.5
 
@@ -186,7 +186,7 @@
 
 - 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
 - Updated dependencies [2caf51e]
-  - @sphinx/core@0.5.5
+  - @chugsplash/core@0.5.5
 
 ## 0.5.4
 
@@ -206,13 +206,13 @@
 - Updated dependencies [4029daf]
 - Updated dependencies [a37d5c3]
 - Updated dependencies [b343641]
-  - @sphinx/core@0.5.0
+  - @chugsplash/core@0.5.0
 
 ## 0.5.2
 
 ### Patch Changes
 
-- 5a135ec: Fix issue verifying Sphinx contracts
+- 5a135ec: Fix issue verifying ChugSplash contracts
 
 ## 0.5.1
 
@@ -220,7 +220,7 @@
 
 - 48088b2: Add timeout on analytics functions
 - Updated dependencies [48088b2]
-  - @sphinx/core@0.4.1
+  - @chugsplash/core@0.4.1
 
 ## 0.5.0
 
@@ -257,7 +257,7 @@
 - Updated dependencies [0443459]
 - Updated dependencies [40f0d0a]
 - Updated dependencies [2201f3a]
-  - @sphinx/core@0.4.0
+  - @chugsplash/core@0.4.0
 
 ## 0.4.14
 
@@ -265,7 +265,7 @@
 
 - 2267ec4: Bump versions
 - Updated dependencies [2267ec4]
-  - @sphinx/core@0.3.24
+  - @chugsplash/core@0.3.24
 
 ## 0.4.13
 
@@ -275,7 +275,7 @@
 - d6984ec: Override transaction gas prices to use EIP-1559 if supported by the network
 - 532d586: Support defining executor port with environment variable
 - Updated dependencies [d6984ec]
-  - @sphinx/core@0.3.23
+  - @chugsplash/core@0.3.23
 
 ## 0.4.12
 
@@ -287,13 +287,13 @@
 - Updated dependencies [1cb43e7]
 - Updated dependencies [acfe88d]
 - Updated dependencies [fdf512b]
-  - @sphinx/core@0.3.22
+  - @chugsplash/core@0.3.22
 
 ## 0.4.11
 
 ### Patch Changes
 
-- 74a61c0: Change deployment process so that Sphinx addresses are calculated based on multisig address
+- 74a61c0: Change deployment process so that ChugSplash addresses are calculated based on multisig address
 - 2dbf187: Change @nomiclabs/hardhat-etherscan from devDependency to dependency
 - dba31f7: Write canonical config to file system when using executing bundles locally
 - Updated dependencies [74a61c0]
@@ -301,16 +301,16 @@
 - Updated dependencies [89cd352]
 - Updated dependencies [dba31f7]
 - Updated dependencies [c9eeb47]
-  - @sphinx/core@0.3.21
+  - @chugsplash/core@0.3.21
 
 ## 0.4.10
 
 ### Patch Changes
 
 - 921f917: Improved logs for funding and post-execution actions
-- d8554c0: Prefix logs with [Sphinx]
+- d8554c0: Prefix logs with [ChugSplash]
 - 780a395: Standardize logger messages
-- 335dfc7: Adds more logs to the Sphinx setup process in the executor
+- 335dfc7: Adds more logs to the ChugSplash setup process in the executor
 - Updated dependencies [3f6cabd]
 - Updated dependencies [921f917]
 - Updated dependencies [d8554c0]
@@ -318,7 +318,7 @@
 - Updated dependencies [335dfc7]
 - Updated dependencies [ba24573]
 - Updated dependencies [276d5ea]
-  - @sphinx/core@0.3.20
+  - @chugsplash/core@0.3.20
 
 ## 0.4.9
 
@@ -332,32 +332,32 @@
 - Updated dependencies [38c62b5]
 - Updated dependencies [e7ae731]
 - Updated dependencies [2652df5]
-  - @sphinx/core@0.3.19
+  - @chugsplash/core@0.3.19
 
 ## 0.4.8
 
 ### Patch Changes
 
 - d7fff20: Several improvements / bug fixes discovered when deploying on Optimism's devnet.
-- 7e8dd1e: Removes the projectOwner from the Sphinx config
+- 7e8dd1e: Removes the projectOwner from the ChugSplash config
 - Updated dependencies [d7fff20]
 - Updated dependencies [7e8dd1e]
-  - @sphinx/core@0.3.17
+  - @chugsplash/core@0.3.17
 
 ## 0.4.7
 
 ### Patch Changes
 
 - d458d93: Wrap Etherscan verification attempts in try/catch blocks
-- 16348b2: Make the SphinxRegistry proxy's address deterministic
-- 0b52005: Remove redundant Proxy verification attempts. Link SphinxManager proxy with its implementation on Etherscan.
+- 16348b2: Make the ChugSplashRegistry proxy's address deterministic
+- 0b52005: Remove redundant Proxy verification attempts. Link ChugSplashManager proxy with its implementation on Etherscan.
 - c5ec8e4: Replace incorrect use of the `getDefaultProxyAddress` function
 - ee3ae13: Remove HRE dependency from execution logic and move to core package
 - fb1168f: Make executor most robust to errors and cancelled bundles. Ensure that executor receives payment.
-- f217221: Use the executor to deploy and verify the Sphinx predeployed contracts
+- f217221: Use the executor to deploy and verify the ChugSplash predeployed contracts
 - 780e54f: Submit the minimum compiler input necessary to verify contracts on Etherscan
-- da5cb35: Move the logic that initializes the Sphinx predeploys into the executor.
-- 5406b7b: Update canonical Sphinx config type usage
+- da5cb35: Move the logic that initializes the ChugSplash predeploys into the executor.
+- 5406b7b: Update canonical ChugSplash config type usage
 - Updated dependencies [74da4d0]
 - Updated dependencies [7a1737e]
 - Updated dependencies [c32f23e]
@@ -380,13 +380,13 @@
 - Updated dependencies [ec41164]
 - Updated dependencies [da5cb35]
 - Updated dependencies [5406b7b]
-  - @sphinx/core@0.3.16
+  - @chugsplash/core@0.3.16
 
 ## 0.4.6
 
 ### Patch Changes
 
-- 7c367b4: Updates the sphinx-execute task
+- 7c367b4: Updates the chugsplash-execute task
 
 ## 0.4.5
 
@@ -411,7 +411,7 @@
 ### Patch Changes
 
 - 61f8ca1: Use environment variable `HARDHAT_NETWORK` to determine executor's network
-- f199dff: Verify proxy as part of Sphinx config verification
+- f199dff: Verify proxy as part of ChugSplash config verification
 - a43e0e3: Add Docker configuration for executor
 - 12a7f34: Improve execution speed with parallelization
 - 07a32f6: Run the executor using the HRE executable
@@ -455,4 +455,4 @@
 
 ### Minor Changes
 
-- 4c73fc1: Updates Sphinx executor to include basic execution flow.
+- 4c73fc1: Updates ChugSplash executor to include basic execution flow.

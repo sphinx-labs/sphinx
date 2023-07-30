@@ -5,14 +5,11 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { Contract, Event, providers } from 'ethers'
 
 import { ParsedContractConfig } from './config/types'
-import { Integration } from './constants'
 
-export type SphinxRuntimeEnvironment = {
-  integration: Integration
-  compilerConfigPath: string
+export type ChugSplashRuntimeEnvironment = {
+  canonicalConfigPath: string
   remoteExecution: boolean
-  allowUnlimitedContractSize: boolean
-  confirm: boolean
+  autoConfirm: boolean
   stream: NodeJS.WritableStream
   silent: boolean
   hre: HardhatRuntimeEnvironment | undefined
@@ -22,14 +19,10 @@ export type SphinxRuntimeEnvironment = {
   ) => Promise<StorageLayout>
 }
 
-/**
- * @param EXIT Exit the process without throwing an error. This cannot be caught in a try/catch.
- * Should be used in the Hardhat plugin.
- * @param THROW Throw an error. Can be caught in a try/catch. This should be used in the Foundry plugin.
- */
 export enum FailureAction {
   EXIT, // Exit the process without throwing an error. This cannot be caught in a try/catch.
-  THROW, // Throw an error. Can be caught in a try/catch.
+  THROW, // Throw an error. This will exit the process if not caught in a try/catch.
+  CONTINUE, // Continue execution.
 }
 
 export type ExecutorKey = {
@@ -63,7 +56,7 @@ export type ExecutorState = {
   keys: ExecutorKey[]
 }
 
-export declare class SphinxExecutorType extends BaseServiceV2<
+export declare class ChugSplashExecutorType extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState

@@ -1,25 +1,23 @@
 import '@nomiclabs/hardhat-ethers'
-import '../dist' // Imports type extensions for hre.sphinx
 
-import hre, { sphinx } from 'hardhat'
-import { BigNumber, Contract, Signer } from 'ethers'
-import { getSphinxManagerAddress, getSphinxRegistry } from '@sphinx/core'
+import hre, { chugsplash } from 'hardhat'
+import { BigNumber, Contract } from 'ethers'
 import {
-  SphinxManagerProxyArtifact,
+  getChugSplashManagerAddress,
+  getChugSplashRegistry,
+} from '@chugsplash/core'
+import {
+  ChugSplashManagerProxyArtifact,
   OWNER_MULTISIG_ADDRESS,
-} from '@sphinx/contracts'
+} from '@chugsplash/contracts'
 import { expect } from 'chai'
 
-const ownerAddress = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'
-const projectName = 'ManagerUpgrade'
+import { orgId } from '../chugsplash/Storage.config'
 
 describe('Manager Upgrade', () => {
   let Stateless: Contract
-  let Registry: Contract
-  let owner: Signer
   beforeEach(async () => {
-    owner = await hre.ethers.getSigner(ownerAddress)
-    Stateless = await sphinx.getContract(projectName, 'Stateless', owner)
+    Stateless = await chugsplash.getContract('My First Project', 'Stateless')
     const signer = await hre.ethers.getImpersonatedSigner(
       OWNER_MULTISIG_ADDRESS
     )
@@ -27,28 +25,26 @@ describe('Manager Upgrade', () => {
       OWNER_MULTISIG_ADDRESS,
       '0x10000000000000000000',
     ])
-    Registry = getSphinxRegistry(signer)
-    await Registry.addVersion(Stateless.address)
+    const registry = await getChugSplashRegistry(signer)
+    await registry.addVersion(Stateless.address)
   })
 
-  it('does upgrade sphinx manager', async () => {
-    const managerProxyAddress = getSphinxManagerAddress(
-      await owner.getAddress(),
-      projectName
-    )
+  it('does upgrade chugsplash manager', async () => {
+    const signer = hre.ethers.provider.getSigner()
+    const managerProxyAddress = getChugSplashManagerAddress(orgId)
 
-    const ManagerProxy = new Contract(
+    const managerProxy = new Contract(
       managerProxyAddress,
-      SphinxManagerProxyArtifact.abi,
-      owner
+      ChugSplashManagerProxyArtifact.abi,
+      signer
     )
 
-    await ManagerProxy.upgradeTo(Stateless.address)
+    await managerProxy.upgradeTo(Stateless.address)
 
     const StatelessManager = new Contract(
-      ManagerProxy.address,
+      managerProxy.address,
       Stateless.interface,
-      owner
+      signer
     )
 
     const version = await StatelessManager.version()

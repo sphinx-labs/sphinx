@@ -1,25 +1,20 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { SphinxRuntimeEnvironment } from '@sphinx/core/dist/types'
-import { Integration } from '@sphinx/core/dist/constants'
+import { ChugSplashRuntimeEnvironment } from '@chugsplash/core/dist/types'
 
 import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 
-export const createSphinxRuntime = (
-  integration: Integration,
+export const createChugSplashRuntime = async (
   remoteExecution: boolean,
-  allowUnlimitedContractSize: boolean,
-  confirm: boolean = false,
-  compilerConfigPath: string,
+  autoConfirm: boolean,
+  canonicalConfigPath: string,
   hre: HardhatRuntimeEnvironment | undefined = undefined,
   silent: boolean,
   stream: NodeJS.WritableStream = process.stderr
-): SphinxRuntimeEnvironment => {
+): Promise<ChugSplashRuntimeEnvironment> => {
   return {
-    integration,
-    compilerConfigPath,
-    allowUnlimitedContractSize,
+    canonicalConfigPath,
     remoteExecution,
-    confirm,
+    autoConfirm,
     stream,
     silent,
     importOpenZeppelinStorageLayout,

@@ -1,11 +1,10 @@
-import { MinimalConfigCache } from '@sphinx/core/dist/config/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
-  SphinxUtilsABI: any
-): MinimalConfigCache => {
-  const configCacheType = SphinxUtilsABI.find(
+  ChugSplashUtilsABI: any
+) => {
+  const configCacheType = ChugSplashUtilsABI.find(
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
 
@@ -14,19 +13,21 @@ export const decodeCachedConfig = (
     encodedConfigCache
   )[0]
 
-  const structuredConfigCache: MinimalConfigCache = {
+  const structuredConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
-    chainId: configCache.chainId,
-    isManagerDeployed: configCache.isManagerDeployed,
+    localNetwork: configCache.localNetwork,
+    networkName: configCache.networkName,
     contractConfigCache: {},
   }
 
   for (const cachedContract of configCache.contractConfigCache) {
     structuredConfigCache.contractConfigCache[cachedContract.referenceName] = {
+      referenceName: cachedContract.referenceName,
       isTargetDeployed: cachedContract.isTargetDeployed,
       deploymentRevert: {
         deploymentReverted: cachedContract.deploymentRevert.deploymentReverted,
-        revertString: cachedContract.deploymentRevert.revertString.exists
+        deploymentRevertReason: cachedContract.deploymentRevert.revertString
+          .exists
           ? cachedContract.deploymentRevert.revertString.value
           : undefined,
       },
@@ -36,6 +37,10 @@ export const decodeCachedConfig = (
           ? cachedContract.importCache.currProxyAdmin.value
           : undefined,
       },
+      deployedCreationCodeWithArgsHash: cachedContract
+        .deployedCreationCodeWithArgsHash.exists
+        ? cachedContract.deployedCreationCodeWithArgsHash.value
+        : undefined,
       previousConfigUri: cachedContract.previousConfigUri.exists
         ? cachedContract.previousConfigUri.value
         : undefined,

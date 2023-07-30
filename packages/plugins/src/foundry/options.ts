@@ -12,13 +12,13 @@ export const resolvePaths = (outPath: string, buildInfoPath: string) => {
   const artifactFolder = resolve(outPath)
   const buildInfoFolder = resolve(buildInfoPath)
   const deploymentFolder = resolve('deployments')
-  const compilerConfigFolder = resolve('.compiler-configs')
+  const canonicalConfigFolder = resolve('.canonical-configs')
 
   return {
     artifactFolder,
     buildInfoFolder,
     deploymentFolder,
-    compilerConfigFolder,
+    canonicalConfigFolder,
   }
 }
 
@@ -26,11 +26,9 @@ export const getFoundryConfigOptions = async (): Promise<{
   artifactFolder: string
   buildInfoFolder: string
   deploymentFolder: string
-  compilerConfigFolder: string
-  cachePath: string
+  canonicalConfigFolder: string
   storageLayout: boolean
   gasEstimates: boolean
-  rpcEndpoints: { [chainAlias: string]: string }
 }> => {
   const execAsync = promisify(exec)
 
@@ -39,9 +37,6 @@ export const getFoundryConfigOptions = async (): Promise<{
 
   const buildInfoPath =
     forgeConfig.build_info_path ?? join(forgeConfig.out, 'build-info')
-
-  const cachePath = forgeConfig.cache_path
-  const rpcEndpoints = forgeConfig.rpc_endpoints
 
   // Since foundry force recompiles after changing the foundry.toml file, we can assume that the contract
   // artifacts will contain the necessary info as long as the config includes the expected options
@@ -52,7 +47,5 @@ export const getFoundryConfigOptions = async (): Promise<{
     ...resolvePaths(forgeConfig.out, buildInfoPath),
     storageLayout,
     gasEstimates,
-    cachePath,
-    rpcEndpoints,
   }
 }

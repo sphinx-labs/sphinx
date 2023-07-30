@@ -44,7 +44,7 @@ interface IProxyAdapter {
     /**
      * @notice Changes the admin of the proxy. Note that this function is not triggered during a
                deployment. Instead, it's only triggered if transferring ownership of the UUPS proxy
-               away from the SphinxManager, which occurs outside of the deployment process.
+               away from the ChugSplashManager, which occurs outside of the deployment process.
      *
      * @param _proxy    Address of the proxy.
      * @param _newAdmin Address of the new admin.

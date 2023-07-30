@@ -1,7 +1,7 @@
 {
-  "name": "@sphinx/core",
+  "name": "@chugsplash/core",
   "version": "0.11.0",
-  "description": "Sphinx core library",
+  "description": "ChugSplash core library",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -12,8 +12,7 @@
     "build": "yarn build:ts",
     "build:ts": "tsc -p ./tsconfig.json",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
-    "test:coverage": "yarn test",
-    "test": "echo 'no tests'",
+    "test:coverage": "echo 'no tests'",
     "lint": "yarn lint:fix && yarn lint:check",
     "lint:fix": "yarn lint:ts:fix",
     "lint:check": "yarn lint:ts:check",
@@ -22,24 +21,24 @@
     "pre-commit": "lint-staged",
     "deploy": "npx hardhat deploy-system"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/core#readme",
+  "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/core#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smartcontracts/sphinx.git"
+    "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "dependencies": {
     "@amplitude/node": "^1.10.2",
+    "@chugsplash/contracts": "^0.8.0",
     "@eth-optimism/common-ts": "^0.7.1",
     "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
     "@eth-optimism/core-utils": "^0.9.1",
     "@ethersproject/abstract-provider": "^5.7.0",
+    "@metamask/eth-sig-util": "^5.1.0",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
-    "@openzeppelin/merkle-tree": "^1.0.5",
     "@openzeppelin/upgrades-core": "^1.20.6",
-    "@sphinx/contracts": "^0.8.0",
     "axios": "^1.4.0",
     "chalk": "^4.1.2",
     "core-js": "^3.27.1",

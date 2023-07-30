@@ -2,25 +2,21 @@ import path, { resolve } from 'path'
 import fs from 'fs'
 
 import {
-  getUnvalidatedContractConfigs,
+  getUnvalidatedParsedConfig,
   postParsingValidation,
-} from '@sphinx/core/dist/config/parse'
-import { FailureAction } from '@sphinx/core/dist/types'
-import { getProjectBundleInfo } from '@sphinx/core/dist/tasks'
+} from '@chugsplash/core/dist/config/parse'
+import { FailureAction } from '@chugsplash/core/dist/types'
+import { getBundleInfo } from '@chugsplash/core/dist/tasks'
 import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
-import {
-  UserSphinxConfig,
-  getSphinxManagerAddress,
-  getDeployContractCosts,
-  writeCompilerConfig,
-} from '@sphinx/core/dist'
+import { writeCanonicalConfig } from '@chugsplash/core/dist'
 
-import { createSphinxRuntime } from '../cre'
+import { createChugSplashRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
 import { decodeCachedConfig } from './structs'
 import { makeGetConfigArtifacts } from './utils'
 import {
+  getDeployContractCosts,
   getEncodedFailure,
   getPrettyWarnings,
   validationStderrWrite,
@@ -29,12 +25,9 @@ import {
 const args = process.argv.slice(2)
 const encodedConfigCache = args[0]
 const userConfigStr = args[1]
-const userConfig: UserSphinxConfig = JSON.parse(userConfigStr)
+const userConfig = JSON.parse(userConfigStr)
 const broadcasting = args[2] === 'true'
-const ownerAddress = args[3]
 
-// This function must not rely on a provider object being available because a provider doesn't exist
-// outside of Solidity for the in-process Anvil node.
 ;(async () => {
   process.stderr.write = validationStderrWrite
 
@@ -42,10 +35,9 @@ const ownerAddress = args[3]
     const {
       artifactFolder,
       buildInfoFolder,
-      compilerConfigFolder,
+      canonicalConfigFolder,
       storageLayout,
       gasEstimates,
-      cachePath,
     } = await getFoundryConfigOptions()
 
     if (!storageLayout || !gasEstimates) {
@@ -55,23 +47,24 @@ const ownerAddress = args[3]
     }
 
     const rootImportPath =
-      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
+      process.env.DEV_FILE_PATH ?? './node_modules/@chugsplash/plugins/'
     const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
-    const SphinxUtilsABI =
+    const ChugSplashUtilsABI =
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require(resolve(
-        `${utilsArtifactFolder}/SphinxUtils.sol/SphinxUtils.json`
+        `${utilsArtifactFolder}/ChugSplashUtils.sol/ChugSplashUtils.json`
       )).abi
 
-    const configCache = decodeCachedConfig(encodedConfigCache, SphinxUtilsABI)
+    const configCache = decodeCachedConfig(
+      encodedConfigCache,
+      ChugSplashUtilsABI
+    )
 
-    const cre = createSphinxRuntime(
-      'foundry',
-      false,
+    const cre = await createChugSplashRuntime(
       false,
       true,
-      compilerConfigFolder,
+      canonicalConfigFolder,
       undefined,
       false,
       process.stderr
@@ -79,29 +72,17 @@ const ownerAddress = args[3]
 
     const getConfigArtifacts = makeGetConfigArtifacts(
       artifactFolder,
-      buildInfoFolder,
-      cachePath
+      buildInfoFolder
     )
 
     const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-    const managerAddress = getSphinxManagerAddress(
-      ownerAddress,
-      userConfig.projectName
-    )
-    const contractConfigs = getUnvalidatedContractConfigs(
+    const parsedConfig = getUnvalidatedParsedConfig(
       userConfig,
       configArtifacts,
       cre,
-      FailureAction.THROW,
-      managerAddress
+      FailureAction.THROW
     )
-
-    const parsedConfig = {
-      manager: managerAddress,
-      contracts: contractConfigs,
-      projectName: userConfig.projectName,
-    }
 
     await postParsingValidation(
       parsedConfig,
@@ -111,37 +92,37 @@ const ownerAddress = args[3]
       FailureAction.THROW
     )
 
-    const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
+    const { configUri, bundles, canonicalConfig } = await getBundleInfo(
       parsedConfig,
       configArtifacts,
       configCache
     )
 
     if (broadcasting) {
-      writeCompilerConfig(compilerConfigFolder, configUri, compilerConfig)
+      writeCanonicalConfig(canonicalConfigFolder, configUri, canonicalConfig)
 
       const ipfsHash = configUri.replace('ipfs://', '')
-      const artifactCachePath = path.resolve(`${cachePath}/configArtifacts`)
+      const cachePath = path.resolve('./cache')
       // Create the canonical config network folder if it doesn't already exist.
-      if (!fs.existsSync(artifactCachePath)) {
-        fs.mkdirSync(artifactCachePath)
+      if (!fs.existsSync(cachePath)) {
+        fs.mkdirSync(cachePath)
       }
 
       // Write the config artifacts to the local file system. It will exist in a JSON file that has the
       // config URI as its name.
       fs.writeFileSync(
-        path.join(artifactCachePath, `${ipfsHash}.json`),
+        path.join(cachePath, `${ipfsHash}.json`),
         JSON.stringify(configArtifacts, null, 2)
       )
     }
 
-    const actionBundleType = SphinxUtilsABI.find(
+    const actionBundleType = ChugSplashUtilsABI.find(
       (fragment) => fragment.name === 'actionBundle'
     ).outputs[0]
-    const targetBundleType = SphinxUtilsABI.find(
+    const targetBundleType = ChugSplashUtilsABI.find(
       (fragment) => fragment.name === 'targetBundle'
     ).outputs[0]
-    const deployContractCostsType = SphinxUtilsABI.find(
+    const deployContractCostsType = ChugSplashUtilsABI.find(
       (fragment) => fragment.name === 'deployContractCosts'
     ).outputs[0]
 

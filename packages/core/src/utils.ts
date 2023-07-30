@@ -3,13 +3,12 @@ import * as fs from 'fs'
 import { promisify } from 'util'
 import { exec } from 'child_process'
 
-import yesno from 'yesno'
-import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
 import {
   utils,
   Signer,
+  Wallet,
   Contract,
   providers,
   ethers,
@@ -19,12 +18,10 @@ import {
 import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
-  SphinxRegistryABI,
-  SphinxManagerABI,
+  ChugSplashRegistryABI,
+  ChugSplashManagerABI,
   ProxyABI,
-  AuthABI,
-  AuthFactoryABI,
-} from '@sphinx/contracts'
+} from '@chugsplash/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import chalk from 'chalk'
@@ -47,62 +44,44 @@ import { CompilerInput, SolcBuild } from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
-  CompilerConfig,
+  CanonicalChugSplashConfig,
   UserContractKind,
   userContractKinds,
+  ParsedChugSplashConfig,
   ParsedContractConfig,
   ContractKind,
   ParsedConfigVariables,
-  ParsedConfigVariable,
-  GetConfigArtifacts,
   ConfigArtifacts,
-  GetCanonicalConfig,
-  UserConfigWithOptions,
-  CanonicalConfig,
-  ParsedConfig,
-  ParsedConfigWithOptions,
-  NetworkType,
+  ParsedConfigVariable,
 } from './config/types'
 import {
-  AuthLeaf,
-  SphinxActionBundle,
-  SphinxActionType,
-  SphinxBundles,
+  ChugSplashActionBundle,
+  ChugSplashActionType,
+  ChugSplashBundles,
   DeploymentState,
-  IPFSCommitResponse,
-  ProposalRequest,
 } from './actions/types'
-import { Integration } from './constants'
+import { CURRENT_CHUGSPLASH_MANAGER_VERSION, Integration } from './constants'
 import {
-  AUTH_FACTORY_ADDRESS,
-  getAuthAddress,
-  getSphinxManagerAddress,
-  getSphinxRegistryAddress,
+  getChugSplashManagerAddress,
+  getChugSplashRegistryAddress,
 } from './addresses'
 import 'core-js/features/array/at'
 import {
   BuildInfo,
   CompilerOutput,
+  CompilerOutputContract,
   ContractArtifact,
 } from './languages/solidity/types'
-import { sphinxFetchSubtask } from './config/fetch'
+import { chugsplashFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
-  getAuthLeafsForChain,
   getDeployContractActions,
   getNumDeployContractActions,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
-import {
-  assertValidConfigOptions,
-  getParsedConfigWithOptions,
-  parseConfigOptions,
-} from './config/parse'
-import { SphinxRuntimeEnvironment, FailureAction } from './types'
-import { SUPPORTED_NETWORKS } from './networks'
 
 export const getDeploymentId = (
-  bundles: SphinxBundles,
+  bundles: ChugSplashBundles,
   configUri: string
 ): string => {
   const actionRoot = bundles.actionBundle.root
@@ -130,11 +109,11 @@ export const getDeploymentId = (
 
 export const writeSnapshotId = async (
   provider: ethers.providers.JsonRpcProvider,
-  networkDirName: string,
+  networkName: string,
   deploymentFolderPath: string
 ) => {
   const snapshotId = await provider.send('evm_snapshot', [])
-  const networkPath = path.join(deploymentFolderPath, networkDirName)
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
@@ -143,24 +122,24 @@ export const writeSnapshotId = async (
 }
 
 export const writeDeploymentFolderForNetwork = (
-  networkDirName: string,
+  networkName: string,
   deploymentFolderPath: string
 ) => {
-  const networkPath = path.join(deploymentFolderPath, networkDirName)
+  const networkPath = path.join(deploymentFolderPath, networkName)
   if (!fs.existsSync(networkPath)) {
     fs.mkdirSync(networkPath, { recursive: true })
   }
 }
 
 export const writeDeploymentArtifact = (
-  networkDirName: string,
+  networkName: string,
   deploymentFolderPath: string,
   artifact: any,
   referenceName: string
 ) => {
   const artifactPath = path.join(
     deploymentFolderPath,
-    networkDirName,
+    networkName,
     `${referenceName}.json`
   )
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, '\t'))
@@ -179,7 +158,7 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
 
 export const checkIsUpgrade = async (
   provider: ethers.providers.Provider,
-  parsedConfig: ParsedConfig
+  parsedConfig: ParsedChugSplashConfig
 ): Promise<boolean | string> => {
   for (const [referenceName, contractConfig] of Object.entries(
     parsedConfig.contracts
@@ -192,63 +171,93 @@ export const checkIsUpgrade = async (
 }
 
 /**
- * Finalizes the registration of a project.
+ * Finalizes the registration of an organization ID.
  *
  * @param Provider Provider corresponding to the signer that will execute the transaction.
- * @param ownerAddress Owner of the SphinxManager contract deployed by this call.
+ * @param organizationID ID of the organization.
+ * @param newOwnerAddress Owner of the ChugSplashManager contract deployed by this call.
+ * @returns True if the organization ID was already registered for the first time in this call, and
+ * false if the project was already registered by the caller.
  */
-export const registerOwner = async (
-  projectName: string,
+export const finalizeRegistration = async (
   registry: ethers.Contract,
   manager: ethers.Contract,
-  ownerAddress: string,
+  organizationID: string,
+  newOwnerAddress: string,
+  allowManagedProposals: boolean,
   provider: providers.JsonRpcProvider,
   spinner: ora.Ora
 ): Promise<void> => {
-  spinner.start(`Registering the project...`)
+  spinner.start(`Claiming the project...`)
 
-  if (!(await registry.isManagerDeployed(manager.address))) {
+  if (!(await isProjectClaimed(registry, manager.address))) {
+    // Encode the initialization arguments for the ChugSplashManager contract.
+    // Note: Future versions of ChugSplash may require different arguments encoded in this way.
+    const initializerData = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'bytes32', 'bool'],
+      [newOwnerAddress, organizationID, allowManagedProposals]
+    )
+
     await (
-      await registry.register(
-        ownerAddress,
-        projectName,
-        [], // We don't pass any extra initializer data to this version of the SphinxManager.
+      await registry.finalizeRegistration(
+        organizationID,
+        newOwnerAddress,
+        Object.values(CURRENT_CHUGSPLASH_MANAGER_VERSION),
+        initializerData,
         await getGasPriceOverrides(provider)
       )
     ).wait()
-    spinner.succeed(`Project registered.`)
   } else {
     const existingOwnerAddress = await manager.owner()
-    if (existingOwnerAddress !== ownerAddress) {
+    if (existingOwnerAddress !== newOwnerAddress) {
       throw new Error(`Project already owned by: ${existingOwnerAddress}.`)
     } else {
-      spinner.succeed(`Project was already registered by the caller.`)
+      spinner.succeed(`Project was already claimed by the caller.`)
     }
   }
 }
 
-export const getSphinxRegistry = (signer: Signer): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, signer)
+export const getChugSplashRegistry = (signer: Signer): Contract => {
+  return new Contract(
+    getChugSplashRegistryAddress(),
+    ChugSplashRegistryABI,
+    signer
+  )
 }
 
-export const getSphinxRegistryReadOnly = (
+export const getChugSplashRegistryReadOnly = (
   provider: providers.Provider
 ): Contract => {
-  return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
+  return new Contract(
+    getChugSplashRegistryAddress(),
+    ChugSplashRegistryABI,
+    provider
+  )
 }
 
-export const getSphinxManager = (manager: string, signer: Signer): Contract => {
-  return new Contract(manager, SphinxManagerABI, signer)
+export const getChugSplashManager = (
+  signer: Signer,
+  organizationID: string
+) => {
+  return new Contract(
+    getChugSplashManagerAddress(organizationID),
+    ChugSplashManagerABI,
+    signer
+  )
 }
 
-export const getSphinxManagerReadOnly = (
-  manager: string,
-  provider: providers.Provider
-): Contract => {
-  return new Contract(manager, SphinxManagerABI, provider)
+export const getChugSplashManagerReadOnly = (
+  provider: providers.Provider,
+  organizationID: string
+) => {
+  return new Contract(
+    getChugSplashManagerAddress(organizationID),
+    ChugSplashManagerABI,
+    provider
+  )
 }
 
-export const sphinxLog = (
+export const chugsplashLog = (
   logLevel: 'warning' | 'error' = 'warning',
   title: string,
   lines: string[],
@@ -273,7 +282,7 @@ export const sphinxLog = (
 }
 
 export const displayDeploymentTable = (
-  parsedConfig: ParsedConfig,
+  parsedConfig: ParsedChugSplashConfig,
   silent: boolean
 ) => {
   if (!silent) {
@@ -290,14 +299,38 @@ export const displayDeploymentTable = (
   }
 }
 
+export const claimExecutorPayment = async (
+  executor: Wallet,
+  ChugSplashManager: Contract
+) => {
+  // The amount to withdraw is the minimum of the executor's debt and the ChugSplashManager's
+  // balance.
+  const debt = BigNumber.from(
+    await ChugSplashManager.executorDebt(executor.address)
+  )
+  const balance = BigNumber.from(
+    await executor.provider.getBalance(ChugSplashManager.address)
+  )
+  const withdrawAmount = debt.lt(balance) ? debt : balance
+
+  if (withdrawAmount.gt(0)) {
+    await (
+      await ChugSplashManager.claimExecutorPayment(
+        withdrawAmount,
+        await getGasPriceOverrides(executor.provider)
+      )
+    ).wait()
+  }
+}
+
 export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
   return new Contract(proxyAddress, ProxyABI, signer)
 }
 
-export const getCurrentSphinxActionType = (
-  bundle: SphinxActionBundle,
+export const getCurrentChugSplashActionType = (
+  bundle: ChugSplashActionBundle,
   actionsExecuted: ethers.BigNumber
-): SphinxActionType => {
+): ChugSplashActionType => {
   return bundle.actions[actionsExecuted.toNumber()].action.actionType
 }
 
@@ -315,14 +348,17 @@ export const formatEther = (
   return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
 }
 
-export const readCompilerConfig = async (
-  compilerConfigFolderPath: string,
+export const readCanonicalConfig = async (
+  canonicalConfigFolderPath: string,
   configUri: string
-): Promise<CompilerConfig | undefined> => {
+): Promise<CanonicalChugSplashConfig | undefined> => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Check that the file containing the canonical config exists.
-  const configFilePath = path.join(compilerConfigFolderPath, `${ipfsHash}.json`)
+  const configFilePath = path.join(
+    canonicalConfigFolderPath,
+    `${ipfsHash}.json`
+  )
   if (!fs.existsSync(configFilePath)) {
     return undefined
   }
@@ -330,23 +366,23 @@ export const readCompilerConfig = async (
   return JSON.parse(fs.readFileSync(configFilePath, 'utf8'))
 }
 
-export const writeCompilerConfig = (
-  compilerConfigDirPath: string,
+export const writeCanonicalConfig = (
+  canonicalConfigFolderPath: string,
   configUri: string,
-  compilerConfig: CompilerConfig
+  canonicalConfig: CanonicalChugSplashConfig
 ) => {
   const ipfsHash = configUri.replace('ipfs://', '')
 
   // Create the canonical config network folder if it doesn't already exist.
-  if (!fs.existsSync(compilerConfigDirPath)) {
-    fs.mkdirSync(compilerConfigDirPath, { recursive: true })
+  if (!fs.existsSync(canonicalConfigFolderPath)) {
+    fs.mkdirSync(canonicalConfigFolderPath, { recursive: true })
   }
 
   // Write the canonical config to the local file system. It will exist in a JSON file that has the
   // config URI as its name.
   fs.writeFileSync(
-    path.join(compilerConfigDirPath, `${ipfsHash}.json`),
-    JSON.stringify(compilerConfig, null, 2)
+    path.join(canonicalConfigFolderPath, `${ipfsHash}.json`),
+    JSON.stringify(canonicalConfig, null, 2)
   )
 }
 
@@ -412,18 +448,25 @@ export const getGasPriceOverrides = async (
   return overridden
 }
 
+export const isProjectClaimed = async (
+  registry: ethers.Contract,
+  managerAddress: string
+) => {
+  return registry.managerProxies(managerAddress)
+}
+
 export const isInternalDefaultProxy = async (
   provider: providers.Provider,
   proxyAddress: string
 ): Promise<boolean> => {
-  const SphinxRegistry = new Contract(
-    getSphinxRegistryAddress(),
-    SphinxRegistryABI,
+  const ChugSplashRegistry = new Contract(
+    getChugSplashRegistryAddress(),
+    ChugSplashRegistryABI,
     provider
   )
 
-  const actionExecutedEvents = await SphinxRegistry.queryFilter(
-    SphinxRegistry.filters.EventAnnouncedWithData(
+  const actionExecutedEvents = await ChugSplashRegistry.queryFilter(
+    ChugSplashRegistry.filters.EventAnnouncedWithData(
       'DefaultProxyDeployed',
       null,
       proxyAddress
@@ -472,7 +515,7 @@ export const isTransparentProxy = async (
 
 /**
  * Checks if the passed in proxy contract points to an implementation address which implements the minimum requirements to be
- * a Sphinx compatible UUPS proxy.
+ * a ChugSplash compatible UUPS proxy.
  *
  * @param provider JSON RPC provider corresponding to the current project owner.
  * @param proxyAddress Address of the proxy contract. Since this is a UUPS proxy, we check the interface of the implementation function.
@@ -826,7 +869,7 @@ export const getPreviousConfigUri = async (
 
   const manager = new Contract(
     latestRegistryEvent.args.manager,
-    SphinxManagerABI,
+    ChugSplashManagerABI,
     provider
   )
 
@@ -849,47 +892,48 @@ export const getPreviousConfigUri = async (
   return deploymentState.configUri
 }
 
-export const fetchAndCacheCompilerConfig = async (
+export const fetchAndCacheCanonicalConfig = async (
   configUri: string,
-  compilerConfigFolderPath: string
-): Promise<CompilerConfig> => {
-  const localCompilerConfig = await readCompilerConfig(
-    compilerConfigFolderPath,
+  canonicalConfigFolderPath: string
+): Promise<CanonicalChugSplashConfig> => {
+  const localCanonicalConfig = await readCanonicalConfig(
+    canonicalConfigFolderPath,
     configUri
   )
-  if (localCompilerConfig) {
-    return localCompilerConfig
+  if (localCanonicalConfig) {
+    return localCanonicalConfig
   } else {
-    const remoteCompilerConfig = await callWithTimeout<CompilerConfig>(
-      sphinxFetchSubtask({ configUri }),
-      30000,
-      'Failed to fetch config file from IPFS'
-    )
+    const remoteCanonicalConfig =
+      await callWithTimeout<CanonicalChugSplashConfig>(
+        chugsplashFetchSubtask({ configUri }),
+        30000,
+        'Failed to fetch config file from IPFS'
+      )
 
     // Cache the canonical config by saving it to the local filesystem.
-    writeCompilerConfig(
-      compilerConfigFolderPath,
+    writeCanonicalConfig(
+      canonicalConfigFolderPath,
       configUri,
-      remoteCompilerConfig
+      remoteCanonicalConfig
     )
-    return remoteCompilerConfig
+    return remoteCanonicalConfig
   }
 }
 
 export const getConfigArtifactsRemote = async (
-  compilerConfig: CompilerConfig
+  canonicalConfig: CanonicalChugSplashConfig
 ): Promise<ConfigArtifacts> => {
   const solcArray: BuildInfo[] = []
   // Get the compiler output for each compiler input.
-  for (const sphinxInput of compilerConfig.inputs) {
-    const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
+  for (const chugsplashInput of canonicalConfig.inputs) {
+    const solcBuild: SolcBuild = await getSolcBuild(chugsplashInput.solcVersion)
     let compilerOutput: CompilerOutput
     if (solcBuild.isSolcJs) {
       const compiler = new Compiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
+      compilerOutput = await compiler.compile(chugsplashInput.input)
     } else {
       const compiler = new NativeCompiler(solcBuild.compilerPath)
-      compilerOutput = await compiler.compile(sphinxInput.input)
+      compilerOutput = await compiler.compile(chugsplashInput.input)
     }
 
     if (compilerOutput.errors) {
@@ -903,25 +947,25 @@ export const getConfigArtifactsRemote = async (
 
       if (formattedErrorMessages.length > 0) {
         throw new Error(
-          `Failed to compile. Please report this error to Sphinx.\n` +
+          `Failed to compile. Please report this error to ChugSplash.\n` +
             `${formattedErrorMessages}`
         )
       }
     }
 
     solcArray.push({
-      input: sphinxInput.input,
+      input: chugsplashInput.input,
       output: compilerOutput,
-      id: sphinxInput.id,
-      solcLongVersion: sphinxInput.solcLongVersion,
-      solcVersion: sphinxInput.solcVersion,
+      id: chugsplashInput.id,
+      solcLongVersion: chugsplashInput.solcLongVersion,
+      solcVersion: chugsplashInput.solcVersion,
     })
   }
 
   const artifacts: ConfigArtifacts = {}
-  // Generate an artifact for each contract in the Sphinx config.
+  // Generate an artifact for each contract in the ChugSplash config.
   for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
+    canonicalConfig.contracts
   )) {
     // Split the contract's fully qualified name into its source name and contract name.
     const [sourceName, contractName] = contractConfig.contract.split(':')
@@ -948,13 +992,13 @@ export const getConfigArtifactsRemote = async (
 }
 
 export const getDeploymentEvents = async (
-  SphinxManager: ethers.Contract,
+  ChugSplashManager: ethers.Contract,
   deploymentId: string
 ): Promise<ethers.Event[]> => {
   // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
-    await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentApproved(deploymentId)
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashDeploymentApproved(deploymentId)
     )
   ).at(-1)
 
@@ -965,8 +1009,8 @@ export const getDeploymentEvents = async (
   }
 
   const completedEvent = (
-    await SphinxManager.queryFilter(
-      SphinxManager.filters.SphinxDeploymentCompleted(deploymentId)
+    await ChugSplashManager.queryFilter(
+      ChugSplashManager.filters.ChugSplashDeploymentCompleted(deploymentId)
     )
   ).at(-1)
 
@@ -976,13 +1020,20 @@ export const getDeploymentEvents = async (
     )
   }
 
-  const contractDeployedEvents = await SphinxManager.queryFilter(
-    SphinxManager.filters.ContractDeployed(null, null, deploymentId),
+  const contractDeployedEvents = await ChugSplashManager.queryFilter(
+    ChugSplashManager.filters.ContractDeployed(null, null, deploymentId),
     approvalEvent.blockNumber,
     completedEvent.blockNumber
   )
 
   return contractDeployedEvents
+}
+
+export const getChainId = async (
+  provider: ethers.providers.Provider
+): Promise<number> => {
+  const network = await provider.getNetwork()
+  return network.chainId
 }
 
 /**
@@ -993,30 +1044,39 @@ export const isDataHexString = (variable: any): boolean => {
   return ethers.utils.isHexString(variable) && variable.length % 2 === 0
 }
 
-export const getNetworkType = async (
+/**
+ * @notice Returns true if the current network is the local Hardhat network. Returns false if the
+ * current network is a forked or live network.
+ */
+export const isLocalNetwork = async (
   provider: providers.JsonRpcProvider
-): Promise<NetworkType> => {
+): Promise<boolean> => {
   try {
-    // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
-    // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
-    // namespace is an alias for `hardhat_`. Source:
-    // https://book.getfoundry.sh/reference/anvil/#custom-methods
+    // This RPC method will throw an error on live networks.
     await provider.send('hardhat_impersonateAccount', [
       ethers.constants.AddressZero,
     ])
   } catch (err) {
-    return NetworkType.LIVE_NETWORK
+    // We're on a live network, so return false.
+    return false
   }
 
   try {
-    // This RPC method will throw an error on Hardhat but not Anvil. This includes forked networks.
-    await provider.send('anvil_impersonateAccount', [
-      ethers.constants.AddressZero,
-    ])
-    return NetworkType.ANVIL
-  } catch (err) {
-    return NetworkType.HARDHAT
+    if (await isHardhatFork(provider)) {
+      return false
+    }
+  } catch (e) {
+    return true
   }
+
+  return true
+}
+
+export const isHardhatFork = async (
+  provider: providers.JsonRpcProvider
+): Promise<boolean> => {
+  const metadata = await provider.send('hardhat_metadata', [])
+  return metadata.forkedNetwork !== undefined
 }
 
 export const getImpersonatedSigner = async (
@@ -1036,7 +1096,7 @@ export const getImpersonatedSigner = async (
 export const deploymentDoesRevert = async (
   provider: ethers.providers.JsonRpcProvider,
   managerAddress: string,
-  actionBundle: SphinxActionBundle,
+  actionBundle: ChugSplashActionBundle,
   actionsExecuted: number
 ): Promise<boolean> => {
   // Get the `DEPLOY_CONTRACT` actions that have not been executed yet.
@@ -1061,7 +1121,25 @@ export const deploymentDoesRevert = async (
   return false
 }
 
-// Transfer ownership of the SphinxManager if a new project owner has been specified.
+export const getDeployedCreationCodeWithArgsHash = async (
+  manager: ethers.Contract,
+  referenceName: string,
+  contractAddress: string
+): Promise<string | undefined> => {
+  const latestDeploymentEvent = (
+    await manager.queryFilter(
+      manager.filters.ContractDeployed(referenceName, contractAddress)
+    )
+  ).at(-1)
+
+  if (!latestDeploymentEvent || !latestDeploymentEvent.args) {
+    return undefined
+  } else {
+    return latestDeploymentEvent.args.creationCodeWithArgsHash
+  }
+}
+
+// Transfer ownership of the ChugSplashManager if a new project owner has been specified.
 export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
@@ -1100,8 +1178,23 @@ export const isOpenZeppelinContractKind = (kind: ContractKind): boolean => {
   )
 }
 
+export const getEstDeployContractCost = (
+  gasEstimates: CompilerOutputContract['evm']['gasEstimates']
+): BigNumber => {
+  const { totalCost, codeDepositCost } = gasEstimates.creation
+
+  if (totalCost === 'infinite') {
+    // The `totalCost` is 'infinite' if the contract has a constructor. This is because the Solidity
+    // compiler can't determine the cost of the deployment since the constructor can contain
+    // arbitrary logic. In this case, we use the `executionCost` along a buffer multiplier of 1.5.
+    return BigNumber.from(codeDepositCost).mul(3).div(2)
+  } else {
+    return BigNumber.from(totalCost)
+  }
+}
+
 /**
- * Returns the address of a proxy's implementation contract that would be deployed by Sphinx via
+ * Returns the address of a proxy's implementation contract that would be deployed by ChugSplash via
  * Create3. We use a 'salt' value that's a hash of the implementation contract's init code, which
  * includes constructor arguments. This essentially mimics the behavior of Create2 in the sense that
  * the implementation's address has a one-to-one mapping with its init code. This makes it easy to
@@ -1124,411 +1217,3 @@ export const getImplAddress = (
 }
 
 export const execAsync = promisify(exec)
-
-export const getDuplicateElements = (arr: Array<string>): Array<string> => {
-  return [...new Set(arr.filter((e, i, a) => a.indexOf(e) !== i))]
-}
-
-/**
- * @notice Gets various fields related to the Sphinx config from the back-end if it exists.
- * If it doesn't exist, it returns a new canonicalConfigFolderPath with default parameters for the config
- * options.
- *
- * @returns {chainIds, prevConfig, isNewConfig} where the `chainIds` array contains the chain IDs
- * in the current config. The `prevConfig` variable is the most recent CanonicalConfig,
- * which is fetched from the back-end. Lastly, `isNewConfig` is true if the `prevConfig` is a new
- * config, i.e. it has not been used to setup the project on any chain.
- */
-export const getProjectConfigInfo = async (
-  getCanonicalConfig: GetCanonicalConfig,
-  userConfig: UserConfigWithOptions,
-  isTestnet: boolean,
-  apiKey: string,
-  cre: SphinxRuntimeEnvironment,
-  failureAction: FailureAction
-): Promise<{
-  chainIds: Array<number>
-  prevConfig: CanonicalConfig
-  isNewConfig: boolean
-}> => {
-  assertValidConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
-
-  const { projectName } = userConfig
-
-  const prevConfig = await getCanonicalConfig(
-    parsedConfigOptions.orgId,
-    isTestnet,
-    apiKey,
-    userConfig.projectName
-  )
-
-  if (prevConfig) {
-    return {
-      prevConfig,
-      isNewConfig: false,
-      chainIds: parsedConfigOptions.chainIds,
-    }
-  } else {
-    const { owners, threshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(owners, threshold, projectName)
-    const manager = getSphinxManagerAddress(auth, projectName)
-    const emptyConfig = getEmptyCanonicalConfig(
-      chainIds,
-      manager,
-      orgId,
-      projectName
-    )
-    return { prevConfig: emptyConfig, isNewConfig: true, chainIds }
-  }
-}
-
-export const fetchCanonicalConfig = async (
-  orgId: string,
-  isTestnet: boolean,
-  apiKey: string,
-  projectName: string
-): Promise<CanonicalConfig | undefined> => {
-  const response = await axios.post(
-    `${fetchSphinxManagedBaseUrl()}/api/fetchCanonicalConfig`,
-    {
-      apiKey,
-      isTestnet,
-      orgId,
-      projectName,
-    }
-  )
-  const config: CanonicalConfig | undefined = response.data
-  return config
-}
-
-export const fetchSphinxManagedBaseUrl = () => {
-  return process.env.SPHINX_MANAGED_BASE_URL
-    ? process.env.SPHINX_MANAGED_BASE_URL
-    : 'https://www.sphinx.dev'
-}
-
-export const relayProposal = async (proposalRequest: ProposalRequest) => {
-  // TODO: return undefined if the request returns an empty object.
-  try {
-    await axios.post(
-      `${fetchSphinxManagedBaseUrl()}/api/propose`,
-      proposalRequest
-    )
-  } catch (e) {
-    if (e.response.status === 200) {
-      return
-    } else if (e.response.status === 400) {
-      throw new Error(`Malformed Request: ${e.response.data}`)
-    } else if (e.response.status === 401) {
-      throw new Error(
-        `Unauthorized, please check your API key and Org Id are correct`
-      )
-    } else if (e.response.status === 409) {
-      throw new Error(
-        `Unsupported network, please report this to the developers`
-      )
-    } else if (e.response.status === 500) {
-      throw new Error(
-        `Internal server error, please report this to the developers`
-      )
-    }
-  }
-}
-
-export const relayIPFSCommit = async (
-  apiKey: string,
-  orgId: string,
-  ipfsCommitRequest: Array<CompilerConfig>
-): Promise<IPFSCommitResponse> => {
-  const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
-    apiKey,
-    orgId,
-    ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
-  })
-
-  if (response.status === 400) {
-    throw new Error(
-      'Malformed request pinning to IPFS, please report this to the developers'
-    )
-  } else if (response.status === 401) {
-    throw new Error(
-      `Unauthorized, please check your API key and Org Id are correct`
-    )
-  }
-
-  return response.data
-}
-
-/**
- * @notice Returns a new CanonicalConfig with default parameters for the config options.
- * This is useful when the user is attempting to propose a completely new config, since
- * there is no previous config to use as a starting point yet.
- */
-export const getEmptyCanonicalConfig = (
-  chainIds: Array<number>,
-  manager: string,
-  orgId: string,
-  projectName: string
-): CanonicalConfig => {
-  if (chainIds.length === 0) {
-    throw new Error(`Must provide at least one chain ID.`)
-  }
-
-  const chainStates = {}
-
-  chainIds.forEach((chainId) => {
-    chainStates[chainId] = {
-      firstProposalOccurred: false,
-      projectCreated: false,
-    }
-  })
-
-  return {
-    projectName,
-    manager,
-    options: {
-      orgId,
-      owners: [],
-      threshold: 0,
-      proposers: [],
-    },
-    contracts: {},
-    chainStates,
-  }
-}
-
-/**
- * Converts a parsed config into a canonical config. Assumes that the `SphinxAuth`
- * contract has been created on each chain.
- *
- * @param rpcProviders A mapping from network name to RPC provider. There must be an RPC provider
- * for each chain ID in the parsed config.
- */
-export const toCanonicalConfig = async (
-  parsedConfig: ParsedConfigWithOptions,
-  managerAddress: string,
-  authAddress: string,
-  rpcProviders: Record<string, ethers.providers.JsonRpcProvider>
-): Promise<CanonicalConfig> => {
-  const { projectName } = parsedConfig
-  const chainStates = {}
-
-  for (const chainId of parsedConfig.options.chainIds) {
-    const network = findNetwork(chainId)
-
-    if (!network) {
-      throw new Error(`Unsupported chain ID: ${chainId}`)
-    }
-    const provider = rpcProviders[network]
-    if (!parsedConfig.options.chainIds.includes(chainId)) {
-      throw new Error(
-        `Chain ID ${chainId} corresponds to an RPC provider but does not exist in the parsed config.`
-      )
-    }
-
-    const Auth = new ethers.Contract(authAddress, AuthABI, provider)
-    const firstProposalOccurred = await Auth.firstProposalOccurred()
-
-    const projectCreated = await isProjectCreated(provider, Auth.address)
-
-    chainStates[chainId] = {
-      firstProposalOccurred,
-      projectCreated,
-    }
-  }
-
-  return {
-    projectName,
-    manager: managerAddress,
-    options: parsedConfig.options,
-    contracts: parsedConfig.contracts,
-    chainStates,
-  }
-}
-
-export const getAuthLeafs = async (
-  userConfig: UserConfigWithOptions,
-  prevConfig: CanonicalConfig,
-  rpcProviders: {
-    [network: string]: ethers.providers.JsonRpcProvider
-  },
-  managerAddress: string,
-  networks: Array<string>,
-  isTestnet: boolean,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts
-): Promise<Array<AuthLeaf>> => {
-  const leafs: Array<AuthLeaf> = []
-  for (const network of networks) {
-    const provider = rpcProviders[network]
-
-    const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfigWithOptions(
-        userConfig,
-        managerAddress,
-        isTestnet,
-        provider,
-        cre,
-        getConfigArtifacts
-      )
-
-    const chainId = SUPPORTED_NETWORKS[network]
-    const leafsForChain = await getAuthLeafsForChain(
-      chainId,
-      parsedConfig,
-      configArtifacts,
-      configCache,
-      prevConfig
-    )
-    leafs.push(...leafsForChain)
-  }
-  return leafs
-}
-
-export const isProjectCreated = async (
-  provider: providers.Provider,
-  authAddress: string
-): Promise<boolean> => {
-  const AuthFactory = new ethers.Contract(
-    AUTH_FACTORY_ADDRESS,
-    AuthFactoryABI,
-    provider
-  )
-  const isCreated: boolean = await AuthFactory.isDeployed(authAddress)
-  return isCreated
-}
-
-export const findNetwork = (chainId: number): string => {
-  const network = Object.keys(SUPPORTED_NETWORKS).find(
-    (n) => SUPPORTED_NETWORKS[n] === chainId
-  )
-
-  if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return network
-}
-
-export const arraysEqual = (a: Array<any>, b: Array<any>): boolean => {
-  if (a.length !== b.length) {
-    return false
-  }
-
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
-      return false
-    }
-  }
-
-  return true
-}
-
-/**
- * @notice Returns a hyperlinked string that can be printed to the console.
- */
-export const hyperlink = (text: string, url: string): string => {
-  return `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`
-}
-
-export const userConfirmation = async (question: string) => {
-  const confirmed = await yesno({
-    question,
-  })
-  if (!confirmed) {
-    console.error(`Denied by the user.`)
-    process.exit(1)
-  }
-}
-
-export const resolveNetwork = async (
-  provider: ethers.providers.Provider,
-  networkType: NetworkType
-): Promise<{
-  networkName: string
-  chainId: number
-}> => {
-  const { chainId, name } = await provider.getNetwork()
-  if (name !== 'unknown') {
-    return { chainId, networkName: name }
-  } else {
-    // The network name could be 'unknown' on a supported network, e.g. gnosis-chiado. We check if
-    // the chain ID matches a supported network and use the network name if it does.
-    const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
-      ([, supportedChainId]) => supportedChainId === chainId
-    )
-    if (supportedNetwork) {
-      return { chainId, networkName: supportedNetwork[0] }
-    } else if (networkType === NetworkType.ANVIL) {
-      return { chainId, networkName: 'anvil' }
-    } else if (networkType === NetworkType.HARDHAT) {
-      return { chainId, networkName: 'hardhat' }
-    } else {
-      // The network is an unsupported live network.
-      throw new Error(`Unsupported network: ${chainId}`)
-    }
-  }
-}
-
-/**
- * @notice Returns the name of the directory that stores the artifacts for the specified network.
- * The directory name will be one of the following:
- *
- * 1. `networkName` if the network is a live network. For example, 'ethereum'.
- *
- * 2. `networkName-local` if the network matches a supported network and the network is local, i.e.
- * either a forked network or a local Anvil/Hardhat node with a user-defined chain ID. For
- * example, 'ethereum-local'. We say 'local' instead of 'fork' because it's difficult to reliably
- * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
- * `anvil --chain-id 5`.
- *
- * 3. `<hardhat/anvil>-chainId` otherwise. This will occur on standard Hardhat/Anvil nodes. For
- * example, 'hardhat-31337'.
- */
-export const getNetworkDirName = (
-  networkName: string,
-  networkType: NetworkType,
-  chainId: number
-): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
-    return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
-    return `${networkName}-local`
-  } else {
-    const localNetworkName =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkName}-${chainId}`
-  }
-}
-
-/**
- * @notice Returns a string that describes a network, which is used in the diff. A network tag can
- * take three forms (in order of precedence):
- *
- * 1. `networkName` if the network is a live network. For example, 'ethereum'.
- *
- * 2. `networkName (local)` if the network matches a supported network and the network is local, i.e.
- * either a forked network or a local Anvil/Hardhat node with a user-defined chain ID. For
- * example, 'ethereum-local'. We say 'local' instead of 'fork' because it's difficult to reliably
- * infer whether a network is a fork or a Hardhat/Anvil node with a user-defined chain ID, e.g.
- * `anvil --chain-id 5`.
- *
- * 3. `<hardhat/anvil> (chain ID: <chainId>)` otherwise. This will occur on standard Hardhat/Anvil nodes. For
- * example, 'hardhat-31337'.
- */
-export const getNetworkTag = (
-  networkName: string,
-  networkType: NetworkType,
-  chainId: number
-): string => {
-  if (networkType === NetworkType.LIVE_NETWORK) {
-    return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
-    return `${networkName} (local)`
-  } else {
-    const localNetworkType =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkType} (chain ID: ${chainId})`
-  }
-}

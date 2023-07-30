@@ -21,15 +21,16 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { buildInfo as sphinxBuildInfo } from '@sphinx/contracts'
+import { buildInfo as chugsplashBuildInfo } from '@chugsplash/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 
 import { customChains } from './constants'
-import { CompilerConfig, ConfigArtifacts } from './config/types'
+import { getChugSplashManagerAddress } from './addresses'
+import { CanonicalChugSplashConfig, ConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
-import { getSphinxConstants } from './contract-info'
+import { CHUGSPLASH_CONTRACT_INFO } from './contract-info'
 
 export interface EtherscanResponseBody {
   status: string
@@ -39,14 +40,16 @@ export interface EtherscanResponseBody {
 
 export const RESPONSE_OK = '1'
 
-export const verifySphinxConfig = async (
-  compilerConfig: CompilerConfig,
+export const verifyChugSplashConfig = async (
+  canonicalConfig: CanonicalChugSplashConfig,
   configArtifacts: ConfigArtifacts,
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
 ) => {
-  const managerAddress = compilerConfig.manager
+  const managerAddress = getChugSplashManagerAddress(
+    canonicalConfig.options.organizationID
+  )
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
     // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
@@ -57,34 +60,31 @@ export const verifySphinxConfig = async (
   )
 
   for (const [referenceName, contractConfig] of Object.entries(
-    compilerConfig.contracts
+    canonicalConfig.contracts
   )) {
     const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
-      compilerConfig.contracts[referenceName].constructorArgs,
+      canonicalConfig.contracts[referenceName].constructorArgs,
       abi
     )
 
-    const implementationAddress =
-      contractConfig.kind !== 'immutable'
-        ? getImplAddress(
-            managerAddress,
-            bytecode,
-            contractConfig.constructorArgs,
-            abi
-          )
-        : contractConfig.address
+    const implementationAddress = getImplAddress(
+      managerAddress,
+      bytecode,
+      contractConfig.constructorArgs,
+      abi
+    )
 
-    const sphinxInput = compilerConfig.inputs.find((compilerInput) =>
+    const chugsplashInput = canonicalConfig.inputs.find((compilerInput) =>
       Object.keys(compilerInput.input.sources).includes(sourceName)
     )
 
-    if (!sphinxInput) {
+    if (!chugsplashInput) {
       // Should not happen. We'll continue to the next contract.
       continue
     }
-    const { input, solcVersion } = sphinxInput
+    const { input, solcVersion } = chugsplashInput
 
     const minimumCompilerInput = getMinimumCompilerInput(
       input,
@@ -108,20 +108,18 @@ export const verifySphinxConfig = async (
       constructorArgValues
     )
 
-    if (contractConfig.kind !== 'immutable') {
-      // Link the proxy with its implementation
-      await linkProxyWithImplementation(
-        etherscanApiEndpoints.urls,
-        apiKey,
-        contractConfig.address,
-        implementationAddress,
-        contractName
-      )
-    }
+    // Link the proxy with its implementation
+    await linkProxyWithImplementation(
+      etherscanApiEndpoints.urls,
+      apiKey,
+      contractConfig.address,
+      implementationAddress,
+      contractName
+    )
   }
 }
 
-export const verifySphinx = async (
+export const verifyChugSplash = async (
   provider: ethers.providers.Provider,
   networkName: string,
   apiKey: string
@@ -138,12 +136,12 @@ export const verifySphinx = async (
     artifact,
     expectedAddress,
     constructorArgs,
-  } of await getSphinxConstants(provider)) {
+  } of CHUGSPLASH_CONTRACT_INFO) {
     const { sourceName, contractName, abi } = artifact
 
     const minimumCompilerInput = getMinimumCompilerInput(
-      sphinxBuildInfo.input,
-      sphinxBuildInfo.output.contracts,
+      chugsplashBuildInfo.input,
+      chugsplashBuildInfo.output.contracts,
       sourceName,
       contractName
     )
@@ -158,7 +156,7 @@ export const verifySphinx = async (
       abi,
       apiKey,
       minimumCompilerInput,
-      sphinxBuildInfo.solcVersion,
+      chugsplashBuildInfo.solcVersion,
       constructorArgs
     )
   }
@@ -212,10 +210,7 @@ export const attemptVerification = async (
   try {
     response = await verifyContract(urls.apiURL, verifyRequest)
   } catch (err) {
-    if (
-      err.message === 'Contract source code already verified' ||
-      err.message.includes('Smart-contract already verified')
-    ) {
+    if (err.message === 'Contract source code already verified') {
       console.log(
         `${contractName} has already been already verified:
         ${buildContractUrl(urls.browserURL, contractAddress)}`
@@ -366,27 +361,10 @@ export const checkProxyVerificationStatus = async (
   return responseBody
 }
 
-export const isSupportedNetworkOnEtherscan = async (
-  provider: ethers.providers.JsonRpcProvider
-): Promise<boolean> => {
-  const chainIdsToNames = new Map(
-    Object.entries(chainConfig).map(([chainName, config]) => [
-      config.chainId,
-      chainName,
-    ])
+export const isSupportedNetworkOnEtherscan = (networkName: string): boolean => {
+  const customNetworks = customChains.map((chain) => chain.network)
+  return (
+    chainConfig[networkName] !== undefined ||
+    customNetworks.includes(networkName)
   )
-
-  const chainID = parseInt(await provider.send('eth_chainId', []), 16)
-
-  const networkInCustomChains = [...customChains]
-    .reverse() // the last entry wins
-    .find((customChain) => customChain.chainId === chainID)
-
-  const network = networkInCustomChains ?? chainIdsToNames.get(chainID)
-
-  if (network === undefined) {
-    return false
-  }
-
-  return true
 }

@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "@sphinx/demo",
+  "name": "@chugsplash/demo",
   "version": "0.7.0",
-  "description": "Sphinx demo",
+  "description": "ChugSplash demo",
   "main": "dist/index",
   "types": "dist/index",
   "files": [
@@ -14,20 +14,21 @@
     "build:contracts": "hardhat compile",
     "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
     "test:coverage": "echo 'no tests'",
-    "test": "npx hardhat test",
     "lint": "yarn lint:fix && yarn lint:check",
-    "lint:check": "yarn lint:ts:check",
-    "lint:fix": "yarn lint:ts:fix",
+    "lint:check": "yarn lint:contracts:check && yarn lint:ts:check",
+    "lint:fix": "yarn lint:contracts:fix && yarn lint:ts:fix",
     "lint:ts:check": "eslint .",
     "lint:ts:fix": "yarn lint:ts:check --fix",
+    "lint:contracts:check": "yarn solhint -f table 'contracts/**/*.sol'",
+    "lint:contracts:fix": "prettier --write 'contracts/**/*.sol'",
     "pre-commit": "lint-staged"
   },
-  "homepage": "https://github.com/smartcontracts/sphinx/tree/develop/packages/demo#readme",
+  "homepage": "https://github.com/smartcontracts/chugsplash/tree/develop/packages/demo#readme",
   "license": "MIT",
   "author": "Kelvin Fichter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smartcontracts/sphinx.git"
+    "url": "https://github.com/smartcontracts/chugsplash.git"
   },
   "devDependencies": {
     "@eth-optimism/core-utils": "^0.10.1",
@@ -43,12 +44,10 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
-    "@sphinx/contracts": "^0.8.0",
-    "@sphinx/core": "^0.11.0",
-    "@sphinx/plugins": "^0.16.0",
+    "@chugsplash/contracts": "^0.8.0",
+    "@chugsplash/core": "^0.11.0",
+    "@chugsplash/plugins": "^0.16.0",
     "@types/node": "^18.0.0",
-    "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",
     "solidity-ast": "^0.4.46"
   }
 }

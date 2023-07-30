@@ -4,6 +4,4 @@ dist/
 .env
 .env*
 deployments/
-.compiler-configs/
-broadcast/
-out/
+.canonical-configs/

@@ -1,10 +1,10 @@
 import { GraphQLClient, gql } from 'graphql-request'
 
 const updateDeploymentMutation = gql`
-  mutation UpdateProjectDeployment($input: UpdateProjectDeploymentInput!) {
-    UpdateProjectDeployment(input: $input) {
+  mutation UpdateDeployment($input: UpdateDeploymentInput!) {
+    UpdateDeployment(input: $input) {
       id
-      deploymentId
+      onChainId
     }
   }
 `
@@ -29,25 +29,18 @@ type Contract = {
   address: string
 }
 
-export type Transaction = {
-  txHash: string
-  cost: string
-  chainId: number
-}
-
 export const updateDeployment = async (
   client: GraphQLClient,
   deploymentId: string,
-  chainId: number,
+  networkId: number,
   status: DeploymentStatus,
-  contracts: Contract[],
-  transactions: Transaction[]
+  contracts: Contract[]
 ) => {
   if (contracts.length > 0) {
     await client.request(createContractsMutation, {
       input: {
-        deploymentId,
-        chainId,
+        onChainId: deploymentId,
+        networkId,
         contracts,
         publicKey: process.env.MANAGED_PUBLIC_KEY,
       },
@@ -56,11 +49,10 @@ export const updateDeployment = async (
 
   await client.request(updateDeploymentMutation, {
     input: {
-      deploymentId,
-      chainId,
+      onChainId: deploymentId,
+      networkId,
       status,
       publicKey: process.env.MANAGED_PUBLIC_KEY,
-      transactions,
     },
   })
 }

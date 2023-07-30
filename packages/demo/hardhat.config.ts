@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import '@sphinx/plugins'
+import '@chugsplash/plugins'
 
 // Load environment variables from .env
 dotenv.config()
@@ -52,9 +52,6 @@ const config: HardhatUserConfig = {
       url: `https://arb-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
-  },
-  mocha: {
-    timeout: 999_999,
   },
 }
 

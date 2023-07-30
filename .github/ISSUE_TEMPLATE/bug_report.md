@@ -13,7 +13,7 @@ assignees: ''
 ## Reproduction Steps
 <!--
 Steps to reproduce the behavior:
-1. Create a Sphinx config with '...'
+1. Create a ChugSplash config with '...'
 2. Deploy with '....'
 3. See error
 -->
@@ -26,7 +26,7 @@ Steps to reproduce the behavior:
 
 ## Screenshots, Artifacts, Config
 <!--
-If applicable, add screenshots, deployment artifacts, or an example Sphinx config to help explain the problem.
+If applicable, add screenshots, deployment artifacts, or an example ChugSplash config to help explain the problem.
 -->
 
 ## Platform

@@ -1,61 +1,56 @@
-# Sphinx (formerly ChugSplash)
+# ChugSplash
 
-Sphinx is a DevOps platform for smart contract deployments.
+A declarative and deterministic framework for deploying smart contracts. Available for both Hardhat and Foundry.
 
-## Key Features
+Powers the [ChugSplash Managed Service](https://www.chugsplash.io).
 
-Sphinx can either be used as a standalone CLI tool for simple deployments, or as a DevOps platform that extends the CLI tool with additional functionality.
+> **WARNING**: The code and contracts ChugSplash uses to deploy and upgrade your contracts HAVE NOT been audited. ChugSplash is a BETA product undergoing significant active development. ChugSplash's behavior and APIs are subject to change at any time at our discretion. You should not use ChugSplash if you would be very upset with your project breaking without notice. We make no guarantees about the safety of any contract deployments using the ChugSplash system.
 
-### Standalone CLI
-- Define deployments in a declarative config file instead of writing deployment scripts
-- Consistent addresses across networks via `CREATE3`
-- Deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy)
-- Available as a Foundry and Hardhat plugin
+If you want to use ChugSplash in production, ask a question, or request a feature then we'd love to hear from you in the [Discord!](https://discord.gg/7Gc3DK33Np)
 
-### DevOps Platform
-- Approve multi-chain deployments with a single meta transaction
-- Maintain a balance of USDC on a single chain to fund deployments
+## Features
+
+### ChugSplash Core Protocol
+The Core Protocol includes smart contracts as well as Hardhat and Foundry plugins. All of the code is MIT licensed and is located inside this repository.
+- Define deployments [declaratively](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md#layout-of-a-chugsplash-file) in a single file, inspired by [Terraform](https://www.terraform.io/).
+- Deployments are fully atomic, deterministic, and idempotent. Deployments cannot be halted for any reason and are finalized in a single transaction.
+- Deploys contracts at consistent addresses across networks using `CREATE2`
+- Keep track of contract dependencies using simple template syntax (i.e. `{{ MyContract }}`).
+- Generates deployment artifacts in the same format as hardhat-deploy
+
+### [ChugSplash Managed Service](https://www.chugsplash.io)
+The ChugSplash Managed Service is an optional product built on top of the ChugSplash Core Protocol designed to provide more advanced DevOps functionality for smart contract development teams.
+- Manage projects, contracts, and deployments in a UI
+- Gaslessly propose deployments from your CI process
+- Approve deployments with a single transaction through the UI
+- Deployments are trustlessly executed by our hosted backend
 - Automatic Etherscan verification
-- Support for multisigs (coming soon)
+
+## Getting Started
+
+### Foundry
+[Get started with ChugSplash for Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/foundry/getting-started.md)
+
+### Hardhat
+[Get started with ChugSplash for Hardhat](https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/getting-started.md)
 
 ## Documentation
 
-### Getting Started:
-- Foundry:
-  - [Quick Start](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quick-start.md)
-  - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-- Hardhat:
-  - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
-  - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
-  - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
-
-### References:
-- [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
-- [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
-- [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
-- [FAQ](https://github.com/sphinx-labs/sphinx/blob/develop/docs/faq.md)
+- [ChugSplash File](https://github.com/chugsplash/chugsplash/blob/develop/docs/chugsplash-file.md): Detailed explanation of the file where you define your deployments and upgrades.
+- [Variables Reference](https://github.com/chugsplash/chugsplash/blob/develop/docs/variables.md): Reference describing how to assign values to every variable type in a ChugSplash config file.
+- [Using ChugSplash on Live Networks](https://github.com/chugsplash/chugsplash/blob/develop/docs/live-network.md): Instructions for using ChugSplash to deploy or upgrade a project on a live network.
+- Integrating with CI for [Hardhat](https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/ci-integration.md) and [Foundry](https://github.com/chugsplash/chugsplash/blob/develop/docs/hardhat/ci-integration.md): Walkthrough of how to setup ChugSplash deployments in your CI process using GitHub actions.
+- [Special Variable Definitions](https://github.com/chugsplash/chugsplash/blob/develop/docs/special-var-defs.md): Explains how to define contract references in your ChugSplash config file.
+- [Immutable Variables](https://github.com/chugsplash/chugsplash/blob/develop/docs/immutable-variables.md): How to define immutable variables with ChugSplash.
+- [How ChugSplash Works](https://github.com/chugsplash/chugsplash/blob/develop/docs/how-chugsplash-works.md). A deep dive into the ChugSplash Core Protocol.
 
 ## Supported Networks
-
-* Ethereum
-* Optimism
-* Arbitrum
-* Polygon
-* BNB Smart Chain (aka BSC)
-* Gnosis Chain
-
-Test networks:
 * Ethereum Goerli
 * Optimism Goerli
-* Arbitrum Goerli
-* Polygon Mumbai
-* BNB Smart Chain Testnet
-* Gnosis Chiado
 
-## Reach Out
+ChugSplash is capable of supporting any EVM compatible network. If you'd like to use ChugSplash on network that is not listed, please let us know and we'd be happy to take care of deploying the ChugSplash contracts to it.
 
-If you have any questions, feature requests, or want us to add a new network, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
+ChugSplash is an experimental product and currently only supports test networks. If you would like to use ChugSplash in production, we'd love to work with you. Please feel free to [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
 
 ## Maintainers
 
@@ -65,7 +60,7 @@ If you have any questions, feature requests, or want us to add a new network, se
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and send us a message!
+Contributors welcome, please read through [CONTRIBUTING.md](https://github.com/chugsplash/chugsplash/blob/develop/CONTRIBUTING.md) for an overview of the contributing process for this repository and to get your development environment up and running. Then check out the list of [Good First Issues](https://github.com/chugsplash/chugsplash/contribute) to find something to work on! If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and shoot us a message!
 
 ## License
 

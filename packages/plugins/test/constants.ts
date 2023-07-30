@@ -1,100 +1,14 @@
 import fs from 'fs'
 import path from 'path'
 
-// eslint-disable-next-line import/order
-import hre from 'hardhat'
-
-import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
-import '@nomiclabs/hardhat-ethers'
-
 import { BigNumber, ethers } from 'ethers'
-import {
-  UserConfigWithOptions,
-  getAuthAddress,
-  getAuthData,
-  getSphinxManagerAddress,
-} from '@sphinx/core'
-
-import { createSphinxRuntime } from '../src/cre'
-
-// This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
-// contract inherits.
-export const OWNER_ROLE_HASH = ethers.constants.HashZero
-
-export const DUMMY_ORG_ID = '1111'
-
-export const cre = createSphinxRuntime(
-  'hardhat',
-  false,
-  hre.config.networks.hardhat.allowUnlimitedContractSize,
-  true, // Automatically confirm proposals
-  hre.config.paths.compilerConfigs,
-  hre,
-  false
-)
-
-export const threshold = 1
-
-// First account on Hardhat node
-export const ownerPrivateKey =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-// Second account on Hardhat node
-export const relayerPrivateKey =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
-
-export const testnets = ['goerli', 'optimism-goerli']
-export const rpcProviders = {
-  goerli: new ethers.providers.JsonRpcProvider('http://localhost:42005'),
-  'optimism-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42420'
-  ),
-  'gnosis-chiado': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42102'
-  ),
-  'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42613'
-  ),
-}
-export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
-
-export const sampleProjectName = 'MyProject'
-export const owners = [ownerAddress]
-export const sampleUserConfig: UserConfigWithOptions = {
-  projectName: sampleProjectName,
-  options: {
-    orgId: DUMMY_ORG_ID,
-    owners,
-    threshold,
-    testnets,
-    mainnets: [],
-    proposers: [ownerAddress],
-  },
-  contracts: {
-    MyContract: {
-      contract: 'Stateless',
-      kind: 'immutable',
-      constructorArgs: {
-        _immutableUint: 1,
-        _immutableAddress: '0x' + '11'.repeat(20),
-      },
-    },
-  },
-}
-
-export const authData = getAuthData(owners, threshold)
-export const authAddress = getAuthAddress(owners, threshold, sampleProjectName)
-export const managerAddress = getSphinxManagerAddress(
-  authAddress,
-  sampleProjectName
-)
 
 export const fetchBuildInfo = () => {
   const directoryPath = path.join(__dirname, '../artifacts/build-info')
   const fileNames = fs.readdirSync(directoryPath)
   if (fileNames.length !== 1) {
     throw new Error(
-      `Did not find exactly one Sphinx contracts build info file. Run:\n` +
-        `npx hardhat clean`
+      'Did not find exactly one ChugSplash contracts build info file.'
     )
   }
   return fileNames[0]
@@ -138,16 +52,13 @@ export const invalidConstructorArgsPartTwo = {
   },
 }
 
-export const immutableConstructorArgsOne = {
+export const constructorArgs = {
   _immutableInt: ethers.constants.MinInt256.toString(),
   _immutableInt8: -128,
   _immutableUint: ethers.constants.MaxUint256.toString(),
   _immutableUint8: 255,
   _immutableBool: true,
   _immutableBytes32: '0x' + '11'.repeat(32),
-}
-
-export const immutableConstructorArgsTwo = {
   _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
   _immutableBigNumberUint: ethers.constants.MaxUint256,
   _immutableBigNumberInt: ethers.constants.MinInt256,

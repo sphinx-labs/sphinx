@@ -8,14 +8,14 @@ deployments/
 forge-cache/
 out/
 
-# Sphinx artifacts
-.compiler-configs
+# ChugSplash artifacts
+.canonical-configs
 
 # Typescript
 dist/
 tsconfig.tsbuildinfo
 
-node_modules/@sphinx
+node_modules/@chugsplash
 .openzeppelin/*
 
 broadcast/
