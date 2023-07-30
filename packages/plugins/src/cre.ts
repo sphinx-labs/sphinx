@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { SphinxRuntimeEnvironment } from '@sphinx/core/dist/types'
-import { Integration } from '@sphinx/core/dist/constants'
+import { SphinxRuntimeEnvironment } from '@sphinx-labs/core/dist/types'
+import { Integration } from '@sphinx-labs/core/dist/constants'
 
 import { importOpenZeppelinStorageLayout } from './hardhat/artifacts'
 

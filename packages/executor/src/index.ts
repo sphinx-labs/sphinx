@@ -9,7 +9,7 @@ import {
   validators,
 } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
-import { SphinxRegistryABI } from '@sphinx/contracts'
+import { SphinxRegistryABI } from '@sphinx-labs/contracts'
 import {
   getSphinxRegistryAddress,
   ExecutorOptions,
@@ -18,7 +18,7 @@ import {
   ExecutorEvent,
   ExecutorKey,
   ensureSphinxInitialized,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { GraphQLClient } from 'graphql-request'
 
 import { ExecutorMessage, ResponseMessage } from './utils/execute'

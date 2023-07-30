@@ -1,5 +1,5 @@
 import hre from 'hardhat'
-import '@sphinx/plugins'
+import '@sphinx-labs/plugins'
 import '@nomiclabs/hardhat-ethers'
 import {
   AUTH_FACTORY_ADDRESS,
@@ -20,10 +20,14 @@ import {
   getTargetAddress,
   monitorExecution,
   sphinxCommitAbstractSubtask,
-} from '@sphinx/core'
-import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
-import { createSphinxRuntime } from '@sphinx/plugins/src/cre'
-import { makeGetConfigArtifacts } from '@sphinx/plugins/src/hardhat/artifacts'
+} from '@sphinx-labs/core'
+import {
+  AuthFactoryABI,
+  AuthABI,
+  SphinxManagerABI,
+} from '@sphinx-labs/contracts'
+import { createSphinxRuntime } from '@sphinx-labs/plugins/src/cre'
+import { makeGetConfigArtifacts } from '@sphinx-labs/plugins/src/hardhat/artifacts'
 import { expect } from 'chai'
 import { Contract, ethers } from 'ethers'
 

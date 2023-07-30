@@ -1,4 +1,4 @@
-# @sphinx/plugins
+# @sphinx-labs/plugins
 
 ## 0.17.0
 
@@ -38,8 +38,8 @@
 - Updated dependencies [c53f22dd]
 - Updated dependencies [b93b5a91]
 - Updated dependencies [02a360d9]
-  - @sphinx/core@0.12.0
-  - @sphinx/contracts@0.9.0
+  - @sphinx-labs/core@0.12.0
+  - @sphinx-labs/contracts@0.9.0
 
 ## 0.16.5
 
@@ -61,7 +61,7 @@
 - 8d2bf40: Fix issues with sample project generation
 - 586c823: Minimize size of Sphinx.sol and allow Solidity versions >= 0.7.4
 - Updated dependencies [586c823]
-  - @sphinx/contracts@0.8.2
+  - @sphinx-labs/contracts@0.8.2
 
 ## 0.16.2
 
@@ -69,7 +69,7 @@
 
 - 60d60bc: Specify compiler version range for foundry library contracts
 - Updated dependencies [60d60bc]
-  - @sphinx/contracts@0.8.1
+  - @sphinx-labs/contracts@0.8.1
 
 ## 0.16.1
 
@@ -86,8 +86,8 @@
 ### Patch Changes
 
 - Updated dependencies [b6d1f76]
-  - @sphinx/contracts@0.8.0
-  - @sphinx/core@0.11.0
+  - @sphinx-labs/contracts@0.8.0
+  - @sphinx-labs/core@0.11.0
 
 ## 0.15.1
 
@@ -95,7 +95,7 @@
 
 - f13070f: Use Optimism contracts-bedrock package canary version in all Sphinx packages
 - Updated dependencies [f13070f]
-  - @sphinx/core@0.10.1
+  - @sphinx-labs/core@0.10.1
 
 ## 0.15.0
 
@@ -108,7 +108,7 @@
 - 1dafc2c: Add support for mapping keys that are contract or enum types
 - Updated dependencies [1dafc2c]
 - Updated dependencies [6b975e7]
-  - @sphinx/core@0.10.0
+  - @sphinx-labs/core@0.10.0
 
 ## 0.14.1
 
@@ -232,8 +232,8 @@
 - Updated dependencies [ab983d4]
 - Updated dependencies [be43435]
 - Updated dependencies [c69aa51]
-  - @sphinx/core@0.9.0
-  - @sphinx/contracts@0.7.0
+  - @sphinx-labs/core@0.9.0
+  - @sphinx-labs/contracts@0.7.0
 
 ## 0.13.0
 
@@ -253,9 +253,9 @@
 - Updated dependencies [c76142e]
 - Updated dependencies [22c24d2]
 - Updated dependencies [35c7a63]
-  - @sphinx/core@0.8.0
-  - @sphinx/contracts@0.6.0
-  - @sphinx/executor@0.8.0
+  - @sphinx-labs/core@0.8.0
+  - @sphinx-labs/contracts@0.6.0
+  - @sphinx-labs/executor@0.8.0
 
 ## 0.12.0
 
@@ -277,9 +277,9 @@
 - Updated dependencies [80b1a53]
 - Updated dependencies [6a48dd7]
 - Updated dependencies [736b859]
-  - @sphinx/core@0.7.0
-  - @sphinx/contracts@0.5.2
-  - @sphinx/executor@0.7.0
+  - @sphinx-labs/core@0.7.0
+  - @sphinx-labs/contracts@0.5.2
+  - @sphinx-labs/executor@0.7.0
 
 ## 0.11.1
 
@@ -288,9 +288,9 @@
 - d30ebdf: Change the task for displaying bundles into a script
 - ca6d384: Bump contracts
 - Updated dependencies [ca6d384]
-  - @sphinx/contracts@0.5.1
-  - @sphinx/core@0.6.1
-  - @sphinx/executor@0.6.1
+  - @sphinx-labs/contracts@0.5.1
+  - @sphinx-labs/core@0.6.1
+  - @sphinx-labs/executor@0.6.1
 
 ## 0.11.0
 
@@ -313,9 +313,9 @@
 - Updated dependencies [263b34d]
 - Updated dependencies [fa3f420]
 - Updated dependencies [57a327d]
-  - @sphinx/executor@0.6.0
-  - @sphinx/core@0.6.0
-  - @sphinx/contracts@0.5.0
+  - @sphinx-labs/executor@0.6.0
+  - @sphinx-labs/core@0.6.0
+  - @sphinx-labs/contracts@0.5.0
 
 ## 0.10.7
 
@@ -324,7 +324,7 @@
 - c30b8ef: Fix bug caused by logic that gets the minimum compiler input for a bundle
 - Updated dependencies [c30b8ef]
 - Updated dependencies [90e5c0b]
-  - @sphinx/core@0.5.6
+  - @sphinx-labs/core@0.5.6
 
 ## 0.10.6
 
@@ -332,8 +332,8 @@
 
 - 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
 - Updated dependencies [2caf51e]
-  - @sphinx/executor@0.5.5
-  - @sphinx/core@0.5.5
+  - @sphinx-labs/executor@0.5.5
+  - @sphinx-labs/core@0.5.5
 
 ## 0.10.5
 
@@ -347,7 +347,7 @@
 
 - 4cf40e5: Bump plugins and executor versions
 - Updated dependencies [4cf40e5]
-  - @sphinx/executor@0.5.4
+  - @sphinx-labs/executor@0.5.4
 
 ## 0.10.3
 
@@ -355,7 +355,7 @@
 
 - ecfe984: Bump core and plugins versions
 - Updated dependencies [ecfe984]
-  - @sphinx/core@0.5.3
+  - @sphinx-labs/core@0.5.3
 
 ## 0.10.2
 
@@ -374,8 +374,8 @@
 - Updated dependencies [e56b684]
 - Updated dependencies [a892f24]
 - Updated dependencies [fd70a56]
-  - @sphinx/contracts@0.4.3
-  - @sphinx/core@0.5.1
+  - @sphinx-labs/contracts@0.4.3
+  - @sphinx-labs/core@0.5.1
 
 ## 0.10.0
 
@@ -396,9 +396,9 @@
 - Updated dependencies [4029daf]
 - Updated dependencies [a37d5c3]
 - Updated dependencies [b343641]
-  - @sphinx/core@0.5.0
-  - @sphinx/executor@0.5.3
-  - @sphinx/contracts@0.4.2
+  - @sphinx-labs/core@0.5.0
+  - @sphinx-labs/executor@0.5.3
+  - @sphinx-labs/contracts@0.4.2
 
 ## 0.9.0
 
@@ -440,9 +440,9 @@
 - Updated dependencies [0443459]
 - Updated dependencies [40f0d0a]
 - Updated dependencies [2201f3a]
-  - @sphinx/core@0.4.0
-  - @sphinx/executor@0.5.0
-  - @sphinx/contracts@0.4.0
+  - @sphinx-labs/core@0.4.0
+  - @sphinx-labs/executor@0.5.0
+  - @sphinx-labs/contracts@0.4.0
 
 ## 0.8.9
 
@@ -450,9 +450,9 @@
 
 - 2267ec4: Bump versions
 - Updated dependencies [2267ec4]
-  - @sphinx/contracts@0.3.17
-  - @sphinx/core@0.3.24
-  - @sphinx/executor@0.4.14
+  - @sphinx-labs/contracts@0.3.17
+  - @sphinx-labs/core@0.3.24
+  - @sphinx-labs/executor@0.4.14
 
 ## 0.8.8
 
@@ -469,8 +469,8 @@
 - Updated dependencies [7cd5e1b]
 - Updated dependencies [d6984ec]
 - Updated dependencies [532d586]
-  - @sphinx/executor@0.4.13
-  - @sphinx/core@0.3.23
+  - @sphinx-labs/executor@0.4.13
+  - @sphinx-labs/core@0.3.23
 
 ## 0.8.6
 
@@ -487,9 +487,9 @@
 - Updated dependencies [88e9465]
 - Updated dependencies [a60020a]
 - Updated dependencies [64e57d6]
-  - @sphinx/contracts@0.3.16
-  - @sphinx/core@0.3.22
-  - @sphinx/executor@0.4.12
+  - @sphinx-labs/contracts@0.3.16
+  - @sphinx-labs/core@0.3.22
+  - @sphinx-labs/executor@0.4.12
 
 ## 0.8.5
 
@@ -510,9 +510,9 @@
 - Updated dependencies [89cd352]
 - Updated dependencies [dba31f7]
 - Updated dependencies [c9eeb47]
-  - @sphinx/contracts@0.3.15
-  - @sphinx/core@0.3.21
-  - @sphinx/executor@0.4.11
+  - @sphinx-labs/contracts@0.3.15
+  - @sphinx-labs/core@0.3.21
+  - @sphinx-labs/executor@0.4.11
 
 ## 0.8.4
 
@@ -533,9 +533,9 @@
 - Updated dependencies [335dfc7]
 - Updated dependencies [ba24573]
 - Updated dependencies [276d5ea]
-  - @sphinx/contracts@0.3.14
-  - @sphinx/core@0.3.20
-  - @sphinx/executor@0.4.10
+  - @sphinx-labs/contracts@0.3.14
+  - @sphinx-labs/core@0.3.20
+  - @sphinx-labs/executor@0.4.10
 
 ## 0.8.3
 
@@ -551,9 +551,9 @@
 - Updated dependencies [38c62b5]
 - Updated dependencies [e7ae731]
 - Updated dependencies [2652df5]
-  - @sphinx/core@0.3.19
-  - @sphinx/executor@0.4.9
-  - @sphinx/contracts@0.3.13
+  - @sphinx-labs/core@0.3.19
+  - @sphinx-labs/executor@0.4.9
+  - @sphinx-labs/contracts@0.3.13
 
 ## 0.8.2
 
@@ -562,8 +562,8 @@
 - e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
 - Updated dependencies [40c7bfb]
 - Updated dependencies [e105ea9]
-  - @sphinx/contracts@0.3.12
-  - @sphinx/core@0.3.18
+  - @sphinx-labs/contracts@0.3.12
+  - @sphinx-labs/core@0.3.18
 
 ## 0.8.1
 
@@ -580,9 +580,9 @@
 - Updated dependencies [7e8dd1e]
 - Updated dependencies [e1dc2ec]
 - Updated dependencies [da79232]
-  - @sphinx/contracts@0.3.11
-  - @sphinx/core@0.3.17
-  - @sphinx/executor@0.4.8
+  - @sphinx-labs/contracts@0.3.11
+  - @sphinx-labs/core@0.3.17
+  - @sphinx-labs/executor@0.4.8
 
 ## 0.8.0
 
@@ -651,9 +651,9 @@
 - Updated dependencies [ec41164]
 - Updated dependencies [da5cb35]
 - Updated dependencies [5406b7b]
-  - @sphinx/core@0.3.16
-  - @sphinx/executor@0.4.7
-  - @sphinx/contracts@0.3.10
+  - @sphinx-labs/core@0.3.16
+  - @sphinx-labs/executor@0.4.7
+  - @sphinx-labs/contracts@0.3.10
 
 ## 0.7.0
 
@@ -670,8 +670,8 @@
 - 457b19a: Improve sphinx-deploy hardhat task
 - Updated dependencies [ed7babc]
 - Updated dependencies [457b19a]
-  - @sphinx/contracts@0.3.9
-  - @sphinx/core@0.3.15
+  - @sphinx-labs/contracts@0.3.9
+  - @sphinx-labs/core@0.3.15
 
 ## 0.6.0
 
@@ -682,7 +682,7 @@
 ### Patch Changes
 
 - Updated dependencies [8323afb]
-  - @sphinx/core@0.3.14
+  - @sphinx-labs/core@0.3.14
 
 ## 0.5.14
 
@@ -690,7 +690,7 @@
 
 - 15ebe78: Hardhat task bug fixes and improvements
 - Updated dependencies [15ebe78]
-  - @sphinx/core@0.3.13
+  - @sphinx-labs/core@0.3.13
 
 ## 0.5.13
 
@@ -709,7 +709,7 @@
 - a43e0e3: Add Docker configuration for executor
 - 12a7f34: Improve execution speed with parallelization
 - Updated dependencies [ecafe45]
-  - @sphinx/core@0.3.12
+  - @sphinx-labs/core@0.3.12
 
 ## 0.5.11
 
@@ -721,8 +721,8 @@
 - 9d38797: Update sphinx-register task to work locally
 - Updated dependencies [6a6f0c0]
 - Updated dependencies [9d38797]
-  - @sphinx/contracts@0.3.8
-  - @sphinx/core@0.3.11
+  - @sphinx-labs/contracts@0.3.8
+  - @sphinx-labs/core@0.3.11
 
 ## 0.5.10
 
@@ -744,8 +744,8 @@
 - Updated dependencies [6daea1a]
 - Updated dependencies [c08a950]
 - Updated dependencies [78acb9a]
-  - @sphinx/contracts@0.3.7
-  - @sphinx/core@0.3.10
+  - @sphinx-labs/contracts@0.3.7
+  - @sphinx-labs/core@0.3.10
 
 ## 0.5.9
 
@@ -753,7 +753,7 @@
 
 - 5ad574b: Fixes a bug that would break deterministic deployment on non-hardhat networks
 - Updated dependencies [062a439]
-  - @sphinx/core@0.3.9
+  - @sphinx-labs/core@0.3.9
 
 ## 0.5.8
 
@@ -763,7 +763,7 @@
 - 5e74723: Add support for mappings
 - 138f0cd: Small bug fixes for immutable handling
 - Updated dependencies [5e74723]
-  - @sphinx/core@0.3.8
+  - @sphinx-labs/core@0.3.8
 
 ## 0.5.7
 
@@ -783,7 +783,7 @@
 - Updated dependencies [3a64b82]
 - Updated dependencies [bbe3639]
 - Updated dependencies [1b88270]
-  - @sphinx/core@0.3.7
+  - @sphinx-labs/core@0.3.7
 
 ## 0.5.5
 
@@ -804,7 +804,7 @@
 - Updated dependencies [02c7a39]
 - Updated dependencies [6f53f35]
 - Updated dependencies [233f960]
-  - @sphinx/core@0.3.6
+  - @sphinx-labs/core@0.3.6
 
 ## 0.5.3
 
@@ -820,7 +820,7 @@
 - dc88439: Improved error handling in deployment task
 - Updated dependencies [3b3ae5a]
 - Updated dependencies [dc88439]
-  - @sphinx/core@0.3.5
+  - @sphinx-labs/core@0.3.5
 
 ## 0.5.1
 
@@ -837,8 +837,8 @@
 ### Patch Changes
 
 - Updated dependencies [123d9c1]
-  - @sphinx/contracts@0.3.5
-  - @sphinx/core@0.3.4
+  - @sphinx-labs/contracts@0.3.5
+  - @sphinx-labs/core@0.3.4
 
 ## 0.4.4
 
@@ -855,8 +855,8 @@
 - Updated dependencies [4ce753b]
 - Updated dependencies [2c5b238]
 - Updated dependencies [2c5b238]
-  - @sphinx/core@0.3.3
-  - @sphinx/contracts@0.3.3
+  - @sphinx-labs/core@0.3.3
+  - @sphinx-labs/contracts@0.3.3
 
 ## 0.4.2
 
@@ -864,8 +864,8 @@
 
 - 03d557c: Bump all versions
 - Updated dependencies [03d557c]
-  - @sphinx/contracts@0.3.2
-  - @sphinx/core@0.3.2
+  - @sphinx-labs/contracts@0.3.2
+  - @sphinx-labs/core@0.3.2
 
 ## 0.4.1
 
@@ -874,8 +874,8 @@
 - 557e3bd: Bump versions
 - Updated dependencies [557e3bd]
 - Updated dependencies [cd310fe]
-  - @sphinx/contracts@0.3.1
-  - @sphinx/core@0.3.1
+  - @sphinx-labs/contracts@0.3.1
+  - @sphinx-labs/core@0.3.1
 
 ## 0.4.0
 
@@ -886,8 +886,8 @@
 ### Patch Changes
 
 - Updated dependencies [52c7f6c]
-  - @sphinx/contracts@0.3.0
-  - @sphinx/core@0.3.0
+  - @sphinx-labs/contracts@0.3.0
+  - @sphinx-labs/core@0.3.0
 
 ## 0.3.1
 
@@ -897,7 +897,7 @@
 - f7a4a24: Bump core and plugins packages
 - Updated dependencies [f7a4a24]
 - Updated dependencies [f7a4a24]
-  - @sphinx/core@0.2.1
+  - @sphinx-labs/core@0.2.1
 
 ## 0.3.0
 
@@ -910,8 +910,8 @@
 - Updated dependencies [416d41b]
 - Updated dependencies [19cf359]
 - Updated dependencies [53e1514]
-  - @sphinx/contracts@0.2.0
-  - @sphinx/core@0.2.0
+  - @sphinx-labs/contracts@0.2.0
+  - @sphinx-labs/core@0.2.0
 
 ## 0.2.1
 
@@ -942,8 +942,8 @@
 - Updated dependencies [f92ff76]
 - Updated dependencies [04ada98]
 - Updated dependencies [2cc3bc9]
-  - @sphinx/contracts@0.2.0
-  - @sphinx/core@0.1.1
+  - @sphinx-labs/contracts@0.2.0
+  - @sphinx-labs/core@0.1.1
 
 ## 0.1.2
 
@@ -955,4 +955,4 @@
 - e5fe498: Brings back the SphinxManager contract
 - Updated dependencies [6403ed2]
 - Updated dependencies [e5fe498]
-  - @sphinx/contracts@0.1.1
+  - @sphinx-labs/contracts@0.1.1

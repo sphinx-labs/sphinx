@@ -2,7 +2,7 @@ import { HardhatUserConfig } from 'hardhat/types'
 
 // Hardhat plugins
 import '@nomiclabs/hardhat-ethers'
-import '@sphinx/plugins'
+import '@sphinx-labs/plugins'
 
 const config: HardhatUserConfig = {
   mocha: {
@@ -30,7 +30,7 @@ const config: HardhatUserConfig = {
       // This must be the chain ID of a live network that Sphinx supports. This allows us to
       // test the remote executor against a Sphinx config, which can only contain supported live
       // networks. For a list of supported networks, see the `SUPPORTED_NETWORKS` object in the
-      // `@sphinx/core` package.
+      // `@sphinx-labs/core` package.
       chainId: 5,
     },
   },

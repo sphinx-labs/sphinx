@@ -4,7 +4,7 @@ import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   getFoundryConfig,
   readUserSphinxConfig,
-} from '@sphinx/core/dist/config/config'
+} from '@sphinx-labs/core/dist/config/config'
 
 import { getEncodedFailure, validationStderrWrite } from './logs'
 
@@ -24,7 +24,7 @@ const ownerAddress = args[1]
     const minimalConfig = getFoundryConfig(userConfig, ownerAddress)
 
     const rootImportPath =
-      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx/plugins/'
+      process.env.DEV_FILE_PATH ?? './node_modules/@sphinx-labs/plugins/'
     const utilsArtifactFolder = `${rootImportPath}out/artifacts`
 
     const SphinxUtilsABI =

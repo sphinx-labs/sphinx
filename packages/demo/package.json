@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@sphinx/demo",
+  "name": "@sphinx-labs/demo",
   "version": "0.8.0",
   "description": "Sphinx demo",
   "main": "dist/index",
@@ -43,9 +43,9 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
-    "@sphinx/contracts": "^0.9.0",
-    "@sphinx/core": "^0.12.0",
-    "@sphinx/plugins": "^0.17.0",
+    "@sphinx-labs/contracts": "^0.9.0",
+    "@sphinx-labs/core": "^0.12.0",
+    "@sphinx-labs/plugins": "^0.17.0",
     "@types/node": "^18.0.0",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",

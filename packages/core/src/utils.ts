@@ -24,7 +24,7 @@ import {
   ProxyABI,
   AuthABI,
   AuthFactoryABI,
-} from '@sphinx/contracts'
+} from '@sphinx-labs/contracts'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { add0x, remove0x } from '@eth-optimism/core-utils'
 import chalk from 'chalk'

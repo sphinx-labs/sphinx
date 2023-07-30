@@ -15,7 +15,7 @@ import {
   validateBuildInfo,
   GetProviderForChainId,
   ConfigArtifacts,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import {
   Manifest,
   getStorageLayoutForAddress,

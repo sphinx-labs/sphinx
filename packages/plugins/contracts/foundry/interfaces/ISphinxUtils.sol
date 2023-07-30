@@ -3,15 +3,15 @@ pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
 import { VmSafe } from "forge-std/Vm.sol";
-import { ISphinxRegistry } from "@sphinx/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { ISphinxManager } from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
+import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import {
     Version,
     SphinxActionBundle,
     BundledSphinxAction,
     RawSphinxAction,
     SphinxTargetBundle
-} from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
+} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
 import {
     ConfigCache,
     DeployContractCost,

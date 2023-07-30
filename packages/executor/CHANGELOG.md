@@ -1,4 +1,4 @@
-# @sphinx/executor
+# @sphinx-labs/executor
 
 ## 0.12.0
 
@@ -31,8 +31,8 @@
 - Updated dependencies [4e6a91e7]
 - Updated dependencies [b93b5a91]
 - Updated dependencies [02a360d9]
-  - @sphinx/plugins@0.17.0
-  - @sphinx/core@0.12.0
+  - @sphinx-labs/plugins@0.17.0
+  - @sphinx-labs/core@0.12.0
 
 ## 0.11.0
 
@@ -43,8 +43,8 @@
 ### Patch Changes
 
 - Updated dependencies [b6d1f76]
-  - @sphinx/plugins@0.16.0
-  - @sphinx/core@0.11.0
+  - @sphinx-labs/plugins@0.16.0
+  - @sphinx-labs/core@0.11.0
 
 ## 0.10.0
 
@@ -56,8 +56,8 @@
 
 - Updated dependencies [1dafc2c]
 - Updated dependencies [6b975e7]
-  - @sphinx/plugins@0.15.0
-  - @sphinx/core@0.10.0
+  - @sphinx-labs/plugins@0.15.0
+  - @sphinx-labs/core@0.10.0
 
 ## 0.9.0
 
@@ -139,8 +139,8 @@
 - Updated dependencies [ab983d4]
 - Updated dependencies [be43435]
 - Updated dependencies [c69aa51]
-  - @sphinx/core@0.9.0
-  - @sphinx/plugins@0.14.0
+  - @sphinx-labs/core@0.9.0
+  - @sphinx-labs/plugins@0.14.0
 
 ## 0.8.1
 
@@ -150,7 +150,7 @@
 - 6b3e2ed: Fix contract verification constructor args
 - Updated dependencies [6b3e2ed]
 - Updated dependencies [6b3e2ed]
-  - @sphinx/core@0.8.1
+  - @sphinx-labs/core@0.8.1
 
 ## 0.8.0
 
@@ -169,7 +169,7 @@
 - Updated dependencies [3e923a0]
 - Updated dependencies [22c24d2]
 - Updated dependencies [35c7a63]
-  - @sphinx/core@0.8.0
+  - @sphinx-labs/core@0.8.0
 
 ## 0.7.0
 
@@ -186,7 +186,7 @@
 - Updated dependencies [80b1a53]
 - Updated dependencies [6a48dd7]
 - Updated dependencies [736b859]
-  - @sphinx/core@0.7.0
+  - @sphinx-labs/core@0.7.0
 
 ## 0.6.1
 
@@ -194,7 +194,7 @@
 
 - ca6d384: Bump contracts
 - Updated dependencies [ca6d384]
-  - @sphinx/core@0.6.1
+  - @sphinx-labs/core@0.6.1
 
 ## 0.6.0
 
@@ -212,7 +212,7 @@
 - Updated dependencies [263b34d]
 - Updated dependencies [fa3f420]
 - Updated dependencies [57a327d]
-  - @sphinx/core@0.6.0
+  - @sphinx-labs/core@0.6.0
 
 ## 0.5.5
 
@@ -220,7 +220,7 @@
 
 - 2caf51e: Change minimum compiler input logic to fix bug that generated incomplete inputs
 - Updated dependencies [2caf51e]
-  - @sphinx/core@0.5.5
+  - @sphinx-labs/core@0.5.5
 
 ## 0.5.4
 
@@ -240,7 +240,7 @@
 - Updated dependencies [4029daf]
 - Updated dependencies [a37d5c3]
 - Updated dependencies [b343641]
-  - @sphinx/core@0.5.0
+  - @sphinx-labs/core@0.5.0
 
 ## 0.5.2
 
@@ -254,7 +254,7 @@
 
 - 48088b2: Add timeout on analytics functions
 - Updated dependencies [48088b2]
-  - @sphinx/core@0.4.1
+  - @sphinx-labs/core@0.4.1
 
 ## 0.5.0
 
@@ -291,7 +291,7 @@
 - Updated dependencies [0443459]
 - Updated dependencies [40f0d0a]
 - Updated dependencies [2201f3a]
-  - @sphinx/core@0.4.0
+  - @sphinx-labs/core@0.4.0
 
 ## 0.4.14
 
@@ -299,7 +299,7 @@
 
 - 2267ec4: Bump versions
 - Updated dependencies [2267ec4]
-  - @sphinx/core@0.3.24
+  - @sphinx-labs/core@0.3.24
 
 ## 0.4.13
 
@@ -309,7 +309,7 @@
 - d6984ec: Override transaction gas prices to use EIP-1559 if supported by the network
 - 532d586: Support defining executor port with environment variable
 - Updated dependencies [d6984ec]
-  - @sphinx/core@0.3.23
+  - @sphinx-labs/core@0.3.23
 
 ## 0.4.12
 
@@ -321,7 +321,7 @@
 - Updated dependencies [1cb43e7]
 - Updated dependencies [acfe88d]
 - Updated dependencies [fdf512b]
-  - @sphinx/core@0.3.22
+  - @sphinx-labs/core@0.3.22
 
 ## 0.4.11
 
@@ -335,7 +335,7 @@
 - Updated dependencies [89cd352]
 - Updated dependencies [dba31f7]
 - Updated dependencies [c9eeb47]
-  - @sphinx/core@0.3.21
+  - @sphinx-labs/core@0.3.21
 
 ## 0.4.10
 
@@ -352,7 +352,7 @@
 - Updated dependencies [335dfc7]
 - Updated dependencies [ba24573]
 - Updated dependencies [276d5ea]
-  - @sphinx/core@0.3.20
+  - @sphinx-labs/core@0.3.20
 
 ## 0.4.9
 
@@ -366,7 +366,7 @@
 - Updated dependencies [38c62b5]
 - Updated dependencies [e7ae731]
 - Updated dependencies [2652df5]
-  - @sphinx/core@0.3.19
+  - @sphinx-labs/core@0.3.19
 
 ## 0.4.8
 
@@ -376,7 +376,7 @@
 - 7e8dd1e: Removes the projectOwner from the Sphinx config
 - Updated dependencies [d7fff20]
 - Updated dependencies [7e8dd1e]
-  - @sphinx/core@0.3.17
+  - @sphinx-labs/core@0.3.17
 
 ## 0.4.7
 
@@ -414,7 +414,7 @@
 - Updated dependencies [ec41164]
 - Updated dependencies [da5cb35]
 - Updated dependencies [5406b7b]
-  - @sphinx/core@0.3.16
+  - @sphinx-labs/core@0.3.16
 
 ## 0.4.6
 

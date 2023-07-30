@@ -1,4 +1,4 @@
-# @sphinx/core
+# @sphinx-labs/core
 
 ## 0.12.0
 
@@ -27,7 +27,7 @@
 - Updated dependencies [227da3f8]
 - Updated dependencies [1ce34a93]
 - Updated dependencies [21e3702f]
-  - @sphinx/contracts@0.9.0
+  - @sphinx-labs/contracts@0.9.0
 
 ## 0.11.0
 
@@ -38,7 +38,7 @@
 ### Patch Changes
 
 - Updated dependencies [b6d1f76]
-  - @sphinx/contracts@0.8.0
+  - @sphinx-labs/contracts@0.8.0
 
 ## 0.10.1
 
@@ -156,7 +156,7 @@
 - Updated dependencies [f433bc2]
 - Updated dependencies [11fd15c]
 - Updated dependencies [ac40b0b]
-  - @sphinx/contracts@0.7.0
+  - @sphinx-labs/contracts@0.7.0
 
 ## 0.8.1
 
@@ -182,7 +182,7 @@
 - Updated dependencies [3e923a0]
 - Updated dependencies [c76142e]
 - Updated dependencies [35c7a63]
-  - @sphinx/contracts@0.6.0
+  - @sphinx-labs/contracts@0.6.0
 
 ## 0.7.0
 
@@ -201,7 +201,7 @@
 - Updated dependencies [20f1a7e]
 - Updated dependencies [c8af97c]
 - Updated dependencies [736b859]
-  - @sphinx/contracts@0.5.2
+  - @sphinx-labs/contracts@0.5.2
 
 ## 0.6.1
 
@@ -209,7 +209,7 @@
 
 - ca6d384: Bump contracts
 - Updated dependencies [ca6d384]
-  - @sphinx/contracts@0.5.1
+  - @sphinx-labs/contracts@0.5.1
 
 ## 0.6.0
 
@@ -227,7 +227,7 @@
 - Updated dependencies [263b34d]
 - Updated dependencies [fa3f420]
 - Updated dependencies [57a327d]
-  - @sphinx/contracts@0.5.0
+  - @sphinx-labs/contracts@0.5.0
 
 ## 0.5.6
 
@@ -270,7 +270,7 @@
 - Updated dependencies [4265ae4]
 - Updated dependencies [4554d0c]
 - Updated dependencies [591e7da]
-  - @sphinx/contracts@0.4.3
+  - @sphinx-labs/contracts@0.4.3
 
 ## 0.5.0
 
@@ -286,7 +286,7 @@
 - 4029daf: Change `target` to `referenceName` everywhere
 - a37d5c3: Add discord link to output
 - Updated dependencies [4029daf]
-  - @sphinx/contracts@0.4.2
+  - @sphinx-labs/contracts@0.4.2
 
 ## 0.4.2
 
@@ -330,7 +330,7 @@
 - Updated dependencies [60d7adc]
 - Updated dependencies [0443459]
 - Updated dependencies [40f0d0a]
-  - @sphinx/contracts@0.4.0
+  - @sphinx-labs/contracts@0.4.0
 
 ## 0.3.24
 
@@ -338,7 +338,7 @@
 
 - 2267ec4: Bump versions
 - Updated dependencies [2267ec4]
-  - @sphinx/contracts@0.3.17
+  - @sphinx-labs/contracts@0.3.17
 
 ## 0.3.23
 
@@ -357,7 +357,7 @@
 - Updated dependencies [fdf512b]
 - Updated dependencies [88e9465]
 - Updated dependencies [a60020a]
-  - @sphinx/contracts@0.3.16
+  - @sphinx-labs/contracts@0.3.16
 
 ## 0.3.21
 
@@ -370,7 +370,7 @@
 - c9eeb47: Make configPath a normal parameter on all tasks
 - Updated dependencies [74a61c0]
 - Updated dependencies [3ec7a05]
-  - @sphinx/contracts@0.3.15
+  - @sphinx-labs/contracts@0.3.15
 
 ## 0.3.20
 
@@ -384,7 +384,7 @@
 - ba24573: Add list-proposers and add-proposers tasks
 - 276d5ea: Adds function comments to several type checking functions
 - Updated dependencies [c5cf649]
-  - @sphinx/contracts@0.3.14
+  - @sphinx-labs/contracts@0.3.14
 
 ## 0.3.19
 
@@ -397,7 +397,7 @@
 - 2652df5: Fixes circular dependency issue caused by `isContractDeployed`
 - Updated dependencies [7047b9d]
 - Updated dependencies [b55ab15]
-  - @sphinx/contracts@0.3.13
+  - @sphinx-labs/contracts@0.3.13
 
 ## 0.3.18
 
@@ -405,7 +405,7 @@
 
 - e105ea9: Updates Hardhat tasks to reflect proposer/owner requirement
 - Updated dependencies [40c7bfb]
-  - @sphinx/contracts@0.3.12
+  - @sphinx-labs/contracts@0.3.12
 
 ## 0.3.17
 
@@ -417,7 +417,7 @@
 - Updated dependencies [b1850ad]
 - Updated dependencies [e1dc2ec]
 - Updated dependencies [da79232]
-  - @sphinx/contracts@0.3.11
+  - @sphinx-labs/contracts@0.3.11
 
 ## 0.3.16
 
@@ -448,7 +448,7 @@
 - Updated dependencies [6f83489]
 - Updated dependencies [16348b2]
 - Updated dependencies [9be91c3]
-  - @sphinx/contracts@0.3.10
+  - @sphinx-labs/contracts@0.3.10
 
 ## 0.3.15
 
@@ -456,7 +456,7 @@
 
 - 457b19a: Improve sphinx-deploy hardhat task
 - Updated dependencies [ed7babc]
-  - @sphinx/contracts@0.3.9
+  - @sphinx-labs/contracts@0.3.9
 
 ## 0.3.14
 
@@ -482,7 +482,7 @@
 
 - 9d38797: Update sphinx-register task to work locally
 - Updated dependencies [6a6f0c0]
-  - @sphinx/contracts@0.3.8
+  - @sphinx-labs/contracts@0.3.8
 
 ## 0.3.10
 
@@ -495,7 +495,7 @@
 - Updated dependencies [273d4c3]
 - Updated dependencies [c08a950]
 - Updated dependencies [78acb9a]
-  - @sphinx/contracts@0.3.7
+  - @sphinx-labs/contracts@0.3.7
 
 ## 0.3.9
 
@@ -540,7 +540,7 @@
 
 - 123d9c1: Add support for deployments on live networks
 - Updated dependencies [123d9c1]
-  - @sphinx/contracts@0.3.5
+  - @sphinx-labs/contracts@0.3.5
 
 ## 0.3.3
 
@@ -550,7 +550,7 @@
 - 2c5b238: Change config file names
 - 2c5b238: Support demo
 - Updated dependencies [2c5b238]
-  - @sphinx/contracts@0.3.3
+  - @sphinx-labs/contracts@0.3.3
 
 ## 0.3.2
 
@@ -558,7 +558,7 @@
 
 - 03d557c: Bump all versions
 - Updated dependencies [03d557c]
-  - @sphinx/contracts@0.3.2
+  - @sphinx-labs/contracts@0.3.2
 
 ## 0.3.1
 
@@ -567,7 +567,7 @@
 - 557e3bd: Bump versions
 - Updated dependencies [557e3bd]
 - Updated dependencies [cd310fe]
-  - @sphinx/contracts@0.3.1
+  - @sphinx-labs/contracts@0.3.1
 
 ## 0.3.0
 
@@ -578,7 +578,7 @@
 ### Patch Changes
 
 - Updated dependencies [52c7f6c]
-  - @sphinx/contracts@0.3.0
+  - @sphinx-labs/contracts@0.3.0
 
 ## 0.2.1
 
@@ -598,7 +598,7 @@
 - Updated dependencies [416d41b]
 - Updated dependencies [19cf359]
 - Updated dependencies [53e1514]
-  - @sphinx/contracts@0.2.0
+  - @sphinx-labs/contracts@0.2.0
 
 ## 0.1.1
 

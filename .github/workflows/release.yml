@@ -42,7 +42,7 @@ jobs:
           version: nightly
 
       - name: Build
-        run: yarn build
+        run: yarn build:release
 
       - name: Publish to NPM
         uses: changesets/action@v1

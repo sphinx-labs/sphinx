@@ -1,6 +1,6 @@
 import { argv } from 'process'
 
-import { readUserSphinxConfig } from '@sphinx/core/dist/config/config'
+import { readUserSphinxConfig } from '@sphinx-labs/core/dist/config/config'
 
 const configPath = argv[2]
 if (typeof configPath !== 'string') {

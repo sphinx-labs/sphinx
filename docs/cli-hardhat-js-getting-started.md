@@ -61,19 +61,19 @@ npx hardhat
 
 With Yarn:
 ```
-yarn add --dev @sphinx/plugins
+yarn add --dev @sphinx-labs/plugins
 ```
 With npm:
 ```
-npm install --save-dev @sphinx/plugins
+npm install --save-dev @sphinx-labs/plugins
 ```
 
 ## 6. Update `hardhat.config.js`
 
-You must import `@sphinx/plugins` at the top of your `hardhat.config.js` file:
+You must import `@sphinx-labs/plugins` at the top of your `hardhat.config.js` file:
 
 ```js
-require('@sphinx/plugins')
+require('@sphinx-labs/plugins')
 ```
 
 Next, you must include an `outputSelection` field in the compiler settings of your `hardhat.config.js`. An outline of a Hardhat config is shown for context.

@@ -1,4 +1,4 @@
-import { UserConfig } from '@sphinx/core'
+import { UserConfig } from '@sphinx-labs/core'
 
 const config: UserConfig = {
   projectName: 'Validation',

@@ -11,11 +11,11 @@ import { StdStyle } from "forge-std/StdStyle.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { ISphinxRegistry } from "@sphinx/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { ISphinxManager } from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
-import { IOwnable } from "@sphinx/contracts/contracts/interfaces/IOwnable.sol";
-import { SphinxManagerEvents } from "@sphinx/contracts/contracts/SphinxManagerEvents.sol";
-import { SphinxRegistryEvents } from "@sphinx/contracts/contracts/SphinxRegistryEvents.sol";
+import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
+import { IOwnable } from "@sphinx-labs/contracts/contracts/interfaces/IOwnable.sol";
+import { SphinxManagerEvents } from "@sphinx-labs/contracts/contracts/SphinxManagerEvents.sol";
+import { SphinxRegistryEvents } from "@sphinx-labs/contracts/contracts/SphinxRegistryEvents.sol";
 import {
     SphinxBundles,
     DeploymentState,
@@ -29,8 +29,8 @@ import {
     SphinxTargetBundle,
     BundledSphinxTarget,
     Version
-} from "@sphinx/contracts/contracts/SphinxDataTypes.sol";
-import { SphinxAuthFactory } from "@sphinx/contracts/contracts/SphinxAuthFactory.sol";
+} from "@sphinx-labs/contracts/contracts/SphinxDataTypes.sol";
+import { SphinxAuthFactory } from "@sphinx-labs/contracts/contracts/SphinxAuthFactory.sol";
 import {
     FoundryConfig,
     Configs,

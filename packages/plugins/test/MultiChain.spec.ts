@@ -20,8 +20,12 @@ import {
   proposeAbstractTask,
   findProposalRequestLeaf,
   fromProposalRequestLeafToRawAuthLeaf,
-} from '@sphinx/core'
-import { AuthFactoryABI, AuthABI, SphinxManagerABI } from '@sphinx/contracts'
+} from '@sphinx-labs/core'
+import {
+  AuthFactoryABI,
+  AuthABI,
+  SphinxManagerABI,
+} from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 

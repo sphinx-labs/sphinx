@@ -17,7 +17,7 @@ import {
   StorageLayout,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
-import { ProxyABI } from '@sphinx/contracts'
+import { ProxyABI } from '@sphinx-labs/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import { ContractDefinition, Expression } from 'solidity-ast'
 

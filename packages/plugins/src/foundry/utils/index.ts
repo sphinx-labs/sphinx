@@ -5,18 +5,18 @@ import { promisify } from 'util'
 import {
   BuildInfo,
   ContractArtifact,
-} from '@sphinx/core/dist/languages/solidity/types'
+} from '@sphinx-labs/core/dist/languages/solidity/types'
 import {
   parseFoundryArtifact,
   validateBuildInfo,
   execAsync,
-} from '@sphinx/core/dist/utils'
+} from '@sphinx-labs/core/dist/utils'
 import {
   ConfigArtifacts,
   GetConfigArtifacts,
   GetProviderForChainId,
   UserContractConfigs,
-} from '@sphinx/core/dist/config/types'
+} from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
 import { providers } from 'ethers/lib/ethers'
 

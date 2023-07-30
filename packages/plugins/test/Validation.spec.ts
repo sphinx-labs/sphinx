@@ -6,7 +6,7 @@ import {
   ensureSphinxInitialized,
   getParsedConfig,
   readUserConfig,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import '@nomiclabs/hardhat-ethers'
 
 import { createSphinxRuntime } from '../src/cre'

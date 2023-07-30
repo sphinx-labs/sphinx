@@ -6,7 +6,7 @@ import {
   getParsedConfig,
   getProjectBundleInfo,
   readUserConfig,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 import { utils } from 'ethers'
 
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'

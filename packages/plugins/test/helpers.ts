@@ -19,8 +19,12 @@ import {
   UserConfigWithOptions,
   CanonicalConfig,
   GetCanonicalConfig,
-} from '@sphinx/core'
-import { AuthABI, PROPOSER_ROLE, SphinxManagerABI } from '@sphinx/contracts'
+} from '@sphinx-labs/core'
+import {
+  AuthABI,
+  PROPOSER_ROLE,
+  SphinxManagerABI,
+} from '@sphinx-labs/contracts'
 import { expect } from 'chai'
 import { BigNumber, ethers } from 'ethers'
 

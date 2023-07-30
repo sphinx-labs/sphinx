@@ -9,7 +9,7 @@ import {
   getParsedConfig,
   getSphinxManagerAddress,
   getTargetAddress,
-} from '@sphinx/core'
+} from '@sphinx-labs/core'
 
 import * as plugins from '../dist'
 import { createSphinxRuntime } from '../src/cre'

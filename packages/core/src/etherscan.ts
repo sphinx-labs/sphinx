@@ -21,7 +21,7 @@ import { buildContractUrl } from '@nomiclabs/hardhat-etherscan/dist/src/util'
 import { getLongVersion } from '@nomiclabs/hardhat-etherscan/dist/src/solc/version'
 import { encodeArguments } from '@nomiclabs/hardhat-etherscan/dist/src/ABIEncoder'
 import { chainConfig } from '@nomiclabs/hardhat-etherscan/dist/src/ChainConfig'
-import { buildInfo as sphinxBuildInfo } from '@sphinx/contracts'
+import { buildInfo as sphinxBuildInfo } from '@sphinx-labs/contracts'
 import { request } from 'undici'
 import { CompilerInput } from 'hardhat/types'
 

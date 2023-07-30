@@ -10,8 +10,8 @@ import {
     FoundryContractConfig,
     ContractKindEnum
 } from "./SphinxPluginTypes.sol";
-import { ISphinxRegistry } from "@sphinx/contracts/contracts/interfaces/ISphinxRegistry.sol";
-import { ISphinxManager } from "@sphinx/contracts/contracts/interfaces/ISphinxManager.sol";
+import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
+import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxManager.sol";
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
