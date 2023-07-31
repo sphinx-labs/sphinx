@@ -9,7 +9,7 @@ This guide will show you how to deploy and test a sample project with Sphinx's F
 1. [Prerequisites](#1-prerequisites)
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
-4. [Initialize project](#4-initialize-project)
+4. [Initialize a project](#4-initialize-a-project)
 5. [Test the deployment](#5-test-the-deployment)
 6. [Deploy locally](#6-deploy-locally)
 7. [Broadcast deployment on Anvil](#7-broadcast-deployment-on-anvil)
@@ -19,7 +19,7 @@ This guide will show you how to deploy and test a sample project with Sphinx's F
 
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
 You must also have a basic understanding of Foundry. See [here](https://book.getfoundry.sh/getting-started/first-steps) for a brief introduction.
 
@@ -35,7 +35,11 @@ foundryup
 
 First, navigate to a fresh directory.
 
-You can install using Yarn or npm.
+```
+mkdir hello_sphinx && cd hello_sphinx
+```
+
+You can install Sphinx using Yarn or npm.
 
 Yarn:
 ```
@@ -47,7 +51,7 @@ npm:
 npm install --save-dev @sphinx-labs/plugins
 ```
 
-## 4. Initialize project
+## 4. Initialize a project
 
 Next, we'll create a sample project that deploys and tests two contracts. The project is defined in a Sphinx config file, which can be written in either TypeScript or JavaScript.
 
@@ -98,18 +102,18 @@ npx sphinx deploy --config sphinx/HelloSphinx.config.js
 Whenever a deployment is broadcasted, Sphinx will automatically generate deployment artifacts, which
 are in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
-First, load the `.env` file, which contains a valid private key on Anvil:
-
-```
-source .env
-```
-
-Start an Anvil node:
+First, start an Anvil node:
 ```
 anvil
 ```
 
-Then, navigate to a new terminal window. We'll broadcast the deployment in this window.
+Then, navigate to a new terminal window.
+
+In the new terminal window, load the `.env` file, which contains a valid private key on Anvil:
+
+```
+source .env
+```
 
 If your Sphinx config file is written in TypeScript:
 

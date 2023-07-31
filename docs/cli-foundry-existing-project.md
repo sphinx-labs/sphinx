@@ -9,19 +9,21 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 1. [Prerequisites](#1-prerequisites)
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
-4. [Update `forge-std`](#4-update-forge-std)
-5. [Update `foundry.toml`](#5-update-foundrytoml)
-6. [Initialize project](#6-initialize-project)
-7. [Test the deployment](#7-test-the-deployment)
-8. [Deploy locally](#8-deploy-locally)
-9. [Broadcast deployment on Anvil](#9-broadcast-deployment-on-anvil)
-10. [Learn more](#10-learn-more)
+4. [Update `gitignore`](#4-update-gitignore)
+5. [Install latest `forge-std`](#5-install-latest-forge-std)
+6. [Update `foundry.toml`](#6-update-foundrytoml)
+7. [Add remappings](#7-add-remappings)
+8. [Initialize a project](#8-initialize-a-project)
+9. [Test the deployment](#9-test-the-deployment)
+10. [Deploy locally](#10-deploy-locally)
+11. [Broadcast deployment on Anvil](#11-broadcast-deployment-on-anvil)
+12. [Learn more](#12-learn-more)
 
 ## 1. Prerequisites
 
 The following must be installed on your machine:
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
 You must also have a basic understanding of Foundry. See [here](https://book.getfoundry.sh/getting-started/first-steps) for a brief introduction.
 
@@ -49,7 +51,14 @@ npm:
 npm install --save-dev @sphinx-labs/plugins
 ```
 
-## 4. Update `forge-std`
+## 4. Update `gitignore`
+
+Add the following to your `.gitignore` file:
+```
+node_modules/
+```
+
+## 5. Install latest `forge-std`
 
 You must update your `forge-std` package to the latest version.
 
@@ -59,9 +68,9 @@ You can use `forge update` to update it. For example, if `forge-std` is in a `li
 forge update lib/forge-std
 ```
 
-## 5. Update `foundry.toml`
+## 6. Update `foundry.toml`
 
-Next, we'll need to update the `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
+We'll update the `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
 
 ```
 ffi = true
@@ -70,7 +79,15 @@ extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
 ```
 
-Next, we'll need to add a couple remappings. You probably already have remappings either in your `foundry.toml` or `remappings.txt` file. If you don't, we recommend adding a `remappings.txt` file in the root of your repository.
+Then, add Anvil to your `rpc_endpoints`:
+```
+[rpc_endpoints]
+anvil = "http://localhost:8545"
+```
+
+## 7. Add remappings
+
+You probably already have remappings either in your `foundry.toml` or `remappings.txt` file. If you don't, we recommend adding a `remappings.txt` file in the root of your repository.
 
 If you're using a `remappings.txt` file, add:
 ```
@@ -86,7 +103,7 @@ remappings=[
 ]
 ```
 
-## 6. Initialize project
+## 8. Initialize a project
 
 Next, we'll create a sample project that deploys and tests two contracts. The project is defined in a Sphinx config file, which can be written in either TypeScript or JavaScript.
 
@@ -105,14 +122,14 @@ This command created a few files:
 - `sphinx/HelloSphinx.config.<ts/js>`: The Sphinx config file, which is where the deployment is defined. This config file will deploy two instances of the `HelloSphinx` contract.
 - `HelloSphinx.t.sol`: A test file for the deployment. This is located in your existing test folder, or `test/` if one doesn't exist.
 
-## 7. Test the deployment
+## 9. Test the deployment
 
 Run the test in `HelloSphinx.t.sol`:
 ```
 forge test --match-contract HelloSphinxTest
 ```
 
-## 8. Deploy locally
+## 10. Deploy locally
 
 With the Sphinx CLI tool, you deploy contracts using a CLI command instead of directly invoking a Forge script.
 The CLI command is a thin wrapper over a basic Forge script. When deploying on a standalone network, the deploy command  displays a preview of the deployment and generates deployment artifacts afterwards.
@@ -129,7 +146,7 @@ If your Sphinx config file is written in JavaScript:
 npx sphinx deploy --config sphinx/HelloSphinx.config.js
 ```
 
-## 9. Broadcast deployment on Anvil
+## 11. Broadcast deployment on Anvil
 
 Next, we'll broadcast a deployment on Anvil using the first valid private key on this network.
 
@@ -155,6 +172,6 @@ If your Sphinx config file is written in JavaScript:
 npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --rpc http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
-## 10. Learn more
+## 12. Learn more
 
 To get started with the Sphinx DevOps platform, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md).

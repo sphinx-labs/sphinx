@@ -114,7 +114,13 @@ export const writeSampleProjectFiles = (
       // Create the sample test file.
       fs.writeFileSync(
         testFilePath,
-        getSampleFoundryTestFile(solcVersion, configPath)
+        getSampleFoundryTestFile(
+          solcVersion,
+          configPath,
+          contractDirPath,
+          testDirPath,
+          quickStart
+        )
       )
     }
   } else {
