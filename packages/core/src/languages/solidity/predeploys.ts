@@ -146,7 +146,7 @@ export const ensureSphinxInitialized = async (
     const networkType = await getNetworkType(provider)
     const { networkName } = await resolveNetwork(provider, networkType)
     throw new Error(
-      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it!`
+      `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it! If you are seeing this error on a network we support, try using a different provider and then file an issue on Github if the problem persists.`
     )
   }
 }
