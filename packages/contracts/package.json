@@ -9,6 +9,7 @@
     "contracts/*",
     "artifacts/contracts/**/*.json",
     "artifacts/@eth-optimism/contracts-bedrock/contracts/universal/Proxy.sol/*.json",
+    "artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/*.json",
     "artifacts/build-info/**/*.json"
   ],
   "scripts": {
@@ -42,7 +43,6 @@
     "@openzeppelin/contracts-upgradeable": "^4.6.0",
     "dotenv": "^16.0.1",
     "ds-test": "https://github.com/dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "ethers": "^5.6.9",
     "forge-std": "https://github.com/foundry-rs/forge-std.git#66bf4e2c92cf507531599845e8d5a08cc2e3b5bb",
     "hardhat": "^2.9.9",
     "solhint": "^3.4.1",
@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.40",
-    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230"
+    "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
+    "ethers": "^5.6.9"
   }
 }

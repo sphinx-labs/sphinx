@@ -1,5 +1,5 @@
 [profile.default]
-src = 'contracts'
+src = 'contracts/'
 ffi = true
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']

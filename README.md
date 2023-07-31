@@ -55,7 +55,7 @@ Test networks:
 
 ## Reach Out
 
-If you have any questions, feature requests, or want us to add a new network, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
+If you have any questions, feature requests, or want us to add new networks, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## Maintainers
 

@@ -21,7 +21,7 @@ If your repository has an existing Hardhat project, you can skip to [this step](
 ## 1. Prerequisites
 
 The following must be installed on your machine:
-- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/) or [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
 You must also have a basic understanding of Hardhat. See [here](https://hardhat.org/hardhat-runner/docs/getting-started) for a brief introduction.
 
@@ -86,7 +86,6 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: ...
-        // Copy and paste this:
         settings: {
           outputSelection: {
             '*': {
@@ -98,8 +97,6 @@ const config: HardhatUserConfig = {
     ]
   }
 }
-
-export default config
 ```
 
 ## 7. Initialize Sphinx
@@ -115,7 +112,7 @@ This command created a few new files:
 
 ## 8. Test the deployment
 
-The following command first deploys the Sphinx config file using the first signer on the Hardhat network. Then, it executes the test file.
+The following command deploys the Sphinx config file using the first signer on the Hardhat network. Then, it executes the test file.
 
 ```
 npx hardhat test test/HelloSphinx.spec.ts --signer 0 --config-path sphinx/HelloSphinx.config.ts
