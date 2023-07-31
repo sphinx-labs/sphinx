@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.17.3
+
+### Patch Changes
+
+- d88ec605: Fix bugs in getting started guides
+- Updated dependencies [d88ec605]
+  - @sphinx-labs/contracts@0.9.3
+
 ## 0.17.2
 
 ### Patch Changes
