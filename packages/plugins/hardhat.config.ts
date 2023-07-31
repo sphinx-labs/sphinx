@@ -55,7 +55,7 @@ const config: HardhatUserConfig = {
     // },
     // 'gnosis-chiado': {
     //   chainId: 10200,
-    //   url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
+    //   url: `https://rpc.chiadochain.net`,
     //   accounts,
     // },
     // maticmum: {
