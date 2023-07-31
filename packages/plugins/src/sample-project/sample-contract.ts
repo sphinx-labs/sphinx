@@ -1,3 +1,5 @@
+import { relative } from 'path'
+
 export const getSampleContractFile = (solcVersion: string) => {
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
@@ -20,14 +22,26 @@ contract HelloSphinx {
 
 export const getSampleFoundryTestFile = (
   solcVersion: string,
-  configPath: string
+  configPath: string,
+  contractDirPath: string,
+  testDirPath: string,
+  quickStart: boolean
 ) => {
+  // Get the relative path from the test directory to the contracts directory. Note that this also
+  // strips the trailing path separator ('/') from the contract directory path (if it exists), which
+  // is necessary to avoid a trailing double slash in the import path for the HelloSphinx contract.
+  // In other words, if the contract directory path is 'contracts/', then the relative path won't
+  // include the trailing slash, which is what we want.
+  const relativePath = relative(testDirPath, contractDirPath)
+
+  const sphinxImport = quickStart ? '@sphinx' : '@sphinx-labs/plugins'
+
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};
 
-import { Sphinx } from "@sphinx-labs/plugins/Sphinx.sol";
+import { Sphinx } from "${sphinxImport}/Sphinx.sol";
 import { Test } from "forge-std/Test.sol";
-import { HelloSphinx } from "../contracts/HelloSphinx.sol";
+import { HelloSphinx } from "${relativePath}/HelloSphinx.sol";
 
 contract HelloSphinxTest is Sphinx, Test {
     HelloSphinx firstContract;

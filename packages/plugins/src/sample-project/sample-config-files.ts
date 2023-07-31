@@ -25,8 +25,7 @@ const config: UserConfig = {
 export default config
 `
 
-export const sampleSphinxFileJavaScript = `
-module.exports = {
+export const sampleSphinxFileJavaScript = `module.exports = {
   projectName: 'MyProject',
   contracts: {
     ContractOne: {
@@ -55,10 +54,9 @@ build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
 fs_permissions = [{ access = "read", path = "./"}]
 remappings=[
-  'forge-std/=node_modules/@sphinx-labs/plugins/node_modules/forge-std/src/',
-  'ds-test/=node_modules/@sphinx-labs/plugins/node_modules/ds-test/src/',
-  '@sphinx-labs/plugins=node_modules/@sphinx-labs/plugins/contracts/foundry',
-  '@sphinx-labs/contracts=node_modules/@sphinx-labs/contracts/'
+  'forge-std/=node_modules/forge-std/src/',
+  'ds-test/=node_modules/ds-test/src/',
+  '@sphinx/=node_modules/@sphinx-labs/plugins/contracts/foundry/'
 ]
 
 [rpc_endpoints]

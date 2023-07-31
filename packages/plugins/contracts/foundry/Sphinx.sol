@@ -46,7 +46,8 @@ contract Sphinx is Script {
     address private systemOwnerAddress =
         key != 0 ? vm.rememberKey(key) : 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
 
-    string private rootPath = vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
+    string private rootPath =
+        vm.envOr("DEV_FILE_PATH", string("./node_modules/@sphinx-labs/plugins/"));
     string private rootFfiPath = string(abi.encodePacked(rootPath, "dist/foundry/"));
     string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
