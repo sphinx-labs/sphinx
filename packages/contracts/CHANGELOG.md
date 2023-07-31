@@ -1,5 +1,11 @@
 # @sphinx-labs/contracts
 
+## 0.9.3
+
+### Patch Changes
+
+- d88ec605: Fix bugs in getting started guides
+
 ## 0.9.2
 
 ### Patch Changes
