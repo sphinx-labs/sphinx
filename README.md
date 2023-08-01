@@ -42,20 +42,26 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 * Optimism
 * Arbitrum
 * Polygon
+* Polygon zkEVM
 * BNB Smart Chain (aka BSC)
 * Gnosis Chain
+* Avalanche C-Chain
+* Linea
+* Fantom
 
 Test networks:
 * Ethereum Goerli
 * Optimism Goerli
 * Arbitrum Goerli
 * Polygon Mumbai
+* Polygon zkEVM Testnet
 * BNB Smart Chain Testnet
 * Gnosis Chiado
+* Avalanche Fuji
+* Linea Goerli
+* Fantom Testnet
 
-## Reach Out
-
-If you have any questions, feature requests, or want us to add new networks, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
+More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
 ## Maintainers
 
@@ -65,7 +71,11 @@ If you have any questions, feature requests, or want us to add new networks, sen
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and send us a message!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). Let us know if you have any questions!
+
+## Reach Out
+
+If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
 
