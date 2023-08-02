@@ -1,5 +1,15 @@
 # @sphinx-labs/plugins
 
+## 0.17.4
+
+### Patch Changes
+
+- ad8a9dd6: Improve logs of proposal CLI tasks
+- d8818e28: Parse env vars in rpc endpoints in foundry.toml
+- Updated dependencies [e9fc6c67]
+- Updated dependencies [ad8a9dd6]
+  - @sphinx-labs/core@0.12.3
+
 ## 0.17.3
 
 ### Patch Changes
