@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.12.3
+
+### Patch Changes
+
+- e9fc6c67: Output warning for unreliable networks
+- ad8a9dd6: Improve logs of proposal CLI tasks
+
 ## 0.12.2
 
 ### Patch Changes
