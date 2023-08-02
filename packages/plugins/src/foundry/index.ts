@@ -3,82 +3,15 @@ import {
   getPreviousConfigUri,
   bytecodeContainsEIP1967Interface,
   bytecodeContainsUUPSInterface,
-  FailureAction,
-  proposeAbstractTask,
-  readUserConfigWithOptions,
   ensureSphinxInitialized,
 } from '@sphinx-labs/core'
 import { ethers } from 'ethers'
-import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
-
-import { getFoundryConfigOptions } from './options'
-import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './utils'
-import { createSphinxRuntime } from '../cre'
-import {
-  getEncodedFailure,
-  getPrettyWarnings,
-  validationStderrWrite,
-} from './logs'
-import 'core-js/features/array/at'
 
 const args = process.argv.slice(2)
 const command = args[0]
 
 ;(async () => {
   switch (command) {
-    case 'propose': {
-      process.stderr.write = validationStderrWrite
-
-      try {
-        const configPath = args[1]
-        const isTestnet = args[3] === 'true'
-
-        const {
-          artifactFolder,
-          buildInfoFolder,
-          compilerConfigFolder,
-          cachePath,
-          rpcEndpoints,
-        } = await getFoundryConfigOptions()
-
-        const cre = createSphinxRuntime(
-          'foundry',
-          true,
-          false,
-          false, // Users must manually confirm proposals.
-          compilerConfigFolder,
-          undefined,
-          false,
-          process.stderr
-        )
-
-        await proposeAbstractTask(
-          await readUserConfigWithOptions(configPath),
-          isTestnet,
-          cre,
-          makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
-          await makeGetProviderFromChainId(rpcEndpoints),
-          undefined,
-          FailureAction.THROW
-        )
-
-        const encodedWarnings = defaultAbiCoder.encode(
-          ['string'],
-          [getPrettyWarnings()]
-        )
-
-        const encodedSuccess = hexConcat([
-          encodedWarnings,
-          defaultAbiCoder.encode(['bool'], [true]), // true = success
-        ])
-
-        process.stdout.write(encodedSuccess)
-      } catch (err) {
-        const encodedFailure = getEncodedFailure(err)
-        process.stdout.write(encodedFailure)
-      }
-      break
-    }
     case 'getPreviousConfigUri': {
       const rpcUrl = args[1]
       const proxyAddress = args[2]

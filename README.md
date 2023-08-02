@@ -1,10 +1,12 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is a DevOps platform for smart contract deployments.
+Sphinx is a DevOps platform for multi-chain smart contract deployments.
+
+Website: [sphinx.dev](https://sphinx.dev)
 
 ## Key Features
 
-Sphinx can either be used as a standalone CLI tool for simple deployments, or as a DevOps platform that extends the CLI tool with additional functionality.
+Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
 
 ### Standalone CLI
 - Define deployments in a declarative config file instead of writing deployment scripts
@@ -22,7 +24,7 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 
 ### Getting Started:
 - Foundry:
-  - [Quick Start](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quick-start.md)
+  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
 - Hardhat:
@@ -42,20 +44,26 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 * Optimism
 * Arbitrum
 * Polygon
+* Polygon zkEVM
 * BNB Smart Chain (aka BSC)
 * Gnosis Chain
+* Avalanche C-Chain
+* Linea
+* Fantom
 
 Test networks:
 * Ethereum Goerli
 * Optimism Goerli
 * Arbitrum Goerli
 * Polygon Mumbai
+* Polygon zkEVM Testnet
 * BNB Smart Chain Testnet
 * Gnosis Chiado
+* Avalanche Fuji
+* Linea Goerli
+* Fantom Testnet
 
-## Reach Out
-
-If you have any questions, feature requests, or want us to add new networks, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
+More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
 ## Maintainers
 
@@ -65,7 +73,11 @@ If you have any questions, feature requests, or want us to add new networks, sen
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). If you're not sure where to start, [join the Discord](https://discord.gg/7Gc3DK33Np) and send us a message!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). Let us know if you have any questions!
+
+## Reach Out
+
+If you have any questions or feature requests, send us a message in our [Discord!](https://discord.gg/7Gc3DK33Np)
 
 ## License
 

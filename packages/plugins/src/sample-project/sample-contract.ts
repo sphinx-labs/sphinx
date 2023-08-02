@@ -25,7 +25,7 @@ export const getSampleFoundryTestFile = (
   configPath: string,
   contractDirPath: string,
   testDirPath: string,
-  quickStart: boolean
+  quickstart: boolean
 ) => {
   // Get the relative path from the test directory to the contracts directory. Note that this also
   // strips the trailing path separator ('/') from the contract directory path (if it exists), which
@@ -34,7 +34,7 @@ export const getSampleFoundryTestFile = (
   // include the trailing slash, which is what we want.
   const relativePath = relative(testDirPath, contractDirPath)
 
-  const sphinxImport = quickStart ? '@sphinx' : '@sphinx-labs/plugins'
+  const sphinxImport = quickstart ? '@sphinx' : '@sphinx-labs/plugins'
 
   return `// SPDX-License-Identifier: MIT
 pragma solidity ^${solcVersion};

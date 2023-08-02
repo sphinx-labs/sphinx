@@ -22,7 +22,7 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 
 ### Getting Started:
 - Foundry:
-  - [Quick Start](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quick-start.md)
+  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
 - Hardhat:

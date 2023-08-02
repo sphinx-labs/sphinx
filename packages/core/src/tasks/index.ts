@@ -7,6 +7,7 @@ import ora from 'ora'
 import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@sphinx-labs/contracts'
+import { blue } from 'chalk'
 
 import {
   SphinxInput,
@@ -44,9 +45,10 @@ import {
   getNetworkType,
   resolveNetwork,
   getNetworkDirName,
+  hyperlink,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
-import { Integration } from '../constants'
+import { Integration, WEBSITE_URL } from '../constants'
 import {
   SphinxBundles,
   DeploymentState,
@@ -126,6 +128,8 @@ export const proposeAbstractTask = async (
     failureAction
   )
 
+  spinner.succeed(`Got project info.`)
+
   // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
   // there aren't any network-specific errors that are caused by the config. These errors would most
   // likely occur in the `postParsingValidation` function that's a few calls inside of
@@ -142,7 +146,13 @@ export const proposeAbstractTask = async (
   } = {}
   const configCaches: Array<ConfigCache> = []
   // We loop through any logic that depends on the provider object.
-  for (const chainId of chainIds) {
+  for (let i = 0; i < chainIds.length; i++) {
+    const chainId = chainIds[i]
+    spinner.start(
+      `Getting on-chain data for chain ID ${chainId}... [${i + 1}/${
+        chainIds.length
+      }]`
+    )
     const provider = getProviderForChainId(chainId)
 
     await ensureSphinxInitialized(provider, wallet.connect(provider))
@@ -191,6 +201,8 @@ export const proposeAbstractTask = async (
     compilerConfigs[configUri] = compilerConfig
   }
 
+  spinner.succeed(`Got on-chain data.`)
+
   const diff = getDiff(configCaches)
 
   // This removes a TypeScript error that occurs because TypeScript doesn't know that the
@@ -199,13 +211,6 @@ export const proposeAbstractTask = async (
     throw new Error(
       'Could not find either parsed config or config artifacts. Should never happen.'
     )
-  }
-
-  if (leafs.length === 0) {
-    console.error(
-      `No changes have been made to the config file since the last proposal, so there is nothing to propose.`
-    )
-    process.exit(1)
   }
 
   const { orgId } = parsedConfig.options
@@ -381,7 +386,10 @@ export const proposeAbstractTask = async (
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
   }
 
-  spinner.succeed(`Proposal succeeded!`)
+  const websiteLink = blue(hyperlink('website', WEBSITE_URL))
+  spinner.succeed(
+    `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
+  )
 
   return proposalRequest
 }
