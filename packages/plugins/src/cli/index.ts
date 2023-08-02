@@ -97,10 +97,14 @@ yargs(hideBin(process.argv))
 
       // First, we compile the contracts to make sure we're using the latest versions. This command
       // displays the compilation process to the user in real time.
-      spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+      const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+      // Exit the process if compilation fails.
+      if (status !== 0) {
+        process.exit(1)
+      }
 
       const spinner = ora()
-      spinner.start(`Proposal in progress...`)
+      spinner.start(`Getting project info...`)
 
       const {
         artifactFolder,
@@ -157,8 +161,8 @@ yargs(hideBin(process.argv))
     'Initialize a sample project',
     (y) =>
       y
-        .usage('Usage: npx sphinx init --js|--ts [--quick-start]')
-        .option('quickStart', {
+        .usage('Usage: npx sphinx init --js|--ts [--quickstart]')
+        .option('quickstart', {
           describe:
             'Initialize the project in a new repository. This writes a new foundry.toml and .env file.',
           boolean: true,
@@ -173,7 +177,7 @@ yargs(hideBin(process.argv))
         })
         .hide('version'),
     async (argv) => {
-      const quickStart = argv.quickStart ?? false
+      const quickstart = argv.quickstart ?? false
       const { ts, js } = argv
       if (ts && js) {
         console.error('Cannot specify both --ts and --js. Please choose one.')
@@ -210,7 +214,7 @@ yargs(hideBin(process.argv))
         src,
         test,
         isTypeScriptProject,
-        quickStart,
+        quickstart,
         solcVersion,
         'foundry'
       )
@@ -345,7 +349,11 @@ yargs(hideBin(process.argv))
 
       // First, we compile the contracts to make sure we're using the latest versions. This command
       // displays the compilation process to the user in real time.
-      spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+      const { status } = spawnSync(`forge`, ['build'], { stdio: 'inherit' })
+      // Exit the process if compilation fails.
+      if (status !== 0) {
+        process.exit(1)
+      }
 
       const {
         artifactFolder,

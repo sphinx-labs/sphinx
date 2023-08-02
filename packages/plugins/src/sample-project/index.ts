@@ -37,12 +37,12 @@ export const writeSampleProjectFiles = (
   contractDirPath: string,
   testDirPath: string,
   isTypeScriptProject: boolean,
-  quickStart: boolean,
+  quickstart: boolean,
   solcVersion: string,
   integration: Integration
 ) => {
-  if (quickStart && integration === 'hardhat') {
-    throw new Error('Quick start is not supported for Hardhat projects.')
+  if (quickstart && integration === 'hardhat') {
+    throw new Error('Quickstart is not supported for Hardhat projects.')
   }
 
   // Create the Sphinx config folder if it doesn't exist
@@ -103,7 +103,7 @@ export const writeSampleProjectFiles = (
       )
     }
   } else if (integration === 'foundry') {
-    if (quickStart) {
+    if (quickstart) {
       fs.writeFileSync('foundry.toml', forgeConfig)
       fs.writeFileSync('.env', sampleDotEnvFile)
     }
@@ -119,7 +119,7 @@ export const writeSampleProjectFiles = (
           configPath,
           contractDirPath,
           testDirPath,
-          quickStart
+          quickstart
         )
       )
     }

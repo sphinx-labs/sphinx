@@ -1,4 +1,4 @@
-# Quick Start with Foundry
+# Quickstart with Foundry
 
 This guide will show you how to deploy and test a sample project with Sphinx's Foundry CLI plugin. Once you've finished this guide, the next guide will introduce you to the Sphinx DevOps platform, which extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
 
@@ -57,19 +57,19 @@ Next, we'll create a sample project that deploys and tests two contracts. The pr
 
 To use a TypeScript Sphinx config file, run:
 ```
-npx sphinx init --ts --quick-start
+npx sphinx init --ts --quickstart
 ```
 
 To use a JavaScript Sphinx config file, run:
 ```
-npx sphinx init --js --quick-start
+npx sphinx init --js --quickstart
 ```
 
 This command created a few files:
 - `src/HelloSphinx.sol`: A sample contract to deploy.
 - `sphinx/HelloSphinx.config.<ts/js>`: The Sphinx config file, which is where the deployment is defined. This config file will deploy two instances of the `HelloSphinx` contract.
 - `test/HelloSphinx.t.sol`: A test file for the deployment.
-- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx.
+- `foundry.toml`: The Foundry config file, which contains a few settings that are needed to run Sphinx. It also contains public RPC endpoints for several of the networks that Sphinx supports.
 - `.env`: A sample `.env` file that contains a valid private key on Anvil.
 
 ## 5. Test the deployment

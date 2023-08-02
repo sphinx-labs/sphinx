@@ -1,6 +1,6 @@
-export const sampleSphinxFileTypeScript = `import { UserConfig } from '@sphinx-labs/core'
+export const sampleSphinxFileTypeScript = `import { UserSphinxConfig } from '@sphinx-labs/core'
 
-const config: UserConfig = {
+const config: UserSphinxConfig = {
   projectName: 'MyProject',
   contracts: {
     ContractOne: {
@@ -61,7 +61,12 @@ remappings=[
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
-goerli = "\${GOERLI_RPC_URL}"
+goerli = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
+optimism_goerli = "https://goerli.optimism.io"
+arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
+bnb_smart_chain_testnet = "https://rpc.ankr.com/bsc_testnet_chapel"
+gnosis_chiado = "https://rpc.chiadochain.net"
+polygon_mumbai = "https://rpc-mumbai.maticvigil.com"
 
 [etherscan]
 goerli = { key = "\${ETHERSCAN_API_KEY}" }

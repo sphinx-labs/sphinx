@@ -2,7 +2,7 @@
 
 This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. Once you've finished this guide, the next guide will introduce you to the Sphinx DevOps platform, which extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
 
-> Note: If you're looking to setup Sphinx in a fresh directory, go to the [Quick Start guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quick-start.md).
+> Note: If you're looking to setup Sphinx in a fresh directory, go to the [Quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md).
 
 ## Table of Contents
 
