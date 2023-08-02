@@ -164,7 +164,7 @@ export const sphinxProposeTask = async (
   }
 
   const spinner = ora()
-  spinner.start(`Proposal in progress...`)
+  spinner.start(`Getting project info...`)
 
   const cre = createSphinxRuntime(
     'hardhat',
@@ -472,7 +472,7 @@ export const importProxyTask = async (
 
 export const sphinxInitTask = async (
   args: {
-    quickStart?: boolean
+    quickstart?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {

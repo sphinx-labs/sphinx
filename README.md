@@ -1,10 +1,12 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is a DevOps platform for smart contract deployments.
+Sphinx is a DevOps platform for multi-chain smart contract deployments.
+
+Website: [sphinx.dev](https://sphinx.dev)
 
 ## Key Features
 
-Sphinx can either be used as a standalone CLI tool for simple deployments, or as a DevOps platform that extends the CLI tool with additional functionality.
+Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
 
 ### Standalone CLI
 - Define deployments in a declarative config file instead of writing deployment scripts
@@ -22,7 +24,7 @@ Sphinx can either be used as a standalone CLI tool for simple deployments, or as
 
 ### Getting Started:
 - Foundry:
-  - [Quick Start](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quick-start.md)
+  - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
 - Hardhat:

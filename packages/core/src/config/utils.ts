@@ -74,7 +74,7 @@ export const getTargetSalt = (
 }
 
 export const getUserSaltHash = (userSalt?: UserSalt): string => {
-  if (userSalt) {
+  if (userSalt !== undefined) {
     const userSaltString =
       typeof userSalt === 'number' ? userSalt.toString() : userSalt
     return utils.solidityKeccak256(['string'], [userSaltString])

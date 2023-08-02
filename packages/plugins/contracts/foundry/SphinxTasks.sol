@@ -15,45 +15,6 @@ import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISph
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
-    function propose(string memory _configPath, bool _isTestnet) internal noVmBroadcast {
-        string[] memory cmds = new string[](7);
-        cmds[0] = "npx";
-        // We use ts-node here to support TypeScript Sphinx config files.
-        cmds[1] = "ts-node";
-        // Using SWC speeds up the process of transpiling TypeScript into JavaScript
-        cmds[2] = "--swc";
-        cmds[3] = mainFfiScriptPath;
-        cmds[4] = "propose";
-        cmds[5] = _configPath;
-        cmds[6] = vm.toString(_isTestnet);
-
-        bytes memory result = vm.ffi(cmds);
-
-        // The success boolean is the last 32 bytes of the result.
-        bytes memory successBytes = utils.slice(result, result.length - 32, result.length);
-        bool success = abi.decode(successBytes, (bool));
-
-        bytes memory data = utils.slice(result, 0, result.length - 32);
-
-        if (success) {
-            string memory warnings = abi.decode(data, (string));
-
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-
-            if (!silent) {
-                console.log(StdStyle.green(string.concat("Successfully proposed!")));
-            }
-        } else {
-            (string memory errors, string memory warnings) = abi.decode(data, (string, string));
-            if (bytes(warnings).length > 0) {
-                console.log(StdStyle.yellow(warnings));
-            }
-            revert(errors);
-        }
-    }
-
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(
         string memory _configPath,
