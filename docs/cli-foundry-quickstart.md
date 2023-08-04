@@ -118,13 +118,13 @@ source .env
 If your Sphinx config file is written in TypeScript:
 
 ```
-npx sphinx deploy --config sphinx/HelloSphinx.config.ts --broadcast --private-key $PRIVATE_KEY --rpc http://localhost:8545
+npx sphinx deploy --config sphinx/HelloSphinx.config.ts --broadcast --private-key $PRIVATE_KEY --rpc http://127.0.0.1:8545
 ```
 
 If your Sphinx config file is written in JavaScript:
 
 ```
-npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --private-key $PRIVATE_KEY --rpc http://localhost:8545
+npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --private-key $PRIVATE_KEY --rpc http://127.0.0.1:8545
 ```
 
 ## 8. Next steps
