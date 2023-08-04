@@ -2,7 +2,7 @@
 
 Sphinx is a DevOps platform for multi-chain smart contract deployments.
 
-Website: [sphinx.dev](https://sphinx.dev)
+Request access [here](https://sphinx.dev).
 
 ## Key Features
 
