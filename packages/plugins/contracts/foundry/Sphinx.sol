@@ -2,8 +2,7 @@
 pragma solidity >=0.7.4 <0.9.0;
 pragma experimental ABIEncoderV2;
 
-import { Script } from "forge-std/Script.sol";
-import { VmSafe } from "forge-std/Vm.sol";
+import { VmSafe, Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 
 import { ISphinxRegistry } from "@sphinx-labs/contracts/contracts/interfaces/ISphinxRegistry.sol";
@@ -31,9 +30,12 @@ import {
 } from "./SphinxPluginTypes.sol";
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 
-contract Sphinx is Script {
+abstract contract Sphinx {
+
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     VmSafe.Log[] private executionLogs;
-    bool internal silent;
+    bool private initialized;
 
     // Maps a Sphinx config path to a deployed contract's reference name to the deployed
     // contract's address.
@@ -51,32 +53,17 @@ contract Sphinx is Script {
     string private rootFfiPath = string(abi.encodePacked(rootPath, "dist/foundry/"));
     string internal mainFfiScriptPath = string(abi.encodePacked(rootFfiPath, "index.js"));
 
-    modifier noVmBroadcast() {
+    modifier noBroadcastOrPrank() {
         (VmSafe.CallerMode callerMode, , ) = vm.readCallers();
         require(
             callerMode != VmSafe.CallerMode.Broadcast,
             "Cannot call Sphinx using vm.broadcast. Please use vm.startBroadcast instead."
         );
-        _;
-    }
-
-    /**
-     * @notice This constructor must not revert, or else an opaque error message will be displayed
-       to the user.
-     */
-    constructor() {
-        bytes memory creationCode = vm.getCode(
-            string(abi.encodePacked(rootPath, "out/artifacts/SphinxUtils.sol/SphinxUtils.json"))
+        require(
+            callerMode != VmSafe.CallerMode.Prank,
+            "Cannot call Sphinx using vm.prank. Please use vm.startPrank instead."
         );
-        address utilsAddr = address(0);
-        assembly {
-            utilsAddr := create(0, add(creationCode, 0x20), mload(creationCode))
-        }
-        utils = ISphinxUtils(utilsAddr);
-    }
-
-    function silence() public {
-        silent = true;
+        _;
     }
 
     /**
@@ -90,31 +77,54 @@ contract Sphinx is Script {
     function deploy(string memory _configPath, string memory _rpcUrl) public {
         OptionalAddress memory newOwner;
         newOwner.exists = false;
-        deploy(_configPath, _rpcUrl, newOwner);
+        deploy(_configPath, _rpcUrl, newOwner, false);
+    }
+
+    function deployVerbose(string memory _configPath, string memory _rpcUrl) internal {
+        OptionalAddress memory newOwner;
+        newOwner.exists = false;
+        deploy(_configPath, _rpcUrl, newOwner, true);
     }
 
     function initializeSphinx(string memory _rpcUrl) internal {
+        if (initialized) return;
+
+        // TODO(docs)
+        bytes memory utilsCreationCode = vm.getCode(
+            string(abi.encodePacked(rootPath, "out/artifacts/SphinxUtils.sol/SphinxUtils.json"))
+        );
+        address utilsAddr;
+        assembly {
+            utilsAddr := create2(0, add(utilsCreationCode, 0x20), mload(utilsCreationCode), 0)
+        }
+        utils = ISphinxUtils(utilsAddr);
+
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        bool isRecurrentBroadcast = callerMode == VmSafe.CallerMode.RecurrentBroadcast;
-        if (isRecurrentBroadcast) vm.stopBroadcast();
+        // TODO(docs)
+        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.stopBroadcast();
+        else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.initialize.selector,
                 _rpcUrl,
-                isRecurrentBroadcast,
+                callerMode == VmSafe.CallerMode.RecurrentBroadcast,
                 mainFfiScriptPath,
                 systemOwnerAddress
             )
         );
         require(success, string(utils.removeSelector(retdata)));
-        if (isRecurrentBroadcast) vm.startBroadcast(msgSender);
+        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.startBroadcast(msgSender);
+        else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
+
+        initialized = true;
     }
 
     function deploy(
         string memory _configPath,
         string memory _rpcUrl,
-        OptionalAddress memory _newOwner
-    ) private noVmBroadcast {
+        OptionalAddress memory _newOwner,
+        bool _verbose
+    ) private noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
         address owner = utils.msgSender();
 
@@ -235,7 +245,7 @@ contract Sphinx is Script {
 
         updateDeploymentMapping(_configPath, configs.minimalConfig.contracts);
 
-        if (!silent) {
+        if (_verbose) {
             console.log("Success!");
             for (uint i = 0; i < configs.minimalConfig.contracts.length; i++) {
                 FoundryContractConfig memory contractConfig = configs.minimalConfig.contracts[i];

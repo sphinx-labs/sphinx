@@ -50,8 +50,6 @@ contract SphinxTest is Sphinx, Test {
     }
 
     function setUp() public {
-        silence();
-
         deploy(storageConfig, vm.rpcUrl("anvil"));
 
         myStorage = Storage(getAddress(storageConfig, "MyStorage"));
