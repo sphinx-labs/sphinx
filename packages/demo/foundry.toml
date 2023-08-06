@@ -1,5 +1,5 @@
 [profile.default]
-src = 'contracts/'
+src = 'contracts'
 ffi = true
 build_info = true
 extra_output = ['storageLayout', 'evm.gasEstimates']
@@ -14,4 +14,4 @@ remappings=[
 ]
 
 [rpc_endpoints]
-anvil = "http://localhost:8545"
+anvil = "http://127.0.0.1:8545"

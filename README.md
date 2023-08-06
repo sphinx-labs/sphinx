@@ -2,11 +2,11 @@
 
 Sphinx is a DevOps platform for multi-chain smart contract deployments.
 
-Website: [sphinx.dev](https://sphinx.dev)
+Request access [here](https://sphinx.dev).
 
 ## Key Features
 
-Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
+Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments and automatic Etherscan verification.
 
 ### Standalone CLI
 - Define deployments in a declarative config file instead of writing deployment scripts

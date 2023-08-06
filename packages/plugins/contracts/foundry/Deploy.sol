@@ -2,8 +2,9 @@
 pragma solidity >=0.7.4 <0.9.0;
 
 import { Sphinx } from "./Sphinx.sol";
+import { Script } from "forge-std/Script.sol";
 
-contract Deploy is Sphinx {
+contract Deploy is Sphinx, Script {
     string private configPath = vm.envString("SPHINX_INTERNAL_CONFIG_PATH");
     string private rpcUrl = vm.envString("SPHINX_INTERNAL_RPC_URL");
     bool broadcast = vm.envBool("SPHINX_INTERNAL_BROADCAST");
@@ -11,7 +12,7 @@ contract Deploy is Sphinx {
 
     function run() public {
         if (broadcast) vm.startBroadcast(deployerPrivateKey);
-        deploy(configPath, rpcUrl);
+        deployVerbose(configPath, rpcUrl);
         if (broadcast) vm.stopBroadcast();
     }
 }

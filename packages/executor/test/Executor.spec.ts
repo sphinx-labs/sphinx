@@ -47,7 +47,7 @@ const threshold = 1
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
-// executes the transactions on the SphinxAuth contract, but does not execute the project
+// executes the transactions on the SphinxAuth contract, but does not execute the contract
 // deployment on the SphinxManager.
 const ownerPrivateKey =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
@@ -71,7 +71,7 @@ describe('Remote executor', () => {
   let Immutable: Contract
   before(async () => {
     const provider = new ethers.providers.JsonRpcProvider(
-      'http://localhost:8545'
+      'http://127.0.0.1:8545'
     )
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
