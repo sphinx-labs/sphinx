@@ -16,7 +16,6 @@ import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISph
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
-
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     // TODO: Test once we are officially supporting upgradable contracts

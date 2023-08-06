@@ -31,7 +31,6 @@ import {
 import { ISphinxUtils } from "./interfaces/ISphinxUtils.sol";
 
 abstract contract Sphinx {
-
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     VmSafe.Log[] private executionLogs;
@@ -89,6 +88,14 @@ abstract contract Sphinx {
     function initializeSphinx(string memory _rpcUrl) internal {
         if (initialized) return;
 
+        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
+        // Next, we deploy and initialize the Sphinx contracts. If we're in a recurrent broadcast or prank,
+        // we temporarily stop it before we initialize the contracts. We disable broadcasting because
+        // we can't call vm.etch from within a broadcast. We disable pranking because we need to prank
+        // the owner of the Sphinx contracts when initializing the Sphinx contracts.
+        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.stopBroadcast();
+        else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
+
         // Get the creation bytecode of the SphinxUtils contract. We load the creation code
         // directly from a JSON file instead of importing it into this contract because this
         // speeds up the compilation process of contracts that inherit from this contract.
@@ -99,15 +106,9 @@ abstract contract Sphinx {
         assembly {
             utilsAddr := create2(0, add(utilsCreationCode, 0x20), mload(utilsCreationCode), 0)
         }
+        require(utilsAddr != address(0), "Sphinx: failed to deploy SphinxUtils contract");
         utils = ISphinxUtils(utilsAddr);
 
-        (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        // Next, we deploy and initialize the Sphinx contracts. If we're in a recurrent broadcast or prank,
-        // we temporarily stop it before we initialize the contracts. We disable broadcasting because
-        // we can't call vm.etch from within a broadcast. We disable pranking because we need to prank
-        // the owner of the Sphinx contracts when initializing the Sphinx contracts.
-        if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.stopBroadcast();
-        else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
         (bool success, bytes memory retdata) = address(utils).delegatecall(
             abi.encodeWithSelector(
                 ISphinxUtils.initialize.selector,
