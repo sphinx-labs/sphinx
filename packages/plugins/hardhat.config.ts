@@ -66,63 +66,63 @@ const config: HardhatUserConfig = {
 
     goerli: {
       chainId: 5,
-      url: 'http://localhost:42005',
+      url: 'http://127.0.0.1:42005',
       accounts,
     },
     'optimism-goerli': {
       chainId: 420,
-      url: 'http://localhost:42420',
+      url: 'http://127.0.0.1:42420',
       accounts,
     },
     'arbitrum-goerli': {
       chainId: 421613,
-      url: 'http://localhost:42613',
+      url: 'http://127.0.0.1:42613',
       accounts,
     },
     'gnosis-chiado': {
       chainId: 10200,
-      url: 'http://localhost:42102',
+      url: 'http://127.0.0.1:42102',
       accounts,
     },
     bnbt: {
       chainId: 97,
-      url: 'http://localhost:42097',
+      url: 'http://127.0.0.1:42097',
       accounts,
     },
     maticmum: {
       chainId: 80001,
-      url: 'http://localhost:42001',
+      url: 'http://127.0.0.1:42001',
       accounts,
     },
 
     ethereum: {
       chainId: 1,
-      url: 'http://localhost:10001',
+      url: 'http://127.0.0.1:10001',
       accounts,
     },
     optimism: {
       chainId: 10,
-      url: 'http://localhost:10010',
+      url: 'http://127.0.0.1:10010',
       accounts,
     },
     arbitrum: {
       chainId: 42161,
-      url: 'http://localhost:10161',
+      url: 'http://127.0.0.1:10161',
       accounts,
     },
     gnosis: {
       chainId: 100,
-      url: 'http://localhost:10100',
+      url: 'http://127.0.0.1:10100',
       accounts,
     },
     bnb: {
       chainId: 56,
-      url: 'http://localhost:10056',
+      url: 'http://127.0.0.1:10056',
       accounts,
     },
     polygon: {
       chainId: 137,
-      url: 'http://localhost:10137',
+      url: 'http://127.0.0.1:10137',
       accounts,
     },
   },

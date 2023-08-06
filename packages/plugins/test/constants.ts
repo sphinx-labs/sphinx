@@ -44,15 +44,15 @@ export const relayerPrivateKey =
 
 export const testnets = ['goerli', 'optimism-goerli']
 export const rpcProviders = {
-  goerli: new ethers.providers.JsonRpcProvider('http://localhost:42005'),
+  goerli: new ethers.providers.JsonRpcProvider('http://127.0.0.1:42005'),
   'optimism-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42420'
+    'http://127.0.0.1:42420'
   ),
   'gnosis-chiado': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42102'
+    'http://127.0.0.1:42102'
   ),
   'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
-    'http://localhost:42613'
+    'http://127.0.0.1:42613'
   ),
 }
 export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address

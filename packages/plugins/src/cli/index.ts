@@ -430,12 +430,12 @@ yargs(hideBin(process.argv))
       process.env['SPHINX_INTERNAL_BROADCAST'] = broadcast.toString()
       process.env['SPHINX_INTERNAL_PRIVATE_KEY'] = privateKey
 
-      const deployContractPath = join(
-        rootFfiPath,
-        'contracts',
-        'foundry',
-        'Deploy.sol'
-      )
+      // The `SPHINX_INTERNAL_OVERRIDE_DEPLOY_SCRIPT` environment variable is used for testing
+      // purposes only.
+      const deployContractPath = process.env
+        .SPHINX_INTERNAL_OVERRIDE_DEPLOY_SCRIPT
+        ? join('script', 'Deploy.sol')
+        : join(rootFfiPath, 'contracts', 'foundry', 'Deploy.sol')
 
       const forgeScriptArgs = ['script', deployContractPath]
       if (argv[rpcOption]) {

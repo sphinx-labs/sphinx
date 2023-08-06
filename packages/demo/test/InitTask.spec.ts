@@ -39,7 +39,7 @@ describe('Init Task', () => {
 
     hardhatTestPath = path.join(test, hhTestFileNameTypeScript)
 
-    provider = new providers.JsonRpcProvider('http://localhost:8545')
+    provider = new providers.JsonRpcProvider('http://127.0.0.1:8545')
   })
 
   beforeEach(async () => {
@@ -104,7 +104,7 @@ describe('Init Task', () => {
     const ownerPrivateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
     await execAsync(
-      `npx sphinx deploy --confirm --config ${configPath} --broadcast --rpc http://localhost:8545 ` +
+      `npx sphinx deploy --confirm --config ${configPath} --broadcast --rpc http://127.0.0.1:8545 ` +
         `--private-key ${ownerPrivateKey}`
     )
 
