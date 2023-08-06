@@ -1532,3 +1532,15 @@ export const getNetworkTag = (
     return `${localNetworkType} (chain ID: ${chainId})`
   }
 }
+
+export const getNetworkNameForChainId = (chainId: number): string => {
+  const network = Object.keys(SUPPORTED_NETWORKS).find(
+    (n) => SUPPORTED_NETWORKS[n] === chainId
+  )
+
+  if (!network) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+
+  return network
+}

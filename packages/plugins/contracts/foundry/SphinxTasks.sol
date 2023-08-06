@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.4 <0.9.0;
 
+import { Vm } from "forge-std/Vm.sol";
 import { console } from "forge-std/console.sol";
 import { StdStyle } from "forge-std/StdStyle.sol";
 import { Sphinx } from "./Sphinx.sol";
@@ -15,12 +16,14 @@ import { ISphinxManager } from "@sphinx-labs/contracts/contracts/interfaces/ISph
 import { SphinxConstants } from "./SphinxConstants.sol";
 
 contract SphinxTasks is Sphinx, SphinxConstants {
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     // TODO: Test once we are officially supporting upgradable contracts
     function importProxy(
         string memory _configPath,
         address _proxy,
         string memory _rpcUrl
-    ) internal noVmBroadcast {
+    ) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 
@@ -69,7 +72,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         string memory _referenceName,
         address _newOwner,
         string memory _rpcUrl
-    ) internal noVmBroadcast {
+    ) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 
@@ -112,7 +115,7 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         manager.exportProxy(payable(targetContractConfig.addr), contractKindHash, _newOwner);
     }
 
-    function cancel(string memory _configPath, string memory _rpcUrl) internal noVmBroadcast {
+    function cancel(string memory _configPath, string memory _rpcUrl) internal noBroadcastOrPrank {
         initializeSphinx(_rpcUrl);
         address signer = utils.msgSender();
 

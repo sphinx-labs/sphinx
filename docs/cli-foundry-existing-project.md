@@ -1,6 +1,8 @@
 # Integrate Sphinx into an Existing Foundry Project
 
-This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. Once you've finished this guide, the next guide will introduce you to the Sphinx DevOps platform, which extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
+This guide will show you how to integrate Sphinx's Foundry CLI plugin into an existing repository. We'll also create a sample project to demonstrate how to test contracts using Sphinx.
+
+Once you've finished this guide, the next guide will introduce you to the Sphinx DevOps platform, which extends the CLI tool with additional functionality, such as one-click multi-chain deployments.
 
 > Note: If you're looking to setup Sphinx in a fresh directory, go to the [Quickstart guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md).
 
@@ -10,13 +12,13 @@ This guide will show you how to integrate Sphinx's Foundry CLI plugin into an ex
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
 4. [Update `gitignore`](#4-update-gitignore)
-5. [Install latest `forge-std`](#5-install-latest-forge-std)
+5. [Update `forge-std`](#5-update-forge-std)
 6. [Update `foundry.toml`](#6-update-foundrytoml)
 7. [Add remappings](#7-add-remappings)
 8. [Initialize a project](#8-initialize-a-project)
 9. [Test the deployment](#9-test-the-deployment)
-10. [Deploy locally](#10-deploy-locally)
-11. [Broadcast deployment on Anvil](#11-broadcast-deployment-on-anvil)
+10. [Deploy locally (optional)](#10-deploy-locally-optional)
+11. [Broadcast deployment on Anvil (optional)](#11-broadcast-deployment-on-anvil-optional)
 12. [Learn more](#12-learn-more)
 
 ## 1. Prerequisites
@@ -58,19 +60,47 @@ Add the following to your `.gitignore` file:
 node_modules/
 ```
 
-## 5. Install latest `forge-std`
+## 5. Update `forge-std`
 
-You must update your `forge-std` package to the latest version.
+You must update your `forge-std` dependency to version `1.6.0` or higher. A few options are listed below depending on how `forge-std` is installed in your repository.
 
-You can use `forge update` to update it. For example, if `forge-std` is in a `lib/` folder, you can run the command:
+### If you've installed `forge-std` using Foundry's default installation method (git submodules):
+
+You can update to the latest version of `forge-std` by running the command:
 
 ```
-forge update lib/forge-std
+forge install foundry-rs/forge-std
+```
+
+### If you've installed `forge-std` using Yarn or npm:
+
+You can skip this step if the `forge-std` dependency in your `package.json` has a version of `1.6.0` or higher.
+
+Otherwise, you can update `forge-std` to version `1.6.0` by running one of the following commands.
+
+> Note: If `forge-std` is installed under `devDependencies` in your `package.json`, make sure you add the `--dev` flag for Yarn, or the `--save-dev` flag for npm.
+
+Yarn:
+```
+yarn add https://github.com/foundry-rs/forge-std.git#v1.6.0
+```
+
+npm:
+```
+npm install https://github.com/foundry-rs/forge-std.git#v1.6.0
+```
+
+### If you haven't installed `forge-std` yet:
+
+You can install it with the command:
+
+```
+forge install foundry-rs/forge-std
 ```
 
 ## 6. Update `foundry.toml`
 
-We'll update the `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
+Update your `foundry.toml` file to include a few settings that are needed to run Sphinx. We recommend putting them under `[profile.default]`.
 
 ```
 ffi = true
@@ -129,7 +159,7 @@ Run the test in `HelloSphinx.t.sol`:
 forge test --match-contract HelloSphinxTest
 ```
 
-## 10. Deploy locally
+## 10. Deploy locally (optional)
 
 With the Sphinx CLI tool, you deploy contracts using a CLI command instead of directly invoking a Forge script.
 The CLI command is a thin wrapper over a basic Forge script. When deploying on a standalone network, the deploy command  displays a preview of the deployment and generates deployment artifacts afterwards.
@@ -146,7 +176,7 @@ If your Sphinx config file is written in JavaScript:
 npx sphinx deploy --config sphinx/HelloSphinx.config.js
 ```
 
-## 11. Broadcast deployment on Anvil
+## 11. Broadcast deployment on Anvil (optional)
 
 Next, we'll broadcast a deployment on Anvil using the first valid private key on this network.
 

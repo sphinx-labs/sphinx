@@ -47,7 +47,9 @@ contract HelloSphinxTest is Sphinx, Test {
     HelloSphinx firstContract;
     HelloSphinx secondContract;
 
+    // Path from the project root to the Sphinx config file to deploy
     string configPath = "${configPath}";
+
     string projectName = "MyProject";
 
     function setUp() public {

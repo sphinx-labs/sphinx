@@ -10,6 +10,7 @@ import {
   parseFoundryArtifact,
   validateBuildInfo,
   execAsync,
+  getNetworkNameForChainId,
 } from '@sphinx-labs/core/dist/utils'
 import {
   ConfigArtifacts,
@@ -122,7 +123,9 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
     const network = networks.find((n) => n && n.chainId === chainId)
     if (network === undefined) {
       throw new Error(
-        `Could not find an RPC endpoint in your foundry.toml that corresponds to chain ID ${chainId}.`
+        `Could not find an RPC endpoint in your foundry.toml for the network: ${getNetworkNameForChainId(
+          chainId
+        )}.`
       )
     }
 
