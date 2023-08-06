@@ -112,7 +112,7 @@ fs_permissions = [{ access = "read", path = "./"}]
 Then, add Anvil to your `rpc_endpoints`:
 ```
 [rpc_endpoints]
-anvil = "http://localhost:8545"
+anvil = "http://127.0.0.1:8545"
 ```
 
 ## 7. Add remappings
@@ -193,13 +193,13 @@ Then, navigate to a new terminal window. We'll broadcast the deployment in this 
 If your Sphinx config file is written in TypeScript:
 
 ```
-npx sphinx deploy --config sphinx/HelloSphinx.config.ts --broadcast --rpc http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+npx sphinx deploy --config sphinx/HelloSphinx.config.ts --broadcast --rpc http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
 If your Sphinx config file is written in JavaScript:
 
 ```
-npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --rpc http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+npx sphinx deploy --config sphinx/HelloSphinx.config.js --broadcast --rpc http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
 
 ## 12. Learn more

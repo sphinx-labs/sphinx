@@ -24,7 +24,7 @@ import { GraphQLClient } from 'graphql-request'
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
-const defaultURL = 'http://localhost:8545'
+const defaultURL = 'http://127.0.0.1:8545'
 export class SphinxExecutor extends BaseServiceV2<
   ExecutorOptions,
   ExecutorMetrics,
@@ -51,7 +51,7 @@ export class SphinxExecutor extends BaseServiceV2<
         network: {
           desc: 'Target deployment network name',
           validator: validators.str,
-          default: 'localhost',
+          default: '127.0.0.1',
         },
         privateKeys: {
           desc: 'Command delimited list of private keys for signing deployment transactions',
@@ -91,7 +91,7 @@ export class SphinxExecutor extends BaseServiceV2<
     })
 
     if (options.url === defaultURL && process.env.CHAIN_ID) {
-      options.url = `http://localhost:${
+      options.url = `http://127.0.0.1:${
         42000 + (parseInt(process.env.CHAIN_ID, 10) % 1000)
       }`
     }
