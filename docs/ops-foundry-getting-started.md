@@ -51,7 +51,7 @@ SPHINX_API_KEY=<your API key>
 Then, open your Sphinx config file, which is in the `sphinx/` folder. We'll extend this config file to support
 a multi-chain deployment, which will occur on several testnets.
 
-We'll add an `options` field to the config file, which contains the settings of your project. Copy and paste the `options` field below into your config file:
+We'll add the project settings in the `options` field. Copy and paste the `options` field below into your config file:
 
 ```ts
 const config: UserSphinxConfig = {
