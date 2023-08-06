@@ -46,6 +46,7 @@ import {
   resolveNetwork,
   getNetworkDirName,
   hyperlink,
+  getNetworkNameForChainId,
 } from '../utils'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration, WEBSITE_URL } from '../constants'
@@ -149,9 +150,9 @@ export const proposeAbstractTask = async (
   for (let i = 0; i < chainIds.length; i++) {
     const chainId = chainIds[i]
     spinner.start(
-      `Getting on-chain data for chain ID ${chainId}... [${i + 1}/${
-        chainIds.length
-      }]`
+      `Getting on-chain data for ${getNetworkNameForChainId(chainId)}... [${
+        i + 1
+      }/${chainIds.length}]`
     )
     const provider = getProviderForChainId(chainId)
 
