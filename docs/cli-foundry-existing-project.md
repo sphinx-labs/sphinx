@@ -12,7 +12,7 @@ Once you've finished this guide, the next guide will introduce you to the Sphinx
 2. [Update Foundry](#2-update-foundry)
 3. [Install Sphinx](#3-install-sphinx)
 4. [Update `gitignore`](#4-update-gitignore)
-5. TODO
+5. [Update `forge-std`](#5-update-forge-std)
 6. [Update `foundry.toml`](#6-update-foundrytoml)
 7. [Add remappings](#7-add-remappings)
 8. [Initialize a project](#8-initialize-a-project)

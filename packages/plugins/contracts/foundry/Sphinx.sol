@@ -89,7 +89,9 @@ abstract contract Sphinx {
     function initializeSphinx(string memory _rpcUrl) internal {
         if (initialized) return;
 
-        // TODO(docs)
+        // Get the creation bytecode of the SphinxUtils contract. We load the creation code
+        // directly from a JSON file instead of importing it into this contract because this
+        // speeds up the compilation process of contracts that inherit from this contract.
         bytes memory utilsCreationCode = vm.getCode(
             string(abi.encodePacked(rootPath, "out/artifacts/SphinxUtils.sol/SphinxUtils.json"))
         );
@@ -100,7 +102,10 @@ abstract contract Sphinx {
         utils = ISphinxUtils(utilsAddr);
 
         (VmSafe.CallerMode callerMode, address msgSender, ) = vm.readCallers();
-        // TODO(docs)
+        // Next, we deploy and initialize the Sphinx contracts. If we're in a recurrent broadcast or prank,
+        // we temporarily stop it before we initialize the contracts. We disable broadcasting because
+        // we can't call vm.etch from within a broadcast. We disable pranking because we need to prank
+        // the owner of the Sphinx contracts when initializing the Sphinx contracts.
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.stopBroadcast();
         else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.stopPrank();
         (bool success, bytes memory retdata) = address(utils).delegatecall(
@@ -113,6 +118,7 @@ abstract contract Sphinx {
             )
         );
         require(success, string(utils.removeSelector(retdata)));
+        // If we were in a recurrent broadcast or prank, we restart it.
         if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) vm.startBroadcast(msgSender);
         else if (callerMode == VmSafe.CallerMode.RecurrentPrank) vm.startPrank(msgSender);
 
