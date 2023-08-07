@@ -26,8 +26,7 @@
       "@sphinx-labs/{plugins,demo}/ds-test",
       "@sphinx-labs/plugins/solidity-stringutils",
       "@sphinx-labs/plugins/@prb/math",
-      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples",
-      "@sphinx-labs/demo/@sphinx-labs/plugins"
+      "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
     ]
   },
   "scripts": {
