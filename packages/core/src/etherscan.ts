@@ -343,7 +343,7 @@ Response: ${responseBodyText}`
   }
 
   const responseBodyJson = await response.body.json()
-  return responseBodyJson
+  return responseBodyJson as EtherscanResponseBody
 }
 
 export const checkProxyVerificationStatus = async (
