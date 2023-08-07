@@ -1,5 +1,12 @@
 # @sphinx-labs/contracts
 
+## 0.9.4
+
+### Patch Changes
+
+- ec24a7b6: Fix nohoist bug
+- 99fd9f09: Remove dependency on inherited forge-std contracts in Sphinx.sol
+
 ## 0.9.3
 
 ### Patch Changes

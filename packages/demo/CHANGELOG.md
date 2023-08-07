@@ -1,5 +1,19 @@
 # @sphinx-labs/demo
 
+## 0.8.4
+
+### Patch Changes
+
+- 3ee9949e: Use 127.0.0.1 instead of localhost
+- ec24a7b6: Fix nohoist bug
+- 99fd9f09: Remove dependency on inherited forge-std contracts in Sphinx.sol
+- Updated dependencies [3ee9949e]
+- Updated dependencies [ec24a7b6]
+- Updated dependencies [99fd9f09]
+  - @sphinx-labs/plugins@0.17.5
+  - @sphinx-labs/contracts@0.9.4
+  - @sphinx-labs/core@0.12.4
+
 ## 0.8.3
 
 ### Patch Changes
