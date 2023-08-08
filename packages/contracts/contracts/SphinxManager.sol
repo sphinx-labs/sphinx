@@ -857,8 +857,10 @@ contract SphinxManager is
             );
             registry.announce("ContractDeploymentSkipped");
         } else {
-            // We delegatecall the Create3 contract so that the SphinxManager address is used in
-            // the address calculation of the deployed contract.
+            // We delegatecall the Create3 contract so that the SphinxManager address is used in the
+            // address calculation of the deployed contract. If we call the Create3 contract instead
+            // of delegatecalling it, it'd be possible for an attacker to snipe a user's contract by
+            // calling the `deploy` function on the Create3 contract directly.
             (bool deploySuccess, bytes memory actualAddressBytes) = create3.delegatecall(
                 abi.encodeCall(ICreate3.deploy, (salt, creationCodeWithConstructorArgs, 0))
             );
