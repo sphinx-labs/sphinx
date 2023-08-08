@@ -168,12 +168,12 @@ describe('Multi chain config', () => {
         newUserConfig,
         true,
         cre,
+        true, // Dry run the proposal so it isn't sent to the back-end
         makeGetConfigArtifacts(hre),
         makeGetProviderFromChainId(hre),
         undefined, // Use the default spinner
         undefined, // Use the default FailureAction
-        getCanonicalConfig,
-        true // Skip relaying the meta transaction to the back-end
+        getCanonicalConfig
       )
       const { root, leaves } = proposalRequest.tree
 
