@@ -17,6 +17,7 @@ Sphinx can either be used as a standalone CLI tool for deployments on a single c
 ### DevOps Platform
 - Approve multi-chain deployments with a single meta transaction
 - Maintain a balance of USDC on a single chain to fund deployments
+- Propose deployments from your CI process gaslessly
 - Automatic Etherscan verification
 - Support for multisigs (coming soon)
 

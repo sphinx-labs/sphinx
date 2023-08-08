@@ -54,7 +54,7 @@ yargs(hideBin(process.argv))
     (y) =>
       y
         .usage(
-          `Usage: npx sphinx propose --${configOption} <path> [--testnets|--mainnets]`
+          `Usage: npx sphinx propose --${configOption} <path> [--testnets|--mainnets] [--confirm] [--dry-run]`
         )
         .option(configOption, {
           alias: 'c',
@@ -69,11 +69,20 @@ yargs(hideBin(process.argv))
           describe: `Propose on the mainnets specified in the Sphinx config`,
           boolean: true,
         })
+        .option('confirm', {
+          describe:
+            'Automatically confirm the proposal. Only use this in a CI process.',
+          boolean: true,
+        })
+        .option('dryRun', {
+          describe: `Simulate the proposal without sending it to Sphinx's back-end.`,
+          boolean: true,
+        })
         .hide('version'),
     async (argv) => {
-      const { config } = argv
-      const testnets = argv.testnets ?? false
-      const mainnets = argv.mainnets ?? false
+      const { config, testnets, mainnets } = argv
+      const confirm = !!argv.confirm
+      const dryRun = !!argv.dryRun
 
       let isTestnet: boolean
       if (testnets && mainnets) {
@@ -85,6 +94,13 @@ yargs(hideBin(process.argv))
         isTestnet = false
       } else {
         console.error('Must specify either --testnets or --mainnets')
+        process.exit(1)
+      }
+
+      if (dryRun && confirm) {
+        console.error(
+          `Cannot specify both --dry-run and --confirm. Please choose one.`
+        )
         process.exit(1)
       }
 
@@ -118,7 +134,7 @@ yargs(hideBin(process.argv))
         'hardhat',
         true,
         false,
-        false, // Users must manually confirm proposals.
+        confirm,
         compilerConfigFolder,
         undefined,
         false,
@@ -150,6 +166,7 @@ yargs(hideBin(process.argv))
         userConfig,
         isTestnet,
         cre,
+        dryRun,
         makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
         await makeGetProviderFromChainId(rpcEndpoints),
         spinner

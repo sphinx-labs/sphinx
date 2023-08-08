@@ -168,6 +168,7 @@ describe('Multi chain config', () => {
         newUserConfig,
         true,
         cre,
+        true, // Dry run the proposal so it isn't sent to the back-end
         makeGetConfigArtifacts(hre),
         makeGetProviderFromChainId(hre),
         undefined, // Use the default spinner
