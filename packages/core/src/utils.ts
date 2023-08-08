@@ -1246,6 +1246,10 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
       throw new Error(
         `Internal server error, please report this to the developers`
       )
+    } else {
+      throw new Error(
+        `Unexpected response code, please report this to the developers`
+      )
     }
   }
 }
@@ -1261,7 +1265,9 @@ export const relayIPFSCommit = async (
     ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
   })
 
-  if (response.status === 400) {
+  if (response.status === 200) {
+    return response.data
+  } else if (response.status === 400) {
     throw new Error(
       'Malformed request pinning to IPFS, please report this to the developers'
     )
@@ -1269,9 +1275,11 @@ export const relayIPFSCommit = async (
     throw new Error(
       `Unauthorized, please check your API key and Org Id are correct`
     )
+  } else {
+    throw new Error(
+      `Unexpected response code, please report this to the developers`
+    )
   }
-
-  return response.data
 }
 
 /**
