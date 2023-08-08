@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.12.6
+
+### Patch Changes
+
+- 264bbc23: Handle unexpected response code from sphinx platform api
+
 ## 0.12.5
 
 ### Patch Changes
