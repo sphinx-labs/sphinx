@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.12.5
+
+### Patch Changes
+
+- db6e3e2e: Fix polygon mainnet gas price bug
+- f5d7503e: Output network name during etherscan verification
+
 ## 0.12.4
 
 ### Patch Changes
