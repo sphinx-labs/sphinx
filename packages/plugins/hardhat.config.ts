@@ -38,9 +38,24 @@ const config: HardhatUserConfig = {
     //   url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
+    // ethereum: {
+    //   chainId: 1,
+    //   url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
     // 'optimism-goerli': {
     //   chainId: 420,
     //   url: `https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // optimism: {
+    //   chainId: 10,
+    //   url: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // arbitrum: {
+    //   chainId: 42161,
+    //   url: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
     // 'arbitrum-goerli': {
@@ -50,17 +65,32 @@ const config: HardhatUserConfig = {
     // },
     // bnbt: {
     //   chainId: 97,
-    //   url: `https://young-wandering-energy.bsc-testnet.discover.quiknode.pro/${process.env.QUICKNODE_API_KEY}`,
+    //   url: process.env.BNB_TESTNET_URL,
+    //   accounts,
+    // },
+    // bnb: {
+    //   chainId: 56,
+    //   url: process.env.BNB_MAINNET_URL,
     //   accounts,
     // },
     // 'gnosis-chiado': {
     //   chainId: 10200,
-    //   url: `https://rpc.chiadochain.net`,
+    //   url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
+    //   accounts,
+    // },
+    // gnosis: {
+    //   chainId: 100,
+    //   url: process.env.GNOSIS_MAINNET_URL,
     //   accounts,
     // },
     // maticmum: {
     //   chainId: 80001,
     //   url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    //   accounts,
+    // },
+    // polygon: {
+    //   chainId: 137,
+    //   url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
     //   accounts,
     // },
 
@@ -94,7 +124,6 @@ const config: HardhatUserConfig = {
       url: 'http://127.0.0.1:42001',
       accounts,
     },
-
     ethereum: {
       chainId: 1,
       url: 'http://127.0.0.1:10001',

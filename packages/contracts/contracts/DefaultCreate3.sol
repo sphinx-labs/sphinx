@@ -8,7 +8,9 @@ import { ICreate3 } from "./interfaces/ICreate3.sol";
 /**
  * @title DefaultCreate3
  * @notice Default implementation of the ICreate3 interface. The default Create3 formula is used on
-           Ethereum and networks that are EVM-equivalent, or close to it.
+ *        Ethereum and networks that are EVM-equivalent, or close enough to it.
+ *
+ *        See the `ICreate3` interface for more information.
  */
 contract DefaultCreate3 is ICreate3 {
     using Bytes32AddressLib for bytes32;

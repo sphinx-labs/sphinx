@@ -54,7 +54,7 @@ const config: HardhatUserConfig = {
     },
     arbitrum: {
       chainId: 42161,
-      url: 'https://arb1.arbitrum.io/rpc',
+      url: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
     'arbitrum-goerli': {
@@ -64,7 +64,12 @@ const config: HardhatUserConfig = {
     },
     bnbt: {
       chainId: 97,
-      url: `https://young-wandering-energy.bsc-testnet.discover.quiknode.pro/${process.env.QUICKNODE_API_KEY}`,
+      url: process.env.BNB_TESTNET_URL,
+      accounts,
+    },
+    bnb: {
+      chainId: 56,
+      url: process.env.BNB_MAINNET_URL,
       accounts,
     },
     'gnosis-chiado': {
@@ -72,9 +77,19 @@ const config: HardhatUserConfig = {
       url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
       accounts,
     },
+    gnosis: {
+      chainId: 100,
+      url: process.env.GNOSIS_MAINNET_URL,
+      accounts,
+    },
     maticmum: {
       chainId: 80001,
       url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts,
+    },
+    polygon: {
+      chainId: 137,
+      url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts,
     },
   },
