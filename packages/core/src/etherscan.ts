@@ -228,7 +228,7 @@ export const attemptVerification = async (
 
   console.log(
     `Successfully submitted source code for contract
-     ${sourceName}:${contractName} at ${contractAddress}
+     ${sourceName}:${contractName} at ${contractAddress} on ${networkName}
      for verification on the block explorer. Waiting for verification result...
     `
   )
@@ -258,13 +258,13 @@ export const attemptVerification = async (
   if (verificationStatus.isVerificationSuccess()) {
     const contractURL = buildContractUrl(urls.browserURL, contractAddress)
     console.log(
-      `Successfully verified ${contractName} on Etherscan:
+      `Successfully verified ${contractName} on ${networkName} Etherscan:
       ${contractURL}`
     )
   } else {
     // Reaching this point shouldn't be possible unless the API is behaving in a new way.
     throw new Error(
-      `The Etherscan API responded with an unexpected message.
+      `The ${networkName} Etherscan API responded with an unexpected message.
       Contract verification may have succeeded and should be checked manually.
       Message: ${verificationStatus.message}`
     )
