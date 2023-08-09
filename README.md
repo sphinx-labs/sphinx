@@ -1,26 +1,27 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is a DevOps platform for multi-chain smart contract deployments.
+Sphinx is a DevOps platform for smart contract deployments. Sphinx is particularly great at coordinating multi-chain deployments.
 
 Request access [here](https://sphinx.dev).
 
 ## Key Features
 
-Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments and automatic Etherscan verification.
+Here is the deployment process with the DevOps platform:
 
-### Standalone CLI
+1. Define your project in a single declarative config file instead of writing deployment scripts. Sphinx has a Hardhat and Foundry plugin.
+2. Propose your deployment gaslessly from a CI process or the command line.
+3. Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
+4. Approve your deployment with a single meta transaction signed by your project owners. You'll always sign a single meta transaction regardless of the number of chains or the size of the deployment.
+5. Sphinx trustlessly executes your deployment on every chain and verifies your contracts on Etherscan. Your contracts will have consistent addresses across networks because Sphinx uses `CREATE3` by default.
+6. Generate deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
-- Define deployments in a declarative config file instead of writing deployment scripts
-- Consistent addresses across networks via `CREATE3`
-- Deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy)
-- Available as a Foundry and Hardhat plugin
+### Standalone CLI tool
 
-### DevOps Platform
+You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
 
-- Approve multi-chain deployments with a single meta transaction
-- Maintain a balance of USDC on a single chain to fund deployments
-- Automatic Etherscan verification
-- Support for multisigs (coming soon)
+### Coming soon
+
+- Support for multisigs
 
 ## Documentation
 
