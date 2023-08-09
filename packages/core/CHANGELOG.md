@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.12.8
+
+### Patch Changes
+
+- 9d9257db: Allow proposal to succeed without doing anything
+
 ## 0.12.7
 
 ### Patch Changes
