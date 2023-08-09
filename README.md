@@ -20,11 +20,13 @@ Here is the deployment process with the DevOps platform:
 You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
 
 ### Coming soon
+
 - Support for multisigs
 
 ## Documentation
 
-### Getting Started:
+### Getting Started
+
 - Foundry:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
@@ -34,7 +36,8 @@ You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deploym
   - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
 
-### References:
+### References
+
 - [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
 - [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
@@ -42,28 +45,29 @@ You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deploym
 
 ## Supported Networks
 
-* Ethereum
-* Optimism
-* Arbitrum
-* Polygon
-* Polygon zkEVM
-* BNB Smart Chain (aka BSC)
-* Gnosis Chain
-* Avalanche C-Chain
-* Linea
-* Fantom
+- Ethereum
+- Optimism
+- Arbitrum
+- Polygon
+- Polygon zkEVM
+- BNB Smart Chain (aka BSC)
+- Gnosis Chain
+- Avalanche C-Chain
+- Linea
+- Fantom
 
 Test networks:
-* Ethereum Goerli
-* Optimism Goerli
-* Arbitrum Goerli
-* Polygon Mumbai
-* Polygon zkEVM Testnet
-* BNB Smart Chain Testnet
-* Gnosis Chiado
-* Avalanche Fuji
-* Linea Goerli
-* Fantom Testnet
+
+- Ethereum Goerli
+- Optimism Goerli
+- Arbitrum Goerli
+- Polygon Mumbai
+- Polygon zkEVM Testnet
+- BNB Smart Chain Testnet
+- Gnosis Chiado
+- Avalanche Fuji
+- Linea Goerli
+- Fantom Testnet
 
 More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
@@ -75,7 +79,7 @@ More networks are on the way! Please feel free to reach out in our [Discord](htt
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). Let us know if you have any questions!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
 
 ## Reach Out
 
