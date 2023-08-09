@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.12.7
+
+### Patch Changes
+
+- 0b309f0c: Support proposals in CI
+
 ## 0.12.6
 
 ### Patch Changes

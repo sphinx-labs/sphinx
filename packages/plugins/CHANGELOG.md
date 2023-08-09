@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.17.7
+
+### Patch Changes
+
+- 0b309f0c: Support proposals in CI
+- Updated dependencies [0b309f0c]
+  - @sphinx-labs/core@0.12.7
+
 ## 0.17.6
 
 ### Patch Changes
