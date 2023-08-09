@@ -101,7 +101,7 @@ export const proposeAbstractTask = async (
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT,
   getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig
-): Promise<ProposalRequest> => {
+): Promise<ProposalRequest | undefined> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     throw new Error(`Must provide a 'SPHINX_API_KEY' environment variable.`)
@@ -228,6 +228,13 @@ export const proposeAbstractTask = async (
     // Confirm deployment with the user before proceeding.
     await userConfirmation(getDiffString(diff))
     spinner.start(`Proposal in progress...`)
+  }
+
+  if (leafs.length === 0) {
+    spinner.succeed(
+      `Proposal completed, nothing has changed so no new deployment was created.`
+    )
+    return
   }
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}

@@ -32,7 +32,7 @@ Deployments are a three-step process with the DevOps platform.
 
 ## 3. Get testnet ETH on OP Goerli
 
-You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract, which is where you'll keep the USDC that pays for your multi-chain deployments. This contract only exists on Optimism Goerli (and Optimism Mainnet for production deployments), so it's a one-time cost.
+You'll need a small amount of testnet ETH on Optimism Goerli, which you can get at [their faucet](https://app.optimism.io/faucet). Later, you'll use this ETH to deploy a `SphinxBalance` contract. We require that you pay for the cost of your deployments by depositing USDC into this contract during execution. You'll need do go through this process on both test and production networks. On testnets we will provide you with testnet USDC to use. This contract only exists on Optimism Goerli (and Optimism Mainnet for production deployments), so deploying it is a one-time cost.
 
 ## 4. Get your credentials
 
