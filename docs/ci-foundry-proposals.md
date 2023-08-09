@@ -8,35 +8,72 @@ If you're using Sphinx's Hardhat plugin instead of Foundry, check out the [Hardh
 
 ## Table of Contents
 
-TODO
+1. [Prerequisites](#1-prerequisites)
+2. [Create a new branch](#2-create-a-new-branch-in-your-repo)
+3. [Create a Github Actions folder](#3-create-a-github-actions-folder)
+4. [Create new workflow files](#4-create-new-workflow-files-sphinxdeployyml-and-sphinxdry-runyml)
+5. [Create the dry run workflow](#5-create-the-dry-run-workflow)
+6. [Create the propose workflow](#6-create-the-propose-workflow)
+7. [Test your integration](#7-test-your-integration)
+8. [Production Deployments](#8-production-deployments)
 
-## Prerequisites
+## 1. Prerequisites
 
 Make sure that you've already completed the [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md) guide for the project you're going to use in this guide.
 
 Also, make sure that your `foundry.toml` has an `rpc_endpoints` section that contains an RPC endpoint for each network you want to support in your project.
 
-## Create a new branch in your repo
+## 2. Create a new branch in your repo
 
-`git checkout -B sphinx/integrate-ci`
+```
+git checkout -B sphinx/integrate-ci
+```
 
-## Create a Github Actions folder
+## 3. Create a Github Actions folder
 
 If you already have a `.github/` folder, you can skip this step.
 
 Run the following command in the root directory of your project:
 
-`mkdir -p .github/workflows`
+```
+mkdir -p .github/workflows
+```
 
-## Create a new workflow `deploy.yml`
+## 4. Create new workflow files `sphinx.deploy.yml` and `sphinx.dry-run.yml`
 
-`touch .github/workflows/deploy.yml`
+```
+touch .github/workflows/sphinx.dry-run.yml
+touch .github/workflows/sphinx.deploy.yml
+```
 
-## Create the action template
+## 5. Create the dry run workflow
+We'll first create a workflow that runs the `propose` command with the `--dry-run` flag whenever a PR is opened and updated. Proposing with the dry run flag just checks that the proposal process will complete successfuly. So this check helps prevent you from accidentally merging a change where the deployment might fail during the proposal step.
 
-We'll create an action template that runs the `propose` command on every push to the `main` branch.
+Copy and paste the following into your `sphinx.dry-run.yml` file:
 
-Copy and paste the following into your `deploy.yml` file:
+```
+name: Sphinx Dry Run
+env:
+    PROPOSER_PRIVATE_KEY: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+    SPHINX_API_KEY: ${{ secrets.SPHINX_API_KEY }}
+    # Put any node provider API keys or urls here. For example:
+    # ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+
+# Performs a dryrun proposal when a PR is opened and updated to confirm the
+# proposal will complete successfully after a PR is merged
+on: pull_request
+
+jobs:
+  sphinx-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: yarn install
+      - run: npx sphinx propose --config ./sphinx/HelloSphinx.config.ts --dry-run --testnets
+```
+
+## 6. Create the propose workflow
+Now we'll create a workflow that runs the `propose` command with the `--confirm` flag. The confirm flag overrides the manual confirmation required by the proposal command allowing the proposal command to complete automatically.
 
 ```
 name: Sphinx Propose
@@ -45,17 +82,6 @@ env:
     SPHINX_API_KEY: ${{ secrets.SPHINX_API_KEY }}
     # Put any node provider API keys or urls here. For example:
     # ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-
-# Performs a dryrun proposal when a PR is opened and updated to confirm the
-$ proposal will complete successfully after a PR is merged
-on: pull_request
-jobs:
-  sphinx-dry-run
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - run: yarn install
-      - run: npx sphinx propose --config path/to/config --dry-run
 
 # Triggers a deployment when a change is merged to main
 on:
@@ -68,7 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: yarn install
-      - run: npx sphinx propose --config path/to/config --confirm
+      - run: npx sphinx propose --config ./sphinx/HelloSphinx.config.ts --confirm --testnets
 ```
 
 Here is a checklist of things to do before moving on:
@@ -79,6 +105,11 @@ Here is a checklist of things to do before moving on:
 - [ ] If your repository doesn't use `yarn install`, update the `yarn install` step under `jobs`.
 - [ ] Add the path to your Sphinx config in the `npx sphinx propose` command under `jobs`.
 
-## Test your integration
+## 7. Test your integration
 
 Push your branch to Github, open a PR, and merge it after the dryrun check completes. You can then go to https://www.sphinx.dev and you'll find your new deployment there.
+
+## 8. Production Deployments
+In this example we've configured the CI deployment process to deploy against test networks when merging to main. If you want to go straight to production, you can do so by switching out the `--testnets` flag for the `--mainnets` production.
+
+However, in practice you may want something different depending on your workflow. For a more robust setup we recommend using a `develop` branch and triggering testnet deployments when merging to that branch. Then you should setup a separate workflow to trigger production deployments when merging to main.
