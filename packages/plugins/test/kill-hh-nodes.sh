@@ -1,6 +1,6 @@
 #!/bin/bash
 
-killPorts=(42005 42420 42102 42613)
+killPorts=(42005 42420 42200 42613)
 for i in "${killPorts[@]}"
 do
     pid=$(lsof -t -i:$i)

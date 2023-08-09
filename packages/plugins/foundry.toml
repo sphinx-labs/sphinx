@@ -17,3 +17,4 @@ allow_paths = ["../contracts"]
 anvil = "http://127.0.0.1:8545"
 goerli = "http://127.0.0.1:42005"
 optimism-goerli = "http://127.0.0.1:42420"
+arbitrum-goerli = "http://127.0.0.1:42613"

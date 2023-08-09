@@ -141,20 +141,33 @@ export const sphinxProposeTask = async (
     testnets?: boolean
     mainnets?: boolean
     noCompile?: boolean
+    dryRun?: boolean
+    confirm?: boolean
   },
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath, noCompile, testnets, mainnets } = args
+  const confirm = !!args.confirm
+  const dryRun = !!args.dryRun
 
   let isTestnet: boolean
   if (testnets && mainnets) {
-    throw new Error('Cannot specify both --testnets and --mainnets')
+    console.error('Cannot specify both --testnets and --mainnets')
+    process.exit(1)
   } else if (testnets) {
     isTestnet = true
   } else if (mainnets) {
     isTestnet = false
   } else {
-    throw new Error('Must specify either --testnets or --mainnets')
+    console.error('Must specify either --testnets or --mainnets')
+    process.exit(1)
+  }
+
+  if (dryRun && confirm) {
+    console.error(
+      `Cannot specify both --dry-run and --confirm. Please choose one.`
+    )
+    process.exit(1)
   }
 
   if (!noCompile) {
@@ -170,7 +183,7 @@ export const sphinxProposeTask = async (
     'hardhat',
     true,
     hre.config.networks.hardhat.allowUnlimitedContractSize,
-    false, // Users must manually confirm proposals.
+    confirm,
     hre.config.paths.compilerConfigs,
     hre,
     false
@@ -180,6 +193,7 @@ export const sphinxProposeTask = async (
     await readUserConfigWithOptions(configPath),
     isTestnet,
     cre,
+    dryRun,
     makeGetConfigArtifacts(hre),
     makeGetProviderFromChainId(hre),
     spinner
@@ -194,6 +208,14 @@ task(TASK_SPHINX_PROPOSE)
   .addFlag('testnets', 'Propose on the testnets specified in the Sphinx config')
   .addFlag('mainnets', `Propose on the mainnets specified in the Sphinx config`)
   .addFlag('noCompile', 'Skip compiling your contracts before proposing')
+  .addFlag(
+    'dryRun',
+    `Simulate the proposal without sending it to Sphinx's back-end`
+  )
+  .addFlag(
+    'confirm',
+    'Automatically confirm the proposal. Only use this in a CI process.'
+  )
   .setAction(sphinxProposeTask)
 
 task(TASK_NODE)

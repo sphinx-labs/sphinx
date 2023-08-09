@@ -65,12 +65,12 @@ const config: HardhatUserConfig = {
     // },
     // bnbt: {
     //   chainId: 97,
-    //   url: process.env.BNB_TESTNET_URL,
+    //   url: `${process.env.BNB_TESTNET_URL}`,
     //   accounts,
     // },
     // bnb: {
     //   chainId: 56,
-    //   url: process.env.BNB_MAINNET_URL,
+    //   url: `${process.env.BNB_MAINNET_URL}`,
     //   accounts,
     // },
     // 'gnosis-chiado': {
@@ -80,7 +80,7 @@ const config: HardhatUserConfig = {
     // },
     // gnosis: {
     //   chainId: 100,
-    //   url: process.env.GNOSIS_MAINNET_URL,
+    //   url: `${process.env.GNOSIS_MAINNET_URL}`,
     //   accounts,
     // },
     // maticmum: {
@@ -111,7 +111,7 @@ const config: HardhatUserConfig = {
     },
     'gnosis-chiado': {
       chainId: 10200,
-      url: 'http://127.0.0.1:42102',
+      url: 'http://127.0.0.1:42200',
       accounts,
     },
     bnbt: {
