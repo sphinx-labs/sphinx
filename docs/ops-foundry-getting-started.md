@@ -2,6 +2,8 @@
 
 This guide will walk you through a sample multi-chain deployment using the Sphinx Foundry plugin and DevOps platform.
 
+If you're using Hardhat instead of Foundry, check out the [Hardhat version of this guide](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md).
+
 ## Table of Contents
 
 1. [Prerequisites](#1-prerequisites)
@@ -27,7 +29,7 @@ To give some context on the deployment process, here's a high-level overview of 
 
 Deployments are a three-step process with the DevOps platform.
 
-1. **Proposal**: The deployment is proposed on the command line. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end.
+1. **Proposal**: The deployment is proposed on the command line or in a CI process. This creates a meta transaction that's signed by the proposer then relayed to Sphinx's back-end. For simplicity, we'll propose the deployment on the command line in this guide.
 2. **Approval**: Each owner signs a meta transaction to approve the deployment in the Sphinx UI.
 3. **Execution**: The deployment is trustlessly executed on-chain by a relayer. In order to execute the deployment, the relayer must submit the meta transactions signed by the proposer and the owners.
 
@@ -88,6 +90,8 @@ polygon_mumbai = "https://rpc-mumbai.maticvigil.com"
 ```
 
 ## 7. Propose the deployment
+
+For simplicity, we'll propose the deployment on the command line in this guide. However, we recommend that you propose deployments in a CI process for production deployments. [Check out the CI integration guide for Foundry.](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
 
 Add a `PROPOSER_PRIVATE_KEY` field to your `.env`:
 ```

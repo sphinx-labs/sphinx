@@ -89,19 +89,18 @@ dotenv.config()
  * @param getCanonicalConfig A function that returns the canonical config. By default, this function
  * will fetch the canonical config from the back-end. However, it can be overridden to return a
  * different canonical config. This is useful for testing.
- * @param skipRelay If true, the proposal will not be relayed to the back-end. This is for testing
- * purposes only.
+ * @param dryRun If true, the proposal will not be relayed to the back-end.
  */
 export const proposeAbstractTask = async (
   userConfig: UserConfigWithOptions,
   isTestnet: boolean,
   cre: SphinxRuntimeEnvironment,
+  dryRun: boolean,
   getConfigArtifacts: GetConfigArtifacts,
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT,
-  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig,
-  skipRelay: boolean = false
+  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig
 ): Promise<ProposalRequest> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
@@ -224,7 +223,7 @@ export const proposeAbstractTask = async (
     )
   }
 
-  if (!cre.confirm) {
+  if (!cre.confirm && !dryRun) {
     spinner.stop()
     // Confirm deployment with the user before proceeding.
     await userConfirmation(getDiffString(diff))
@@ -251,7 +250,7 @@ export const proposeAbstractTask = async (
 
   // Sign the meta-txn for the auth root, or leave it undefined if we're not relaying the proposal
   // to the back-end.
-  const metaTxnSignature = skipRelay
+  const metaTxnSignature = dryRun
     ? undefined
     : await signAuthRootMetaTxn(wallet, root)
 
@@ -381,7 +380,7 @@ export const proposeAbstractTask = async (
     },
   }
 
-  if (!skipRelay) {
+  if (!dryRun) {
     await relayProposal(proposalRequest)
     const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)

@@ -49,7 +49,7 @@ export const rpcProviders = {
     'http://127.0.0.1:42420'
   ),
   'gnosis-chiado': new ethers.providers.JsonRpcProvider(
-    'http://127.0.0.1:42102'
+    'http://127.0.0.1:42200'
   ),
   'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
     'http://127.0.0.1:42613'

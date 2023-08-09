@@ -1,28 +1,32 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is a DevOps platform for multi-chain smart contract deployments.
+Sphinx is a DevOps platform for smart contract deployments. Sphinx is particularly great at coordinating multi-chain deployments.
 
 Request access [here](https://sphinx.dev).
 
 ## Key Features
 
-Sphinx can either be used as a standalone CLI tool for deployments on a single chain, or as a DevOps platform that extends the CLI tool with additional functionality, such as one-click multi-chain deployments and automatic Etherscan verification.
+Here is the deployment process with the DevOps platform:
 
-### Standalone CLI
-- Define deployments in a declarative config file instead of writing deployment scripts
-- Consistent addresses across networks via `CREATE3`
-- Deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy)
-- Available as a Foundry and Hardhat plugin
+1. Define your project in a single declarative config file instead of writing deployment scripts. Sphinx has a Hardhat and Foundry plugin.
+2. Propose your deployment gaslessly from a CI process or the command line.
+3. Maintain a balance of USDC on a single chain to fund deployments. You don't need native gas tokens on any chain.
+4. Approve your deployment with a single meta transaction signed by your project owners. You'll always sign a single meta transaction regardless of the number of chains or the size of the deployment.
+5. Sphinx trustlessly executes your deployment on every chain and verifies your contracts on Etherscan. Your contracts will have consistent addresses across networks because Sphinx uses `CREATE3` by default.
+6. Generate deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
-### DevOps Platform
-- Approve multi-chain deployments with a single meta transaction
-- Maintain a balance of USDC on a single chain to fund deployments
-- Automatic Etherscan verification
-- Support for multisigs (coming soon)
+### Standalone CLI tool
+
+You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
+
+### Coming soon
+
+- Support for multisigs
 
 ## Documentation
 
-### Getting Started:
+### Getting Started
+
 - Foundry:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
@@ -32,7 +36,8 @@ Sphinx can either be used as a standalone CLI tool for deployments on a single c
   - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
 
-### References:
+### References
+
 - [Sphinx Config File](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md): Where you define smart contract deployments for a project.
 - [Constructor Arguments](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md): Shows how every constructor argument type can be defined in a Sphinx config file.
 - [The `SphinxManager` Contract](https://github.com/sphinx-labs/sphinx/blob/develop/docs/sphinx-manager.md): The contract that deploys your project.
@@ -40,28 +45,29 @@ Sphinx can either be used as a standalone CLI tool for deployments on a single c
 
 ## Supported Networks
 
-* Ethereum
-* Optimism
-* Arbitrum
-* Polygon
-* Polygon zkEVM
-* BNB Smart Chain (aka BSC)
-* Gnosis Chain
-* Avalanche C-Chain
-* Linea
-* Fantom
+- Ethereum
+- Optimism
+- Arbitrum
+- Polygon
+- Polygon zkEVM
+- BNB Smart Chain (aka BSC)
+- Gnosis Chain
+- Avalanche C-Chain
+- Linea
+- Fantom
 
 Test networks:
-* Ethereum Goerli
-* Optimism Goerli
-* Arbitrum Goerli
-* Polygon Mumbai
-* Polygon zkEVM Testnet
-* BNB Smart Chain Testnet
-* Gnosis Chiado
-* Avalanche Fuji
-* Linea Goerli
-* Fantom Testnet
+
+- Ethereum Goerli
+- Optimism Goerli
+- Arbitrum Goerli
+- Polygon Mumbai
+- Polygon zkEVM Testnet
+- BNB Smart Chain Testnet
+- Gnosis Chiado
+- Avalanche Fuji
+- Linea Goerli
+- Fantom Testnet
 
 More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
@@ -73,7 +79,7 @@ More networks are on the way! Please feel free to reach out in our [Discord](htt
 
 ## Contributing
 
-Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx/sphinx/contribute). Let us know if you have any questions!
+Contributions to Sphinx are greatly appreciated! To get started, please read our [contributing guide](https://github.com/sphinx-labs/sphinx/blob/develop/CONTRIBUTING.md). Then, check out the list of [Good First Issues](https://github.com/sphinx-labs/sphinx/contribute). Let us know if you have any questions!
 
 ## Reach Out
 

@@ -105,7 +105,7 @@ It contains the following fields:
   * Gnosis Chiado: `'gnosis-chiado'`
 * `owners`: The list of addresses that own this project. Owners can perform permissioned actions such as approving deployments via the Sphinx UI. We currently only support projects that are owned by a single account.
 * `threshold`: The number of owners that must sign a permissioned action, such as approving a deployment, before the action can be executed on-chain.
-* `proposers`: The list of addresses that are allowed to propose changes to the Sphinx config file. Any change to the Sphinx config file, including deploying contracts, must be proposed before it can be approved by the project owners. Since proposals are triggered from the CLI, we recommend that proposers are hot wallets, i.e. a wallet that you feel comfortable pasting its private key into a `.env` file. We currently only support projects that have a single proposer, which must be the same address as the owner.
+* `proposers`: The list of addresses that are allowed to propose changes to the Sphinx config file. Any change to the Sphinx config file, including contract deployments, must be proposed before it can be approved by the project owners. We recommend that proposals occur in a CI process, but you can also propose from the command line.
 
 ## Contracts
 
