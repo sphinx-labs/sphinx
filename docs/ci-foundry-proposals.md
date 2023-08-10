@@ -10,14 +10,14 @@ This guide assumes that your repository has a main branch and a develop branch. 
 
 ## Table of Contents
 
-- [1. Prerequisites](#1-prerequisites)
-- [2. Create a new branch](#2-create-a-new-branch-in-your-repo)
-- [3. Create a Github Actions folder](#3-create-a-github-actions-folder)
-- [4. Create new workflow files](#4-create-new-workflow-files)
-- [5. Create the dry run workflow](#5-create-the-dry-run-workflow)
-- [6. Create the proposal workflow](#6-create-the-proposal-workflow)
-- [7. Configure the templates](#7-configure-the-templates)
-- [8. Test your integration](#8-test-your-integration)
+[1. Prerequisites](#1-prerequisites)
+[2. Create a new branch](#2-create-a-new-branch-in-your-repo)
+[3. Create a Github Actions folder](#3-create-a-github-actions-folder)
+[4. Create new workflow files](#4-create-new-workflow-files)
+[5. Create the dry run workflow](#5-create-the-dry-run-workflow)
+[6. Create the proposal workflow](#6-create-the-proposal-workflow)
+[7. Configure the templates](#7-configure-the-templates)
+[8. Test your integration](#8-test-your-integration)
 
 ## 1. Prerequisites
 
