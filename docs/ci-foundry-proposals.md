@@ -79,8 +79,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: yarn install
-      - run: npx sphinx propose --dry-run --config <path/to/sphinx/config/file> --testnets
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Install Dependencies
+        run: yarn --frozen-lockfile
+      - name: Dry Run
+        run: npx sphinx propose --dry-run --config <path/to/sphinx/config/file> --testnets
 ```
 
 ## 6. Create the proposal workflow
@@ -105,18 +111,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: yarn install
-      - run: npx sphinx propose --confirm --config <path/to/sphinx/config/file> --testnets
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Install Dependencies
+        run: yarn --frozen-lockfile
+      - name: Propose
+        run: npx sphinx propose --confirm --config <path/to/sphinx/config/file> --testnets
 ```
 
-## 7. Configure the templates
-
-Here is a list of things you may need need to configure:
+Here is a list of things to configure:
 - Add the `PROPOSER_PRIVATE_KEY` secret to your CI process. This should be the private key of one of the proposer addresses in your Sphinx config file. The list of proposers is located under the `options` field in the config file.
 - Add the `SPHINX_API_KEY` secret to your CI process. You can find this in the Sphinx UI after registering your organization.
 - Enter any node provider API keys or urls in the `env` section and make sure they are also [configured as secrets in GitHub actions](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository).
 - If you want to push to a branch other than `main`, update the `branches` section of the templates.
-- If your repository doesn't use `yarn install`, update the `yarn install` step under `jobs`.
+- If your repository doesn't use `yarn --frozen-lockfile`, update the `yarn --frozen-lockfile` step under `jobs`.
 - Add the path to your Sphinx config file in the `npx sphinx propose` commands under `jobs`.
 
 ## 8. Test your integration

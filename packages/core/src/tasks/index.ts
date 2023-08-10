@@ -388,15 +388,17 @@ export const proposeAbstractTask = async (
   }
 
   if (!dryRun) {
+    const websiteLink = blue(hyperlink('website', WEBSITE_URL))
+    spinner.succeed(
+      `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
+    )
+
     await relayProposal(proposalRequest)
     const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
+  } else {
+    spinner.succeed(`Proposal dry run succeeded!`)
   }
-
-  const websiteLink = blue(hyperlink('website', WEBSITE_URL))
-  spinner.succeed(
-    `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
-  )
 
   return proposalRequest
 }
