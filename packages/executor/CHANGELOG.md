@@ -1,5 +1,17 @@
 # @sphinx-labs/executor
 
+## 0.13.0
+
+### Minor Changes
+
+- 3e7bff4a: Do not recompile during execution
+
+### Patch Changes
+
+- Updated dependencies [3e7bff4a]
+  - @sphinx-labs/plugins@0.18.0
+  - @sphinx-labs/core@0.13.0
+
 ## 0.12.3
 
 ### Patch Changes
