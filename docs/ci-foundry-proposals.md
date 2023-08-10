@@ -1,6 +1,6 @@
 # Propose from your CI Process (Foundry)
 
-We recommend that you propose from a CI process instead of using the command line. This ensures that your deployments are reproducible, and that they don't depend on a single developer's machine, which can be a source of bugs.
+We recommend that you propose from your CI process instead of using the command line. This ensures that your deployments are reproducible, and that they don't depend on a single developer's machine, which can be a source of bugs.
 
 This guide will show you how to integrate proposals into your CI process using GitHub Actions. You can still follow this guide if you're using a different CI platform, but the exact configuration may be slightly different.
 
@@ -59,7 +59,7 @@ touch .github/workflows/sphinx.deploy.yml
 
 ## 5. Create the dry run workflow
 
-This workflow run the `propose` command with the `--dry-run` flag to simulate a proposal without actually submitting it.
+This workflow runs the `propose` command with the `--dry-run` flag to simulate a proposal without actually submitting it.
 
 Copy and paste the following template into your `sphinx.dry-run.yml` file:
 
