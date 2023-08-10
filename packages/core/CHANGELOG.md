@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.12.9
+
+### Patch Changes
+
+- 5868f004: Output more accurate log when dry running
+
 ## 0.12.8
 
 ### Patch Changes
