@@ -178,20 +178,8 @@ describe('Remote executor', () => {
       chainId
     )
 
-    const { configUri, compilerConfig } = await getProjectBundleInfo(
-      parsedConfig,
-      configArtifacts,
-      configCache
-    )
-    const { bundles } = compilerConfig
-
     // Commit the project to IPFS.
-    await sphinxCommitAbstractSubtask(
-      parsedConfig,
-      true,
-      configArtifacts,
-      bundles
-    )
+    await sphinxCommitAbstractSubtask(parsedConfig, true, configArtifacts)
 
     const signature = await signAuthRootMetaTxn(owner, root)
 
@@ -202,6 +190,11 @@ describe('Remote executor', () => {
     await Auth.approveDeployment(root, approvalLeaf, [signature], approvalProof)
 
     // Sanity check that the deployment has been approved.
+    const { configUri, bundles } = await getProjectBundleInfo(
+      parsedConfig,
+      configArtifacts,
+      configCache
+    )
     const deploymentId = getDeploymentId(bundles, configUri)
 
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
