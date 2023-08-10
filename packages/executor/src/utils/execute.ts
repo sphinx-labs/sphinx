@@ -3,14 +3,13 @@ dotenv.config()
 import { ManagedServiceABI, SphinxManagerABI } from '@sphinx-labs/contracts'
 import {
   DeploymentState,
-  compileRemoteBundles,
+  fetchRemoteBundles,
   executeDeployment,
   ExecutorEvent,
   ExecutorKey,
   getGasPriceOverrides,
   trackExecuted,
   getDeploymentId,
-  SphinxBundles,
   isSupportedNetworkOnEtherscan,
   verifySphinxConfig,
   deploymentDoesRevert,
@@ -222,23 +221,21 @@ export const handleExecution = async (data: ExecutorMessage) => {
   logger.info('[Sphinx]: retrieving the deployment...')
   // Compile the bundle using either the provided localDeploymentId (when running the in-process
   // executor), or using the Config URI
-  let bundles: SphinxBundles
   let compilerConfig: CompilerConfig
-  let configArtifacts: ConfigArtifacts
 
   // Handle if the config cannot be fetched
   try {
-    ;({ bundles, compilerConfig, configArtifacts } = await compileRemoteBundles(
+    compilerConfig = await fetchRemoteBundles(
       rpcProvider,
       deploymentState.configUri
-    ))
+    )
   } catch (e) {
     logger.error(`Error compiling bundle: ${e}`)
     // retry events which failed due to compilation issues (usually this is if the compiler was not able to be downloaded)
     const retryEvent = generateRetryEvent(executorEvent)
     process.send({ action: 'retry', payload: retryEvent })
   }
-  const { projectName } = compilerConfig
+  const { projectName, bundles, artifacts: configArtifacts } = compilerConfig
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
   const estimatedCost = (await estimateExecutionCost(rpcProvider, bundles, 0))
@@ -372,7 +369,8 @@ export const handleExecution = async (data: ExecutorMessage) => {
       bundles,
       blockGasLimit,
       configArtifacts,
-      rpcProvider
+      rpcProvider,
+      logger
     )
     deploymentTransactionReceipts.push(...receipts)
 
@@ -383,6 +381,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
       return
     }
   } catch (e) {
+    console.error(e)
     // check if the error was due to the deployment being claimed by another executor, and discard if so
     const errorDeploymentState: DeploymentState = await manager.deployments(
       activeDeploymentId

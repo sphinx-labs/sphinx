@@ -88,7 +88,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     undefined, // Use the default FailureAction
     getCanonicalConfig
   )
-  const { root, leaves } = proposalRequest.tree
+  const { root, leaves } = proposalRequest!.tree
 
   for (const network of networks) {
     const provider = rpcProviders[network]
@@ -166,11 +166,12 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
         cre,
         makeGetConfigArtifacts(hre)
       )
-    const { configUri, bundles } = await getProjectBundleInfo(
+    const { configUri, compilerConfig } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts,
       configCache
     )
+    const { bundles } = compilerConfig
     const deploymentId = getDeploymentId(bundles, configUri)
     expect(await Manager.activeDeploymentId()).equals(deploymentId)
     authState = await Auth.authStates(root)
