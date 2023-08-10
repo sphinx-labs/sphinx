@@ -1,5 +1,16 @@
 # @sphinx-labs/plugins
 
+## 0.18.0
+
+### Minor Changes
+
+- 3e7bff4a: Do not recompile during execution
+
+### Patch Changes
+
+- Updated dependencies [3e7bff4a]
+  - @sphinx-labs/core@0.13.0
+
 ## 0.17.7
 
 ### Patch Changes
