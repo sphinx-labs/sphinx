@@ -235,7 +235,7 @@ export const makeTargetBundle = (
       return {
         target,
         siblings: tree.getProof(getTargetHash(target), idx).map((element) => {
-          return element.data
+          return ethers.utils.hexlify(element.data)
         }),
       }
     }),
@@ -418,7 +418,7 @@ export const makeActionBundle = (
         proof: {
           actionIndex: idx,
           siblings: tree.getProof(getActionHash(action), idx).map((element) => {
-            return element.data
+            return ethers.utils.hexlify(element.data)
           }),
         },
       }
@@ -693,11 +693,12 @@ export const getAuthLeafsForChain = async (
   // because the first two indexes are reserved for the setup and proposal leafs.
   let index = firstProposalOccurred ? 1 : 2
 
-  const { configUri, bundles } = await getProjectBundleInfo(
+  const { configUri, compilerConfig } = await getProjectBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
   )
+  const { bundles } = compilerConfig
   const { actionBundle, targetBundle } = bundles
 
   // Only add the ApproveDeployment leaf if there are deployment actions.

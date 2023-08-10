@@ -180,7 +180,7 @@ export const proposeAbstractTask = async (
     )
     leafs.push(...leafsForChain)
 
-    const { compilerConfig, configUri, bundles } = await getProjectBundleInfo(
+    const { compilerConfig, configUri } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts,
       configCache
@@ -191,7 +191,7 @@ export const proposeAbstractTask = async (
       chainId,
       projectName,
       configUri,
-      bundles
+      compilerConfig.bundles
     )
     if (projectDeployment) {
       projectDeployments.push(projectDeployment)
@@ -407,6 +407,7 @@ export const sphinxCommitAbstractSubtask = async (
   parsedConfig: ParsedConfig,
   commitToIpfs: boolean,
   configArtifacts: ConfigArtifacts,
+  bundles: SphinxBundles,
   ipfsUrl?: string,
   spinner: ora.Ora = ora({ isSilent: true })
 ): Promise<{
@@ -463,6 +464,8 @@ export const sphinxCommitAbstractSubtask = async (
   const compilerConfig: CompilerConfig = {
     ...parsedConfig,
     inputs: sphinxInputs,
+    bundles,
+    artifacts: configArtifacts,
   }
 
   const ipfsData = JSON.stringify(compilerConfig, null, 2)
@@ -557,11 +560,13 @@ export const deployAbstractTask = async (
 
   spinner.start(`Checking the status of ${projectName}...`)
 
-  const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
+  const { configUri, compilerConfig } = await getProjectBundleInfo(
     parsedConfig,
     configArtifacts,
     configCache
   )
+
+  const { bundles } = compilerConfig
 
   if (
     bundles.actionBundle.actions.length === 0 &&
@@ -935,21 +940,21 @@ export const getProjectBundleInfo = async (
 ): Promise<{
   configUri: string
   compilerConfig: CompilerConfig
-  bundles: SphinxBundles
 }> => {
-  const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
-    parsedConfig,
-    false,
-    configArtifacts
-  )
-
   const bundles = makeBundlesFromConfig(
     parsedConfig,
     configArtifacts,
     configCache
   )
 
-  return { configUri, compilerConfig, bundles }
+  const { configUri, compilerConfig } = await sphinxCommitAbstractSubtask(
+    parsedConfig,
+    false,
+    configArtifacts,
+    bundles
+  )
+
+  return { configUri, compilerConfig }
 }
 
 export const approveDeployment = async (
