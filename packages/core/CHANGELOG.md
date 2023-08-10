@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.13.0
+
+### Minor Changes
+
+- 3e7bff4a: Do not recompile during execution
+
 ## 0.12.9
 
 ### Patch Changes
