@@ -11,7 +11,6 @@ import { BigNumber, providers } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
-import { SphinxBundles } from '../actions'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -201,8 +200,6 @@ export type ParsedConfigVariables = {
  */
 export interface CompilerConfig extends ParsedConfig {
   inputs: Array<SphinxInput>
-  bundles: SphinxBundles
-  artifacts: ConfigArtifacts
 }
 
 export type SphinxInput = {

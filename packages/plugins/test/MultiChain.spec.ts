@@ -175,7 +175,7 @@ describe('Multi chain config', () => {
         undefined, // Use the default FailureAction
         getCanonicalConfig
       )
-      const { root, leaves } = proposalRequest!.tree
+      const { root, leaves } = proposalRequest.tree
 
       // There will be a proposal leaf and an approval leaf for each chain.
       const expectedNumLeafsPerChain = 2
@@ -242,12 +242,11 @@ describe('Multi chain config', () => {
             cre,
             makeGetConfigArtifacts(hre)
           )
-        const { configUri, compilerConfig } = await getProjectBundleInfo(
+        const { configUri, bundles } = await getProjectBundleInfo(
           parsedConfig,
           configArtifacts,
           configCache
         )
-        const { bundles } = compilerConfig
         const deploymentId = getDeploymentId(bundles, configUri)
         expect(await Manager.activeDeploymentId()).equals(deploymentId)
         authState = await Auth.authStates(root)

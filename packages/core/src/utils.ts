@@ -43,7 +43,8 @@ import {
   StorageLayoutComparator,
   stripContractSubstrings,
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
-import { CompilerInput } from 'hardhat/types'
+import { CompilerInput, SolcBuild } from 'hardhat/types'
+import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
   CompilerConfig,
@@ -54,6 +55,7 @@ import {
   ParsedConfigVariables,
   ParsedConfigVariable,
   GetConfigArtifacts,
+  ConfigArtifacts,
   GetCanonicalConfig,
   UserConfigWithOptions,
   CanonicalConfig,
@@ -84,6 +86,7 @@ import {
   ContractArtifact,
 } from './languages/solidity/types'
 import { sphinxFetchSubtask } from './config/fetch'
+import { getSolcBuild } from './languages'
 import {
   getAuthLeafsForChain,
   getDeployContractActions,
@@ -885,6 +888,77 @@ export const fetchAndCacheCompilerConfig = async (
     )
     return remoteCompilerConfig
   }
+}
+
+export const getConfigArtifactsRemote = async (
+  compilerConfig: CompilerConfig
+): Promise<ConfigArtifacts> => {
+  const solcArray: BuildInfo[] = []
+  // Get the compiler output for each compiler input.
+  for (const sphinxInput of compilerConfig.inputs) {
+    const solcBuild: SolcBuild = await getSolcBuild(sphinxInput.solcVersion)
+    let compilerOutput: CompilerOutput
+    if (solcBuild.isSolcJs) {
+      const compiler = new Compiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(sphinxInput.input)
+    } else {
+      const compiler = new NativeCompiler(solcBuild.compilerPath)
+      compilerOutput = await compiler.compile(sphinxInput.input)
+    }
+
+    if (compilerOutput.errors) {
+      const formattedErrorMessages: string[] = []
+      compilerOutput.errors.forEach((error) => {
+        // Ignore warnings thrown by the compiler.
+        if (error.type.toLowerCase() !== 'warning') {
+          formattedErrorMessages.push(error.formattedMessage)
+        }
+      })
+
+      if (formattedErrorMessages.length > 0) {
+        throw new Error(
+          `Failed to compile. Please report this error to Sphinx.\n` +
+            `${formattedErrorMessages}`
+        )
+      }
+    }
+
+    solcArray.push({
+      input: sphinxInput.input,
+      output: compilerOutput,
+      id: sphinxInput.id,
+      solcLongVersion: sphinxInput.solcLongVersion,
+      solcVersion: sphinxInput.solcVersion,
+    })
+  }
+
+  const artifacts: ConfigArtifacts = {}
+  // Generate an artifact for each contract in the Sphinx config.
+  for (const [referenceName, contractConfig] of Object.entries(
+    compilerConfig.contracts
+  )) {
+    // Split the contract's fully qualified name into its source name and contract name.
+    const [sourceName, contractName] = contractConfig.contract.split(':')
+
+    for (const buildInfo of solcArray) {
+      const contractOutput =
+        buildInfo.output.contracts[sourceName][contractName]
+
+      if (contractOutput !== undefined) {
+        artifacts[referenceName] = {
+          buildInfo,
+          artifact: {
+            abi: contractOutput.abi,
+            sourceName,
+            contractName,
+            bytecode: add0x(contractOutput.evm.bytecode.object),
+            deployedBytecode: add0x(contractOutput.evm.deployedBytecode.object),
+          },
+        }
+      }
+    }
+  }
+  return artifacts
 }
 
 export const getDeploymentEvents = async (
