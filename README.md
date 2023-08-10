@@ -25,18 +25,18 @@ You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deploym
 
 ## Documentation
 
-### Getting Started
+### Guides
 
 - Foundry:
   - [Quickstart](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-quickstart.md)
   - [Integrate Sphinx into an Existing Project](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-foundry-existing-project.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-foundry-getting-started.md)
-  - [Using Sphinx in CI](ci-foundry-proposals.md)
+  - [Propose from your CI Process](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-foundry-proposals.md)
 - Hardhat:
   - [Getting Started (TypeScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-ts-getting-started.md)
   - [Getting Started (JavaScript)](https://github.com/sphinx-labs/sphinx/blob/develop/docs/cli-hardhat-js-getting-started.md)
   - [Getting Started with the DevOps Platform](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ops-hardhat-getting-started.md)
-  - [Using Sphinx in CI](ci-hardhat-proposals.md)
+  - [Propose from your CI Process](https://github.com/sphinx-labs/sphinx/blob/develop/docs/ci-hardhat-proposals.md)
 
 ### References
 
