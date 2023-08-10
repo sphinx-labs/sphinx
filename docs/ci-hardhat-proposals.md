@@ -68,8 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: yarn install
-      - run: npx hardhat sphinx-propose --config-path ./sphinx/HelloSphinx.config.ts --dry-run --testnets
+      - name: Install Dependencies
+        run: yarn --frozen-lockfile
+      - name: Dry Run
+        run: npx hardhat sphinx-propose --config-path ./sphinx/HelloSphinx.config.ts --dry-run --testnets
 ```
 
 ## 6. Create the propose workflow
@@ -93,8 +95,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: yarn install
-      - run: npx hardhat sphinx-propose --config ./sphinx/HelloSphinx.config.ts --confirm --testnets
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Install Dependencies
+        run: yarn --frozen-lockfile
+      - name: Propose
+        run: npx hardhat sphinx-propose --config-path ./sphinx/HelloSphinx.config.ts --confirm --testnets
 ```
 
 Here is a checklist of things to do before moving on:
@@ -102,7 +110,7 @@ Here is a checklist of things to do before moving on:
 - [ ] Add the `SPHINX_API_KEY` secret to your CI process. You can find this in the Sphinx UI after registering your organization.
 - [ ] Enter any node provider API keys or urls  in the `env` section of the template and make sure they are also [configured as secrets in GitHub actions](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository).
 - [ ] If you want to push to a branch other than `main`, update the `branches` section of the template.
-- [ ] If your repository doesn't use `yarn install`, update the `yarn install` step under `jobs`.
+- [ ] If your repository doesn't use `yarn --frozen-lockfile`, update the `yarn --frozen-lockfile` step under `jobs`.
 - [ ] Add the path to your Sphinx config in the `npx sphinx propose` command under `jobs`.
 
 ## 7. Test your integration
