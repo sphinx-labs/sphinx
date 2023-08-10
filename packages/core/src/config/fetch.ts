@@ -1,17 +1,9 @@
 import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
-import { SphinxBundles } from '../actions/types'
-import {
-  callWithTimeout,
-  getSphinxManagerReadOnly,
-  getSphinxRegistryReadOnly,
-  getDeploymentId,
-  getConfigArtifactsRemote,
-} from '../utils'
+import { callWithTimeout, getDeploymentId } from '../utils'
 import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
-import { getConfigCache } from './parse'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -87,38 +79,15 @@ export const verifyDeployment = async (
  * @param provider JSON RPC provider.
  * @returns Compiled SphinxBundle.
  */
-export const compileRemoteBundles = async (
+export const fetchRemoteBundles = async (
   provider: providers.JsonRpcProvider,
   configUri: string
-): Promise<{
-  bundles: SphinxBundles
-  compilerConfig: CompilerConfig
-  configArtifacts: ConfigArtifacts
-}> => {
+): Promise<CompilerConfig> => {
   const compilerConfig = await callWithTimeout<CompilerConfig>(
     sphinxFetchSubtask({ configUri }),
     30000,
     'Failed to fetch config file from IPFS'
   )
 
-  const configArtifacts = await getConfigArtifactsRemote(compilerConfig)
-
-  const configCache = await getConfigCache(
-    provider,
-    compilerConfig.contracts,
-    configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(compilerConfig.manager, provider)
-  )
-
-  const bundles = makeBundlesFromConfig(
-    compilerConfig,
-    configArtifacts,
-    configCache
-  )
-  return {
-    bundles,
-    compilerConfig,
-    configArtifacts,
-  }
+  return compilerConfig
 }

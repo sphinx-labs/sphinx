@@ -9,6 +9,7 @@ npx hardhat test test/ManagerUpgrade.spec.ts --config-path \
 npx hardhat test test/Validation.spec.ts test/Create3.spec.ts
 npx hardhat test test/Storage.spec.ts --log --config-path sphinx/Storage.config.ts --signer 0
 
+yarn test:kill
 # We spin up a few nodes to simulate a multi-chain environment
 anvil --silent --chain-id 5 --port 42005 &
 anvil --silent --chain-id 420 --port 42420 &
