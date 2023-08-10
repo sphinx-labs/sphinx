@@ -111,7 +111,7 @@ const ownerAddress = args[3]
       FailureAction.THROW
     )
 
-    const { configUri, compilerConfig } = await getProjectBundleInfo(
+    const { configUri, bundles, compilerConfig } = await getProjectBundleInfo(
       parsedConfig,
       configArtifacts,
       configCache
@@ -147,11 +147,11 @@ const ownerAddress = args[3]
 
     const encodedActionBundle = defaultAbiCoder.encode(
       [actionBundleType],
-      [compilerConfig.bundles.actionBundle]
+      [bundles.actionBundle]
     )
     const encodedTargetBundle = defaultAbiCoder.encode(
       [targetBundleType],
-      [compilerConfig.bundles.targetBundle]
+      [bundles.targetBundle]
     )
 
     const deployContractCosts = getDeployContractCosts(configArtifacts)

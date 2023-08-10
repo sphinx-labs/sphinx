@@ -42,6 +42,7 @@ import {
   isOpenZeppelinContractKind,
   readBuildInfo,
   fetchAndCacheCompilerConfig,
+  getConfigArtifactsRemote,
   getDuplicateElements,
   hyperlink,
   getNetworkType,
@@ -2757,7 +2758,9 @@ export const getPreviousStorageLayoutOZFormat = async (
       parsedContractConfig
     ).layout
   } else if (prevCompilerConfig !== undefined) {
-    const prevConfigArtifacts = prevCompilerConfig.artifacts
+    const prevConfigArtifacts = await getConfigArtifactsRemote(
+      prevCompilerConfig
+    )
     const { buildInfo, artifact } = prevConfigArtifacts[referenceName]
     const { sourceName, contractName } = artifact
     return getOpenZeppelinUpgradableContract(
