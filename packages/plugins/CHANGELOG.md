@@ -1,5 +1,16 @@
 # @sphinx-labs/plugins
 
+## 0.19.0
+
+### Minor Changes
+
+- 5046395a: Rollback executor refactor
+
+### Patch Changes
+
+- Updated dependencies [5046395a]
+  - @sphinx-labs/core@0.14.0
+
 ## 0.18.0
 
 ### Minor Changes

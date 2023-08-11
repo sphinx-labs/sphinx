@@ -1,5 +1,13 @@
 # @sphinx-labs/demo
 
+## 0.8.6
+
+### Patch Changes
+
+- Updated dependencies [5046395a]
+  - @sphinx-labs/plugins@0.19.0
+  - @sphinx-labs/core@0.14.0
+
 ## 0.8.5
 
 ### Patch Changes
