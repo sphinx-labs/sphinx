@@ -1,5 +1,11 @@
 # @sphinx-labs/plugins
 
+## 0.19.1
+
+### Patch Changes
+
+- 059f7686: Parse rpc endpoints with env variables that occur anywhere in the string
+
 ## 0.19.0
 
 ### Minor Changes
