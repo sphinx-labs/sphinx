@@ -77,24 +77,19 @@ export const getFoundryConfigOptions = async (): Promise<{
  * that if the value of an RPC endpoint is an environment variable, but the environment variable
  * does not exist, then the endpoint will not be included in the returned object.
  */
-const parseRpcEndpoints = (rpcEndpoints: {
+export const parseRpcEndpoints = (rpcEndpoints: {
   [chainAlias: string]: string
 }): { [chainAlias: string]: string } => {
-  const parsedEndpoints: { [chainAlias: string]: string } = {}
-  for (const [chainAlias, endpoint] of Object.entries(rpcEndpoints)) {
-    const trimmed = endpoint.trim()
-    // Check if the endpoint is an environment variable.
-    if (trimmed.startsWith('${') && trimmed.endsWith('}')) {
-      const envVar = trimmed.slice(2, -1).trim()
-      const envVarValue = process.env[envVar]
-      // We only add the endpoint if the environment variable exists.
-      if (envVarValue) {
-        parsedEndpoints[chainAlias] = envVarValue
-      }
-    } else {
-      // If the endpoint is not an environment variable, then it must be a URL.
-      parsedEndpoints[chainAlias] = trimmed
+  const result: { [key: string]: string } = {}
+  for (const key in rpcEndpoints) {
+    if (rpcEndpoints.hasOwnProperty(key)) {
+      // Removes whitespace at the beginning and end of the string
+      const trimmed = rpcEndpoints[key].trim()
+
+      result[key] = trimmed.replace(/\$\{((\w|\s)+)\}/g, (_, envVar) => {
+        return process.env[envVar.trim()] || ''
+      })
     }
   }
-  return parsedEndpoints
+  return result
 }
