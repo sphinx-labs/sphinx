@@ -1,5 +1,11 @@
 # @sphinx-labs/core
 
+## 0.14.0
+
+### Minor Changes
+
+- 5046395a: Rollback executor refactor
+
 ## 0.13.0
 
 ### Minor Changes
