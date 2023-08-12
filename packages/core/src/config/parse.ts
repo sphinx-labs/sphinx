@@ -2788,7 +2788,8 @@ export const assertValidConfigOptions = (
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): void => {
-  const { mainnets, testnets, orgId, owners, threshold, proposers } = options
+  const { mainnets, testnets, orgId, owners, ownerThreshold, proposers } =
+    options
 
   if (orgId === '') {
     logValidationError(
@@ -2800,20 +2801,20 @@ export const assertValidConfigOptions = (
     )
   }
 
-  if (threshold === 0) {
+  if (ownerThreshold === 0) {
     logValidationError(
       'error',
-      `The 'threshold' must be greater than 0.`,
+      `The 'ownerThreshold' must be greater than 0.`,
       [],
       cre.silent,
       cre.stream
     )
   }
 
-  if (threshold > owners.length) {
+  if (ownerThreshold > owners.length) {
     logValidationError(
       'error',
-      `The 'threshold' must be less than or equal to the number of owners.`,
+      `The 'ownerThreshold' must be less than or equal to the number of owners.`,
       [],
       cre.silent,
       cre.stream
@@ -2982,7 +2983,7 @@ export const parseConfigOptions = (
   options: UserConfigOptions,
   isTestnet: boolean
 ): ParsedConfigOptions => {
-  const { mainnets, testnets, orgId, threshold } = options
+  const { mainnets, testnets, orgId, ownerThreshold } = options
 
   const chainIds = isTestnet
     ? testnets.map((network) => SUPPORTED_TESTNETS[network])
@@ -3000,7 +3001,7 @@ export const parseConfigOptions = (
     chainIds,
     orgId,
     owners,
-    threshold,
+    ownerThreshold,
     proposers,
   }
 }

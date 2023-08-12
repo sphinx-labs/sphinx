@@ -73,12 +73,12 @@ describe('Init Task', () => {
     const deploymentArtifactOne = path.join(
       deploymentArtifactDir,
       'anvil-31337',
-      'ContractOne.json'
+      'MyFirstContract.json'
     )
     const deploymentArtifactTwo = path.join(
       deploymentArtifactDir,
       'anvil-31337',
-      'ContractTwo.json'
+      'MySecondContract.json'
     )
 
     // Check that the sample files haven't been created yet
@@ -111,10 +111,13 @@ describe('Init Task', () => {
     // Check that the contracts were deployed
     const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
     const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
-    const firstContractAddress = getTargetAddress(managerAddress, 'ContractOne')
+    const firstContractAddress = getTargetAddress(
+      managerAddress,
+      'MyFirstContract'
+    )
     const secondContractAddress = getTargetAddress(
       managerAddress,
-      'ContractTwo'
+      'MySecondContract'
     )
     expect(await provider.getCode(firstContractAddress)).to.not.equal('0x')
     expect(await provider.getCode(secondContractAddress)).to.not.equal('0x')
@@ -128,12 +131,12 @@ describe('Init Task', () => {
     const deploymentArtifactOne = path.join(
       deploymentArtifactDir,
       'hardhat-31337',
-      'ContractOne.json'
+      'MyFirstContract.json'
     )
     const deploymentArtifactTwo = path.join(
       deploymentArtifactDir,
       'hardhat-31337',
-      'ContractTwo.json'
+      'MySecondContract.json'
     )
 
     // Check that the sample files haven't been created yet
@@ -166,12 +169,12 @@ describe('Init Task', () => {
     // Check that the contracts were deployed
     const FirstContract = await sphinx.getContract(
       projectName,
-      'ContractOne',
+      'MyFirstContract',
       provider.getSigner()
     )
     const SecondContract = await sphinx.getContract(
       projectName,
-      'ContractTwo',
+      'MySecondContract',
       provider.getSigner()
     )
     expect(await provider.getCode(FirstContract.address)).to.not.equal('0x')

@@ -44,7 +44,7 @@ import {
   cre,
   managerAddress,
   owners,
-  threshold,
+  ownerThreshold,
   ownerPrivateKey,
   sampleProjectName,
   rpcProviders,
@@ -74,7 +74,7 @@ describe('Multi chain config', () => {
       await AuthFactory.deploy(authData, [], sampleProjectName)
 
       // Check that the Auth contract has been initialized correctly.
-      expect(await Auth.threshold()).deep.equals(BigNumber.from(threshold))
+      expect(await Auth.threshold()).deep.equals(BigNumber.from(ownerThreshold))
       expect(await Auth.getRoleMemberCount(OWNER_ROLE_HASH)).deep.equals(
         BigNumber.from(1)
       )

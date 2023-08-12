@@ -243,11 +243,11 @@ export const getSphinxManagerAddress = (owner: string, projectName: string) => {
 
 export const getAuthData = (
   owners: Array<string>,
-  threshold: number
+  ownerThreshold: number
 ): string => {
   return utils.defaultAbiCoder.encode(
     ['address[]', 'uint256'],
-    [owners, threshold]
+    [owners, ownerThreshold]
   )
 }
 
@@ -259,10 +259,10 @@ export const getAuthSalt = (authData: string, projectName: string): string => {
 
 export const getAuthAddress = (
   owners: Array<string>,
-  threshold: number,
+  ownerThreshold: number,
   projectName: string
 ): string => {
-  const authData = getAuthData(owners, threshold)
+  const authData = getAuthData(owners, ownerThreshold)
   const salt = getAuthSalt(authData, projectName)
 
   return utils.getCreate2Address(

@@ -3,20 +3,20 @@ export const sampleSphinxFileTypeScript = `import { UserSphinxConfig } from '@sp
 const config: UserSphinxConfig = {
   projectName: 'MyProject',
   contracts: {
-    ContractOne: {
+    MyFirstContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 1,
-        _contractOne: '{{ ContractOne }}',
+        _myNumber: 1,
+        _myAddress: '{{ MyFirstContract }}',
       },
     },
-    ContractTwo: {
+    MySecondContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 2,
-        _contractOne: '{{ ContractOne }}',
+        _myNumber: 2,
+        _myAddress: '{{ MySecondContract }}',
       },
     },
   },
@@ -28,20 +28,20 @@ export default config
 export const sampleSphinxFileJavaScript = `module.exports = {
   projectName: 'MyProject',
   contracts: {
-    ContractOne: {
+    MyFirstContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 1,
-        _contractOne: '{{ ContractOne }}',
+        _myNumber: 1,
+        _myAddress: '{{ MyFirstContract }}',
       },
     },
-    ContractTwo: {
+    MySecondContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 2,
-        _contractOne: '{{ ContractOne }}',
+        _myNumber: 2,
+        _myAddress: '{{ MySecondContract }}',
       },
     },
   },
@@ -61,12 +61,12 @@ remappings=[
 
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
-goerli = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-optimism_goerli = "https://goerli.optimism.io"
-arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
-bnb_smart_chain_testnet = "https://rpc.ankr.com/bsc_testnet_chapel"
+goerli = "https://eth-goerli.g.alchemy.com/v2/demo"
+optimism_goerli = "https://opt-goerli.g.alchemy.com/v2/demo"
+arbitrum_goerli = "https://arb-goerli.g.alchemy.com/v2/demo"
+bnb_smart_chain_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
-polygon_mumbai = "https://rpc-mumbai.maticvigil.com"
+polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 
 [etherscan]
 goerli = { key = "\${ETHERSCAN_API_KEY}" }

@@ -113,7 +113,7 @@ export interface ParsedConfigOptions extends ConfigOptions {
 export interface ConfigOptions {
   orgId: string
   owners: Array<string>
-  threshold: number
+  ownerThreshold: number
   proposers: Array<string>
 }
 
