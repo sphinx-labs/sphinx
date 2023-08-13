@@ -9,6 +9,10 @@ type SupportedMainnetNetworkName =
   | 'matic' // Polygon
   | 'bnb'
   | 'xdai' // Gnosis
+  | 'linea'
+  | 'polygon-zkevm'
+  | 'avalanche'
+  | 'fantom'
 type SupportedTestnetNetworkName =
   | 'goerli'
   | 'optimism-goerli'
@@ -16,6 +20,10 @@ type SupportedTestnetNetworkName =
   | 'maticmum' // Polygon Mumbai
   | 'bnbt' // BNB Smart Chain testnet
   | 'gnosis-chiado'
+  | 'linea-goerli'
+  | 'polygon-zkevm-goerli'
+  | 'avalanche-fuji'
+  | 'fantom-testnet'
 
 export type SupportedNetworkName =
   | SupportedMainnetNetworkName
@@ -32,6 +40,10 @@ export const SUPPORTED_MAINNETS: Record<
   matic: 137,
   bnb: 56,
   xdai: 100,
+  linea: 59144,
+  'polygon-zkevm': 1101,
+  avalanche: 43114,
+  fantom: 250,
 }
 export const SUPPORTED_TESTNETS: Record<
   SupportedTestnetNetworkName,
@@ -43,6 +55,10 @@ export const SUPPORTED_TESTNETS: Record<
   maticmum: 80001,
   bnbt: 97,
   'gnosis-chiado': 10200,
+  'linea-goerli': 59140,
+  'polygon-zkevm-goerli': 1442,
+  'avalanche-fuji': 43113,
+  'fantom-testnet': 4002,
 }
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,
@@ -53,8 +69,28 @@ export const SUPPORTED_NETWORKS = {
 export const supportedMainnetIds = Object.values(SUPPORTED_MAINNETS)
 export const supportedTestnetIds = Object.values(SUPPORTED_TESTNETS)
 
-export type SupportedMainnetChainId = 1 | 10 | 42161 | 137 | 56 | 100
-export type SupportedTestnetChainId = 5 | 420 | 80001 | 97 | 421613 | 10200
+export type SupportedMainnetChainId =
+  | 1
+  | 10
+  | 42161
+  | 137
+  | 56
+  | 100
+  | 59144
+  | 1101
+  | 43114
+  | 250
+export type SupportedTestnetChainId =
+  | 5
+  | 420
+  | 80001
+  | 97
+  | 421613
+  | 10200
+  | 59140
+  | 1442
+  | 43113
+  | 4002
 export type SupportedChainId = SupportedMainnetChainId | SupportedTestnetChainId
 
 // Maps a chain ID to the USDC address on the network.
