@@ -399,31 +399,50 @@ export const getGasPriceOverrides = async (
   provider: ethers.providers.Provider,
   overridden: PayableOverrides | TransactionRequest = {}
 ): Promise<PayableOverrides | TransactionRequest> => {
-  const { maxFeePerGas, maxPriorityFeePerGas } = await provider.getFeeData()
+  const feeData = await provider.getFeeData()
 
-  if (
-    BigNumber.isBigNumber(maxFeePerGas) &&
-    BigNumber.isBigNumber(maxPriorityFeePerGas)
-  ) {
-    overridden.maxFeePerGas = maxFeePerGas
-    overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+  const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
+
+  const chainId = (await provider.getNetwork()).chainId
+
+  switch (chainId) {
+    // Overrides the maxPriorityFeePerGas for Polygon mainnet
+    // This handles an issue where ethers does not work as expected for polygon mainnet due to how
+    // they handle transaction pricing post EIP-1559. If/when we upgrade to Ethers v6, this issue
+    // will be resolved by Ethers internally.
+    case 137:
+      if (
+        (await getNetworkType(provider as ethers.providers.JsonRpcProvider)) ===
+        NetworkType.LIVE_NETWORK
+      ) {
+        if (BigNumber.isBigNumber(maxFeePerGas)) {
+          overridden.maxFeePerGas = maxFeePerGas
+        }
+        overridden.maxPriorityFeePerGas = (
+          await provider.getFeeData()
+        ).maxFeePerGas?.toString()
+      }
+      return overridden
+    // Overrides the gasPrice for Fantom Opera
+    case 250:
+      if (BigNumber.isBigNumber(gasPrice)) {
+        overridden.gasPrice = gasPrice
+        return overridden
+      }
+    // Do not do anything for polygon zkevm and it's testnet
+    case 1101 || 1442:
+      return overridden
+    // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
+    default:
+      if (
+        BigNumber.isBigNumber(maxFeePerGas) &&
+        BigNumber.isBigNumber(maxPriorityFeePerGas)
+      ) {
+        overridden.maxFeePerGas = maxFeePerGas
+        overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
+      }
+      return overridden
   }
-
-  // Overrides the maxPriorityFeePerGas for Polygon mainnet
-  // This handles an issue where ethers does not work as expected for polygon mainnet due to how
-  // they handle transaction pricing post EIP-1559. If/when we upgrade to Ethers v6, this issue
-  // will be resolved by Ethers internally.
-  if (
-    (await provider.getNetwork()).chainId === 137 &&
-    (await getNetworkType(provider as ethers.providers.JsonRpcProvider)) ===
-      NetworkType.LIVE_NETWORK
-  ) {
-    overridden.maxPriorityFeePerGas = (
-      await provider.getFeeData()
-    ).maxFeePerGas?.toString()
-  }
-
-  return overridden
 }
 
 export const isInternalDefaultProxy = async (

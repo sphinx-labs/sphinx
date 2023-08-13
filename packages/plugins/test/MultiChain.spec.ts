@@ -175,7 +175,7 @@ describe('Multi chain config', () => {
         undefined, // Use the default FailureAction
         getCanonicalConfig
       )
-      const { root, leaves } = proposalRequest.tree
+      const { root, leaves } = proposalRequest!.tree
 
       // There will be a proposal leaf and an approval leaf for each chain.
       const expectedNumLeafsPerChain = 2

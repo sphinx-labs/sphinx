@@ -96,7 +96,7 @@ export const initializeAndVerifySphinx = async (
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info('[Sphinx]: attempting to verify the sphinx contracts...')
-        await verifySphinx(provider, provider.network.name, apiKey)
+        await verifySphinx(provider, (await provider.getNetwork()).name, apiKey)
         logger.info(
           '[Sphinx]: finished attempting to verify the sphinx contracts'
         )
@@ -111,6 +111,7 @@ export const initializeAndVerifySphinx = async (
       )
     }
   } catch (e) {
+    console.error(e)
     logger.error(
       `[Sphinx]: error: failed to verify sphinx contracts on ${provider.network.name}`,
       e

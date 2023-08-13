@@ -208,6 +208,7 @@ export const attemptVerification = async (
     compilerVersion: solcFullVersion,
     constructorArguments: constructorArgsAbiEncoded,
   })
+
   let response
   try {
     response = await verifyContract(urls.apiURL, verifyRequest)

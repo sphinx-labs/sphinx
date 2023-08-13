@@ -1,5 +1,5 @@
 import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { ethers, utils } from 'ethers'
+import { BigNumber, ethers, utils } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
@@ -870,9 +870,7 @@ export const getGasEstimates = async (
 
     const resolved = await Promise.all(estGasPerLeafPromises)
 
-    const estGasOnChain = resolved
-      .map((cost) => cost.toNumber())
-      .reduce((a, b) => a + b, 0)
+    const estGasOnChain = resolved.reduce((a, b) => a.add(b), BigNumber.from(0))
 
     gasEstimates.push({ chainId, estimatedGas: estGasOnChain.toString() })
   }
