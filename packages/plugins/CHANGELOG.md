@@ -1,5 +1,15 @@
 # @sphinx-labs/plugins
 
+## 0.19.3
+
+### Patch Changes
+
+- 0506a2e7: Incorporate feedback post-prod deployment
+- 7ed7d07c: Add support for Base
+- Updated dependencies [0506a2e7]
+- Updated dependencies [7ed7d07c]
+  - @sphinx-labs/core@0.14.2
+
 ## 0.19.2
 
 ### Patch Changes

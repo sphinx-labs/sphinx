@@ -1,5 +1,15 @@
 # @sphinx-labs/executor
 
+## 0.14.1
+
+### Patch Changes
+
+- 0506a2e7: Incorporate feedback post-prod deployment
+- Updated dependencies [0506a2e7]
+- Updated dependencies [7ed7d07c]
+  - @sphinx-labs/plugins@0.19.3
+  - @sphinx-labs/core@0.14.2
+
 ## 0.14.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.14.2
+
+### Patch Changes
+
+- 0506a2e7: Incorporate feedback post-prod deployment
+- 7ed7d07c: Add support for Base
+
 ## 0.14.1
 
 ### Patch Changes
