@@ -133,6 +133,16 @@ const config: HardhatUserConfig = {
     //   url: `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
     //   accounts,
     // },
+    // base: {
+    //   chainId: 8453,
+    //   url: `${process.env.BASE_MAINNET_URL}`,
+    //   accounts,
+    // },
+    // 'base-goerli': {
+    //   chainId: 84531,
+    //   url: `${process.env.BASE_GOERLI_URL}`,
+    //   accounts,
+    // },
 
     goerli: {
       chainId: 5,

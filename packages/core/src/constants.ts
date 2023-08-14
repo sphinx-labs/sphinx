@@ -47,6 +47,22 @@ export const customChains: CustomChain[] = [
       browserURL: 'https://zkevm.polygonscan.com',
     },
   },
+  {
+    network: 'base',
+    chainId: 8453,
+    urls: {
+      apiURL: 'https://api.basescan.org/api',
+      browserURL: 'https://basescan.org/',
+    },
+  },
+  {
+    network: 'base-goerli',
+    chainId: 84531,
+    urls: {
+      apiURL: 'https://api-goerli.basescan.org/api',
+      browserURL: 'https://goerli.basescan.org/',
+    },
+  },
 ]
 
 export const EXECUTION_BUFFER_MULTIPLIER = 2
