@@ -74,7 +74,7 @@ const config: HardhatUserConfig = {
     },
     'gnosis-chiado': {
       chainId: 10200,
-      url: `https://nd-706-500-091.p2pify.com/${process.env.CHAINSTACK_API_KEY}`,
+      url: `${process.env.CHIADO_RPC_URL}`,
       accounts,
     },
     gnosis: {
@@ -90,6 +90,46 @@ const config: HardhatUserConfig = {
     polygon: {
       chainId: 137,
       url: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts,
+    },
+    'polygon-zkevm': {
+      chainId: 1101,
+      url: `${process.env.POLYGON_ZKEVM_MAINNET_URL}`,
+      accounts,
+    },
+    'polygon-zkevm-testnet': {
+      chainId: 1442,
+      url: `${process.env.POLYGON_ZKEVM_TESTNET_URL}`,
+      accounts,
+    },
+    linea: {
+      chainId: 59144,
+      url: `https://linea-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
+    'linea-testnet': {
+      chainId: 59140,
+      url: `https://linea-goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
+    'fantom-testnet': {
+      chainId: 4002,
+      url: `${process.env.FANTOM_TESTNET_RPC_URL}`,
+      accounts,
+    },
+    fantom: {
+      chainId: 250,
+      url: `${process.env.FANTOM_MAINNET_RPC_URL}`,
+      accounts,
+    },
+    'avalanche-fiji': {
+      chainId: 43113,
+      url: `https://avalanche-fuji.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts,
+    },
+    avalanche: {
+      chainId: 43114,
+      url: `https://avalanche-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
     },
   },

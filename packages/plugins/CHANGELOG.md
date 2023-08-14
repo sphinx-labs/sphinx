@@ -1,5 +1,13 @@
 # @sphinx-labs/plugins
 
+## 0.19.2
+
+### Patch Changes
+
+- 28075dd4: Support Linea, Avax, Polygon ZKEvm, Fantom
+- Updated dependencies [28075dd4]
+  - @sphinx-labs/core@0.14.1
+
 ## 0.19.1
 
 ### Patch Changes

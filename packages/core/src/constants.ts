@@ -15,6 +15,38 @@ export const customChains: CustomChain[] = [
       browserURL: 'https://gnosis-chiado.blockscout.com',
     },
   },
+  {
+    network: 'linea-testnet',
+    chainId: 59140,
+    urls: {
+      apiURL: 'https://api-goerli.lineascan.build/api',
+      browserURL: 'https://goerli.lineascan.build',
+    },
+  },
+  {
+    network: 'linea',
+    chainId: 59144,
+    urls: {
+      apiURL: 'https://api.lineascan.build/api',
+      browserURL: 'https://lineascan.build',
+    },
+  },
+  {
+    network: 'polygon-zkevm-testnet',
+    chainId: 1442,
+    urls: {
+      apiURL: 'https://api-testnet-zkevm.polygonscan.com/api',
+      browserURL: 'https://testnet-zkevm.polygonscan.com',
+    },
+  },
+  {
+    network: 'polygon-zkevm',
+    chainId: 1101,
+    urls: {
+      apiURL: 'https://api-zkevm.polygonscan.com/api',
+      browserURL: 'https://zkevm.polygonscan.com',
+    },
+  },
 ]
 
 export const EXECUTION_BUFFER_MULTIPLIER = 2
