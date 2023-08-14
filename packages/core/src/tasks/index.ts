@@ -300,9 +300,9 @@ export const proposeAbstractTask = async (
     let proposers: string[]
     let ownerThreshold: number
     if (firstProposalOccurred) {
-      ;({ owners, proposers, threshold: ownerThreshold } = prevConfig.options)
+      ;({ owners, proposers, ownerThreshold } = prevConfig.options)
     } else {
-      ;({ owners, proposers, threshold: ownerThreshold } = parsedConfig.options)
+      ;({ owners, proposers, ownerThreshold } = parsedConfig.options)
     }
 
     const { leafThreshold, roleType } = getAuthLeafSignerInfo(
@@ -359,7 +359,7 @@ export const proposeAbstractTask = async (
   // which calculate addresses in different ways. I.e ZKSync Era
   const authAddress = getAuthAddress(
     parsedConfig.options.owners,
-    parsedConfig.options.threshold,
+    parsedConfig.options.ownerThreshold,
     parsedConfig.projectName
   )
   const managerAddress = getSphinxManagerAddress(authAddress, projectName)
@@ -373,7 +373,7 @@ export const proposeAbstractTask = async (
     chainIds,
     deploymentName: parsedConfig.projectName,
     owners: newCanonicalConfig.options.owners,
-    threshold: newCanonicalConfig.options.threshold,
+    threshold: newCanonicalConfig.options.ownerThreshold,
     authAddress,
     managerAddress,
     canonicalConfig: JSON.stringify(newCanonicalConfig),

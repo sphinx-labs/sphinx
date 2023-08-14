@@ -60,7 +60,7 @@ const config: UserSphinxConfig = {
     proposers: [<your address>],
     testnets: ['goerli', 'optimism-goerli', 'arbitrum-goerli', 'maticmum', 'bnbt', 'gnosis-chiado'],
     mainnets: [],
-    threshold: 1,
+    ownerThreshold: 1,
   },
 
   // The rest of the config file goes here:
@@ -75,7 +75,9 @@ If you'd like to learn more about these fields, check out the [Sphinx config fil
 
 ## 6. Add RPC endpoints
 
-If you don't already have an RPC endpoint for each testnet, you'll need to add them to your Hardhat config file. Here are public RPC endpoints that you can copy and paste into the `networks` field of your Hardhat config:
+If you don't already have an RPC endpoint for each testnet, you'll need to add them to your Hardhat config file.
+
+If you'd like to use private RPC endpoints, we recommend either [Ankr](https://www.ankr.com/) or [Chainstack](https://chainstack.com/) because they support most networks that Sphinx supports. Otherwise, here are public RPC endpoints that you can copy and paste into the `networks` field of your Hardhat config:
 
 ```ts
 goerli: {

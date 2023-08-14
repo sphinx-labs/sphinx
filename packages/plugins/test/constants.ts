@@ -33,7 +33,7 @@ export const cre = createSphinxRuntime(
   false
 )
 
-export const threshold = 1
+export const ownerThreshold = 1
 
 // First account on Hardhat node
 export const ownerPrivateKey =
@@ -64,7 +64,7 @@ export const sampleUserConfig: UserConfigWithOptions = {
   options: {
     orgId: DUMMY_ORG_ID,
     owners,
-    threshold,
+    ownerThreshold,
     testnets,
     mainnets: [],
     proposers: [ownerAddress],
@@ -81,8 +81,12 @@ export const sampleUserConfig: UserConfigWithOptions = {
   },
 }
 
-export const authData = getAuthData(owners, threshold)
-export const authAddress = getAuthAddress(owners, threshold, sampleProjectName)
+export const authData = getAuthData(owners, ownerThreshold)
+export const authAddress = getAuthAddress(
+  owners,
+  ownerThreshold,
+  sampleProjectName
+)
 export const managerAddress = getSphinxManagerAddress(
   authAddress,
   sampleProjectName

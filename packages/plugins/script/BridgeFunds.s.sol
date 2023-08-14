@@ -13,23 +13,22 @@ import {
 /**
  * @notice This script sends funds from Goerli to any destination testnet supported by LayerZero.
  *         Instructions:
- *         a. If sending funds to a chain besides BSC testnet and Gnosis Chiado, you'll need to
- *            deploy a `SphinxLZReceiver` on the new destination chain. This contract is located at
- *            the bottom of this file. You can use `forge deploy` to deploy it:
- *            https://book.getfoundry.sh/forge/deploying
- *         b. Update the sections of this contract marked by (1) and (2).
- *         c. Make sure that you have an `ALCHEMY_API_KEY` and `PRIVATE_KEY` in your `.env` file.
+ *         a. Make sure that you have an `ALCHEMY_API_KEY` and `PRIVATE_KEY` in your `.env` file.
  *            The `PRIVATE_KEY` must store the funds that you're transferring from Goerli.
- *         d. To run this script: `forge script script/BridgeFunds.s.sol --broadcast --tc SphinxScript`
+ *         b. Update the sections of this contract marked by (1) and (2).
+ *         c. To run this script:
+ *            `forge script script/BridgeFunds.s.sol --broadcast --tc SphinxScript`
  */
 contract SphinxScript is LzApp, Script {
     // (1) Update all of the variables in this section.
     // Amount to receive on each destination chain. If you'd like to skip sending funds to a
     // particular chain, set the amount to 0 here.
-    uint256 bnbTestnetAmount = 10 ** 18; // 1 BNBT
-    uint256 gnosisChiadoAmount = 2 * (10**18); // 2 XDAI
+    uint256 bnbTestnetAmount = 0; // 1 BNBT
+    uint256 gnosisChiadoAmount = 0; // 2 XDAI
+    uint256 avaxAmount = 150 * (10**18);
+    uint256 ftmAmount = 1000 * (10**18);
     // Address that will receive the funds on the destination chain:
-    address tokenReceiver = 0x226F14C3e19788934Ff37C653Cf5e24caD198341;
+    address tokenReceiver = 0x4856e043a1F2CAA8aCEfd076328b4981Aca91000;
     // Address of the SphinxLZReceiver contract on the destination chain. This is *not* the address
     // that receives funds. This contract is necessary because the cross-chain message must be sent
     // to a contract that can receive the LayerZero message, or else the funds won't be transferred
@@ -38,10 +37,14 @@ contract SphinxScript is LzApp, Script {
     // of the deployed contract here.
     address bnbTestnetLzReceiver = 0x4a3844F8B63ffb024aE7b5d3BD613f8AD7bcB43b;
     address gnosisChiadoLzReceiver = 0x4a3844F8B63ffb024aE7b5d3BD613f8AD7bcB43b;
+    address fantomLzReceiver = 0x4a3844F8B63ffb024aE7b5d3BD613f8AD7bcB43b;
+    address avaxLzReceiver = 0x4a3844F8B63ffb024aE7b5d3BD613f8AD7bcB43b;
     // LayerZero chain IDs. Add new chains here.
     uint16 goerliLzChainId = 10121;
     uint16 bnbTestnetLzChainId = 10102;
     uint16 gnosisChiadoLzChainId = 10145;
+    uint16 phantomLzChainId = 10112;
+    uint16 avaxLzChainId = 10106;
     // If you're adding a new chain, go to (2) below.
 
     /**
@@ -79,6 +82,8 @@ contract SphinxScript is LzApp, Script {
         // (2) If you're adding a new chain, add a new FundingInfo struct here.
         fundingInfo.push(FundingInfo(bnbTestnetLzChainId, bnbTestnetAmount, bnbTestnetLzReceiver));
         fundingInfo.push(FundingInfo(gnosisChiadoLzChainId, gnosisChiadoAmount, gnosisChiadoLzReceiver));
+        fundingInfo.push(FundingInfo(phantomLzChainId, ftmAmount, fantomLzReceiver));
+        fundingInfo.push(FundingInfo(avaxLzChainId, avaxAmount, avaxLzReceiver));
 
         _transferOwnership(funder);
     }

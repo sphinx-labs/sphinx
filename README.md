@@ -57,6 +57,7 @@ You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deploym
 - Avalanche C-Chain
 - Linea
 - Fantom
+- Base
 
 Test networks:
 
@@ -70,14 +71,16 @@ Test networks:
 - Avalanche Fuji
 - Linea Goerli
 - Fantom Testnet
+- Base Goerli
 
 More networks are on the way! Please feel free to reach out in our [Discord](https://discord.gg/7Gc3DK33Np) if there are networks you'd like us to add.
 
-## Maintainers
+## Contributors
 
 [@smartcontracts](https://github.com/smartcontracts)\
-[@sam-goldman](https://github.com/sam-goldman)\
-[@rpate97](https://github.com/RPate97)
+[Defi Wonderland](https://defi.sucks/)\
+[@rpate97](https://github.com/RPate97)\
+[@sam-goldman](https://github.com/sam-goldman)
 
 ## Contributing
 
