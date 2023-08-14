@@ -245,6 +245,11 @@ export const getAuthData = (
   owners: Array<string>,
   ownerThreshold: number
 ): string => {
+  // Sort the owners in ascending order. This makes it easier to calculate the
+  // the address of the SphinxAuth contract, which is generated using the
+  // auth data.
+  owners.sort()
+
   return utils.defaultAbiCoder.encode(
     ['address[]', 'uint256'],
     [owners, ownerThreshold]

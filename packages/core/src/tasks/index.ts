@@ -223,18 +223,18 @@ export const proposeAbstractTask = async (
     )
   }
 
+  if (leafs.length === 0) {
+    spinner.succeed(
+      `Skipping proposal because your Sphinx config file has not changed.`
+    )
+    return
+  }
+
   if (!cre.confirm && !dryRun) {
     spinner.stop()
     // Confirm deployment with the user before proceeding.
     await userConfirmation(getDiffString(diff))
     spinner.start(`Proposal in progress...`)
-  }
-
-  if (leafs.length === 0) {
-    spinner.succeed(
-      `Proposal completed, nothing has changed so no new deployment was created.`
-    )
-    return
   }
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}
@@ -389,13 +389,12 @@ export const proposeAbstractTask = async (
 
   if (!dryRun) {
     const websiteLink = blue(hyperlink('website', WEBSITE_URL))
-    spinner.succeed(
-      `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
-    )
-
     await relayProposal(proposalRequest)
     const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
+    spinner.succeed(
+      `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
+    )
   } else {
     spinner.succeed(`Proposal dry run succeeded!`)
   }

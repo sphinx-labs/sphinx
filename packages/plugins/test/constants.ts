@@ -9,7 +9,9 @@ import '@nomiclabs/hardhat-ethers'
 
 import { BigNumber, ethers } from 'ethers'
 import {
+  SupportedNetworkName,
   UserConfigWithOptions,
+  UserContractConfigs,
   getAuthAddress,
   getAuthData,
   getSphinxManagerAddress,
@@ -17,12 +19,21 @@ import {
 
 import { createSphinxRuntime } from '../src/cre'
 
+export type MultiChainProjectTestInfo = {
+  managerAddress: string
+  authAddress: string
+  authData: string
+  userConfig: UserConfigWithOptions
+  ownerPrivateKeys: string[]
+  ownerAddresses: string[]
+  proposerAddresses: string[]
+}
+
+// The following values are shared between the Sphinx configs that are tested.
+export const DUMMY_ORG_ID = '1111'
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
 export const OWNER_ROLE_HASH = ethers.constants.HashZero
-
-export const DUMMY_ORG_ID = '1111'
-
 export const cre = createSphinxRuntime(
   'hardhat',
   false,
@@ -32,17 +43,15 @@ export const cre = createSphinxRuntime(
   hre,
   false
 )
-
-export const ownerThreshold = 1
-
-// First account on Hardhat node
-export const ownerPrivateKey =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-// Second account on Hardhat node
-export const relayerPrivateKey =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
-
-export const testnets = ['goerli', 'optimism-goerli']
+export const initialTestnets: Array<SupportedNetworkName> = [
+  'goerli',
+  'optimism-goerli',
+]
+export const testnetsToAdd: Array<SupportedNetworkName> = [
+  'arbitrum-goerli',
+  'gnosis-chiado',
+]
+export const allTestnets = initialTestnets.concat(testnetsToAdd)
 export const rpcProviders = {
   goerli: new ethers.providers.JsonRpcProvider('http://127.0.0.1:42005'),
   'optimism-goerli': new ethers.providers.JsonRpcProvider(
@@ -55,42 +64,112 @@ export const rpcProviders = {
     'http://127.0.0.1:42613'
   ),
 }
-export const ownerAddress = new ethers.Wallet(ownerPrivateKey).address
+// Account #9 on Hardhat/Anvil node
+export const relayerPrivateKey =
+  '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6'
 
-export const sampleProjectName = 'MyProject'
-export const owners = [ownerAddress]
-export const sampleUserConfig: UserConfigWithOptions = {
-  projectName: sampleProjectName,
-  options: {
-    orgId: DUMMY_ORG_ID,
-    owners,
-    ownerThreshold,
-    testnets,
-    mainnets: [],
-    proposers: [ownerAddress],
-  },
-  contracts: {
-    MyContract: {
-      contract: 'Stateless',
-      kind: 'immutable',
-      constructorArgs: {
-        _immutableUint: 1,
-        _immutableAddress: '0x' + '11'.repeat(20),
-      },
+// Accounts #0-4 on Hardhat/Anvil node.
+export const ownerPrivateKeys = [
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+  '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
+  '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+]
+// Account 5 on Hardhat/Anvil node.
+export const proposerPrivateKey =
+  '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba'
+
+const contractConfig: UserContractConfigs = {
+  MyContract: {
+    contract: 'Stateless',
+    kind: 'immutable',
+    constructorArgs: {
+      _immutableUint: 1,
+      _immutableAddress: '0x' + '11'.repeat(20),
     },
   },
 }
 
-export const authData = getAuthData(owners, ownerThreshold)
-export const authAddress = getAuthAddress(
-  owners,
-  ownerThreshold,
-  sampleProjectName
+// Next, we'll define the EOA project variables.
+// A single account is used as the owner and proposer for this project.
+const eoaAddress = new ethers.Wallet(proposerPrivateKey).address
+const eoaUserConfig: UserConfigWithOptions = {
+  projectName: 'EOA Project',
+  options: {
+    orgId: DUMMY_ORG_ID,
+    owners: [eoaAddress],
+    ownerThreshold: 1,
+    testnets: initialTestnets,
+    mainnets: [],
+    proposers: [eoaAddress],
+  },
+  contracts: contractConfig,
+}
+const eoaAuthData = getAuthData(
+  [eoaAddress],
+  eoaUserConfig.options.ownerThreshold
 )
-export const managerAddress = getSphinxManagerAddress(
-  authAddress,
-  sampleProjectName
+const eoaAuthAddress = getAuthAddress(
+  [eoaAddress],
+  eoaUserConfig.options.ownerThreshold,
+  eoaUserConfig.projectName
 )
+const eoaManagerAddress = getSphinxManagerAddress(
+  eoaAuthAddress,
+  eoaUserConfig.projectName
+)
+
+// Multisig project variables
+const multisigUserConfig: UserConfigWithOptions = {
+  projectName: 'Multisig Project',
+  options: {
+    orgId: DUMMY_ORG_ID,
+    owners: ownerPrivateKeys.map((privateKey) => {
+      return new ethers.Wallet(privateKey).address
+    }),
+    ownerThreshold: 3,
+    testnets: initialTestnets,
+    mainnets: [],
+    proposers: [new ethers.Wallet(proposerPrivateKey).address],
+  },
+  contracts: contractConfig,
+}
+const multisigAuthData = getAuthData(
+  multisigUserConfig.options.owners,
+  multisigUserConfig.options.ownerThreshold
+)
+const multisigAuthAddress = getAuthAddress(
+  multisigUserConfig.options.owners,
+  multisigUserConfig.options.ownerThreshold,
+  multisigUserConfig.projectName
+)
+const multisigManagerAddress = getSphinxManagerAddress(
+  multisigAuthAddress,
+  multisigUserConfig.projectName
+)
+
+export const multichainTestInfo: Array<MultiChainProjectTestInfo> = []
+// EOA project
+multichainTestInfo.push({
+  managerAddress: eoaManagerAddress,
+  authAddress: eoaAuthAddress,
+  authData: eoaAuthData,
+  userConfig: eoaUserConfig,
+  ownerPrivateKeys: [proposerPrivateKey],
+  ownerAddresses: [eoaAddress],
+  proposerAddresses: [eoaAddress],
+})
+// Multisig project
+multichainTestInfo.push({
+  managerAddress: multisigManagerAddress,
+  authAddress: multisigAuthAddress,
+  authData: multisigAuthData,
+  userConfig: multisigUserConfig,
+  ownerPrivateKeys,
+  ownerAddresses: multisigUserConfig.options.owners,
+  proposerAddresses: multisigUserConfig.options.proposers,
+})
 
 export const fetchBuildInfo = () => {
   const directoryPath = path.join(__dirname, '../artifacts/build-info')

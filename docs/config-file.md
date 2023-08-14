@@ -26,7 +26,7 @@ A config file looks like this:
     orgId: '<org-id>',
     testnets: ['goerli', 'optimism-goerli'],
     mainnets: ['ethereum', 'optimism'],
-    owners: ['0x11111...'],
+    owners: ['0x11111...', '0x22222...', '0x33333...', ...],
     ownerThreshold: 3,
     proposers: ['0x9999...'],
   },
@@ -103,7 +103,7 @@ It contains the following fields:
   * Polygon Mumbai: `'maticmum'`
   * BNB Smart Chain Testnet: `'bnbt'`
   * Gnosis Chiado: `'gnosis-chiado'`
-* `owners`: The list of addresses that own this project. Owners can perform permissioned actions such as approving deployments via the Sphinx UI. We currently only support projects that are owned by a single account.
+* `owners`: The list of addresses that own this project. Owners can perform permissioned actions such as approving deployments via the Sphinx UI. We recommend that the owner accounts are hardware wallets.
 * `ownerThreshold`: The number of owners that must sign a permissioned action, such as approving a deployment, before the action can be executed on-chain.
 * `proposers`: The list of addresses that are allowed to propose changes to the Sphinx config file. Any change to the Sphinx config file, including contract deployments, must be proposed before it can be approved by the project owners. We recommend that proposals occur in a CI process, but you can also propose from the command line.
 

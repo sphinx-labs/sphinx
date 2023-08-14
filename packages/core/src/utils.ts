@@ -1255,19 +1255,19 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
       throw new Error(`Malformed Request: ${e.response.data}`)
     } else if (e.response.status === 401) {
       throw new Error(
-        `Unauthorized, please check your API key and Org Id are correct`
+        `Unauthorized request. Please check your Sphinx API key and organization ID are correct.`
       )
     } else if (e.response.status === 409) {
       throw new Error(
-        `Unsupported network, please report this to the developers`
+        `Unsupported network. Please report this to the developers.`
       )
     } else if (e.response.status === 500) {
       throw new Error(
-        `Internal server error, please report this to the developers`
+        `Internal server error. Please report this to the developers.`
       )
     } else {
       throw new Error(
-        `Unexpected response code, please report this to the developers`
+        `Unexpected response code. Please report this to the developers.`
       )
     }
   }
@@ -1584,4 +1584,22 @@ export const getNetworkNameForChainId = (chainId: number): string => {
   }
 
   return network
+}
+
+/**
+ * @notice Sorts an array of hex strings in ascending order. This function mutates the array.
+ */
+export const sortHexStrings = (arr: Array<string>): void => {
+  arr.sort((a, b) => {
+    const aBN = ethers.BigNumber.from(a)
+    const bBN = ethers.BigNumber.from(b)
+
+    if (aBN.lt(bBN)) {
+      return -1
+    } else if (aBN.gt(bBN)) {
+      return 1
+    } else {
+      return 0
+    }
+  })
 }

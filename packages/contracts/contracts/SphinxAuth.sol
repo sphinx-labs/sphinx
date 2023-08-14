@@ -97,7 +97,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
     error NotEnoughSignatures();
     error InvalidSignatureLength();
     error UnauthorizedSigner();
-    error DuplicateSigner();
+    error NonAscendingSignerOrder();
     error InvalidToAddress();
     error InvalidChainId();
     error InvalidLeafIndex();
@@ -129,7 +129,8 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
      * @param _manager Address of the SphinxManager contract.
      * @param _data Arbitrary data. Provides a flexible interface for future versions of this
                     contract. In this version, the data is expected to be the ABI-encoded
-                    list of owners and owner threshold.
+                    list of owners and the owner threshold. Note that the list of owners
+                    should be in ascending order.
      */
     function initialize(
         address _manager,
@@ -705,7 +706,7 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
 
             signer = ECDSAUpgradeable.recover(typedDataHash, signature);
             if (!hasRole(_verifyingRole, signer)) revert UnauthorizedSigner();
-            if (signer <= prevSigner) revert DuplicateSigner();
+            if (signer <= prevSigner) revert NonAscendingSignerOrder();
 
             prevSigner = signer;
         }
