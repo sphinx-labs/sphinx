@@ -8,7 +8,7 @@ const config: UserConfigWithOptions = {
   options: {
     orgId: 'clku3cgou00002gcb837z3j3j',
     owners: [ownerAddress],
-    threshold: 1,
+    ownerThreshold: 1,
     testnets: [
       'arbitrum-goerli',
       'gnosis-chiado',

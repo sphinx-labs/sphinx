@@ -43,7 +43,7 @@ const cre = createSphinxRuntime(
   false
 )
 
-const threshold = 1
+const ownerThreshold = 1
 
 // We use the second and third accounts on the Hardhat network for the owner and the relayer,
 // respectively, because the first account is used by the executor. The relayer is the account that
@@ -88,7 +88,7 @@ describe('Remote executor', () => {
       options: {
         orgId: DUMMY_ORG_ID,
         owners,
-        threshold,
+        ownerThreshold,
         testnets: [network],
         mainnets: [],
         proposers: [owner.address],
@@ -114,8 +114,8 @@ describe('Remote executor', () => {
       },
     }
 
-    const authData = getAuthData(owners, threshold)
-    const authAddress = getAuthAddress(owners, threshold, projectName)
+    const authData = getAuthData(owners, ownerThreshold)
+    const authAddress = getAuthAddress(owners, ownerThreshold, projectName)
     const managerAddress = getSphinxManagerAddress(authAddress, projectName)
 
     await ensureSphinxInitialized(provider, relayer)

@@ -63,7 +63,7 @@ const config: UserSphinxConfig = {
     proposers: [<your address>],
     testnets: ['goerli', 'optimism-goerli', 'arbitrum-goerli', 'maticmum', 'bnbt', 'gnosis-chiado'],
     mainnets: [],
-    threshold: 1,
+    ownerThreshold: 1,
   },
 
   // The rest of the config file goes here:
@@ -78,15 +78,16 @@ If you'd like to learn more about these fields, check out the [Sphinx config fil
 
 ## 6. Add RPC endpoints
 
-If you don't already have an RPC endpoint for each testnet, you'll need to add them to your `foundry.toml` under `[rpc_endpoints]`. Here are public RPC endpoints that you can copy and paste into your `foundry.toml`:
+If you don't already have an RPC endpoint for each testnet, you'll need to add them to your `foundry.toml` under `[rpc_endpoints]`. You can either use private RPC endpoints such as [Ankr](https://www.ankr.com/) or [Chainstack](https://chainstack.com/), or you can use these public RPC endpoints:
 
 ```toml
-goerli = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-optimism_goerli = "https://goerli.optimism.io"
-arbitrum_goerli = "https://goerli-rollup.arbitrum.io/rpc"
-bnb_smart_chain_testnet = "https://rpc.ankr.com/bsc_testnet_chapel"
+[rpc_endpoints]
+goerli = "https://eth-goerli.g.alchemy.com/v2/demo"
+optimism_goerli = "https://opt-goerli.g.alchemy.com/v2/demo"
+arbitrum_goerli = "https://arb-goerli.g.alchemy.com/v2/demo"
+bnb_smart_chain_testnet = "https://bsc-testnet.publicnode.com"
 gnosis_chiado = "https://rpc.chiadochain.net"
-polygon_mumbai = "https://rpc-mumbai.maticvigil.com"
+polygon_mumbai = "https://polygon-mumbai.g.alchemy.com/v2/demo"
 ```
 
 ## 7. Propose the deployment

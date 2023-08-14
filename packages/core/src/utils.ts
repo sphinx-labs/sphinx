@@ -1203,8 +1203,8 @@ export const getProjectConfigInfo = async (
       chainIds: parsedConfigOptions.chainIds,
     }
   } else {
-    const { owners, threshold, chainIds, orgId } = parsedConfigOptions
-    const auth = getAuthAddress(owners, threshold, projectName)
+    const { owners, ownerThreshold, chainIds, orgId } = parsedConfigOptions
+    const auth = getAuthAddress(owners, ownerThreshold, projectName)
     const manager = getSphinxManagerAddress(auth, projectName)
     const emptyConfig = getEmptyCanonicalConfig(
       chainIds,
@@ -1331,7 +1331,7 @@ export const getEmptyCanonicalConfig = (
     options: {
       orgId,
       owners: [],
-      threshold: 0,
+      ownerThreshold: 0,
       proposers: [],
     },
     contracts: {},

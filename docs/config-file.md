@@ -23,32 +23,32 @@ A config file looks like this:
 
   // Options (only for DevOps users):
   options: {
-    orgId: 'my-org',
+    orgId: '<org-id>',
     testnets: ['goerli', 'optimism-goerli'],
     mainnets: ['ethereum', 'optimism'],
     owners: ['0x11111...'],
-    threshold: 3,
+    ownerThreshold: 3,
     proposers: ['0x9999...'],
   },
 
   // Contract definitions:
   contracts: {
     // First contract
-    ContractOne: {
+    MyFirstContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 1,
-        _contractOne: '{{ ContractOne }}', // Address of ContractOne
+        _myNumber: 1,
+        _myAddress: '{{ MyFirstContract }}', // Address of MyFirstContract
       },
     },
     // Second contract
-    ContractTwo: {
+    MySecondContract: {
       contract: 'HelloSphinx',
       kind: 'immutable',
       constructorArgs: {
-        _number: 2,
-        _contractOne: '{{ ContractOne }}', // Address of ContractOne
+        _myNumber: 2,
+        _myAddress: '{{ MySecondContract }}', // Address of MySecondContract
       },
     },
     // Additional contracts go here:
@@ -78,11 +78,11 @@ This section is only relevant for users of the Sphinx DevOps platform.
 The `options` field contains the settings for your Sphinx project. It looks like this:
 ```js
 options: {
-  orgId: 'my-org',
+  orgId: '<org-id>',
   testnets: ['goerli', 'optimism-goerli'],
   mainnets: ['ethereum', 'optimism'],
   owners: ['0x11111...', '0x22222...', ...],
-  threshold: 3,
+  ownerThreshold: 3,
   proposers: ['0x9999...'],
 },
 ```
@@ -104,7 +104,7 @@ It contains the following fields:
   * BNB Smart Chain Testnet: `'bnbt'`
   * Gnosis Chiado: `'gnosis-chiado'`
 * `owners`: The list of addresses that own this project. Owners can perform permissioned actions such as approving deployments via the Sphinx UI. We currently only support projects that are owned by a single account.
-* `threshold`: The number of owners that must sign a permissioned action, such as approving a deployment, before the action can be executed on-chain.
+* `ownerThreshold`: The number of owners that must sign a permissioned action, such as approving a deployment, before the action can be executed on-chain.
 * `proposers`: The list of addresses that are allowed to propose changes to the Sphinx config file. Any change to the Sphinx config file, including contract deployments, must be proposed before it can be approved by the project owners. We recommend that proposals occur in a CI process, but you can also propose from the command line.
 
 ## Contracts
@@ -114,21 +114,21 @@ This section contains the deployment info for all of the contracts in your proje
 ```js
 contracts: {
   // First contract
-  ContractOne: {
+  MyFirstContract: {
     contract: 'HelloSphinx',
     kind: 'immutable',
     constructorArgs: {
-      _number: 1,
-      _contractOne: '{{ ContractOne }}', // Address of ContractOne
+      _myNumber: 1,
+      _myAddress: '{{ MyFirstContract }}', // Address of MyFirstContract
     },
   },
   // Second contract
-  ContractTwo: {
+  MySecondContract: {
     contract: 'HelloSphinx',
     kind: 'immutable',
     constructorArgs: {
-      _number: 2,
-      _contractOne: '{{ ContractOne }}', // Address of ContractOne
+      _myNumber: 2,
+      _myAddress: '{{ MySecondContract }}', // Address of MySecondContract
     },
   },
   // Additional contracts go here:
@@ -138,7 +138,7 @@ contracts: {
 
 ### Reference names
 
-Each contract definition is keyed by a **reference name**, which uniquely identifies each contract. A reference name can be any name you choose. In the sample Sphinx config above, the first contract's reference name is `ContractOne`, and the second contract's reference name is `ContractTwo`.
+Each contract definition is keyed by a **reference name**, which uniquely identifies each contract. A reference name can be any name you choose. In the sample Sphinx config above, the first contract's reference name is `MyFirstContract`, and the second contract's reference name is `MySecondContract`.
 
 ### Contract definitions
 
@@ -146,5 +146,5 @@ Each contract definition has the following fields:
 
 * `contract`: The name of the contract in your Solidity source file. In the sample Sphinx config above, both contracts are named `HelloSphinx`.
 * `kind`: The kind of contract you're deploying. Sphinx only supports `immutable` contract kinds, but it will support more kinds in the future, such as Transparent proxies.
-* `constructorArgs`: Object containing the contract's constructor arguments and their values. In the sample Sphinx config above, both contracts have a constructor argument named `_number` with a value of `1` and `2`, respectively. Both contracts also use a _contract reference_ as the value of the constructor argument `_contractOne`. The contract reference `{{ ContractOne }}` equals the address of `ContractOne`. To learn more about how to define constructor arguments of every variable type, including contract references, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md).
+* `constructorArgs`: Object containing the contract's constructor arguments and their values. In the sample Sphinx config above, both contracts have a constructor argument named `_myNumber` with a value of `1` and `2`, respectively. Both contracts also use a _contract reference_ as the value of the constructor argument `_myAddress`. The contract reference `{{ MyFirstContract }}` equals the address of `MyFirstContract`. To learn more about how to define constructor arguments of every variable type, including contract references, click [here](https://github.com/sphinx-labs/sphinx/blob/develop/docs/constructor-args.md).
 * `salt`: (optional): A string or number that changes the `CREATE3` address of the contract.

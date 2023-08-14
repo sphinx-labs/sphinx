@@ -16,34 +16,34 @@ describe('HelloSphinx', () => {
     // Gets the deployed contracts.
     FirstContract = await sphinx.getContract(
       projectName,
-      "ContractOne",
+      "MyFirstContract",
       signer
     )
     SecondContract = await sphinx.getContract(
       projectName,
-      "ContractTwo",
+      "MySecondContract",
       signer
     )
   })
 
   it('initializes first constructor', async () => {
-    expect(await FirstContract.number()).equals(1)
-    expect(await FirstContract.contractOne()).equals(FirstContract.address)
+    expect(await FirstContract.myNumber()).equals(1)
+    expect(await FirstContract.myAddress()).equals(FirstContract.address)
   })
 
   it('initializes second constructor', async () => {
-    expect(await SecondContract.number()).equals(2)
-    expect(await SecondContract.contractOne()).equals(FirstContract.address)
+    expect(await SecondContract.myNumber()).equals(2)
+    expect(await SecondContract.myAddress()).equals(SecondContract.address)
   })
 
   it('increments first number', async () => {
     await FirstContract.increment()
-    expect(await FirstContract.number()).equals(2)
+    expect(await FirstContract.myNumber()).equals(2)
   })
 
   it('increments second number', async () => {
     await SecondContract.increment()
-    expect(await SecondContract.number()).equals(3)
+    expect(await SecondContract.myNumber()).equals(3)
   })
 })
 `
@@ -66,34 +66,34 @@ describe('HelloSphinx', () => {
     // Get the deployed contracts.
     FirstContract = await sphinx.getContract(
       projectName,
-      "ContractOne",
+      "MyFirstContract",
       signer
     )
     SecondContract = await sphinx.getContract(
       projectName,
-      "ContractTwo",
+      "MySecondContract",
       signer
     )
   })
 
   it('initializes first constructor', async () => {
-    expect(await FirstContract.number()).equals(1)
-    expect(await FirstContract.contractOne()).equals(FirstContract.address)
+    expect(await FirstContract.myNumber()).equals(1)
+    expect(await FirstContract.myAddress()).equals(FirstContract.address)
   })
 
   it('initializes second constructor', async () => {
-    expect(await SecondContract.number()).equals(2)
-    expect(await SecondContract.contractOne()).equals(FirstContract.address)
+    expect(await SecondContract.myNumber()).equals(2)
+    expect(await SecondContract.myAddress()).equals(SecondContract.address)
   })
 
   it('increments first number', async () => {
     await FirstContract.increment()
-    expect(await FirstContract.number()).equals(2)
+    expect(await FirstContract.myNumber()).equals(2)
   })
 
   it('increments second number', async () => {
     await SecondContract.increment()
-    expect(await SecondContract.number()).equals(3)
+    expect(await SecondContract.myNumber()).equals(3)
   })
 })
 `

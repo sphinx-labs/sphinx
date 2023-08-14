@@ -66,21 +66,21 @@ A _contract reference_ is a string that equals the address of a contract defined
 
 For example, say you have a contract defined in your config file like this:
 ```ts
-ContractOne: {
+MyFirstContract: {
   contract: 'HelloSphinx',
   kind: 'immutable',
   constructorArgs: { ... }
 }
 ```
 
-The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `ContractOne`. You can use the contract reference `{{ ContractOne }}` as a constructor argument value anywhere in your config file. For example, if you have another contract in your config file, you can do this:
+The [reference name](https://github.com/sphinx-labs/sphinx/blob/develop/docs/config-file.md#reference-names) of this contract is `MyFirstContract`. You can use the contract reference `{{ MyFirstContract }}` as a constructor argument value anywhere in your config file. For example, if you have another contract in your config file, you can do this:
 
 ```ts
-ContractTwo: {
+MySecondContract: {
   contract: 'HelloSphinx',
   kind: 'immutable',
   constructorArgs: {
-    _contractOne: '{{ ContractOne }}' // Address of ContractOne
+    _myFirstContract: '{{ MyFirstContract }}' // Address of MyFirstContract
   }
 }
 ```
@@ -89,7 +89,7 @@ Contract references can be used for variables of type `address`, `address payabl
 
 Contract references are case-sensitive. So, in the example above, this is not valid:
 ```ts
-_contractOne: '{{ CONTRACTONE }}' // Invalid reference name
+_myFirstContract: '{{ CONTRACTONE }}' // Invalid reference name
 ```
 
 ## Fixed-size bytes (`bytes1`, `bytes2`, ..., `bytes32`)

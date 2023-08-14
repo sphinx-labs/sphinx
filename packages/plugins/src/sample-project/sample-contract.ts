@@ -5,16 +5,16 @@ export const getSampleContractFile = (solcVersion: string) => {
 pragma solidity ^${solcVersion};
 
 contract HelloSphinx {
-    uint8 public number;
-    address public contractOne;
+    uint8 public myNumber;
+    address public myAddress;
 
-    constructor(uint8 _number, address _contractOne) {
-        number = _number;
-        contractOne = _contractOne;
+    constructor(uint8 _myNumber, address _myAddress) {
+        myNumber = _myNumber;
+        myAddress = _myAddress;
     }
 
     function increment() public {
-        number += 1;
+        myNumber += 1;
     }
 }
 `
@@ -57,28 +57,28 @@ contract HelloSphinxTest is Sphinx, Test {
         deploy(configPath, vm.rpcUrl("anvil"));
 
         // Gets the deployed contracts
-        firstContract = HelloSphinx(getAddress(configPath, "ContractOne"));
-        secondContract = HelloSphinx(getAddress(configPath, "ContractTwo"));
+        firstContract = HelloSphinx(getAddress(configPath, "MyFirstContract"));
+        secondContract = HelloSphinx(getAddress(configPath, "MySecondContract"));
     }
 
     function testFirstConstructor() public {
-        assertEq(firstContract.number(), 1);
-        assertEq(address(firstContract), firstContract.contractOne());
+        assertEq(firstContract.myNumber(), 1);
+        assertEq(address(firstContract), firstContract.myAddress());
     }
 
     function testSecondConstructor() public {
-        assertEq(secondContract.number(), 2);
-        assertEq(address(firstContract), secondContract.contractOne());
+        assertEq(secondContract.myNumber(), 2);
+        assertEq(address(secondContract), secondContract.myAddress());
     }
 
     function testIncrementFirstContract() public {
         firstContract.increment();
-        assertEq(firstContract.number(), 2);
+        assertEq(firstContract.myNumber(), 2);
     }
 
     function testIncrementSecondContract() public {
         secondContract.increment();
-        assertEq(secondContract.number(), 3);
+        assertEq(secondContract.myNumber(), 3);
     }
 }
 `
