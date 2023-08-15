@@ -44,9 +44,9 @@ import {
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
   getDuplicateElements,
-  hyperlink,
   getNetworkType,
   resolveNetwork,
+  sortHexStrings,
 } from '../utils'
 import {
   ParsedConfigVariable,
@@ -2935,47 +2935,6 @@ export const assertValidConfigOptions = (
     )
   }
 
-  // These are temporary until we add support for multisigs.
-  if (owners.length > 1) {
-    logValidationError(
-      'error',
-      `We currently only support configs that contain a single owner. Join our ${hyperlink(
-        'Discord',
-        'https://discord.gg/7Gc3DK33Np'
-      )} to \n` + `request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (proposers.length > 1) {
-    logValidationError(
-      'error',
-      `We currently only support configs that contain a single proposer. Join our ${hyperlink(
-        'Discord',
-        'https://discord.gg/7Gc3DK33Np'
-      )} to \n` + `request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-  if (
-    ethers.utils.getAddress(owners[0]) !== ethers.utils.getAddress(proposers[0])
-  ) {
-    logValidationError(
-      'error',
-      `We currently only support configs that have the same proposer and owner address. Join\n` +
-        `our ${hyperlink(
-          'Discord',
-          'https://discord.gg/7Gc3DK33Np'
-        )} to request this feature.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
   assertNoValidationErrors(failureAction)
 }
 
@@ -2990,12 +2949,15 @@ export const parseConfigOptions = (
     : mainnets.map((network) => SUPPORTED_MAINNETS[network])
 
   // Converts addresses to checksummed addresses and sorts them in ascending order.
-  const owners = options.owners
-    .map((address) => ethers.utils.getAddress(address))
-    .sort()
-  const proposers = options.proposers
-    .map((address) => ethers.utils.getAddress(address))
-    .sort()
+  const owners = options.owners.map((address) =>
+    ethers.utils.getAddress(address)
+  )
+  sortHexStrings(owners)
+
+  const proposers = options.proposers.map((address) =>
+    ethers.utils.getAddress(address)
+  )
+  sortHexStrings(proposers)
 
   return {
     chainIds,

@@ -19,10 +19,6 @@ Here is the deployment process with the DevOps platform:
 
 You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
 
-### Coming soon
-
-- Support for multisigs
-
 ## Documentation
 
 ### Getting Started
