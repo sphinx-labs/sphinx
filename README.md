@@ -74,7 +74,7 @@ More networks are on the way! Please feel free to reach out in our [Discord](htt
 ## Contributors
 
 [@smartcontracts](https://github.com/smartcontracts)\
-[Defi Wonderland](https://defi.sucks/)\
+[Wonderland](https://defi.sucks/)\
 [@rpate97](https://github.com/RPate97)\
 [@sam-goldman](https://github.com/sam-goldman)
 
