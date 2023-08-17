@@ -1276,12 +1276,12 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
 export const relayIPFSCommit = async (
   apiKey: string,
   orgId: string,
-  ipfsCommitRequest: Array<CompilerConfig>
+  ipfsData: Array<string>
 ): Promise<IPFSCommitResponse> => {
   const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
     apiKey,
     orgId,
-    ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
+    ipfsData,
   })
 
   if (response.status === 200) {
