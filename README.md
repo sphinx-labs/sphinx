@@ -1,8 +1,6 @@
 # Sphinx (formerly ChugSplash)
 
-Sphinx is a DevOps platform for smart contract deployments. Sphinx is particularly great at coordinating multi-chain deployments.
-
-Request access [here](https://sphinx.dev).
+Sphinx is an open-core DevOps platform for smart contract deployments.
 
 ## Key Features
 
@@ -15,9 +13,13 @@ Here is the deployment process with the DevOps platform:
 5. Sphinx trustlessly executes your deployment on every chain and verifies your contracts on Etherscan. Your contracts will have consistent addresses across networks because Sphinx uses `CREATE3` by default.
 6. Generate deployment artifacts in the same format as [`hardhat-deploy`](https://github.com/wighawag/hardhat-deploy).
 
+You can request access for the DevOps platform [here](https://sphinx.dev). We are working out pricing with teams on a case-by-case basis.
+
 ### Standalone CLI tool
 
 You can also use Sphinx's Hardhat or Foundry plugin as a feature-limited deployment tool. With this CLI tool, you can define your deployments in a declarative config file and generate deployment artifacts in the same format as `hardhat-deploy`. Your contracts will be deployed using `CREATE3`. However, you won't be able to use any of the other features described above.
+
+The standalone CLI tool is free to use and fully open-source. All of the code is in this repository. You can use it without using the DevOps platform.
 
 ## Documentation
 
