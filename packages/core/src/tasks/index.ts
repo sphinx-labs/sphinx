@@ -142,7 +142,7 @@ export const proposeAbstractTask = async (
   const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployment> = []
   const compilerConfigs: {
-    [ipfsHash: string]: CompilerConfig
+    [ipfsHash: string]: string
   } = {}
   const configCaches: Array<ConfigCache> = []
   // We loop through any logic that depends on the provider object.
@@ -198,7 +198,7 @@ export const proposeAbstractTask = async (
     }
 
     configCaches.push(configCache)
-    compilerConfigs[configUri] = compilerConfig
+    compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
   }
 
   spinner.succeed(`Got on-chain data.`)
