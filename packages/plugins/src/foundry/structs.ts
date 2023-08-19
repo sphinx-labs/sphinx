@@ -14,7 +14,7 @@ export const decodeCachedConfig = (
 
   const structuredConfigCache: MinimalConfigCache = {
     blockGasLimit: configCache.blockGasLimit,
-    chainId: configCache.chainId,
+    chainId: parseInt(configCache.chainId, 10),
     isManagerDeployed: configCache.isManagerDeployed,
     contractConfigCache: {},
   }

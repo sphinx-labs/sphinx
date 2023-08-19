@@ -2,7 +2,9 @@
 // Be careful when importing external dependencies to this file because they may cause issues when this file
 // is imported by the website.
 
-type SupportedMainnetNetworkName =
+export type SupportedLocalNetworkName = 'anvil' | 'hardhat'
+
+export type SupportedMainnetNetworkName =
   | 'ethereum'
   | 'optimism'
   | 'arbitrum'
@@ -14,7 +16,7 @@ type SupportedMainnetNetworkName =
   | 'avalanche'
   | 'fantom'
   | 'base'
-type SupportedTestnetNetworkName =
+export type SupportedTestnetNetworkName =
   | 'goerli'
   | 'optimism-goerli'
   | 'arbitrum-goerli'
@@ -48,6 +50,15 @@ export const SUPPORTED_MAINNETS: Record<
   fantom: 250,
   base: 8453,
 }
+
+export const SUPPORTED_LOCAL_NETWOKRS: Record<
+  SupportedLocalNetworkName,
+  SupportedLocalChainId
+> = {
+  anvil: 31337,
+  hardhat: 31337,
+}
+
 export const SUPPORTED_TESTNETS: Record<
   SupportedTestnetNetworkName,
   SupportedTestnetChainId
@@ -67,11 +78,14 @@ export const SUPPORTED_TESTNETS: Record<
 export const SUPPORTED_NETWORKS = {
   ...SUPPORTED_MAINNETS,
   ...SUPPORTED_TESTNETS,
+  ...SUPPORTED_LOCAL_NETWOKRS,
 }
 
 // Used when it's necessary to enumerate the ids of supported networks.
 export const supportedMainnetIds = Object.values(SUPPORTED_MAINNETS)
 export const supportedTestnetIds = Object.values(SUPPORTED_TESTNETS)
+
+export type SupportedLocalChainId = 31337
 
 export type SupportedMainnetChainId =
   | 1

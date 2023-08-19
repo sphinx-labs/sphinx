@@ -71,6 +71,8 @@ import {
   UserConfig,
   MinimalConfigCache,
   ConfigCache,
+  UserConstructorArgOverrides,
+  ParsedConstructorArgsPerChain,
 } from './types'
 import { CONTRACT_SIZE_LIMIT, Keyword, keywords } from '../constants'
 import {
@@ -96,7 +98,12 @@ import {
   getSphinxRegistryAddress,
 } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
-import { SUPPORTED_MAINNETS, SUPPORTED_TESTNETS } from '../networks'
+import {
+  SUPPORTED_MAINNETS,
+  SUPPORTED_NETWORKS,
+  SUPPORTED_TESTNETS,
+  SupportedChainId,
+} from '../networks'
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -142,7 +149,7 @@ export const getParsedConfigWithOptions = async (
   userConfig: UserConfigWithOptions,
   managerAddress: string,
   isTestnet: boolean,
-  provider: SphinxJsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction = FailureAction.EXIT
@@ -172,6 +179,7 @@ export const getParsedConfigWithOptions = async (
 
   const contractConfigs = getUnvalidatedContractConfigs(
     userConfig,
+    [...userConfig.options.mainnets, ...userConfig.options.testnets],
     configArtifacts,
     cre,
     failureAction,
@@ -266,8 +274,20 @@ export const getParsedConfig = async (
 
   const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
+  const chainId = await provider.getNetwork().then((n) => n.chainId)
+  const network = Object.entries(SUPPORTED_NETWORKS).find(
+    (entry) => BigInt(entry[1]) === chainId
+  )
+
+  if (!network) {
+    throw new ValidationError(
+      `Network with ID ${chainId} is not supported by Sphinx.`
+    )
+  }
+
   const contractConfigs = getUnvalidatedContractConfigs(
     userConfig,
+    [network[0]],
     configArtifacts,
     cre,
     failureAction,
@@ -1564,20 +1584,23 @@ const parseAndValidateConstructorArg = (
 export const parseContractConstructorArgs = (
   userContractConfig: UserContractConfig,
   referenceName: string,
+  networks: string[],
   abi: Array<ethers.Fragment>,
   cre: SphinxRuntimeEnvironment
-): ParsedConfigVariables => {
-  const userConstructorArgs: UserConfigVariables =
+): ParsedConstructorArgsPerChain => {
+  const userDefaultConstructorArgs: UserConfigVariables =
     userContractConfig.constructorArgs ?? {}
+  const userContructorArgOverrides: UserConstructorArgOverrides[] =
+    userContractConfig.overrides ?? []
 
-  const parsedConstructorArgs: ParsedConfigVariables = {}
+  const parsedConstructorArgs: ParsedConstructorArgsPerChain = {}
 
   const constructorFragment = abi.find(
     (fragment) => fragment.type === 'constructor'
   )
 
   if (constructorFragment === undefined) {
-    if (Object.keys(userConstructorArgs).length > 0) {
+    if (Object.keys(userDefaultConstructorArgs).length > 0) {
       throw new ValidationError(
         `User entered constructor arguments in the Sphinx config file for ${referenceName}, but\n` +
           `no constructor exists in the contract.`
@@ -1600,77 +1623,238 @@ export const parseContractConstructorArgs = (
     )
   }
 
+  // Todo - check if any of network names listed in overrides are invalid
+
+  // Check if there are any variables which have ambiguous overrides (due to fields being listed multiple times for a given network)
+  const ambigiousArgOverrides: {
+    [key in SupportedChainId]?: {
+      [name: string]: UserConfigVariable[]
+    }
+  } = {}
+
+  for (const override of userContructorArgOverrides) {
+    for (const networkName of override.chains) {
+      for (const [arg, value] of Object.entries(override.constructorArgs)) {
+        if (ambigiousArgOverrides[networkName] === undefined) {
+          ambigiousArgOverrides[networkName] = {}
+        }
+
+        if (ambigiousArgOverrides[networkName]![arg] === undefined) {
+          ambigiousArgOverrides[networkName]![arg] = [value]
+        } else {
+          ambigiousArgOverrides[networkName]![arg].push(value)
+        }
+      }
+    }
+  }
+
+  // fill in the default values for any networks not defined in the overrides
+  for (const networkName of networks) {
+    if (!ambigiousArgOverrides[networkName]) {
+      ambigiousArgOverrides[networkName] = {}
+      for (const [arg, value] of Object.entries(userDefaultConstructorArgs)) {
+        ambigiousArgOverrides[networkName][arg] = [value]
+      }
+    }
+  }
+
+  // validate default values first
   const constructorArgNames = constructorFragment.inputs
     .filter((el) => el.type !== 'function')
     .map((input) => input.name)
-  const incorrectConstructorArgNames = Object.keys(userConstructorArgs).filter(
-    (argName) => !constructorArgNames.includes(argName)
-  )
+  const incorrectDefaultConstructorArgNames = Object.keys(
+    userDefaultConstructorArgs
+  ).filter((argName) => !constructorArgNames.includes(argName))
   const undefinedConstructorArgNames: string[] = []
-  const inputFormatErrors: string[] = []
+  const inputDefaultFormatErrors: string[] = []
+  const inputOverridesFormatErrors: string[] = []
+  const incorrectOverriddenConstructorArgs: string[] = []
+
+  const parsedDefaultConstructorArgs: {
+    [name: string]: UserConfigVariable
+  } = {}
 
   constructorFragment.inputs.forEach((input) => {
     if (input.type === 'function') {
       return
     }
 
-    const constructorArgValue = userConstructorArgs[input.name]
+    const constructorArgValue = userDefaultConstructorArgs[input.name]
     if (constructorArgValue === undefined) {
-      undefinedConstructorArgNames.push(input.name)
       return
     }
 
     try {
-      parsedConstructorArgs[input.name] = parseAndValidateConstructorArg(
+      parsedDefaultConstructorArgs[input.name] = parseAndValidateConstructorArg(
         input,
         input.name,
         constructorArgValue,
         cre
       )
     } catch (e) {
-      inputFormatErrors.push((e as Error).message)
+      inputDefaultFormatErrors.push((e as Error).message)
     }
   })
 
-  if (inputFormatErrors.length > 0) {
+  const ambiguousArgOutput: string[] = []
+  for (const [networkName, overrides] of Object.entries(
+    ambigiousArgOverrides
+  )) {
+    // Detect any incorrect override names
+    const incorrectConstructorArgNames = Object.keys(
+      userDefaultConstructorArgs
+    ).filter((argName) => !constructorArgNames.includes(argName))
+    incorrectOverriddenConstructorArgs.push(
+      ...incorrectConstructorArgNames.map(
+        (name) => `${name} on network: ${networkName}`
+      )
+    )
+
+    const chainId = SUPPORTED_NETWORKS[networkName]
+
+    // Detect any incorrect arg names in overrides
+    const incorrectConstructorArgOverriddeNames = Object.keys(overrides).filter(
+      (argName) => !constructorArgNames.includes(argName)
+    )
+    incorrectConstructorArgOverriddeNames.forEach((name) => {
+      if (!constructorArgNames.includes(name)) {
+        constructorArgNames.push(name)
+      }
+    })
+
+    for (const [arg, values] of Object.entries(overrides)) {
+      if (values.length > 1) {
+        ambiguousArgOutput.push(
+          `${arg} is defined multiple times for ${networkName}: ${values
+            .map((value) => value.toString())
+            .join(', ')}`
+        )
+      }
+
+      if (parsedConstructorArgs[chainId] === undefined) {
+        parsedConstructorArgs[chainId] = {}
+      }
+
+      // Use override value if available, otherwise use default value
+      const constructorArgValue = values[0]
+
+      const constructorInput = constructorFragment.inputs.find(
+        (input) => input.name === arg
+      )
+
+      // If we can't find the input, then skip b/c this arg isn't valid anyway and will be logged
+      if (!constructorInput) {
+        continue
+      }
+
+      try {
+        parsedConstructorArgs[chainId][constructorInput.name] =
+          parseAndValidateConstructorArg(
+            constructorInput,
+            constructorInput.name,
+            constructorArgValue,
+            cre
+          )
+      } catch (e) {
+        inputOverridesFormatErrors.push((e as Error).message)
+      }
+    }
+  }
+
+  // Fill in default values for anything not overridden
+  for (const [chainId, args] of Object.entries(parsedConstructorArgs)) {
+    constructorFragment.inputs.forEach((input) => {
+      if (input.type === 'function') {
+        return
+      }
+
+      const constructorArgValue =
+        args[input.name] ?? parsedDefaultConstructorArgs[input.name]
+
+      const networkName = Object.entries(SUPPORTED_NETWORKS).find(
+        (network) => network[1] === parseInt(chainId, 10)
+      )?.[0]
+
+      if (constructorArgValue === undefined) {
+        undefinedConstructorArgNames.push(
+          `${input.name} on network: ${networkName}`
+        )
+      }
+
+      parsedConstructorArgs[chainId][input.name] = constructorArgValue
+    })
+  }
+
+  if (ambiguousArgOutput.length > 0) {
+    logValidationError(
+      'error',
+      `Detected ambiguous constructor argument overrides for ${referenceName}:`,
+      ambiguousArgOutput,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (inputOverridesFormatErrors.length > 0) {
     const lines: string[] = []
 
-    for (const error of inputFormatErrors) {
+    for (const error of inputOverridesFormatErrors) {
       lines.push(error)
     }
 
     logValidationError(
       'error',
-      'Detected incorrectly defined constructor arguments:',
+      'Detected incorrectly defined constructor argument overrides:',
       lines,
       cre.silent,
       cre.stream
     )
   }
 
-  if (
-    incorrectConstructorArgNames.length > 0 ||
-    undefinedConstructorArgNames.length > 0
-  ) {
-    if (incorrectConstructorArgNames.length > 0) {
-      logValidationError(
-        'error',
-        `The following constructor arguments were found in your config for ${referenceName},\nbut are not present in the contract constructor:`,
-        incorrectConstructorArgNames,
-        cre.silent,
-        cre.stream
-      )
+  if (inputDefaultFormatErrors.length > 0) {
+    const lines: string[] = []
+
+    for (const error of inputDefaultFormatErrors) {
+      lines.push(error)
     }
 
-    if (undefinedConstructorArgNames.length > 0) {
-      logValidationError(
-        'error',
-        `The following constructor arguments are required by the constructor for ${referenceName},\nbut were not found in your config:`,
-        undefinedConstructorArgNames,
-        cre.silent,
-        cre.stream
-      )
-    }
+    logValidationError(
+      'error',
+      'Detected incorrectly defined default constructor arguments:',
+      lines,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (incorrectOverriddenConstructorArgs.length > 0) {
+    logValidationError(
+      'error',
+      `The following overridden constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:`,
+      incorrectOverriddenConstructorArgs,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (incorrectDefaultConstructorArgNames.length > 0) {
+    logValidationError(
+      'error',
+      `The following default constructor arguments were found in your config for ${referenceName}, but are not present in the contract constructor:`,
+      incorrectDefaultConstructorArgNames,
+      cre.silent,
+      cre.stream
+    )
+  }
+
+  if (undefinedConstructorArgNames.length > 0) {
+    logValidationError(
+      'error',
+      `The following constructor arguments are required by the constructor for ${referenceName}, but were not found in your config for one or more networks. Please either define a default value for these arguments or specify a value for every network.`,
+      undefinedConstructorArgNames,
+      cre.silent,
+      cre.stream
+    )
   }
 
   return parsedConstructorArgs
@@ -2173,6 +2357,7 @@ const logUnsafeOptions = (
 
 export const assertValidConstructorArgs = (
   userConfig: UserSphinxConfig,
+  networks: string[],
   configArtifacts: ConfigArtifacts,
   managerAddress: string,
   cre: SphinxRuntimeEnvironment,
@@ -2214,6 +2399,7 @@ export const assertValidConstructorArgs = (
     const args = parseContractConstructorArgs(
       userContractConfig,
       referenceName,
+      networks,
       artifact.abi,
       cre
     )
@@ -2357,6 +2543,7 @@ export const setDefaultContractFields = (
  */
 export const getUnvalidatedContractConfigs = (
   userConfig: UserSphinxConfig,
+  networks: string[],
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction,
@@ -2376,6 +2563,7 @@ export const getUnvalidatedContractConfigs = (
   const { validUserConfig, cachedConstructorArgs, contractReferences } =
     assertValidConstructorArgs(
       configWithDefaultContractFields,
+      networks,
       configArtifacts,
       managerAddress,
       cre,
@@ -2598,12 +2786,11 @@ export const getConfigCache = async (
     contractConfigs
   )) {
     const { abi, bytecode } = configArtifacts[referenceName].artifact
-
     const { address, constructorArgs } = parsedContractConfig
     const kind = toContractKindEnum(parsedContractConfig.kind)
     const creationCodeWithConstructorArgs = getCreationCodeWithConstructorArgs(
       bytecode,
-      constructorArgs,
+      constructorArgs[chainId],
       abi
     )
 

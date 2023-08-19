@@ -1,4 +1,4 @@
-import { UserConfig } from '@sphinx-labs/core'
+import { UserSphinxConfig } from '@sphinx-labs/core'
 
 import {
   invalidConstructorArgsPartOne,
@@ -7,7 +7,7 @@ import {
 
 const projectName = 'ConstructorArgValidation'
 
-const config: UserConfig = {
+const config: UserSphinxConfig = {
   projectName,
   contracts: {
     ConstructorArgsValidationPartOne: {

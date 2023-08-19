@@ -49,6 +49,7 @@ import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
 import { getProjectBundleInfo } from '../tasks'
 import { getDeployContractCosts } from '../estimate'
+import { SupportedChainId } from '../networks'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -448,7 +449,11 @@ export const makeBundlesFromConfig = (
     configArtifacts,
     configCache
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, configArtifacts)
+  const targetBundle = makeTargetBundleFromConfig(
+    parsedConfig,
+    configArtifacts,
+    configCache.chainId as SupportedChainId
+  )
   return { actionBundle, targetBundle }
 }
 
@@ -484,7 +489,7 @@ export const makeActionBundleFromConfig = (
           salt,
           code: getCreationCodeWithConstructorArgs(
             bytecode,
-            constructorArgs,
+            constructorArgs[configCache.chainId],
             abi
           ),
         })
@@ -513,7 +518,7 @@ export const makeActionBundleFromConfig = (
 
       const implInitCode = getCreationCodeWithConstructorArgs(
         bytecode,
-        constructorArgs,
+        constructorArgs[configCache.chainId],
         abi
       )
       // We use a 'salt' value that's a hash of the implementation contract's init code. This
@@ -574,7 +579,8 @@ export const makeActionBundleFromConfig = (
  */
 export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts,
+  chainId: SupportedChainId
 ): SphinxTargetBundle => {
   const { manager } = parsedConfig
 
@@ -592,7 +598,7 @@ export const makeTargetBundleFromConfig = (
         implementation: getImplAddress(
           manager,
           bytecode,
-          contractConfig.constructorArgs,
+          contractConfig.constructorArgs[chainId]!,
           abi
         ),
       })
