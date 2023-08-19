@@ -60,6 +60,8 @@ export const rpcProviders = {
   'optimism-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42420'),
   'gnosis-chiado': new SphinxJsonRpcProvider('http://127.0.0.1:42200'),
   'arbitrum-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42613'),
+  'base-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42531'),
+  anvil: new SphinxJsonRpcProvider('http://127.0.0.1:8545'),
 }
 // Account #9 on Hardhat/Anvil node
 export const relayerPrivateKey =
@@ -180,7 +182,7 @@ export const fetchBuildInfo = () => {
   return fileNames[0]
 }
 
-const enum TestEnum {
+export const enum TestEnum {
   'A',
   'B',
   'C',
