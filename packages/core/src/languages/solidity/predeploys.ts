@@ -194,7 +194,9 @@ export const initializeSphinx = async (
     const addr = await contract.getAddress()
     assert(addr === expectedAddress, `address mismatch for ${contractName}`)
 
-    logger?.info(`[Sphinx]: deployed ${contractName}, ${contract}`)
+    logger?.info(
+      `[Sphinx]: deployed ${contractName}, ${await contract.getAddress()}`
+    )
   }
 
   logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
