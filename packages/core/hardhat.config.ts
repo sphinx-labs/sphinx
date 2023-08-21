@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv'
 import { task } from 'hardhat/config'
 import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
 import '@nomicfoundation/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
 
 import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
 import { isHttpNetworkConfig } from './src/utils'
