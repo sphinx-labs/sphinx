@@ -58,6 +58,8 @@ export const verifySphinxConfig = async (
     customChains
   )
 
+  const chainId = (await provider.getNetwork()).chainId
+
   for (const [referenceName, contractConfig] of Object.entries(
     compilerConfig.contracts
   )) {
@@ -73,7 +75,7 @@ export const verifySphinxConfig = async (
         ? getImplAddress(
             managerAddress,
             bytecode,
-            contractConfig.constructorArgs,
+            contractConfig.constructorArgs[Number(chainId)],
             abi
           )
         : contractConfig.address

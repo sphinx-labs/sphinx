@@ -2,6 +2,7 @@ import path, { resolve } from 'path'
 import fs from 'fs'
 
 import {
+  ValidationError,
   getUnvalidatedContractConfigs,
   postParsingValidation,
 } from '@sphinx-labs/core/dist/config/parse'
@@ -13,6 +14,7 @@ import {
   getDeployContractCosts,
   writeCompilerConfig,
   remove0x,
+  SUPPORTED_NETWORKS,
 } from '@sphinx-labs/core/dist'
 import { AbiCoder, concat } from 'ethers'
 
@@ -89,8 +91,21 @@ const ownerAddress = args[3]
       ownerAddress,
       userConfig.projectName
     )
+
+    const network = Object.entries(SUPPORTED_NETWORKS).find(
+      (entry) => entry[1] === configCache.chainId
+    )
+    if (!network) {
+      throw new ValidationError(
+        `Network with ID ${
+          configCache.chainId
+        } is not supported by Sphinx: ${JSON.stringify(network, null, 2)}.`
+      )
+    }
+
     const contractConfigs = getUnvalidatedContractConfigs(
       userConfig,
+      [network[0]],
       configArtifacts,
       cre,
       FailureAction.THROW,
