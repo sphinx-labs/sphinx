@@ -1,5 +1,5 @@
-import { utils } from 'ethers'
 import { CustomChain } from '@nomiclabs/hardhat-etherscan/dist/src/types'
+import { ethers } from 'ethers'
 
 export const CONTRACT_SIZE_LIMIT = 24576 // bytes
 
@@ -79,13 +79,13 @@ export const keywords: Keywords = {
   gap: '{gap}',
 }
 
-export const REMOTE_EXECUTOR_ROLE = utils.keccak256(
-  utils.toUtf8Bytes('REMOTE_EXECUTOR_ROLE')
+export const REMOTE_EXECUTOR_ROLE = ethers.keccak256(
+  ethers.toUtf8Bytes('REMOTE_EXECUTOR_ROLE')
 )
 
-export const RELAYER_ROLE = utils.keccak256(utils.toUtf8Bytes('RELAYER_ROLE'))
+export const RELAYER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('RELAYER_ROLE'))
 
-export const FUNDER_ROLE = utils.keccak256(utils.toUtf8Bytes('FUNDER_ROLE'))
+export const FUNDER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FUNDER_ROLE'))
 
 export const CURRENT_SPHINX_MANAGER_VERSION = {
   major: 1,

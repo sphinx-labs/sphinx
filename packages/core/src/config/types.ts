@@ -7,10 +7,11 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@sphinx-labs/contracts'
-import { BigNumber, providers } from 'ethers'
+import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
+import { SphinxJsonRpcProvider } from '../provider'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -58,7 +59,7 @@ export type UserConfigVariable =
   | boolean
   | string
   | number
-  | BigNumber
+  | EthersV5BigNumber
   | Array<UserConfigVariable>
   | {
       [name: string]: UserConfigVariable
@@ -223,7 +224,7 @@ export type ConfigArtifacts = {
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
-  blockGasLimit: BigNumber
+  blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
 }
@@ -284,9 +285,7 @@ export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
 ) => Promise<ConfigArtifacts>
 
-export type GetProviderForChainId = (
-  chainId: number
-) => providers.JsonRpcProvider
+export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 
 export type GetCanonicalConfig = (
   orgId: string,

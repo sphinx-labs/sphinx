@@ -1,6 +1,6 @@
 // These variables are used to capture any errors or warnings that occur during the Sphinx
 
-import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
+import { concat, AbiCoder } from 'ethers'
 
 // config validation process.
 let validationWarnings: string = ''
@@ -44,14 +44,15 @@ export const getEncodedFailure = (err: Error): string => {
       : errorMessage
   }
 
-  const encodedErrorsAndWarnings = defaultAbiCoder.encode(
+  const coder = AbiCoder.defaultAbiCoder()
+  const encodedErrorsAndWarnings = coder.encode(
     ['string', 'string'],
     [prettyError, prettyWarnings]
   )
 
-  const encodedFailure = hexConcat([
+  const encodedFailure = concat([
     encodedErrorsAndWarnings,
-    defaultAbiCoder.encode(['bool'], [false]), // false = failure
+    coder.encode(['bool'], [false]), // false = failure
   ])
 
   return encodedFailure

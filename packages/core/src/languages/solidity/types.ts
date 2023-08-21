@@ -1,4 +1,4 @@
-import { Fragment } from 'ethers/lib/utils'
+import { Fragment } from 'ethers'
 import { CompilerInput } from 'hardhat/types'
 import { SourceUnit } from 'solidity-ast'
 
@@ -28,7 +28,7 @@ export interface ExtendedSolidityStorageObj extends SolidityStorageObj {
 export interface SolidityStorageType {
   encoding: 'inplace' | 'mapping' | 'dynamic_array' | 'bytes'
   label: string
-  numberOfBytes: number
+  numberOfBytes: string
   key?: string
   value?: string
   base?: string

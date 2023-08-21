@@ -1,16 +1,14 @@
-import { BigNumber } from 'ethers/lib/ethers'
-
 import { CompilerOutputContract } from './languages/solidity/types'
 import { ConfigArtifacts } from './config'
 
 export type DeployContractCost = {
   referenceName: string
-  cost: BigNumber
+  cost: bigint
 }
 
 export const getEstDeployContractCost = (
   gasEstimates: CompilerOutputContract['evm']['gasEstimates']
-): BigNumber => {
+): bigint => {
   const { totalCost, codeDepositCost } = gasEstimates.creation
 
   if (totalCost === 'infinite') {
@@ -18,9 +16,9 @@ export const getEstDeployContractCost = (
     // Solidity compiler won't determine the cost of the deployment since the constructor can
     // contain arbitrary logic. In this case, we use the `executionCost` along a buffer multiplier
     // of 1.5.
-    return BigNumber.from(codeDepositCost).mul(3).div(2)
+    return (BigInt(codeDepositCost) * 3n) / 2n
   } else {
-    return BigNumber.from(totalCost)
+    return BigInt(totalCost)
   }
 }
 

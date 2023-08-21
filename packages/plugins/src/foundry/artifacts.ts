@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs'
 import { join, sep } from 'path'
 
+import { Ora } from 'ora'
 import { writeDeploymentArtifacts } from '@sphinx-labs/core/dist/actions/artifacts'
 import { DeploymentState } from '@sphinx-labs/core/dist/actions/types'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
@@ -13,15 +14,14 @@ import {
   getNetworkDirName,
   getNetworkType,
   getSphinxManagerReadOnly,
+  isEventLog,
   resolveNetwork,
 } from '@sphinx-labs/core/dist/utils'
-import { providers } from 'ethers/lib/ethers'
-import { Ora } from 'ora'
-
 import 'core-js/features/array/at'
+import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 
 export const writeDeploymentArtifactsUsingEvents = async (
-  provider: providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   projectName: string,
   ownerAddress: string,
   cachePath: string,
@@ -40,7 +40,7 @@ export const writeDeploymentArtifactsUsingEvents = async (
     process.exit(1)
   }
 
-  if (!deploymentCompletedEvent.args) {
+  if (!isEventLog(deploymentCompletedEvent)) {
     console.error(`No event args. Should never happen.`)
     process.exit(1)
   }
@@ -55,7 +55,10 @@ export const writeDeploymentArtifactsUsingEvents = async (
   )
 
   const networkType = await getNetworkType(provider)
-  const { networkName, chainId } = await resolveNetwork(provider, networkType)
+  const { networkName, chainId } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
   const networkDirName = getNetworkDirName(networkName, networkType, chainId)
 
   const configArtifacts: ConfigArtifacts = JSON.parse(

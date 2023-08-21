@@ -1,11 +1,10 @@
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { Wallet, ethers, providers } from 'ethers'
+import { Signer, Contract, Interface, JsonRpcSigner } from 'ethers'
 import {
   isEmptySphinxConfig,
-  isContractDeployed,
   writeSnapshotId,
   getSphinxManagerAddress,
   getTargetAddress,
@@ -16,6 +15,8 @@ import {
   getNetworkType,
 } from '@sphinx-labs/core'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 
 export const fetchFilesRecursively = (dir): string[] => {
   const paths: string[] = []
@@ -35,7 +36,8 @@ export const fetchFilesRecursively = (dir): string[] => {
 
 /**
  * Returns the signer for the given address. This is different from Hardhat's `getSigners` function
- * because it will throw an error if the signer does not exist in the user's Hardhat config file.
+ * because this function will throw an error if the signer does not exist in the user's Hardhat
+ * config file.
  *
  * @param hre Hardhat Runtime Environment.
  * @param address Address of the signer.
@@ -43,7 +45,7 @@ export const fetchFilesRecursively = (dir): string[] => {
 export const getSignerFromAddress = async (
   hre: HardhatRuntimeEnvironment,
   address: string
-): Promise<ethers.Signer> => {
+): Promise<Signer> => {
   const signers = await hre.ethers.getSigners()
   const signer = signers.find((s) => s.address === address)
 
@@ -54,6 +56,7 @@ export const getSignerFromAddress = async (
         `Please include this signer in your Hardhat config file for the chain ID: ${chainId}`
     )
   }
+
   return signer
 }
 
@@ -61,9 +64,9 @@ export const getContract = async (
   hre: HardhatRuntimeEnvironment,
   projectName: string,
   referenceName: string,
-  owner: providers.JsonRpcSigner | Wallet,
+  owner: HardhatEthersSigner | JsonRpcSigner,
   userSalt?: UserSalt
-): Promise<ethers.Contract> => {
+): Promise<Contract> => {
   const provider = owner.provider
 
   const filteredConfigNames: string[] = fetchFilesRecursively(
@@ -113,31 +116,32 @@ export const getContract = async (
   const address =
     contractConfig.address ??
     getTargetAddress(manager, referenceName, contractConfig.salt)
-  if ((await isContractDeployed(address, provider)) === false) {
+  if ((await provider.getCode(address)) === '0x') {
     throw new Error(
       `The contract for ${referenceName} has not been deployed. Address: ${address}`
     )
   }
 
-  const Proxy = new ethers.Contract(
+  return new Contract(
     address,
-    new ethers.utils.Interface(
+    new Interface(
       hre.artifacts.readArtifactSync(
         userConfig.contracts[referenceName].contract
       ).abi
     ),
     owner
   )
-
-  return Proxy
 }
 
 export const resetSphinxDeployments = async (
   hre: HardhatRuntimeEnvironment,
-  provider: ethers.providers.JsonRpcProvider
+  provider: HardhatEthersProvider
 ) => {
   const networkType = await getNetworkType(provider)
-  const { networkName, chainId } = await resolveNetwork(provider, networkType)
+  const { networkName, chainId } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
   const networkDirName = getNetworkDirName(networkName, networkType, chainId)
   const snapshotIdPath = path.join(
     path.basename(hre.config.paths.deployments),
@@ -145,15 +149,9 @@ export const resetSphinxDeployments = async (
     '.snapshotId'
   )
   const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-  const snapshotReverted = await hre.network.provider.send('evm_revert', [
-    snapshotId,
-  ])
+  const snapshotReverted = await provider.send('evm_revert', [snapshotId])
   if (!snapshotReverted) {
     throw new Error('Snapshot failed to be reverted.')
   }
-  await writeSnapshotId(
-    hre.ethers.provider,
-    networkDirName,
-    hre.config.paths.deployments
-  )
+  await writeSnapshotId(provider, networkDirName, hre.config.paths.deployments)
 }

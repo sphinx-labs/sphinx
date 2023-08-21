@@ -19,7 +19,7 @@ import {
   EscrowArtifact,
   AuthProxyArtifact,
 } from '@sphinx-labs/contracts'
-import { constants, providers } from 'ethers/lib/ethers'
+import { Provider, ZeroAddress } from 'ethers'
 
 import { ContractArtifact } from './languages/solidity/types'
 import {
@@ -49,7 +49,7 @@ import {
 import { USDC_ADDRESSES } from './networks'
 
 export const getSphinxConstants = async (
-  provider: providers.Provider
+  provider: Provider
 ): Promise<
   Array<{
     artifact: ContractArtifact
@@ -57,7 +57,8 @@ export const getSphinxConstants = async (
     constructorArgs: any[]
   }>
 > => {
-  const { chainId } = await provider.getNetwork()
+  const network = await provider.getNetwork()
+  const chainId = Number(network.chainId)
   const contractInfo = [
     {
       artifact: SphinxRegistryArtifact,
@@ -111,7 +112,7 @@ export const getSphinxConstants = async (
         getOwnerAddress(),
         chainId === 420 || chainId === 10
           ? USDC_ADDRESSES[chainId]
-          : constants.AddressZero,
+          : ZeroAddress,
       ],
     },
     {
@@ -137,7 +138,7 @@ export const getSphinxConstants = async (
     {
       artifact: AuthProxyArtifact,
       expectedAddress: ReferenceAuthProxyAddress,
-      constructorArgs: [AUTH_FACTORY_ADDRESS, constants.AddressZero],
+      constructorArgs: [AUTH_FACTORY_ADDRESS, ZeroAddress],
     },
   ]
 

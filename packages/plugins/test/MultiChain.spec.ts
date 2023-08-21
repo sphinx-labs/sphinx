@@ -1,6 +1,6 @@
 import hre from 'hardhat'
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   ensureSphinxInitialized,
   getParsedConfigWithOptions,

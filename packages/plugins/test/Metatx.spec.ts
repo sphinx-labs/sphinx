@@ -1,5 +1,5 @@
 // // Hardhat plugins
-// import '@nomiclabs/hardhat-ethers'
+// import '@nomicfoundation/hardhat-ethers'
 
 // import hre from 'hardhat'
 // import { Contract } from 'ethers'

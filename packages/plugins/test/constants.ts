@@ -5,10 +5,12 @@ import path from 'path'
 import hre from 'hardhat'
 
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
+import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import {
+  SphinxJsonRpcProvider,
   SupportedNetworkName,
   UserConfigWithOptions,
   UserContractConfigs,
@@ -33,7 +35,8 @@ export type MultiChainProjectTestInfo = {
 export const DUMMY_ORG_ID = '1111'
 // This is the `DEFAULT_ADMIN_ROLE` used by OpenZeppelin's Access Control contract, which the Auth
 // contract inherits.
-export const OWNER_ROLE_HASH = ethers.constants.HashZero
+export const OWNER_ROLE_HASH = ethers.ZeroHash
+
 export const cre = createSphinxRuntime(
   'hardhat',
   false,
@@ -53,16 +56,10 @@ export const testnetsToAdd: Array<SupportedNetworkName> = [
 ]
 export const allTestnets = initialTestnets.concat(testnetsToAdd)
 export const rpcProviders = {
-  goerli: new ethers.providers.JsonRpcProvider('http://127.0.0.1:42005'),
-  'optimism-goerli': new ethers.providers.JsonRpcProvider(
-    'http://127.0.0.1:42420'
-  ),
-  'gnosis-chiado': new ethers.providers.JsonRpcProvider(
-    'http://127.0.0.1:42200'
-  ),
-  'arbitrum-goerli': new ethers.providers.JsonRpcProvider(
-    'http://127.0.0.1:42613'
-  ),
+  goerli: new SphinxJsonRpcProvider('http://127.0.0.1:42005'),
+  'optimism-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42420'),
+  'gnosis-chiado': new SphinxJsonRpcProvider('http://127.0.0.1:42200'),
+  'arbitrum-goerli': new SphinxJsonRpcProvider('http://127.0.0.1:42613'),
 }
 // Account #9 on Hardhat/Anvil node
 export const relayerPrivateKey =
@@ -222,18 +219,20 @@ export const invalidConstructorArgsPartTwo = {
 }
 
 export const immutableConstructorArgsOne = {
-  _immutableInt: ethers.constants.MinInt256.toString(),
+  _immutableInt: EthersV5BigNumber.from(ethers.MinInt256).toString(),
   _immutableInt8: -128,
-  _immutableUint: ethers.constants.MaxUint256.toString(),
+  _immutableUint: EthersV5BigNumber.from(ethers.MaxUint256).toString(),
   _immutableUint8: 255,
   _immutableBool: true,
   _immutableBytes32: '0x' + '11'.repeat(32),
 }
 
 export const immutableConstructorArgsTwo = {
-  _immutableUserDefinedType: ethers.constants.MaxUint256.toString(),
-  _immutableBigNumberUint: ethers.constants.MaxUint256,
-  _immutableBigNumberInt: ethers.constants.MinInt256,
+  _immutableUserDefinedType: EthersV5BigNumber.from(
+    ethers.MaxUint256
+  ).toString(),
+  _immutableBigNumberUint: EthersV5BigNumber.from(ethers.MaxUint256),
+  _immutableBigNumberInt: EthersV5BigNumber.from(ethers.MinInt256),
   _immutableAddress: '0x1111111111111111111111111111111111111111',
   _immutableContract: '0x1111111111111111111111111111111111111111',
   _immutableEnum: TestEnum.B,
@@ -279,12 +278,12 @@ export const complexConstructorArgs = {
 }
 
 export const variables = {
-  minInt256: ethers.constants.MinInt256.toString(),
+  minInt256: EthersV5BigNumber.from(ethers.MinInt256).toString(),
   minInt8: -128,
-  bigNumberInt256: ethers.constants.MaxInt256,
-  bigNumberInt8: BigNumber.from(-128),
-  bigNumberUint256: ethers.constants.MaxUint256,
-  bigNumberUint8: BigNumber.from(255),
+  bigNumberInt256: EthersV5BigNumber.from(ethers.MaxInt256),
+  bigNumberInt8: EthersV5BigNumber.from(-128),
+  bigNumberUint256: EthersV5BigNumber.from(ethers.MaxUint256),
+  bigNumberUint8: EthersV5BigNumber.from(255),
   uint8Test: 255,
   boolTest: true,
   stringTest: 'testString',
@@ -298,11 +297,11 @@ export const variables = {
     '0x123456789101112131415161718192021222324252627282930313233343536373839404142434445464',
   userDefinedTypeTest: '1000000000000000000',
   userDefinedBytesTest: '0x' + '11'.repeat(32),
-  userDefinedInt: ethers.constants.MinInt256.toString(),
+  userDefinedInt: EthersV5BigNumber.from(ethers.MinInt256).toString(),
   userDefinedInt8: -128,
   userDefinedUint8: 255,
   userDefinedBool: true,
-  userDefinedBigNumberInt: BigNumber.from(0),
+  userDefinedBigNumberInt: EthersV5BigNumber.from(0),
   userDefinedFixedArray: ['1000000000000000000', '1000000000000000000'],
   userDefinedFixedNestedArray: [
     ['1000000000000000000', '1000000000000000000'],
@@ -321,7 +320,7 @@ export const variables = {
   },
   contractTest: '0x' + '11'.repeat(20),
   enumTest: TestEnum.B,
-  bigNumberEnumTest: BigNumber.from(TestEnum.B),
+  bigNumberEnumTest: EthersV5BigNumber.from(TestEnum.B),
   simpleStruct: {
     a: '0x' + 'aa'.repeat(32),
     b: 12345,
@@ -338,9 +337,9 @@ export const variables = {
   mixedTypesUint64FixedArray: [
     1,
     '10',
-    BigNumber.from(100),
+    EthersV5BigNumber.from(100),
     1_000,
-    BigNumber.from(10_000),
+    EthersV5BigNumber.from(10_000),
   ],
   uint128FixedNestedArray: [
     [1, 2, 3, 4, 5],
@@ -415,7 +414,7 @@ export const variables = {
     1234: 'testVal',
   },
   stringToBigNumberUintMapping: {
-    testKey: BigNumber.from(1234),
+    testKey: EthersV5BigNumber.from(1234),
   },
   int256ToStringMapping: {
     '-1': 'testVal',

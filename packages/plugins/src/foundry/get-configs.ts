@@ -1,10 +1,10 @@
 import { resolve } from 'path'
 
-import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   getFoundryConfig,
   readUserSphinxConfig,
 } from '@sphinx-labs/core/dist/config/config'
+import { AbiCoder, concat } from 'ethers'
 
 import { getEncodedFailure, validationStderrWrite } from './logs'
 
@@ -36,14 +36,15 @@ const ownerAddress = args[1]
       (fragment) => fragment.name === 'minimalConfig'
     ).outputs[0]
 
-    const encodedConfigs = defaultAbiCoder.encode(
+    const coder = AbiCoder.defaultAbiCoder()
+    const encodedConfigs = coder.encode(
       [minimalConfigType, 'string'],
       [minimalConfig, JSON.stringify(userConfig)]
     )
 
-    const encodedSuccess = hexConcat([
+    const encodedSuccess = concat([
       encodedConfigs,
-      defaultAbiCoder.encode(['bool'], [true]), // true = success
+      coder.encode(['bool'], [true]), // true = success
     ])
 
     process.stdout.write(encodedSuccess)

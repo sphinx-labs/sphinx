@@ -1,7 +1,7 @@
 import '../dist' // Imports Sphinx type extensions for Hardhat
 import { sphinx, ethers } from 'hardhat'
 import { expect } from 'chai'
-import { BigNumber, Contract } from 'ethers'
+import { Contract } from 'ethers'
 
 import {
   complexConstructorArgs,
@@ -17,7 +17,7 @@ describe('Storage', () => {
   let Stateless: Contract
   let ComplexConstructorArgs: Contract
   before(async () => {
-    const owner = ethers.provider.getSigner()
+    const owner = await ethers.provider.getSigner()
     MyStorage = await sphinx.getContract('Storage', 'MyStorage', owner)
     MyOtherImmutables = await sphinx.getContract(
       'Storage',
@@ -39,35 +39,37 @@ describe('Storage', () => {
 
   it('does deploy stateless immutable contract', async () => {
     expect(await Stateless.hello()).to.equal('Hello, world!')
-    expect(await Stateless.immutableUint()).to.deep.equal(BigNumber.from(1))
+    expect(await Stateless.immutableUint()).to.deep.equal(BigInt(1))
   })
 
   it('does properly resolve reference to stateless immutable contract', async () => {
-    expect(await MySimpleStorage.myStateless()).to.equal(Stateless.address)
+    expect(await MySimpleStorage.myStateless()).to.equal(
+      await Stateless.getAddress()
+    )
     expect(await MySimpleStorage.hello()).to.equal('Hello, world!')
   })
 
   it('does set immutable int', async () => {
     expect(await MyStorage.immutableInt()).to.deep.equals(
-      BigNumber.from(immutableConstructorArgsOne._immutableInt)
+      BigInt(immutableConstructorArgsOne._immutableInt)
     )
   })
 
   it('does set immutable int8', async () => {
     expect(await MyStorage.immutableInt8()).equals(
-      immutableConstructorArgsOne._immutableInt8
+      BigInt(immutableConstructorArgsOne._immutableInt8)
     )
   })
 
   it('does set immutable uint', async () => {
     expect(await MyStorage.immutableUint()).to.deep.equals(
-      BigNumber.from(immutableConstructorArgsOne._immutableUint)
+      BigInt(immutableConstructorArgsOne._immutableUint)
     )
   })
 
   it('does set immutable uint8', async () => {
     expect(await MyStorage.immutableUint8()).equals(
-      immutableConstructorArgsOne._immutableUint8
+      BigInt(immutableConstructorArgsOne._immutableUint8)
     )
   })
 
@@ -85,19 +87,19 @@ describe('Storage', () => {
 
   it('does set immutable user defined type', async () => {
     expect(await MyOtherImmutables.immutableUserDefinedType()).to.deep.equals(
-      BigNumber.from(immutableConstructorArgsTwo._immutableUserDefinedType)
+      BigInt(immutableConstructorArgsTwo._immutableUserDefinedType)
     )
   })
 
   it('does set immutable BigNumber int', async () => {
     expect(await MyOtherImmutables.immutableBigNumberInt()).to.deep.equals(
-      immutableConstructorArgsTwo._immutableBigNumberInt
+      BigInt(immutableConstructorArgsTwo._immutableBigNumberInt.toString())
     )
   })
 
   it('does set immutable BigNumber uint', async () => {
     expect(await MyOtherImmutables.immutableBigNumberUint()).to.deep.equals(
-      immutableConstructorArgsTwo._immutableBigNumberUint
+      BigInt(immutableConstructorArgsTwo._immutableBigNumberUint.toString())
     )
   })
 
@@ -115,62 +117,62 @@ describe('Storage', () => {
 
   it('does set immutable enum', async () => {
     expect(await MyOtherImmutables.immutableEnum()).equals(
-      immutableConstructorArgsTwo._immutableEnum
+      BigInt(immutableConstructorArgsTwo._immutableEnum)
     )
   })
 
   it('does set immutable contract with reference', async () => {
     expect(await MySimpleStorage.immutableContractReference()).equals(
-      MyStorage.address
+      await MyStorage.getAddress()
     )
   })
 
   it('does set immutable contract with reference to immutable contract', async () => {
     expect(await MySimpleStorage.immutableStatelessReference()).equals(
-      Stateless.address
+      await Stateless.getAddress()
     )
   })
 
   it('does set contract reference', async () => {
-    expect(await MySimpleStorage.myStorage()).equals(MyStorage.address)
-  })
-
-  it('does set min int256', async () => {
-    expect(await MyStorage.minInt256()).deep.equals(
-      BigNumber.from(variables.minInt256)
+    expect(await MySimpleStorage.myStorage()).equals(
+      await MyStorage.getAddress()
     )
   })
 
+  it('does set min int256', async () => {
+    expect(await MyStorage.minInt256()).deep.equals(BigInt(variables.minInt256))
+  })
+
   it('does set min int8', async () => {
-    expect(await MyStorage.minInt8()).equals(variables.minInt8)
+    expect(await MyStorage.minInt8()).equals(BigInt(variables.minInt8))
   })
 
   it('does set BigNumber int256', async () => {
     expect(await MyStorage.bigNumberInt256()).deep.equals(
-      variables.bigNumberInt256
+      BigInt(variables.bigNumberInt256.toString())
     )
   })
 
   it('does set BigNumber int8', async () => {
     expect(await MyStorage.bigNumberInt8()).deep.equals(
-      variables.bigNumberInt8.toNumber()
+      BigInt(variables.bigNumberInt8.toString())
     )
   })
 
   it('does set BigNumber uint256', async () => {
     expect(await MyStorage.bigNumberUint256()).deep.equals(
-      variables.bigNumberUint256
+      BigInt(variables.bigNumberUint256.toString())
     )
   })
 
   it('does set BigNumber uint8', async () => {
     expect(await MyStorage.bigNumberUint8()).deep.equals(
-      variables.bigNumberUint8.toNumber()
+      BigInt(variables.bigNumberUint8.toNumber())
     )
   })
 
   it('does set uint8', async () => {
-    expect(await MyStorage.uint8Test()).equals(variables.uint8Test)
+    expect(await MyStorage.uint8Test()).equals(BigInt(variables.uint8Test))
   })
 
   it('does set bool', async () => {
@@ -209,7 +211,7 @@ describe('Storage', () => {
 
   it('does set user defined type', async () => {
     expect(await MyStorage.userDefinedTypeTest()).deep.equals(
-      BigNumber.from(variables.userDefinedTypeTest)
+      BigInt(variables.userDefinedTypeTest)
     )
   })
 
@@ -221,19 +223,19 @@ describe('Storage', () => {
 
   it('does set user defined int', async () => {
     expect(await MyStorage.userDefinedInt()).deep.equals(
-      BigNumber.from(variables.userDefinedInt)
+      BigInt(variables.userDefinedInt)
     )
   })
 
   it('does set user defined int8', async () => {
     expect(await MyStorage.userDefinedInt8()).deep.equals(
-      variables.userDefinedInt8
+      BigInt(variables.userDefinedInt8)
     )
   })
 
   it('does set user defined uint8', async () => {
     expect(await MyStorage.userDefinedUint8()).deep.equals(
-      variables.userDefinedUint8
+      BigInt(variables.userDefinedUint8)
     )
   })
 
@@ -245,14 +247,14 @@ describe('Storage', () => {
 
   it('does set user defined BigNumber int', async () => {
     expect(await MyStorage.userDefinedBigNumberInt()).deep.equals(
-      variables.userDefinedBigNumberInt
+      BigInt(variables.userDefinedBigNumberInt.toString())
     )
   })
 
   it('does set string mapping to user defined type', async () => {
     const [key] = Object.keys(variables.stringToUserDefinedMapping)
     expect(await MyStorage.stringToUserDefinedMapping(key)).to.deep.equal(
-      BigNumber.from(variables.stringToUserDefinedMapping[key])
+      BigInt(variables.stringToUserDefinedMapping[key])
     )
   })
 
@@ -266,7 +268,7 @@ describe('Storage', () => {
   it('does set user defined fixed array', async () => {
     for (let i = 0; i < variables.userDefinedFixedArray.length; i++) {
       expect(await MyStorage.userDefinedFixedArray(i)).deep.equals(
-        BigNumber.from(variables.userDefinedFixedArray[i])
+        BigInt(variables.userDefinedFixedArray[i])
       )
     }
   })
@@ -279,7 +281,7 @@ describe('Storage', () => {
         j++
       ) {
         expect(await MyStorage.userDefinedFixedNestedArray(i, j)).deep.equals(
-          BigNumber.from(variables.userDefinedFixedNestedArray[i][j])
+          BigInt(variables.userDefinedFixedNestedArray[i][j])
         )
       }
     }
@@ -288,7 +290,7 @@ describe('Storage', () => {
   it('does set user defined dynamic array', async () => {
     for (let i = 0; i < variables.userDefinedDynamicArray.length; i++) {
       expect(await MyStorage.userDefinedDynamicArray(i)).deep.equals(
-        BigNumber.from(variables.userDefinedDynamicArray[i])
+        BigInt(variables.userDefinedDynamicArray[i])
       )
     }
   })
@@ -298,20 +300,20 @@ describe('Storage', () => {
   })
 
   it('does set enum', async () => {
-    expect(await MyStorage.enumTest()).equals(variables.enumTest)
+    expect(await MyStorage.enumTest()).equals(BigInt(variables.enumTest))
   })
 
   it('does set BigNumber enum', async () => {
     expect(await MyStorage.bigNumberEnumTest()).deep.equals(
-      variables.bigNumberEnumTest.toNumber()
+      BigInt(variables.bigNumberEnumTest.toNumber())
     )
   })
 
   it('does set struct', async () => {
     const { a, b, c } = await MyStorage.simpleStruct()
     expect(a).equals(variables.simpleStruct.a)
-    expect(b).to.deep.equal(BigNumber.from(variables.simpleStruct.b))
-    expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
+    expect(b).to.deep.equal(BigInt(variables.simpleStruct.b))
+    expect(c).to.deep.equal(BigInt(variables.simpleStruct.c))
   })
 
   it('does set string mapping to string, uint, bool, address, struct', async () => {
@@ -320,7 +322,7 @@ describe('Storage', () => {
       variables.stringToStringMapping[key]
     )
     expect(await MyStorage.stringToUint256Mapping(key)).to.deep.equal(
-      BigNumber.from(variables.stringToUint256Mapping[key])
+      BigInt(variables.stringToUint256Mapping[key])
     )
     expect(await MyStorage.stringToBoolMapping(key)).to.equal(
       variables.stringToBoolMapping[key]
@@ -329,13 +331,13 @@ describe('Storage', () => {
       variables.stringToAddressMapping[key]
     )
     expect(await MyStorage.stringToBigNumberUintMapping(key)).to.deep.equal(
-      variables.stringToBigNumberUintMapping[key]
+      BigInt(variables.stringToBigNumberUintMapping[key])
     )
 
     const { a, b, c } = await MyStorage.stringToStructMapping(key)
     expect(a).equals(variables.simpleStruct.a)
-    expect(b).to.deep.equal(BigNumber.from(variables.simpleStruct.b))
-    expect(c).to.deep.equal(BigNumber.from(variables.simpleStruct.c))
+    expect(b).to.deep.equal(BigInt(variables.simpleStruct.b))
+    expect(c).to.deep.equal(BigInt(variables.simpleStruct.c))
   })
 
   it('does set long string mapping to long string', async () => {
@@ -347,10 +349,8 @@ describe('Storage', () => {
 
   it('does set complex struct', async () => {
     const complexStruct = await MyStorage.complexStruct()
-    expect(complexStruct.a).equals(variables.complexStruct.a)
-    expect(complexStruct.c).to.deep.equal(
-      BigNumber.from(variables.complexStruct.c)
-    )
+    expect(complexStruct.a).equals(BigInt(variables.complexStruct.a))
+    expect(complexStruct.c).to.deep.equal(BigInt(variables.complexStruct.c))
 
     const [[key, val]] = Object.entries(variables.complexStruct.b)
     expect(await MyStorage.getComplexStructMappingVal(key)).equals(val)
@@ -359,7 +359,7 @@ describe('Storage', () => {
   it('does set uint64 fixed size array', async () => {
     for (let i = 0; i < variables.uint64FixedArray.length; i++) {
       expect(await MyStorage.uint64FixedArray(i)).deep.equals(
-        BigNumber.from(variables.uint64FixedArray[i])
+        BigInt(variables.uint64FixedArray[i])
       )
     }
   })
@@ -367,7 +367,7 @@ describe('Storage', () => {
   it('does set uint64 mixed types array', async () => {
     for (let i = 0; i < variables.mixedTypesUint64FixedArray.length; i++) {
       expect(await MyStorage.mixedTypesUint64FixedArray(i)).deep.equals(
-        BigNumber.from(variables.mixedTypesUint64FixedArray[i])
+        BigInt(variables.mixedTypesUint64FixedArray[i].toString())
       )
     }
   })
@@ -376,7 +376,7 @@ describe('Storage', () => {
     for (let i = 0; i < variables.uint128FixedNestedArray.length; i++) {
       for (let j = 0; j < variables.uint128FixedNestedArray[0].length; j++) {
         expect(await MyStorage.uint128FixedNestedArray(i, j)).deep.equals(
-          BigNumber.from(variables.uint128FixedNestedArray[i][j])
+          BigInt(variables.uint128FixedNestedArray[i][j])
         )
       }
     }
@@ -396,9 +396,7 @@ describe('Storage', () => {
         ) {
           expect(
             await MyStorage.uint64FixedMultiNestedArray(i, j, k)
-          ).deep.equals(
-            BigNumber.from(variables.uint64FixedMultiNestedArray[i][j][k])
-          )
+          ).deep.equals(BigInt(variables.uint64FixedMultiNestedArray[i][j][k]))
         }
       }
     }
@@ -407,7 +405,7 @@ describe('Storage', () => {
   it('does set int64 dynamic array', async () => {
     for (let i = 0; i < variables.int64DynamicArray.length; i++) {
       expect(await MyStorage.int64DynamicArray(i)).deep.equals(
-        BigNumber.from(variables.int64DynamicArray[i])
+        BigInt(variables.int64DynamicArray[i])
       )
     }
   })
@@ -416,7 +414,7 @@ describe('Storage', () => {
     for (let i = 0; i < variables.int64NestedDynamicArray.length; i++) {
       for (let j = 0; j < variables.int64NestedDynamicArray[0].length; j++) {
         expect(await MyStorage.int64NestedDynamicArray(i, j)).deep.equals(
-          BigNumber.from(variables.int64NestedDynamicArray[i][j])
+          BigInt(variables.int64NestedDynamicArray[i][j])
         )
       }
     }
@@ -426,12 +424,8 @@ describe('Storage', () => {
     for (let i = 0; i < variables.simpleStructDynamicArray.length; i++) {
       const { a, b, c } = await MyStorage.simpleStructDynamicArray(i)
       expect(a).equals(variables.simpleStructDynamicArray[i].a)
-      expect(b).to.deep.equal(
-        BigNumber.from(variables.simpleStructDynamicArray[i].b)
-      )
-      expect(c).to.deep.equal(
-        BigNumber.from(variables.simpleStructDynamicArray[i].c)
-      )
+      expect(b).to.deep.equal(BigInt(variables.simpleStructDynamicArray[i].b))
+      expect(c).to.deep.equal(BigInt(variables.simpleStructDynamicArray[i].c))
     }
   })
 
@@ -502,7 +496,7 @@ describe('Storage', () => {
     const val = variables.multiNestedMapping[firstKey][secondKey][thirdKey]
     expect(
       await MyStorage.multiNestedMapping(firstKey, secondKey, thirdKey)
-    ).to.deep.equal(BigNumber.from(val))
+    ).to.deep.equal(BigInt(val))
   })
 
   it('does set mutable string constructor arg', async () => {
@@ -520,7 +514,7 @@ describe('Storage', () => {
   it('does set mutable uint64 fixed size array constructor arg', async () => {
     for (let i = 0; i < complexConstructorArgs._uint64FixedArray.length; i++) {
       expect(await ComplexConstructorArgs.uint64FixedArray(i)).deep.equals(
-        BigNumber.from(complexConstructorArgs._uint64FixedArray[i])
+        BigInt(complexConstructorArgs._uint64FixedArray[i])
       )
     }
   })
@@ -528,7 +522,7 @@ describe('Storage', () => {
   it('does set mutable int64 dynamic array constructor arg', async () => {
     for (let i = 0; i < complexConstructorArgs._int64DynamicArray.length; i++) {
       expect(await ComplexConstructorArgs.int64DynamicArray(i)).deep.equals(
-        BigNumber.from(complexConstructorArgs._int64DynamicArray[i])
+        BigInt(complexConstructorArgs._int64DynamicArray[i])
       )
     }
   })
@@ -547,7 +541,7 @@ describe('Storage', () => {
         expect(
           await ComplexConstructorArgs.uint64FixedNestedArray(i, j)
         ).deep.equals(
-          BigNumber.from(complexConstructorArgs._uint64FixedNestedArray[i][j])
+          BigInt(complexConstructorArgs._uint64FixedNestedArray[i][j])
         )
       }
     }
@@ -573,7 +567,7 @@ describe('Storage', () => {
           expect(
             await ComplexConstructorArgs.uint64DynamicMultiNestedArray(i, j, k)
           ).deep.equals(
-            BigNumber.from(
+            BigInt(
               complexConstructorArgs._uint64DynamicMultiNestedArray[i][j][k]
             )
           )
@@ -585,21 +579,17 @@ describe('Storage', () => {
   it('does set mutable struct constructor arg', async () => {
     const { a, b, c, d, e } = await ComplexConstructorArgs.getComplexStruct()
     expect(a).equals(complexConstructorArgs._complexStruct.a)
-    expect(b).deep.equals(
-      BigNumber.from(complexConstructorArgs._complexStruct.b)
-    )
-    expect(c).deep.equals(
-      BigNumber.from(complexConstructorArgs._complexStruct.c)
-    )
+    expect(b).deep.equals(BigInt(complexConstructorArgs._complexStruct.b))
+    expect(c).deep.equals(BigInt(complexConstructorArgs._complexStruct.c))
     for (let i = 0; i < d.length; i++) {
       expect(d[i]).deep.equals(
-        BigNumber.from(complexConstructorArgs._complexStruct.d[i])
+        BigInt(complexConstructorArgs._complexStruct.d[i])
       )
     }
     for (let i = 0; i < e.length; i++) {
       for (let j = 0; j < e[i].length; j++) {
         expect(e[i][j]).deep.equals(
-          BigNumber.from(complexConstructorArgs._complexStruct.e[i][j])
+          BigInt(complexConstructorArgs._complexStruct.e[i][j])
         )
       }
     }

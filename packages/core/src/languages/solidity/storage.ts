@@ -1,4 +1,4 @@
-import { ethers, utils } from 'ethers'
+import { concat, ethers, solidityPacked, zeroPadValue } from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 import { ContractDefinition } from 'solidity-ast'
 import 'core-js/features/array/at'
@@ -134,7 +134,7 @@ export const encodeBytesArrayElements = (
     slots.push({
       key: elementSlotKey,
       offset: 0,
-      val: ethers.utils.hexlify(array.subarray(i, i + 32)),
+      val: ethers.hexlify(array.subarray(i, i + 32)),
     })
     elementSlotKey = addStorageSlotKeys(elementSlotKey, '1')
     i += 32
@@ -142,12 +142,12 @@ export const encodeBytesArrayElements = (
 
   // Encode the last chunk of the array.
   const endChunk = array.subarray(i, i + 32)
-  const zeros = new Array(32 - endChunk.length).fill(0)
+  const zeros = new Uint8Array(32 - endChunk.length)
 
   slots.push({
     key: elementSlotKey,
     offset: 0, // Always 0 because the storage value spans the entire slot regardless of size
-    val: ethers.utils.hexConcat([endChunk, zeros]),
+    val: ethers.concat([endChunk, zeros]),
   })
 
   return slots
@@ -278,7 +278,7 @@ export const encodeInplaceUint: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: utils.solidityPack([uintType], [variable]),
+      val: solidityPacked([uintType], [variable]),
     },
   ]
 }
@@ -299,7 +299,7 @@ export const encodeInplaceInt: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: utils.solidityPack([variableType.label], [variable]),
+      val: solidityPacked([variableType.label], [variable]),
     },
   ]
 }
@@ -373,11 +373,11 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
   // Convert the variable to a Uint8Array.
   const bytes =
     variableType.label === 'string'
-      ? ethers.utils.toUtf8Bytes(variable)
-      : utils.arrayify(variable)
+      ? ethers.toUtf8Bytes(variable)
+      : ethers.getBytes(variable)
 
   if (bytes.length < 32) {
-    const zeros = new Array(32 - bytes.length - 1).fill(0)
+    const zeros = new Uint8Array(32 - bytes.length - 1)
 
     // Solidity docs (see above) specifies that strings or bytes with a length of 31 bytes
     // should be placed into a storage slot where the last byte of the storage slot is the length
@@ -386,7 +386,7 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
       {
         key: slotKey,
         offset: storageObj.offset,
-        val: ethers.utils.hexConcat([bytes, zeros, [bytes.length * 2]]),
+        val: ethers.concat([bytes, zeros, new Uint8Array([bytes.length * 2])]),
       },
     ]
   } else {
@@ -394,14 +394,14 @@ export const encodeBytes: VariableHandler<string, Array<StorageSlotSegment>> = (
       {
         key: slotKey,
         offset: storageObj.offset,
-        val: ethers.utils.hexZeroPad([bytes.length * 2 + 1], 32),
+        val: zeroPadValue(new Uint8Array([bytes.length * 2 + 1]), 32),
       },
     ]
 
     slots = slots.concat(
       encodeBytesArrayElements(
         bytes,
-        utils.keccak256(slotKey) // The slot key of the array elements begins at the hash of the `slotKey`.
+        ethers.keccak256(slotKey) // The slot key of the array elements begins at the hash of the `slotKey`.
       )
     )
     return slots
@@ -435,7 +435,7 @@ export const encodeMapping: VariableHandler<
     {
       key: slotKey,
       offset: 0,
-      val: ethers.constants.HashZero,
+      val: ethers.ZeroHash,
     },
   ]
   for (const [mappingKey, mappingVal] of Object.entries(variable)) {
@@ -496,7 +496,7 @@ export const encodeDynamicArray: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: ethers.utils.hexZeroPad([variable.length], 32),
+      val: zeroPadValue(new Uint8Array([variable.length]), 32),
     },
   ]
 
@@ -507,7 +507,7 @@ export const encodeDynamicArray: VariableHandler<
       variable,
       storageObj,
       storageTypes,
-      utils.keccak256(slotKey), // The slot key of the array elements begins at the hash of the `slotKey`.
+      ethers.keccak256(slotKey), // The slot key of the array elements begins at the hash of the `slotKey`.
       nestedSlotOffset,
       typeHandlers,
       dereferencer
@@ -557,7 +557,7 @@ export const encodeFunction: VariableHandler<
     {
       key: slotKey,
       offset: storageObj.offset,
-      val: '0x' + '00'.repeat(variableType.numberOfBytes),
+      val: '0x' + '00'.repeat(Number(variableType.numberOfBytes)),
     },
   ]
 }
@@ -665,7 +665,7 @@ export const computeStorageSegments = (
         if (prevSegment === undefined) {
           prevSegments.push(segment)
         } else {
-          const numBytes = ethers.utils.arrayify(prevSegment.val).length
+          const numBytes = ethers.getBytes(prevSegment.val).length
           if (prevSegment.offset + numBytes > segment.offset) {
             // Should never happen, means our encoding is broken. Values should *never* overlap.
             throw new Error(
@@ -678,7 +678,7 @@ export const computeStorageSegments = (
             prevSegments.push({
               key: prevSegment.key,
               offset: prevSegment.offset,
-              val: utils.hexConcat([segment.val, prevSegment.val]),
+              val: concat([segment.val, prevSegment.val]),
             })
           } else {
             prevSegments.push(segment)

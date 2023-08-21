@@ -1,6 +1,7 @@
 import assert from 'assert'
 
 import { ethers } from 'ethers'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import { EtherscanURLs } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import {
   getVerificationStatus,
@@ -28,6 +29,7 @@ import { CompilerInput } from 'hardhat/types'
 import { customChains } from './constants'
 import { CompilerConfig, ConfigArtifacts } from './config/types'
 import { getConstructorArgs, getImplAddress } from './utils'
+import { SphinxJsonRpcProvider } from './provider'
 import { getMinimumCompilerInput } from './languages/solidity/compiler'
 import { getSphinxConstants } from './contract-info'
 
@@ -42,14 +44,14 @@ export const RESPONSE_OK = '1'
 export const verifySphinxConfig = async (
   compilerConfig: CompilerConfig,
   configArtifacts: ConfigArtifacts,
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   networkName: string,
   apiKey: string
 ) => {
   const managerAddress = compilerConfig.manager
 
   const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
     provider as any,
     networkName,
     chainConfig,
@@ -122,12 +124,12 @@ export const verifySphinxConfig = async (
 }
 
 export const verifySphinx = async (
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   networkName: string,
   apiKey: string
 ) => {
   const etherscanApiEndpoints = await getEtherscanEndpoints(
-    // Todo - figure out how to fit JsonRpcProvider into EthereumProvider type without casting as any
+    // Todo - figure out how to fit SphinxJsonRpcProvider into EthereumProvider type without casting as any
     provider as any,
     networkName,
     chainConfig,
@@ -165,7 +167,7 @@ export const verifySphinx = async (
 }
 
 export const attemptVerification = async (
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   networkName: string,
   urls: EtherscanURLs,
   contractAddress: string,
@@ -368,7 +370,7 @@ export const checkProxyVerificationStatus = async (
 }
 
 export const isSupportedNetworkOnEtherscan = async (
-  provider: ethers.providers.JsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<boolean> => {
   const chainIdsToNames = new Map(
     Object.entries(chainConfig).map(([chainName, config]) => [

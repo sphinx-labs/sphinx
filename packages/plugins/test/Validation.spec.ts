@@ -7,7 +7,7 @@ import {
   getParsedConfig,
   readUserConfig,
 } from '@sphinx-labs/core'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 
 import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -22,7 +22,7 @@ describe('Validate', () => {
 
   before(async () => {
     const provider = hre.ethers.provider
-    const signer = provider.getSigner()
+    const signer = await provider.getSigner()
     const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message

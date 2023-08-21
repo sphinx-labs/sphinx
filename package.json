@@ -8,8 +8,8 @@
     "packages": [
       "packages/contracts",
       "packages/core",
-      "packages/executor",
       "packages/plugins",
+      "packages/executor",
       "packages/demo"
     ],
     "nohoist": [
@@ -25,7 +25,6 @@
       "@sphinx-labs/{plugins,demo}/forge-std",
       "@sphinx-labs/{plugins,demo}/ds-test",
       "@sphinx-labs/plugins/solidity-stringutils",
-      "@sphinx-labs/plugins/@prb/math",
       "@sphinx-labs/plugins/@layerzerolabs/solidity-examples"
     ]
   },
@@ -42,7 +41,7 @@
     "@changesets/cli": "^2.16.0",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
-    "@types/node": "^18.0.0",
+    "@types/node": "18.15.13",
     "@typescript-eslint/eslint-plugin": "^5.26.0",
     "@typescript-eslint/parser": "^4.26.0",
     "chai": "^4.2.0",

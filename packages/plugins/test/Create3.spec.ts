@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import hre, { ethers } from 'hardhat'
 import { Contract } from 'ethers'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   UserConfig,
   deployAbstractTask,
@@ -25,7 +25,7 @@ const userConfig: UserConfig = {
       kind: 'immutable',
       constructorArgs: {
         _immutableUint: 2,
-        _immutableAddress: ethers.constants.AddressZero,
+        _immutableAddress: ethers.ZeroAddress,
       },
     },
   },
@@ -35,7 +35,7 @@ describe('Create3', () => {
   let Stateless: Contract
   let StatelessWithSalt: Contract
   before(async () => {
-    const owner = ethers.provider.getSigner()
+    const owner = await ethers.provider.getSigner()
 
     const ownerAddress = await owner.getAddress()
 
@@ -51,7 +51,7 @@ describe('Create3', () => {
       true
     )
 
-    await ensureSphinxInitialized(provider, provider.getSigner())
+    await ensureSphinxInitialized(provider, owner)
 
     const compilerConfigPath = hre.config.paths.compilerConfigs
     const deploymentFolder = hre.config.paths.deployments
@@ -117,14 +117,14 @@ describe('Create3', () => {
     )
   })
 
-  it('has different address than contract without salt', () => {
-    expect(Stateless.address).to.not.equal(StatelessWithSalt.address)
+  it('has different address than contract without salt', async () => {
+    expect(await Stateless.getAddress()).to.not.equal(
+      await StatelessWithSalt.getAddress()
+    )
   })
 
   it('does deploy immutable contract with salt', async () => {
     expect(await StatelessWithSalt.hello()).to.equal('Hello, world!')
-    expect(await StatelessWithSalt.immutableUint()).to.deep.equal(
-      ethers.BigNumber.from(2)
-    )
+    expect(await StatelessWithSalt.immutableUint()).to.deep.equal(BigInt(2))
   })
 })

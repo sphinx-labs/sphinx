@@ -1,4 +1,12 @@
-import { constants, utils } from 'ethers/lib/ethers'
+import {
+  ZeroHash,
+  concat,
+  dataSlice,
+  getAddress,
+  getCreate2Address,
+  keccak256,
+  solidityPackedKeccak256,
+} from 'ethers'
 
 import { ContractKind, ContractKindEnum, UserSalt } from './types'
 
@@ -44,21 +52,19 @@ export const getCreate3Address = (
   // library for details.
   const proxyBytecode = '0x67363d3d37363d34f03d5260086018f3'
 
-  const proxyAddress = utils.getCreate2Address(
+  const proxyAddress = getCreate2Address(
     managerAddress,
     salt,
-    utils.keccak256(proxyBytecode)
+    keccak256(proxyBytecode)
   )
 
-  const addressHash = utils.keccak256(
-    utils.hexConcat(['0xd694', proxyAddress, '0x01'])
-  )
+  const addressHash = keccak256(concat(['0xd694', proxyAddress, '0x01']))
 
   // Return the last 20 bytes of the address hash
-  const last20Bytes = utils.hexDataSlice(addressHash, 12)
+  const last20Bytes = dataSlice(addressHash, 12)
 
   // Return the checksum address
-  return utils.getAddress(last20Bytes)
+  return getAddress(last20Bytes)
 }
 
 export const getTargetSalt = (
@@ -67,7 +73,7 @@ export const getTargetSalt = (
 ): string => {
   const userSaltHash = getUserSaltHash(userSalt)
 
-  return utils.solidityKeccak256(
+  return solidityPackedKeccak256(
     ['string', 'bytes32'],
     [referenceName, userSaltHash]
   )
@@ -77,8 +83,8 @@ export const getUserSaltHash = (userSalt?: UserSalt): string => {
   if (userSalt !== undefined) {
     const userSaltString =
       typeof userSalt === 'number' ? userSalt.toString() : userSalt
-    return utils.solidityKeccak256(['string'], [userSaltString])
+    return solidityPackedKeccak256(['string'], [userSaltString])
   } else {
-    return constants.HashZero
+    return ZeroHash
   }
 }
