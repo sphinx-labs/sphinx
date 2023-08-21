@@ -41,7 +41,7 @@ const displayBundleInfo = async () => {
   )
 
   const { parsedConfig, configCache, configArtifacts } = await getParsedConfig(
-    await readUserConfig(configPath),
+    await readUserSphinxConfig(configPath),
     provider,
     cre,
     makeGetConfigArtifacts(hre)

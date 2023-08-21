@@ -10,7 +10,7 @@ import {
 } from '../actions'
 import { getSphinxManager, getDeploymentEvents, sleep } from '../utils'
 import { SphinxJsonRpcProvider } from '../provider'
-import { ParsedConfigWithOptions } from '../config'
+import { ParsedConfig } from '../config'
 
 export const getNumDeployedContracts = (
   bundle: SphinxActionBundle,
@@ -26,7 +26,7 @@ export const getNumDeployedContracts = (
 export const monitorExecution = async (
   provider: SphinxJsonRpcProvider,
   signer: ethers.Signer,
-  parsedConfig: ParsedConfigWithOptions,
+  parsedConfig: ParsedConfig,
   bundles: SphinxBundles,
   deploymentId: string,
   silent: boolean

@@ -1,12 +1,6 @@
 import { resolve } from 'path'
 
-import {
-  FoundryConfig,
-  FoundryContractConfig,
-  UserConfig,
-  UserConfigWithOptions,
-  UserSphinxConfig,
-} from './types'
+import { FoundryConfig, FoundryContractConfig, UserSphinxConfig } from './types'
 import { getTargetAddress, getUserSaltHash, toContractKindEnum } from './utils'
 import { getSphinxManagerAddress } from '../addresses'
 
@@ -44,28 +38,6 @@ export const getFoundryConfig = (
     projectName: userConfig.projectName,
     contracts: minimalContractConfigs,
   }
-}
-
-export const readUserConfig = async (
-  configPath: string
-): Promise<UserConfig> => {
-  const userConfig = await readUserSphinxConfig(configPath)
-  if (userConfig.options) {
-    throw new Error(
-      `Detected 'options' field in config. Please use 'readUserConfigWithOptions' instead.`
-    )
-  }
-  return userConfig
-}
-
-export const readUserConfigWithOptions = async (
-  configPath: string
-): Promise<UserConfigWithOptions> => {
-  const userConfig = await readUserSphinxConfig(configPath)
-  if (!userConfig.options) {
-    throw new Error(`Did not detect 'options' field in config.`)
-  }
-  return userConfig
 }
 
 export const readUserSphinxConfig = async (

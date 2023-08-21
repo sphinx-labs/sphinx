@@ -17,11 +17,10 @@ import {
   GetConfigArtifacts,
   GetProviderForChainId,
   ConfigArtifacts,
-  ParsedConfigWithOptions,
+  ParsedConfig,
   CompilerConfig,
   GetCanonicalConfig,
-  UserConfigWithOptions,
-  ParsedConfig,
+  UserSphinxConfig,
   ConfigCache,
   MinimalConfigCache,
   NetworkType,
@@ -85,7 +84,7 @@ import {
   getSphinxRegistryAddress,
 } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
-import { getParsedConfigWithOptions } from '../config/parse'
+import { getParsedConfig } from '../config/parse'
 import { getDiff, getDiffString } from '../diff'
 
 // Load environment variables from .env
@@ -98,7 +97,7 @@ dotenv.config()
  * @param dryRun If true, the proposal will not be relayed to the back-end.
  */
 export const proposeAbstractTask = async (
-  userConfig: UserConfigWithOptions,
+  userConfig: UserSphinxConfig,
   isTestnet: boolean,
   cre: SphinxRuntimeEnvironment,
   dryRun: boolean,
@@ -139,11 +138,11 @@ export const proposeAbstractTask = async (
   // Next, we parse and validate the config for each chain ID. This is necessary to ensure that
   // there aren't any network-specific errors that are caused by the config. These errors would most
   // likely occur in the `postParsingValidation` function that's a few calls inside of
-  // `getParsedConfigWithOptions`. Note that the parsed config will be the same on each chain ID because the
+  // `getParsedConfig`. Note that the parsed config will be the same on each chain ID because the
   // network-specific validation does not change any fields in the parsed config. Likewise, the
   // `ConfigArtifacts` object will be the same on each chain. The only thing that will change is the
   // `ConfigCache` object.
-  let parsedConfig: ParsedConfigWithOptions | undefined
+  let parsedConfig: ParsedConfig | undefined
   let configArtifacts: ConfigArtifacts | undefined
   const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployment> = []
@@ -163,7 +162,7 @@ export const proposeAbstractTask = async (
 
     await ensureSphinxInitialized(provider, wallet.connect(provider))
 
-    const parsedConfigValues = await getParsedConfigWithOptions(
+    const parsedConfigValues = await getParsedConfig(
       userConfig,
       prevConfig.manager,
       isTestnet,

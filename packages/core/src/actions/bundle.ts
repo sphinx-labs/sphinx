@@ -8,7 +8,6 @@ import {
   ConfigArtifacts,
   MinimalConfigCache,
   ParsedConfig,
-  ParsedConfigWithOptions,
   contractKindHashes,
 } from '../config/types'
 import {
@@ -623,7 +622,7 @@ export const makeTargetBundleFromConfig = (
  */
 export const getAuthLeafsForChain = async (
   chainId: number,
-  parsedConfig: ParsedConfigWithOptions,
+  parsedConfig: ParsedConfig,
   configArtifacts: ConfigArtifacts,
   configCache: MinimalConfigCache,
   prevConfig: CanonicalConfig

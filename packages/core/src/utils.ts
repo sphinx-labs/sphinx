@@ -60,11 +60,10 @@ import {
   GetConfigArtifacts,
   ConfigArtifacts,
   GetCanonicalConfig,
-  UserConfigWithOptions,
   CanonicalConfig,
   ParsedConfig,
-  ParsedConfigWithOptions,
   NetworkType,
+  UserSphinxConfig,
 } from './config/types'
 import {
   AuthLeaf,
@@ -99,7 +98,7 @@ import {
 import { getCreate3Address } from './config/utils'
 import {
   assertValidConfigOptions,
-  getParsedConfigWithOptions,
+  getParsedConfig,
   parseConfigOptions,
 } from './config/parse'
 import { SphinxRuntimeEnvironment, FailureAction } from './types'
@@ -1118,7 +1117,7 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
  */
 export const getProjectConfigInfo = async (
   getCanonicalConfig: GetCanonicalConfig,
-  userConfig: UserConfigWithOptions,
+  userConfig: UserSphinxConfig,
   isTestnet: boolean,
   apiKey: string,
   cre: SphinxRuntimeEnvironment,
@@ -1277,6 +1276,7 @@ export const getEmptyCanonicalConfig = (
       owners: [],
       ownerThreshold: 0,
       proposers: [],
+      chainIds: [],
     },
     contracts: {},
     chainStates,
@@ -1291,7 +1291,7 @@ export const getEmptyCanonicalConfig = (
  * for each chain ID in the parsed config.
  */
 export const toCanonicalConfig = async (
-  parsedConfig: ParsedConfigWithOptions,
+  parsedConfig: ParsedConfig,
   managerAddress: string,
   authAddress: string,
   rpcProviders: Record<string, SphinxJsonRpcProvider>
@@ -1333,7 +1333,7 @@ export const toCanonicalConfig = async (
 }
 
 export const getAuthLeafs = async (
-  userConfig: UserConfigWithOptions,
+  userConfig: UserSphinxConfig,
   prevConfig: CanonicalConfig,
   rpcProviders: {
     [network: string]: SphinxJsonRpcProvider
@@ -1349,7 +1349,7 @@ export const getAuthLeafs = async (
     const provider = rpcProviders[network]
 
     const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfigWithOptions(
+      await getParsedConfig(
         userConfig,
         managerAddress,
         isTestnet,

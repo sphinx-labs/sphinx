@@ -61,14 +61,10 @@ import {
   GetConfigArtifacts,
   ConfigArtifacts,
   UserSphinxConfig,
-  ParsedConfigWithOptions,
   UserConfigOptions,
   ParsedContractConfigs,
   ParsedConfig,
-  UserConfigWithOptions,
   ParsedConfigOptions,
-  ParsedOwnerConfig,
-  UserConfig,
   MinimalConfigCache,
   ConfigCache,
   UserConstructorArgOverrides,
@@ -92,11 +88,7 @@ import {
 } from '../languages/solidity/iterator'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
-import {
-  OZ_UUPS_UPDATER_ADDRESS,
-  getSphinxManagerAddress,
-  getSphinxRegistryAddress,
-} from '../addresses'
+import { OZ_UUPS_UPDATER_ADDRESS, getSphinxRegistryAddress } from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import {
   SUPPORTED_MAINNETS,
@@ -128,14 +120,8 @@ const logValidationError = (
 }
 
 /**
- * Reads a Sphinx config file, then parses and validates the selected projects inside of it.
- * This is meant to be used for configs that contain an 'options' field. Configs that contain only a
- * single owner for the purpose of deploying locally should call `getParsedConfigWithOptions` instead of
- * this function.
+ * @notice Validates and parses a Sphinx config file.
  *
- * @param configPath Path to the Sphinx config file.
- * @param projects The project name(s) to parse. This function will only validate these projects.
- * The returned parsed config will not include any other projects in the config file.
  * @param managerAddress Address of the SphinxManager. Note that this may not be calculable
  * based on the config file because the owners may have changed after the
  * SphinxManager was deployed, which would alter its Create2 address. However, if the
@@ -145,89 +131,13 @@ const logValidationError = (
  *
  * @returns The parsed Sphinx config file.
  */
-export const getParsedConfigWithOptions = async (
-  userConfig: UserConfigWithOptions,
+export const getParsedConfig = async (
+  userConfig: UserSphinxConfig,
   managerAddress: string,
   isTestnet: boolean,
   provider: SphinxJsonRpcProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
-  failureAction: FailureAction = FailureAction.EXIT
-): Promise<{
-  parsedConfig: ParsedConfigWithOptions
-  configArtifacts: ConfigArtifacts
-  configCache: ConfigCache
-}> => {
-  // Just in case, we reset the global validation errors flag before parsing
-  validationErrors = false
-
-  if (!userConfig.projectName) {
-    logValidationError(
-      'error',
-      `Config is missing a 'project' field.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  assertValidConfigOptions(userConfig.options, cre, failureAction)
-
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
-
-  const configArtifacts = await getConfigArtifacts(userConfig.contracts)
-
-  const contractConfigs = getUnvalidatedContractConfigs(
-    userConfig,
-    [...userConfig.options.mainnets, ...userConfig.options.testnets],
-    configArtifacts,
-    cre,
-    failureAction,
-    managerAddress
-  )
-
-  const parsedConfig: ParsedConfigWithOptions = {
-    manager: managerAddress,
-    options: parsedConfigOptions,
-    contracts: contractConfigs,
-    projectName: userConfig.projectName,
-  }
-
-  const configCache = await getConfigCache(
-    provider,
-    contractConfigs,
-    configArtifacts,
-    getSphinxRegistryAddress(),
-    managerAddress
-  )
-
-  await postParsingValidation(
-    parsedConfig,
-    configArtifacts,
-    cre,
-    configCache,
-    failureAction
-  )
-
-  return { parsedConfig, configArtifacts, configCache }
-}
-
-/**
- * Gets a Sphinx config file, then parses and validates the selected projects inside of it.
- * This is meant to be used for configs that are only using Sphinx to deploy locally. Configs
- * that contain options should call `getParsedConfigWithOptions` instead.
- *
- * @param configPath Path to the Sphinx config file.
- * @param projects The project name(s) to parse. This function will only validate these projects.
- * The returned parsed config will not include any other projects in the config file.
- * @returns The parsed Sphinx config file.
- */
-export const getParsedConfig = async (
-  userConfig: UserConfig,
-  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts,
-  ownerAddress: string,
   failureAction: FailureAction = FailureAction.EXIT
 ): Promise<{
   parsedConfig: ParsedConfig
@@ -247,59 +157,18 @@ export const getParsedConfig = async (
     )
   }
 
-  if (userConfig.options) {
-    logValidationError(
-      'error',
-      `Config with an 'options' field cannot be used with this function.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  if (!ethers.isAddress(ownerAddress)) {
-    logValidationError(
-      'error',
-      `The owner address is invalid: ${ownerAddress}.`,
-      [],
-      cre.silent,
-      cre.stream
-    )
-  }
-
-  const managerAddress = getSphinxManagerAddress(
-    ownerAddress,
-    userConfig.projectName
-  )
+  assertValidConfigOptions(userConfig.options, cre, failureAction)
 
   const configArtifacts = await getConfigArtifacts(userConfig.contracts)
 
-  const chainId = await provider.getNetwork().then((n) => n.chainId)
-  const network = Object.entries(SUPPORTED_NETWORKS).find(
-    (entry) => BigInt(entry[1]) === chainId
-  )
-
-  if (!network) {
-    throw new ValidationError(
-      `Network with ID ${chainId} is not supported by Sphinx.`
-    )
-  }
-
   const contractConfigs = getUnvalidatedContractConfigs(
     userConfig,
-    [network[0]],
+    [...userConfig.options.mainnets, ...userConfig.options.testnets],
     configArtifacts,
     cre,
     failureAction,
     managerAddress
   )
-
-  const parsedConfig: ParsedOwnerConfig = {
-    owner: ownerAddress,
-    contracts: contractConfigs,
-    projectName: userConfig.projectName,
-    manager: managerAddress,
-  }
 
   const configCache = await getConfigCache(
     provider,
@@ -309,11 +178,21 @@ export const getParsedConfig = async (
     managerAddress
   )
 
+  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
+
+  const parsedConfig: ParsedConfig = {
+    manager: managerAddress,
+    options: parsedConfigOptions,
+    contracts: contractConfigs,
+    projectName: userConfig.projectName,
+  }
+
   await postParsingValidation(
     parsedConfig,
     configArtifacts,
     cre,
     configCache,
+    isTestnet,
     failureAction
   )
 
@@ -2612,10 +2491,27 @@ export const postParsingValidation = async (
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   configCache: MinimalConfigCache,
+  isTestnet: boolean,
   failureAction: FailureAction
 ) => {
-  const { blockGasLimit, contractConfigCache } = configCache
+  const { blockGasLimit, contractConfigCache, chainId } = configCache
   const { contracts, manager } = parsedConfig
+
+  const supportedNetworks = isTestnet ? SUPPORTED_TESTNETS : SUPPORTED_MAINNETS
+  const isSupportedChainId = Object.entries(supportedNetworks).some(
+    (entry) => entry[1] === chainId
+  )
+  if (!isSupportedChainId) {
+    logValidationError(
+      'error',
+      `Sphinx does not support the ${
+        isTestnet ? 'testnet' : 'mainnet'
+      } with chain ID: ${chainId}.`,
+      [],
+      cre.silent,
+      cre.stream
+    )
+  }
 
   assertNoUpgradableContracts(parsedConfig, cre)
 
@@ -2996,8 +2892,43 @@ export const assertValidConfigOptions = (
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
 ): void => {
-  const { mainnets, testnets, orgId, owners, ownerThreshold, proposers } =
-    options
+  const { mainnets, testnets, orgId, owners, ownerThreshold } = options
+  const { remoteExecution } = cre
+
+  // TODO(docs):
+  if (remoteExecution) {
+    if (options.proposers === undefined || options.proposers.length === 0) {
+      logValidationError(
+        'error',
+        `There must be at least one proposer or manager.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  } else {
+    if (owners.length > 1) {
+      logValidationError(
+        'error',
+        `There can only be one address in the 'owners' array when deploying locally.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+
+    if (options.proposers !== undefined && options.proposers.length > 0) {
+      logValidationError(
+        'error',
+        `There cannot be any proposers in your Sphinx config when deploying locally.`,
+        [],
+        cre.silent,
+        cre.stream
+      )
+    }
+  }
+
+  const proposers = options.proposers ?? []
 
   if (orgId === '') {
     logValidationError(
@@ -3123,10 +3054,10 @@ export const assertValidConfigOptions = (
     )
   }
 
-  if (proposers.length === 0) {
+  if (owners.length === 0) {
     logValidationError(
       'error',
-      `There must be at least one proposer or manager.`,
+      `There must be at least one owner in the 'owners' array in your Sphinx config.`,
       [],
       cre.silent,
       cre.stream
@@ -3160,9 +3091,9 @@ export const parseConfigOptions = (
   const owners = options.owners.map((address) => ethers.getAddress(address))
   sortHexStrings(owners)
 
-  const proposers = options.proposers.map((address) =>
-    ethers.getAddress(address)
-  )
+  const proposers = options.proposers
+    ? options.proposers.map((address) => ethers.getAddress(address))
+    : []
   sortHexStrings(proposers)
 
   return {

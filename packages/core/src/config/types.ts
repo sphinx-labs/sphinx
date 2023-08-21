@@ -83,15 +83,7 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
-export type UserSphinxConfig = UserConfig | UserConfigWithOptions
-
-export type UserConfig = {
-  projectName: string
-  contracts: UserContractConfigs
-  options?: never
-}
-
-export type UserConfigWithOptions = {
+export type UserSphinxConfig = {
   projectName: string
   contracts: UserContractConfigs
   options: UserConfigOptions
@@ -104,40 +96,33 @@ export type UserConfigWithOptions = {
 export interface UserConfigOptions extends ConfigOptions {
   mainnets: Array<string>
   testnets: Array<string>
+  proposers?: Array<string>
 }
 
 /**
- * @notice The `chainIds` field is an array of chain IDs that correspond to either the `mainnets`
+ * @param chainIds An array of chain IDs that correspond to either the `mainnets`
  * field or the `testnets` field in the user config. Whether we use `mainnets` or `testnets` is
  * determined by the value of the boolean variable `isTestnet`, which is passed into the
  * `getParsedConfigWithOptions` function. If `isTestnet` is true, then we use `testnets`, otherwise we use
  * `mainnets`.
+ * @param proposers TODO(docs): can be empty array
  */
 export interface ParsedConfigOptions extends ConfigOptions {
   chainIds: Array<number>
+  proposers: Array<string>
 }
 
 export interface ConfigOptions {
   orgId: string
   owners: Array<string>
   ownerThreshold: number
-  proposers: Array<string>
 }
 
 export interface ParsedConfig {
   projectName: string
   manager: string
   contracts: ParsedContractConfigs
-}
-
-export interface ParsedOwnerConfig extends ParsedConfig {
-  owner: string
-  options?: never
-}
-
-export interface ParsedConfigWithOptions extends ParsedConfig {
   options: ParsedConfigOptions
-  owner?: never
 }
 
 export type UnsafeAllow = {
@@ -312,11 +297,7 @@ export type GetCanonicalConfig = (
   projectName: string
 ) => Promise<CanonicalConfig | undefined>
 
-export interface CanonicalConfig {
-  manager: string
-  projectName: string
-  options: ConfigOptions
-  contracts: ParsedContractConfigs
+export interface CanonicalConfig extends ParsedConfig {
   chainStates: {
     [chainId: number]: {
       firstProposalOccurred: boolean

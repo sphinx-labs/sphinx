@@ -10,17 +10,21 @@ import ora from 'ora'
 import { execAsync } from '@sphinx-labs/core/dist/utils'
 import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
-import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
+import {
+  getAuthAddress,
+  getSphinxManagerAddress,
+} from '@sphinx-labs/core/dist/addresses'
 import { Wallet } from 'ethers'
 import {
   getDiff,
   getDiffString,
   getParsedConfig,
   userConfirmation,
-  UserConfig,
   ensureSphinxInitialized,
   proposeAbstractTask,
-  UserConfigWithOptions,
+  UserSphinxConfig,
+  SUPPORTED_TESTNETS,
+  SUPPORTED_MAINNETS,
 } from '@sphinx-labs/core'
 import 'core-js/features/array/at'
 
@@ -150,7 +154,7 @@ yargs(hideBin(process.argv))
         'foundry',
         'display-user-config.js'
       )
-      let userConfig: UserConfigWithOptions
+      let userConfig: UserSphinxConfig
       try {
         // Using --swc speeds up the execution of the script.
         const { stdout } = await execAsync(
@@ -404,7 +408,7 @@ yargs(hideBin(process.argv))
 
         // Get the user config by invoking a script with TS node. This is necessary to support
         // TypeScript configs because the current context is invoked with Node, not TS Node.
-        let userConfig: UserConfig
+        let userConfig: UserSphinxConfig
         try {
           // Using --swc speeds up the execution of the script.
           const { stdout } = await execAsync(
@@ -428,8 +432,37 @@ yargs(hideBin(process.argv))
           process.stderr
         )
 
+        const auth = getAuthAddress(
+          userConfig.options.owners,
+          userConfig.options.ownerThreshold,
+          userConfig.projectName
+        )
+        const managerAddress = getSphinxManagerAddress(
+          auth,
+          userConfig.projectName
+        )
+        const { chainId } = await provider.getNetwork()
+        let isTestnet: boolean
+        if (
+          Object.entries(SUPPORTED_TESTNETS).some(
+            (entry) => BigInt(entry[1]) === chainId
+          )
+        ) {
+          isTestnet = true
+        } else if (
+          Object.entries(SUPPORTED_MAINNETS).some(
+            (entry) => BigInt(entry[1]) === chainId
+          )
+        ) {
+          isTestnet = false
+        } else {
+          throw new Error(`TODO`)
+        }
+
         const { configCache } = await getParsedConfig(
           userConfig,
+          managerAddress,
+          isTestnet,
           provider,
           cre,
           makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),
