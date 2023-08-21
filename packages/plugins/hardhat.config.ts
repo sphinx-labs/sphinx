@@ -2,8 +2,7 @@ import { HardhatUserConfig } from 'hardhat/types'
 import * as dotenv from 'dotenv'
 
 // Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
+import '@nomicfoundation/hardhat-ethers'
 import './dist'
 
 // Load environment variables from .env

@@ -1,17 +1,16 @@
-import { providers } from 'ethers'
 import { create, IPFSHTTPClient } from 'ipfs-http-client'
 
 import { SphinxBundles } from '../actions/types'
 import {
   callWithTimeout,
-  getSphinxManagerReadOnly,
-  getSphinxRegistryReadOnly,
   getDeploymentId,
   getConfigArtifactsRemote,
 } from '../utils'
+import { SphinxJsonRpcProvider } from '../provider'
 import { CompilerConfig, ConfigArtifacts, ConfigCache } from './types'
 import { makeBundlesFromConfig } from '../actions/bundle'
 import { getConfigCache } from './parse'
+import { getSphinxRegistryAddress } from '../addresses'
 
 export const sphinxFetchSubtask = async (args: {
   configUri: string
@@ -88,7 +87,7 @@ export const verifyDeployment = async (
  * @returns Compiled SphinxBundle.
  */
 export const compileRemoteBundles = async (
-  provider: providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   configUri: string
 ): Promise<{
   bundles: SphinxBundles
@@ -107,8 +106,8 @@ export const compileRemoteBundles = async (
     provider,
     compilerConfig.contracts,
     configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(compilerConfig.manager, provider)
+    getSphinxRegistryAddress(),
+    compilerConfig.manager
   )
 
   const bundles = makeBundlesFromConfig(

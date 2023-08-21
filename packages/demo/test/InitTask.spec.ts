@@ -3,6 +3,7 @@ import path from 'path'
 import { exec } from 'child_process'
 
 import {
+  SphinxJsonRpcProvider,
   execAsync,
   getSphinxManagerAddress,
   getTargetAddress,
@@ -16,7 +17,7 @@ import {
 import { expect } from 'chai'
 import { sphinx } from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
 
 const configDirPath = 'sphinx'
 const deploymentArtifactDir = 'deployments'
@@ -27,7 +28,7 @@ describe('Init Task', () => {
   let contractPath: string
   let foundryTestPath: string
   let hardhatTestPath: string
-  let provider: providers.JsonRpcProvider
+  let provider: SphinxJsonRpcProvider
   before(async () => {
     const forgeConfigOutput = await execAsync('forge config --json')
     const forgeConfig = JSON.parse(forgeConfigOutput.stdout)
@@ -39,7 +40,7 @@ describe('Init Task', () => {
 
     hardhatTestPath = path.join(test, hhTestFileNameTypeScript)
 
-    provider = new providers.JsonRpcProvider('http://127.0.0.1:8545')
+    provider = new SphinxJsonRpcProvider('http://127.0.0.1:8545')
   })
 
   beforeEach(async () => {
@@ -170,15 +171,19 @@ describe('Init Task', () => {
     const FirstContract = await sphinx.getContract(
       projectName,
       'MyFirstContract',
-      provider.getSigner()
+      await provider.getSigner()
     )
     const SecondContract = await sphinx.getContract(
       projectName,
       'MySecondContract',
-      provider.getSigner()
+      await provider.getSigner()
     )
-    expect(await provider.getCode(FirstContract.address)).to.not.equal('0x')
-    expect(await provider.getCode(SecondContract.address)).to.not.equal('0x')
+    expect(
+      await provider.getCode(await FirstContract.getAddress())
+    ).to.not.equal('0x')
+    expect(
+      await provider.getCode(await SecondContract.getAddress())
+    ).to.not.equal('0x')
 
     // Check that the deployment artifacts have been created
     expect(fs.existsSync(deploymentArtifactOne)).to.be.true

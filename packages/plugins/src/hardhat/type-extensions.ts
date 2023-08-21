@@ -1,17 +1,18 @@
 import * as path from 'path'
 
+// To extend one of Hardhat's types, you need to import the module where it has been defined, and
+// redeclare it.
 import { extendConfig, extendEnvironment } from 'hardhat/config'
-import { ethers } from 'ethers'
 import { lazyObject } from 'hardhat/plugins'
 import { HardhatConfig, HardhatRuntimeEnvironment } from 'hardhat/types'
+import 'hardhat/types/config'
+import 'hardhat/types/runtime'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { ethers } from 'ethers'
 import { UserSalt } from '@sphinx-labs/core'
 
 import { getContract, resetSphinxDeployments } from './deployments'
-
-// To extend one of Hardhat's types, you need to import the module where it has been defined, and
-// redeclare it.
-import 'hardhat/types/config'
-import 'hardhat/types/runtime'
 
 declare module 'hardhat/types/config' {
   // Extend the HardhatConfig type, which represents the configuration after it has been resolved.
@@ -28,11 +29,11 @@ declare module 'hardhat/types/runtime' {
   // scripts, and tests.
   export interface HardhatRuntimeEnvironment {
     sphinx: {
-      reset: (provider: ethers.providers.JsonRpcProvider) => Promise<void>
+      reset: (provider: ethers.Provider) => Promise<void>
       getContract: (
         projectName: string,
         referenceName: string,
-        owner: ethers.Signer,
+        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
         salt?: UserSalt
       ) => Promise<ethers.Contract>
     }
@@ -51,15 +52,13 @@ extendConfig((config: HardhatConfig) => {
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
   hre.sphinx = lazyObject(() => {
     return {
-      reset: async (
-        provider: ethers.providers.JsonRpcProvider
-      ): Promise<void> => {
+      reset: async (provider: HardhatEthersProvider): Promise<void> => {
         await resetSphinxDeployments(hre, provider)
       },
       getContract: async (
         projectName: string,
         referenceName: string,
-        owner: ethers.providers.JsonRpcSigner | ethers.Wallet,
+        owner: HardhatEthersSigner | ethers.JsonRpcSigner,
         salt?: UserSalt
       ): Promise<ethers.Contract> => {
         const contract = await getContract(

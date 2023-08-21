@@ -1,4 +1,11 @@
-import { BigNumber, utils } from 'ethers'
+import {
+  toBeHex,
+  AbiCoder,
+  keccak256,
+  concat,
+  solidityPacked,
+  zeroPadValue,
+} from 'ethers'
 import { ASTDereferencer } from 'solidity-ast/utils'
 
 import { ParsedConfigVariable, UserConfigVariable } from '../../config/types'
@@ -103,8 +110,8 @@ export const addStorageSlotKeys = (
   firstSlotKey: string,
   secondSlotKey: string
 ): string => {
-  const added = BigNumber.from(firstSlotKey).add(BigNumber.from(secondSlotKey))
-  return utils.hexZeroPad(added.toHexString(), 32)
+  const added = BigInt(firstSlotKey) + BigInt(secondSlotKey)
+  return zeroPadValue(toBeHex(added), 32)
 }
 
 /**
@@ -150,7 +157,7 @@ export const buildMappingStorageObj = (
   let encodedMappingKey: string
   if (mappingKeyStorageType.encoding === 'bytes') {
     // Encode the mapping key and leave it unpadded.
-    encodedMappingKey = utils.solidityPack(
+    encodedMappingKey = solidityPacked(
       [mappingKeyStorageType.label],
       [mappingKey]
     )
@@ -166,7 +173,7 @@ export const buildMappingStorageObj = (
 
     // Use the standard ABI encoder if the mapping key is a value type (as opposed to a
     // reference type).
-    encodedMappingKey = utils.defaultAbiCoder.encode([label], [mappingKey])
+    encodedMappingKey = AbiCoder.defaultAbiCoder().encode([label], [mappingKey])
   } else {
     // This error should never occur unless Solidity adds a new encoding type, or allows dynamic
     // arrays or mappings to be mapping keys.
@@ -177,8 +184,8 @@ export const buildMappingStorageObj = (
 
   // Get the mapping value's storage slot key by first concatenating the encoded mapping key to the
   // storage slot key of the mapping itself, then hashing the concatenated value.
-  const mappingValueStorageSlotKey = utils.keccak256(
-    utils.hexConcat([encodedMappingKey, slotKey])
+  const mappingValueStorageSlotKey = keccak256(
+    concat([encodedMappingKey, slotKey])
   )
 
   // Create a new storage object for the mapping value since the Solidity compiler doesn't

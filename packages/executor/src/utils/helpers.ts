@@ -8,6 +8,6 @@ import { ethers } from 'ethers'
  */
 export const parseStrategyString = (strategy: string): string[] => {
   return strategy.split(',').map((address) => {
-    return ethers.utils.getAddress(address)
+    return ethers.getAddress(address)
   })
 }

@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 
 export const signAuthRootMetaTxn = async (
-  signer: ethers.Wallet | ethers.providers.JsonRpcSigner,
+  signer: ethers.Wallet | ethers.JsonRpcSigner,
   authRoot: string
 ): Promise<string> => {
   const domain = {
@@ -11,6 +11,6 @@ export const signAuthRootMetaTxn = async (
   const types = { AuthRoot: [{ name: 'root', type: 'bytes32' }] }
   const value = { root: authRoot }
 
-  const signature = await signer._signTypedData(domain, types, value)
+  const signature = await signer.signTypedData(domain, types, value)
   return signature
 }

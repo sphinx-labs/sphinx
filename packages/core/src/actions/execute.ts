@@ -1,4 +1,4 @@
-import { ethers, providers } from 'ethers'
+import { ethers, Provider } from 'ethers'
 import { Logger } from '@eth-optimism/common-ts'
 
 import {
@@ -19,13 +19,13 @@ import { ConfigArtifacts } from '../config'
 export const executeDeployment = async (
   manager: ethers.Contract,
   bundles: SphinxBundles,
-  blockGasLimit: ethers.BigNumber,
+  blockGasLimit: bigint,
   configArtifacts: ConfigArtifacts,
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   logger?: Logger | undefined
 ): Promise<{
   success: boolean
-  receipts: ethers.providers.TransactionReceipt[]
+  receipts: ethers.TransactionReceipt[]
 }> => {
   const { actionBundle, targetBundle } = bundles
 
@@ -36,8 +36,8 @@ export const executeDeployment = async (
   // transactions to be executed slowly as a result of the algorithms that miners use to select
   // which transactions to include. As a result, we restrict our total gas usage to a fraction of
   // the block gas limit.
-  const gasFraction = 2
-  const maxGasLimit = blockGasLimit.div(gasFraction)
+  const gasFraction = 2n
+  const maxGasLimit = blockGasLimit / gasFraction
 
   const deployContractActionBundle = getDeployContractActionBundle(actionBundle)
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
@@ -51,10 +51,10 @@ export const executeDeployment = async (
     provider,
     logger
   )
-  if (status === DeploymentStatus.FAILED) {
+  if (status === BigInt(DeploymentStatus.FAILED)) {
     logger?.error(`[Sphinx]: failed to execute 'DEPLOY_CONTRACT' actions`)
     return { success: false, receipts }
-  } else if (status === DeploymentStatus.COMPLETED) {
+  } else if (status === BigInt(DeploymentStatus.COMPLETED)) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
     return { success: true, receipts }
   } else {
@@ -111,7 +111,7 @@ export const executeDeployment = async (
  */
 const findMaxBatchSize = async (
   actions: BundledSphinxAction[],
-  maxGasLimit: ethers.BigNumber,
+  maxGasLimit: bigint,
   configArtifacts: ConfigArtifacts
 ): Promise<number> => {
   // Optimization, try to execute the entire batch at once before going through the hassle of a
@@ -151,15 +151,15 @@ const findMaxBatchSize = async (
 const executeBatchActions = async (
   actions: BundledSphinxAction[],
   manager: ethers.Contract,
-  maxGasLimit: ethers.BigNumber,
+  maxGasLimit: bigint,
   configArtifacts: ConfigArtifacts,
-  provider: providers.Provider,
+  provider: Provider,
   logger?: Logger | undefined
 ): Promise<{
-  status: DeploymentStatus
-  receipts: ethers.providers.TransactionReceipt[]
+  status: bigint
+  receipts: ethers.TransactionReceipt[]
 }> => {
-  const receipts: ethers.providers.TransactionReceipt[] = []
+  const receipts: ethers.TransactionReceipt[] = []
 
   // Pull the deployment state from the contract so we're guaranteed to be up to date.
   const activeDeploymentId = await manager.activeDeploymentId()
@@ -207,7 +207,7 @@ const executeBatchActions = async (
     receipts.push(tx)
 
     state = await manager.deployments(activeDeploymentId)
-    if (state.status === DeploymentStatus.FAILED) {
+    if (state.status === BigInt(DeploymentStatus.FAILED)) {
       return { status: state.status, receipts }
     }
 
@@ -226,10 +226,10 @@ const executeBatchActions = async (
  */
 export const executable = async (
   selected: BundledSphinxAction[],
-  maxGasLimit: ethers.BigNumber,
+  maxGasLimit: bigint,
   configArtifacts: ConfigArtifacts
 ): Promise<boolean> => {
-  let estGasUsed: ethers.BigNumber = ethers.BigNumber.from(0)
+  let estGasUsed = BigInt(0)
 
   for (const action of selected) {
     const { actionType, referenceName } = action.action
@@ -243,13 +243,13 @@ export const executable = async (
 
       // We add 150k as an estimate for the cost of the transaction that executes the DeployContract
       // action.
-      estGasUsed = estGasUsed.add(deployContractCost).add(150_000)
+      estGasUsed = estGasUsed + deployContractCost + 150_000n
     } else if (actionType === SphinxActionType.SET_STORAGE) {
-      estGasUsed = estGasUsed.add(ethers.BigNumber.from(150_000))
+      estGasUsed = estGasUsed + BigInt(150_000)
     } else {
       throw new Error(`Unknown action type. Should never happen.`)
     }
   }
 
-  return maxGasLimit.gt(estGasUsed)
+  return maxGasLimit > estGasUsed
 }

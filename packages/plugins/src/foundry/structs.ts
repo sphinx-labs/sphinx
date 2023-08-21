@@ -1,5 +1,5 @@
 import { MinimalConfigCache } from '@sphinx-labs/core/dist/config/types'
-import { defaultAbiCoder } from 'ethers/lib/utils'
+import { AbiCoder } from 'ethers'
 
 export const decodeCachedConfig = (
   encodedConfigCache: string,
@@ -9,10 +9,8 @@ export const decodeCachedConfig = (
     (fragment) => fragment.name === 'configCache'
   ).outputs[0]
 
-  const configCache = defaultAbiCoder.decode(
-    [configCacheType],
-    encodedConfigCache
-  )[0]
+  const coder = AbiCoder.defaultAbiCoder()
+  const configCache = coder.decode([configCacheType], encodedConfigCache)[0]
 
   const structuredConfigCache: MinimalConfigCache = {
     blockGasLimit: configCache.blockGasLimit,

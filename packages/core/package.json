@@ -33,8 +33,8 @@
     "@amplitude/node": "^1.10.2",
     "@eth-optimism/common-ts": "^0.7.1",
     "@eth-optimism/contracts-bedrock": "^0.0.0-20230522161230",
-    "@eth-optimism/core-utils": "^0.9.1",
-    "@ethersproject/abstract-provider": "^5.7.0",
+    "@ethersproject/bignumber": "^5.7.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.4",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
     "@openzeppelin/merkle-tree": "^1.0.5",
@@ -44,11 +44,10 @@
     "chalk": "^4.1.2",
     "core-js": "^3.27.1",
     "dotenv": "^16.0.3",
-    "ethers": "^5.6.9",
+    "ethers": "^6.7.0",
     "fs": "^0.0.1-security",
     "handlebars": "^4.7.7",
-    "hardhat": "^2.10.0",
-    "hardhat-deploy": "^0.11.18",
+    "hardhat": "^2.17.1",
     "insight": "^0.11.1",
     "ipfs-http-client": "56.0.3",
     "ipfs-only-hash": "^4.0.0",
@@ -58,9 +57,5 @@
     "solidity-ast": "^0.4.45",
     "undici": "^5.21.1",
     "yesno": "^0.4.0"
-  },
-  "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.2.1",
-    "hardhat": "^2.10.0"
   }
 }

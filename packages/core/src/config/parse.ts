@@ -2,7 +2,8 @@
 import * as path from 'path'
 
 import * as Handlebars from 'handlebars'
-import { BigNumber, ethers, providers } from 'ethers'
+import { ethers } from 'ethers'
+import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import {
   astDereferencer,
   ASTDereferencer,
@@ -10,16 +11,15 @@ import {
   isNodeType,
   findAll,
 } from 'solidity-ast/utils'
-import { remove0x } from '@eth-optimism/core-utils'
-import { Fragment, ParamType } from 'ethers/lib/utils'
 import {
   assertStorageUpgradeSafe,
   StorageLayout,
   UpgradeableContractErrorReport,
 } from '@openzeppelin/upgrades-core'
-import { ProxyABI } from '@sphinx-labs/contracts'
+import { ProxyABI, SphinxRegistryABI } from '@sphinx-labs/contracts'
 import { getDetailedLayout } from '@openzeppelin/upgrades-core/dist/storage/layout'
 import { ContractDefinition, Expression } from 'solidity-ast'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import {
   SolidityStorageLayout,
@@ -37,9 +37,6 @@ import {
   isDataHexString,
   getCreationCodeWithConstructorArgs,
   getPreviousConfigUri,
-  getSphinxRegistryReadOnly,
-  getSphinxManagerReadOnly,
-  isOpenZeppelinContractKind,
   readBuildInfo,
   fetchAndCacheCompilerConfig,
   getConfigArtifactsRemote,
@@ -47,7 +44,9 @@ import {
   getNetworkType,
   resolveNetwork,
   sortHexStrings,
+  remove0x,
 } from '../utils'
+import { SphinxJsonRpcProvider } from '../provider'
 import {
   ParsedConfigVariable,
   UserContractConfig,
@@ -91,7 +90,11 @@ import {
 } from '../languages/solidity/iterator'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import { getStorageLayout } from '../actions/artifacts'
-import { OZ_UUPS_UPDATER_ADDRESS, getSphinxManagerAddress } from '../addresses'
+import {
+  OZ_UUPS_UPDATER_ADDRESS,
+  getSphinxManagerAddress,
+  getSphinxRegistryAddress,
+} from '../addresses'
 import { getTargetAddress, getTargetSalt, toContractKindEnum } from './utils'
 import { SUPPORTED_MAINNETS, SUPPORTED_TESTNETS } from '../networks'
 
@@ -139,7 +142,7 @@ export const getParsedConfigWithOptions = async (
   userConfig: UserConfigWithOptions,
   managerAddress: string,
   isTestnet: boolean,
-  provider: providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   failureAction: FailureAction = FailureAction.EXIT
@@ -186,8 +189,8 @@ export const getParsedConfigWithOptions = async (
     provider,
     contractConfigs,
     configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider)
+    getSphinxRegistryAddress(),
+    managerAddress
   )
 
   await postParsingValidation(
@@ -213,7 +216,7 @@ export const getParsedConfigWithOptions = async (
  */
 export const getParsedConfig = async (
   userConfig: UserConfig,
-  provider: providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
   ownerAddress: string,
@@ -246,7 +249,7 @@ export const getParsedConfig = async (
     )
   }
 
-  if (!ethers.utils.isAddress(ownerAddress)) {
+  if (!ethers.isAddress(ownerAddress)) {
     logValidationError(
       'error',
       `The owner address is invalid: ${ownerAddress}.`,
@@ -282,8 +285,8 @@ export const getParsedConfig = async (
     provider,
     contractConfigs,
     configArtifacts,
-    getSphinxRegistryReadOnly(provider),
-    getSphinxManagerReadOnly(managerAddress, provider)
+    getSphinxRegistryAddress(),
+    managerAddress
   )
 
   await postParsingValidation(
@@ -347,7 +350,7 @@ export const assertValidUserConfig = (
     // Make sure addresses are valid.
     if (
       contractConfig.address !== undefined &&
-      !ethers.utils.isAddress(contractConfig.address)
+      !ethers.isAddress(contractConfig.address)
     ) {
       logValidationError(
         'error',
@@ -648,12 +651,12 @@ const parseAddress = (variable: UserConfigVariable, label: string) => {
     )
   }
 
-  if (!ethers.utils.isAddress(variable)) {
+  if (!ethers.isAddress(variable)) {
     throw new Error(`invalid address for ${label}: ${variable}`)
   }
 
   // convert to checksum address
-  return ethers.utils.getAddress(variable)
+  return ethers.getAddress(variable)
 }
 
 /**
@@ -723,7 +726,7 @@ const parseFixedBytes = (
   variable: UserConfigVariable,
   variableType: string,
   label: string,
-  numberOfBytes: number
+  numberOfBytes: string
 ) => {
   // Check that the user entered a string
   if (typeof variable !== 'string') {
@@ -735,14 +738,14 @@ const parseFixedBytes = (
   }
 
   if (variableType.startsWith('bytes')) {
-    if (!ethers.utils.isHexString(variable)) {
+    if (!ethers.isHexString(variable)) {
       throw new ValidationError(
         `invalid input format for variable ${label}, expected DataHexString but got ${variable}`
       )
     }
 
     // Check that the HexString is the correct length
-    if (!ethers.utils.isHexString(variable, numberOfBytes)) {
+    if (!ethers.isHexString(variable, Number(numberOfBytes))) {
       throw new Error(
         `invalid length for bytes${numberOfBytes} variable ${label}: ${variable}`
       )
@@ -781,14 +784,14 @@ export const parseInplaceUint: VariableHandler<UserConfigVariable, string> = (
 const parseUnsignedInteger = (
   variable: UserConfigVariable,
   label: string,
-  numberOfBytes: number
+  numberOfBytes: string
 ) => {
   if (
     typeof variable !== 'number' &&
     typeof variable !== 'string' &&
-    !ethers.BigNumber.isBigNumber(variable) &&
-    // The check below is necessary because the BigNumber object is mutated by Handlebars when
-    // resolving contract references.
+    !EthersV5BigNumber.isBigNumber(variable) &&
+    // The check below is necessary because the ethers.js V5 BigNumber object is mutated by
+    // Handlebars when resolving contract references.
     !(
       typeof variable === 'object' &&
       'type' in variable &&
@@ -802,14 +805,12 @@ const parseUnsignedInteger = (
     )
   }
 
-  const maxValue = BigNumber.from(2)
-    .pow(8 * numberOfBytes)
-    .sub(1)
+  const maxValue = 2n ** (8n * BigInt(numberOfBytes)) - 1n
 
   try {
     if (
-      remove0x(BigNumber.from(variable).toHexString()).length / 2 >
-      numberOfBytes
+      remove0x(EthersV5BigNumber.from(variable).toHexString()).length / 2 >
+      Number(numberOfBytes)
     ) {
       throw new Error(
         `invalid value for ${label}: ${variable}, outside valid range: [0:${maxValue}]`
@@ -825,7 +826,7 @@ const parseUnsignedInteger = (
     }
   }
 
-  return BigNumber.from(variable).toString()
+  return EthersV5BigNumber.from(variable).toString()
 }
 
 /**
@@ -853,14 +854,14 @@ export const parseInplaceInt: VariableHandler<UserConfigVariable, string> = (
 const parseInteger = (
   variable: UserConfigVariable,
   label: string,
-  numberOfBytes: number
+  numberOfBytes: string
 ) => {
   if (
     typeof variable !== 'number' &&
     typeof variable !== 'string' &&
-    !ethers.BigNumber.isBigNumber(variable) &&
-    // The check below is necessary because the BigNumber object is mutated by Handlebars when
-    // resolving contract references.
+    !EthersV5BigNumber.isBigNumber(variable) &&
+    // The check below is necessary because the ethers.js V5 BigNumber object is mutated by
+    // Handlebars when resolving contract references.
     !(
       typeof variable === 'object' &&
       'type' in variable &&
@@ -876,18 +877,13 @@ const parseInteger = (
 
   // Calculate the minimum and maximum values of the int to ensure that the variable fits within
   // these bounds.
-  const minValue = BigNumber.from(2)
-    .pow(8 * numberOfBytes)
-    .div(2)
-    .mul(-1)
-  const maxValue = BigNumber.from(2)
-    .pow(8 * numberOfBytes)
-    .div(2)
-    .sub(1)
+  const minValue = (2n ** (8n * BigInt(numberOfBytes)) / 2n) * -1n
+  const maxValue = 2n ** (8n * BigInt(numberOfBytes)) / 2n - 1n
+
   try {
     if (
-      BigNumber.from(variable).lt(minValue) ||
-      BigNumber.from(variable).gt(maxValue)
+      EthersV5BigNumber.from(variable).lt(minValue) ||
+      EthersV5BigNumber.from(variable).gt(maxValue)
     ) {
       throw new Error(
         `invalid value for ${label}: ${variable}, outside valid range: [${minValue}:${maxValue}]`
@@ -903,7 +899,7 @@ const parseInteger = (
     }
   }
 
-  return BigNumber.from(variable).toString()
+  return EthersV5BigNumber.from(variable).toString()
 }
 
 /**
@@ -1386,7 +1382,7 @@ const parseContractVariables = (
 }
 
 const parseArrayConstructorArg = (
-  input: ParamType,
+  input: ethers.ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
@@ -1394,6 +1390,12 @@ const parseArrayConstructorArg = (
   if (!Array.isArray(constructorArgValue)) {
     throw new ValidationError(
       `Expected array for ${input.name} but got ${typeof constructorArgValue}`
+    )
+  }
+
+  if (input.arrayChildren === null) {
+    throw new ValidationError(
+      `The 'arrayChildren' member is undefiend for the array '${input.name}'. Should never happen.`
     )
   }
 
@@ -1416,7 +1418,7 @@ const parseArrayConstructorArg = (
 }
 
 export const parseStructConstructorArg = (
-  paramType: ParamType,
+  paramType: ethers.ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
@@ -1426,6 +1428,12 @@ export const parseStructConstructorArg = (
       `Expected object for ${
         paramType.name
       } but got ${typeof constructorArgValue}`
+    )
+  }
+
+  if (paramType.components === null) {
+    throw new ValidationError(
+      `The 'components' member is undefiend for the struct '${paramType.name}'. Should never happen.`
     )
   }
 
@@ -1470,7 +1478,7 @@ export const parseStructConstructorArg = (
 }
 
 const parseAndValidateConstructorArg = (
-  input: ParamType,
+  input: ethers.ParamType,
   name: string,
   constructorArgValue: UserConfigVariable,
   cre: SphinxRuntimeEnvironment
@@ -1480,7 +1488,7 @@ const parseAndValidateConstructorArg = (
   // This is b/c input is an incomplete object, so fetching the new ParamType yields
   // an object with more useful information on it
   const paramType =
-    input.type === 'tuple' ? input : ethers.utils.ParamType.from(input.type)
+    input.type === 'tuple' ? input : ethers.ParamType.from(input.type)
   if (
     paramType.baseType &&
     (paramType.baseType.startsWith('uint') ||
@@ -1492,9 +1500,13 @@ const parseAndValidateConstructorArg = (
     const numberOfBytes = bits / 8
 
     if (constructorArgType.startsWith('int')) {
-      return parseInteger(constructorArgValue, name, numberOfBytes)
+      return parseInteger(constructorArgValue, name, numberOfBytes.toString())
     } else {
-      return parseUnsignedInteger(constructorArgValue, name, numberOfBytes)
+      return parseUnsignedInteger(
+        constructorArgValue,
+        name,
+        numberOfBytes.toString()
+      )
     }
   } else if (paramType.baseType === 'address') {
     // if the value is a contract reference, then we don't parse it and assume it is correct given
@@ -1513,9 +1525,14 @@ const parseAndValidateConstructorArg = (
     }
   } else if (paramType.baseType === 'bool') {
     return parseBool(constructorArgValue, name)
+  } else if (
+    paramType.baseType === 'string' ||
+    paramType.baseType === 'bytes'
+  ) {
+    return parseBytes(constructorArgValue, name, paramType.type, 0)
   } else if (paramType.baseType && paramType.baseType.startsWith('bytes')) {
     const suffix = constructorArgType.replace(/bytes/g, '')
-    const numberOfBytes = parseInt(suffix, 10)
+    const numberOfBytes = parseInt(suffix, 10).toString()
 
     return parseFixedBytes(
       constructorArgValue,
@@ -1523,8 +1540,6 @@ const parseAndValidateConstructorArg = (
       name,
       numberOfBytes
     )
-  } else if (paramType.baseType === 'string') {
-    return parseBytes(constructorArgValue, name, paramType.type, 0)
   } else if (paramType.baseType === 'array') {
     return parseArrayConstructorArg(paramType, name, constructorArgValue, cre)
   } else if (paramType.type === 'tuple') {
@@ -1549,7 +1564,7 @@ const parseAndValidateConstructorArg = (
 export const parseContractConstructorArgs = (
   userContractConfig: UserContractConfig,
   referenceName: string,
-  abi: Array<Fragment>,
+  abi: Array<ethers.Fragment>,
   cre: SphinxRuntimeEnvironment
 ): ParsedConfigVariables => {
   const userConstructorArgs: UserConfigVariables =
@@ -1714,7 +1729,7 @@ export const assertStorageCompatiblePreserveKeywords = (
  *
  * 1. There are any leading spaces before '{{', or any trailing spaces after '}}'. This ensures the
  * template string converts into a valid address when it's parsed. If there are any leading or
- * trailing spaces in an address, `ethers.utils.isAddress` will return false.
+ * trailing spaces in an address, `ethers.isAddress` will return false.
  *
  * 2. The contract reference is not included in the array of valid contract references.
  *
@@ -2457,11 +2472,11 @@ export const assertValidDeploymentSize = (
   const numTargets = Object.values(parsedContractConfigs).filter(
     (contract) => contract.kind !== 'immutable'
   ).length
-  const initiationGasCost = ethers.BigNumber.from(100_000).mul(numTargets)
+  const initiationGasCost = BigInt(100_000) * BigInt(numTargets)
 
-  const costWithBuffer = initiationGasCost.mul(12).div(10)
+  const costWithBuffer = (initiationGasCost * 12n) / 10n
 
-  if (costWithBuffer.gt(blockGasLimit)) {
+  if (costWithBuffer > blockGasLimit) {
     logValidationError(
       'error',
       `Too many contracts in your Sphinx config.`,
@@ -2475,13 +2490,11 @@ export const assertValidDeploymentSize = (
 /**
  * Assert that the block gas limit is reasonably high on a network.
  */
-export const assertValidBlockGasLimit = (
-  blockGasLimit: ethers.BigNumber
-): void => {
+export const assertValidBlockGasLimit = (blockGasLimit: bigint): void => {
   // Although we can lower this from 15M to 10M or less, we err on the side of safety for now. This
   //  number should never be lower than 5.5M because it costs ~5.3M gas to deploy the
   //  SphinxManager V1, which is at the contract size limit.
-  if (blockGasLimit.lt(15_000_000)) {
+  if (blockGasLimit < 15_000_000n) {
     throw new Error(
       `Block gas limit is too low on this network. Got: ${blockGasLimit.toString()}. Expected: ${
         blockGasLimit.toString
@@ -2557,16 +2570,28 @@ export const assertImmutableDeploymentsDoNotRevert = (
 }
 
 export const getConfigCache = async (
-  provider: providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   contractConfigs: ParsedContractConfigs,
   configArtifacts: ConfigArtifacts,
-  registry: ethers.Contract,
-  manager: ethers.Contract
+  registryAddress: string,
+  managerAddress: string
 ): Promise<ConfigCache> => {
-  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
+  const block = await provider.getBlock('latest')
+  if (!block) {
+    throw new Error('Failed to get latest block.')
+  }
+  const registry = new ethers.Contract(
+    registryAddress,
+    SphinxRegistryABI,
+    provider
+  )
+  const blockGasLimit = block.gasLimit
   const networkType = await getNetworkType(provider)
-  const { networkName, chainId } = await resolveNetwork(provider, networkType)
-  const isManagerDeployed_ = await registry.isManagerDeployed(manager.address)
+  const { networkName, chainId } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
+  const isManagerDeployed_ = await registry.isManagerDeployed(managerAddress)
 
   const contractConfigCache: ContractConfigCache = {}
   for (const [referenceName, parsedContractConfig] of Object.entries(
@@ -2597,14 +2622,14 @@ export const getConfigCache = async (
       try {
         // Attempt to estimate the gas of the deployment.
         await provider.estimateGas({
-          from: manager.address,
+          from: managerAddress,
           data: creationCodeWithConstructorArgs,
         })
       } catch (e) {
         // This should only throw an error if the constructor reverts.
         deploymentRevert = {
           deploymentReverted: true,
-          revertString: e.reason,
+          revertString: e.message,
         }
       }
     }
@@ -2619,7 +2644,7 @@ export const getConfigCache = async (
         // function because OpenZeppelin UUPS proxies can implement arbitrary access control
         // mechanisms.
         const managerVoidSigner = new ethers.VoidSigner(
-          manager.address,
+          managerAddress,
           provider
         )
         const UUPSProxy = new ethers.Contract(
@@ -2637,7 +2662,7 @@ export const getConfigCache = async (
           // 2. The new implementation has a public `proxiableUUID()` function. Otherwise, the call
           //    will revert due to this check:
           //    https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable/blob/dd8ca8adc47624c5c5e2f4d412f5f421951dcc25/contracts/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol#L91
-          await UUPSProxy.callStatic.upgradeTo(OZ_UUPS_UPDATER_ADDRESS)
+          await UUPSProxy.upgradeTo.staticCall(OZ_UUPS_UPDATER_ADDRESS)
         } catch (e) {
           // The SphinxManager does not have permission to call the `upgradeTo` function on the
           // UUPS proxy, which means the user must grant it permission via whichever access control
@@ -2660,7 +2685,7 @@ export const getConfigCache = async (
           address
         )
 
-        if (currProxyAdmin !== manager.address) {
+        if (currProxyAdmin !== managerAddress) {
           importCache = {
             requiresImport: true,
             currProxyAdmin,
@@ -2731,8 +2756,7 @@ export const getPreviousStorageLayoutOZFormat = async (
       )
     : undefined
 
-  const { kind, previousFullyQualifiedName, previousBuildInfo } =
-    parsedContractConfig
+  const { previousFullyQualifiedName, previousBuildInfo } = parsedContractConfig
   if (
     previousFullyQualifiedName !== undefined &&
     previousBuildInfo !== undefined
@@ -2769,12 +2793,13 @@ export const getPreviousStorageLayoutOZFormat = async (
       buildInfo.output,
       parsedContractConfig
     ).layout
-  } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
-    const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
-      cre.hre,
-      parsedContractConfig
-    )
-    return openzeppelinStorageLayout
+    // TODO: uncomment when we enable importing OpenZeppelin contracts
+    // } else if (cre.hre !== undefined && isOpenZeppelinContractKind(kind)) {
+    //   const openzeppelinStorageLayout = await cre.importOpenZeppelinStorageLayout(
+    //     cre.hre,
+    //     parsedContractConfig
+    //   )
+    //   return openzeppelinStorageLayout
   } else {
     throw new Error(
       `Could not find the previous storage layout for the contract: ${referenceName}. Please include\n` +
@@ -2863,10 +2888,10 @@ export const assertValidConfigOptions = (
   }
 
   const invalidOwnerAddresses = owners.filter(
-    (address) => !ethers.utils.isAddress(address)
+    (address) => !ethers.isAddress(address)
   )
   const invalidProposerAddresses = proposers.filter(
-    (address) => !ethers.utils.isAddress(address)
+    (address) => !ethers.isAddress(address)
   )
   const invalidMainnets = mainnets.filter(
     (network) => !SUPPORTED_MAINNETS[network]
@@ -2949,13 +2974,11 @@ export const parseConfigOptions = (
     : mainnets.map((network) => SUPPORTED_MAINNETS[network])
 
   // Converts addresses to checksummed addresses and sorts them in ascending order.
-  const owners = options.owners.map((address) =>
-    ethers.utils.getAddress(address)
-  )
+  const owners = options.owners.map((address) => ethers.getAddress(address))
   sortHexStrings(owners)
 
   const proposers = options.proposers.map((address) =>
-    ethers.utils.getAddress(address)
+    ethers.getAddress(address)
   )
   sortHexStrings(proposers)
 

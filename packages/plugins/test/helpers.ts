@@ -1,6 +1,6 @@
 import hre from 'hardhat'
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   AuthState,
   AuthStatus,
@@ -23,6 +23,7 @@ import {
   toCanonicalConfig,
   ProposalRequest,
   SupportedNetworkName,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
@@ -31,7 +32,7 @@ import {
   SphinxManagerABI,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 import {
   makeGetConfigArtifacts,
@@ -47,7 +48,7 @@ import {
 } from './constants'
 
 export const registerProject = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   projectTestInfo: MultiChainProjectTestInfo
 ) => {
   const { authAddress, userConfig, authData, ownerAddresses, managerAddress } =
@@ -63,28 +64,26 @@ export const registerProject = async (
   )
   const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
 
-  // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-  await AuthFactory.deploy(authData, [], projectName)
+  // We set the `registryData` to `0x` since this version of the SphinxManager doesn't use it.
+  await AuthFactory.deploy(authData, '0x', projectName)
 
   // Check that the Auth contract has been initialized correctly.
   expect(await Auth.getRoleMemberCount(OWNER_ROLE_HASH)).deep.equals(
-    BigNumber.from(ownerAddresses.length)
+    BigInt(ownerAddresses.length)
   )
   for (const ownerAddress of ownerAddresses) {
     expect(await Auth.hasRole(OWNER_ROLE_HASH, ownerAddress)).equals(true)
   }
   expect(await Auth.projectName()).equals(projectName)
   expect(await Auth.manager()).equals(managerAddress)
-  expect(await Auth.threshold()).deep.equals(
-    BigNumber.from(options.ownerThreshold)
-  )
+  expect(await Auth.threshold()).deep.equals(BigInt(options.ownerThreshold))
 }
 
 export const makeGetCanonicalConfig = (
   prevParsedConfig: ParsedConfigWithOptions,
   managerAddress: string,
   authAddress: string,
-  providers: Record<string, ethers.providers.JsonRpcProvider>
+  providers: Record<string, SphinxJsonRpcProvider>
 ): GetCanonicalConfig => {
   const getCanonicalConfig = async (
     orgId: string,
@@ -198,13 +197,13 @@ export const proposeThenApproveDeploymentThenExecute = async (
     // Check that the proposal executed correctly.
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.PROPOSED)
-    expect(authState.numLeafs).deep.equals(BigNumber.from(expectedNumLeafs))
+    expect(authState.numLeafs).deep.equals(BigInt(expectedNumLeafs))
     const leafsExecuted = containsSetupLeaf ? 2 : 1
-    expect(authState.leafsExecuted).deep.equals(BigNumber.from(leafsExecuted))
+    expect(authState.leafsExecuted).deep.equals(BigInt(leafsExecuted))
     expect(await Auth.firstProposalOccurred()).equals(true)
 
     // Check that there is no active deployment before approving the deployment.
-    expect(await Manager.activeDeploymentId()).equals(ethers.constants.HashZero)
+    expect(await Manager.activeDeploymentId()).equals(ethers.ZeroHash)
 
     await Auth.approveDeployment(
       root,
@@ -306,8 +305,8 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     // Check that the corresponding AuthState is empty.
     let authState: AuthState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.EMPTY)
-    expect(authState.leafsExecuted).deep.equals(BigNumber.from(0))
-    expect(authState.numLeafs).deep.equals(BigNumber.from(0))
+    expect(authState.leafsExecuted).deep.equals(BigInt(0))
+    expect(authState.numLeafs).deep.equals(BigInt(0))
 
     await Auth.setup(
       root,
@@ -322,11 +321,11 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     }
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.SETUP)
-    expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
+    expect(authState.leafsExecuted).deep.equals(BigInt(1))
     const expectedNumLeafs = leaves.filter(
       (leaf) => leaf.chainId === chainId
     ).length
-    expect(authState.numLeafs).deep.equals(BigNumber.from(expectedNumLeafs))
+    expect(authState.numLeafs).deep.equals(BigInt(expectedNumLeafs))
   }
 
   await proposeThenApproveDeploymentThenExecute(
@@ -343,11 +342,11 @@ const getSignatures = async (
 ): Promise<Array<string>> => {
   // Sort the private keys in ascending order according to their corresponding addresses.
   const sortedOwnerPrivateKeys = ownerPrivateKeys.sort((a, b) => {
-    const aAddress = BigNumber.from(new ethers.Wallet(a).address)
-    const bAddress = BigNumber.from(new ethers.Wallet(b).address)
-    if (aAddress.lt(bAddress)) {
+    const aAddress = BigInt(new ethers.Wallet(a).address)
+    const bAddress = BigInt(new ethers.Wallet(b).address)
+    if (aAddress < bAddress) {
       return -1
-    } else if (aAddress.gt(bAddress)) {
+    } else if (aAddress > bAddress) {
       return 1
     } else {
       return 0

@@ -27,12 +27,13 @@ import {
 import ora from 'ora'
 import * as dotenv from 'dotenv'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { Signer, utils } from 'ethers/lib/ethers'
+import { isAddress, Signer } from 'ethers'
 
 import { writeSampleProjectFiles } from '../sample-project'
 import { getSignerFromAddress } from './deployments'
 import { makeGetConfigArtifacts, makeGetProviderFromChainId } from './artifacts'
 import { createSphinxRuntime } from '../cre'
+import { getProvider } from './utils'
 
 // Load environment variables from .env
 dotenv.config()
@@ -66,6 +67,7 @@ export const sphinxDeployTask = async (
 ) => {
   const { configPath, newOwner, noCompile, confirm, signer } = args
   const silent = !!args.silent
+  const provider = getProvider(hre)
 
   if (!noCompile) {
     await hre.run(TASK_COMPILE, {
@@ -79,8 +81,6 @@ export const sphinxDeployTask = async (
   const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
 
-  const provider = hre.ethers.provider
-
   const cre = createSphinxRuntime(
     'hardhat',
     false,
@@ -91,7 +91,7 @@ export const sphinxDeployTask = async (
     silent
   )
 
-  await ensureSphinxInitialized(provider, provider.getSigner())
+  await ensureSphinxInitialized(provider, owner)
 
   const compilerConfigPath = hre.config.paths.compilerConfigs
   const deploymentFolder = hre.config.paths.deployments
@@ -236,6 +236,7 @@ task(TASK_NODE)
       runSuper
     ) => {
       const { disableSphinx, hide: silent, noCompile } = args
+      const provider = getProvider(hre)
 
       if (!noCompile) {
         await hre.run(TASK_COMPILE, {
@@ -247,10 +248,7 @@ task(TASK_NODE)
         const spinner = ora({ isSilent: silent })
         spinner.start('Booting up Sphinx...')
 
-        await ensureSphinxInitialized(
-          hre.ethers.provider,
-          hre.ethers.provider.getSigner()
-        )
+        await ensureSphinxInitialized(provider, await provider.getSigner())
 
         spinner.succeed('Sphinx has been initialized.')
       }
@@ -281,6 +279,7 @@ task(TASK_TEST)
     ) => {
       const { noCompile, configPath, signer } = args
       const silent = !args.log
+      const provider = getProvider(hre)
 
       if (!configPath) {
         await runSuper(args)
@@ -293,9 +292,9 @@ task(TASK_TEST)
         )
       }
 
-      const networkType = await getNetworkType(hre.ethers.provider)
+      const networkType = await getNetworkType(provider)
       const { networkName, chainId } = await resolveNetwork(
-        hre.ethers.provider,
+        await provider.getNetwork(),
         networkType
       )
 
@@ -312,18 +311,14 @@ task(TASK_TEST)
             '.snapshotId'
           )
           const snapshotId = fs.readFileSync(snapshotIdPath, 'utf8')
-          const snapshotReverted = await hre.network.provider.send(
-            'evm_revert',
-            [snapshotId]
-          )
+          const snapshotReverted = await provider.send('evm_revert', [
+            snapshotId,
+          ])
           if (!snapshotReverted) {
             throw new Error('Snapshot failed to be reverted.')
           }
         } catch {
-          await ensureSphinxInitialized(
-            hre.ethers.provider,
-            hre.ethers.provider.getSigner()
-          )
+          await ensureSphinxInitialized(provider, await provider.getSigner())
           if (!noCompile) {
             await hre.run(TASK_COMPILE, {
               quiet: true,
@@ -342,7 +337,7 @@ task(TASK_TEST)
           )
         }
         await writeSnapshotId(
-          hre.ethers.provider,
+          provider,
           networkDirName,
           hre.config.paths.deployments
         )
@@ -358,11 +353,11 @@ export const sphinxCancelTask = async (
   hre: HardhatRuntimeEnvironment
 ) => {
   const { configPath } = args
+  const provider = getProvider(hre)
 
   const { projectName } = await readUserConfig(configPath)
 
-  const provider = hre.ethers.provider
-  const signer = provider.getSigner()
+  const signer = await provider.getSigner()
 
   const cre = await createSphinxRuntime(
     'hardhat',
@@ -403,7 +398,7 @@ export const exportProxyTask = async (
     silent
   )
 
-  const provider = hre.ethers.provider
+  const provider = getProvider(hre)
 
   const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
@@ -455,7 +450,7 @@ export const importProxyTask = async (
   const owner = await resolveSigner(hre, signer)
   const ownerAddress = await owner.getAddress()
 
-  const provider = hre.ethers.provider
+  const provider = getProvider(hre)
 
   const cre = await createSphinxRuntime(
     'hardhat',
@@ -529,7 +524,7 @@ const resolveSigner = async (
   hre: HardhatRuntimeEnvironment,
   signerStr: string
 ): Promise<Signer> => {
-  if (utils.isAddress(signerStr)) {
+  if (isAddress(signerStr)) {
     return getSignerFromAddress(hre, signerStr)
   } else {
     const signerIndex = Number(signerStr)

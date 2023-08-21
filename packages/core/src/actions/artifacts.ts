@@ -20,6 +20,7 @@ import {
   writeDeploymentArtifact,
 } from '../utils'
 import 'core-js/features/array/at'
+import { SphinxJsonRpcProvider } from '../provider'
 
 /**
  * Gets the storage layout for a contract.
@@ -41,7 +42,7 @@ export const getStorageLayout = (
 }
 
 export const getDeployedBytecode = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   address: string
 ): Promise<string> => {
   const deployedBytecode = await provider.getCode(address)
@@ -49,9 +50,9 @@ export const getDeployedBytecode = async (
 }
 
 export const writeDeploymentArtifacts = async (
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   parsedConfig: ParsedConfig,
-  deploymentEvents: ethers.Event[],
+  deploymentEvents: ethers.EventLog[],
   networkDirName: string,
   deploymentFolderPath: string,
   configArtifacts: ConfigArtifacts
@@ -88,9 +89,9 @@ export const writeDeploymentArtifacts = async (
           ...receipt,
           gasUsed: receipt.gasUsed.toString(),
           cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-          // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
-          ...(receipt.effectiveGasPrice && {
-            effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+          // Exclude the `gasPrice` if it's undefined
+          ...(receipt.gasPrice && {
+            gasPrice: receipt.gasPrice.toString(),
           }),
         },
         numDeployments: 1,
@@ -143,9 +144,9 @@ export const writeDeploymentArtifacts = async (
           ...receipt,
           gasUsed: receipt.gasUsed.toString(),
           cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-          // Exclude the `effectiveGasPrice` if it's undefined, which is the case on Optimism.
-          ...(receipt.effectiveGasPrice && {
-            effectiveGasPrice: receipt.effectiveGasPrice.toString(),
+          // Exclude the `gasPrice` if it's undefined
+          ...(receipt.gasPrice && {
+            gasPrice: receipt.gasPrice.toString(),
           }),
         },
         numDeployments: 1,

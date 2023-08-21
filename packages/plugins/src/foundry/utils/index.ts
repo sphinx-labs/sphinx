@@ -12,6 +12,7 @@ import {
   execAsync,
   getNetworkNameForChainId,
 } from '@sphinx-labs/core/dist/utils'
+import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import {
   ConfigArtifacts,
   GetConfigArtifacts,
@@ -19,7 +20,6 @@ import {
   UserContractConfigs,
 } from '@sphinx-labs/core/dist/config/types'
 import { parse } from 'semver'
-import { providers } from 'ethers/lib/ethers'
 
 const readFileAsync = promisify(fs.readFile)
 
@@ -106,20 +106,20 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
   const urls = Object.values(rpcEndpoints)
   const networks = await Promise.all(
     urls.map(async (url) => {
-      const provider = new providers.JsonRpcProvider(url)
+      const provider = new SphinxJsonRpcProvider(url)
       try {
         // We put this RPC call in a try/catch because it may not be possible to connect to some of
         // the RPC endpoints in the foundry.toml file. For example, the user may have a local RPC
         // endpoint that is not currently running.
         const { chainId, name: networkName } = await provider.getNetwork()
-        return { chainId, url, networkName }
+        return { chainId: Number(chainId), url, networkName }
       } catch (err) {
         undefined
       }
     })
   )
 
-  return (chainId: number): providers.JsonRpcProvider => {
+  return (chainId: number): SphinxJsonRpcProvider => {
     const network = networks.find((n) => n && n.chainId === chainId)
     if (network === undefined) {
       throw new Error(
@@ -129,7 +129,7 @@ export const makeGetProviderFromChainId = async (rpcEndpoints: {
       )
     }
 
-    return new providers.JsonRpcProvider(network.url)
+    return new SphinxJsonRpcProvider(network.url)
   }
 }
 

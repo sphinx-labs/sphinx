@@ -33,12 +33,6 @@ contract SphinxTasks is Sphinx, SphinxConstants {
 
         require(address(manager) != address(0), "Sphinx: No project found");
 
-        // check bytecode compatible with either UUPS or Transparent
-        require(
-            ffiCheckProxyBytecodeCompatible(_proxy.code),
-            "Sphinx does not support your proxy type. Currently Sphinx only supports UUPS and Transparent proxies that implement EIP-1967 which yours does not appear to do. If you believe this is a mistake, please reach out to the developers or open an issue on GitHub."
-        );
-
         // check if we can fetch the owner address from the expected slot
         // and that the caller is in fact the owner
         address ownerAddress = utils.getEIP1967ProxyAdminAddress(_proxy);
@@ -49,21 +43,6 @@ contract SphinxTasks is Sphinx, SphinxConstants {
         // TODO: transfer ownership of the proxy
         // We need to use an interface here instead of importing the Proxy contract from Optimism b/c
         // it requires a specific solidity compiler version.
-    }
-
-    // TODO: Test once we are officially supporting upgradable contracts
-    // We may need to do something more complex here to handle ensuring the proxy is fully
-    // compatible with the users selected type.
-    function ffiCheckProxyBytecodeCompatible(bytes memory bytecode) private returns (bool) {
-        string[] memory cmds = new string[](5);
-        cmds[0] = "npx";
-        cmds[1] = "node";
-        cmds[2] = mainFfiScriptPath;
-        cmds[3] = "checkProxyBytecodeCompatible";
-        cmds[4] = vm.toString(bytecode);
-
-        bytes memory result = vm.ffi(cmds);
-        return keccak256(result) == keccak256("true");
     }
 
     // TODO: Test once we are officially supporting upgradable contracts

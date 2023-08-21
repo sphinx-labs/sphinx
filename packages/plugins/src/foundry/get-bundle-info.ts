@@ -7,14 +7,14 @@ import {
 } from '@sphinx-labs/core/dist/config/parse'
 import { FailureAction } from '@sphinx-labs/core/dist/types'
 import { getProjectBundleInfo } from '@sphinx-labs/core/dist/tasks'
-import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
-import { remove0x } from '@eth-optimism/core-utils/dist/common/hex-strings'
 import {
   UserSphinxConfig,
   getSphinxManagerAddress,
   getDeployContractCosts,
   writeCompilerConfig,
+  remove0x,
 } from '@sphinx-labs/core/dist'
+import { AbiCoder, concat } from 'ethers'
 
 import { createSphinxRuntime } from '../cre'
 import { getFoundryConfigOptions } from './options'
@@ -145,17 +145,18 @@ const ownerAddress = args[3]
       (fragment) => fragment.name === 'deployContractCosts'
     ).outputs[0]
 
-    const encodedActionBundle = defaultAbiCoder.encode(
+    const coder = AbiCoder.defaultAbiCoder()
+    const encodedActionBundle = coder.encode(
       [actionBundleType],
       [bundles.actionBundle]
     )
-    const encodedTargetBundle = defaultAbiCoder.encode(
+    const encodedTargetBundle = coder.encode(
       [targetBundleType],
       [bundles.targetBundle]
     )
 
     const deployContractCosts = getDeployContractCosts(configArtifacts)
-    const encodedConfigUriAndWarnings = defaultAbiCoder.encode(
+    const encodedConfigUriAndWarnings = coder.encode(
       ['string', deployContractCostsType, 'string'],
       [configUri, deployContractCosts, getPrettyWarnings()]
     )
@@ -167,17 +168,17 @@ const ownerAddress = args[3]
     // etc) begins.
     const splitIdx2 = splitIdx1 + remove0x(encodedTargetBundle).length / 2
 
-    const encodedSplitIdxs = defaultAbiCoder.encode(
+    const encodedSplitIdxs = coder.encode(
       ['uint256', 'uint256'],
       [splitIdx1, splitIdx2]
     )
 
-    const encodedSuccess = hexConcat([
+    const encodedSuccess = concat([
       encodedActionBundle,
       encodedTargetBundle,
       encodedConfigUriAndWarnings,
       encodedSplitIdxs,
-      defaultAbiCoder.encode(['bool'], [true]), // true = success
+      coder.encode(['bool'], [true]), // true = success
     ])
 
     process.stdout.write(encodedSuccess)

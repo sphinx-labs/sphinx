@@ -5,8 +5,6 @@ import {
   DeploymentState,
   compileRemoteBundles,
   executeDeployment,
-  ExecutorEvent,
-  ExecutorKey,
   getGasPriceOverrides,
   trackExecuted,
   getDeploymentId,
@@ -18,11 +16,13 @@ import {
   ConfigArtifacts,
   estimateExecutionCost,
   getManagedServiceAddress,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import { Logger, LogLevel, LoggerOptions } from '@eth-optimism/common-ts'
 import { ethers } from 'ethers'
 import { GraphQLClient } from 'graphql-request'
 
+import { ExecutorEvent, ExecutorKey } from '../types'
 import { updateDeployment } from '../gql'
 
 /**
@@ -49,7 +49,7 @@ const generateRetryEvent = (
     nextTry: nextTryDate,
     retry: event.retry >= timesToRetry ? -1 : event.retry + 1,
     waitingPeriodMs: eventWaitingPeriodMs,
-    event: event.event,
+    eventInfo: event.eventInfo,
   }
 }
 
@@ -57,7 +57,7 @@ const tryVerification = async (
   logger: Logger,
   compilerConfig: CompilerConfig,
   configArtifacts: ConfigArtifacts,
-  rpcProvider: ethers.providers.JsonRpcProvider,
+  rpcProvider: SphinxJsonRpcProvider,
   projectName: string,
   network: string,
   graphQLClient: GraphQLClient,
@@ -130,10 +130,11 @@ const tryVerification = async (
     )
 
     try {
+      const { chainId } = await rpcProvider.getNetwork()
       await updateDeployment(
         graphQLClient,
         activeDeploymentId,
-        rpcProvider.network.chainId,
+        Number(chainId),
         'verified',
         contracts,
         []
@@ -147,7 +148,7 @@ const tryVerification = async (
 export type ExecutorMessage = {
   executorEvent: ExecutorEvent
   key: ExecutorKey
-  provider: ethers.providers.JsonRpcProvider | string
+  provider: SphinxJsonRpcProvider | string
   loggerOptions: LoggerOptions
   network: string
   managedApiUrl: string
@@ -178,6 +179,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     managedApiUrl,
     managedPublicKey,
   } = data
+  const { managerAddress } = executorEvent.eventInfo
 
   const logger = new Logger(loggerOptions)
 
@@ -189,18 +191,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
     })
   }
 
-  let rpcProvider: ethers.providers.JsonRpcProvider
+  let rpcProvider: SphinxJsonRpcProvider
   if (typeof provider === 'string') {
-    rpcProvider = new ethers.providers.JsonRpcProvider(provider)
+    rpcProvider = new SphinxJsonRpcProvider(provider)
   } else {
     rpcProvider = provider
   }
 
   const wallet = new ethers.Wallet(key.privateKey, rpcProvider)
 
-  const managedAddress = executorEvent.event.args[1]
   // fetch manager for relevant project
-  const manager = new ethers.Contract(managedAddress, SphinxManagerABI, wallet)
+  const manager = new ethers.Contract(managerAddress, SphinxManagerABI, wallet)
 
   // get active deployment ID for this project
   const activeDeploymentId = await manager.activeDeploymentId()
@@ -213,7 +214,7 @@ export const handleExecution = async (data: ExecutorMessage) => {
     logger.info('[Sphinx]: skipping local deployment')
     process.send({ action: 'discard', payload: executorEvent })
     return
-  } else if (activeDeploymentId === ethers.constants.HashZero) {
+  } else if (activeDeploymentId === ethers.ZeroHash) {
     logger.info('[Sphinx]: no active deployment in project')
     process.send({ action: 'discard', payload: executorEvent })
     return
@@ -241,21 +242,19 @@ export const handleExecution = async (data: ExecutorMessage) => {
   const { projectName } = compilerConfig
 
   // Get estimated cost + 50% buffer and withdraw from balance contract if below that cost
-  const estimatedCost = (await estimateExecutionCost(rpcProvider, bundles, 0))
-    .mul(15)
-    .div(10)
-  const balance = await wallet.getBalance()
-  if (balance.lt(estimatedCost)) {
+  const estimatedCost =
+    ((await estimateExecutionCost(rpcProvider, bundles, 0)) * 15n) / 10n
+  const balance = await rpcProvider.getBalance(wallet.address)
+  if (balance < estimatedCost) {
     logger.info(
       `[Relayer]: Wallet balance low, withdrawing from ManagedService contract`
     )
     // check if managed service has funds
-    const managedServiceAddress = getManagedServiceAddress(
-      (await rpcProvider.getNetwork()).chainId
-    )
-    const withdraw = estimatedCost.mul('200').div('100')
+    const { chainId } = await rpcProvider.getNetwork()
+    const managedServiceAddress = getManagedServiceAddress(Number(chainId))
+    const withdraw = (estimatedCost * 200n) / 100n
     // Log an error if not
-    if ((await rpcProvider.getBalance(managedServiceAddress)).lt(withdraw)) {
+    if ((await rpcProvider.getBalance(managedServiceAddress)) < withdraw) {
       throw new Error(
         'Failed to withdraw new funds from managed service contract, insufficent balance'
       )
@@ -299,18 +298,17 @@ export const handleExecution = async (data: ExecutorMessage) => {
 
   logger.info(`[Sphinx]: compiled ${projectName} on: ${network}.`)
 
-  const deploymentTransactionReceipts: ethers.providers.TransactionReceipt[] =
-    []
+  const deploymentTransactionReceipts: ethers.TransactionReceipt[] = []
 
-  if (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
+  if (deploymentState.selectedExecutor === ethers.ZeroAddress) {
     logger.info(`[Sphinx]: checking if any of the constructors revert...`)
 
     if (
       await deploymentDoesRevert(
         rpcProvider,
-        manager.address,
+        managerAddress,
         bundles.actionBundle,
-        deploymentState.actionsExecuted.toNumber()
+        Number(deploymentState.actionsExecuted)
       )
     ) {
       process.send({ action: 'discard', payload: executorEvent })
@@ -407,17 +405,18 @@ export const handleExecution = async (data: ExecutorMessage) => {
   // Update status in the Sphinx managed database
   if (graphQLClient) {
     try {
+      const { chainId } = await rpcProvider.getNetwork()
       await updateDeployment(
         graphQLClient,
         activeDeploymentId,
-        rpcProvider.network.chainId,
+        Number(chainId),
         'executed',
         [],
         deploymentTransactionReceipts.map((receipt) => {
           return {
-            txHash: receipt.transactionHash,
-            cost: receipt.gasUsed.mul(receipt.effectiveGasPrice).toString(),
-            chainId: rpcProvider.network.chainId,
+            txHash: receipt.hash,
+            cost: (receipt.gasUsed * receipt.gasPrice).toString(),
+            chainId: Number(chainId),
           }
         })
       )

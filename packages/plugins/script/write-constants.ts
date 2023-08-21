@@ -1,5 +1,5 @@
 import hre from 'hardhat'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   OZ_TRANSPARENT_PROXY_TYPE_HASH,
   DEFAULT_PROXY_TYPE_HASH,
@@ -19,8 +19,8 @@ import {
   getSphinxConstants,
   AUTH_FACTORY_ADDRESS,
   AUTH_IMPL_V1_ADDRESS,
+  remove0x,
 } from '@sphinx-labs/core'
-import { remove0x } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 
 /**
@@ -111,7 +111,7 @@ const writeConstants = async () => {
     ({ artifact, constructorArgs, expectedAddress }) => {
       const { abi, bytecode } = artifact
 
-      const iface = new ethers.utils.Interface(abi)
+      const iface = new ethers.Interface(abi)
 
       const creationCode = bytecode.concat(
         remove0x(iface.encodeDeploy(constructorArgs))
