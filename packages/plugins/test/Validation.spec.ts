@@ -458,13 +458,10 @@ describe('Validate', () => {
       `The following overridden constructor arguments were found in your config for ConstructorArgOverrides, but are not present in the contract constructor:`
     )
     expect(validationOutput).to.have.string(
-      `incorrectDefaultArg on network: anvil`
+      `incorrectOverrideArg on network: anvil`
     )
     expect(validationOutput).to.have.string(
-      `incorrectDefaultArg on network: optimism-goerli`
-    )
-    expect(validationOutput).to.have.string(
-      `incorrectDefaultArg on network: arbitrum-goerli`
+      `_defaultAndIncorrectOverrideWrong on network: anvil`
     )
   })
 
@@ -479,21 +476,32 @@ describe('Validate', () => {
       `The following constructor arguments are required by the constructor for ConstructorArgOverrides, but were not found in your config for one or more networks. Please either define a default value for these arguments or specify a value for every network.`
     )
     expect(validationOutput).to.have.string(
+      `_intArg on network: optimism-goerli`,
+      `_uintArg on network: optimism-goerli`
+    )
+    expect(validationOutput).to.have.string(
+      `_uintArg on network: optimism-goerli`,
       `_intArg on network: optimism-goerli`
     )
     expect(validationOutput).to.have.string(
-      `_uintArg on network: optimism-goerli`
+      `_intArg on network: anvil`,
+      `_uintArg on network: anvil`
     )
-    expect(validationOutput).to.have.string(`_intArg on network: anvil`)
-    expect(validationOutput).to.have.string(`_uintArg on network: anvil`)
     expect(validationOutput).to.have.string(
+      `_uintArg on network: anvil`,
+      `_intArg on network: anvil`
+    )
+    expect(validationOutput).to.have.string(
+      `_intArg on network: arbitrum-goerli`,
       `_intArg on network: arbitrum-goerli`
     )
     expect(validationOutput).to.have.string(
+      `_uintArg on network: arbitrum-goerli`,
       `_uintArg on network: arbitrum-goerli`
     )
     expect(validationOutput).to.have.string(
-      `_intAddress on network: arbitrum-goerli`
+      `_addressArg on network: arbitrum-goerli`,
+      `_addressArg on network: arbitrum-goerli`
     )
   })
 })

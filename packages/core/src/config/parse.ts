@@ -1652,9 +1652,6 @@ export const parseContractConstructorArgs = (
   for (const networkName of networks) {
     if (!ambigiousArgOverrides[networkName]) {
       ambigiousArgOverrides[networkName] = {}
-      for (const [arg, value] of Object.entries(userDefaultConstructorArgs)) {
-        ambigiousArgOverrides[networkName][arg] = [value]
-      }
     }
   }
 
@@ -1701,9 +1698,9 @@ export const parseContractConstructorArgs = (
     ambigiousArgOverrides
   )) {
     // Detect any incorrect override names
-    const incorrectConstructorArgNames = Object.keys(
-      userDefaultConstructorArgs
-    ).filter((argName) => !constructorArgNames.includes(argName))
+    const incorrectConstructorArgNames = Object.keys(overrides).filter(
+      (argName) => !constructorArgNames.includes(argName)
+    )
     incorrectOverriddenConstructorArgs.push(
       ...incorrectConstructorArgNames.map(
         (name) => `${name} on network: ${networkName}`
@@ -1722,6 +1719,10 @@ export const parseContractConstructorArgs = (
       }
     })
 
+    if (parsedConstructorArgs[chainId] === undefined) {
+      parsedConstructorArgs[chainId] = {}
+    }
+
     for (const [arg, values] of Object.entries(overrides)) {
       if (values.length > 1) {
         ambiguousArgOutput.push(
@@ -1729,10 +1730,6 @@ export const parseContractConstructorArgs = (
             .map((value) => value.toString())
             .join(', ')}`
         )
-      }
-
-      if (parsedConstructorArgs[chainId] === undefined) {
-        parsedConstructorArgs[chainId] = {}
       }
 
       // Use override value if available, otherwise use default value

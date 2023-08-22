@@ -66,7 +66,7 @@ export const verifySphinxConfig = async (
     const { artifact, buildInfo } = configArtifacts[referenceName]
     const { abi, contractName, sourceName, bytecode } = artifact
     const constructorArgValues = getConstructorArgs(
-      compilerConfig.contracts[referenceName].constructorArgs,
+      compilerConfig.contracts[referenceName].constructorArgs[Number(chainId)],
       abi
     )
 
