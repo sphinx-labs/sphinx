@@ -1,5 +1,21 @@
 # @sphinx-labs/executor
 
+## 0.15.0
+
+### Minor Changes
+
+- 2b80792b: Upgrade to EthersV6
+
+### Patch Changes
+
+- eb0cc1c3: Add support for multisigs in the Sphinx config
+- Updated dependencies [d2bb2ae6]
+- Updated dependencies [eb0cc1c3]
+- Updated dependencies [2b80792b]
+- Updated dependencies [2d0dbe78]
+  - @sphinx-labs/plugins@0.20.0
+  - @sphinx-labs/core@0.15.0
+
 ## 0.14.1
 
 ### Patch Changes
