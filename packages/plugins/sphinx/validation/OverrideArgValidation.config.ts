@@ -19,19 +19,21 @@ const config: UserSphinxConfig = {
       kind: 'immutable',
       constructorArgs: {
         incorrectDefaultArg: 1,
+        _defaultAndIncorrectOverrideArg: ethers.ZeroAddress,
       },
       overrides: [
         {
           chains: ['anvil'],
           constructorArgs: {
             incorrectOverrideArg: 1,
-            _intAddress: ethers.ZeroAddress,
+            _addressArg: ethers.ZeroAddress,
+            _defaultAndIncorrectOverrideWrong: '0x' + '11'.repeat(20),
           },
         },
         {
           chains: ['optimism-goerli'],
           constructorArgs: {
-            _intAddress: ethers.ZeroAddress,
+            _addressArg: ethers.ZeroAddress,
           },
         },
       ],

@@ -5,14 +5,17 @@ contract ConstructorArgOverrides {
     int public immutable intArg;
     uint public immutable uintArg;
     address public immutable addressArg;
+    address public immutable defaultAndIncorrectOverrideArg;
 
     constructor(
         int _intArg,
         uint _uintArg,
-        address _intAddress
+        address _addressArg,
+        address _defaultAndIncorrectOverrideArg
     ) {
         intArg = _intArg;
         uintArg = _uintArg;
-        addressArg = _intAddress;
+        addressArg = _addressArg;
+        defaultAndIncorrectOverrideArg = _defaultAndIncorrectOverrideArg;
     }
 }
