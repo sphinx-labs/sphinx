@@ -26,7 +26,7 @@ This is a reference that shows how to define constructor arguments in your Sphin
   - [Complex structs](#complex-structs)
 - [User-Defined Value Types](#user-defined-value-types)
 
-## Default Constructor Args & Chain Specific Overrides
+## Default Constructor Args & Chain-specific Overrides
 Since with Sphinx, you can trigger deployments across multiple networks at once, there may be cases where you need to define different constructor arguments for different networks. For example, you may need to define a different fee level or specify a different set of addresses for third-party contracts that your system integrates with.
 
 To handle these cases, Sphinx allows you to define two types of constructor arguments in your config file: default constructor arguments and chain-specific overrides.
@@ -41,7 +41,7 @@ constructorArgs: {
 
 Default constructor arguments will be used automatically when deploying this contract on any chain where there are no constructor argument overrides.
 
-### Chain-Specific Overrides
+### Chain-specific Overrides
 Chain-specific overrides can be defined using the `overrides` field on your contract definitions. The `overrides` field accepts an array of override objects:
 ```
 constructorArgs: {
