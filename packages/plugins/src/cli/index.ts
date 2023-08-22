@@ -169,7 +169,7 @@ yargs(hideBin(process.argv))
 
       await proposeAbstractTask(
         userConfig,
-        isTestnet,
+        targetNetworks,
         cre,
         dryRun,
         makeGetConfigArtifacts(artifactFolder, buildInfoFolder, cachePath),

@@ -84,7 +84,7 @@ import {
   getSphinxRegistryAddress,
 } from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
-import { getParsedConfig } from '../config/parse'
+import { TargetNetworks, getParsedConfig } from '../config/parse'
 import { getDiff, getDiffString } from '../diff'
 
 // Load environment variables from .env
@@ -98,7 +98,7 @@ dotenv.config()
  */
 export const proposeAbstractTask = async (
   userConfig: UserSphinxConfig,
-  isTestnet: boolean,
+  targetNetworks: TargetNetworks,
   cre: SphinxRuntimeEnvironment,
   dryRun: boolean,
   getConfigArtifacts: GetConfigArtifacts,
@@ -127,6 +127,7 @@ export const proposeAbstractTask = async (
   const { isNewConfig, chainIds, prevConfig } = await getProjectConfigInfo(
     getCanonicalConfig,
     userConfig,
+    configCache,
     isTestnet,
     apiKey,
     cre,

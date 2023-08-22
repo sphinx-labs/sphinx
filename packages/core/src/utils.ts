@@ -64,6 +64,7 @@ import {
   ParsedConfig,
   NetworkType,
   UserSphinxConfig,
+  ConfigCache,
 } from './config/types'
 import {
   AuthLeaf,
@@ -97,6 +98,7 @@ import {
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
 import {
+  TargetNetworks,
   assertValidConfigOptions,
   getParsedConfig,
   parseConfigOptions,
@@ -1118,7 +1120,8 @@ export const getDuplicateElements = (arr: Array<string>): Array<string> => {
 export const getProjectConfigInfo = async (
   getCanonicalConfig: GetCanonicalConfig,
   userConfig: UserSphinxConfig,
-  isTestnet: boolean,
+  configCache: ConfigCache,
+  targetNetworks: TargetNetworks,
   apiKey: string,
   cre: SphinxRuntimeEnvironment,
   failureAction: FailureAction
@@ -1128,13 +1131,17 @@ export const getProjectConfigInfo = async (
   isNewConfig: boolean
 }> => {
   assertValidConfigOptions(userConfig.options, cre, failureAction)
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
+  const parsedConfigOptions = parseConfigOptions(
+    userConfig.options,
+    targetNetworks,
+    configCache
+  )
 
   const { projectName } = userConfig
 
   const prevConfig = await getCanonicalConfig(
     parsedConfigOptions.orgId,
-    isTestnet,
+    targetNetworks,
     apiKey,
     userConfig.projectName
   )

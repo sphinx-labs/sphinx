@@ -134,7 +134,7 @@ const logValidationError = (
 export const getParsedConfig = async (
   userConfig: UserSphinxConfig,
   managerAddress: string,
-  isTestnet: boolean,
+  targetNetworks: TargetNetworks,
   provider: SphinxJsonRpcProvider,
   cre: SphinxRuntimeEnvironment,
   getConfigArtifacts: GetConfigArtifacts,
@@ -178,7 +178,13 @@ export const getParsedConfig = async (
     managerAddress
   )
 
-  const parsedConfigOptions = parseConfigOptions(userConfig.options, isTestnet)
+  const parsedChainIds = getParsedChainIds()
+
+  const parsedConfigOptions = parseConfigOptions(
+    userConfig.options,
+    targetNetworks,
+    configCache.chainId
+  )
 
   const parsedConfig: ParsedConfig = {
     manager: managerAddress,
@@ -192,7 +198,7 @@ export const getParsedConfig = async (
     configArtifacts,
     cre,
     configCache,
-    isTestnet,
+    targetNetworks,
     failureAction
   )
 
@@ -2491,22 +2497,30 @@ export const postParsingValidation = async (
   configArtifacts: ConfigArtifacts,
   cre: SphinxRuntimeEnvironment,
   configCache: MinimalConfigCache,
-  isTestnet: boolean,
+  targetNetworks: TargetNetworks,
   failureAction: FailureAction
 ) => {
   const { blockGasLimit, contractConfigCache, chainId } = configCache
   const { contracts, manager } = parsedConfig
 
-  const supportedNetworks = isTestnet ? SUPPORTED_TESTNETS : SUPPORTED_MAINNETS
+  // TODO(docs)
+  let supportedNetworks: Record<string, number>
+  if (targetNetworks === TargetNetworks.MAINNETS) {
+    supportedNetworks = SUPPORTED_MAINNETS
+  } else if (targetNetworks === TargetNetworks.TESTNETS) {
+    supportedNetworks = SUPPORTED_TESTNETS
+  } else if (targetNetworks === TargetNetworks.ACTIVE_NETWORK) {
+    supportedNetworks = SUPPORTED_NETWORKS
+  } else {
+    throw new Error(`TODO. Should never happen.`)
+  }
   const isSupportedChainId = Object.entries(supportedNetworks).some(
     (entry) => entry[1] === chainId
   )
   if (!isSupportedChainId) {
     logValidationError(
       'error',
-      `Sphinx does not support the ${
-        isTestnet ? 'testnet' : 'mainnet'
-      } with chain ID: ${chainId}.`,
+      `Sphinx does not support the network with chain ID: ${chainId}.`,
       [],
       cre.silent,
       cre.stream
@@ -3077,15 +3091,19 @@ export const assertValidConfigOptions = (
   assertNoValidationErrors(failureAction)
 }
 
+// TODO: mv
+// TODO(docs)
+export enum TargetNetworks {
+  MAINNETS,
+  TESTNETS,
+  ACTIVE_NETWORK,
+}
+
 export const parseConfigOptions = (
   options: UserConfigOptions,
-  isTestnet: boolean
+  chainIds: Array<number>
 ): ParsedConfigOptions => {
-  const { mainnets, testnets, orgId, ownerThreshold } = options
-
-  const chainIds = isTestnet
-    ? testnets.map((network) => SUPPORTED_TESTNETS[network])
-    : mainnets.map((network) => SUPPORTED_MAINNETS[network])
+  const { orgId, ownerThreshold } = options
 
   // Converts addresses to checksummed addresses and sorts them in ascending order.
   const owners = options.owners.map((address) => ethers.getAddress(address))
