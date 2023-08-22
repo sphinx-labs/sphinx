@@ -1,5 +1,15 @@
 # @sphinx-labs/contracts
 
+## 0.10.0
+
+### Minor Changes
+
+- 2b80792b: Upgrade to EthersV6
+
+### Patch Changes
+
+- eb0cc1c3: Add support for multisigs in the Sphinx config
+
 ## 0.9.4
 
 ### Patch Changes
