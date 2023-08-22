@@ -2,8 +2,7 @@ import { HardhatUserConfig } from 'hardhat/types'
 import * as dotenv from 'dotenv'
 
 // Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
+import '@nomicfoundation/hardhat-ethers'
 import './dist'
 
 // Load environment variables from .env
@@ -33,6 +32,9 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      chainId: 56,
+    },
     // goerli: {
     //   chainId: 5,
     //   url: `https://eth-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,

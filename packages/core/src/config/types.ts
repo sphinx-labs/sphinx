@@ -7,10 +7,17 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
 } from '@sphinx-labs/contracts'
-import { BigNumber, providers } from 'ethers'
+import { BigNumber as EthersV5BigNumber } from '@ethersproject/bignumber'
 import { CompilerInput } from 'hardhat/types'
 
 import { BuildInfo, ContractArtifact } from '../languages/solidity/types'
+import { SphinxJsonRpcProvider } from '../provider'
+import {
+  SupportedChainId,
+  SupportedLocalChainId,
+  SupportedLocalNetworkName,
+  SupportedNetworkName,
+} from '../networks'
 
 export const userContractKinds = [
   'oz-transparent',
@@ -58,7 +65,7 @@ export type UserConfigVariable =
   | boolean
   | string
   | number
-  | BigNumber
+  | EthersV5BigNumber
   | Array<UserConfigVariable>
   | {
       [name: string]: UserConfigVariable
@@ -154,6 +161,7 @@ export type UserContractConfig = {
   previousFullyQualifiedName?: string
   variables?: UserConfigVariables
   constructorArgs?: UserConfigVariables
+  overrides?: Array<UserConstructorArgOverrides>
   salt?: UserSalt
   unsafeAllow?: UnsafeAllow
 }
@@ -168,6 +176,13 @@ export type UserConfigVariables = {
   [name: string]: UserConfigVariable
 }
 
+export type UserConstructorArgOverrides = {
+  chains: Array<SupportedNetworkName | SupportedLocalNetworkName>
+  constructorArgs: {
+    [name: string]: UserConfigVariable
+  }
+}
+
 /**
  * Contract definition in a parsed config. Note that the `contract` field is the
  * contract's fully qualified name, unlike in `UserContractConfig`, where it can be the fully
@@ -178,7 +193,7 @@ export type ParsedContractConfig = {
   address: string
   kind: ContractKind
   variables: ParsedConfigVariables
-  constructorArgs: ParsedConfigVariables
+  constructorArgs: ParsedConstructorArgsPerChain
   isUserDefinedAddress: boolean
   unsafeAllow: UnsafeAllow
   salt: string
@@ -188,6 +203,10 @@ export type ParsedContractConfig = {
 
 export type ParsedContractConfigs = {
   [referenceName: string]: ParsedContractConfig
+}
+
+export type ParsedConstructorArgsPerChain = {
+  [key in SupportedChainId | SupportedLocalChainId]?: ParsedConfigVariables
 }
 
 export type ParsedConfigVariables = {
@@ -223,7 +242,7 @@ export type ConfigArtifacts = {
  */
 export interface MinimalConfigCache {
   isManagerDeployed: boolean
-  blockGasLimit: BigNumber
+  blockGasLimit: bigint
   chainId: number
   contractConfigCache: ContractConfigCache
 }
@@ -284,9 +303,7 @@ export type GetConfigArtifacts = (
   contractConfigs: UserContractConfigs
 ) => Promise<ConfigArtifacts>
 
-export type GetProviderForChainId = (
-  chainId: number
-) => providers.JsonRpcProvider
+export type GetProviderForChainId = (chainId: number) => SphinxJsonRpcProvider
 
 export type GetCanonicalConfig = (
   orgId: string,

@@ -23,7 +23,14 @@ import {
   BalanceFactoryArtifact,
   EscrowArtifact,
 } from '@sphinx-labs/contracts'
-import { constants, utils } from 'ethers'
+import {
+  ZeroHash,
+  ZeroAddress,
+  getCreate2Address,
+  solidityPackedKeccak256,
+  AbiCoder,
+  keccak256,
+} from 'ethers'
 
 import { CURRENT_SPHINX_MANAGER_VERSION, REFERENCE_ORG_ID } from './constants'
 import { USDC_ADDRESSES } from './networks'
@@ -38,14 +45,14 @@ const registryConstructorArgTypes = registryConstructorFragment.inputs.map(
 export const getRegistryConstructorValues = () => [getOwnerAddress()]
 
 export const getSphinxRegistryAddress = () =>
-  utils.getCreate2Address(
+  getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         SphinxRegistryArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           registryConstructorArgTypes,
           getRegistryConstructorValues()
         ),
@@ -55,17 +62,15 @@ export const getSphinxRegistryAddress = () =>
 
 export const getManagedServiceAddress = (chainId: number) => {
   const usdcAddress =
-    chainId === 10 || chainId === 420
-      ? USDC_ADDRESSES[chainId]
-      : constants.AddressZero
-  return utils.getCreate2Address(
+    chainId === 10 || chainId === 420 ? USDC_ADDRESSES[chainId] : ZeroAddress
+  return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         ManagedServiceArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           [getOwnerAddress(), usdcAddress]
         ),
@@ -74,14 +79,14 @@ export const getManagedServiceAddress = (chainId: number) => {
   )
 }
 
-export const REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS = utils.getCreate2Address(
+export const REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       SphinxManagerProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
+      AbiCoder.defaultAbiCoder().encode(
         ['address', 'address'],
         [getSphinxRegistryAddress(), getSphinxRegistryAddress()]
       ),
@@ -89,92 +94,95 @@ export const REFERENCE_SPHINX_MANAGER_PROXY_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const REFERENCE_PROXY_ADDRESS = utils.getCreate2Address(
+export const REFERENCE_PROXY_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       ProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [getSphinxRegistryAddress()]),
+      AbiCoder.defaultAbiCoder().encode(
+        ['address'],
+        [getSphinxRegistryAddress()]
+      ),
     ]
   )
 )
 
-export const DEFAULT_CREATE3_ADDRESS = utils.getCreate2Address(
+export const DEFAULT_CREATE3_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(['bytes'], [DefaultCreate3Artifact.bytecode])
+  ZeroHash,
+  solidityPackedKeccak256(['bytes'], [DefaultCreate3Artifact.bytecode])
 )
 
-export const DEFAULT_UPDATER_ADDRESS = utils.getCreate2Address(
+export const DEFAULT_UPDATER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(['bytes'], [DefaultUpdaterArtifact.bytecode])
+  ZeroHash,
+  solidityPackedKeccak256(['bytes'], [DefaultUpdaterArtifact.bytecode])
 )
 
-export const DEFAULT_ADAPTER_ADDRESS = utils.getCreate2Address(
+export const DEFAULT_ADAPTER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       DefaultAdapterArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [DEFAULT_UPDATER_ADDRESS]),
+      AbiCoder.defaultAbiCoder().encode(['address'], [DEFAULT_UPDATER_ADDRESS]),
     ]
   )
 )
 
-export const OZ_UUPS_UPDATER_ADDRESS = utils.getCreate2Address(
+export const OZ_UUPS_UPDATER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(['bytes'], [OZUUPSUpdaterArtifact.bytecode])
+  ZeroHash,
+  solidityPackedKeccak256(['bytes'], [OZUUPSUpdaterArtifact.bytecode])
 )
 
-export const OZ_UUPS_OWNABLE_ADAPTER_ADDRESS = utils.getCreate2Address(
+export const OZ_UUPS_OWNABLE_ADAPTER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       OZUUPSOwnableAdapterArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [OZ_UUPS_UPDATER_ADDRESS]),
+      AbiCoder.defaultAbiCoder().encode(['address'], [OZ_UUPS_UPDATER_ADDRESS]),
     ]
   )
 )
 
-export const OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS = utils.getCreate2Address(
+export const OZ_UUPS_ACCESS_CONTROL_ADAPTER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       OZUUPSAccessControlAdapterArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [OZ_UUPS_UPDATER_ADDRESS]),
+      AbiCoder.defaultAbiCoder().encode(['address'], [OZ_UUPS_UPDATER_ADDRESS]),
     ]
   )
 )
 
-export const OZ_TRANSPARENT_ADAPTER_ADDRESS = utils.getCreate2Address(
+export const OZ_TRANSPARENT_ADAPTER_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       OZTransparentAdapterArtifact.bytecode,
-      utils.defaultAbiCoder.encode(['address'], [DEFAULT_UPDATER_ADDRESS]),
+      AbiCoder.defaultAbiCoder().encode(['address'], [DEFAULT_UPDATER_ADDRESS]),
     ]
   )
 )
 
-export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
+export const AUTH_FACTORY_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       AuthFactoryArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
+      AbiCoder.defaultAbiCoder().encode(
         ['address', 'address'],
         [getSphinxRegistryAddress(), getOwnerAddress()]
       ),
@@ -182,14 +190,14 @@ export const AUTH_FACTORY_ADDRESS = utils.getCreate2Address(
   )
 )
 
-export const AUTH_IMPL_V1_ADDRESS = utils.getCreate2Address(
+export const AUTH_IMPL_V1_ADDRESS = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       AuthArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
+      AbiCoder.defaultAbiCoder().encode(
         ['uint256', 'uint256', 'uint256'],
         [1, 0, 0]
       ),
@@ -210,14 +218,14 @@ const [managerConstructorFragment] = SphinxManagerABI.filter(
 )
 
 export const getSphinxManagerV1Address = (chainId: number) => {
-  return utils.getCreate2Address(
+  return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         SphinxManagerArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           managerConstructorFragment.inputs,
           getManagerConstructorValues(chainId)
         ),
@@ -227,14 +235,14 @@ export const getSphinxManagerV1Address = (chainId: number) => {
 }
 
 export const getSphinxManagerAddress = (owner: string, projectName: string) => {
-  const salt = utils.keccak256(
-    utils.defaultAbiCoder.encode(
+  const salt = keccak256(
+    AbiCoder.defaultAbiCoder().encode(
       ['address', 'string', 'bytes'],
-      [owner, projectName, []]
+      [owner, projectName, '0x']
     )
   )
 
-  return utils.getCreate2Address(
+  return getCreate2Address(
     getSphinxRegistryAddress(),
     salt,
     getManagerProxyInitCodeHash()
@@ -245,15 +253,23 @@ export const getAuthData = (
   owners: Array<string>,
   ownerThreshold: number
 ): string => {
-  return utils.defaultAbiCoder.encode(
+  // Sort the owners in ascending order. This makes it easier to calculate the
+  // the address of the SphinxAuth contract, which is generated using the
+  // auth data.
+  owners.sort()
+
+  return AbiCoder.defaultAbiCoder().encode(
     ['address[]', 'uint256'],
     [owners, ownerThreshold]
   )
 }
 
 export const getAuthSalt = (authData: string, projectName: string): string => {
-  return utils.keccak256(
-    utils.defaultAbiCoder.encode(['bytes', 'string'], [authData, projectName])
+  return keccak256(
+    AbiCoder.defaultAbiCoder().encode(
+      ['bytes', 'string'],
+      [authData, projectName]
+    )
   )
 }
 
@@ -265,14 +281,14 @@ export const getAuthAddress = (
   const authData = getAuthData(owners, ownerThreshold)
   const salt = getAuthSalt(authData, projectName)
 
-  return utils.getCreate2Address(
+  return getCreate2Address(
     AUTH_FACTORY_ADDRESS,
     salt,
-    utils.solidityKeccak256(
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         AuthProxyArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           [AUTH_FACTORY_ADDRESS, AUTH_FACTORY_ADDRESS]
         ),
@@ -282,11 +298,11 @@ export const getAuthAddress = (
 }
 
 export const getManagerProxyInitCodeHash = (): string => {
-  return utils.solidityKeccak256(
+  return solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       SphinxManagerProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
+      AbiCoder.defaultAbiCoder().encode(
         ['address', 'address'],
         [getSphinxRegistryAddress(), getSphinxRegistryAddress()]
       ),
@@ -295,14 +311,14 @@ export const getManagerProxyInitCodeHash = (): string => {
 }
 
 export const getBalanceFactoryAddress = (chainId: number): string => {
-  return utils.getCreate2Address(
+  return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         BalanceFactoryArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           ['address', 'address'],
           [USDC_ADDRESSES[chainId], getManagedServiceAddress(chainId)]
         ),
@@ -312,14 +328,14 @@ export const getBalanceFactoryAddress = (chainId: number): string => {
 }
 
 export const getReferenceEscrowContractAddress = (chainId: number): string => {
-  return utils.getCreate2Address(
+  return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         EscrowArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           ['string', 'address', 'address'],
           getReferenceEscrowConstructorArgs(chainId)
         ),
@@ -349,14 +365,14 @@ export const getReferenceEscrowConstructorArgs = (
 
 export const getReferenceBalanceContractAddress = (chainId: number): string => {
   const constructorArgs = getReferenceBalanceConstructorArgs(chainId)
-  return utils.getCreate2Address(
+  return getCreate2Address(
     DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-    constants.HashZero,
-    utils.solidityKeccak256(
+    ZeroHash,
+    solidityPackedKeccak256(
       ['bytes', 'bytes'],
       [
         BalanceArtifact.bytecode,
-        utils.defaultAbiCoder.encode(
+        AbiCoder.defaultAbiCoder().encode(
           ['string', 'address', 'address', 'address'],
           constructorArgs
         ),
@@ -365,16 +381,16 @@ export const getReferenceBalanceContractAddress = (chainId: number): string => {
   )
 }
 
-export const ReferenceAuthProxyAddress = utils.getCreate2Address(
+export const ReferenceAuthProxyAddress = getCreate2Address(
   DETERMINISTIC_DEPLOYMENT_PROXY_ADDRESS,
-  constants.HashZero,
-  utils.solidityKeccak256(
+  ZeroHash,
+  solidityPackedKeccak256(
     ['bytes', 'bytes'],
     [
       AuthProxyArtifact.bytecode,
-      utils.defaultAbiCoder.encode(
+      AbiCoder.defaultAbiCoder().encode(
         ['address', 'address'],
-        [AUTH_FACTORY_ADDRESS, constants.AddressZero]
+        [AUTH_FACTORY_ADDRESS, ZeroAddress]
       ),
     ]
   )

@@ -12,15 +12,19 @@ import { ethers } from 'ethers'
 import { SphinxRegistryABI } from '@sphinx-labs/contracts'
 import {
   getSphinxRegistryAddress,
+  ensureSphinxInitialized,
+  isEventLog,
+  SphinxJsonRpcProvider,
+} from '@sphinx-labs/core'
+import { GraphQLClient } from 'graphql-request'
+
+import {
   ExecutorOptions,
   ExecutorMetrics,
   ExecutorState,
   ExecutorEvent,
   ExecutorKey,
-  ensureSphinxInitialized,
-} from '@sphinx-labs/core'
-import { GraphQLClient } from 'graphql-request'
-
+} from './types'
 import { ExecutorMessage, ResponseMessage } from './utils/execute'
 export * from './utils'
 
@@ -83,7 +87,7 @@ export class SphinxExecutor extends BaseServiceV2<
    **/
   async setup(
     options: Partial<ExecutorOptions>,
-    provider?: ethers.providers.JsonRpcProvider
+    provider?: SphinxJsonRpcProvider
   ) {
     this.logger = new Logger({
       name: 'Logger',
@@ -96,8 +100,7 @@ export class SphinxExecutor extends BaseServiceV2<
       }`
     }
 
-    this.state.provider =
-      provider ?? new ethers.providers.JsonRpcProvider(options.url)
+    this.state.provider = provider ?? new SphinxJsonRpcProvider(options.url)
     this.state.registry = new ethers.Contract(
       getSphinxRegistryAddress(),
       SphinxRegistryABI,
@@ -185,7 +188,7 @@ export class SphinxExecutor extends BaseServiceV2<
     // Handle edge case where bnb testnet cannot query for events pass 10000 blocks back
     const chainId = (await provider.getNetwork()).chainId
     if (
-      chainId === 97 &&
+      Number(chainId) === 97 &&
       this.state.lastBlockNumber === 0 &&
       latestBlockNumber > 9000
     ) {
@@ -200,19 +203,24 @@ export class SphinxExecutor extends BaseServiceV2<
     )
 
     const currentTime = new Date()
+
     const newExecutorEvents: ExecutorEvent[] = newApprovalEvents
+      .filter(isEventLog)
       .map((event) => {
         return {
           retry: 1,
           nextTry: currentTime,
           waitingPeriodMs: 15000,
-          event,
+          eventInfo: {
+            managerAddress: event.args[1],
+            transactionHash: event.transactionHash,
+          },
         }
       })
       // Filter out events that are already in the queue (happens due to some node providers doing inclusive filtering on block numbers)
       .filter((e) => {
         for (const event of this.state.eventsQueue) {
-          if (event.event.transactionHash === e.event.transactionHash) {
+          if (event.eventInfo.transactionHash === e.eventInfo.transactionHash) {
             return false
           }
         }
@@ -298,7 +306,8 @@ export class SphinxExecutor extends BaseServiceV2<
 
         this.state.executionCache = this.state.executionCache.filter(
           (e) =>
-            e.event.transactionHash !== message.payload.event.transactionHash
+            e.eventInfo.transactionHash !==
+            message.payload.eventInfo.transactionHash
         )
 
         // unlock the selected key

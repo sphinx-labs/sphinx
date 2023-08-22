@@ -1,5 +1,3 @@
-import { BigNumber } from 'ethers'
-
 import { SphinxDiff } from '../diff'
 
 /**
@@ -13,13 +11,13 @@ export enum SphinxActionType {
 /**
  * The status of a given Sphinx action.
  */
-export enum DeploymentStatus {
-  EMPTY,
-  APPROVED,
-  PROXIES_INITIATED,
-  COMPLETED,
-  CANCELLED,
-  FAILED,
+export const DeploymentStatus = {
+  EMPTY: 0n,
+  APPROVED: 1n,
+  PROXIES_INITIATED: 2n,
+  COMPLETED: 3n,
+  CANCELLED: 4n,
+  FAILED: 5n,
 }
 
 /**
@@ -128,14 +126,14 @@ export interface SphinxTargetBundle {
  * The state of a Sphinx bundle.
  */
 export type DeploymentState = {
-  status: DeploymentStatus
+  status: bigint
   actions: boolean[]
   actionRoot: string
   targetRoot: string
   numImmutableContracts: number
   targets: number
-  actionsExecuted: BigNumber
-  timeClaimed: BigNumber
+  actionsExecuted: bigint
+  timeClaimed: bigint
   selectedExecutor: string
   remoteExecution: boolean
   configUri: string
@@ -173,17 +171,17 @@ export type ContractInfo = {
   addr: string
 }
 
-export enum AuthStatus {
-  EMPTY,
-  SETUP,
-  PROPOSED,
-  COMPLETED,
+export const AuthStatus = {
+  EMPTY: 0n,
+  SETUP: 1n,
+  PROPOSED: 2n,
+  COMPLETED: 3n,
 }
 
 export type AuthState = {
-  status: AuthStatus
-  leafsExecuted: BigNumber
-  numLeafs: BigNumber
+  status: typeof AuthStatus
+  leafsExecuted: bigint
+  numLeafs: bigint
 }
 
 interface Setup extends BaseAuthLeaf {

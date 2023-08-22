@@ -1,6 +1,6 @@
 import hre from 'hardhat'
 import '../dist' // This loads in the Sphinx's HRE type extensions, e.g. `compilerConfigPath`
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   AuthState,
   AuthStatus,
@@ -16,42 +16,96 @@ import {
   DeploymentStatus,
   proposeAbstractTask,
   fromProposalRequestLeafToRawAuthLeaf,
-  UserConfigWithOptions,
   CanonicalConfig,
   GetCanonicalConfig,
+  AUTH_FACTORY_ADDRESS,
+  ParsedConfigWithOptions,
+  toCanonicalConfig,
+  ProposalRequest,
+  SupportedNetworkName,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import {
   AuthABI,
+  AuthFactoryABI,
   PROPOSER_ROLE,
   SphinxManagerABI,
 } from '@sphinx-labs/contracts'
 import { expect } from 'chai'
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 import {
   makeGetConfigArtifacts,
   makeGetProviderFromChainId,
 } from '../src/hardhat/artifacts'
 import {
-  authAddress,
   cre,
-  managerAddress,
-  ownerAddress,
-  ownerPrivateKey,
   rpcProviders,
   relayerPrivateKey,
-  testnets,
-  sampleUserConfig,
+  MultiChainProjectTestInfo,
+  OWNER_ROLE_HASH,
+  proposerPrivateKey,
 } from './constants'
 
-export const setupThenApproveDeploymentWithSingleOwner = async () => {
-  const expectedNumLeafsPerChain = 3
-  await setupThenProposeThenApproveDeploymentThenExecute(
-    sampleUserConfig,
-    testnets,
-    expectedNumLeafsPerChain,
-    emptyCanonicalConfigCallback
+export const registerProject = async (
+  provider: SphinxJsonRpcProvider,
+  projectTestInfo: MultiChainProjectTestInfo
+) => {
+  const { authAddress, userConfig, authData, ownerAddresses, managerAddress } =
+    projectTestInfo
+  const { projectName, options } = userConfig
+
+  const relayerAndExecutor = new ethers.Wallet(relayerPrivateKey, provider)
+
+  const AuthFactory = new ethers.Contract(
+    AUTH_FACTORY_ADDRESS,
+    AuthFactoryABI,
+    relayerAndExecutor
   )
+  const Auth = new ethers.Contract(authAddress, AuthABI, relayerAndExecutor)
+
+  // We set the `registryData` to `0x` since this version of the SphinxManager doesn't use it.
+  await AuthFactory.deploy(authData, '0x', projectName)
+
+  // Check that the Auth contract has been initialized correctly.
+  expect(await Auth.getRoleMemberCount(OWNER_ROLE_HASH)).deep.equals(
+    BigInt(ownerAddresses.length)
+  )
+  for (const ownerAddress of ownerAddresses) {
+    expect(await Auth.hasRole(OWNER_ROLE_HASH, ownerAddress)).equals(true)
+  }
+  expect(await Auth.projectName()).equals(projectName)
+  expect(await Auth.manager()).equals(managerAddress)
+  expect(await Auth.threshold()).deep.equals(BigInt(options.ownerThreshold))
+}
+
+export const makeGetCanonicalConfig = (
+  prevParsedConfig: ParsedConfigWithOptions,
+  managerAddress: string,
+  authAddress: string,
+  providers: Record<string, SphinxJsonRpcProvider>
+): GetCanonicalConfig => {
+  const getCanonicalConfig = async (
+    orgId: string,
+    isTestnet: boolean,
+    apiKey: string,
+    projectName: string
+  ): Promise<CanonicalConfig | undefined> => {
+    // We write these variables here to remove a TypeScript warning.
+    orgId
+    isTestnet
+    apiKey
+    projectName
+
+    // Convert the previous parsed config into a CanonicalConfig.
+    return toCanonicalConfig(
+      prevParsedConfig,
+      managerAddress,
+      authAddress,
+      providers
+    )
+  }
+  return getCanonicalConfig
 }
 
 /**
@@ -71,29 +125,27 @@ export const emptyCanonicalConfigCallback = async (
   return undefined
 }
 
-export const setupThenProposeThenApproveDeploymentThenExecute = async (
-  userConfig: UserConfigWithOptions,
-  networks: Array<string>,
-  expectedNumLeafsPerChain: number,
-  getCanonicalConfig: GetCanonicalConfig
+export const proposeThenApproveDeploymentThenExecute = async (
+  projectTestInfo: MultiChainProjectTestInfo,
+  proposalRequest: ProposalRequest,
+  networksToAdd: Array<SupportedNetworkName>
 ) => {
-  const proposalRequest = await proposeAbstractTask(
-    userConfig,
-    true,
-    cre,
-    true, // Dry run the proposal so it isn't sent to the back-end
-    makeGetConfigArtifacts(hre),
-    makeGetProviderFromChainId(hre),
-    undefined, // Use the default spinner
-    undefined, // Use the default FailureAction
-    getCanonicalConfig
-  )
+  const { managerAddress, authAddress, userConfig, ownerPrivateKeys } =
+    projectTestInfo
+
   const { root, leaves } = proposalRequest.tree
 
-  for (const network of networks) {
+  for (const network of networksToAdd) {
     const provider = rpcProviders[network]
+    const chainId = SUPPORTED_NETWORKS[network]
 
-    const owner = new ethers.Wallet(ownerPrivateKey, provider)
+    const ownerSignatures = await getSignatures(
+      ownerPrivateKeys,
+      root,
+      userConfig.options.ownerThreshold
+    )
+    expect(ownerSignatures.length).equals(userConfig.options.ownerThreshold)
+
     // The relayer is the signer that executes the transactions on the Auth contract
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
@@ -104,54 +156,59 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     )
     const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
-    const chainId = SUPPORTED_NETWORKS[network]
-    const signature = await signAuthRootMetaTxn(owner, root)
+    const containsSetupLeaf = leaves.some(
+      (leaf) => leaf.leafType === 'setup' && leaf.chainId === chainId
+    )
+    const expectedNumLeafs = leaves.filter(
+      (leaf) => leaf.chainId === chainId
+    ).length
 
-    const setupLeaf = findProposalRequestLeaf(leaves, 0, chainId)
-    const proposalLeaf = findProposalRequestLeaf(leaves, 1, chainId)
-    const approveDeploymentLeaf = findProposalRequestLeaf(leaves, 2, chainId)
-
-    // Check that the state of the Auth contract is correct before calling the `setup` function.
-    expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(false)
-    // Check that the corresponding AuthState is empty.
-    const initialAuthState: AuthState = await Auth.authStates(root)
-    expect(initialAuthState.status).equals(AuthStatus.EMPTY)
-    expect(initialAuthState.leafsExecuted).deep.equals(BigNumber.from(0))
-    expect(initialAuthState.numLeafs).deep.equals(BigNumber.from(0))
-
-    await Auth.setup(
-      root,
-      fromProposalRequestLeafToRawAuthLeaf(setupLeaf),
-      [signature],
-      setupLeaf.siblings
+    const proposalLeafIndex = containsSetupLeaf ? 1 : 0
+    const proposalLeaf = findProposalRequestLeaf(
+      leaves,
+      proposalLeafIndex,
+      chainId
+    )
+    const approveDeploymentLeaf = findProposalRequestLeaf(
+      leaves,
+      proposalLeafIndex + 1,
+      chainId
     )
 
-    // Check that the setup function executed correctly.
-    expect(await Auth.hasRole(PROPOSER_ROLE, ownerAddress)).equals(true)
     let authState: AuthState = await Auth.authStates(root)
-    expect(authState.status).equals(AuthStatus.SETUP)
-    expect(authState.leafsExecuted).deep.equals(BigNumber.from(1))
-    expect(authState.numLeafs).deep.equals(
-      BigNumber.from(expectedNumLeafsPerChain)
-    )
+    const expectedInitialStatus = containsSetupLeaf
+      ? AuthStatus.SETUP
+      : AuthStatus.EMPTY
+    expect(authState.status).equals(expectedInitialStatus)
 
+    const proposerSignatureArray = await getSignatures(
+      [proposerPrivateKey],
+      root,
+      1
+    )
+    expect(proposerSignatureArray.length).equals(1)
     await Auth.propose(
       root,
       fromProposalRequestLeafToRawAuthLeaf(proposalLeaf),
-      [signature],
+      proposerSignatureArray,
       proposalLeaf.siblings
     )
 
     // Check that the proposal executed correctly.
     authState = await Auth.authStates(root)
     expect(authState.status).equals(AuthStatus.PROPOSED)
-    expect(authState.leafsExecuted).deep.equals(BigNumber.from(2))
+    expect(authState.numLeafs).deep.equals(BigInt(expectedNumLeafs))
+    const leafsExecuted = containsSetupLeaf ? 2 : 1
+    expect(authState.leafsExecuted).deep.equals(BigInt(leafsExecuted))
     expect(await Auth.firstProposalOccurred()).equals(true)
+
+    // Check that there is no active deployment before approving the deployment.
+    expect(await Manager.activeDeploymentId()).equals(ethers.ZeroHash)
 
     await Auth.approveDeployment(
       root,
       fromProposalRequestLeafToRawAuthLeaf(approveDeploymentLeaf),
-      [signature],
+      ownerSignatures,
       approveDeploymentLeaf.siblings
     )
 
@@ -194,4 +251,117 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
     const deployment: DeploymentState = await Manager.deployments(deploymentId)
     expect(deployment.status).equals(DeploymentStatus.COMPLETED)
   }
+}
+
+export const setupThenProposeThenApproveDeploymentThenExecute = async (
+  projectTestInfo: MultiChainProjectTestInfo,
+  networksToAdd: Array<SupportedNetworkName>,
+  getCanonicalConfig: GetCanonicalConfig
+) => {
+  const { authAddress, userConfig, ownerPrivateKeys, proposerAddresses } =
+    projectTestInfo
+
+  const proposalRequest = await proposeAbstractTask(
+    userConfig,
+    true, // Is testnet
+    cre,
+    true, // Skip relaying the meta transaction to the back-end
+    makeGetConfigArtifacts(hre),
+    makeGetProviderFromChainId(hre),
+    undefined, // Use the default spinner
+    undefined, // Use the default FailureAction
+    getCanonicalConfig
+  )
+
+  if (!proposalRequest) {
+    throw new Error('The proposal is empty. Should never happen.')
+  }
+
+  const { root, leaves } = proposalRequest.tree
+
+  for (const network of networksToAdd) {
+    const provider = rpcProviders[network]
+
+    const ownerSignatures = await getSignatures(
+      ownerPrivateKeys,
+      root,
+      userConfig.options.ownerThreshold
+    )
+    expect(ownerSignatures.length).equals(userConfig.options.ownerThreshold)
+
+    // The relayer is the signer that executes the transactions on the Auth contract
+    const relayer = new ethers.Wallet(relayerPrivateKey, provider)
+
+    const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
+
+    const chainId = SUPPORTED_NETWORKS[network]
+
+    const setupLeaf = findProposalRequestLeaf(leaves, 0, chainId)
+
+    // Check that the state of the Auth contract is correct before calling the `setup` function.
+    for (const proposerAddress of proposerAddresses) {
+      expect(await Auth.hasRole(PROPOSER_ROLE, proposerAddress)).equals(false)
+    }
+    // Check that the corresponding AuthState is empty.
+    let authState: AuthState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.EMPTY)
+    expect(authState.leafsExecuted).deep.equals(BigInt(0))
+    expect(authState.numLeafs).deep.equals(BigInt(0))
+
+    await Auth.setup(
+      root,
+      fromProposalRequestLeafToRawAuthLeaf(setupLeaf),
+      ownerSignatures,
+      setupLeaf.siblings
+    )
+
+    // Check that the setup function executed correctly.
+    for (const proposerAddress of proposerAddresses) {
+      expect(await Auth.hasRole(PROPOSER_ROLE, proposerAddress)).equals(true)
+    }
+    authState = await Auth.authStates(root)
+    expect(authState.status).equals(AuthStatus.SETUP)
+    expect(authState.leafsExecuted).deep.equals(BigInt(1))
+    const expectedNumLeafs = leaves.filter(
+      (leaf) => leaf.chainId === chainId
+    ).length
+    expect(authState.numLeafs).deep.equals(BigInt(expectedNumLeafs))
+  }
+
+  await proposeThenApproveDeploymentThenExecute(
+    projectTestInfo,
+    proposalRequest,
+    networksToAdd
+  )
+}
+
+const getSignatures = async (
+  ownerPrivateKeys: Array<string>,
+  root: string,
+  threshold: number
+): Promise<Array<string>> => {
+  // Sort the private keys in ascending order according to their corresponding addresses.
+  const sortedOwnerPrivateKeys = ownerPrivateKeys.sort((a, b) => {
+    const aAddress = BigInt(new ethers.Wallet(a).address)
+    const bAddress = BigInt(new ethers.Wallet(b).address)
+    if (aAddress < bAddress) {
+      return -1
+    } else if (aAddress > bAddress) {
+      return 1
+    } else {
+      return 0
+    }
+  })
+
+  const signatures: Array<string> = []
+  for (const ownerPrivateKey of sortedOwnerPrivateKeys) {
+    const owner = new ethers.Wallet(ownerPrivateKey)
+    const signature = await signAuthRootMetaTxn(owner, root)
+    signatures.push(signature)
+
+    if (signatures.length === threshold) {
+      break
+    }
+  }
+  return signatures
 }

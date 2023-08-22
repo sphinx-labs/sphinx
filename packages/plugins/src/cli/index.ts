@@ -8,9 +8,10 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import ora from 'ora'
 import { execAsync } from '@sphinx-labs/core/dist/utils'
+import { SphinxJsonRpcProvider } from '@sphinx-labs/core/dist/provider'
 import { satisfies } from 'semver'
 import { getSphinxManagerAddress } from '@sphinx-labs/core/dist/addresses'
-import { Wallet, providers } from 'ethers/lib/ethers'
+import { Wallet } from 'ethers'
 import {
   getDiff,
   getDiffString,
@@ -279,7 +280,7 @@ yargs(hideBin(process.argv))
 
       const { deploymentFolder, cachePath } = await getFoundryConfigOptions()
 
-      const provider = new providers.JsonRpcProvider(rpc)
+      const provider = new SphinxJsonRpcProvider(rpc)
 
       const managerAddress = getSphinxManagerAddress(owner, project)
 
@@ -396,7 +397,7 @@ yargs(hideBin(process.argv))
       if (argv[rpcOption] && !confirm) {
         spinner.start('Getting project info...')
 
-        const provider = new providers.JsonRpcProvider(rpcUrl)
+        const provider = new SphinxJsonRpcProvider(rpcUrl)
         const owner = new Wallet(privateKey, provider)
 
         await ensureSphinxInitialized(provider, owner)
@@ -491,7 +492,7 @@ yargs(hideBin(process.argv))
 
       if (broadcast && !isEmptyDeployment) {
         spinner.start(`Writing deployment artifacts...`)
-        const provider = new providers.JsonRpcProvider(rpcUrl)
+        const provider = new SphinxJsonRpcProvider(rpcUrl)
         const owner = new Wallet(privateKey, provider)
 
         // Get the user config. Note that we use --swc because it speeds up the execution of the

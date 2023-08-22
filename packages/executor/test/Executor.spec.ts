@@ -1,6 +1,5 @@
 import hre from 'hardhat'
 import '@sphinx-labs/plugins'
-import '@nomiclabs/hardhat-ethers'
 import {
   AUTH_FACTORY_ADDRESS,
   UserSphinxConfig as UserConfigWithOptions,
@@ -20,6 +19,7 @@ import {
   getTargetAddress,
   monitorExecution,
   sphinxCommitAbstractSubtask,
+  SphinxJsonRpcProvider,
 } from '@sphinx-labs/core'
 import {
   AuthFactoryABI,
@@ -70,9 +70,7 @@ describe('Remote executor', () => {
   let Proxy: Contract
   let Immutable: Contract
   before(async () => {
-    const provider = new ethers.providers.JsonRpcProvider(
-      'http://127.0.0.1:8545'
-    )
+    const provider = new SphinxJsonRpcProvider('http://127.0.0.1:8545')
     const owner = new ethers.Wallet(ownerPrivateKey, provider)
     const relayer = new ethers.Wallet(relayerPrivateKey, provider)
 
@@ -159,8 +157,8 @@ describe('Remote executor', () => {
     )
     const Auth = new ethers.Contract(authAddress, AuthABI, relayer)
 
-    // We set the `registryData` to `[]` since this version of the SphinxManager doesn't use it.
-    await AuthFactory.deploy(authData, [], projectName)
+    // We set the `registryData` to `0x` since this version of the SphinxManager doesn't use it.
+    await AuthFactory.deploy(authData, '0x', projectName)
 
     const { leaf: setupLeaf, proof: setupProof } = findBundledLeaf(
       bundledLeafs,
@@ -220,7 +218,7 @@ describe('Remote executor', () => {
   })
 
   it('does deploy proxied contract remotely', async () => {
-    expect(await Proxy.number()).to.equal(1)
+    expect(await Proxy.number()).to.equal(1n)
     expect(await Proxy.stored()).to.equal(true)
     expect(await Proxy.storageName()).to.equal('First')
     expect(await Proxy.otherStorage()).to.equal(
@@ -229,6 +227,6 @@ describe('Remote executor', () => {
   })
 
   it('does deploy non-proxy contract remotely', async () => {
-    expect(await Immutable.val()).equals(1)
+    expect(await Immutable.val()).equals(1n)
   })
 })

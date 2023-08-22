@@ -1,12 +1,11 @@
-import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
-import { task } from 'hardhat/config'
 import * as dotenv from 'dotenv'
-
-// Hardhat plugins
-import '@nomiclabs/hardhat-ethers'
-import '@openzeppelin/hardhat-upgrades'
+import { task } from 'hardhat/config'
+import { HardhatRuntimeEnvironment, HardhatUserConfig } from 'hardhat/types'
+import '@nomicfoundation/hardhat-ethers'
 
 import { initializeAndVerifySphinx } from './src/languages/solidity/predeploys'
+import { isHttpNetworkConfig } from './src/utils'
+import { SphinxJsonRpcProvider } from './src/provider'
 
 // Load environment variables from .env
 dotenv.config()
@@ -155,7 +154,15 @@ task('deploy-system')
       },
       hre: HardhatRuntimeEnvironment
     ) => {
-      await initializeAndVerifySphinx(args.systemConfig, hre.ethers.provider)
+      // Throw an error if we're on the Hardhat network. This ensures that the `url` field is
+      // defined for this network.
+      if (!isHttpNetworkConfig(hre.network.config)) {
+        throw new Error(
+          `Cannot deploy Sphinx on the Hardhat network using this task.`
+        )
+      }
+      const provider = new SphinxJsonRpcProvider(hre.network.config.url)
+      await initializeAndVerifySphinx(args.systemConfig, provider)
     }
   )
 

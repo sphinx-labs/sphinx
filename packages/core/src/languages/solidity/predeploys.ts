@@ -13,17 +13,19 @@ import {
   DEFAULT_PROXY_TYPE_HASH,
   EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
   AuthFactoryABI,
+  SphinxRegistryABI,
 } from '@sphinx-labs/contracts'
 import { Logger } from '@eth-optimism/common-ts'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import {
   isContractDeployed,
   getGasPriceOverrides,
   getImpersonatedSigner,
-  getSphinxRegistryReadOnly,
   getNetworkType,
   resolveNetwork,
 } from '../../utils'
+import { SphinxJsonRpcProvider } from '../../provider'
 import {
   OZ_UUPS_OWNABLE_ADAPTER_ADDRESS,
   getSphinxManagerV1Address,
@@ -67,7 +69,7 @@ const fetchSphinxSystemConfig = (configPath: string) => {
 
 export const initializeAndVerifySphinx = async (
   systemConfigPath: string,
-  provider: ethers.providers.JsonRpcProvider
+  provider: SphinxJsonRpcProvider
 ) => {
   const config = fetchSphinxSystemConfig(systemConfigPath)
 
@@ -78,7 +80,7 @@ export const initializeAndVerifySphinx = async (
   // Deploy Contracts
   await initializeSphinx(
     provider,
-    provider.getSigner(),
+    await provider.getSigner(),
     config.executors,
     config.relayers,
     config.funders,
@@ -86,6 +88,7 @@ export const initializeAndVerifySphinx = async (
   )
 
   // Verify Sphinx contracts on etherscan
+  const { name: networkName } = await provider.getNetwork()
   try {
     // Verify the Sphinx contracts if the current network is supported.
     const networkType = await getNetworkType(provider)
@@ -96,7 +99,7 @@ export const initializeAndVerifySphinx = async (
       const apiKey = process.env.ETHERSCAN_API_KEY
       if (apiKey) {
         logger.info('[Sphinx]: attempting to verify the sphinx contracts...')
-        await verifySphinx(provider, (await provider.getNetwork()).name, apiKey)
+        await verifySphinx(provider, networkName, apiKey)
         logger.info(
           '[Sphinx]: finished attempting to verify the sphinx contracts'
         )
@@ -107,13 +110,13 @@ export const initializeAndVerifySphinx = async (
       }
     } else {
       logger.info(
-        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${provider.network.name}`
+        `[Sphinx]: skipped verifying sphinx contracts. reason: etherscan config not detected for: ${networkName}`
       )
     }
   } catch (e) {
     console.error(e)
     logger.error(
-      `[Sphinx]: error: failed to verify sphinx contracts on ${provider.network.name}`,
+      `[Sphinx]: error: failed to verify sphinx contracts on ${networkName}`,
       e
     )
   }
@@ -125,7 +128,7 @@ export const initializeAndVerifySphinx = async (
  * signer will never be used to send transactions on a live network.
  */
 export const ensureSphinxInitialized = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   executors: string[] = [],
   relayers: string[] = [],
@@ -145,7 +148,10 @@ export const ensureSphinxInitialized = async (
     )
   } else {
     const networkType = await getNetworkType(provider)
-    const { networkName } = await resolveNetwork(provider, networkType)
+    const { networkName } = await resolveNetwork(
+      await provider.getNetwork(),
+      networkType
+    )
     throw new Error(
       `Sphinx is not supported on ${networkName} yet. Reach out on Discord if you'd like us to support it! If you are seeing this error on a network we support, try using a different provider and then file an issue on Github if the problem persists.`
     )
@@ -153,16 +159,18 @@ export const ensureSphinxInitialized = async (
 }
 
 export const initializeSphinx = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   executors: string[],
   relayers: string[],
   funders: string[],
   logger?: Logger
 ): Promise<void> => {
-  const { gasLimit: blockGasLimit } = await provider.getBlock('latest')
-
-  assertValidBlockGasLimit(blockGasLimit)
+  const block = await provider.getBlock('latest')
+  if (!block) {
+    throw new Error('Failed to get latest block.')
+  }
+  assertValidBlockGasLimit(block.gasLimit)
 
   for (const {
     artifact,
@@ -180,15 +188,15 @@ export const initializeSphinx = async (
         bytecode,
       },
       args: constructorArgs,
-      salt: ethers.constants.HashZero,
+      salt: ethers.ZeroHash,
     })
 
-    assert(
-      contract.address === expectedAddress,
-      `address mismatch for ${contractName}`
-    )
+    const addr = await contract.getAddress()
+    assert(addr === expectedAddress, `address mismatch for ${contractName}`)
 
-    logger?.info(`[Sphinx]: deployed ${contractName}, ${contract.address}`)
+    logger?.info(
+      `[Sphinx]: deployed ${contractName}, ${await contract.getAddress()}`
+    )
   }
 
   logger?.info(`[Sphinx]: finished deploying Sphinx contracts`)
@@ -234,7 +242,7 @@ export const initializeSphinx = async (
       await (
         await signer.sendTransaction({
           to: await owner.getAddress(),
-          value: ethers.utils.parseEther('0.1'),
+          value: ethers.parseEther('0.1'),
         })
       ).wait()
     }
@@ -242,7 +250,7 @@ export const initializeSphinx = async (
 
   const { chainId } = await provider.getNetwork()
   const ManagedService = new ethers.Contract(
-    getManagedServiceAddress(chainId),
+    getManagedServiceAddress(Number(chainId)),
     ManagedServiceArtifact.abi,
     owner
   )
@@ -253,7 +261,7 @@ export const initializeSphinx = async (
       (await ManagedService.hasRole(REMOTE_EXECUTOR_ROLE, executor)) === false
     ) {
       await (
-        await ManagedService.connect(owner).grantRole(
+        await ManagedService.grantRole(
           REMOTE_EXECUTOR_ROLE,
           executor,
           await getGasPriceOverrides(provider)
@@ -267,7 +275,7 @@ export const initializeSphinx = async (
   for (const relayer of relayers) {
     if ((await ManagedService.hasRole(RELAYER_ROLE, relayer)) === false) {
       await (
-        await ManagedService.connect(owner).grantRole(
+        await ManagedService.grantRole(
           RELAYER_ROLE,
           relayer,
           await getGasPriceOverrides(provider)
@@ -281,7 +289,7 @@ export const initializeSphinx = async (
   for (const funder of funders) {
     if ((await ManagedService.hasRole(FUNDER_ROLE, funder)) === false) {
       await (
-        await ManagedService.connect(owner).grantRole(
+        await ManagedService.grantRole(
           FUNDER_ROLE,
           funder,
           await getGasPriceOverrides(provider)
@@ -293,15 +301,19 @@ export const initializeSphinx = async (
 
   logger?.info('[Sphinx]: adding the initial SphinxManager version...')
 
-  const SphinxRegistry = getSphinxRegistryReadOnly(provider)
-  const sphinxManagerV1Address = getSphinxManagerV1Address(chainId)
+  const SphinxRegistry = new ethers.Contract(
+    getSphinxRegistryAddress(),
+    SphinxRegistryABI,
+    owner
+  )
+  const sphinxManagerV1Address = getSphinxManagerV1Address(Number(chainId))
   if (
     (await SphinxRegistry.managerImplementations(sphinxManagerV1Address)) ===
     false
   ) {
     try {
       await (
-        await SphinxRegistry.connect(owner).addVersion(
+        await SphinxRegistry.addVersion(
           sphinxManagerV1Address,
           await getGasPriceOverrides(provider)
         )
@@ -322,7 +334,7 @@ export const initializeSphinx = async (
     sphinxManagerV1Address
   ) {
     await (
-      await SphinxRegistry.connect(owner).setCurrentManagerImplementation(
+      await SphinxRegistry.setCurrentManagerImplementation(
         sphinxManagerV1Address,
         await getGasPriceOverrides(provider)
       )
@@ -372,7 +384,7 @@ export const initializeSphinx = async (
     transparentAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await SphinxRegistry.addContractKind(
         OZ_TRANSPARENT_PROXY_TYPE_HASH,
         transparentAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -396,7 +408,7 @@ export const initializeSphinx = async (
     uupsOwnableAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await SphinxRegistry.addContractKind(
         OZ_UUPS_OWNABLE_PROXY_TYPE_HASH,
         uupsOwnableAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -419,7 +431,7 @@ export const initializeSphinx = async (
     ozUUPSAccessControlAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await SphinxRegistry.addContractKind(
         OZ_UUPS_ACCESS_CONTROL_PROXY_TYPE_HASH,
         ozUUPSAccessControlAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -440,7 +452,7 @@ export const initializeSphinx = async (
     defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
+      await SphinxRegistry.addContractKind(
         EXTERNAL_TRANSPARENT_PROXY_TYPE_HASH,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
@@ -460,8 +472,8 @@ export const initializeSphinx = async (
     defaultAdapterAddress
   ) {
     await (
-      await SphinxRegistry.connect(owner).addContractKind(
-        ethers.constants.HashZero,
+      await SphinxRegistry.addContractKind(
+        ethers.ZeroHash,
         defaultAdapterAddress,
         await getGasPriceOverrides(provider)
       )
@@ -477,7 +489,7 @@ export const initializeSphinx = async (
 }
 
 export const getDeterministicFactoryAddress = async (
-  provider: ethers.providers.JsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ) => {
   // Deploy the deterministic deployer.
   if (
@@ -502,11 +514,14 @@ export const getDeterministicFactoryAddress = async (
 
     // Send the raw deployment transaction for the deterministic deployer.
     try {
-      await provider.waitForTransaction(
-        await provider.send('eth_sendRawTransaction', [
-          '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
-        ])
-      )
+      const txnHash = await provider.send('eth_sendRawTransaction', [
+        '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
+      ])
+      const txn = await provider.getTransaction(txnHash)
+      if (!txn) {
+        throw new Error(`Failed to deploy CREATE2 factory.`)
+      }
+      await txn.wait()
     } catch (err) {
       if (err.message.includes('insufficient balance')) {
         throw new Error(
@@ -522,7 +537,7 @@ export const getDeterministicFactoryAddress = async (
 }
 
 export const doDeterministicDeploy = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   options: {
     contract: {
       abi: any
@@ -539,15 +554,17 @@ export const doDeterministicDeploy = async (
   )
   const deployer = await getDeterministicFactoryAddress(provider)
 
-  const deploymentTx = factory.getDeployTransaction(...(options.args || []))
+  const deploymentTx = await factory.getDeployTransaction(
+    ...(options.args || [])
+  )
   if (deploymentTx.data === undefined) {
     throw new Error(`Deployment transaction data is undefined`)
   }
 
-  const address = ethers.utils.getCreate2Address(
+  const address = ethers.getCreate2Address(
     deployer,
     options.salt,
-    ethers.utils.keccak256(deploymentTx.data)
+    ethers.keccak256(deploymentTx.data)
   )
 
   // Short circuit if already deployed.
@@ -558,7 +575,7 @@ export const doDeterministicDeploy = async (
   // Create a transaction request with gas price overrides.
   const txnRequest = await getGasPriceOverrides(provider, {
     to: deployer,
-    data: options.salt + ethers.utils.hexlify(deploymentTx.data).slice(2),
+    data: options.salt + ethers.toBeHex(deploymentTx.data).slice(2),
   })
 
   // Deploy the contract.

@@ -8,15 +8,14 @@ import axios from 'axios'
 import ora from 'ora'
 import * as semver from 'semver'
 import {
-  utils,
   Signer,
   Contract,
-  providers,
   ethers,
-  PayableOverrides,
-  BigNumber,
+  Fragment,
+  AbiCoder,
+  Provider,
+  JsonRpcSigner,
 } from 'ethers'
-import { Fragment } from 'ethers/lib/utils'
 import {
   ProxyArtifact,
   SphinxRegistryABI,
@@ -25,8 +24,7 @@ import {
   AuthABI,
   AuthFactoryABI,
 } from '@sphinx-labs/contracts'
-import { TransactionRequest } from '@ethersproject/abstract-provider'
-import { add0x, remove0x } from '@eth-optimism/core-utils'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 import chalk from 'chalk'
 import {
   ProxyDeployment,
@@ -43,7 +41,12 @@ import {
   StorageLayoutComparator,
   stripContractSubstrings,
 } from '@openzeppelin/upgrades-core/dist/storage/compare'
-import { CompilerInput, SolcBuild } from 'hardhat/types'
+import {
+  CompilerInput,
+  HttpNetworkConfig,
+  NetworkConfig,
+  SolcBuild,
+} from 'hardhat/types'
 import { Compiler, NativeCompiler } from 'hardhat/internal/solidity/compiler'
 
 import {
@@ -73,6 +76,7 @@ import {
   ProposalRequest,
 } from './actions/types'
 import { Integration } from './constants'
+import { SphinxJsonRpcProvider } from './provider'
 import {
   AUTH_FACTORY_ADDRESS,
   getAuthAddress,
@@ -113,8 +117,8 @@ export const getDeploymentId = (
     bundles.actionBundle
   )
 
-  return utils.keccak256(
-    utils.defaultAbiCoder.encode(
+  return ethers.keccak256(
+    AbiCoder.defaultAbiCoder().encode(
       ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'string'],
       [
         actionRoot,
@@ -129,7 +133,7 @@ export const getDeploymentId = (
 }
 
 export const writeSnapshotId = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   networkDirName: string,
   deploymentFolderPath: string
 ) => {
@@ -168,7 +172,7 @@ export const writeDeploymentArtifact = (
 
 export const getDefaultProxyInitCode = (managerAddress: string): string => {
   const bytecode = ProxyArtifact.bytecode
-  const iface = new ethers.utils.Interface(ProxyABI)
+  const iface = new ethers.Interface(ProxyABI)
 
   const initCode = bytecode.concat(
     remove0x(iface.encodeDeploy([managerAddress]))
@@ -178,7 +182,7 @@ export const getDefaultProxyInitCode = (managerAddress: string): string => {
 }
 
 export const checkIsUpgrade = async (
-  provider: ethers.providers.Provider,
+  provider: ethers.Provider,
   parsedConfig: ParsedConfig
 ): Promise<boolean | string> => {
   for (const [referenceName, contractConfig] of Object.entries(
@@ -199,20 +203,24 @@ export const checkIsUpgrade = async (
  */
 export const registerOwner = async (
   projectName: string,
-  registry: ethers.Contract,
-  manager: ethers.Contract,
+  registryAddress: string,
+  managerAddress: string,
   ownerAddress: string,
-  provider: providers.JsonRpcProvider,
+  signer: Signer,
+  provider: Provider,
   spinner: ora.Ora
 ): Promise<void> => {
   spinner.start(`Registering the project...`)
 
-  if (!(await registry.isManagerDeployed(manager.address))) {
+  const registry = new Contract(registryAddress, SphinxRegistryABI, signer)
+  const manager = new Contract(managerAddress, SphinxManagerABI, signer)
+
+  if (!(await registry.isManagerDeployed(managerAddress))) {
     await (
       await registry.register(
         ownerAddress,
         projectName,
-        [], // We don't pass any extra initializer data to this version of the SphinxManager.
+        '0x', // We don't pass any extra initializer data to this version of the SphinxManager.
         await getGasPriceOverrides(provider)
       )
     ).wait()
@@ -231,9 +239,7 @@ export const getSphinxRegistry = (signer: Signer): Contract => {
   return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, signer)
 }
 
-export const getSphinxRegistryReadOnly = (
-  provider: providers.Provider
-): Contract => {
+export const getSphinxRegistryReadOnly = (provider: Provider): Contract => {
   return new Contract(getSphinxRegistryAddress(), SphinxRegistryABI, provider)
 }
 
@@ -243,7 +249,7 @@ export const getSphinxManager = (manager: string, signer: Signer): Contract => {
 
 export const getSphinxManagerReadOnly = (
   manager: string,
-  provider: providers.Provider
+  provider: Provider
 ): Contract => {
   return new Contract(manager, SphinxManagerABI, provider)
 }
@@ -296,23 +302,20 @@ export const getProxyAt = (signer: Signer, proxyAddress: string): Contract => {
 
 export const getCurrentSphinxActionType = (
   bundle: SphinxActionBundle,
-  actionsExecuted: ethers.BigNumber
+  actionsExecuted: bigint
 ): SphinxActionType => {
-  return bundle.actions[actionsExecuted.toNumber()].action.actionType
+  return bundle.actions[Number(actionsExecuted)].action.actionType
 }
 
 export const isContractDeployed = async (
   address: string,
-  provider: providers.Provider
+  provider: Provider
 ): Promise<boolean> => {
   return (await provider.getCode(address)) !== '0x'
 }
 
-export const formatEther = (
-  amount: ethers.BigNumber,
-  decimals: number
-): string => {
-  return parseFloat(ethers.utils.formatEther(amount)).toFixed(decimals)
+export const formatEther = (amount: bigint, decimals: number): string => {
+  return parseFloat(ethers.formatEther(amount)).toFixed(decimals)
 }
 
 export const readCompilerConfig = async (
@@ -351,7 +354,7 @@ export const writeCompilerConfig = (
 }
 
 export const getEIP1967ProxyImplementationAddress = async (
-  provider: providers.Provider,
+  provider: Provider,
   proxyAddress: string
 ): Promise<string> => {
   // keccak256('eip1967.proxy.implementation')) - 1
@@ -359,11 +362,11 @@ export const getEIP1967ProxyImplementationAddress = async (
   const implStorageKey =
     '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
 
-  const encodedImplAddress = await provider.getStorageAt(
+  const encodedImplAddress = await provider.getStorage(
     proxyAddress,
     implStorageKey
   )
-  const [decoded] = ethers.utils.defaultAbiCoder.decode(
+  const [decoded] = AbiCoder.defaultAbiCoder().decode(
     ['address'],
     encodedImplAddress
   )
@@ -371,16 +374,16 @@ export const getEIP1967ProxyImplementationAddress = async (
 }
 
 export const getEIP1967ProxyAdminAddress = async (
-  provider: providers.Provider,
+  provider: Provider,
   proxyAddress: string
 ): Promise<string> => {
   // See: https://eips.ethereum.org/EIPS/eip-1967#specification
   const ownerStorageKey =
     '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
 
-  const [ownerAddress] = ethers.utils.defaultAbiCoder.decode(
+  const [ownerAddress] = AbiCoder.defaultAbiCoder().decode(
     ['address'],
-    await provider.getStorageAt(proxyAddress, ownerStorageKey)
+    await provider.getStorage(proxyAddress, ownerStorageKey)
   )
   return ownerAddress
 }
@@ -396,36 +399,19 @@ export const getEIP1967ProxyAdminAddress = async (
  * @returns The object whose gas price settings will be overridden.
  */
 export const getGasPriceOverrides = async (
-  provider: ethers.providers.Provider,
-  overridden: PayableOverrides | TransactionRequest = {}
-): Promise<PayableOverrides | TransactionRequest> => {
+  provider: ethers.Provider,
+  overridden: ethers.TransactionRequest = {}
+): Promise<ethers.TransactionRequest> => {
   const feeData = await provider.getFeeData()
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = feeData
 
-  const chainId = (await provider.getNetwork()).chainId
+  const chainId = Number((await provider.getNetwork()).chainId)
 
   switch (chainId) {
-    // Overrides the maxPriorityFeePerGas for Polygon mainnet
-    // This handles an issue where ethers does not work as expected for polygon mainnet due to how
-    // they handle transaction pricing post EIP-1559. If/when we upgrade to Ethers v6, this issue
-    // will be resolved by Ethers internally.
-    case 137:
-      if (
-        (await getNetworkType(provider as ethers.providers.JsonRpcProvider)) ===
-        NetworkType.LIVE_NETWORK
-      ) {
-        if (BigNumber.isBigNumber(maxFeePerGas)) {
-          overridden.maxFeePerGas = maxFeePerGas
-        }
-        overridden.maxPriorityFeePerGas = (
-          await provider.getFeeData()
-        ).maxFeePerGas?.toString()
-      }
-      return overridden
     // Overrides the gasPrice for Fantom Opera
     case 250:
-      if (BigNumber.isBigNumber(gasPrice)) {
+      if (gasPrice !== null) {
         overridden.gasPrice = gasPrice
         return overridden
       }
@@ -434,10 +420,7 @@ export const getGasPriceOverrides = async (
       return overridden
     // Default to overriding with maxFeePerGas and maxPriorityFeePerGas
     default:
-      if (
-        BigNumber.isBigNumber(maxFeePerGas) &&
-        BigNumber.isBigNumber(maxPriorityFeePerGas)
-      ) {
+      if (maxFeePerGas !== null && maxPriorityFeePerGas !== null) {
         overridden.maxFeePerGas = maxFeePerGas
         overridden.maxPriorityFeePerGas = maxPriorityFeePerGas
       }
@@ -446,7 +429,7 @@ export const getGasPriceOverrides = async (
 }
 
 export const isInternalDefaultProxy = async (
-  provider: providers.Provider,
+  provider: Provider,
   proxyAddress: string
 ): Promise<boolean> => {
   const SphinxRegistry = new Contract(
@@ -475,7 +458,7 @@ export const isInternalDefaultProxy = async (
  * @returns
  */
 export const isTransparentProxy = async (
-  provider: providers.Provider,
+  provider: Provider,
   proxyAddress: string
 ): Promise<boolean> => {
   // We don't consider default proxies to be transparent proxies, even though they share the same
@@ -486,17 +469,11 @@ export const isTransparentProxy = async (
   //   return false
   // }
 
-  // Check if the contract bytecode contains the expected interface
-  const bytecode = await provider.getCode(proxyAddress)
-  if (!(await bytecodeContainsEIP1967Interface(bytecode))) {
-    return false
-  }
-
   // Fetch proxy owner address from storage slot defined by EIP-1967
   const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxyAddress)
 
   // If proxy owner is not a valid address, then proxy type is incompatible
-  if (!ethers.utils.isAddress(ownerAddress)) {
+  if (!ethers.isAddress(ownerAddress)) {
     return false
   }
 
@@ -512,19 +489,13 @@ export const isTransparentProxy = async (
  * @returns
  */
 export const isUUPSProxy = async (
-  provider: providers.Provider,
+  provider: Provider,
   proxyAddress: string
 ): Promise<boolean> => {
   const implementationAddress = await getEIP1967ProxyImplementationAddress(
     provider,
     proxyAddress
   )
-
-  // Check if the contract bytecode contains the expected interface
-  const bytecode = await provider.getCode(implementationAddress)
-  if (!(await bytecodeContainsUUPSInterface(bytecode))) {
-    return false
-  }
 
   // Fetch proxy owner address from storage slot defined by EIP-1967
   const ownerAddress = await getEIP1967ProxyAdminAddress(
@@ -533,42 +504,10 @@ export const isUUPSProxy = async (
   )
 
   // If proxy owner is not a valid address, then proxy type is incompatible
-  if (!ethers.utils.isAddress(ownerAddress)) {
+  if (!ethers.isAddress(ownerAddress)) {
     return false
   }
 
-  return true
-}
-
-export const bytecodeContainsUUPSInterface = (bytecode: string): boolean => {
-  return bytecodeContainsInterface(bytecode, ['upgradeTo'])
-}
-
-export const bytecodeContainsEIP1967Interface = (bytecode: string): boolean => {
-  return bytecodeContainsInterface(bytecode, [
-    'implementation',
-    'admin',
-    'upgradeTo',
-    'changeAdmin',
-  ])
-}
-
-/**
- * @param bytecode The bytecode of the contract to check the interface of.
- * @returns True if the contract contains the expected interface and false if not.
- */
-const bytecodeContainsInterface = (
-  bytecode: string,
-  checkFunctions: string[]
-): boolean => {
-  // Fetch proxy bytecode and check if it contains the expected EIP-1967 function definitions
-  const iface = new ethers.utils.Interface(ProxyABI)
-  for (const func of checkFunctions) {
-    const sigHash = remove0x(iface.getSighash(func))
-    if (!bytecode.includes(sigHash)) {
-      return false
-    }
-  }
   return true
 }
 
@@ -720,7 +659,7 @@ export const getCreationCodeWithConstructorArgs = (
 ): string => {
   const constructorArgValues = getConstructorArgs(constructorArgs, abi)
 
-  const iface = new ethers.utils.Interface(abi)
+  const iface = new ethers.Interface(abi)
 
   const creationCodeWithConstructorArgs = bytecode.concat(
     remove0x(iface.encodeDeploy(constructorArgValues))
@@ -841,7 +780,7 @@ export const getOpenZeppelinUpgradableContract = (
 }
 
 export const getPreviousConfigUri = async (
-  provider: providers.Provider,
+  provider: Provider,
   registry: ethers.Contract,
   proxyAddress: string
 ): Promise<string | undefined> => {
@@ -853,7 +792,7 @@ export const getPreviousConfigUri = async (
 
   if (latestRegistryEvent === undefined) {
     return undefined
-  } else if (latestRegistryEvent.args === undefined) {
+  } else if (!isEventLog(latestRegistryEvent)) {
     throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
   }
 
@@ -871,7 +810,7 @@ export const getPreviousConfigUri = async (
     throw new Error(
       `ProxyUpgraded event detected in registry but not in manager contract. Should never happen.`
     )
-  } else if (latestExecutionEvent.args === undefined) {
+  } else if (!isEventLog(latestExecutionEvent)) {
     throw new Error(`ProxyUpgraded event has no args. Should never happen.`)
   }
 
@@ -983,7 +922,7 @@ export const getConfigArtifactsRemote = async (
 export const getDeploymentEvents = async (
   SphinxManager: ethers.Contract,
   deploymentId: string
-): Promise<ethers.Event[]> => {
+): Promise<ethers.EventLog[]> => {
   // Get the most recent approval event for this deployment ID.
   const approvalEvent = (
     await SphinxManager.queryFilter(
@@ -1015,7 +954,12 @@ export const getDeploymentEvents = async (
     completedEvent.blockNumber
   )
 
-  return contractDeployedEvents
+  // Make sure that all of the events are EventLogs.
+  if (contractDeployedEvents.some((event) => !isEventLog(event))) {
+    throw new Error(`ContractDeployed event has no args. Should never happen.`)
+  }
+
+  return contractDeployedEvents.filter(isEventLog)
 }
 
 /**
@@ -1023,29 +967,25 @@ export const getDeploymentEvents = async (
  * https://docs.ethers.org/v5/api/utils/bytes/#DataHexString
  */
 export const isDataHexString = (variable: any): boolean => {
-  return ethers.utils.isHexString(variable) && variable.length % 2 === 0
+  return ethers.isHexString(variable) && variable.length % 2 === 0
 }
 
 export const getNetworkType = async (
-  provider: providers.JsonRpcProvider
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
 ): Promise<NetworkType> => {
   try {
     // This RPC method will throw an error on live networks, but won't throw an error on Hardhat or
     // Anvil, including forked networks. It doesn't throw an error on Anvil because the `anvil_`
     // namespace is an alias for `hardhat_`. Source:
     // https://book.getfoundry.sh/reference/anvil/#custom-methods
-    await provider.send('hardhat_impersonateAccount', [
-      ethers.constants.AddressZero,
-    ])
+    await provider.send('hardhat_impersonateAccount', [ethers.ZeroAddress])
   } catch (err) {
     return NetworkType.LIVE_NETWORK
   }
 
   try {
     // This RPC method will throw an error on Hardhat but not Anvil. This includes forked networks.
-    await provider.send('anvil_impersonateAccount', [
-      ethers.constants.AddressZero,
-    ])
+    await provider.send('anvil_impersonateAccount', [ethers.ZeroAddress])
     return NetworkType.ANVIL
   } catch (err) {
     return NetworkType.HARDHAT
@@ -1054,12 +994,16 @@ export const getNetworkType = async (
 
 export const getImpersonatedSigner = async (
   address: string,
-  provider: providers.JsonRpcProvider
-): Promise<providers.JsonRpcSigner> => {
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider
+): Promise<ethers.Signer> => {
   // This RPC method works for anvil too, since it's an alias for 'anvil_impersonateAccount'.
   await provider.send('hardhat_impersonateAccount', [address])
 
-  return provider.getSigner(address)
+  if (provider instanceof SphinxJsonRpcProvider) {
+    return new JsonRpcSigner(provider, address)
+  } else {
+    return provider.getSigner(address)
+  }
 }
 
 /**
@@ -1067,7 +1011,7 @@ export const getImpersonatedSigner = async (
  * deployment will or will not revert, but it will return the correct result in most cases.
  */
 export const deploymentDoesRevert = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   managerAddress: string,
   actionBundle: SphinxActionBundle,
   actionsExecuted: number
@@ -1099,16 +1043,16 @@ export const transferProjectOwnership = async (
   manager: ethers.Contract,
   newOwnerAddress: string,
   currOwnerAddress: string,
-  provider: providers.Provider,
+  provider: Provider,
   spinner: ora.Ora
 ) => {
-  if (!ethers.utils.isAddress(newOwnerAddress)) {
+  if (!ethers.isAddress(newOwnerAddress)) {
     throw new Error(`Invalid address for new project owner: ${newOwnerAddress}`)
   }
 
   if (newOwnerAddress !== currOwnerAddress) {
     spinner.start(`Transferring project ownership to: ${newOwnerAddress}`)
-    if (newOwnerAddress === ethers.constants.AddressZero) {
+    if (newOwnerAddress === ethers.ZeroAddress) {
       // We must call a separate function if ownership is being transferred to address(0).
       await (
         await manager.renounceOwnership(await getGasPriceOverrides(provider))
@@ -1152,7 +1096,7 @@ export const getImplAddress = (
     constructorArgs,
     abi
   )
-  const implSalt = ethers.utils.keccak256(implInitCode)
+  const implSalt = ethers.keccak256(implInitCode)
   return getCreate3Address(managerAddress, implSalt)
 }
 
@@ -1255,19 +1199,19 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
       throw new Error(`Malformed Request: ${e.response.data}`)
     } else if (e.response.status === 401) {
       throw new Error(
-        `Unauthorized, please check your API key and Org Id are correct`
+        `Unauthorized request. Please check your Sphinx API key and organization ID are correct.`
       )
     } else if (e.response.status === 409) {
       throw new Error(
-        `Unsupported network, please report this to the developers`
+        `Unsupported network. Please report this to the developers.`
       )
     } else if (e.response.status === 500) {
       throw new Error(
-        `Internal server error, please report this to the developers`
+        `Internal server error. Please report this to the developers.`
       )
     } else {
       throw new Error(
-        `Unexpected response code, please report this to the developers`
+        `Unexpected response code. Please report this to the developers.`
       )
     }
   }
@@ -1276,12 +1220,12 @@ export const relayProposal = async (proposalRequest: ProposalRequest) => {
 export const relayIPFSCommit = async (
   apiKey: string,
   orgId: string,
-  ipfsCommitRequest: Array<CompilerConfig>
+  ipfsData: Array<string>
 ): Promise<IPFSCommitResponse> => {
   const response = await axios.post(`${fetchSphinxManagedBaseUrl()}/api/pin`, {
     apiKey,
     orgId,
-    ipfsData: ipfsCommitRequest.map((el) => JSON.stringify(el, null, 2)),
+    ipfsData,
   })
 
   if (response.status === 200) {
@@ -1350,7 +1294,7 @@ export const toCanonicalConfig = async (
   parsedConfig: ParsedConfigWithOptions,
   managerAddress: string,
   authAddress: string,
-  rpcProviders: Record<string, ethers.providers.JsonRpcProvider>
+  rpcProviders: Record<string, SphinxJsonRpcProvider>
 ): Promise<CanonicalConfig> => {
   const { projectName } = parsedConfig
   const chainStates = {}
@@ -1371,7 +1315,7 @@ export const toCanonicalConfig = async (
     const Auth = new ethers.Contract(authAddress, AuthABI, provider)
     const firstProposalOccurred = await Auth.firstProposalOccurred()
 
-    const projectCreated = await isProjectCreated(provider, Auth.address)
+    const projectCreated = await isProjectCreated(provider, authAddress)
 
     chainStates[chainId] = {
       firstProposalOccurred,
@@ -1392,7 +1336,7 @@ export const getAuthLeafs = async (
   userConfig: UserConfigWithOptions,
   prevConfig: CanonicalConfig,
   rpcProviders: {
-    [network: string]: ethers.providers.JsonRpcProvider
+    [network: string]: SphinxJsonRpcProvider
   },
   managerAddress: string,
   networks: Array<string>,
@@ -1428,7 +1372,7 @@ export const getAuthLeafs = async (
 }
 
 export const isProjectCreated = async (
-  provider: providers.Provider,
+  provider: Provider,
   authAddress: string
 ): Promise<boolean> => {
   const AuthFactory = new ethers.Contract(
@@ -1484,30 +1428,34 @@ export const userConfirmation = async (question: string) => {
 }
 
 export const resolveNetwork = async (
-  provider: ethers.providers.Provider,
+  network: {
+    chainId: number | bigint
+    name: string
+  },
   networkType: NetworkType
 ): Promise<{
   networkName: string
   chainId: number
 }> => {
-  const { chainId, name } = await provider.getNetwork()
-  if (name !== 'unknown') {
-    return { chainId, networkName: name }
+  const networkName = network.name
+  const chainIdNumber = Number(network.chainId)
+  if (networkName !== 'unknown') {
+    return { chainId: chainIdNumber, networkName }
   } else {
     // The network name could be 'unknown' on a supported network, e.g. gnosis-chiado. We check if
     // the chain ID matches a supported network and use the network name if it does.
     const supportedNetwork = Object.entries(SUPPORTED_NETWORKS).find(
-      ([, supportedChainId]) => supportedChainId === chainId
+      ([, supportedChainId]) => supportedChainId === chainIdNumber
     )
     if (supportedNetwork) {
-      return { chainId, networkName: supportedNetwork[0] }
+      return { chainId: chainIdNumber, networkName: supportedNetwork[0] }
     } else if (networkType === NetworkType.ANVIL) {
-      return { chainId, networkName: 'anvil' }
+      return { chainId: chainIdNumber, networkName: 'anvil' }
     } else if (networkType === NetworkType.HARDHAT) {
-      return { chainId, networkName: 'hardhat' }
+      return { chainId: chainIdNumber, networkName: 'hardhat' }
     } else {
       // The network is an unsupported live network.
-      throw new Error(`Unsupported network: ${chainId}`)
+      throw new Error(`Unsupported network: ${chainIdNumber}`)
     }
   }
 }
@@ -1584,4 +1532,109 @@ export const getNetworkNameForChainId = (chainId: number): string => {
   }
 
   return network
+}
+
+export const isEventLog = (
+  event: ethers.EventLog | ethers.Log
+): event is ethers.EventLog => {
+  const eventLog = event as ethers.EventLog
+  return (
+    eventLog.args !== undefined &&
+    eventLog.eventName !== undefined &&
+    eventLog.eventSignature !== undefined &&
+    eventLog.fragment !== undefined &&
+    eventLog.interface !== undefined
+  )
+}
+
+/**
+ * @notice Sorts an array of hex strings in ascending order. This function mutates the array.
+ */
+export const sortHexStrings = (arr: Array<string>): void => {
+  arr.sort((a, b) => {
+    const aBigInt = BigInt(a)
+    const bBigInt = BigInt(b)
+
+    if (aBigInt < bBigInt) {
+      return -1
+    } else if (aBigInt > bBigInt) {
+      return 1
+    } else {
+      return 0
+    }
+  })
+}
+
+/**
+ * Removes "0x" from start of a string if it exists.
+ *
+ * @param str String to modify.
+ * @returns the string without "0x".
+ */
+export const remove0x = (str: string): string => {
+  if (str === undefined) {
+    return str
+  }
+  return str.startsWith('0x') ? str.slice(2) : str
+}
+
+/**
+ * Adds "0x" to the start of a string if necessary.
+ *
+ * @param str String to modify.
+ * @returns the string with "0x".
+ */
+export const add0x = (str: string): string => {
+  if (str === undefined) {
+    return str
+  }
+  return str.startsWith('0x') ? str : '0x' + str
+}
+
+/**
+ * Casts a hex string to a buffer.
+ *
+ * @param inp Input to cast to a buffer.
+ * @return Input cast as a buffer.
+ */
+export const fromHexString = (inp: Buffer | string): Buffer => {
+  if (typeof inp === 'string' && inp.startsWith('0x')) {
+    return Buffer.from(inp.slice(2), 'hex')
+  }
+
+  return Buffer.from(inp)
+}
+
+/**
+ * Casts an input to a hex string.
+ *
+ * @param inp Input to cast to a hex string.
+ * @return Input cast as a hex string.
+ */
+export const toHexString = (inp: Buffer | string | number): string => {
+  if (typeof inp === 'number') {
+    return ethers.toBeHex(BigInt(inp))
+  } else {
+    return '0x' + fromHexString(inp).toString('hex')
+  }
+}
+
+/**
+ * Basic timeout-based async sleep function.
+ *
+ * @param ms Number of milliseconds to sleep.
+ */
+export const sleep = async (ms: number): Promise<void> => {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve()
+    }, ms)
+  })
+}
+
+// From: https://github.com/NomicFoundation/hardhat/blob/f92e3233acc3180686e99b3c1b31a0e469f2ff1a/packages/hardhat-core/src/internal/core/config/config-resolution.ts#L112-L116
+export const isHttpNetworkConfig = (
+  config: NetworkConfig
+): config is HttpNetworkConfig => {
+  return 'url' in config
 }

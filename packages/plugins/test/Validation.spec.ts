@@ -4,10 +4,14 @@ import { expect } from 'chai'
 import {
   FailureAction,
   ensureSphinxInitialized,
+  getAuthAddress,
   getParsedConfig,
+  getParsedConfigWithOptions,
+  getSphinxManagerAddress,
   readUserConfig,
+  readUserConfigWithOptions,
 } from '@sphinx-labs/core'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 
 import { createSphinxRuntime } from '../src/cre'
 import { makeGetConfigArtifacts } from '../src/hardhat/artifacts'
@@ -16,13 +20,15 @@ const validationConfigPath = './sphinx/validation/Validation.config.ts'
 const constructorArgValidationConfigPath =
   './sphinx/validation/ConstructorArgValidation.config.ts'
 const reverterConfigPath = './sphinx/validation/Reverter.config.ts'
+const overriddenConfigPath =
+  './sphinx/validation/OverrideArgValidation.config.ts'
 
 describe('Validate', () => {
   let validationOutput = ''
 
   before(async () => {
     const provider = hre.ethers.provider
-    const signer = provider.getSigner()
+    const signer = await provider.getSigner()
     const signerAddress = await signer.getAddress()
     process.stderr.write = (message: string) => {
       validationOutput += message
@@ -75,6 +81,31 @@ describe('Validate', () => {
         cre,
         makeGetConfigArtifacts(hre),
         signerAddress,
+        FailureAction.THROW
+      )
+    } catch (e) {
+      /* empty */
+    }
+
+    try {
+      const userConfig = await readUserConfigWithOptions(overriddenConfigPath)
+      const authAddress = getAuthAddress(
+        userConfig.options.owners,
+        userConfig.options.ownerThreshold,
+        userConfig.projectName
+      )
+      const managerAddress = getSphinxManagerAddress(
+        authAddress,
+        userConfig.projectName
+      )
+
+      await getParsedConfigWithOptions(
+        userConfig,
+        managerAddress,
+        true,
+        provider,
+        cre,
+        makeGetConfigArtifacts(hre),
         FailureAction.THROW
       )
     } catch (e) {
@@ -419,6 +450,58 @@ describe('Validate', () => {
   it('did catch missing contract kind field', async () => {
     expect(validationOutput).to.have.string(
       `Missing contract 'kind' field for VariableValidation`
+    )
+  })
+
+  it('did catch incorrect overridden contructor args', async () => {
+    expect(validationOutput).to.have.string(
+      `The following overridden constructor arguments were found in your config for ConstructorArgOverrides, but are not present in the contract constructor:`
+    )
+    expect(validationOutput).to.have.string(
+      `incorrectOverrideArg on network: anvil`
+    )
+    expect(validationOutput).to.have.string(
+      `_defaultAndIncorrectOverrideWrong on network: anvil`
+    )
+  })
+
+  it('did catch incorrect default args', async () => {
+    expect(validationOutput).to.have.string(
+      `The following default constructor arguments were found in your config for ConstructorArgOverrides, but are not present in the contract constructor:\nincorrectDefaultArg`
+    )
+  })
+
+  it('did catch missing required args for overrides', async () => {
+    expect(validationOutput).to.have.string(
+      `The following constructor arguments are required by the constructor for ConstructorArgOverrides, but were not found in your config for one or more networks. Please either define a default value for these arguments or specify a value for every network.`
+    )
+    expect(validationOutput).to.have.string(
+      `_intArg on network: optimism-goerli`,
+      `_uintArg on network: optimism-goerli`
+    )
+    expect(validationOutput).to.have.string(
+      `_uintArg on network: optimism-goerli`,
+      `_intArg on network: optimism-goerli`
+    )
+    expect(validationOutput).to.have.string(
+      `_intArg on network: anvil`,
+      `_uintArg on network: anvil`
+    )
+    expect(validationOutput).to.have.string(
+      `_uintArg on network: anvil`,
+      `_intArg on network: anvil`
+    )
+    expect(validationOutput).to.have.string(
+      `_intArg on network: arbitrum-goerli`,
+      `_intArg on network: arbitrum-goerli`
+    )
+    expect(validationOutput).to.have.string(
+      `_uintArg on network: arbitrum-goerli`,
+      `_uintArg on network: arbitrum-goerli`
+    )
+    expect(validationOutput).to.have.string(
+      `_addressArg on network: arbitrum-goerli`,
+      `_addressArg on network: arbitrum-goerli`
     )
   })
 })

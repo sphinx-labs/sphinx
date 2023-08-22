@@ -1,7 +1,7 @@
 import { argv } from 'process'
 
 import hre from 'hardhat'
-import '@nomiclabs/hardhat-ethers'
+import '@nomicfoundation/hardhat-ethers'
 import {
   getParsedConfig,
   getProjectBundleInfo,

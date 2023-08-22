@@ -1,5 +1,4 @@
-import { fromHexString, toHexString } from '@eth-optimism/core-utils'
-import { BigNumber, ethers, utils } from 'ethers'
+import { ethers } from 'ethers'
 import MerkleTree from 'merkletreejs'
 import { astDereferencer } from 'solidity-ast/utils'
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
@@ -22,6 +21,8 @@ import {
   getDefaultProxyInitCode,
   getDeploymentId,
   getEmptyCanonicalConfig,
+  toHexString,
+  fromHexString,
 } from '../utils'
 import {
   ApproveDeployment,
@@ -48,6 +49,7 @@ import { getStorageLayout } from './artifacts'
 import { getCreate3Address } from '../config/utils'
 import { getProjectBundleInfo } from '../tasks'
 import { getDeployContractCosts } from '../estimate'
+import { SupportedChainId } from '../networks'
 
 /**
  * Checks whether a given action is a SetStorage action.
@@ -115,13 +117,14 @@ export const getNumDeployContractActions = (
  * @return Converted "raw" Sphinx action.
  */
 export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
   if (isSetStorageAction(action)) {
     return {
       actionType: SphinxActionType.SET_STORAGE,
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
-      data: ethers.utils.defaultAbiCoder.encode(
+      data: coder.encode(
         ['bytes32', 'uint8', 'bytes'],
         [action.key, action.offset, action.value]
       ),
@@ -132,10 +135,7 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
       addr: action.addr,
       contractKindHash: action.contractKindHash,
       referenceName: action.referenceName,
-      data: ethers.utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes'],
-        [action.salt, action.code]
-      ),
+      data: coder.encode(['bytes32', 'bytes'], [action.salt, action.code]),
     }
   } else {
     throw new Error(`unknown action type`)
@@ -151,8 +151,9 @@ export const toRawSphinxAction = (action: SphinxAction): RawSphinxAction => {
 export const fromRawSphinxAction = (
   rawAction: RawSphinxAction
 ): SphinxAction => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
   if (rawAction.actionType === SphinxActionType.SET_STORAGE) {
-    const [key, offset, value] = ethers.utils.defaultAbiCoder.decode(
+    const [key, offset, value] = coder.decode(
       ['bytes32', 'uint8', 'bytes'],
       rawAction.data
     )
@@ -165,10 +166,7 @@ export const fromRawSphinxAction = (
       value,
     }
   } else if (rawAction.actionType === SphinxActionType.DEPLOY_CONTRACT) {
-    const [salt, code] = ethers.utils.defaultAbiCoder.decode(
-      ['bytes32', 'bytes'],
-      rawAction.data
-    )
+    const [salt, code] = coder.decode(['bytes32', 'bytes'], rawAction.data)
     return {
       referenceName: rawAction.referenceName,
       addr: rawAction.addr,
@@ -188,8 +186,9 @@ export const fromRawSphinxAction = (
  * @return Hash of the action.
  */
 export const getActionHash = (action: RawSphinxAction): string => {
-  return ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  return ethers.keccak256(
+    coder.encode(
       ['string', 'address', 'uint8', 'bytes32', 'bytes'],
       [
         action.referenceName,
@@ -209,8 +208,9 @@ export const getActionHash = (action: RawSphinxAction): string => {
  * @return Hash of the action.
  */
 export const getTargetHash = (target: SphinxTarget): string => {
-  return ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
+  const coder = ethers.AbiCoder.defaultAbiCoder()
+  return ethers.keccak256(
+    coder.encode(
       ['address', 'address', 'bytes32'],
       [target.addr, target.implementation, target.contractKindHash]
     )
@@ -230,7 +230,7 @@ export const makeTargetBundle = (
   const root = toHexString(tree.getRoot())
 
   return {
-    root: root !== '0x' ? root : ethers.constants.HashZero,
+    root: root !== '0x' ? root : ethers.ZeroHash,
     targets: targets.map((target, idx) => {
       return {
         target,
@@ -243,58 +243,47 @@ export const makeTargetBundle = (
 }
 
 export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
+  const coder = ethers.AbiCoder.defaultAbiCoder()
   switch (leaf.leafType) {
     /************************ OWNER ACTIONS *****************************/
     case 'setup':
-      return utils.defaultAbiCoder.encode(
+      return coder.encode(
         ['tuple(address member, bool add)[]', 'uint256'],
         [leaf.proposers, leaf.numLeafs]
       )
 
     case 'exportProxy':
-      return utils.defaultAbiCoder.encode(
+      return coder.encode(
         ['address', 'bytes32', 'address'],
         [leaf.proxy, leaf.contractKindHash, leaf.newOwner]
       )
 
     case 'setOwner':
-      return utils.defaultAbiCoder.encode(
-        ['address', 'bool'],
-        [leaf.owner, leaf.add]
-      )
+      return coder.encode(['address', 'bool'], [leaf.owner, leaf.add])
 
     case 'setThreshold':
-      return utils.defaultAbiCoder.encode(['uint256'], [leaf.newThreshold])
+      return coder.encode(['uint256'], [leaf.newThreshold])
 
     case 'transferManagerOwnership':
-      return utils.defaultAbiCoder.encode(['address'], [leaf.newOwner])
+      return coder.encode(['address'], [leaf.newOwner])
 
     case 'upgradeManagerImplementation':
-      return utils.defaultAbiCoder.encode(
-        ['address', 'bytes'],
-        [leaf.impl, leaf.data]
-      )
+      return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
     case 'upgradeAuthImplementation':
-      return utils.defaultAbiCoder.encode(
-        ['address', 'bytes'],
-        [leaf.impl, leaf.data]
-      )
+      return coder.encode(['address', 'bytes'], [leaf.impl, leaf.data])
 
     case 'upgradeManagerAndAuthImpl':
-      return utils.defaultAbiCoder.encode(
+      return coder.encode(
         ['address', 'bytes', 'address', 'bytes'],
         [leaf.managerImpl, leaf.managerData, leaf.authImpl, leaf.authData]
       )
 
     case 'setProposer':
-      return utils.defaultAbiCoder.encode(
-        ['address', 'bool'],
-        [leaf.proposer, leaf.add]
-      )
+      return coder.encode(['address', 'bool'], [leaf.proposer, leaf.add])
 
     case 'approveDeployment':
-      return utils.defaultAbiCoder.encode(
+      return coder.encode(
         [
           'tuple(bytes32 actionRoot, bytes32 targetRoot, uint256 numActions, uint256 numTargets, uint256 numImmutableContracts, string configUri)',
         ],
@@ -302,12 +291,12 @@ export const getEncodedAuthLeafData = (leaf: AuthLeaf): string => {
       )
 
     case 'cancelActiveDeployment':
-      return utils.defaultAbiCoder.encode(['string'], [leaf.projectName])
+      return coder.encode(['string'], [leaf.projectName])
 
     /****************************** PROPOSER ACTIONS ******************************/
 
     case 'propose':
-      return utils.defaultAbiCoder.encode(['uint256'], [leaf.numLeafs])
+      return coder.encode(['uint256'], [leaf.numLeafs])
 
     default:
       throw Error(`Unknown auth leaf type. Should never happen.`)
@@ -374,7 +363,7 @@ export const makeAuthBundle = (leafs: Array<AuthLeaf>): AuthLeafBundle => {
   const root = tree.root
 
   return {
-    root: root !== '0x' ? root : ethers.constants.HashZero,
+    root: root !== '0x' ? root : ethers.ZeroHash,
     leafs: leafPairs.map((pair) => {
       const { leaf, prettyLeaf } = pair
       return {
@@ -411,7 +400,7 @@ export const makeActionBundle = (
   const root = toHexString(tree.getRoot())
 
   const a = {
-    root: root !== '0x' ? root : ethers.constants.HashZero,
+    root: root !== '0x' ? root : ethers.ZeroHash,
     actions: rawActions.map((action, idx) => {
       return {
         action,
@@ -435,7 +424,7 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
     if (i < elements.length) {
       filledElements.push(elements[i])
     } else {
-      filledElements.push(ethers.utils.keccak256(ethers.constants.HashZero))
+      filledElements.push(ethers.keccak256(ethers.ZeroHash))
     }
   }
 
@@ -445,7 +434,7 @@ export const makeMerkleTree = (elements: string[]): MerkleTree => {
       return fromHexString(element)
     }),
     (el: Buffer | string): Buffer => {
-      return fromHexString(ethers.utils.keccak256(el))
+      return fromHexString(ethers.keccak256(el))
     }
   )
 }
@@ -460,7 +449,11 @@ export const makeBundlesFromConfig = (
     configArtifacts,
     configCache
   )
-  const targetBundle = makeTargetBundleFromConfig(parsedConfig, configArtifacts)
+  const targetBundle = makeTargetBundleFromConfig(
+    parsedConfig,
+    configArtifacts,
+    configCache.chainId as SupportedChainId
+  )
   return { actionBundle, targetBundle }
 }
 
@@ -496,7 +489,7 @@ export const makeActionBundleFromConfig = (
           salt,
           code: getCreationCodeWithConstructorArgs(
             bytecode,
-            constructorArgs,
+            constructorArgs[configCache.chainId],
             abi
           ),
         })
@@ -525,14 +518,14 @@ export const makeActionBundleFromConfig = (
 
       const implInitCode = getCreationCodeWithConstructorArgs(
         bytecode,
-        constructorArgs,
+        constructorArgs[configCache.chainId],
         abi
       )
       // We use a 'salt' value that's a hash of the implementation contract's init code. This
       // essentially mimics the behavior of Create2 in the sense that the implementation's address
       // has a one-to-one mapping with its init code. This allows us to skip deploying implementation
       // contracts that have already been deployed.
-      const implSalt = ethers.utils.keccak256(implInitCode)
+      const implSalt = ethers.keccak256(implInitCode)
       const implAddress = getCreate3Address(managerAddress, implSalt)
 
       actions.push({
@@ -586,7 +579,8 @@ export const makeActionBundleFromConfig = (
  */
 export const makeTargetBundleFromConfig = (
   parsedConfig: ParsedConfig,
-  configArtifacts: ConfigArtifacts
+  configArtifacts: ConfigArtifacts,
+  chainId: SupportedChainId
 ): SphinxTargetBundle => {
   const { manager } = parsedConfig
 
@@ -604,7 +598,7 @@ export const makeTargetBundleFromConfig = (
         implementation: getImplAddress(
           manager,
           bytecode,
-          contractConfig.constructorArgs,
+          contractConfig.constructorArgs[chainId]!,
           abi
         ),
       })
@@ -850,27 +844,27 @@ export const getGasEstimates = async (
     const leafsOnChain = leafs.filter((l) => l.chainId === chainId)
 
     const estGasPerLeafPromises = leafsOnChain.map(async (leaf) => {
-      let estLeafGas = ethers.BigNumber.from(0)
+      let estLeafGas = 0
 
       if (isApproveDeploymentAuthLeaf(leaf)) {
         // Estimate the gas required to deploy the contracts in the project. This doesn't include
         // the gas required to execute the "ApproveDeployment" leaf, since the contracts aren't
         // executed in that transaction.
         const estDeployContractGas = getDeployContractCosts(configArtifacts)
-          .map(({ cost }) => cost.toNumber())
+          .map(({ cost }) => Number(cost))
           .reduce((a, b) => a + b, 0)
-        estLeafGas = estLeafGas.add(estDeployContractGas)
+        estLeafGas = estLeafGas + estDeployContractGas
       }
 
       // Add a constant amount of gas to account for the cost of executing the leaf. For context, it
       // costs ~350k gas to execute a Setup leaf that adds a single proposer and manager, using a
       // single owner as the signer. It costs ~100k gas to execute a Proposal leaf.
-      return estLeafGas.add(450_000)
+      return estLeafGas + 450_000
     })
 
     const resolved = await Promise.all(estGasPerLeafPromises)
 
-    const estGasOnChain = resolved.reduce((a, b) => a.add(b), BigNumber.from(0))
+    const estGasOnChain = resolved.reduce((a, b) => a + b, 0)
 
     gasEstimates.push({ chainId, estimatedGas: estGasOnChain.toString() })
   }

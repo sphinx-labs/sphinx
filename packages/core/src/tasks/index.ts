@@ -8,6 +8,7 @@ import Hash from 'ipfs-only-hash'
 import { create } from 'ipfs-http-client'
 import { ProxyABI } from '@sphinx-labs/contracts'
 import { blue } from 'chalk'
+import { HardhatEthersProvider } from '@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider'
 
 import {
   SphinxInput,
@@ -48,6 +49,7 @@ import {
   hyperlink,
   getNetworkNameForChainId,
 } from '../utils'
+import { SphinxJsonRpcProvider } from '../provider'
 import { ensureSphinxInitialized, getMinimumCompilerInput } from '../languages'
 import { Integration, WEBSITE_URL } from '../constants'
 import {
@@ -77,7 +79,11 @@ import {
   trackImportProxy,
 } from '../analytics'
 import { isSupportedNetworkOnEtherscan, verifySphinxConfig } from '../etherscan'
-import { getAuthAddress, getSphinxManagerAddress } from '../addresses'
+import {
+  getAuthAddress,
+  getSphinxManagerAddress,
+  getSphinxRegistryAddress,
+} from '../addresses'
 import { signAuthRootMetaTxn } from '../metatxs'
 import { getParsedConfigWithOptions } from '../config/parse'
 import { getDiff, getDiffString } from '../diff'
@@ -142,7 +148,7 @@ export const proposeAbstractTask = async (
   const leafs: Array<AuthLeaf> = []
   const projectDeployments: Array<ProjectDeployment> = []
   const compilerConfigs: {
-    [ipfsHash: string]: CompilerConfig
+    [ipfsHash: string]: string
   } = {}
   const configCaches: Array<ConfigCache> = []
   // We loop through any logic that depends on the provider object.
@@ -198,7 +204,7 @@ export const proposeAbstractTask = async (
     }
 
     configCaches.push(configCache)
-    compilerConfigs[configUri] = compilerConfig
+    compilerConfigs[configUri] = JSON.stringify(compilerConfig, null, 2)
   }
 
   spinner.succeed(`Got on-chain data.`)
@@ -223,18 +229,18 @@ export const proposeAbstractTask = async (
     )
   }
 
+  if (leafs.length === 0) {
+    spinner.succeed(
+      `Skipping proposal because your Sphinx config file has not changed.`
+    )
+    return
+  }
+
   if (!cre.confirm && !dryRun) {
     spinner.stop()
     // Confirm deployment with the user before proceeding.
     await userConfirmation(getDiffString(diff))
     spinner.start(`Proposal in progress...`)
-  }
-
-  if (leafs.length === 0) {
-    spinner.succeed(
-      `Proposal completed, nothing has changed so no new deployment was created.`
-    )
-    return
   }
 
   const chainIdToNumLeafs: { [chainId: number]: number } = {}
@@ -389,13 +395,12 @@ export const proposeAbstractTask = async (
 
   if (!dryRun) {
     const websiteLink = blue(hyperlink('website', WEBSITE_URL))
-    spinner.succeed(
-      `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
-    )
-
     await relayProposal(proposalRequest)
     const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
+    spinner.succeed(
+      `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
+    )
   } else {
     spinner.succeed(`Proposal dry run succeeded!`)
   }
@@ -513,7 +518,7 @@ IPFS_API_KEY_SECRET: ...
 }
 
 export const deployAbstractTask = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   compilerConfigPath: string,
   deploymentFolder: string,
@@ -540,7 +545,6 @@ export const deployAbstractTask = async (
     await userConfirmation(diffString)
   }
 
-  const Registry = getSphinxRegistry(signer)
   const Manager = getSphinxManager(manager, signer)
 
   // Register the project with the signer as the owner. Once we've completed the deployment, we'll
@@ -548,9 +552,10 @@ export const deployAbstractTask = async (
   const signerAddress = await signer.getAddress()
   await registerOwner(
     projectName,
-    Registry,
-    Manager,
+    getSphinxRegistryAddress(),
+    manager,
     signerAddress,
+    signer,
     provider,
     spinner
   )
@@ -624,7 +629,7 @@ export const deployAbstractTask = async (
     }
   }
 
-  initialDeploymentStatus === DeploymentStatus.COMPLETED
+  initialDeploymentStatus === BigInt(DeploymentStatus.COMPLETED)
     ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     : spinner.succeed(`Executed ${projectName}.`)
 
@@ -669,7 +674,7 @@ export const postDeploymentActions = async (
   integration: Integration,
   silent: boolean,
   owner: string,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   manager: ethers.Contract,
   spinner?: ora.Ora,
   etherscanApiKey?: string
@@ -740,14 +745,17 @@ export const postDeploymentActions = async (
 }
 
 export const sphinxCancelAbstractTask = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   owner: ethers.Signer,
   projectName: string,
   integration: Integration,
   cre: SphinxRuntimeEnvironment
 ) => {
   const networkType = await getNetworkType(provider)
-  const { networkName } = await resolveNetwork(provider, networkType)
+  const { networkName } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
 
   const ownerAddress = await owner.getAddress()
   const managerAddress = getSphinxManagerAddress(ownerAddress, projectName)
@@ -769,7 +777,7 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
 
   const activeDeploymentId = await Manager.activeDeploymentId()
 
-  if (activeDeploymentId === ethers.constants.HashZero) {
+  if (activeDeploymentId === ethers.ZeroHash) {
     spinner.fail(
       `${projectName} does not have an active project, so there is nothing to cancel.`
     )
@@ -788,7 +796,7 @@ You attempted to cancel the project using the address: ${await owner.getAddress(
 }
 
 export const sphinxExportProxyAbstractTask = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   owner: ethers.Signer,
   projectName: string,
   referenceName: string,
@@ -806,7 +814,7 @@ export const sphinxExportProxyAbstractTask = async (
   const Manager = getSphinxManager(managerAddress, owner)
 
   // Throw an error if the project has not been registered
-  if ((await Registry.isManagerDeployed(Manager.address)) === false) {
+  if ((await Registry.isManagerDeployed(managerAddress)) === false) {
     throw new Error(`Project has not been registered yet.`)
   }
 
@@ -821,7 +829,7 @@ export const sphinxExportProxyAbstractTask = async (
   spinner.start('Claiming proxy ownership...')
 
   const activeDeploymentId = await Manager.activeDeploymentId()
-  if (activeDeploymentId !== ethers.constants.HashZero) {
+  if (activeDeploymentId !== ethers.ZeroHash) {
     throw new Error(
       `A project is currently being executed. Proxy ownership has not been transferred.
   Please wait a couple of minutes before trying again.`
@@ -839,7 +847,10 @@ export const sphinxExportProxyAbstractTask = async (
   ).wait()
 
   const networkType = await getNetworkType(provider)
-  const { networkName } = await resolveNetwork(provider, networkType)
+  const { networkName } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
   await trackExportProxy(projectOwner, networkName, integration)
 
   spinner.succeed(`Proxy ownership claimed by address ${signerAddress}`)
@@ -847,7 +858,7 @@ export const sphinxExportProxyAbstractTask = async (
 
 export const sphinxImportProxyAbstractTask = async (
   projectName: string,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider | HardhatEthersProvider,
   signer: ethers.Signer,
   proxy: string,
   integration: Integration,
@@ -870,7 +881,10 @@ export const sphinxImportProxyAbstractTask = async (
   spinner.start('Checking proxy compatibility...')
 
   const networkType = await getNetworkType(provider)
-  const { networkName } = await resolveNetwork(provider, networkType)
+  const { networkName } = await resolveNetwork(
+    await provider.getNetwork(),
+    networkType
+  )
   if ((await provider.getCode(proxy)) === '0x') {
     throw new Error(`Proxy is not deployed on ${networkName}: ${proxy}`)
   }
@@ -894,19 +908,13 @@ export const sphinxImportProxyAbstractTask = async (
   const ownerAddress = await getEIP1967ProxyAdminAddress(provider, proxy)
 
   // If proxy owner is already Sphinx, then throw an error
-  if (
-    ethers.utils.getAddress(managerAddress) ===
-    ethers.utils.getAddress(ownerAddress)
-  ) {
+  if (ethers.getAddress(managerAddress) === ethers.getAddress(ownerAddress)) {
     throw new Error('Proxy is already owned by Sphinx')
   }
 
   // If the signer doesn't own the proxy, then throw an error
   const signerAddress = await signer.getAddress()
-  if (
-    ethers.utils.getAddress(ownerAddress) !==
-    ethers.utils.getAddress(signerAddress)
-  ) {
+  if (ethers.getAddress(ownerAddress) !== ethers.getAddress(signerAddress)) {
     throw new Error(`Proxy is owned by: ${ownerAddress}.
   You attempted to transfer ownership of the proxy using the address: ${signerAddress}`)
   }
@@ -958,7 +966,7 @@ export const approveDeployment = async (
   configUri: string,
   manager: ethers.Contract,
   signerAddress: string,
-  provider: ethers.providers.Provider
+  provider: ethers.Provider
 ) => {
   const projectOwnerAddress = await manager.owner()
   if (signerAddress !== projectOwnerAddress) {

@@ -1,29 +1,16 @@
 import path from 'path'
 
-import {
-  HardhatRuntimeEnvironment,
-  HttpNetworkConfig,
-  NetworkConfig,
-} from 'hardhat/types'
+import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import {
   UserContractConfigs,
-  getEIP1967ProxyImplementationAddress,
   BuildInfo,
-  ParsedContractConfig,
-  toOpenZeppelinContractKind,
   GetConfigArtifacts,
   validateBuildInfo,
   GetProviderForChainId,
   ConfigArtifacts,
+  SphinxJsonRpcProvider,
+  isHttpNetworkConfig,
 } from '@sphinx-labs/core'
-import {
-  Manifest,
-  getStorageLayoutForAddress,
-  StorageLayout,
-  withValidationDefaults,
-} from '@openzeppelin/upgrades-core'
-import { getDeployData } from '@openzeppelin/hardhat-upgrades/dist/utils/deploy-impl'
-import { providers } from 'ethers/lib/ethers'
 
 /**
  * Retrieves contract build info by name.
@@ -116,7 +103,7 @@ export const makeGetConfigArtifacts = (
 export const makeGetProviderFromChainId = (
   hre: HardhatRuntimeEnvironment
 ): GetProviderForChainId => {
-  return (chainId: number): providers.JsonRpcProvider => {
+  return (chainId: number): SphinxJsonRpcProvider => {
     const networkConfig = Object.values(hre.config.networks).find(
       (network) => network.chainId === chainId
     )
@@ -133,39 +120,36 @@ export const makeGetProviderFromChainId = (
       )
     }
 
-    return new providers.JsonRpcProvider(networkConfig.url)
+    return new SphinxJsonRpcProvider(networkConfig.url)
   }
-}
-
-// From: https://github.com/NomicFoundation/hardhat/blob/f92e3233acc3180686e99b3c1b31a0e469f2ff1a/packages/hardhat-core/src/internal/core/config/config-resolution.ts#L112-L116
-const isHttpNetworkConfig = (
-  config: NetworkConfig
-): config is HttpNetworkConfig => {
-  return 'url' in config
 }
 
 /**
  * Get storage layouts from OpenZeppelin's Network Files for any proxies that are being imported
  * into Sphinx from the OpenZeppelin Hardhat Upgrades plugin.
  */
-export const importOpenZeppelinStorageLayout = async (
-  hre: HardhatRuntimeEnvironment,
-  parsedContractConfig: ParsedContractConfig
-): Promise<StorageLayout> => {
-  const { kind } = parsedContractConfig
-  const proxy = parsedContractConfig.address
-  const manifest = await Manifest.forNetwork(hre.network.provider)
-  const deployData = await getDeployData(
-    hre,
-    await hre.ethers.getContractFactory(parsedContractConfig.contract),
-    withValidationDefaults({
-      kind: toOpenZeppelinContractKind(kind),
-    })
-  )
-  const storageLayout = await getStorageLayoutForAddress(
-    manifest,
-    deployData.validations,
-    await getEIP1967ProxyImplementationAddress(hre.ethers.provider, proxy)
-  )
-  return storageLayout
-}
+// export const importOpenZeppelinStorageLayout = async (
+//   hre: HardhatRuntimeEnvironment,
+//   parsedContractConfig: ParsedContractConfig
+// ): Promise<StorageLayout> => {
+//   const { kind } = parsedContractConfig
+//   const proxy = parsedContractConfig.address
+// TODO: you may want to change `hre.network.provider` since it may not be tied
+// to the network that we actually care about
+//   const manifest = await Manifest.forNetwork(hre.network.provider)
+//   const deployData = await getDeployData(
+//     hre,
+//     await hre.ethers.getContractFactory(parsedContractConfig.contract),
+//     withValidationDefaults({
+//       kind: toOpenZeppelinContractKind(kind),
+//     })
+//   )
+
+//   const provider = new SphinxJsonRpcProvider(hre.ethers.provider.connection.url)
+//   const storageLayout = await getStorageLayoutForAddress(
+//     manifest,
+//     deployData.validations,
+//     await getEIP1967ProxyImplementationAddress(provider, proxy)
+//   )
+//   return storageLayout
+// }

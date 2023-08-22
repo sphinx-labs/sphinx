@@ -1,4 +1,3 @@
-import { sleep } from '@eth-optimism/core-utils'
 import { ethers } from 'ethers'
 import ora from 'ora'
 
@@ -9,22 +8,23 @@ import {
   DeploymentState,
   DeploymentStatus,
 } from '../actions'
-import { getSphinxManager, getDeploymentEvents } from '../utils'
+import { getSphinxManager, getDeploymentEvents, sleep } from '../utils'
+import { SphinxJsonRpcProvider } from '../provider'
 import { ParsedConfigWithOptions } from '../config'
 
 export const getNumDeployedContracts = (
   bundle: SphinxActionBundle,
-  actionsExecuted: ethers.BigNumber
+  actionsExecuted: bigint
 ): number => {
   return bundle.actions
-    .slice(0, actionsExecuted.toNumber())
+    .slice(0, Number(actionsExecuted))
     .filter(
       (action) => action.action.actionType === SphinxActionType.DEPLOY_CONTRACT
     ).length
 }
 
 export const monitorExecution = async (
-  provider: ethers.providers.JsonRpcProvider,
+  provider: SphinxJsonRpcProvider,
   signer: ethers.Signer,
   parsedConfig: ParsedConfigWithOptions,
   bundles: SphinxBundles,
@@ -41,7 +41,7 @@ export const monitorExecution = async (
     deploymentId
   )
 
-  while (deploymentState.selectedExecutor === ethers.constants.AddressZero) {
+  while (deploymentState.selectedExecutor === ethers.ZeroAddress) {
     // Wait for one second.
     await sleep(1000)
 
@@ -52,7 +52,7 @@ export const monitorExecution = async (
   spinner.succeed('Executor has claimed the project.')
   spinner.start('Waiting for execution to be initiated...')
 
-  while (deploymentState.status === DeploymentStatus.APPROVED) {
+  while (deploymentState.status === BigInt(DeploymentStatus.APPROVED)) {
     // Wait for one second.
     await sleep(1000)
 
@@ -63,12 +63,16 @@ export const monitorExecution = async (
   spinner.succeed('Execution initiated.')
 
   const totalNumActions = bundles.actionBundle.actions.length
-  while (deploymentState.status === DeploymentStatus.PROXIES_INITIATED) {
-    if (deploymentState.actionsExecuted.toNumber() === totalNumActions) {
+  while (
+    deploymentState.status === BigInt(DeploymentStatus.PROXIES_INITIATED)
+  ) {
+    if (Number(deploymentState.actionsExecuted) === totalNumActions) {
       spinner.start(`All actions have been executed. Completing execution...`)
     } else {
       spinner.start(
-        `Number of actions executed: ${deploymentState.actionsExecuted.toNumber()} out of ${totalNumActions}`
+        `Number of actions executed: ${Number(
+          deploymentState.actionsExecuted
+        )} out of ${totalNumActions}`
       )
     }
 
@@ -79,7 +83,7 @@ export const monitorExecution = async (
     deploymentState = await SphinxManager.deployments(deploymentId)
   }
 
-  if (deploymentState.status === DeploymentStatus.COMPLETED) {
+  if (deploymentState.status === BigInt(DeploymentStatus.COMPLETED)) {
     spinner.succeed(`Finished executing ${projectName}.`)
     spinner.start(`Retrieving deployment info...`)
     const deploymentEvents = await getDeploymentEvents(
@@ -88,7 +92,7 @@ export const monitorExecution = async (
     )
     spinner.succeed('Retrieved deployment info.')
     return deploymentEvents
-  } else if (deploymentState.status === DeploymentStatus.CANCELLED) {
+  } else if (deploymentState.status === BigInt(DeploymentStatus.CANCELLED)) {
     spinner.fail(`${projectName} was cancelled.`)
     throw new Error(`${projectName} was cancelled.`)
   } else {

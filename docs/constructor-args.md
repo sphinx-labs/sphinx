@@ -1,9 +1,10 @@
 # Constructor Args in a Sphinx Config File
 
-This is a reference that shows how to define every constructor argument type in a Sphinx config file.
+This is a reference that shows how to define constructor arguments in your Sphinx config file.
 
 ## Table of Contents
 
+- [Defaults Args & Chain Overrides](#default-constructor-args--chain-specific-overrides)
 - [Booleans](#booleans)
 - [Integers](#integers)
   - [Unsigned Integers (`uint`)](#unsigned-integers-uint)
@@ -24,6 +25,47 @@ This is a reference that shows how to define every constructor argument type in 
 - [Structs](#structs)
   - [Complex structs](#complex-structs)
 - [User-Defined Value Types](#user-defined-value-types)
+
+## Default Constructor Args & Chain Specific Overrides
+Since with Sphinx you can trigger deployments across multiple networks at once, there may be cases where you need to define different contructor arguments for different networks. For example, you may need to define a different fee level or specify a different set of addresses for third-party contracts that your system integrates with.
+
+To handle these cases, Sphinx allows you to define two types of constructor arguments in your config file: default constructor arguments and chain specific overrides.
+
+### Default Arguments
+Default constructor arguments can be defined using the `constructorArgs` field on your contract definitions like you may have seen in previous guides:
+```
+constructorArgs: {
+  myArgument: 1
+}
+```
+
+Default constructor arguments will be used automatically when deploying this contract on any chain where there are no constructor argument overrides.
+
+### Chain Specific Overrides
+Chain specific overrides can be defined using the `overrides` field on your contract definitions. The `overrides` field accepts an array of override objects:
+```
+constructorArgs: {
+  feePercentage: 10
+}
+overrides: [
+  {
+    chains: ['arbitrum', 'optimism']
+    feePercentage: 50
+  },
+  {
+    chains: ['ethereum']
+    feePercentage: 3
+  }
+]
+```
+
+Chain specific overrides give you a great deal of flexibility in how you define your constructor arguments. In the above example, we've defined the default feePercentage to be 10%. On Arbitrum and Optimism, we've set the fee price 50% and on ethereum 3%. When we deploy using this config, Sphinx will automatically select the correct constructor argument based on the target chain(s).
+
+There are a few rules you must follow for how you define your chain specific overrides or else Sphinx will output validation error when you attempt to deploy:
+- Every constructor argument must have either a default value, an override, or both for every chain you want to deploy on.
+- Constructor arguments cannot have more than 1 override for each chain.
+
+While not required, we recommend setting default values for every constructor argument and then defining custom values for chains as needed.
 
 ## Booleans
 
