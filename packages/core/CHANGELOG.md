@@ -1,5 +1,20 @@
 # @sphinx-labs/core
 
+## 0.15.0
+
+### Minor Changes
+
+- 2b80792b: Upgrade to EthersV6
+- 2d0dbe78: Support constructor arg overrides
+
+### Patch Changes
+
+- d2bb2ae6: Integrate multisig support with Sphinx Platform
+- eb0cc1c3: Add support for multisigs in the Sphinx config
+- Updated dependencies [eb0cc1c3]
+- Updated dependencies [2b80792b]
+  - @sphinx-labs/contracts@0.10.0
+
 ## 0.14.2
 
 ### Patch Changes
