@@ -106,8 +106,12 @@ export const proposeAbstractTask = async (
   getProviderForChainId: GetProviderForChainId,
   spinner: ora.Ora = ora({ isSilent: true }),
   failureAction: FailureAction = FailureAction.EXIT,
-  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig
-): Promise<ProposalRequest | undefined> => {
+  getCanonicalConfig: GetCanonicalConfig = fetchCanonicalConfig,
+  signMetaTxn: boolean = true
+): Promise<{
+  proposalRequest: ProposalRequest | undefined
+  ipfsData: string[] | undefined
+}> => {
   const apiKey = process.env.SPHINX_API_KEY
   if (!apiKey) {
     throw new Error(`Must provide a 'SPHINX_API_KEY' environment variable.`)
@@ -233,7 +237,7 @@ export const proposeAbstractTask = async (
     spinner.succeed(
       `Skipping proposal because your Sphinx config file has not changed.`
     )
-    return
+    return { proposalRequest: undefined, ipfsData: undefined }
   }
 
   if (!cre.confirm && !dryRun) {
@@ -263,9 +267,10 @@ export const proposeAbstractTask = async (
 
   // Sign the meta-txn for the auth root, or leave it undefined if we're not relaying the proposal
   // to the back-end.
-  const metaTxnSignature = dryRun
-    ? undefined
-    : await signAuthRootMetaTxn(wallet, root)
+  const metaTxnSignature =
+    !dryRun && !signMetaTxn
+      ? undefined
+      : await signAuthRootMetaTxn(wallet, root)
 
   const proposalRequestLeafs: Array<ProposalRequestLeaf> = []
   for (const bundledLeaf of bundledLeafs) {
@@ -393,10 +398,10 @@ export const proposeAbstractTask = async (
     },
   }
 
+  const compilerConfigArray = Object.values(compilerConfigs)
   if (!dryRun) {
     const websiteLink = blue(hyperlink('website', WEBSITE_URL))
     await relayProposal(proposalRequest)
-    const compilerConfigArray = Object.values(compilerConfigs)
     await relayIPFSCommit(apiKey, orgId, compilerConfigArray)
     spinner.succeed(
       `Proposal succeeded! Go to the ${websiteLink} to approve the deployment.`
@@ -405,7 +410,7 @@ export const proposeAbstractTask = async (
     spinner.succeed(`Proposal dry run succeeded!`)
   }
 
-  return proposalRequest
+  return { proposalRequest, ipfsData: compilerConfigArray }
 }
 
 export const sphinxCommitAbstractSubtask = async (

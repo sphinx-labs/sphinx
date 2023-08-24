@@ -133,7 +133,7 @@ describe('Multi chain projects', () => {
             },
           }
 
-          const proposalRequest = await proposeAbstractTask(
+          const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
             cre,
@@ -145,13 +145,9 @@ describe('Multi chain projects', () => {
             getCanonicalConfig
           )
 
-          if (!proposalRequest) {
-            throw new Error('The proposal is empty. Should never happen.')
-          }
-
           await proposeThenApproveDeploymentThenExecute(
             newProjectTestInfo,
-            proposalRequest,
+            proposalRequest!,
             initialTestnets
           )
         })
@@ -192,7 +188,7 @@ describe('Multi chain projects', () => {
           )
 
           // Deploy the project on the existing chains.
-          const proposalRequest = await proposeAbstractTask(
+          const { proposalRequest } = await proposeAbstractTask(
             newProjectTestInfo.userConfig,
             true,
             cre,
