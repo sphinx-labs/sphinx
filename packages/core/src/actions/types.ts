@@ -6,6 +6,7 @@ import { SphinxDiff } from '../diff'
 export enum SphinxActionType {
   SET_STORAGE,
   DEPLOY_CONTRACT,
+  CALL,
 }
 
 /**
@@ -14,10 +15,12 @@ export enum SphinxActionType {
 export const DeploymentStatus = {
   EMPTY: 0n,
   APPROVED: 1n,
-  PROXIES_INITIATED: 2n,
-  COMPLETED: 3n,
-  CANCELLED: 4n,
-  FAILED: 5n,
+  INITIAL_ACTIONS_EXECUTED: 2n,
+  PROXIES_INITIATED: 3n,
+  SET_STORAGE_ACTIONS_EXECUTED: 4n,
+  COMPLETED: 5n,
+  CANCELLED: 6n,
+  FAILED: 7n,
 }
 
 /**
@@ -25,6 +28,7 @@ export const DeploymentStatus = {
  */
 export interface RawSphinxAction {
   actionType: SphinxActionType
+  index: number
   referenceName: string
   data: string
   addr: string
@@ -44,6 +48,7 @@ export interface SetStorageAction {
   referenceName: string
   addr: string
   contractKindHash: string
+  index: number
   key: string
   offset: number
   value: string
@@ -56,8 +61,18 @@ export interface DeployContractAction {
   referenceName: string
   addr: string
   contractKindHash: string
+  index: number
   salt: string
   code: string
+}
+
+export interface CallAction {
+  referenceName: string
+  addr: string
+  contractKindHash: string
+  index: number
+  payload: string
+  salt: string
 }
 
 export interface SphinxBundles {
@@ -68,17 +83,14 @@ export interface SphinxBundles {
 /**
  * Sphinx action.
  */
-export type SphinxAction = SetStorageAction | DeployContractAction
+export type SphinxAction = SetStorageAction | DeployContractAction | CallAction
 
 /**
  * Sphinx action that is part of a bundle.
  */
 export type BundledSphinxAction = {
   action: RawSphinxAction
-  proof: {
-    actionIndex: number
-    siblings: string[]
-  }
+  siblings: string[]
 }
 
 /**
@@ -127,11 +139,11 @@ export interface SphinxTargetBundle {
  */
 export type DeploymentState = {
   status: bigint
-  actions: boolean[]
+  numInitialActions: bigint
+  numSetStorageActions: bigint
   actionRoot: string
   targetRoot: string
-  numImmutableContracts: number
-  targets: number
+  targets: bigint
   actionsExecuted: bigint
   timeClaimed: bigint
   selectedExecutor: string
@@ -160,9 +172,9 @@ export type SetRoleMember = {
 export type DeploymentApproval = {
   actionRoot: string
   targetRoot: string
-  numActions: number
+  numInitialActions: number
+  numSetStorageActions: number
   numTargets: number
-  numImmutableContracts: number
   configUri: string
 }
 

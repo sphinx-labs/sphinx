@@ -48,9 +48,9 @@ interface ISphinxManager {
     function approve(
         bytes32 _actionRoot,
         bytes32 _targetRoot,
-        uint256 _numActions,
+        uint256 _numInitialActions,
+        uint256 _numSetStorageActions,
         uint256 _numTargets,
-        uint256 _numImmutableContracts,
         string memory _configUri,
         bool _remoteExecution
     ) external;
@@ -59,9 +59,13 @@ interface ISphinxManager {
 
     function deployments(bytes32 _deploymentId) external view returns (DeploymentState memory);
 
-    function executeActions(
+    function executeInitialActions(
         RawSphinxAction[] memory _actions,
-        uint256[] memory _actionIndexes,
+        bytes32[][] memory _proofs
+    ) external;
+
+    function setStorage(
+        RawSphinxAction[] memory _actions,
         bytes32[][] memory _proofs
     ) external;
 

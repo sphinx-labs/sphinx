@@ -83,17 +83,24 @@ export type ParsedConfigVariable =
       [name: string]: ParsedConfigVariable
     }
 
+export type UserCallAction = {
+  rawReferenceName: string
+  args: Array<any>
+}
+
 export type UserSphinxConfig = UserConfig | UserConfigWithOptions
 
 export type UserConfig = {
   projectName: string
   contracts: UserContractConfigs
+  postDeploy: Array<UserCallAction>
   options?: never
 }
 
 export type UserConfigWithOptions = {
   projectName: string
   contracts: UserContractConfigs
+  postDeploy: Array<UserCallAction>
   options: UserConfigOptions
 }
 

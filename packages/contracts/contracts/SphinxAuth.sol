@@ -531,9 +531,9 @@ contract SphinxAuth is AccessControlEnumerableUpgradeable, Semver {
         manager.approve(
             approval.actionRoot,
             approval.targetRoot,
-            approval.numActions,
+            approval.numInitialActions,
+            approval.numSetStorageActions,
             approval.numTargets,
-            approval.numImmutableContracts,
             approval.configUri,
             true
         );

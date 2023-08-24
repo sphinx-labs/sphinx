@@ -131,12 +131,12 @@ describe('Init Task', () => {
   it('Succeeds for a sample Hardhat project with a TypeScript Sphinx config', async () => {
     const deploymentArtifactOne = path.join(
       deploymentArtifactDir,
-      'hardhat-31337',
+      'anvil-31337',
       'MyFirstContract.json'
     )
     const deploymentArtifactTwo = path.join(
       deploymentArtifactDir,
-      'hardhat-31337',
+      'anvil-31337',
       'MySecondContract.json'
     )
 

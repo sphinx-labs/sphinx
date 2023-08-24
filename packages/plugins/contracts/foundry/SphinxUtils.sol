@@ -276,18 +276,18 @@ contract SphinxUtils is
     ) external pure returns (bytes32) {
         bytes32 actionRoot = _actionBundle.root;
         bytes32 targetRoot = _targetBundle.root;
-        uint256 numActions = _actionBundle.actions.length;
         uint256 numTargets = _targetBundle.targets.length;
-        (uint256 numImmutableContracts, ) = getNumActions(_actionBundle.actions);
+
+        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(_actionBundle.actions);
 
         return
             keccak256(
                 abi.encode(
                     actionRoot,
                     targetRoot,
-                    numActions,
+                    numInitialActions,
+                    numSetStorageActions,
                     numTargets,
-                    numImmutableContracts,
                     _configUri
                 )
             );
@@ -332,18 +332,16 @@ contract SphinxUtils is
      */
     function disassembleActions(
         BundledSphinxAction[] memory actions
-    ) public pure returns (RawSphinxAction[] memory, uint256[] memory, bytes32[][] memory) {
+    ) public pure returns (RawSphinxAction[] memory, bytes32[][] memory) {
         RawSphinxAction[] memory rawActions = new RawSphinxAction[](actions.length);
-        uint256[] memory _actionIndexes = new uint256[](actions.length);
         bytes32[][] memory _proofs = new bytes32[][](actions.length);
         for (uint i = 0; i < actions.length; i++) {
             BundledSphinxAction memory action = actions[i];
             rawActions[i] = action.action;
-            _actionIndexes[i] = action.proof.actionIndex;
-            _proofs[i] = action.proof.siblings;
+            _proofs[i] = action.siblings;
         }
 
-        return (rawActions, _actionIndexes, _proofs);
+        return (rawActions, _proofs);
     }
 
     /**
@@ -438,17 +436,17 @@ contract SphinxUtils is
     function getNumActions(
         BundledSphinxAction[] memory _actions
     ) public pure returns (uint256, uint256) {
-        uint256 numDeployContractActions = 0;
+        uint256 numInitialActions = 0;
         uint256 numSetStorageActions = 0;
         for (uint256 i = 0; i < _actions.length; i++) {
             SphinxActionType actionType = _actions[i].action.actionType;
-            if (actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                numDeployContractActions += 1;
+            if (actionType == SphinxActionType.DEPLOY_CONTRACT || actionType == SphinxActionType.CALL) {
+                numInitialActions += 1;
             } else if (actionType == SphinxActionType.SET_STORAGE) {
                 numSetStorageActions += 1;
             }
         }
-        return (numDeployContractActions, numSetStorageActions);
+        return (numInitialActions, numSetStorageActions);
     }
 
     function getConfigCache(
@@ -555,34 +553,56 @@ contract SphinxUtils is
         return this.slice(_data, 4, _data.length);
     }
 
-    function getActionsByType(
-        SphinxActionBundle memory _actionBundle
+    function removeExecutedActions(
+        BundledSphinxAction[] memory _actions,
+        uint256 _actionsExecuted
+    ) external pure returns (BundledSphinxAction[] memory) {
+        uint numActionsToExecute = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (action.action.index >= _actionsExecuted) {
+                numActionsToExecute += 1;
+            }
+        }
+
+        BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](numActionsToExecute);
+        uint filteredArrayIndex = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (action.action.index >= _actionsExecuted) {
+                filteredActions[filteredArrayIndex] = action;
+                filteredArrayIndex += 1;
+            }
+        }
+        return filteredActions;
+    }
+
+    function splitActions(
+        BundledSphinxAction[] memory _actions
     ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory) {
-        // Get number of deploy contract and set state actions
-        (uint256 numDeployContractActions, uint256 numSetStorageActions) = getNumActions(
-            _actionBundle.actions
+        (uint256 numInitialActions, uint256 numSetStorageActions) = getNumActions(
+            _actions
         );
 
-        // Split up the deploy contract and set storage actions
-        BundledSphinxAction[] memory deployContractActions = new BundledSphinxAction[](
-            numDeployContractActions
+        BundledSphinxAction[] memory initialActions = new BundledSphinxAction[](
+            numInitialActions
         );
         BundledSphinxAction[] memory setStorageActions = new BundledSphinxAction[](
             numSetStorageActions
         );
-        uint deployContractIndex = 0;
-        uint setStorageIndex = 0;
-        for (uint i = 0; i < _actionBundle.actions.length; i++) {
-            BundledSphinxAction memory action = _actionBundle.actions[i];
-            if (action.action.actionType == SphinxActionType.DEPLOY_CONTRACT) {
-                deployContractActions[deployContractIndex] = action;
-                deployContractIndex += 1;
-            } else {
-                setStorageActions[setStorageIndex] = action;
-                setStorageIndex += 1;
+        uint initialActionArrayIndex = 0;
+        uint setStorageArrayIndex = 0;
+        for (uint i = 0; i < _actions.length; i++) {
+            BundledSphinxAction memory action = _actions[i];
+            if (action.action.actionType == SphinxActionType.DEPLOY_CONTRACT || action.action.actionType == SphinxActionType.CALL) {
+                initialActions[initialActionArrayIndex] = action;
+                initialActionArrayIndex += 1;
+            } else if (action.action.actionType == SphinxActionType.SET_STORAGE) {
+                setStorageActions[setStorageArrayIndex] = action;
+                setStorageArrayIndex += 1;
             }
         }
-        return (deployContractActions, setStorageActions);
+        return (initialActions, setStorageActions);
     }
 
     function getCodeSize(address _addr) external view returns (uint256) {

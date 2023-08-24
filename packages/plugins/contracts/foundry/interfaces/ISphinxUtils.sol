@@ -37,7 +37,7 @@ interface ISphinxUtils {
 
     function disassembleActions(
         BundledSphinxAction[] memory actions
-    ) external pure returns (RawSphinxAction[] memory, uint256[] memory, bytes32[][] memory);
+    ) external pure returns (RawSphinxAction[] memory, bytes32[][] memory);
 
     function ensureSphinxInitialized(address _systemOwner) external;
 
@@ -66,8 +66,8 @@ interface ISphinxUtils {
 
     function decodeBundleInfo(bytes memory _data) external view returns (BundleInfo memory);
 
-    function getActionsByType(
-        SphinxActionBundle memory _actionBundle
+    function splitActions(
+        BundledSphinxAction[] memory _actions
     ) external pure returns (BundledSphinxAction[] memory, BundledSphinxAction[] memory);
 
     function findCost(
@@ -123,6 +123,11 @@ interface ISphinxUtils {
     function msgSender() external view returns (address);
 
     function removeSelector(bytes memory _data) external view returns (bytes memory);
+
+    function removeExecutedActions(
+        BundledSphinxAction[] memory _actions,
+        uint256 _actionsExecuted
+    ) external returns (BundledSphinxAction[] memory);
 
     function slice(
         bytes memory _data,
