@@ -1,5 +1,14 @@
 # @sphinx-labs/plugins
 
+## 0.20.1
+
+### Patch Changes
+
+- 79ecfdf7: Detect invalid network names for overrides
+- Updated dependencies [230f6597]
+- Updated dependencies [79ecfdf7]
+  - @sphinx-labs/core@0.15.1
+
 ## 0.20.0
 
 ### Minor Changes
