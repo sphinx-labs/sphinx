@@ -261,7 +261,7 @@ export const setupThenProposeThenApproveDeploymentThenExecute = async (
   const { authAddress, userConfig, ownerPrivateKeys, proposerAddresses } =
     projectTestInfo
 
-  const proposalRequest = await proposeAbstractTask(
+  const { proposalRequest } = await proposeAbstractTask(
     userConfig,
     true, // Is testnet
     cre,
