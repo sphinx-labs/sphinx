@@ -1,5 +1,12 @@
 # @sphinx-labs/core
 
+## 0.15.1
+
+### Patch Changes
+
+- 230f6597: Only error when rpc environment variables are actually necessary
+- 79ecfdf7: Detect invalid network names for overrides
+
 ## 0.15.0
 
 ### Minor Changes
