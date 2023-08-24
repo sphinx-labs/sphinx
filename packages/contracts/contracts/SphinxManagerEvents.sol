@@ -8,9 +8,10 @@ contract SphinxManagerEvents {
      * @param deploymentId   ID of the deployment that was approved.
      * @param actionRoot   Root of the Merkle tree containing the actions for the deployment.
      * @param targetRoot   Root of the Merkle tree containing the targets for the deployment.
-     * @param numActions   Number of actions in the deployment.
+     * @param numInitialActions   Number of initial `CALL` or `DEPLOY_CONTRACT` actions in the
+       deployment, which must occur before an upgrade is initiated (if applicable).
+     * @param numSetStorageActions   Number of `SET_STORAGE` actions in the deployment.
      * @param numTargets   Number of targets in the deployment.
-     * @param numImmutableContracts   Number of non-proxy contracts in the deployment.
      * @param configUri  URI of the config file that can be used to fetch the deployment.
      * @param remoteExecution Boolean indicating if the deployment should be remotely executed.
      * @param approver     Address of the account that approved the deployment.
@@ -19,9 +20,9 @@ contract SphinxManagerEvents {
         bytes32 indexed deploymentId,
         bytes32 actionRoot,
         bytes32 targetRoot,
-        uint256 numActions,
+        uint256 numInitialActions,
+        uint256 numSetStorageActions,
         uint256 numTargets,
-        uint256 numImmutableContracts,
         string configUri,
         bool remoteExecution,
         address approver
@@ -110,6 +111,16 @@ contract SphinxManagerEvents {
     );
 
     /**
+     * @notice Emitted when a `CALL` action is executed.
+     *
+     * @param deploymentId ID of the deployment in which the call was executed.
+     * @param actionIndex Index of the `CALL` action that was executed.
+     * @param callHash     Hash of the call that was executed. Specifically, this is the hash of the
+        ABI-encoded target address, the bytes payload, and the bytes32 salt (in that order).
+     */
+    event CallExecuted(bytes32 indexed deploymentId, uint256 actionIndex, bytes32 callHash);
+
+    /**
      * @notice Emitted when a contract deployment is skipped. This occurs when a contract already
        exists at the Create3 address.
      *
@@ -128,16 +139,10 @@ contract SphinxManagerEvents {
     );
 
     /**
-     * @notice Emitted when a deployment fails. This should only occur if the constructor of a
-       deployed contract reverts.
+     * @notice Emitted when a deployment fails.
      *
-     * @param referenceNameHash Hash of the reference name that corresponds to this contract.
-     * @param deploymentId      ID of the deployment in which the contract deployment was attempted.
-     * @param referenceName     String reference name.
+     * @param deploymentId      ID of the deployment that failed.
+     * @param actionIndex Index of the action that caused the deployment to fail.
      */
-    event DeploymentFailed(
-        string indexed referenceNameHash,
-        bytes32 indexed deploymentId,
-        string referenceName
-    );
+    event DeploymentFailed(bytes32 indexed deploymentId, uint256 actionIndex);
 }

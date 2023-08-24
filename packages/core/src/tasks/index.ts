@@ -1,3 +1,5 @@
+Error.stackTraceLimit = Infinity // TODO
+
 import process from 'process'
 import { join, sep } from 'path'
 
@@ -60,7 +62,6 @@ import {
   RoleType,
   executeDeployment,
   getAuthLeafSignerInfo,
-  getNumDeployContractActions,
   makeAuthBundle,
   makeBundlesFromConfig,
   writeDeploymentArtifacts,
@@ -70,6 +71,8 @@ import {
   getAuthLeafsForChain,
   getGasEstimates,
   ProjectDeployment,
+  fromRawSphinxAction,
+  isSetStorageAction,
 } from '../actions'
 import { SphinxRuntimeEnvironment, FailureAction } from '../types'
 import {
@@ -592,13 +595,18 @@ export const deployAbstractTask = async (
   if (currDeploymentStatus === DeploymentStatus.EMPTY) {
     spinner.succeed(`${projectName} has not been deployed before.`)
     spinner.start(`Approving ${projectName}...`)
+    const numTotalActions = bundles.actionBundle.actions.length
+    const numSetStorageActions = bundles.actionBundle.actions
+      .map((action) => fromRawSphinxAction(action.action))
+      .filter(isSetStorageAction).length
+    const numInitialActions = numTotalActions - numSetStorageActions
     await (
       await Manager.approve(
         bundles.actionBundle.root,
         bundles.targetBundle.root,
-        bundles.actionBundle.actions.length,
+        numInitialActions,
+        numSetStorageActions,
         bundles.targetBundle.targets.length,
-        getNumDeployContractActions(bundles.actionBundle),
         configUri,
         false,
         await getGasPriceOverrides(provider)
@@ -610,7 +618,9 @@ export const deployAbstractTask = async (
 
   if (
     currDeploymentStatus === DeploymentStatus.APPROVED ||
-    currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED
+    currDeploymentStatus === DeploymentStatus.INITIAL_ACTIONS_EXECUTED ||
+    currDeploymentStatus === DeploymentStatus.PROXIES_INITIATED ||
+    currDeploymentStatus === DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
   ) {
     spinner.start(`Executing ${projectName}...`)
 
@@ -624,12 +634,12 @@ export const deployAbstractTask = async (
 
     if (!success) {
       throw new Error(
-        `Failed to execute ${projectName}, likely because one of the user's constructors reverted during the deployment.`
+        `Failed to execute ${projectName}, likely because one of the user's transaction reverted during the deployment.`
       )
     }
   }
 
-  initialDeploymentStatus === BigInt(DeploymentStatus.COMPLETED)
+  initialDeploymentStatus === DeploymentStatus.COMPLETED
     ? spinner.succeed(`${projectName} was already completed on ${networkName}.`)
     : spinner.succeed(`Executed ${projectName}.`)
 
@@ -958,35 +968,4 @@ export const getProjectBundleInfo = async (
   )
 
   return { configUri, compilerConfig, bundles }
-}
-
-export const approveDeployment = async (
-  projectName: string,
-  bundles: SphinxBundles,
-  configUri: string,
-  manager: ethers.Contract,
-  signerAddress: string,
-  provider: ethers.Provider
-) => {
-  const projectOwnerAddress = await manager.owner()
-  if (signerAddress !== projectOwnerAddress) {
-    throw new Error(
-      `Caller is not the project owner.\n` +
-        `Caller's address: ${signerAddress}\n` +
-        `Owner's address: ${projectOwnerAddress}`
-    )
-  }
-
-  await (
-    await manager.approve(
-      bundles.actionBundle.root,
-      bundles.targetBundle.root,
-      bundles.actionBundle.actions.length,
-      bundles.targetBundle.targets.length,
-      getNumDeployContractActions(bundles.actionBundle),
-      configUri,
-      false,
-      await getGasPriceOverrides(provider)
-    )
-  ).wait()
 }

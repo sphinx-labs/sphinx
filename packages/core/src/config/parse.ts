@@ -1623,8 +1623,6 @@ export const parseContractConstructorArgs = (
     )
   }
 
-  // Todo - check if any of network names listed in overrides are invalid
-
   // Check if there are any variables which have ambiguous overrides (due to fields being listed multiple times for a given network)
   const ambigiousArgOverrides: {
     [key in SupportedChainId]?: {

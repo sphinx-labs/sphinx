@@ -6,6 +6,8 @@ import { arraysEqual, getNetworkTag, hyperlink } from './utils'
 type ContractAction = 'deploying' | 'skipping'
 const contractActionTypes: Array<ContractAction> = ['deploying', 'skipping']
 
+// TODO: add 'call' actions to the diff
+
 export type SphinxDiff = Record<
   ContractAction,
   Array<{

@@ -9,10 +9,7 @@ import {
   DeploymentStatus,
 } from './types'
 import { getGasPriceOverrides } from '../utils'
-import {
-  getDeployContractActionBundle,
-  getSetStorageActionBundle,
-} from './bundle'
+import { getInitialActionBundle, getSetStorageActionBundle } from './bundle'
 import { getEstDeployContractCost } from '../estimate'
 import { ConfigArtifacts } from '../config'
 
@@ -39,26 +36,27 @@ export const executeDeployment = async (
   const gasFraction = 2n
   const maxGasLimit = blockGasLimit / gasFraction
 
-  const deployContractActionBundle = getDeployContractActionBundle(actionBundle)
+  const initialActionBundle = getInitialActionBundle(actionBundle)
   const setStorageActionBundle = getSetStorageActionBundle(actionBundle)
 
-  logger?.info(`[Sphinx]: executing 'DEPLOY_CONTRACT' actions...`)
+  logger?.info(`[Sphinx]: executing initial actions...`)
   const { status, receipts } = await executeBatchActions(
-    deployContractActionBundle,
+    initialActionBundle,
+    false,
     manager,
     maxGasLimit,
     configArtifacts,
     provider,
     logger
   )
-  if (status === BigInt(DeploymentStatus.FAILED)) {
-    logger?.error(`[Sphinx]: failed to execute 'DEPLOY_CONTRACT' actions`)
+  if (status === DeploymentStatus.FAILED) {
+    logger?.error(`[Sphinx]: failed to execute initial actions`)
     return { success: false, receipts }
-  } else if (status === BigInt(DeploymentStatus.COMPLETED)) {
+  } else if (status === DeploymentStatus.COMPLETED) {
     logger?.info(`[Sphinx]: finished non-proxied deployment early`)
     return { success: true, receipts }
   } else {
-    logger?.info(`[Sphinx]: executed 'DEPLOY_CONTRACT' actions`)
+    logger?.info(`[Sphinx]: executed initial actions`)
   }
 
   logger?.info(`[Sphinx]: initiating upgrade...`)
@@ -76,6 +74,7 @@ export const executeDeployment = async (
   logger?.info(`[Sphinx]: executing 'SET_STORAGE' actions...`)
   const { receipts: setStorageReceipts } = await executeBatchActions(
     setStorageActionBundle,
+    true,
     manager,
     maxGasLimit,
     configArtifacts,
@@ -143,6 +142,8 @@ const findMaxBatchSize = async (
   return min
 }
 
+// TODO: do this logic in solidity too after testing that the TS logic works
+
 /**
  * Helper function for executing a list of actions in batches.
  *
@@ -150,6 +151,7 @@ const findMaxBatchSize = async (
  */
 const executeBatchActions = async (
   actions: BundledSphinxAction[],
+  isSetStorageActionArray: boolean,
   manager: ethers.Contract,
   maxGasLimit: bigint,
   configArtifacts: ConfigArtifacts,
@@ -165,9 +167,9 @@ const executeBatchActions = async (
   const activeDeploymentId = await manager.activeDeploymentId()
   let state: DeploymentState = await manager.deployments(activeDeploymentId)
 
-  // Filter out any actions that have already been executed.
+  // Remove the actions that have already been executed.
   const filtered = actions.filter((action) => {
-    return !state.actions[action.proof.actionIndex]
+    return action.action.index >= state.actionsExecuted
   })
 
   // We can return early if there are no actions to execute.
@@ -195,19 +197,30 @@ const executeBatchActions = async (
       }...`
     )
 
-    // Execute the batch.
-    const tx = await (
-      await manager.executeActions(
-        batch.map((action) => action.action),
-        batch.map((action) => action.proof.actionIndex),
-        batch.map((action) => action.proof.siblings),
-        await getGasPriceOverrides(provider)
-      )
-    ).wait()
-    receipts.push(tx)
+    // Execute the batch of actions.
+    if (isSetStorageActionArray) {
+      const tx = await (
+        await manager.setStorage(
+          batch.map((action) => action.action),
+          batch.map((action) => action.siblings),
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+      receipts.push(tx)
+    } else {
+      const tx = await (
+        await manager.executeInitialActions(
+          batch.map((action) => action.action),
+          batch.map((action) => action.siblings),
+          await getGasPriceOverrides(provider)
+        )
+      ).wait()
+      receipts.push(tx)
+    }
 
+    // Return early if the deployment failed.
     state = await manager.deployments(activeDeploymentId)
-    if (state.status === BigInt(DeploymentStatus.FAILED)) {
+    if (state.status === DeploymentStatus.FAILED) {
       return { status: state.status, receipts }
     }
 
@@ -215,6 +228,7 @@ const executeBatchActions = async (
     executed += batchSize
   }
 
+  // Return the final deployment status.
   return { status: state.status, receipts }
 }
 

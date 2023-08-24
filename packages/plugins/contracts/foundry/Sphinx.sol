@@ -205,15 +205,13 @@ abstract contract Sphinx {
         }
 
         if (deploymentState.status == DeploymentStatus.EMPTY) {
-            (uint256 numImmutableContracts, ) = utils.getNumActions(
-                bundleInfo.actionBundle.actions
-            );
+            (uint256 numInitialActions, uint256 numSetStorageActions) = utils.getNumActions(bundleInfo.actionBundle.actions);
             manager.approve{ gas: 1000000 }(
                 bundleInfo.actionBundle.root,
                 bundleInfo.targetBundle.root,
-                bundleInfo.actionBundle.actions.length,
+                numInitialActions,
+                numSetStorageActions,
                 bundleInfo.targetBundle.targets.length,
-                numImmutableContracts,
                 bundleInfo.configUri,
                 false
             );
@@ -223,7 +221,9 @@ abstract contract Sphinx {
 
         if (
             deploymentState.status == DeploymentStatus.APPROVED ||
-            deploymentState.status == DeploymentStatus.PROXIES_INITIATED
+            deploymentState.status == DeploymentStatus.INITIAL_ACTIONS_EXECUTED ||
+            deploymentState.status == DeploymentStatus.PROXIES_INITIATED ||
+            deploymentState.status == DeploymentStatus.SET_STORAGE_ACTIONS_EXECUTED
         ) {
             bool executionSuccess = executeDeployment(
                 manager,
@@ -239,7 +239,7 @@ abstract contract Sphinx {
                         abi.encodePacked(
                             "Sphinx: failed to execute ",
                             configs.minimalConfig.projectName,
-                            "likely because one of the user's contract constructors reverted."
+                            "likely because one of the user's transactions in the deployment reverted."
                         )
                     )
                 );
@@ -405,6 +405,7 @@ abstract contract Sphinx {
      */
     function executeBatchActions(
         BundledSphinxAction[] memory actions,
+        bool isSetStorageActionArray,
         ISphinxManager manager,
         uint bufferedGasLimit,
         DeployContractCost[] memory deployContractCosts
@@ -412,25 +413,13 @@ abstract contract Sphinx {
         // Pull the deployment state from the contract to make sure we're up to date
         bytes32 activeDeploymentId = manager.activeDeploymentId();
         DeploymentState memory state = manager.deployments(activeDeploymentId);
-        // Filter out actions that have already been executed
-        uint length = 0;
-        for (uint i = 0; i < actions.length; i++) {
-            BundledSphinxAction memory action = actions[i];
-            if (state.actions[action.proof.actionIndex] == false) {
-                length += 1;
-            }
-        }
-        BundledSphinxAction[] memory filteredActions = new BundledSphinxAction[](length);
-        uint filteredActionIndex = 0;
-        for (uint i = 0; i < actions.length; i++) {
-            BundledSphinxAction memory action = actions[i];
-            if (state.actions[action.proof.actionIndex] == false) {
-                filteredActions[filteredActionIndex] = action;
-                filteredActionIndex += 1;
-            }
-        }
 
-        // Exit early if there are no actions to execute
+        BundledSphinxAction[] memory filteredActions = utils.removeExecutedActions(
+            actions,
+            state.actionsExecuted
+        );
+
+        // We can return early if there are no actions to execute.
         if (filteredActions.length == 0) {
             return state.status;
         }
@@ -450,12 +439,17 @@ abstract contract Sphinx {
             );
             (
                 RawSphinxAction[] memory rawActions,
-                uint256[] memory _actionIndexes,
                 bytes32[][] memory _proofs
             ) = utils.disassembleActions(batch);
-            manager.executeActions{ gas: bufferedGasLimit }(rawActions, _actionIndexes, _proofs);
 
-            // Return early if the deployment failed
+            // Execute the batch of actions.
+            if (isSetStorageActionArray) {
+                manager.setStorage{ gas: bufferedGasLimit }(rawActions, _proofs);
+            } else {
+                manager.executeInitialActions{ gas: bufferedGasLimit }(rawActions, _proofs);
+            }
+
+            // Return early if the deployment failed.
             state = manager.deployments(activeDeploymentId);
             if (state.status == DeploymentStatus.FAILED) {
                 return state.status;
@@ -465,7 +459,7 @@ abstract contract Sphinx {
             executed += batchSize;
         }
 
-        // Return the final status
+        // Return the final deployment status
         return state.status;
     }
 
@@ -478,16 +472,13 @@ abstract contract Sphinx {
     ) private returns (bool) {
         vm.recordLogs();
 
-        // Get number of deploy contract and set state actions
-        (
-            BundledSphinxAction[] memory deployContractActions,
-            BundledSphinxAction[] memory setStorageActions
-        ) = utils.getActionsByType(actionBundle);
+        (BundledSphinxAction[] memory initialActions, BundledSphinxAction[] memory setStorageActions) = utils.splitActions(actionBundle.actions);
 
         uint bufferedGasLimit = ((blockGasLimit / 2) * 120) / 100;
         // Execute all the deploy contract actions and exit early if the deployment failed
         DeploymentStatus status = executeBatchActions(
-            deployContractActions,
+            initialActions,
+            false,
             manager,
             bufferedGasLimit,
             deployContractCosts
@@ -511,7 +502,7 @@ abstract contract Sphinx {
         manager.initiateUpgrade{ gas: 1000000 }(targets, proofs);
 
         // Execute all the set storage actions
-        executeBatchActions(setStorageActions, manager, bufferedGasLimit, deployContractCosts);
+        executeBatchActions(setStorageActions, true, manager, bufferedGasLimit, deployContractCosts);
 
         // Complete the upgrade
         manager.finalizeUpgrade{ gas: 1000000 }(targets, proofs);

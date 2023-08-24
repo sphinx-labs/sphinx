@@ -92,9 +92,10 @@ import {
 import { sphinxFetchSubtask } from './config/fetch'
 import { getSolcBuild } from './languages'
 import {
+  fromRawSphinxAction,
   getAuthLeafsForChain,
   getDeployContractActions,
-  getNumDeployContractActions,
+  isSetStorageAction,
 } from './actions/bundle'
 import { getCreate3Address } from './config/utils'
 import {
@@ -111,11 +112,13 @@ export const getDeploymentId = (
 ): string => {
   const actionRoot = bundles.actionBundle.root
   const targetRoot = bundles.targetBundle.root
-  const numActions = bundles.actionBundle.actions.length
   const numTargets = bundles.targetBundle.targets.length
-  const numImmutableContracts = getNumDeployContractActions(
-    bundles.actionBundle
-  )
+
+  const numTotalActions = bundles.actionBundle.actions.length
+  const numSetStorageActions = bundles.actionBundle.actions
+    .map((action) => fromRawSphinxAction(action.action))
+    .filter(isSetStorageAction).length
+  const numInitialActions = numTotalActions - numSetStorageActions
 
   return ethers.keccak256(
     AbiCoder.defaultAbiCoder().encode(
@@ -123,9 +126,9 @@ export const getDeploymentId = (
       [
         actionRoot,
         targetRoot,
-        numActions,
+        numInitialActions,
+        numSetStorageActions,
         numTargets,
-        numImmutableContracts,
         configUri,
       ]
     )
@@ -1332,45 +1335,6 @@ export const toCanonicalConfig = async (
   }
 }
 
-export const getAuthLeafs = async (
-  userConfig: UserConfigWithOptions,
-  prevConfig: CanonicalConfig,
-  rpcProviders: {
-    [network: string]: SphinxJsonRpcProvider
-  },
-  managerAddress: string,
-  networks: Array<string>,
-  isTestnet: boolean,
-  cre: SphinxRuntimeEnvironment,
-  getConfigArtifacts: GetConfigArtifacts
-): Promise<Array<AuthLeaf>> => {
-  const leafs: Array<AuthLeaf> = []
-  for (const network of networks) {
-    const provider = rpcProviders[network]
-
-    const { parsedConfig, configCache, configArtifacts } =
-      await getParsedConfigWithOptions(
-        userConfig,
-        managerAddress,
-        isTestnet,
-        provider,
-        cre,
-        getConfigArtifacts
-      )
-
-    const chainId = SUPPORTED_NETWORKS[network]
-    const leafsForChain = await getAuthLeafsForChain(
-      chainId,
-      parsedConfig,
-      configArtifacts,
-      configCache,
-      prevConfig
-    )
-    leafs.push(...leafsForChain)
-  }
-  return leafs
-}
-
 export const isProjectCreated = async (
   provider: Provider,
   authAddress: string
@@ -1482,12 +1446,10 @@ export const getNetworkDirName = (
 ): string => {
   if (networkType === NetworkType.LIVE_NETWORK) {
     return networkName
-  } else if (Object.keys(SUPPORTED_NETWORKS).includes(networkName)) {
-    return `${networkName}-local`
+  } else if (networkName === 'anvil' || networkName === 'hardhat') {
+    return `${networkName}-${chainId}`
   } else {
-    const localNetworkName =
-      networkType === NetworkType.ANVIL ? 'anvil' : 'hardhat'
-    return `${localNetworkName}-${chainId}`
+    return `${networkName}-local`
   }
 }
 
